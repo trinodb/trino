@@ -210,7 +210,7 @@ public abstract class BaseElasticsearchConnectorTest
     @Override
     public void testShowColumns()
     {
-        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
+        assertThat(query("SHOW COLUMNS FROM orders")).result().matches(getDescribeOrdersResult());
     }
 
     @Test
@@ -1374,7 +1374,7 @@ public abstract class BaseElasticsearchConnectorTest
                 FROM scaled_float_type
                 WHERE scaled_float_column = 123.46
                 """))
-                .matches(resultBuilder(getSession(), ImmutableList.of(VARCHAR, DOUBLE))
+                .result().matches(resultBuilder(getSession(), ImmutableList.of(VARCHAR, DOUBLE))
                         .row("bar", 123.46d)
                         .build());
     }

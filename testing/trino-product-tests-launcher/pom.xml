@@ -5,11 +5,12 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>440-SNAPSHOT</version>
+        <version>441-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-product-tests-launcher</artifactId>
+    <description>Trino - Product tests launcher</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -235,6 +236,16 @@
         </dependency>
     </dependencies>
 
+    <repositories>
+        <repository>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>confluent</id>
+            <url>https://packages.confluent.io/maven/</url>
+        </repository>
+    </repositories>
+
     <build>
         <plugins>
             <plugin>
@@ -296,42 +307,42 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>copy</id>
+                        <id>copy-kafka</id>
                         <goals>
-                            <goal>copy</goal>
+                            <goal>copy-dependencies</goal>
                         </goals>
                         <phase>package</phase>
                         <configuration>
                             <skip>false</skip>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>io.confluent</groupId>
-                                    <artifactId>kafka-protobuf-provider</artifactId>
-                                    <type>jar</type>
-                                    <outputDirectory>${project.build.directory}</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>io.confluent</groupId>
-                                    <artifactId>kafka-protobuf-types</artifactId>
-                                    <type>jar</type>
-                                    <outputDirectory>${project.build.directory}</outputDirectory>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>org.apache.hive</groupId>
-                                    <artifactId>hive-jdbc</artifactId>
-                                    <classifier>standalone</classifier>
-                                    <type>jar</type>
-                                    <outputDirectory>${project.build.directory}</outputDirectory>
-                                    <destFileName>hive-jdbc.jar</destFileName>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>com.databricks</groupId>
-                                    <artifactId>databricks-jdbc</artifactId>
-                                    <type>jar</type>
-                                    <outputDirectory>${project.build.directory}</outputDirectory>
-                                    <destFileName>databricks-jdbc.jar</destFileName>
-                                </artifactItem>
-                            </artifactItems>
+                            <includeArtifactIds>kafka-protobuf-provider,kafka-protobuf-types</includeArtifactIds>
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-databricks</id>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <skip>false</skip>
+                            <includeArtifactIds>databricks-jdbc</includeArtifactIds>
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                            <stripVersion>true</stripVersion>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-hive</id>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <skip>false</skip>
+                            <includeArtifactIds>hive-jdbc</includeArtifactIds>
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                            <stripVersion>true</stripVersion>
+                            <stripClassifier>true</stripClassifier>
                         </configuration>
                     </execution>
                 </executions>

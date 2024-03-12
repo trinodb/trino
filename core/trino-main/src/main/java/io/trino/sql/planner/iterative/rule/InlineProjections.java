@@ -41,7 +41,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;

@@ -24,10 +24,10 @@ public class AzureFileSystemConfig
     {
         ACCESS_KEY,
         OAUTH,
-        NONE
+        DEFAULT,
     }
 
-    private AuthType authType = AuthType.NONE;
+    private AuthType authType = AuthType.DEFAULT;
 
     private DataSize readBlockSize = DataSize.of(4, Unit.MEGABYTE);
     private DataSize writeBlockSize = DataSize.of(4, Unit.MEGABYTE);

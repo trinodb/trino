@@ -195,7 +195,7 @@ public class TestDeltaLakeBasic
         copyDirectoryContents(new File(Resources.getResource("deltalake/column_mapping_mode_" + columnMappingMode).toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
-        assertThat(query("DESCRIBE " + tableName)).projected("Column", "Type").skippingTypesCheck().matches("VALUES ('x', 'integer')");
+        assertThat(query("DESCRIBE " + tableName)).result().projected("Column", "Type").skippingTypesCheck().matches("VALUES ('x', 'integer')");
         assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN second_col row(a array(integer), b map(integer, integer), c row(field integer))");
@@ -272,7 +272,7 @@ public class TestDeltaLakeBasic
         copyDirectoryContents(new File(Resources.getResource("deltalake/column_mapping_mode_" + columnMappingMode).toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
-        assertThat(query("DESCRIBE " + tableName)).projected("Column", "Type").skippingTypesCheck().matches("VALUES ('x', 'integer')");
+        assertThat(query("DESCRIBE " + tableName)).result().projected("Column", "Type").skippingTypesCheck().matches("VALUES ('x', 'integer')");
         assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
 
         MetadataEntry originalMetadata = loadMetadataEntry(0, tableLocation);
@@ -343,7 +343,7 @@ public class TestDeltaLakeBasic
         copyDirectoryContents(new File(Resources.getResource("deltalake/column_mapping_mode_" + columnMappingMode).toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
-        assertThat(query("DESCRIBE " + tableName)).projected("Column", "Type").skippingTypesCheck().matches("VALUES ('x', 'integer')");
+        assertThat(query("DESCRIBE " + tableName)).result().projected("Column", "Type").skippingTypesCheck().matches("VALUES ('x', 'integer')");
         assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN second_col row(a array(integer), b map(integer, integer), c row(field integer))");
@@ -861,6 +861,37 @@ public class TestDeltaLakeBasic
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testAddTimestampNtzColumn()
+            throws Exception
+    {
+        String tableName = "test_add_timestamp_ntz_column" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + "(id INT)");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN ts timestamp(6)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, TIMESTAMP '2023-01-02 03:04:05.123456')", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, TIMESTAMP '2023-01-02 03:04:05.123456')");
+
+        String tableLocation = getTableLocation(tableName);
+        List<DeltaLakeTransactionLogEntry> transactionLogsByCreateTable = getEntriesFromJson(0, tableLocation + "/_delta_log", FILE_SYSTEM).orElseThrow();
+        ProtocolEntry protocolEntryByCreateTable = transactionLogsByCreateTable.get(1).getProtocol();
+        assertThat(protocolEntryByCreateTable).isNotNull();
+        assertThat(protocolEntryByCreateTable.getMinReaderVersion()).isEqualTo(1);
+        assertThat(protocolEntryByCreateTable.getMinWriterVersion()).isEqualTo(2);
+        assertThat(protocolEntryByCreateTable.getReaderFeatures()).isEmpty();
+        assertThat(protocolEntryByCreateTable.getWriterFeatures()).isEmpty();
+
+        List<DeltaLakeTransactionLogEntry> transactionLogsByAddColumn = getEntriesFromJson(1, tableLocation + "/_delta_log", FILE_SYSTEM).orElseThrow();
+        ProtocolEntry protocolEntryByAddColumn = transactionLogsByAddColumn.get(1).getProtocol();
+        assertThat(protocolEntryByAddColumn).isNotNull();
+        assertThat(protocolEntryByAddColumn.getMinReaderVersion()).isEqualTo(3);
+        assertThat(protocolEntryByAddColumn.getMinWriterVersion()).isEqualTo(7);
+        assertThat(protocolEntryByAddColumn.getReaderFeatures()).isEqualTo(Optional.of(ImmutableSet.of("timestampNtz")));
+        assertThat(protocolEntryByAddColumn.getWriterFeatures()).isEqualTo(Optional.of(ImmutableSet.of("timestampNtz")));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     /**
      * @see databricks122.identity_columns
      */
@@ -1027,7 +1058,7 @@ public class TestDeltaLakeBasic
         copyDirectoryContents(new File(Resources.getResource("deltalake/multipart_checkpoint").toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
-        assertThat(query("DESCRIBE " + tableName)).projected("Column", "Type").skippingTypesCheck().matches("VALUES ('c', 'integer')");
+        assertThat(query("DESCRIBE " + tableName)).result().projected("Column", "Type").skippingTypesCheck().matches("VALUES ('c', 'integer')");
         assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
     }
 
@@ -1060,27 +1091,27 @@ public class TestDeltaLakeBasic
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
+                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
                 .build();
 
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part = 10 AND string_part = 'part1'"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part = 10 AND string_part = 'part1'"))
                 .matches("VALUES 1");
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part != 10"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part != 10"))
                 .matches("VALUES 2");
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part > 10"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part > 10"))
                 .matches("VALUES 2");
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part >= 10"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part >= 10"))
                 .matches("VALUES 1, 2");
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part IN (10, 20)"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part IN (10, 20)"))
                 .matches("VALUES 1, 2");
-        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part IS NULL AND string_part IS NULL"))
+        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part IS NULL AND string_part IS NULL"))
                 .matches("VALUES 3");
-        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part IS NOT NULL AND string_part IS NOT NULL"))
+        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part IS NOT NULL AND string_part IS NOT NULL"))
                 .matches("VALUES 1, 2");
 
-        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part = 10 AND string_part = 'unmatched partition condition'"))
+        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part = 10 AND string_part = 'unmatched partition condition'"))
                 .returnsEmptyResult();
-        assertThat(query("SELECT id FROM " + tableName + " WHERE int_part IS NULL AND string_part IS NOT NULL"))
+        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE int_part IS NULL AND string_part IS NOT NULL"))
                 .returnsEmptyResult();
     }
 
@@ -1105,15 +1136,12 @@ public class TestDeltaLakeBasic
                         (300, 3, row(3, 'osla')),
                         (400, 4, row(4, 'zulu'))""");
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
-                .build();
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE part BETWEEN 100 AND 300")).matches("VALUES 1, 2, 3");
-        assertThat(query(session, "SELECT root.entry_two FROM " + tableName + " WHERE part BETWEEN 100 AND 300"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE part BETWEEN 100 AND 300")).matches("VALUES 1, 2, 3");
+        assertThat(query("SELECT root.entry_two FROM " + tableName + " WHERE part BETWEEN 100 AND 300"))
                 .skippingTypesCheck()
                 .matches("VALUES 'ala', 'kota', 'osla'");
         // show stats with predicate
-        assertThat(query(session, "SHOW STATS FOR (SELECT id FROM " + tableName + " WHERE part = 100)"))
+        assertThat(query("SHOW STATS FOR (SELECT id FROM " + tableName + " WHERE part = 100)"))
                 .skippingTypesCheck()
                 .matches("""
                         VALUES
@@ -1142,15 +1170,12 @@ public class TestDeltaLakeBasic
                         (300, 3, 'osla'),
                         (400, 4, 'zulu')""");
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
-                .build();
-        assertThat(query(session, "SELECT a_NuMbEr FROM " + tableName + " WHERE part BETWEEN 100 AND 300")).matches("VALUES 1, 2, 3");
-        assertThat(query(session, "SELECT a_StRiNg FROM " + tableName + " WHERE part BETWEEN 100 AND 300"))
+        assertThat(query("SELECT a_NuMbEr FROM " + tableName + " WHERE part BETWEEN 100 AND 300")).matches("VALUES 1, 2, 3");
+        assertThat(query("SELECT a_StRiNg FROM " + tableName + " WHERE part BETWEEN 100 AND 300"))
                 .skippingTypesCheck()
                 .matches("VALUES 'ala', 'kota', 'osla'");
         // show stats with predicate
-        assertThat(query(session, "SHOW STATS FOR (SELECT a_NuMbEr FROM " + tableName + " WHERE part BETWEEN 100 AND 300)"))
+        assertThat(query("SHOW STATS FOR (SELECT a_NuMbEr FROM " + tableName + " WHERE part BETWEEN 100 AND 300)"))
                 .skippingTypesCheck()
                 .matches("""
                         VALUES
@@ -1235,10 +1260,7 @@ public class TestDeltaLakeBasic
                             (5, false, TINYINT '5', SMALLINT '50', 500, BIGINT '5000', CAST('555.5' AS DECIMAL(5,2)), CAST('55555.55' AS DECIMAL(21,3)), DOUBLE '5.55', REAL '5.5555', 'd', DATE '2020-08-25', TIMESTAMP '2020-10-25 01:00:00.123 UTC', TIMESTAMP '2023-01-05 01:02:03.456'),
                             (6, null, null, null, null, null, null, null, null, null, null, null, null, null)""");
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
-                .build();
-        assertThat(query(session, """
+        assertThat(query("""
                 SELECT id
                 FROM %s
                 WHERE
@@ -1270,7 +1292,10 @@ public class TestDeltaLakeBasic
         copyDirectoryContents(new File(Resources.getResource("databricks133/partition_values_parsed_case_sensitive").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
 
-        assertThat(query("SELECT * FROM " + tableName))
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
+                .build();
+        assertThat(query(session,"SELECT * FROM " + tableName))
                 .skippingTypesCheck()
                 .matches("""
                         VALUES
@@ -1280,7 +1305,7 @@ public class TestDeltaLakeBasic
 
         // Create a new checkpoint
         assertUpdate("INSERT INTO " + tableName + " VALUES (400, 4, 'kon')", 1);
-        assertThat(query("SELECT * FROM " + tableName))
+        assertThat(query(session, "SELECT * FROM " + tableName))
                 .skippingTypesCheck()
                 .matches("""
                         VALUES
@@ -1288,20 +1313,13 @@ public class TestDeltaLakeBasic
                             (200, 2,'kota'),
                             (300, 3, 'osla'),
                             (400, 4, 'kon')""");
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
-                .build();
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE part_NuMbEr = 1 AND part_StRiNg = 'ala'"))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE part_NuMbEr = 1 AND part_StRiNg = 'ala'"))
                 .matches("VALUES 100");
     }
 
     private void assertPartitionValuesParsedCondition(String tableName, int id, @Language("SQL") String condition)
     {
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
-                .build();
-
-        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE " + condition))
+        assertThat(query("SELECT id FROM " + tableName + " WHERE " + condition))
                 .matches("VALUES " + id);
     }
 

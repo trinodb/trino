@@ -1365,8 +1365,9 @@ public abstract class AbstractTestEngineOnlyQueries
                 .addPreparedStatement("my_query", "SELECT * FROM nation")
                 .build();
         assertThat(query(session, "DESCRIBE INPUT my_query"))
-                .hasOutputTypes(List.of(BIGINT, VARCHAR))
-                .returnsEmptyResult();
+                .result()
+                .hasTypes(List.of(BIGINT, VARCHAR))
+                .isEmpty();
     }
 
     @Test
@@ -6705,22 +6706,6 @@ public abstract class AbstractTestEngineOnlyQueries
                 SELECT a(10)
                 """))
                 .failure().hasMessage("line 3:8: Recursive language functions are not supported: a(integer):integer");
-    }
-
-    // ensure that JSON_TABLE runs properly in distributed mode (i.e., serialization of handles works correctly, etc)
-    @Test
-    public void testJsonTable()
-    {
-        assertThat(query("""
-                         SELECT first, last
-                          FROM (SELECT '{"a" : [1, 2, 3], "b" : [4, 5, 6]}') t(json_col), JSON_TABLE(
-                              json_col,
-                              'lax $.a'
-                              COLUMNS(
-                                  first bigint PATH 'lax $[0]',
-                                  last bigint PATH 'lax $[last]'))
-                         """))
-                .matches("VALUES (BIGINT '1', BIGINT '3')");
     }
 
     private static ZonedDateTime zonedDateTime(String value)

@@ -78,6 +78,8 @@
 
 ## SingleStore connector
 
+## Snowflake connector
+
 ## SQL Server connector
 
 ## TPC-H connector

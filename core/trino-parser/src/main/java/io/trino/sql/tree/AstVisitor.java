@@ -37,7 +37,27 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitCurrentDate(CurrentDate node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitCurrentTime(CurrentTime node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitCurrentTimestamp(CurrentTimestamp node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitLocalTime(LocalTime node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitLocalTimestamp(LocalTimestamp node, C context)
     {
         return visitExpression(node, context);
     }
@@ -1015,11 +1035,6 @@ public abstract class AstVisitor<R, C>
     protected R visitPatternRecognitionRelation(PatternRecognitionRelation node, C context)
     {
         return visitRelation(node, context);
-    }
-
-    protected R visitLabelDereference(LabelDereference node, C context)
-    {
-        return visitExpression(node, context);
     }
 
     protected R visitRowPattern(RowPattern node, C context)

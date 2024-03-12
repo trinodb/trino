@@ -16,7 +16,6 @@ package io.trino.plugin.opa.schema;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
-import jakarta.validation.constraints.NotNull;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static java.util.Objects.requireNonNull;
@@ -24,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 @JsonInclude(NON_NULL)
 public record TrinoFunction(
         @JsonUnwrapped TrinoSchema catalogSchema,
-        @NotNull String functionName)
+        String functionName)
 {
     public static TrinoFunction fromTrinoFunction(CatalogSchemaRoutineName catalogSchemaRoutineName)
     {

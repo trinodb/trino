@@ -69,6 +69,7 @@ import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_AMBIGUOUS_OBJE
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_INVALID_STATEMENT;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_DATASET_ERROR;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_TABLE_ERROR;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.createDisposition;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.isQueryResultsCacheEnabled;
 import static java.lang.String.format;
@@ -264,7 +265,13 @@ public class BigQueryClient
     public Iterable<TableId> listTableIds(DatasetId remoteDatasetId)
     {
         // BigQuery.listTables returns partial information on each table. See javadoc for more details.
-        Iterable<Table> allTables = bigQuery.listTables(remoteDatasetId).iterateAll();
+        Iterable<Table> allTables;
+        try {
+            allTables = bigQuery.listTables(remoteDatasetId).iterateAll();
+        }
+        catch (BigQueryException e) {
+            throw new TrinoException(BIGQUERY_LISTING_TABLE_ERROR, "Failed to retrieve tables from BigQuery", e);
+        }
         return stream(allTables)
                 .filter(table -> TABLE_TYPES.contains(table.getDefinition().getType()))
                 .map(TableInfo::getTableId)

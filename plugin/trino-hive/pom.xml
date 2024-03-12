@@ -5,13 +5,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>440-SNAPSHOT</version>
+        <version>441-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-hive</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Hive Connector</description>
+    <description>Trino - Hive connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -24,6 +24,7 @@
           TODO (https://github.com/trinodb/trino/issues/11294) remove when we upgrade to surefire with https://issues.apache.org/jira/browse/SUREFIRE-1967
           -->
         <air.test.parallel>instances</air.test.parallel>
+        <dep.http.version>5.2.1</dep.http.version>
     </properties>
 
     <dependencies>
@@ -124,6 +125,11 @@
 
         <dependency>
             <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-apache-httpclient-5.2</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
             <artifactId>opentelemetry-aws-sdk-1.11</artifactId>
         </dependency>
 
@@ -208,6 +214,18 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+            <version>${dep.http.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents.core5</groupId>
+            <artifactId>httpcore5</artifactId>
+            <version>${dep.http.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-column</artifactId>
         </dependency>
@@ -281,8 +299,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-sdk</artifactId>
+            <groupId>io.airlift</groupId>
+            <artifactId>node</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -293,14 +311,15 @@
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-filesystem-s3</artifactId>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
-            <groupId>jakarta.xml.bind</groupId>
-            <artifactId>jakarta.xml.bind-api</artifactId>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpcore</artifactId>
+            <version>4.4.13</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -314,6 +333,12 @@
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>http-server</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>

@@ -107,7 +107,7 @@ public class TestSetDigest
         SqlMap sqlMap = hashCounts(mapType, digest1.serialize());
         Set<Short> blockValues = new HashSet<>();
         for (int i = 0; i < sqlMap.getSize(); i++) {
-            blockValues.add(sqlMap.getRawValueBlock().getShort(sqlMap.getRawOffset() + i, 0));
+            blockValues.add(SMALLINT.getShort(sqlMap.getRawValueBlock(), sqlMap.getRawOffset() + i));
         }
         Set<Short> expected = ImmutableSet.of((short) 1, (short) 2);
         assertThat(blockValues).isEqualTo(expected);
@@ -117,7 +117,7 @@ public class TestSetDigest
         expected = ImmutableSet.of((short) 1, (short) 2, (short) 4);
         blockValues = new HashSet<>();
         for (int i = 0; i < sqlMap.getSize(); i++) {
-            blockValues.add(sqlMap.getRawValueBlock().getShort(sqlMap.getRawOffset() + i, 0));
+            blockValues.add(SMALLINT.getShort(sqlMap.getRawValueBlock(), sqlMap.getRawOffset() + i));
         }
         assertThat(blockValues).isEqualTo(expected);
     }

@@ -49,6 +49,8 @@ public interface HiveMaterializedViewMetadata
 
     void renameMaterializedView(ConnectorSession session, SchemaTableName existingViewName, SchemaTableName newViewName);
 
+    Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition materializedViewDefinition);
+
     void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Optional<Object>> properties);
 
     void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment);

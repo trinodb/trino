@@ -56,7 +56,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_GRACE_PERIOD;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
-import static io.trino.sql.analyzer.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.util.Locale.ENGLISH;
@@ -145,13 +145,12 @@ public class CreateMaterializedViewTask
                     if (type != INTERVAL_DAY_TIME) {
                         throw new TrinoException(TYPE_MISMATCH, "Unsupported grace period type %s, expected %s".formatted(type.getDisplayName(), INTERVAL_DAY_TIME.getDisplayName()));
                     }
-                    Long milliseconds = (Long) evaluateConstantExpression(
+                    Long milliseconds = (Long) evaluateConstant(
                             expression,
                             type,
                             plannerContext,
                             session,
-                            accessControl,
-                            parameterLookup);
+                            accessControl);
                     // Sanity check. Impossible per grammar.
                     verify(milliseconds != null, "Grace period cannot be null");
                     return Duration.ofMillis(milliseconds);

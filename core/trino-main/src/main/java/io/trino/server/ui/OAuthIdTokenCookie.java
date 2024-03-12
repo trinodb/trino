@@ -17,55 +17,31 @@ import jakarta.ws.rs.core.Cookie;
 import jakarta.ws.rs.core.NewCookie;
 
 import java.time.Instant;
-import java.util.Date;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
-import static jakarta.ws.rs.core.Cookie.DEFAULT_VERSION;
-import static jakarta.ws.rs.core.NewCookie.DEFAULT_MAX_AGE;
-import static java.util.function.Predicate.not;
 
 public final class OAuthIdTokenCookie
 {
     // prefix according to: https://tools.ietf.org/html/draft-ietf-httpbis-rfc6265bis-05#section-4.1.3.1
     public static final String ID_TOKEN_COOKIE = "__Secure-Trino-ID-Token";
+    private static final MultipartUiCookie MULTIPART_COOKIE = new MultipartUiCookie(ID_TOKEN_COOKIE, UI_LOCATION);
 
     private OAuthIdTokenCookie() {}
 
-    public static NewCookie create(String token, Instant tokenExpiration)
+    public static NewCookie[] create(String token, Instant tokenExpiration)
     {
-        return new NewCookie(
-                ID_TOKEN_COOKIE,
-                token,
-                UI_LOCATION,
-                null,
-                DEFAULT_VERSION,
-                null,
-                DEFAULT_MAX_AGE,
-                Date.from(tokenExpiration),
-                true,
-                true);
+        return MULTIPART_COOKIE.create(token, tokenExpiration, true);
     }
 
-    public static Optional<String> read(Cookie cookie)
+    public static Optional<String> read(Map<String, Cookie> availableCookies)
     {
-        return Optional.ofNullable(cookie)
-                .map(Cookie::getValue)
-                .filter(not(String::isBlank));
+        return MULTIPART_COOKIE.read(availableCookies);
     }
 
-    public static NewCookie delete()
+    public static NewCookie[] delete(Map<String, Cookie> availableCookies)
     {
-        return new NewCookie(
-                ID_TOKEN_COOKIE,
-                "delete",
-                UI_LOCATION,
-                null,
-                DEFAULT_VERSION,
-                null,
-                0,
-                null,
-                true,
-                true);
+        return MULTIPART_COOKIE.delete(availableCookies, true);
     }
 }

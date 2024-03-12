@@ -195,11 +195,10 @@ public final class PlanCopier
                     node.getMeasures(),
                     node.getCommonBaseFrame(),
                     node.getRowsPerMatch(),
-                    node.getSkipToLabel(),
+                    node.getSkipToLabels(),
                     node.getSkipToPosition(),
                     node.isInitial(),
                     node.getPattern(),
-                    node.getSubsets(),
                     node.getVariableDefinitions());
         }
 
@@ -233,7 +232,7 @@ public final class PlanCopier
         @Override
         public PlanNode visitUnnest(UnnestNode node, RewriteContext<Void> context)
         {
-            return new UnnestNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getReplicateSymbols(), node.getMappings(), node.getOrdinalitySymbol(), node.getJoinType(), node.getFilter());
+            return new UnnestNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getReplicateSymbols(), node.getMappings(), node.getOrdinalitySymbol(), node.getJoinType());
         }
 
         @Override

@@ -251,7 +251,7 @@ public final class PlanMatchPattern
     }
 
     public static PlanMatchPattern aggregation(
-            Map<String, ExpectedValueProvider<FunctionCall>> aggregations,
+            Map<String, ExpectedValueProvider<AggregationFunction>> aggregations,
             PlanMatchPattern source)
     {
         PlanMatchPattern result = node(AggregationNode.class, source);
@@ -261,7 +261,7 @@ public final class PlanMatchPattern
     }
 
     public static PlanMatchPattern aggregation(
-            Map<String, ExpectedValueProvider<FunctionCall>> aggregations,
+            Map<String, ExpectedValueProvider<AggregationFunction>> aggregations,
             Step step,
             PlanMatchPattern source)
     {
@@ -272,7 +272,7 @@ public final class PlanMatchPattern
     }
 
     public static PlanMatchPattern aggregation(
-            Map<String, ExpectedValueProvider<FunctionCall>> aggregations,
+            Map<String, ExpectedValueProvider<AggregationFunction>> aggregations,
             Predicate<AggregationNode> predicate,
             PlanMatchPattern source)
     {
@@ -285,7 +285,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern aggregation(
             GroupingSetDescriptor groupingSets,
-            Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
+            Map<Optional<String>, ExpectedValueProvider<AggregationFunction>> aggregations,
             Optional<Symbol> groupId,
             Step step,
             PlanMatchPattern source)
@@ -295,7 +295,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern aggregation(
             GroupingSetDescriptor groupingSets,
-            Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
+            Map<Optional<String>, ExpectedValueProvider<AggregationFunction>> aggregations,
             List<String> preGroupedSymbols,
             Optional<Symbol> groupId,
             Step step,
@@ -306,7 +306,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern aggregation(
             GroupingSetDescriptor groupingSets,
-            Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
+            Map<Optional<String>, ExpectedValueProvider<AggregationFunction>> aggregations,
             List<String> preGroupedSymbols,
             List<String> masks,
             Optional<Symbol> groupId,
@@ -539,7 +539,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern unnest(List<String> replicateSymbols, List<UnnestMapping> mappings, PlanMatchPattern source)
     {
-        return unnest(replicateSymbols, mappings, Optional.empty(), INNER, Optional.empty(), source);
+        return unnest(replicateSymbols, mappings, Optional.empty(), INNER, source);
     }
 
     public static PlanMatchPattern unnest(
@@ -547,7 +547,6 @@ public final class PlanMatchPattern
             List<UnnestMapping> mappings,
             Optional<String> ordinalitySymbol,
             JoinType type,
-            Optional<String> filter,
             PlanMatchPattern source)
     {
         PlanMatchPattern result = node(UnnestNode.class, source)
@@ -555,8 +554,7 @@ public final class PlanMatchPattern
                         replicateSymbols,
                         mappings,
                         ordinalitySymbol,
-                        type,
-                        filter.map(predicate -> PlanBuilder.expression(predicate))));
+                        type));
 
         mappings.forEach(mapping -> {
             for (int i = 0; i < mapping.getOutputs().size(); i++) {
@@ -1012,26 +1010,10 @@ public final class PlanMatchPattern
         return this;
     }
 
-    /*
-     * withExactAssignments and withExactAssignedOutputs are needed for matching symbols
-     * that are produced in the node that you're matching. The name of the symbol bound to
-     * the alias is *not* known when the Matcher is run, and so you need to match by what
-     * is being assigned to it.
-     */
-    public PlanMatchPattern withExactAssignedOutputs(RvalueMatcher... expectedAliases)
-    {
-        return withExactAssignedOutputs(ImmutableList.copyOf(expectedAliases));
-    }
-
     public PlanMatchPattern withExactAssignedOutputs(Collection<? extends RvalueMatcher> expectedAliases)
     {
         matchers.add(new StrictAssignedSymbolsMatcher(actualOutputs(), expectedAliases));
         return this;
-    }
-
-    public PlanMatchPattern withExactAssignments(RvalueMatcher... expectedAliases)
-    {
-        return withExactAssignments(ImmutableList.copyOf(expectedAliases));
     }
 
     public PlanMatchPattern withExactAssignments(Collection<? extends RvalueMatcher> expectedAliases)
@@ -1066,11 +1048,6 @@ public final class PlanMatchPattern
         return new ExpressionMatcher(expression);
     }
 
-    public PlanMatchPattern withOutputs(String... aliases)
-    {
-        return withOutputs(ImmutableList.copyOf(aliases));
-    }
-
     public PlanMatchPattern withOutputs(List<String> aliases)
     {
         matchers.add(new OutputMatcher(aliases));
@@ -1096,6 +1073,36 @@ public final class PlanMatchPattern
     public static ExpectedValueProvider<FunctionCall> functionCall(String name, List<String> args)
     {
         return new FunctionCallProvider(QualifiedName.of(name), toSymbolAliases(args));
+    }
+
+    public static ExpectedValueProvider<AggregationFunction> aggregationFunction(String name, List<String> args)
+    {
+        return new AggregationFunctionProvider(
+                name,
+                false,
+                toSymbolAliases(args),
+                ImmutableList.of(),
+                Optional.empty());
+    }
+
+    public static ExpectedValueProvider<AggregationFunction> aggregationFunction(String name, List<String> args, List<PlanMatchPattern.Ordering> orderBy)
+    {
+        return new AggregationFunctionProvider(
+                name,
+                false,
+                toSymbolAliases(args),
+                orderBy,
+                Optional.empty());
+    }
+
+    public static ExpectedValueProvider<AggregationFunction> aggregationFunction(String name, boolean distinct, List<PlanTestSymbol> args)
+    {
+        return new AggregationFunctionProvider(
+                name,
+                distinct,
+                args,
+                ImmutableList.of(),
+                Optional.empty());
     }
 
     public static ExpectedValueProvider<FunctionCall> functionCall(String name, List<String> args, List<Ordering> orderBy)

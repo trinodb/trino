@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
 
@@ -34,52 +35,57 @@ public class LongDecimalWithOverflowStateSerializer
     @Override
     public void serialize(LongDecimalWithOverflowState state, BlockBuilder out)
     {
-        if (state.isNotNull()) {
-            long overflow = state.getOverflow();
-            long[] decimal = state.getDecimalArray();
-            int offset = state.getDecimalArrayOffset();
-            Slice buffer = Slices.allocate(Long.BYTES * 3);
-            long low = decimal[offset + 1];
-            long high = decimal[offset];
-            buffer.setLong(0, low);
-            buffer.setLong(Long.BYTES, high);
-            buffer.setLong(Long.BYTES * 2, overflow);
-            // if high == 0 and overflow == 0 we only write low (bufferLength = 1)
-            // if high != 0 and overflow == 0 we write both low and high (bufferLength = 2)
-            // if overflow != 0 we write all values (bufferLength = 3)
-            int decimalsCount = 1 + (high == 0 ? 0 : 1);
-            int bufferLength = overflow == 0 ? decimalsCount : 3;
-            VARBINARY.writeSlice(out, buffer, 0, bufferLength * Long.BYTES);
-        }
-        else {
+        if (!state.isNotNull()) {
             out.appendNull();
+            return;
         }
+
+        long overflow = state.getOverflow();
+        long[] decimal = state.getDecimalArray();
+        int offset = state.getDecimalArrayOffset();
+        Slice buffer = Slices.allocate(Long.BYTES * 3);
+        long low = decimal[offset + 1];
+        long high = decimal[offset];
+        buffer.setLong(0, low);
+        buffer.setLong(Long.BYTES, high);
+        buffer.setLong(Long.BYTES * 2, overflow);
+        // if high == 0 and overflow == 0 we only write low (bufferLength = 1)
+        // if high != 0 and overflow == 0 we write both low and high (bufferLength = 2)
+        // if overflow != 0 we write all values (bufferLength = 3)
+        int decimalsCount = 1 + (high == 0 ? 0 : 1);
+        int bufferLength = overflow == 0 ? decimalsCount : 3;
+        VARBINARY.writeSlice(out, buffer, 0, bufferLength * Long.BYTES);
     }
 
     @Override
     public void deserialize(Block block, int index, LongDecimalWithOverflowState state)
     {
-        if (!block.isNull(index)) {
-            long[] decimal = state.getDecimalArray();
-            int offset = state.getDecimalArrayOffset();
-
-            long low = block.getLong(index, 0);
-            int sliceLength = block.getSliceLength(index);
-            long high = 0;
-            long overflow = 0;
-
-            switch (sliceLength) {
-                case 3 * Long.BYTES:
-                    overflow = block.getLong(index, Long.BYTES * 2);
-                    // fall through
-                case 2 * Long.BYTES:
-                    high = block.getLong(index, Long.BYTES);
-            }
-
-            decimal[offset + 1] = low;
-            decimal[offset] = high;
-            state.setOverflow(overflow);
-            state.setNotNull();
+        if (block.isNull(index)) {
+            return;
         }
+
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
+        Slice slice = variableWidthBlock.getRawSlice();
+        int sliceOffset = variableWidthBlock.getRawSliceOffset(index);
+        int sliceLength = variableWidthBlock.getSliceLength(index);
+
+        long[] decimal = state.getDecimalArray();
+        int offset = state.getDecimalArrayOffset();
+
+        long low = slice.getLong(sliceOffset);
+        long high = 0;
+        long overflow = 0;
+        if (sliceLength == 3 * Long.BYTES) {
+            overflow = slice.getLong(sliceOffset + 16);
+            high = slice.getLong(sliceOffset + 8);
+        }
+        else if (sliceLength == 2 * Long.BYTES) {
+            high = slice.getLong(sliceOffset + 8);
+        }
+
+        decimal[offset + 1] = low;
+        decimal[offset] = high;
+        state.setOverflow(overflow);
+        state.setNotNull();
     }
 }

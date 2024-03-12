@@ -23,12 +23,12 @@ import static io.trino.spi.type.RealType.REAL;
 public class VarcharToFloatCoercer
         extends TypeCoercer<VarcharType, RealType>
 {
-    private final boolean treatNaNAsNull;
+    private final boolean isOrcFile;
 
-    public VarcharToFloatCoercer(VarcharType fromType, boolean treatNaNAsNull)
+    public VarcharToFloatCoercer(VarcharType fromType, boolean isOrcFile)
     {
         super(fromType, REAL);
-        this.treatNaNAsNull = treatNaNAsNull;
+        this.isOrcFile = isOrcFile;
     }
 
     @Override
@@ -43,7 +43,8 @@ public class VarcharToFloatCoercer
             return;
         }
 
-        if (Float.isNaN(floatValue) && treatNaNAsNull) {
+        // Apache Hive reads Float.NaN as null when coerced to varchar for ORC file format
+        if (Float.isNaN(floatValue) && isOrcFile) {
             blockBuilder.appendNull();
             return;
         }

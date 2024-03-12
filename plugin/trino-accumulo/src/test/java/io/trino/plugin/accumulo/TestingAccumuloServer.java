@@ -15,11 +15,8 @@ package io.trino.plugin.accumulo;
 
 import io.trino.testing.TestingProperties;
 import io.trino.testing.containers.junit.ReportLeakedContainers;
-import org.apache.accumulo.core.client.AccumuloException;
-import org.apache.accumulo.core.client.AccumuloSecurityException;
-import org.apache.accumulo.core.client.Connector;
-import org.apache.accumulo.core.client.ZooKeeperInstance;
-import org.apache.accumulo.core.client.security.tokens.PasswordToken;
+import org.apache.accumulo.core.client.Accumulo;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
@@ -32,9 +29,10 @@ public class TestingAccumuloServer
 {
     private static final int ACCUMULO_MASTER_PORT = 9999;
     private static final int ACCUMULO_TSERVER_PORT = 9997;
+    private static final int ACCUMULO_MONITOR_UI_PORT = 9995;
     private static final int ZOOKEEPER_PORT = 2181;
 
-    private static final String ACCUMULO_EXT_PATH = "/usr/local/lib/accumulo/lib/ext";
+    private static final String ACCUMULO_EXT_PATH = "/usr/local/lib/accumulo/lib";
     private static final String ITERATORS_JAR = "trino-accumulo-iterators.jar";
 
     private static final TestingAccumuloServer instance = new TestingAccumuloServer();
@@ -51,6 +49,7 @@ public class TestingAccumuloServer
         accumuloContainer = new FixedHostPortGenericContainer<>("ghcr.io/trinodb/testing/accumulo:" + TestingProperties.getDockerImagesVersion());
         accumuloContainer.withFixedExposedPort(ACCUMULO_MASTER_PORT, ACCUMULO_MASTER_PORT);
         accumuloContainer.withFixedExposedPort(ACCUMULO_TSERVER_PORT, ACCUMULO_TSERVER_PORT);
+        accumuloContainer.withFixedExposedPort(ACCUMULO_MONITOR_UI_PORT, ACCUMULO_MONITOR_UI_PORT);
         accumuloContainer.withExposedPorts(ZOOKEEPER_PORT);
         accumuloContainer.withCreateContainerCmdModifier(cmd -> cmd
                 .withHostName("localhost")
@@ -87,14 +86,10 @@ public class TestingAccumuloServer
         return "secret";
     }
 
-    public Connector getConnector()
+    public AccumuloClient getClient()
     {
-        try {
-            ZooKeeperInstance instance = new ZooKeeperInstance(getInstanceName(), getZooKeepers());
-            return instance.getConnector(getUser(), new PasswordToken(getPassword()));
-        }
-        catch (AccumuloException | AccumuloSecurityException e) {
-            throw new RuntimeException(e);
-        }
+        return Accumulo.newClient().to(getInstanceName(), getZooKeepers())
+                .as(getUser(), getPassword())
+                .build();
     }
 }

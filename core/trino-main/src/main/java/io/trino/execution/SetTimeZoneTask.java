@@ -42,8 +42,8 @@ import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
-import static io.trino.sql.analyzer.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -105,13 +105,12 @@ public class SetTimeZoneTask
             throw new TrinoException(TYPE_MISMATCH, format("Expected expression of varchar or interval day-time type, but '%s' has %s type", expression, type.getDisplayName()));
         }
 
-        Object timeZoneValue = evaluateConstantExpression(
+        Object timeZoneValue = evaluateConstant(
                 expression,
                 type,
                 plannerContext,
                 stateMachine.getSession(),
-                accessControl,
-                parameterLookup);
+                accessControl);
 
         TimeZoneKey timeZoneKey;
         if (timeZoneValue instanceof Slice) {

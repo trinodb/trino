@@ -5,17 +5,17 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>440-SNAPSHOT</version>
+        <version>441-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-hudi</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Hudi Connector</description>
+    <description>Trino - Hudi connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.hudi.version>0.14.0</dep.hudi.version>
+        <dep.hudi.version>0.14.1</dep.hudi.version>
         <dep.hbase.version>2.4.9</dep.hbase.version>
     </properties>
 
@@ -193,7 +193,7 @@
         <dependency>
             <groupId>com.esotericsoftware</groupId>
             <artifactId>kryo-shaded</artifactId>
-            <version>4.0.2</version>
+            <version>4.0.3</version>
             <scope>test</scope>
         </dependency>
 

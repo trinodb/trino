@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode;
 import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.trino.spi.TrinoException;
@@ -128,6 +129,7 @@ public class FileBasedSystemAccessControl
     public static final String NAME = "file";
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
+    private final LifeCycleManager lifeCycleManager;
     private final List<CatalogAccessControlRule> catalogRules;
     private final Optional<List<QueryAccessRule>> queryAccessRules;
     private final Optional<List<ImpersonationRule>> impersonationRules;
@@ -144,6 +146,7 @@ public class FileBasedSystemAccessControl
     private final Set<AnyCatalogSchemaPermissionsRule> anyCatalogSchemaPermissionsRules;
 
     private FileBasedSystemAccessControl(
+            LifeCycleManager lifeCycleManager,
             List<CatalogAccessControlRule> catalogRules,
             Optional<List<QueryAccessRule>> queryAccessRules,
             Optional<List<ImpersonationRule>> impersonationRules,
@@ -157,6 +160,7 @@ public class FileBasedSystemAccessControl
             List<CatalogFunctionAccessControlRule> functionRules,
             List<CatalogProcedureAccessControlRule> procedureRules)
     {
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.catalogRules = catalogRules;
         this.queryAccessRules = queryAccessRules;
         this.impersonationRules = impersonationRules;
@@ -1174,6 +1178,12 @@ public class FileBasedSystemAccessControl
                 .orElse(false);
     }
 
+    @Override
+    public final void shutdown()
+    {
+        lifeCycleManager.stop();
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -1181,6 +1191,7 @@ public class FileBasedSystemAccessControl
 
     public static final class Builder
     {
+        private LifeCycleManager lifeCycleManager;
         private List<CatalogAccessControlRule> catalogRules = ImmutableList.of(CatalogAccessControlRule.ALLOW_ALL);
         private Optional<List<QueryAccessRule>> queryAccessRules = Optional.empty();
         private Optional<List<ImpersonationRule>> impersonationRules = Optional.empty();
@@ -1193,6 +1204,12 @@ public class FileBasedSystemAccessControl
         private List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules = ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL);
         private List<CatalogFunctionAccessControlRule> functionRules = ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_BUILTIN);
         private List<CatalogProcedureAccessControlRule> procedureRules = ImmutableList.of(CatalogProcedureAccessControlRule.ALLOW_BUILTIN);
+
+        public Builder setLifeCycleManager(LifeCycleManager lifeCycleManager)
+        {
+            this.lifeCycleManager = lifeCycleManager;
+            return this;
+        }
 
         @SuppressWarnings("unused")
         public Builder denyAllAccess()
@@ -1287,6 +1304,7 @@ public class FileBasedSystemAccessControl
         public FileBasedSystemAccessControl build()
         {
             return new FileBasedSystemAccessControl(
+                    lifeCycleManager,
                     catalogRules,
                     queryAccessRules,
                     impersonationRules,

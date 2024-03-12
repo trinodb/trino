@@ -17,11 +17,12 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.aggregation;
 
 public class TestRemoveRedundantSort
         extends BaseRuleTest
@@ -34,7 +35,7 @@ public class TestRemoveRedundantSort
                         p.sort(
                                 ImmutableList.of(p.symbol("c")),
                                 p.aggregation(builder -> builder
-                                        .addAggregation(p.symbol("c"), expression("count(foo)"), ImmutableList.of(BIGINT))
+                                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new SymbolReference("foo"))), ImmutableList.of(BIGINT))
                                         .globalGrouping()
                                         .source(p.values(p.symbol("foo"))))))
                 .matches(
@@ -61,7 +62,7 @@ public class TestRemoveRedundantSort
                         p.sort(
                                 ImmutableList.of(p.symbol("c")),
                                 p.aggregation(builder -> builder
-                                        .addAggregation(p.symbol("c"), expression("count(foo)"), ImmutableList.of(BIGINT))
+                                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new SymbolReference("foo"))), ImmutableList.of(BIGINT))
                                         .singleGroupingSet(p.symbol("foo"))
                                         .source(p.values(20, p.symbol("foo"))))))
                 .doesNotFire();

@@ -22,7 +22,6 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.CountingMockConnector;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testng.services.ManageTestResources;
 import io.trino.tests.FailingMockConnectorPlugin;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -47,7 +46,6 @@ public class TestInformationSchemaConnector
 {
     private static final int MAX_PREFIXES_COUNT = 10;
 
-    @ManageTestResources.Suppress(because = "Not a TestNG test class")
     private CountingMockConnector countingMockConnector;
 
     @Override

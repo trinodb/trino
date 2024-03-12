@@ -82,7 +82,7 @@ import java.util.Optional;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
-import static io.trino.sql.ExpressionUtils.filterConjuncts;
+import static io.trino.sql.ir.IrUtils.filterConjuncts;
 import static java.util.Objects.requireNonNull;
 
 public class SplitSourceFactory

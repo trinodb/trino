@@ -2453,6 +2453,13 @@ public class TestAnalyzer
                 "   c(z) AS (SELECT y * 10 FROM b)" +
                 "SELECT * FROM a, b, c");
 
+        analyze("""
+                WITH
+                    a(x) AS (SELECT ARRAY[1, 2, 3]),
+                    b AS (SELECT * FROM (VALUES 4), UNNEST ((SELECT x FROM a)))
+                SELECT * FROM b
+                """);
+
         analyze("WITH RECURSIVE a(x) AS (SELECT 1)," +
                 "   b(y) AS (" +
                 "       SELECT x FROM a" +
@@ -5420,7 +5427,7 @@ public class TestAnalyzer
         // navigation function must column reference or CLASSIFIER()
         assertFails(format(query, "PREV(LAST('no_column'))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Pattern navigation function last must contain at least one column reference or CLASSIFIER()");
+                .hasMessage("line 1:200: Pattern navigation function 'LAST' must contain at least one column reference or CLASSIFIER()");
 
         analyze(format(query, "PREV(LAST(Tradeday + 1))"));
         analyze(format(query, "PREV(LAST(lower(CLASSIFIER())))"));
@@ -5433,31 +5440,31 @@ public class TestAnalyzer
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + Price))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:205: Column references inside argument of function last must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + B.Price))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:205: Column references inside argument of function last must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
         assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER())))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: CLASSIFIER() calls inside argument of function last must all either have the same label as the argument or have no arguments");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
         assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: CLASSIFIER() calls inside argument of function last must all either have the same label as the argument or have no arguments");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
         assertFails(format(query, "PREV(LAST(Tradeday + length(CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER())))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: All labels and classifiers inside the call to 'last' must match");
     }
 
     @Test
@@ -5620,19 +5627,19 @@ public class TestAnalyzer
         // inconsistent labels inside argument
         assertFails(format(query, "count(B.Price < 5 OR Price > 5)"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:164: Column references inside argument of function count must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
         assertFails(format(query, "count(B.Price < 5 OR A.Price > 5)"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:164: Column references inside argument of function count must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
         assertFails(format(query, "count(CLASSIFIER(A) < 'X' OR CLASSIFIER(B) > 'Y')"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:158: CLASSIFIER() calls inside argument of function count must all either have the same label as the argument or have no arguments");
+                .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
         assertFails(format(query, "count(Price < 5 OR CLASSIFIER(B) > 'Y')"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:158: Column references inside argument of function count must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
         assertFails(format(query, "count(A.Price < 5 OR CLASSIFIER(B) > 'Y')"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:158: Column references inside argument of function count must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:158: All labels and classifiers inside the call to 'count' must match");
 
         // multiple aggregation arguments
         analyze(format(query, "max_by(Price, Symbol)"));
@@ -5649,12 +5656,12 @@ public class TestAnalyzer
 
         assertFails(format(query, "max_by(U.Price, A.Price)"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:158: All aggregate function arguments must apply to rows matched with the same label");
+                .hasMessage("line 1:158: All labels and classifiers inside the call to 'max_by' must match");
 
         // inconsistent labels in second argument
         assertFails(format(query, "max_by(A.Symbol, A.Price + B.price)"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:175: Column references inside argument of function max_by must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:158: All labels and classifiers inside the call to 'max_by' must match");
     }
 
     @Test

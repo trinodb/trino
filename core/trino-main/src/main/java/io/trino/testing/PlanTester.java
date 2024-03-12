@@ -638,9 +638,9 @@ public class PlanTester
     {
         return inTransaction(transactionSession ->
                 getPlannerContext().getMetadata().getTableHandle(
-                        transactionSession,
-                        new QualifiedObjectName(catalogName, schemaName, tableName))
-                .orElseThrow());
+                                transactionSession,
+                                new QualifiedObjectName(catalogName, schemaName, tableName))
+                        .orElseThrow());
     }
 
     public void executeStatement(@Language("SQL") String sql)

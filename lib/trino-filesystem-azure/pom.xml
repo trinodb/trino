@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>440-SNAPSHOT</version>
+        <version>441-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-filesystem-azure</artifactId>
-    <description>Trino Filesystem - Azure</description>
+    <description>Trino - Azure Blob file system support</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -141,6 +141,13 @@
         </dependency>
 
         <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>oauth2-oidc-sdk</artifactId>
+            <classifier>jdk11</classifier>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
             <scope>test</scope>
@@ -180,9 +187,10 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/TestAzureFileSystemBlob.java</exclude>
                                 <exclude>**/TestAzureFileSystemGen2Flat.java</exclude>
                                 <exclude>**/TestAzureFileSystemGen2Hierarchical.java</exclude>
+                                <exclude>**/TestAzureFileSystemOAuthGen2Flat.java</exclude>
+                                <exclude>**/TestAzureFileSystemOAuthGen2Hierarchical.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -199,9 +207,10 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestAzureFileSystemBlob.java</include>
                                 <include>**/TestAzureFileSystemGen2Flat.java</include>
                                 <include>**/TestAzureFileSystemGen2Hierarchical.java</include>
+                                <include>**/TestAzureFileSystemOAuthGen2Flat.java</include>
+                                <include>**/TestAzureFileSystemOAuthGen2Hierarchical.java</include>
                             </includes>
                         </configuration>
                     </plugin>

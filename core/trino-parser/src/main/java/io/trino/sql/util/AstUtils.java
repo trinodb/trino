@@ -13,8 +13,11 @@
  */
 package io.trino.sql.util;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.graph.SuccessorsFunction;
 import com.google.common.graph.Traverser;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.Node;
 
 import java.util.List;
@@ -88,6 +91,25 @@ public final class AstUtils
         }
 
         return result;
+    }
+
+    public static List<Expression> extractConjuncts(Expression expression)
+    {
+        ImmutableList.Builder<Expression> resultBuilder = ImmutableList.builder();
+        extractPredicates(LogicalExpression.Operator.AND, expression, resultBuilder);
+        return resultBuilder.build();
+    }
+
+    private static void extractPredicates(LogicalExpression.Operator operator, Expression expression, ImmutableList.Builder<Expression> resultBuilder)
+    {
+        if (expression instanceof LogicalExpression logicalExpression && logicalExpression.getOperator() == operator) {
+            for (Expression term : logicalExpression.getTerms()) {
+                extractPredicates(operator, term, resultBuilder);
+            }
+        }
+        else {
+            resultBuilder.add(expression);
+        }
     }
 
     private AstUtils() {}

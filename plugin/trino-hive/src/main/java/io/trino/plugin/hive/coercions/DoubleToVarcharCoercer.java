@@ -29,12 +29,12 @@ import static java.lang.String.format;
 public class DoubleToVarcharCoercer
         extends TypeCoercer<DoubleType, VarcharType>
 {
-    private final boolean treatNaNAsNull;
+    private final boolean isOrcFile;
 
-    public DoubleToVarcharCoercer(VarcharType toType, boolean treatNaNAsNull)
+    public DoubleToVarcharCoercer(VarcharType toType, boolean isOrcFile)
     {
         super(DOUBLE, toType);
-        this.treatNaNAsNull = treatNaNAsNull;
+        this.isOrcFile = isOrcFile;
     }
 
     @Override
@@ -42,7 +42,7 @@ public class DoubleToVarcharCoercer
     {
         double doubleValue = DOUBLE.getDouble(block, position);
 
-        if (Double.isNaN(doubleValue) && treatNaNAsNull) {
+        if (Double.isNaN(doubleValue) && isOrcFile) {
             blockBuilder.appendNull();
             return;
         }

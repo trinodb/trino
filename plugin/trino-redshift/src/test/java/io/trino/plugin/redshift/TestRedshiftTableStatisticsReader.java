@@ -16,7 +16,6 @@ package io.trino.plugin.redshift;
 import com.amazon.redshift.Driver;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -75,10 +74,9 @@ public class TestRedshiftTableStatisticsReader
             createVarcharJdbcColumnHandle("mktsegment", 10),
             createVarcharJdbcColumnHandle("comment", 117));
 
-    private final RedshiftTableStatisticsReader statsReader = new RedshiftTableStatisticsReader(new DriverConnectionFactory(
-            new Driver(),
-            new BaseJdbcConfig().setConnectionUrl(JDBC_URL),
-            new StaticCredentialProvider(Optional.of(JDBC_USER), Optional.of(JDBC_PASSWORD))));
+    private final RedshiftTableStatisticsReader statsReader = new RedshiftTableStatisticsReader(
+            DriverConnectionFactory.builder(new Driver(), JDBC_URL, new StaticCredentialProvider(Optional.of(JDBC_USER), Optional.of(JDBC_PASSWORD)))
+                    .build());
 
     @Override
     protected QueryRunner createQueryRunner()

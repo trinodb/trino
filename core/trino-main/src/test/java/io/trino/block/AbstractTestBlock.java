@@ -36,15 +36,8 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -86,7 +79,7 @@ public abstract class AbstractTestBlock
         }
     }
 
-    private void assertRetainedSize(Block block)
+    private static void assertRetainedSize(Block block)
     {
         long retainedSize = instanceSize(block.getClass());
         Field[] fields = block.getClass().getDeclaredFields();
@@ -148,7 +141,7 @@ public abstract class AbstractTestBlock
                     retainedSize += ((MapHashTables) field.get(block)).getRetainedSizeInBytes();
                 }
                 else if (type == MethodHandle.class) {
-                    // MethodHandles are only used in MapBlock
+                    // MethodHandles are only used in MapBlock,
                     // and they are shared among blocks created by the same MapType.
                     // So we don't account for the memory held onto by MethodHandle instances.
                     // Otherwise, we will be counting it multiple times.
@@ -194,7 +187,7 @@ public abstract class AbstractTestBlock
         }
     }
 
-    protected List<Block> splitBlock(Block block, int count)
+    protected static List<Block> splitBlock(Block block, int count)
     {
         double sizePerSplit = block.getPositionCount() * 1.0 / count;
         ImmutableList.Builder<Block> result = ImmutableList.builderWithExpectedSize(count);
@@ -206,9 +199,9 @@ public abstract class AbstractTestBlock
         return result.build();
     }
 
-    private void assertBlockSize(Block block)
+    private static void assertBlockSize(Block block)
     {
-        // Asserting on `block` is not very effective because most blocks passed to this method is compact.
+        // Asserting on `block` is not very effective because most blocks passed to this method are compact.
         // Therefore, we split the `block` into two and assert again.
         long expectedBlockSize = getCompactedBlockSizeInBytes(block);
         assertThat(block.getSizeInBytes()).isEqualTo(expectedBlockSize);
@@ -233,7 +226,7 @@ public abstract class AbstractTestBlock
         assertThat(block.getPositionsSizeInBytes(positions, positions.length - firstHalf.getPositionCount())).isEqualTo(expectedSecondHalfSize);
     }
 
-    protected <T> void assertBlockPosition(Block block, int position, T expectedValue)
+    private <T> void assertBlockPosition(Block block, int position, T expectedValue)
     {
         assertPositionValue(block, position, expectedValue);
         assertPositionValue(block.getSingleValueBlock(position), 0, expectedValue);
@@ -253,120 +246,7 @@ public abstract class AbstractTestBlock
         assertPositionValue(block.copyPositions(new int[] {position}, 0, 1), 0, expectedValue);
     }
 
-    protected <T> void assertPositionValue(Block block, int position, T expectedValue)
-    {
-        if (expectedValue == null) {
-            assertThat(block.isNull(position)).isTrue();
-            return;
-        }
-
-        assertThat(block.isNull(position)).isFalse();
-
-        if (expectedValue instanceof Slice expectedSliceValue) {
-            if (isByteAccessSupported()) {
-                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_BYTE; offset++) {
-                    assertThat(block.getByte(position, offset)).isEqualTo(expectedSliceValue.getByte(offset));
-                }
-            }
-
-            if (isShortAccessSupported()) {
-                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_SHORT; offset++) {
-                    assertThat(block.getShort(position, offset)).isEqualTo(expectedSliceValue.getShort(offset));
-                }
-            }
-
-            if (isIntAccessSupported()) {
-                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_INT; offset++) {
-                    assertThat(block.getInt(position, offset)).isEqualTo(expectedSliceValue.getInt(offset));
-                }
-            }
-
-            if (isLongAccessSupported()) {
-                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_LONG; offset++) {
-                    assertThat(block.getLong(position, offset)).isEqualTo(expectedSliceValue.getLong(offset));
-                }
-            }
-
-            if (isAlignedLongAccessSupported()) {
-                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_LONG; offset += SIZE_OF_LONG) {
-                    assertThat(block.getLong(position, offset)).isEqualTo(expectedSliceValue.getLong(offset));
-                }
-            }
-
-            if (isSliceAccessSupported()) {
-                assertThat(block.getSliceLength(position)).isEqualTo(expectedSliceValue.length());
-
-                int length = block.getSliceLength(position);
-                assertThat(length).isEqualTo(expectedSliceValue.length());
-
-                for (int offset = 0; offset < length - 3; offset++) {
-                    assertThat(block.getSlice(position, offset, 3)).isEqualTo(expectedSliceValue.slice(offset, 3));
-                }
-            }
-
-            assertPositionEquals(block, position, expectedSliceValue);
-        }
-        else if (expectedValue instanceof long[] expected) {
-            Block actual = block.getObject(position, Block.class);
-            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
-            for (int i = 0; i < expected.length; i++) {
-                assertThat(BIGINT.getLong(actual, i)).isEqualTo(expected[i]);
-            }
-        }
-        else if (expectedValue instanceof Slice[] expected) {
-            Block actual = block.getObject(position, Block.class);
-            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
-            for (int i = 0; i < expected.length; i++) {
-                assertThat(VARCHAR.getSlice(actual, i)).isEqualTo(expected[i]);
-            }
-        }
-        else if (expectedValue instanceof long[][] expected) {
-            Block actual = block.getObject(position, Block.class);
-            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
-            for (int i = 0; i < expected.length; i++) {
-                assertPositionValue(actual, i, expected[i]);
-            }
-        }
-        else {
-            throw new IllegalArgumentException();
-        }
-    }
-
-    protected boolean isByteAccessSupported()
-    {
-        return true;
-    }
-
-    protected boolean isShortAccessSupported()
-    {
-        return true;
-    }
-
-    protected boolean isIntAccessSupported()
-    {
-        return true;
-    }
-
-    protected boolean isLongAccessSupported()
-    {
-        return true;
-    }
-
-    protected boolean isAlignedLongAccessSupported()
-    {
-        return false;
-    }
-
-    protected boolean isSliceAccessSupported()
-    {
-        return true;
-    }
-
-    // Subclasses can implement this method to customize how the position is compared
-    // with the expected bytes
-    protected void assertPositionEquals(Block block, int position, Slice expectedBytes)
-    {
-    }
+    protected abstract <T> void assertPositionValue(Block block, int position, T expectedValue);
 
     private static long getCompactedBlockSizeInBytes(Block block)
     {
@@ -387,21 +267,6 @@ public abstract class AbstractTestBlock
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         BLOCK_ENCODING_SERDE.writeBlock(sliceOutput, block);
         return BLOCK_ENCODING_SERDE.readBlock(sliceOutput.slice().getInput());
-    }
-
-    private static Block toSingeValuedBlock(Slice expectedValue)
-    {
-        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, 1, expectedValue.length());
-        VARBINARY.writeSlice(blockBuilder, expectedValue);
-        return blockBuilder.build();
-    }
-
-    private static Slice createGreaterValue(Slice expectedValue, int offset, int length)
-    {
-        DynamicSliceOutput greaterOutput = new DynamicSliceOutput(length + 1);
-        greaterOutput.writeBytes(expectedValue, offset, length);
-        greaterOutput.writeByte('_');
-        return greaterOutput.slice();
     }
 
     protected static Slice[] createExpectedValues(int positionCount)
@@ -446,7 +311,7 @@ public abstract class AbstractTestBlock
         assertThat(nullValueBlock.getEstimatedDataSizeForStats(0)).isEqualTo(0);
     }
 
-    protected static void testCopyRegionCompactness(Block block)
+    private static void testCopyRegionCompactness(Block block)
     {
         assertCompact(block.copyRegion(0, block.getPositionCount()));
         if (block.getPositionCount() > 0) {
@@ -460,7 +325,7 @@ public abstract class AbstractTestBlock
         assertThat(block.copyRegion(0, block.getPositionCount())).isSameAs(block);
     }
 
-    protected static void assertNotCompact(Block block)
+    private static void assertNotCompact(Block block)
     {
         assertThat(block.copyRegion(0, block.getPositionCount())).isNotSameAs(block);
     }
@@ -471,13 +336,13 @@ public abstract class AbstractTestBlock
         testCopyRegionCompactness(block);
     }
 
-    protected static void testIncompactBlock(Block block)
+    protected static void testNotCompactBlock(Block block)
     {
         assertNotCompact(block);
         testCopyRegionCompactness(block);
     }
 
-    private void assertBlockClassImplementation(Class<? extends ValueBlock> clazz)
+    private static void assertBlockClassImplementation(Class<? extends ValueBlock> clazz)
     {
         for (Method method : clazz.getMethods()) {
             if (method.getReturnType() == ValueBlock.class && !method.isBridge()) {

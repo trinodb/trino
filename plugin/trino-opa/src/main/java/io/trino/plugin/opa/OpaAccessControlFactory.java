@@ -22,9 +22,11 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.opa.schema.OpaColumnMaskQueryResult;
 import io.trino.plugin.opa.schema.OpaPluginContext;
 import io.trino.plugin.opa.schema.OpaQuery;
 import io.trino.plugin.opa.schema.OpaQueryResult;
+import io.trino.plugin.opa.schema.OpaRowFiltersQueryResult;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
 
@@ -71,6 +73,8 @@ public class OpaAccessControlFactory
                 binder -> {
                     jsonCodecBinder(binder).bindJsonCodec(OpaQuery.class);
                     jsonCodecBinder(binder).bindJsonCodec(OpaQueryResult.class);
+                    jsonCodecBinder(binder).bindJsonCodec(OpaRowFiltersQueryResult.class);
+                    jsonCodecBinder(binder).bindJsonCodec(OpaColumnMaskQueryResult.class);
                     httpClient.ifPresentOrElse(
                             client -> binder.bind(Key.get(HttpClient.class, ForOpa.class)).toInstance(client),
                             () -> httpClientBinder(binder).bindHttpClient("opa", ForOpa.class));

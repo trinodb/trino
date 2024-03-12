@@ -73,18 +73,20 @@ access to the different object storage system. Documentation is available with
 the Hive connector and relevant dedicated pages:
 
 - [](/connector/hive)
-- [](/connector/hive-s3)
-- [](/connector/hive-azure)
-- [](/connector/hive-gcs-tutorial)
-- [](/connector/hive-cos)
+- [](/object-storage/legacy-azure)
+- [](/object-storage/legacy-gcs)
+- [](/object-storage/legacy-cos)
+- [](/object-storage/legacy-s3)
 
 (object-storage-other)=
 ## Other object storage support
 
-Trino also provides the following additional support for object storage:
+Trino also provides the following additional support and features for object
+storage:
 
 * [](/object-storage/file-system-cache)
-
+* [](/object-storage/metastores)
+* [](/object-storage/file-formats)
 
 ```{toctree}
 :maxdepth: 1
@@ -93,5 +95,11 @@ Trino also provides the following additional support for object storage:
 /object-storage/file-system-azure
 /object-storage/file-system-gcs
 /object-storage/file-system-s3
+/object-storage/legacy-azure
+/object-storage/legacy-cos
+/object-storage/legacy-gcs
+/object-storage/legacy-s3
 /object-storage/file-system-cache
+/object-storage/metastores
+/object-storage/file-formats
 ```

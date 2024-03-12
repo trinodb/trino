@@ -17,12 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.function.Consumer;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.aggregation;
 
 public class TestAggregationStatsRule
         extends BaseStatsCalculatorTest
@@ -93,9 +94,9 @@ public class TestAggregationStatsRule
     {
         return tester().assertStatsFor(pb -> pb
                 .aggregation(ab -> ab
-                        .addAggregation(pb.symbol("sum", BIGINT), expression("sum(x)"), ImmutableList.of(BIGINT))
-                        .addAggregation(pb.symbol("count", BIGINT), expression("count()"), ImmutableList.of())
-                        .addAggregation(pb.symbol("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.symbol("count", BIGINT), aggregation("count", ImmutableList.of()), ImmutableList.of())
+                        .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
                         .singleGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))
                         .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
@@ -142,7 +143,7 @@ public class TestAggregationStatsRule
     {
         tester().assertStatsFor(pb -> pb
                 .aggregation(ab -> ab
-                        .addAggregation(pb.symbol("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
                         .singleGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))
                         .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
@@ -158,8 +159,8 @@ public class TestAggregationStatsRule
     {
         tester().assertStatsFor(pb -> pb
                         .aggregation(ab -> ab
-                                .addAggregation(pb.symbol("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
-                                .addAggregation(pb.symbol("sum", BIGINT), expression("sum(x)"), ImmutableList.of(BIGINT))
+                                .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
+                                .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
                                 .globalGrouping()
                                 .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.unknown())
@@ -171,8 +172,8 @@ public class TestAggregationStatsRule
     {
         tester().assertStatsFor(pb -> pb
                         .aggregation(ab -> ab
-                                .addAggregation(pb.symbol("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
-                                .addAggregation(pb.symbol("sum", BIGINT), expression("sum(x)"), ImmutableList.of(BIGINT))
+                                .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
+                                .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
                                 .groupingSets(new AggregationNode.GroupingSetDescriptor(ImmutableList.of(pb.symbol("y"), pb.symbol("z")), 3, ImmutableSet.of(0)))
                                 .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()

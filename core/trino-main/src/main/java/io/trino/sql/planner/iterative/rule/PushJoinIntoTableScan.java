@@ -54,7 +54,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Domain.onlyNull;
-import static io.trino.sql.ExpressionUtils.and;
+import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -238,9 +238,8 @@ public class PushJoinIntoTableScan
         };
     }
 
-    private TupleDomain<ColumnHandle> deriveConstraint(TupleDomain<ColumnHandle> sourceConstraint, Map<ColumnHandle, ColumnHandle> columnMapping, boolean nullable)
+    private TupleDomain<ColumnHandle> deriveConstraint(TupleDomain<ColumnHandle> constraint, Map<ColumnHandle, ColumnHandle> columnMapping, boolean nullable)
     {
-        TupleDomain<ColumnHandle> constraint = sourceConstraint;
         if (nullable) {
             constraint = constraint.transformDomains((columnHandle, domain) -> domain.union(onlyNull(domain.getType())));
         }

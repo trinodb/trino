@@ -28,6 +28,7 @@ import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static java.lang.String.format;
+import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
 public class MapBlockBuilder
@@ -200,6 +201,18 @@ public class MapBlockBuilder
 
         entryAdded(true);
         return this;
+    }
+
+    @Override
+    public void resetTo(int position)
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Expected current entry to be closed but was opened");
+        }
+        checkIndex(position, positionCount + 1);
+        positionCount = position;
+        keyBlockBuilder.resetTo(offsets[positionCount]);
+        valueBlockBuilder.resetTo(offsets[positionCount]);
     }
 
     private void entryAdded(boolean isNull)

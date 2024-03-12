@@ -22,6 +22,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -31,9 +32,9 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -60,7 +61,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         ImmutableList.of(new UnnestNode.Mapping(p.symbol("corr"), ImmutableList.of(p.symbol("unnested")))),
                                         Optional.empty(),
                                         INNER,
-                                        Optional.empty(),
                                         p.values())))))
                 .doesNotFire();
     }
@@ -94,7 +94,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                 new UnnestNode.Mapping(p.symbol("a"), ImmutableList.of(p.symbol("unnested_a")))),
                                         Optional.empty(),
                                         INNER,
-                                        Optional.empty(),
                                         p.values(p.symbol("a"), p.symbol("b")))))))
                 .doesNotFire();
     }
@@ -108,19 +107,18 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                         p.values(p.symbol("corr")),
                         p.aggregation(builder -> builder
                                 .globalGrouping()
-                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(unnested_corr)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("unnested_corr"))), ImmutableList.of(BIGINT))
                                 .source(p.unnest(
                                         ImmutableList.of(),
                                         ImmutableList.of(new UnnestNode.Mapping(p.symbol("corr"), ImmutableList.of(p.symbol("unnested_corr")))),
                                         Optional.empty(),
                                         INNER,
-                                        Optional.empty(),
                                         p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())))))))
                 .matches(
                         project(
                                 aggregation(
                                         singleGroupingSet("unique", "corr"),
-                                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("unnested_corr"))),
+                                        ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("unnested_corr"))),
                                         ImmutableList.of(),
                                         ImmutableList.of("mask"),
                                         Optional.empty(),
@@ -132,7 +130,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                         ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
                                                         Optional.of("ordinality"),
                                                         LEFT,
-                                                        Optional.empty(),
                                                         assignUniqueId("unique", values("corr")))))));
     }
 
@@ -145,7 +142,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                         p.values(p.symbol("corr"), p.symbol("old_masks")),
                         p.aggregation(builder -> builder
                                 .globalGrouping()
-                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(unnested_corr)"), ImmutableList.of(BIGINT), p.symbol("old_mask"))
+                                .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("unnested_corr"))), ImmutableList.of(BIGINT), p.symbol("old_mask"))
                                 .source(p.unnest(
                                         ImmutableList.of(),
                                         ImmutableList.of(
@@ -153,13 +150,12 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                 new UnnestNode.Mapping(p.symbol("old_masks"), ImmutableList.of(p.symbol("old_mask")))),
                                         Optional.empty(),
                                         INNER,
-                                        Optional.empty(),
                                         p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())))))))
                 .matches(
                         project(
                                 aggregation(
                                         singleGroupingSet("corr", "old_masks", "unique"),
-                                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("unnested_corr"))),
+                                        ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("unnested_corr"))),
                                         ImmutableList.of(),
                                         ImmutableList.of("new_mask"),
                                         Optional.empty(),
@@ -175,7 +171,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                                         unnestMapping("old_masks", ImmutableList.of("old_mask"))),
                                                                 Optional.of("ordinality"),
                                                                 LEFT,
-                                                                Optional.empty(),
                                                                 assignUniqueId("unique", values("corr", "old_masks"))))))));
     }
 
@@ -188,19 +183,18 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                         p.values(p.symbol("corr")),
                         p.aggregation(builder -> builder
                                 .globalGrouping()
-                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(unnested_corr)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("unnested_corr"))), ImmutableList.of(BIGINT))
                                 .source(p.unnest(
                                         ImmutableList.of(),
                                         ImmutableList.of(new UnnestNode.Mapping(p.symbol("corr"), ImmutableList.of(p.symbol("unnested_corr")))),
                                         Optional.of(p.symbol("ordinality")),
                                         INNER,
-                                        Optional.empty(),
                                         p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())))))))
                 .matches(
                         project(
                                 aggregation(
                                         singleGroupingSet("unique", "corr"),
-                                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("unnested_corr"))),
+                                        ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("unnested_corr"))),
                                         ImmutableList.of(),
                                         ImmutableList.of("mask"),
                                         Optional.empty(),
@@ -212,7 +206,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                         ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
                                                         Optional.of("ordinality"),
                                                         LEFT,
-                                                        Optional.empty(),
                                                         assignUniqueId("unique", values("corr")))))));
     }
 
@@ -226,30 +219,29 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                         p.values(p.symbol("corr")),
                         p.aggregation(outerBuilder -> outerBuilder
                                 .globalGrouping()
-                                .addAggregation(p.symbol("arbitrary"), PlanBuilder.expression("arbitrary(sum)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.symbol("arbitrary"), PlanBuilder.aggregation("arbitrary", ImmutableList.of(new SymbolReference("sum"))), ImmutableList.of(BIGINT))
                                 .source(
                                         p.aggregation(innerBuilder -> innerBuilder
                                                 .globalGrouping()
-                                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(unnested_corr)"), ImmutableList.of(BIGINT))
+                                                .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("unnested_corr"))), ImmutableList.of(BIGINT))
                                                 .source(p.unnest(
                                                         ImmutableList.of(),
                                                         ImmutableList.of(new UnnestNode.Mapping(p.symbol("corr"), ImmutableList.of(p.symbol("unnested_corr")))),
                                                         Optional.empty(),
                                                         INNER,
-                                                        Optional.empty(),
                                                         p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())))))))))
                 .matches(
                         project(
                                 aggregation(
                                         singleGroupingSet("unique", "corr"),
-                                        ImmutableMap.of(Optional.of("any_value"), functionCall("any_value", ImmutableList.of("sum"))),
+                                        ImmutableMap.of(Optional.of("any_value"), aggregationFunction("any_value", ImmutableList.of("sum"))),
                                         ImmutableList.of(),
                                         ImmutableList.of(),
                                         Optional.empty(),
                                         SINGLE,
                                         aggregation(
                                                 singleGroupingSet("unique", "corr"),
-                                                ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("unnested_corr"))),
+                                                ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("unnested_corr"))),
                                                 ImmutableList.of(),
                                                 ImmutableList.of("mask"),
                                                 Optional.empty(),
@@ -261,7 +253,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                                 ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
                                                                 Optional.of("ordinality"),
                                                                 LEFT,
-                                                                Optional.empty(),
                                                                 assignUniqueId("unique", values("corr"))))))));
     }
 
@@ -276,13 +267,12 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                 Assignments.of(p.symbol("sum_1"), PlanBuilder.expression("sum + 1")),
                                 p.aggregation(innerBuilder -> innerBuilder
                                         .globalGrouping()
-                                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(unnested_corr)"), ImmutableList.of(BIGINT))
+                                        .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("unnested_corr"))), ImmutableList.of(BIGINT))
                                         .source(p.unnest(
                                                 ImmutableList.of(),
                                                 ImmutableList.of(new UnnestNode.Mapping(p.symbol("corr"), ImmutableList.of(p.symbol("unnested_corr")))),
                                                 Optional.empty(),
                                                 INNER,
-                                                Optional.empty(),
                                                 p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of()))))))))
                 .matches(
                         project(
@@ -290,7 +280,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         ImmutableMap.of("corr", expression("corr"), "unique", expression("unique"), "sum_1", expression("sum + 1")),
                                         aggregation(
                                                 singleGroupingSet("unique", "corr"),
-                                                ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("unnested_corr"))),
+                                                ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("unnested_corr"))),
                                                 ImmutableList.of(),
                                                 ImmutableList.of("mask"),
                                                 Optional.empty(),
@@ -302,7 +292,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                                 ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
                                                                 Optional.of("ordinality"),
                                                                 LEFT,
-                                                                Optional.empty(),
                                                                 assignUniqueId("unique", values("corr"))))))));
     }
 
@@ -321,13 +310,12 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                             p.values(corr),
                             p.aggregation(builder -> builder
                                     .globalGrouping()
-                                    .addAggregation(p.symbol("max"), PlanBuilder.expression("max(unnested_corr)"), ImmutableList.of(BIGINT))
+                                    .addAggregation(p.symbol("max"), PlanBuilder.aggregation("max", ImmutableList.of(new SymbolReference("unnested_corr"))), ImmutableList.of(BIGINT))
                                     .source(p.unnest(
                                             ImmutableList.of(),
                                             ImmutableList.of(new UnnestNode.Mapping(p.symbol("char_array"), ImmutableList.of(p.symbol("unnested_corr")))),
                                             Optional.empty(),
                                             INNER,
-                                            Optional.empty(),
                                             p.project(
                                                     Assignments.of(p.symbol("char_array"), regexpExtractAll),
                                                     p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())))))));
@@ -336,7 +324,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                         project(
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "char_array"),
-                                        ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("unnested_corr"))),
+                                        ImmutableMap.of(Optional.of("max"), aggregationFunction("max", ImmutableList.of("unnested_corr"))),
                                         ImmutableList.of(),
                                         ImmutableList.of("mask"),
                                         Optional.empty(),
@@ -348,7 +336,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                         ImmutableList.of(unnestMapping("char_array", ImmutableList.of("unnested_corr"))),
                                                         Optional.of("ordinality"),
                                                         LEFT,
-                                                        Optional.empty(),
                                                         project(
                                                                 ImmutableMap.of("char_array", expression("regexp_extract_all(corr, '.')")),
                                                                 assignUniqueId("unique", values("corr"))))))));
@@ -367,14 +354,14 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                 Assignments.of(p.symbol("sum_1"), PlanBuilder.expression("sum + 1")),
                                 p.aggregation(globalBuilder -> globalBuilder
                                         .globalGrouping()
-                                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(negate)"), ImmutableList.of(BIGINT))
+                                        .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("negate"))), ImmutableList.of(BIGINT))
                                         .source(p.project(
                                                 Assignments.builder()
                                                         .put(p.symbol("negate"), PlanBuilder.expression("-max"))
                                                         .build(),
                                                 p.aggregation(groupedBuilder -> groupedBuilder
                                                         .singleGroupingSet(p.symbol("group"))
-                                                        .addAggregation(p.symbol("max"), PlanBuilder.expression("max(modulo)"), ImmutableList.of(BIGINT))
+                                                        .addAggregation(p.symbol("max"), PlanBuilder.aggregation("max", ImmutableList.of(new SymbolReference("modulo"))), ImmutableList.of(BIGINT))
                                                         .source(
                                                                 p.project(
                                                                         Assignments.builder()
@@ -388,7 +375,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                                                         new UnnestNode.Mapping(p.symbol("numbers"), ImmutableList.of(p.symbol("number")))),
                                                                                 Optional.empty(),
                                                                                 INNER,
-                                                                                Optional.empty(),
                                                                                 p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of()))))))))))))
                 .matches(
                         project(
@@ -396,7 +382,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         ImmutableMap.of("sum_1", expression("sum + 1")),
                                         aggregation(
                                                 singleGroupingSet("groups", "numbers", "unique"),
-                                                ImmutableMap.of(Optional.of("sum"), functionCall("sum", ImmutableList.of("negated"))),
+                                                ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("negated"))),
                                                 ImmutableList.of(),
                                                 ImmutableList.of("mask"),
                                                 Optional.empty(),
@@ -405,7 +391,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                         ImmutableMap.of("negated", expression("-max")),
                                                         aggregation(
                                                                 singleGroupingSet("groups", "numbers", "unique", "mask", "group"),
-                                                                ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("modulo"))),
+                                                                ImmutableMap.of(Optional.of("max"), aggregationFunction("max", ImmutableList.of("modulo"))),
                                                                 ImmutableList.of(),
                                                                 ImmutableList.of(),
                                                                 Optional.empty(),
@@ -421,7 +407,6 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                                                                 unnestMapping("numbers", ImmutableList.of("number"))),
                                                                                         Optional.of("ordinality"),
                                                                                         LEFT,
-                                                                                        Optional.empty(),
                                                                                         assignUniqueId("unique", values("groups", "numbers")))))))))));
     }
 }

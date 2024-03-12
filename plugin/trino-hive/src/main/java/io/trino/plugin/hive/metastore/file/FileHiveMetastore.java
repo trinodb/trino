@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -327,7 +328,6 @@ public class FileHiveMetastore
             String prefix = catalogDirectory.toString();
             Set<String> databases = new HashSet<>();
 
-            // TODO this lists files recursively and may fail if e.g. table data being modified by other threads/processes
             FileIterator iterator = fileSystem.listFiles(catalogDirectory);
             while (iterator.hasNext()) {
                 Location location = iterator.next().location();
@@ -734,24 +734,16 @@ public class FileHiveMetastore
     @Override
     public synchronized void commentColumn(String databaseName, String tableName, String columnName, Optional<String> comment)
     {
-        alterTable(databaseName, tableName, oldTable -> {
-            if (oldTable.getColumn(columnName).isEmpty()) {
-                SchemaTableName name = new SchemaTableName(databaseName, tableName);
-                throw new ColumnNotFoundException(name, columnName);
-            }
+        alterTable(databaseName, tableName, table -> table
+                .withDataColumns(currentVersion, updateColumnComment(table.getDataColumns(), columnName, comment))
+                .withPartitionColumns(currentVersion, updateColumnComment(table.getPartitionColumns(), columnName, comment)));
+    }
 
-            ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
-            for (Column fieldSchema : oldTable.getDataColumns()) {
-                if (fieldSchema.getName().equals(columnName)) {
-                    newDataColumns.add(new Column(columnName, fieldSchema.getType(), comment, fieldSchema.getProperties()));
-                }
-                else {
-                    newDataColumns.add(fieldSchema);
-                }
-            }
-
-            return oldTable.withDataColumns(currentVersion, newDataColumns.build());
-        });
+    private static List<Column> updateColumnComment(List<Column> originalColumns, String columnName, Optional<String> comment)
+    {
+        return Lists.transform(originalColumns, column -> column.getName().equals(columnName)
+                ? new Column(column.getName(), column.getType(), comment, column.getProperties())
+                : column);
     }
 
     @Override
@@ -1329,9 +1321,7 @@ public class FileHiveMetastore
         byte[] json = functionCodec.toJsonBytes(function);
 
         try {
-            try (OutputStream outputStream = fileSystem.newOutputFile(file).createOrOverwrite()) {
-                outputStream.write(json);
-            }
+            fileSystem.newOutputFile(file).createOrOverwrite(json);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not write function", e);
@@ -1490,16 +1480,24 @@ public class FileHiveMetastore
         try {
             byte[] json = codec.toJsonBytes(value);
 
-            if (!overwrite) {
+            TrinoOutputFile output = fileSystem.newOutputFile(location);
+            if (overwrite) {
+                output.createOrOverwrite(json);
+            }
+            else {
+                // best-effort exclusive and atomic creation
                 if (fileSystem.newInputFile(location).exists()) {
                     throw new TrinoException(HIVE_METASTORE_ERROR, type + " file already exists");
                 }
-            }
-
-            // todo implement safer overwrite code
-            TrinoOutputFile output = fileSystem.newOutputFile(location);
-            try (OutputStream outputStream = overwrite ? output.createOrOverwrite() : output.create()) {
-                outputStream.write(json);
+                try {
+                    output.createExclusive(json);
+                }
+                catch (UnsupportedOperationException ignored) {
+                    // fall back to non-exclusive creation, relying on synchronization and above exists check
+                    try (OutputStream out = output.create()) {
+                        out.write(json);
+                    }
+                }
             }
         }
         catch (Exception e) {

@@ -40,9 +40,9 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
-import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.IrUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.testing.TransactionBuilder.transaction;
 
 public final class ExpressionTestUtils

@@ -19,6 +19,7 @@ import io.trino.plugin.opa.HttpClientUtils.InstrumentedHttpClient;
 import io.trino.plugin.opa.HttpClientUtils.MockResponse;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -26,11 +27,10 @@ import java.util.function.Function;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.trino.plugin.opa.TestConstants.BAD_REQUEST_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.MALFORMED_RESPONSE;
-import static io.trino.plugin.opa.TestConstants.OPA_SERVER_BATCH_URI;
-import static io.trino.plugin.opa.TestConstants.OPA_SERVER_URI;
 import static io.trino.plugin.opa.TestConstants.SERVER_ERROR_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.SYSTEM_ACCESS_CONTROL_CONTEXT;
 import static io.trino.plugin.opa.TestConstants.UNDEFINED_RESPONSE;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public final class TestHelpers
@@ -42,59 +42,49 @@ public final class TestHelpers
         return new InstrumentedHttpClient(expectedUri, "POST", JSON_UTF_8.toString(), handler);
     }
 
-    public static OpaAccessControl createOpaAuthorizer(URI opaUri, InstrumentedHttpClient mockHttpClient)
+    public static OpaAccessControl createOpaAuthorizer(OpaConfig config, InstrumentedHttpClient mockHttpClient)
     {
-        return (OpaAccessControl) OpaAccessControlFactory.create(ImmutableMap.of("opa.policy.uri", opaUri.toString()), Optional.of(mockHttpClient), Optional.of(SYSTEM_ACCESS_CONTROL_CONTEXT));
+        return (OpaAccessControl) OpaAccessControlFactory.create(opaConfigToDict(config), Optional.of(mockHttpClient), Optional.of(SYSTEM_ACCESS_CONTROL_CONTEXT));
     }
 
-    public static OpaAccessControl createOpaAuthorizer(URI opaUri, URI opaBatchUri, InstrumentedHttpClient mockHttpClient)
+    public static void assertAccessControlMethodThrowsForIllegalResponses(Consumer<OpaAccessControl> methodToTest, OpaConfig opaConfig, URI expectedUri)
     {
-        return (OpaAccessControl) OpaAccessControlFactory.create(
-                ImmutableMap.<String, String>builder()
-                        .put("opa.policy.uri", opaUri.toString())
-                        .put("opa.policy.batched-uri", opaBatchUri.toString())
-                        .buildOrThrow(),
-                Optional.of(mockHttpClient),
-                Optional.of(SYSTEM_ACCESS_CONTROL_CONTEXT));
+        runIllegalResponseTestCases(methodToTest, opaConfig, expectedUri);
     }
 
-    public static void assertAccessControlMethodThrowsForIllegalResponses(Consumer<OpaAccessControl> methodToTest)
-    {
-        runIllegalResponseTestCases(methodToTest, TestHelpers::buildAuthorizerWithPredefinedResponse);
-    }
-
-    public static void assertBatchAccessControlMethodThrowsForIllegalResponses(Consumer<OpaAccessControl> methodToTest)
-    {
-        runIllegalResponseTestCases(methodToTest, TestHelpers::buildBatchAuthorizerWithPredefinedResponse);
-    }
-
-    public static OpaAccessControl buildBatchAuthorizerWithPredefinedResponse(MockResponse response)
-    {
-        return createOpaAuthorizer(OPA_SERVER_URI, OPA_SERVER_BATCH_URI, createMockHttpClient(OPA_SERVER_BATCH_URI, request -> response));
-    }
-
-    public static void assertAccessControlMethodThrows(
-            Runnable methodToTest,
+    public static void assertAccessControlMethodThrowsForResponse(
+            MockResponse response,
+            URI expectedUri,
+            OpaConfig opaConfig,
+            Consumer<OpaAccessControl> methodToTest,
             Class<? extends OpaQueryException> expectedException,
             String expectedErrorMessage)
     {
-        assertThatThrownBy(methodToTest::run)
+        InstrumentedHttpClient httpClient = createMockHttpClient(expectedUri, request -> response);
+        assertThatThrownBy(() -> methodToTest.accept(createOpaAuthorizer(opaConfig, httpClient)))
                 .isInstanceOf(expectedException)
                 .hasMessageContaining(expectedErrorMessage);
+        assertThat(httpClient.getRequests()).isNotEmpty();
     }
 
-    private static void runIllegalResponseTestCases(
-            Consumer<OpaAccessControl> methodToTest,
-            Function<MockResponse, OpaAccessControl> authorizerBuilder)
+    public static Map<String, String> opaConfigToDict(OpaConfig config)
     {
-        assertAccessControlMethodThrows(() -> methodToTest.accept(authorizerBuilder.apply(UNDEFINED_RESPONSE)), OpaQueryException.OpaServerError.PolicyNotFound.class, "did not return a value");
-        assertAccessControlMethodThrows(() -> methodToTest.accept(authorizerBuilder.apply(BAD_REQUEST_RESPONSE)), OpaQueryException.OpaServerError.class, "returned status 400");
-        assertAccessControlMethodThrows(() -> methodToTest.accept(authorizerBuilder.apply(SERVER_ERROR_RESPONSE)), OpaQueryException.OpaServerError.class, "returned status 500");
-        assertAccessControlMethodThrows(() -> methodToTest.accept(authorizerBuilder.apply(MALFORMED_RESPONSE)), OpaQueryException.class, "Failed to deserialize");
+        ImmutableMap.Builder<String, String> configBuilder = ImmutableMap.<String, String>builder()
+                .put("opa.policy.uri", config.getOpaUri().toString())
+                .put("opa.log-requests", String.valueOf(config.getLogRequests()))
+                .put("opa.log-responses", String.valueOf(config.getLogResponses()))
+                .put("opa.allow-permission-management-operations", String.valueOf(config.getAllowPermissionManagementOperations()));
+        config.getOpaBatchUri().ifPresent(batchUri -> configBuilder.put("opa.policy.batched-uri", batchUri.toString()));
+        config.getOpaRowFiltersUri().ifPresent(rowFiltersUri -> configBuilder.put("opa.policy.row-filters-uri", rowFiltersUri.toString()));
+        config.getOpaColumnMaskingUri().ifPresent(columnMaskingUri -> configBuilder.put("opa.policy.column-masking-uri", columnMaskingUri.toString()));
+        return configBuilder.buildOrThrow();
     }
 
-    private static OpaAccessControl buildAuthorizerWithPredefinedResponse(MockResponse response)
+    private static void runIllegalResponseTestCases(Consumer<OpaAccessControl> methodToTest, OpaConfig opaConfig, URI expectedUri)
     {
-        return createOpaAuthorizer(OPA_SERVER_URI, createMockHttpClient(OPA_SERVER_URI, request -> response));
+        assertAccessControlMethodThrowsForResponse(UNDEFINED_RESPONSE, expectedUri, opaConfig, methodToTest, OpaQueryException.OpaServerError.PolicyNotFound.class, "did not return a value");
+        assertAccessControlMethodThrowsForResponse(BAD_REQUEST_RESPONSE, expectedUri, opaConfig, methodToTest, OpaQueryException.OpaServerError.class, "returned status 400");
+        assertAccessControlMethodThrowsForResponse(SERVER_ERROR_RESPONSE, expectedUri, opaConfig, methodToTest, OpaQueryException.OpaServerError.class, "returned status 500");
+        assertAccessControlMethodThrowsForResponse(MALFORMED_RESPONSE, expectedUri, opaConfig, methodToTest, OpaQueryException.class, "Failed to deserialize");
     }
 }

@@ -5,13 +5,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>440-SNAPSHOT</version>
+        <version>441-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-resource-group-managers</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Resource Group Configuration Managers</description>
+    <description>Trino - Resource group configuration managers</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

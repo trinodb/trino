@@ -13,7 +13,6 @@
  */
 package io.trino.filesystem.tracing;
 
-import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
@@ -49,23 +48,23 @@ final class TracingOutputFile
     }
 
     @Override
-    public OutputStream createOrOverwrite()
+    public void createOrOverwrite(byte[] data)
             throws IOException
     {
         Span span = tracer.spanBuilder("OutputFile.createOrOverwrite")
                 .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
                 .startSpan();
-        return withTracing(span, () -> delegate.createOrOverwrite());
+        withTracing(span, () -> delegate.createOrOverwrite(data));
     }
 
     @Override
-    public void createExclusive(Slice content)
+    public void createExclusive(byte[] data)
             throws IOException
     {
         Span span = tracer.spanBuilder("OutputFile.createExclusive")
                 .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
                 .startSpan();
-        withTracing(span, () -> delegate.createExclusive(content));
+        withTracing(span, () -> delegate.createExclusive(data));
     }
 
     @Override
@@ -76,26 +75,6 @@ final class TracingOutputFile
                 .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
                 .startSpan();
         return withTracing(span, () -> delegate.create(memoryContext));
-    }
-
-    @Override
-    public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
-            throws IOException
-    {
-        Span span = tracer.spanBuilder("OutputFile.createOrOverwrite")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
-                .startSpan();
-        return withTracing(span, () -> delegate.createOrOverwrite(memoryContext));
-    }
-
-    @Override
-    public void createExclusive(Slice content, AggregatedMemoryContext memoryContext)
-            throws IOException
-    {
-        Span span = tracer.spanBuilder("OutputFile.createExclusive")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
-                .startSpan();
-        withTracing(span, () -> delegate.createExclusive(content, memoryContext));
     }
 
     @Override

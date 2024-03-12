@@ -64,6 +64,9 @@ public class RedshiftClientModule
         properties.put("reWriteBatchedInserts", "true");
         properties.put("reWriteBatchedInsertsSize", "512");
 
-        return new DriverConnectionFactory(new Driver(), config.getConnectionUrl(), properties, credentialProvider, openTelemetry);
+        return DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
+                .setConnectionProperties(properties)
+                .setOpenTelemetry(openTelemetry)
+                .build();
     }
 }

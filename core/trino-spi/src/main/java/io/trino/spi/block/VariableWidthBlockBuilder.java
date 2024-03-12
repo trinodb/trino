@@ -27,6 +27,7 @@ import static io.trino.spi.block.BlockUtil.calculateBlockResetBytes;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.checkIndex;
 
 public class VariableWidthBlockBuilder
         implements BlockBuilder
@@ -332,6 +333,13 @@ public class VariableWidthBlockBuilder
         hasNullValue = true;
         entryAdded(0, true);
         return this;
+    }
+
+    @Override
+    public void resetTo(int position)
+    {
+        checkIndex(position, positionCount + 1);
+        positionCount = position;
     }
 
     private void entryAdded(int bytesWritten, boolean isNull)

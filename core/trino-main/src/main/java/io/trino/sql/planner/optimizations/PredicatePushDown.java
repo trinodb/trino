@@ -92,10 +92,10 @@ import static io.trino.SystemSessionProperties.isPredicatePushdownUseTableProper
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
-import static io.trino.sql.ExpressionUtils.filterDeterministicConjuncts;
-import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
+import static io.trino.sql.ir.IrUtils.filterDeterministicConjuncts;
+import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
@@ -289,7 +289,7 @@ public class PredicatePushDown
 
             List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
                     .map(entry -> inlineSymbols(node.getAssignments().getMap(), entry))
-                    .map(conjunct -> canonicalizeExpression(conjunct, typeAnalyzer.getTypes(session, types, conjunct), plannerContext, session)) // normalize expressions to a form that unwrapCasts understands
+                    .map(conjunct -> canonicalizeExpression(conjunct, typeAnalyzer, types, plannerContext, session)) // normalize expressions to a form that unwrapCasts understands
                     .map(conjunct -> unwrapCasts(session, plannerContext, typeAnalyzer, types, conjunct))
                     .collect(Collectors.toList());
 
@@ -1537,7 +1537,7 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource()) {
-                output = new UnnestNode(node.getId(), rewrittenSource, node.getReplicateSymbols(), node.getMappings(), node.getOrdinalitySymbol(), node.getJoinType(), node.getFilter());
+                output = new UnnestNode(node.getId(), rewrittenSource, node.getReplicateSymbols(), node.getMappings(), node.getOrdinalitySymbol(), node.getJoinType());
             }
             if (!postUnnestConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(metadata, postUnnestConjuncts));

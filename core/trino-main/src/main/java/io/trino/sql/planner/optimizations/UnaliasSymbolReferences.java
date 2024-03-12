@@ -107,8 +107,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.DynamicFilters.getDescriptor;
 import static io.trino.sql.DynamicFilters.replaceDynamicFilterId;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.optimizations.SymbolMapper.symbolMapper;
 import static io.trino.sql.planner.optimizations.SymbolMapper.symbolReallocator;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -275,7 +275,6 @@ public class UnaliasSymbolReferences
             }
 
             Optional<Symbol> newOrdinalitySymbol = node.getOrdinalitySymbol().map(mapper::map);
-            Optional<Expression> newFilter = node.getFilter().map(mapper::map);
 
             return new PlanAndMappings(
                     new UnnestNode(
@@ -284,8 +283,7 @@ public class UnaliasSymbolReferences
                             newReplicateSymbols,
                             newMappings.build(),
                             newOrdinalitySymbol,
-                            node.getJoinType(),
-                            newFilter),
+                            node.getJoinType()),
                     mapping);
         }
 

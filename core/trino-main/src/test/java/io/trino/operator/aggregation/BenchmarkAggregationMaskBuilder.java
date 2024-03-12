@@ -34,12 +34,13 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.aggregation.AggregationMaskCompiler.generateAggregationMaskBuilder;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Fork(value = 1, jvmArgsAppend = "-XX:+UnlockDiagnosticVMOptions")
-@Warmup(iterations = 10, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 10, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 0, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 1, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
 public class BenchmarkAggregationMaskBuilder
 {
     private final AggregationMaskBuilder rleNoNullsBuilder = new InterpretedAggregationMaskBuilder(0, 3, 6);
@@ -302,7 +303,7 @@ public class BenchmarkAggregationMaskBuilder
                 Block value = rle.getValue();
                 if (!(value == null ||
                         ((!maskBlockMayHaveNull || !value.isNull(0)) &&
-                                value.getByte(0, 0) != 0))) {
+                                BOOLEAN.getBoolean(value, 0)))) {
                     return AggregationMask.createSelectNone(positionCount);
                 }
                 // mask block is always true, so do not evaluate mask block
@@ -343,7 +344,7 @@ public class BenchmarkAggregationMaskBuilder
             // add all positions that pass the tests
             int selectedPositionsIndex = 0;
             for (int position = 0; position < positionCount; position++) {
-                if ((maskBlock == null || ((!maskBlockMayHaveNull || !maskBlock.isNull(position)) && maskBlock.getByte(position, 0) != 0)) &&
+                if ((maskBlock == null || ((!maskBlockMayHaveNull || !maskBlock.isNull(position)) && BOOLEAN.getBoolean(maskBlock, position))) &&
                         (!nonNullArg0MayHaveNull || !nonNullArg0.isNull(position)) &&
                         (!nonNullArg1MayHaveNull || !nonNullArg1.isNull(position)) &&
                         (!nonNullArgNMayHaveNull || !nonNullArgN.isNull(position))) {
@@ -361,18 +362,6 @@ public class BenchmarkAggregationMaskBuilder
             return rle.getValue().isNull(0);
         }
         return false;
-    }
-
-    private static boolean testMaskBlock(Block block, boolean mayHaveNulls, int position)
-    {
-        return block == null ||
-                ((!mayHaveNulls || !block.isNull(position)) &&
-                        block.getByte(position, 0) != 0);
-    }
-
-    private static boolean isNotNull(Block block, boolean mayHaveNulls, int position)
-    {
-        return !mayHaveNulls || !block.isNull(position);
     }
 
     private static AggregationMaskBuilder compiledMaskBuilder(int... ints)

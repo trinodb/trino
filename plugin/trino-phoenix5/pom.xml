@@ -5,13 +5,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>440-SNAPSHOT</version>
+        <version>441-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-phoenix5</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Phoenix 5 Connector</description>
+    <description>Trino - Phoenix 5 connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

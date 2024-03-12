@@ -5,17 +5,19 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>440-SNAPSHOT</version>
+        <version>441-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-server-rpm</artifactId>
     <packaging>rpm</packaging>
+    <description>Trino - Server RPM package</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
 
         <server.tar.package>trino-server-${project.version}</server.tar.package>
+        <rpm.skipSigning>true</rpm.skipSigning>
     </properties>
 
     <dependencies>
@@ -155,140 +157,148 @@
 
             <!-- Build RPM using the untarred artifacts -->
             <plugin>
-                <groupId>io.airlift.maven.plugins</groupId>
-                <artifactId>redlinerpm-maven-plugin</artifactId>
-                <version>2.1.8</version>
+                <groupId>de.dentrassi.maven</groupId>
+                <artifactId>rpm</artifactId>
+                <version>1.11.0</version>
                 <extensions>true</extensions>
-
-                <configuration>
-                    <performCheckingForExtraFiles>false</performCheckingForExtraFiles>
-
-                    <packages>
-                        <package>
-                            <name>trino-server-rpm</name>
-                            <nameOverride>trino-server-rpm-${project.version}.noarch.rpm</nameOverride>
-                            <version>${project.version}</version>
-                            <release>1</release>
-
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>rpm</goal>
+                        </goals>
+                        <configuration>
                             <group>Applications/Databases</group>
+                            <version>${project.version}</version>
+                            <outputFileName>trino-server-rpm-${project.version}.noarch.rpm</outputFileName>
+                            <release>1</release>
+                            <forceRelease>true</forceRelease>
                             <description>Trino Server RPM Package.</description>
-                            <architecture>noarch</architecture>
-                            <preInstallScriptFile>src/main/rpm/preinstall</preInstallScriptFile>
-                            <postInstallScriptFile>src/main/rpm/postinstall</postInstallScriptFile>
-                            <preUninstallScriptFile>src/main/rpm/preremove</preUninstallScriptFile>
-                            <postUninstallScriptFile>src/main/rpm/postremove</postUninstallScriptFile>
-
-                            <dependencies>
-                                <dependency>
-                                    <name>python</name>
-                                    <version>[2.4,)</version>
-                                </dependency>
-                                <dependency>
-                                    <name>/usr/sbin/useradd</name>
-                                </dependency>
-                                <dependency>
-                                    <name>/usr/sbin/groupadd</name>
-                                </dependency>
-                                <dependency>
-                                    <!-- Used e.g. by service launcher -->
-                                    <name>/usr/bin/sudo</name>
-                                </dependency>
-                            </dependencies>
-
-                            <links>
-                                <link>
-                                    <path>/usr/lib/trino/etc</path>
-                                    <target>/etc/trino</target>
-                                </link>
-                            </links>
-
-                            <rules>
-                                <rule>
-                                    <destination>/usr/lib/trino/bin</destination>
-                                    <base>${server.tar.package}/bin</base>
-                                    <!-- make sure launcher scripts are executable -->
-                                    <fileMode>0755</fileMode>
-                                    <includes>
-                                        <include>*</include>
-                                    </includes>
-                                </rule>
-
-                                <rule>
-                                    <destination>/usr/lib/trino/bin</destination>
-                                    <base>${server.tar.package}/bin</base>
-                                    <!-- copy sub folders -->
-                                    <includes>
-                                        <include>*/**</include>
-                                    </includes>
-                                </rule>
-
-                                <rule>
-                                    <destination>/etc/init.d</destination>
-                                    <base>dist/etc/init.d</base>
-                                    <!-- make sure init.d scripts are executable -->
-                                    <fileMode>0755</fileMode>
-                                    <includes>
-                                        <include>*</include>
-                                    </includes>
-                                </rule>
-
-                                <rule>
-                                    <destination>/usr/lib/trino/shared</destination>
-                                    <base>${server.tar.package}/shared</base>
-                                    <includes>
-                                        <include>*</include>
-                                    </includes>
-                                </rule>
-
-                                <rule>
-                                    <!-- This should go to just /usr/lib/trino eventually. But that needs modifying
-                                    launcher.py in airlift, to have a configurable option for install_path -->
-                                    <destination>/usr/lib/trino/lib</destination>
-                                    <base>${server.tar.package}/lib</base>
-                                    <includes>
-                                        <include>*</include>
-                                    </includes>
-                                </rule>
-
-                                <rule>
-                                    <destination>/usr/lib/trino/plugin</destination>
-                                    <base>${server.tar.package}/plugin</base>
-                                    <includes>
-                                        <include>*/**</include>
-                                    </includes>
-                                </rule>
-
-                                <rule>
-                                    <destination>/etc/trino</destination>
-                                    <base>dist/config</base>
-                                    <includes>
-                                        <include>*</include>
-                                    </includes>
-                                    <directives>
-                                        <directive>config</directive>
-                                        <directive>noreplace</directive>
-                                    </directives>
-                                </rule>
-
-                                <rule>
-                                    <destination>/usr/shared/doc/trino</destination>
-                                    <base>${server.tar.package}</base>
-                                    <includes>
-                                        <include>README.txt</include>
-                                    </includes>
-                                </rule>
-
-                                <!-- Add these rules so that .spec knows these dirs are to be removed too on rpm -e -->
-                                <rule>
-                                    <destination>/usr/lib/trino</destination>
-                                </rule>
-                                <rule>
-                                    <destination>/usr/lib/trino/lib</destination>
-                                </rule>
-                            </rules>
-                        </package>
-                    </packages>
-                </configuration>
+                            <epoch>0</epoch>
+                            <requires>
+                                <require>python ge 2.4</require>
+                                <require>/usr/sbin/useradd</require>
+                                <require>/usr/sbin/groupadd</require>
+                                <!-- Used e.g. by service launcher -->
+                                <require>/usr/bin/sudo</require>
+                            </requires>
+                            <afterInstallation>
+                                <file>src/main/rpm/postinstall</file>
+                            </afterInstallation>
+                            <beforeInstallation>
+                                <file>src/main/rpm/preinstall</file>
+                            </beforeInstallation>
+                            <beforeRemoval>
+                                <file>src/main/rpm/preremove</file>
+                            </beforeRemoval>
+                            <afterRemoval>
+                                <file>src/main/rpm/postremove</file>
+                            </afterRemoval>
+                            <rulesets>
+                                <ruleset>
+                                    <id>server-package</id>
+                                    <rules>
+                                        <rule>
+                                            <when>
+                                                <prefix>/etc/trino</prefix>
+                                            </when>
+                                            <configuration>true</configuration>
+                                        </rule>
+                                        <file>
+                                            <when>
+                                                <prefix>/usr/shared/doc</prefix>
+                                            </when>
+                                            <documentation>true</documentation>
+                                        </file>
+                                        <file>
+                                            <when>
+                                                <prefix>/etc/init.d</prefix>
+                                                <type>file</type>
+                                            </when>
+                                            <!-- make sure launcher scripts are executable -->
+                                            <mode>0755</mode>
+                                        </file>
+                                        <!-- make launcher and launcher.py executable -->
+                                        <file>
+                                            <when>
+                                                <suffix>/usr/lib/trino/bin/launcher</suffix>
+                                                <type>file</type>
+                                            </when>
+                                            <mode>0755</mode>
+                                        </file>
+                                        <file>
+                                            <when>
+                                                <suffix>/usr/lib/trino/bin/launcher.py</suffix>
+                                                <type>file</type>
+                                            </when>
+                                            <mode>0755</mode>
+                                        </file>
+                                        <file>
+                                            <when>
+                                                <suffix>/usr/lib/trino/bin</suffix>
+                                                <type>directory</type>
+                                            </when>
+                                            <mode>0755</mode>
+                                        </file>
+                                    </rules>
+                                </ruleset>
+                            </rulesets>
+                            <entries>
+                                <entry>
+                                    <name>/usr/lib/trino/etc</name>
+                                    <linkTo>/etc/trino</linkTo>
+                                </entry>
+                                <entry>
+                                    <name>/usr/lib/trino</name>
+                                    <collect>
+                                        <from>target/classes/${server.tar.package}</from>
+                                        <excludes>
+                                            <!-- README is added to /usr/share/docs -->
+                                            <exclude>README.txt</exclude>
+                                        </excludes>
+                                        <symbolicLinks>true</symbolicLinks>
+                                    </collect>
+                                    <ruleset>server-package</ruleset>
+                                </entry>
+                                <entry>
+                                    <name>/etc/init.d</name>
+                                    <collect>
+                                        <from>src/main/resources/dist/etc/init.d</from>
+                                    </collect>
+                                    <ruleset>server-package</ruleset>
+                                </entry>
+                                <entry>
+                                    <!-- explicitly create directory -->
+                                    <name>/etc/trino</name>
+                                    <directory>true</directory>
+                                </entry>
+                                <entry>
+                                    <name>/etc/trino</name>
+                                    <collect>
+                                        <from>src/main/resources/dist/config</from>
+                                        <directories>false</directories>
+                                    </collect>
+                                    <noreplace>true</noreplace>
+                                    <ruleset>server-package</ruleset>
+                                </entry>
+                                <entry>
+                                    <!-- explicitly create directory -->
+                                    <name>/usr/shared/doc/trino</name>
+                                    <directory>true</directory>
+                                </entry>
+                                <entry>
+                                    <name>/usr/shared/doc/trino</name>
+                                    <collect>
+                                        <from>target/classes/${server.tar.package}</from>
+                                        <includes>
+                                            <include>**/README.txt</include>
+                                        </includes>
+                                    </collect>
+                                    <ruleset>server-package</ruleset>
+                                </entry>
+                            </entries>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

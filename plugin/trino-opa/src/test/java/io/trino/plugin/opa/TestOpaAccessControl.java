@@ -13,13 +13,16 @@
  */
 package io.trino.plugin.opa;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.opa.AccessControlMethodHelpers.MethodWrapper;
 import io.trino.plugin.opa.AccessControlMethodHelpers.ReturningMethodWrapper;
 import io.trino.plugin.opa.AccessControlMethodHelpers.ThrowingMethodWrapper;
 import io.trino.plugin.opa.HttpClientUtils.InstrumentedHttpClient;
+import io.trino.plugin.opa.HttpClientUtils.MockResponse;
 import io.trino.plugin.opa.TestConstants.TestingSystemAccessControlContext;
+import io.trino.plugin.opa.schema.OpaViewExpression;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -28,21 +31,31 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import static io.trino.plugin.opa.RequestTestUtilities.assertStringRequestsEqual;
 import static io.trino.plugin.opa.RequestTestUtilities.buildValidatingRequestHandler;
 import static io.trino.plugin.opa.TestConstants.NO_ACCESS_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.OK_RESPONSE;
+import static io.trino.plugin.opa.TestConstants.OPA_COLUMN_MASKING_URI;
+import static io.trino.plugin.opa.TestConstants.OPA_ROW_FILTERING_URI;
 import static io.trino.plugin.opa.TestConstants.OPA_SERVER_URI;
 import static io.trino.plugin.opa.TestConstants.TEST_IDENTITY;
 import static io.trino.plugin.opa.TestConstants.TEST_SECURITY_CONTEXT;
+import static io.trino.plugin.opa.TestConstants.columnMaskingOpaConfig;
+import static io.trino.plugin.opa.TestConstants.rowFilteringOpaConfig;
+import static io.trino.plugin.opa.TestConstants.simpleOpaConfig;
 import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrowsForIllegalResponses;
+import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrowsForResponse;
 import static io.trino.plugin.opa.TestHelpers.createMockHttpClient;
 import static io.trino.plugin.opa.TestHelpers.createOpaAuthorizer;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,7 +71,7 @@ public class TestOpaAccessControl
                     "decision_id": "foo",
                     "some_debug_info": {"test": ""}
                 }"""));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, mockClient);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
         authorizer.checkCanExecuteQuery(TEST_IDENTITY);
     }
 
@@ -623,15 +636,230 @@ public class TestOpaAccessControl
         assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input");
     }
 
+    @Test
+    public void testGetRowFiltersThrowsForIllegalResponse()
+    {
+        CatalogSchemaTableName tableName = new CatalogSchemaTableName("some_catalog", "some_schema", "some_table");
+        Consumer<OpaAccessControl> methodUnderTest = authorizer -> authorizer.getRowFilters(TEST_SECURITY_CONTEXT, tableName);
+        assertAccessControlMethodThrowsForIllegalResponses(methodUnderTest, rowFilteringOpaConfig(), OPA_ROW_FILTERING_URI);
+
+        // Also test a valid JSON response, but containing invalid fields for a row filters request
+        String validJsonButIllegalSchemaResponseContents = """
+                {
+                    "result": ["some-expr"]
+                }""";
+        MockResponse response = new MockResponse(validJsonButIllegalSchemaResponseContents, 200);
+
+        assertAccessControlMethodThrowsForResponse(
+                response,
+                OPA_ROW_FILTERING_URI,
+                rowFilteringOpaConfig(),
+                methodUnderTest,
+                OpaQueryException.class,
+                "Failed to deserialize");
+    }
+
+    @Test
+    public void testGetRowFilters()
+    {
+        // This example is a bit strange - an undefined policy would in most cases
+        // result in an access denied situation. However, since this is row-level-filtering
+        // we will accept this as meaning there are no known filters to be applied.
+        testGetRowFilters("{}", ImmutableList.of());
+
+        String noExpressionsResponse = """
+                {
+                    "result": []
+                }""";
+        testGetRowFilters(noExpressionsResponse, ImmutableList.of());
+
+        String singleExpressionResponse = """
+                {
+                    "result": [
+                        {"expression": "expr1"}
+                    ]
+                }""";
+        testGetRowFilters(
+                singleExpressionResponse,
+                ImmutableList.of(new OpaViewExpression("expr1", Optional.empty())));
+
+        String multipleExpressionsAndIdentitiesResponse = """
+                {
+                    "result": [
+                        {"expression": "expr1"},
+                        {"expression": "expr2", "identity": "expr2_identity"},
+                        {"expression": "expr3", "identity": "expr3_identity"}
+                    ]
+                }""";
+        testGetRowFilters(
+                multipleExpressionsAndIdentitiesResponse,
+                ImmutableList.<OpaViewExpression>builder()
+                        .add(new OpaViewExpression("expr1", Optional.empty()))
+                        .add(new OpaViewExpression("expr2", Optional.of("expr2_identity")))
+                        .add(new OpaViewExpression("expr3", Optional.of("expr3_identity")))
+                        .build());
+    }
+
+    private void testGetRowFilters(String responseContent, List<OpaViewExpression> expectedExpressions)
+    {
+        InstrumentedHttpClient httpClient = createMockHttpClient(OPA_ROW_FILTERING_URI, buildValidatingRequestHandler(TEST_IDENTITY, new MockResponse(responseContent, 200)));
+        OpaAccessControl authorizer = createOpaAuthorizer(rowFilteringOpaConfig(), httpClient);
+        CatalogSchemaTableName tableName = new CatalogSchemaTableName("some_catalog", "some_schema", "some_table");
+
+        List<ViewExpression> result = authorizer.getRowFilters(TEST_SECURITY_CONTEXT, tableName);
+        assertThat(result).allSatisfy(expression -> {
+            assertThat(expression.getCatalog()).contains("some_catalog");
+            assertThat(expression.getSchema()).contains("some_schema");
+        });
+        assertThat(result).map(
+                viewExpression -> new OpaViewExpression(
+                        viewExpression.getExpression(),
+                        viewExpression.getSecurityIdentity()))
+                .containsExactlyInAnyOrderElementsOf(expectedExpressions);
+
+        String expectedRequest = """
+                {
+                    "operation": "GetRowFilters",
+                    "resource": {
+                        "table": {
+                            "catalogName": "some_catalog",
+                            "schemaName": "some_schema",
+                            "tableName": "some_table"
+                        }
+                    }
+                }""";
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), httpClient.getRequests(), "/input/action");
+    }
+
+    @Test
+    public void testGetRowFiltersDoesNothingIfNotConfigured()
+    {
+        InstrumentedHttpClient httpClient = createMockHttpClient(
+                OPA_SERVER_URI,
+                request -> {
+                    throw new AssertionError("Should not have been called");
+                });
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), httpClient);
+        CatalogSchemaTableName tableName = new CatalogSchemaTableName("some_catalog", "some_schema", "some_table");
+
+        List<ViewExpression> result = authorizer.getRowFilters(TEST_SECURITY_CONTEXT, tableName);
+        assertThat(result).isEmpty();
+        assertThat(httpClient.getRequests()).isEmpty();
+    }
+
+    @Test
+    public void testGetColumnMaskThrowsForIllegalResponse()
+    {
+        CatalogSchemaTableName tableName = new CatalogSchemaTableName("some_catalog", "some_schema", "some_table");
+        Consumer<OpaAccessControl> methodUnderTest = authorizer -> authorizer.getColumnMask(TEST_SECURITY_CONTEXT, tableName, "some_column", VarcharType.VARCHAR);
+        assertAccessControlMethodThrowsForIllegalResponses(methodUnderTest, columnMaskingOpaConfig(), OPA_COLUMN_MASKING_URI);
+
+        // Also test a valid JSON response, but containing invalid fields for a row filters request
+        String validJsonButIllegalSchemaResponseContents = """
+                {
+                    "result": {"expression": {"foo": "bar"}}
+                }""";
+        MockResponse response = new MockResponse(validJsonButIllegalSchemaResponseContents, 200);
+        assertAccessControlMethodThrowsForResponse(
+                response,
+                OPA_COLUMN_MASKING_URI,
+                columnMaskingOpaConfig(),
+                methodUnderTest,
+                OpaQueryException.class,
+                "Failed to deserialize");
+    }
+
+    @Test
+    public void testGetColumnMask()
+    {
+        // Similar note to the test for row level filtering:
+        // This example is a bit strange - an undefined policy would in most cases
+        // result in an access denied situation. However, since this is column masking,
+        // we will accept this as meaning there are no masks to be applied.
+        testGetColumnMask("{}", Optional.empty());
+
+        String nullResponse = """
+                {
+                    "result": null
+                }""";
+        testGetColumnMask(nullResponse, Optional.empty());
+
+        String expressionWithoutIdentityResponse = """
+                {
+                    "result": {"expression": "expr1"}
+                }""";
+        testGetColumnMask(
+                expressionWithoutIdentityResponse,
+                Optional.of(new OpaViewExpression("expr1", Optional.empty())));
+
+        String expressionWithIdentityResponse = """
+                {
+                    "result": {"expression": "expr1", "identity": "some_identity"}
+                }""";
+        testGetColumnMask(
+                expressionWithIdentityResponse,
+                Optional.of(new OpaViewExpression("expr1", Optional.of("some_identity"))));
+    }
+
+    private void testGetColumnMask(String responseContent, Optional<OpaViewExpression> expectedExpression)
+    {
+        InstrumentedHttpClient httpClient = createMockHttpClient(
+                OPA_COLUMN_MASKING_URI,
+                buildValidatingRequestHandler(TEST_IDENTITY, new MockResponse(responseContent, 200)));
+        OpaAccessControl authorizer = createOpaAuthorizer(columnMaskingOpaConfig(), httpClient);
+
+        CatalogSchemaTableName tableName = new CatalogSchemaTableName("some_catalog", "some_schema", "some_table");
+
+        Optional<ViewExpression> result = authorizer.getColumnMask(TEST_SECURITY_CONTEXT, tableName, "some_column", VarcharType.VARCHAR);
+
+        assertThat(result.isEmpty()).isEqualTo(expectedExpression.isEmpty());
+        assertThat(result.map(viewExpression -> {
+            assertThat(viewExpression.getCatalog()).contains("some_catalog");
+            assertThat(viewExpression.getSchema()).contains("some_schema");
+            return new OpaViewExpression(viewExpression.getExpression(), viewExpression.getSecurityIdentity());
+        })).isEqualTo(expectedExpression);
+
+        String expectedRequest = """
+                {
+                    "operation": "GetColumnMask",
+                    "resource": {
+                        "column": {
+                            "catalogName": "some_catalog",
+                            "schemaName": "some_schema",
+                            "tableName": "some_table",
+                            "columnName": "some_column",
+                            "columnType": "varchar"
+                        }
+                    }
+                }""";
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), httpClient.getRequests(), "/input/action");
+    }
+
+    @Test
+    public void testGetColumnMaskDoesNothingIfNotConfigured()
+    {
+        InstrumentedHttpClient httpClient = createMockHttpClient(
+                OPA_SERVER_URI,
+                request -> {
+                    throw new AssertionError("Should not have been called");
+                });
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), httpClient);
+        CatalogSchemaTableName tableName = new CatalogSchemaTableName("some_catalog", "some_schema", "some_table");
+
+        Optional<ViewExpression> result = authorizer.getColumnMask(TEST_SECURITY_CONTEXT, tableName, "some_column", VarcharType.VARCHAR);
+        assertThat(result).isEmpty();
+        assertThat(httpClient.getRequests()).isEmpty();
+    }
+
     private static void assertAccessControlMethodBehaviour(MethodWrapper method, Set<String> expectedRequests)
     {
         InstrumentedHttpClient permissiveMockClient = createMockHttpClient(OPA_SERVER_URI, buildValidatingRequestHandler(TEST_IDENTITY, OK_RESPONSE));
         InstrumentedHttpClient restrictiveMockClient = createMockHttpClient(OPA_SERVER_URI, buildValidatingRequestHandler(TEST_IDENTITY, NO_ACCESS_RESPONSE));
 
-        assertThat(method.isAccessAllowed(createOpaAuthorizer(OPA_SERVER_URI, permissiveMockClient))).isTrue();
-        assertThat(method.isAccessAllowed(createOpaAuthorizer(OPA_SERVER_URI, restrictiveMockClient))).isFalse();
+        assertThat(method.isAccessAllowed(createOpaAuthorizer(simpleOpaConfig(), permissiveMockClient))).isTrue();
+        assertThat(method.isAccessAllowed(createOpaAuthorizer(simpleOpaConfig(), restrictiveMockClient))).isFalse();
         assertThat(permissiveMockClient.getRequests()).containsExactlyInAnyOrderElementsOf(restrictiveMockClient.getRequests());
         assertStringRequestsEqual(expectedRequests, permissiveMockClient.getRequests(), "/input/action");
-        assertAccessControlMethodThrowsForIllegalResponses(method::isAccessAllowed);
+        assertAccessControlMethodThrowsForIllegalResponses(method::isAccessAllowed, simpleOpaConfig(), OPA_SERVER_URI);
     }
 }

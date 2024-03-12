@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 public class InterpretedAggregationMaskBuilder
         implements AggregationMaskBuilder
@@ -54,6 +55,7 @@ public class InterpretedAggregationMaskBuilder
                 return AggregationMask.createSelectNone(positionCount);
             }
             // mask block is always true, so do not evaluate mask block
+            maskBlock = null;
             hasMaskBlock = false;
             maskBlockMayHaveNull = false;
         }
@@ -97,7 +99,7 @@ public class InterpretedAggregationMaskBuilder
         if (mayHaveNulls && block.isNull(position)) {
             return false;
         }
-        return block.getByte(position, 0) != 0;
+        return BOOLEAN.getBoolean(block, position);
     }
 
     private static final class ChannelNullCheck

@@ -24,12 +24,12 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 public class VarcharToDoubleCoercer
         extends TypeCoercer<VarcharType, DoubleType>
 {
-    private final boolean treatNaNAsNull;
+    private final boolean isOrcFile;
 
-    public VarcharToDoubleCoercer(VarcharType fromType, boolean treatNaNAsNull)
+    public VarcharToDoubleCoercer(VarcharType fromType, boolean isOrcFile)
     {
         super(fromType, DOUBLE);
-        this.treatNaNAsNull = treatNaNAsNull;
+        this.isOrcFile = isOrcFile;
     }
 
     @Override
@@ -44,7 +44,8 @@ public class VarcharToDoubleCoercer
             return;
         }
 
-        if (Double.isNaN(doubleValue) && treatNaNAsNull) {
+        // Apache Hive reads Double.NaN as null when coerced to varchar for ORC file format
+        if (Double.isNaN(doubleValue) && isOrcFile) {
             blockBuilder.appendNull();
             return;
         }

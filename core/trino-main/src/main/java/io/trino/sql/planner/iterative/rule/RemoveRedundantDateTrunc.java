@@ -32,11 +32,10 @@ import io.trino.sql.tree.SymbolReference;
 import java.util.Locale;
 import java.util.Map;
 
-import static com.google.common.base.Verify.verifyNotNull;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
 import static java.util.Objects.requireNonNull;
 
 public class RemoveRedundantDateTrunc
@@ -55,8 +54,7 @@ public class RemoveRedundantDateTrunc
         if (expression instanceof SymbolReference) {
             return expression;
         }
-        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, plannerContext, expressionTypes), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, plannerContext, typeAnalyzer, types), expression);
     }
 
     private static class Visitor
@@ -64,13 +62,15 @@ public class RemoveRedundantDateTrunc
     {
         private final Session session;
         private final PlannerContext plannerContext;
-        private final Map<NodeRef<Expression>, Type> expressionTypes;
+        private final IrTypeAnalyzer typeAnalyzer;
+        private final TypeProvider types;
 
-        public Visitor(Session session, PlannerContext plannerContext, Map<NodeRef<Expression>, Type> expressionTypes)
+        public Visitor(Session session, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
         {
             this.session = requireNonNull(session, "session is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-            this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
+            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -78,9 +78,10 @@ public class RemoveRedundantDateTrunc
         {
             CatalogSchemaFunctionName functionName = extractFunctionName(node.getName());
             if (functionName.equals(builtinFunctionName("date_trunc")) && node.getArguments().size() == 2) {
+                Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, node);
                 Expression unitExpression = node.getArguments().get(0);
                 Expression argument = node.getArguments().get(1);
-                if (getType(argument) == DATE && getType(unitExpression) instanceof VarcharType && isEffectivelyLiteral(plannerContext, session, unitExpression)) {
+                if (expressionTypes.get(NodeRef.of(argument)) == DATE && expressionTypes.get(NodeRef.of(unitExpression)) instanceof VarcharType && isEffectivelyLiteral(plannerContext, session, unitExpression)) {
                     Slice unitValue = (Slice) new IrExpressionInterpreter(unitExpression, plannerContext, session, expressionTypes)
                             .optimize(NoOpSymbolResolver.INSTANCE);
                     if (unitValue != null && "day".equals(unitValue.toStringUtf8().toLowerCase(Locale.ENGLISH))) {
@@ -91,11 +92,6 @@ public class RemoveRedundantDateTrunc
             }
 
             return treeRewriter.defaultRewrite(node, context);
-        }
-
-        private Type getType(Expression expression)
-        {
-            return verifyNotNull(expressionTypes.get(NodeRef.of(expression)), "No type for expression: %s", expression);
         }
     }
 }

@@ -32,20 +32,20 @@ import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.apache.accumulo.core.client.BatchWriter;
 import org.apache.accumulo.core.client.BatchWriterConfig;
-import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.MutationsRejectedException;
 import org.apache.accumulo.core.client.Scanner;
 import org.apache.accumulo.core.client.TableNotFoundException;
+import org.apache.accumulo.core.client.lexicoder.AbstractLexicoder;
 import org.apache.accumulo.core.data.ColumnUpdate;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Mutation;
 import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.iterators.LongCombiner;
-import org.apache.accumulo.core.iterators.TypedValueCombiner;
 import org.apache.accumulo.core.iterators.user.SummingCombiner;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.accumulo.core.security.ColumnVisibility;
@@ -118,12 +118,12 @@ public class Indexer
 
     private static final byte[] EMPTY_BYTES = new byte[0];
     private static final byte[] UNDERSCORE = {'_'};
-    private static final TypedValueCombiner.Encoder<Long> ENCODER = new LongCombiner.StringEncoder();
+    private static final AbstractLexicoder<Long> ENCODER = new LongCombiner.StringEncoder();
 
     private final AccumuloTable table;
     private final BatchWriter indexWriter;
     private final BatchWriterConfig writerConfig;
-    private final Connector connector;
+    private final AccumuloClient client;
     private final Map<MetricsKey, AtomicLong> metrics = new HashMap<>();
     private final Multimap<ByteBuffer, ByteBuffer> indexColumns;
     private final Map<ByteBuffer, Map<ByteBuffer, Type>> indexColumnTypes;
@@ -134,13 +134,13 @@ public class Indexer
     private byte[] lastRow;
 
     public Indexer(
-            Connector connector,
+            AccumuloClient client,
             Authorizations auths,
             AccumuloTable table,
             BatchWriterConfig writerConfig)
             throws TableNotFoundException
     {
-        this.connector = requireNonNull(connector, "connector is null");
+        this.client = requireNonNull(client, "client is null");
         this.table = requireNonNull(table, "table is null");
         this.writerConfig = requireNonNull(writerConfig, "writerConfig is null");
         requireNonNull(auths, "auths is null");
@@ -148,7 +148,7 @@ public class Indexer
         this.serializer = table.getSerializerInstance();
 
         // Create our batch writer
-        indexWriter = connector.createBatchWriter(table.getIndexTableName(), writerConfig);
+        indexWriter = client.createBatchWriter(table.getIndexTableName(), writerConfig);
 
         ImmutableMultimap.Builder<ByteBuffer, ByteBuffer> indexColumnsBuilder = ImmutableMultimap.builder();
         Table<ByteBuffer, ByteBuffer, Type> indexColumnTypesBuilder = HashBasedTable.create();
@@ -181,7 +181,7 @@ public class Indexer
         metrics.put(METRICS_TABLE_ROW_COUNT, new AtomicLong(0));
 
         // Scan the metrics table for existing first row and last row
-        Entry<byte[], byte[]> minmax = getMinMaxRowIds(connector, table, auths);
+        Entry<byte[], byte[]> minmax = getMinMaxRowIds(client, table, auths);
         firstRow = minmax.getKey();
         lastRow = minmax.getValue();
     }
@@ -286,7 +286,7 @@ public class Indexer
             indexWriter.flush();
 
             // Write out metrics mutations
-            BatchWriter metricsWriter = connector.createBatchWriter(table.getMetricsTableName(), writerConfig);
+            BatchWriter metricsWriter = client.createBatchWriter(table.getMetricsTableName(), writerConfig);
             metricsWriter.addMutations(getMetricsMutations());
             metricsWriter.close();
 
@@ -464,7 +464,7 @@ public class Indexer
         return getMetricsTableName(tableName.getSchemaName(), tableName.getTableName());
     }
 
-    public static Entry<byte[], byte[]> getMinMaxRowIds(Connector connector, AccumuloTable table, Authorizations auths)
+    public static Entry<byte[], byte[]> getMinMaxRowIds(AccumuloClient connector, AccumuloTable table, Authorizations auths)
             throws TableNotFoundException
     {
         Scanner scanner = connector.createScanner(table.getMetricsTableName(), auths);

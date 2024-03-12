@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -25,7 +27,7 @@ import java.util.Optional;
 import static io.trino.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
@@ -54,7 +56,7 @@ public class TestPushPartialAggregationThroughJoin
                                         Optional.of(expression("LEFT_NON_EQUI <= RIGHT_NON_EQUI")),
                                         Optional.of(p.symbol("LEFT_HASH")),
                                         Optional.of(p.symbol("RIGHT_HASH"))))
-                        .addAggregation(p.symbol("AVG", DOUBLE), expression("AVG(LEFT_AGGR)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.symbol("AVG", DOUBLE), PlanBuilder.aggregation("AVG", ImmutableList.of(new SymbolReference("LEFT_AGGR"))), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("RIGHT_GROUP_BY"))
                         .step(PARTIAL)))
                 .matches(project(ImmutableMap.of(
@@ -67,7 +69,7 @@ public class TestPushPartialAggregationThroughJoin
                                 .left(
                                         aggregation(
                                                 singleGroupingSet("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_HASH"),
-                                                ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("LEFT_AGGR"))),
+                                                ImmutableMap.of(Optional.of("AVG"), aggregationFunction("avg", ImmutableList.of("LEFT_AGGR"))),
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 values("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_AGGR", "LEFT_HASH")))

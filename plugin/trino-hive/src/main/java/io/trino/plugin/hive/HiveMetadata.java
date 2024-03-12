@@ -500,6 +500,9 @@ public class HiveMetadata
             return null;
         }
 
+        if (isSomeKindOfAView(table)) {
+            return null;
+        }
         if (isDeltaLakeTable(table)) {
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Cannot query Delta Lake table '%s'", tableName));
         }
@@ -2172,7 +2175,11 @@ public class HiveMetadata
         if (isFullAcidTable(table.getParameters())) {
             for (PartitionUpdate update : partitionUpdates) {
                 String deltaSubdir = deltaSubdir(handle.getTransaction().getWriteId(), 0);
-                String directory = "%s/%s/%s".formatted(table.getStorage().getLocation(), update.getName(), deltaSubdir);
+                String directory = table.getStorage().getLocation();
+                if (!update.getName().isEmpty()) {
+                    directory += "/" + update.getName();
+                }
+                directory += "/" + deltaSubdir;
                 createOrcAcidVersionFile(session.getIdentity(), directory);
             }
         }
@@ -3770,15 +3777,7 @@ public class HiveMetadata
         // Validate the name and the type of each column
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             String columnName = column.getName();
-            if (columnName.startsWith(" ")) {
-                throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not start with a space: '%s'", columnName));
-            }
-            if (columnName.endsWith(" ")) {
-                throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not end with a space: '%s'", columnName));
-            }
-            if (columnName.contains(",")) {
-                throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not contain commas: '%s'", columnName));
-            }
+            verifyHiveColumnName(columnName);
             // validate type is supported
             toHiveType(column.getType());
         }
@@ -3798,6 +3797,19 @@ public class HiveMetadata
                     .map(columnMetadata -> format("%s %s", columnMetadata.getName(), columnMetadata.getType()))
                     .collect(joining(", "));
             throw new TrinoException(NOT_SUPPORTED, "Hive CSV storage format only supports VARCHAR (unbounded). Unsupported columns: " + joinedUnsupportedColumns);
+        }
+    }
+
+    public static void verifyHiveColumnName(String columnName)
+    {
+        if (columnName.startsWith(" ")) {
+            throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not start with a space: '%s'", columnName));
+        }
+        if (columnName.endsWith(" ")) {
+            throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not end with a space: '%s'", columnName));
+        }
+        if (columnName.contains(",")) {
+            throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not contain commas: '%s'", columnName));
         }
     }
 
@@ -3917,6 +3929,12 @@ public class HiveMetadata
     public CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName name)
     {
         return hiveMaterializedViewMetadata.refreshMaterializedView(session, name);
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
+    {
+        return hiveMaterializedViewMetadata.getMaterializedViewProperties(session, viewName, definition);
     }
 
     @Override

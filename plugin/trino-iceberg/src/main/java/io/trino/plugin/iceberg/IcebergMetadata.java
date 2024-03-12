@@ -314,9 +314,6 @@ public class IcebergMetadata
     private static final String UNKNOWN_SNAPSHOT_TOKEN = "UNKNOWN";
     public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.of(FILE_FORMAT_PROPERTY, FORMAT_VERSION_PROPERTY, PARTITIONING_PROPERTY, SORTED_BY_PROPERTY);
 
-    public static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
-    public static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
-
     public static final String NUMBER_OF_DISTINCT_VALUES_NAME = "NUMBER_OF_DISTINCT_VALUES";
     private static final FunctionName NUMBER_OF_DISTINCT_VALUES_FUNCTION = new FunctionName(IcebergThetaSketchForStats.NAME);
 
@@ -1134,7 +1131,7 @@ public class IcebergMetadata
 
         // TODO (https://github.com/trinodb/trino/issues/15439): it would be good to publish data and stats atomically
         beforeWriteSnapshotId.ifPresent(previous ->
-                verify(previous != newSnapshotId, "Failed to get new snapshot ID "));
+                verify(previous != newSnapshotId, "Failed to get new snapshot ID"));
 
         if (!computedStatistics.isEmpty()) {
             try {
@@ -1434,6 +1431,7 @@ public class IcebergMetadata
     {
         IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.getProcedureHandle();
         Table icebergTable = transaction.table();
+        Optional<Long> beforeWriteSnapshotId = getCurrentSnapshotId(icebergTable);
 
         // files to be deleted
         ImmutableSet.Builder<DataFile> scannedDataFilesBuilder = ImmutableSet.builder();
@@ -1494,6 +1492,30 @@ public class IcebergMetadata
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
         commit(rewriteFiles, session);
         transaction.commitTransaction();
+
+        // TODO (https://github.com/trinodb/trino/issues/15439) this may not exactly be the snapshot we committed, if there is another writer
+        long newSnapshotId = transaction.table().currentSnapshot().snapshotId();
+        transaction = null;
+
+        // TODO (https://github.com/trinodb/trino/issues/15439): it would be good to publish data and stats atomically
+        beforeWriteSnapshotId.ifPresent(previous ->
+                verify(previous != newSnapshotId, "Failed to get new snapshot ID"));
+
+        try {
+            beginTransaction(catalog.loadTable(session, executeHandle.getSchemaTableName()));
+            Table reloadedTable = transaction.table();
+            StatisticsFile newStatsFile = tableStatisticsWriter.rewriteStatisticsFile(session, reloadedTable, newSnapshotId);
+
+            transaction.updateStatistics()
+                    .setStatistics(newSnapshotId, newStatsFile)
+                    .commit();
+            transaction.commitTransaction();
+        }
+        catch (Exception e) {
+            // Write was committed, so at this point we cannot fail the query
+            // TODO (https://github.com/trinodb/trino/issues/15439): it would be good to publish data and stats atomically
+            log.error(e, "Failed to save table statistics");
+        }
         transaction = null;
     }
 

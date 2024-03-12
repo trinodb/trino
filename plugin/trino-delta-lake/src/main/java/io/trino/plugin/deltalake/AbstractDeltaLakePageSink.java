@@ -109,6 +109,7 @@ public abstract class AbstractDeltaLakePageSink
     private final List<Boolean> activeWriters = new ArrayList<>();
     protected final ImmutableList.Builder<DataFileInfo> dataFileInfos = ImmutableList.builder();
     private final DeltaLakeParquetSchemaMapping parquetSchemaMapping;
+    private long currentOpenWriters;
 
     public AbstractDeltaLakePageSink(
             TypeOperators typeOperators,
@@ -347,9 +348,6 @@ public abstract class AbstractDeltaLakePageSink
     {
         Page partitionColumns = extractColumns(page, partitionColumnsInputIndex);
         int[] writerIndexes = pageIndexer.indexPage(partitionColumns);
-        if (pageIndexer.getMaxIndex() >= maxOpenWriters) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Exceeded limit of %s open writers for partitions", maxOpenWriters));
-        }
 
         // expand writers list to new size
         while (writers.size() <= pageIndexer.getMaxIndex()) {
@@ -392,9 +390,14 @@ public abstract class AbstractDeltaLakePageSink
                     getDataFileType());
 
             writers.set(writerIndex, writer);
+            currentOpenWriters++;
             memoryUsage += writer.getMemoryUsage();
         }
         verify(writers.size() == pageIndexer.getMaxIndex() + 1);
+
+        if (currentOpenWriters > maxOpenWriters) {
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Exceeded limit of %s open writers for partitions", maxOpenWriters));
+        }
 
         return writerIndexes;
     }
@@ -420,6 +423,7 @@ public abstract class AbstractDeltaLakePageSink
         memoryUsage -= currentMemory;
 
         writers.set(writerIndex, null);
+        currentOpenWriters--;
 
         try {
             DataFileInfo dataFileInfo = writer.getDataFileInfo();

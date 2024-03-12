@@ -244,7 +244,9 @@ public class CassandraMetadata
 
         String clusteringKeyPredicates = "";
         TupleDomain<ColumnHandle> unenforcedConstraint;
-        if (partitionResult.isUnpartitioned()) {
+        if (partitionResult.isUnpartitioned() || partitionResult.isIndexedColumnPredicatePushdown()) {
+            // When the filter is missing at least one of the partition keys or when the table is not partitioned,
+            // use the raw unenforced constraint of the partitionResult
             unenforcedConstraint = partitionResult.getUnenforcedConstraint();
         }
         else {

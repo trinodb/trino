@@ -55,7 +55,6 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.parallel.Isolated;
 
 import java.time.Instant;
 import java.time.ZonedDateTime;
@@ -178,7 +177,6 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 /**
  * Generic test for connectors.
  */
-@Isolated
 @TestInstance(PER_CLASS)
 public abstract class BaseConnectorTest
         extends AbstractTestQueries
@@ -806,7 +804,7 @@ public abstract class BaseConnectorTest
     public void testDescribeTable()
     {
         // TODO: this is redundant with testShowColumns()
-        assertThat(query("DESCRIBE orders")).matches(getDescribeOrdersResult());
+        assertThat(query("DESCRIBE orders")).result().matches(getDescribeOrdersResult());
     }
 
     protected MaterializedResult getDescribeOrdersResult()
@@ -924,11 +922,13 @@ public abstract class BaseConnectorTest
 
         // column listing
         assertThat(query("SHOW COLUMNS FROM " + testView))
+                .result()
                 .projected("Column") // column types can very between connectors
                 .skippingTypesCheck()
                 .matches("VALUES 'orderkey', 'orderstatus', 'half'");
 
         assertThat(query("DESCRIBE " + testView))
+                .result()
                 .projected("Column") // column types can very between connectors
                 .skippingTypesCheck()
                 .matches("VALUES 'orderkey', 'orderstatus', 'half'");
@@ -1097,11 +1097,13 @@ public abstract class BaseConnectorTest
 
         // column listing
         assertThat(query("SHOW COLUMNS FROM " + view.getObjectName()))
+                .result()
                 .projected("Column") // column types can very between connectors
                 .skippingTypesCheck()
                 .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
 
         assertThat(query("DESCRIBE " + view.getObjectName()))
+                .result()
                 .projected("Column") // column types can very between connectors
                 .skippingTypesCheck()
                 .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
@@ -1755,7 +1757,7 @@ public abstract class BaseConnectorTest
 
         // test SHOW COLUMNS
         assertThat(query("SHOW COLUMNS FROM " + viewName))
-                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .result().matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                         .row("x", "bigint", "", "")
                         .row("y", "varchar(3)", "", "")
                         .build());
@@ -4873,6 +4875,7 @@ public abstract class BaseConnectorTest
                     .collect(toImmutableList());
 
             assertThat(query("DESCRIBE " + tableName))
+                    .result()
                     .projected("Column")
                     .skippingTypesCheck()
                     .matches(Stream.concat(Stream.of("col"), addedColumns.stream())
@@ -6471,6 +6474,7 @@ public abstract class BaseConnectorTest
                         .build());
 
         assertThat(query("SHOW FUNCTIONS FROM " + computeScalar("SELECT current_path")))
+                .result()
                 .skippingTypesCheck()
                 .matches(resultBuilder(getSession())
                         .row(name, "bigint", "integer", "scalar", true, "t42")

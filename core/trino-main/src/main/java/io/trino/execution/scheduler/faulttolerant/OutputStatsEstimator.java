@@ -29,27 +29,20 @@ public interface OutputStatsEstimator
             Function<StageId, EventDrivenFaultTolerantQueryScheduler.StageExecution> stageExecutionLookup,
             boolean parentEager);
 
-    enum OutputStatsEstimateStatus {
-        FINISHED,
-        ESTIMATED_BY_PROGRESS,
-        ESTIMATED_BY_SMALL_INPUT,
-        ESTIMATED_FOR_EAGER_PARENT
-    }
-
     record OutputStatsEstimateResult(
             OutputDataSizeEstimate outputDataSizeEstimate,
             long outputRowCountEstimate,
-            OutputStatsEstimateStatus status)
+            String kind)
     {
-        OutputStatsEstimateResult(ImmutableLongArray partitionDataSizes, long outputRowCountEstimate, OutputStatsEstimateStatus status)
+        OutputStatsEstimateResult(ImmutableLongArray partitionDataSizes, long outputRowCountEstimate, String kind)
         {
-            this(new OutputDataSizeEstimate(partitionDataSizes), outputRowCountEstimate, status);
+            this(new OutputDataSizeEstimate(partitionDataSizes), outputRowCountEstimate, kind);
         }
 
         public OutputStatsEstimateResult
         {
             requireNonNull(outputDataSizeEstimate, "outputDataSizeEstimate is null");
-            requireNonNull(status, "status is null");
+            requireNonNull(kind, "kind is null");
         }
     }
 }

@@ -21,7 +21,7 @@ import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode.Frame;
 import io.trino.sql.planner.plan.WindowNode.Function;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 
 import java.util.Map;
 import java.util.Optional;
@@ -96,11 +96,10 @@ public class PrunePattenRecognitionColumns
                 referencedMeasures,
                 patternRecognitionNode.getCommonBaseFrame(),
                 patternRecognitionNode.getRowsPerMatch(),
-                patternRecognitionNode.getSkipToLabel(),
+                patternRecognitionNode.getSkipToLabels(),
                 patternRecognitionNode.getSkipToPosition(),
                 patternRecognitionNode.isInitial(),
                 patternRecognitionNode.getPattern(),
-                patternRecognitionNode.getSubsets(),
                 patternRecognitionNode.getVariableDefinitions()));
     }
 

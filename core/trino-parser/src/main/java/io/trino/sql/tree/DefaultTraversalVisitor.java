@@ -901,14 +901,6 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitLabelDereference(LabelDereference node, C context)
-    {
-        node.getReference().ifPresent(reference -> process(reference, context));
-
-        return null;
-    }
-
-    @Override
     protected Void visitJsonExists(JsonExists node, C context)
     {
         process(node.getJsonPathInvocation(), context);

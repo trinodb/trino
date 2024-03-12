@@ -5,13 +5,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>440-SNAPSHOT</version>
+        <version>441-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-oracle</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - Oracle Connector</description>
+    <description>Trino - Oracle connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

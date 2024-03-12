@@ -492,4 +492,7 @@ public class AllowAllSystemAccessControl
     {
         return Optional.empty();
     }
+
+    @Override
+    public void shutdown() {}
 }

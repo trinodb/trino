@@ -25,8 +25,8 @@ import java.util.List;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
@@ -126,8 +126,9 @@ public class TestJoin
                 SELECT * FROM t
                 WHERE CAST(x AS bigint) IS NOT NULL AND y = 'hello'
                 """))
-                .hasOutputTypes(List.of(VARCHAR, VARCHAR))
-                .returnsEmptyResult();
+                .result()
+                .hasTypes(List.of(VARCHAR, VARCHAR))
+                .isEmpty();
     }
 
     @Test
@@ -258,7 +259,7 @@ public class TestJoin
                 "VALUES (2, BIGINT '2')",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
+                                ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
                                 join(INNER, builder -> builder
                                         .left(anyTree(values("y")))
                                         .right(values()))

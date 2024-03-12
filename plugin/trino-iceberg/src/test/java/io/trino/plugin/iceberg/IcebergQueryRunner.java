@@ -227,7 +227,7 @@ public final class IcebergQueryRunner
                             "http-server.http.port", "8080"))
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "HIVE_METASTORE",
-                            "hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
+                            "hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString(),
                             "fs.hadoop.enabled", "false",
                             "fs.native-s3.enabled", "true",
                             "s3.aws-access-key", MINIO_ACCESS_KEY,
@@ -301,14 +301,14 @@ public final class IcebergQueryRunner
                 throws Exception
         {
             String azureContainer = requireNonNull(
-                    System.getProperty("hive.hadoop2.azure-abfs-container"),
-                    "System property hive.hadoop2.azure-abfs-container must be provided");
+                    System.getProperty("testing.azure-abfs-container"),
+                    "System property testing.azure-abfs-container must be provided");
             String azureAccount = requireNonNull(
-                    System.getProperty("hive.hadoop2.azure-abfs-account"),
-                    "System property hive.hadoop2.azure-abfs-account must be provided");
+                    System.getProperty("testing.azure-abfs-account"),
+                    "System property testing.azure-abfs-account must be provided");
             String azureAccessKey = requireNonNull(
-                    System.getProperty("hive.hadoop2.azure-abfs-access-key"),
-                    "System property hive.hadoop2.azure-abfs-access-key must be provided");
+                    System.getProperty("testing.azure-abfs-access-key"),
+                    "System property testing.azure-abfs-access-key must be provided");
 
             String abfsSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("hdp3.1-core-site.xml.abfs-template"), UTF_8)
                     .replace("%ABFS_ACCESS_KEY%", azureAccessKey)
@@ -332,7 +332,7 @@ public final class IcebergQueryRunner
                             "http-server.http.port", "8080"))
                     .setIcebergProperties(Map.of(
                             "iceberg.catalog.type", "HIVE_METASTORE",
-                            "hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint(),
+                            "hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString(),
                             "hive.azure.abfs-storage-account", azureAccount,
                             "hive.azure.abfs-access-key", azureAccessKey))
                     .setSchemaInitializer(

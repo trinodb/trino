@@ -200,8 +200,8 @@ public final class DeltaLakeQueryRunner
                 ImmutableMap.of(),
                 extraProperties,
                 ImmutableMap.<String, String>builder()
-                        .put("hive.azure.abfs-storage-account", requiredNonEmptySystemProperty("hive.hadoop2.azure-abfs-account"))
-                        .put("hive.azure.abfs-access-key", requiredNonEmptySystemProperty("hive.hadoop2.azure-abfs-access-key"))
+                        .put("hive.azure.abfs-storage-account", requiredNonEmptySystemProperty("testing.azure-abfs-account"))
+                        .put("hive.azure.abfs-access-key", requiredNonEmptySystemProperty("testing.azure-abfs-access-key"))
                         .putAll(connectorProperties)
                         .buildOrThrow(),
                 testingHadoop,
@@ -229,7 +229,7 @@ public final class DeltaLakeQueryRunner
                 .setCoordinatorProperties(coordinatorProperties)
                 .addExtraProperties(extraProperties)
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
+                        .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                         .putAll(connectorProperties)
                         .buildOrThrow())
                 .build();

@@ -202,7 +202,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                     "hive",
                     ImmutableMap.<String, String>builder()
                             .put("hive.metastore", "thrift")
-                            .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
+                            .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                             .put("hive.allow-drop-table", "true")
                             .putAll(hiveStorageConfiguration())
                             .buildOrThrow());
@@ -519,7 +519,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String schemaName = "test_schema" + randomNameSuffix();
         String viewName = "dummy_view";
-        hiveHadoop.runOnHive("CREATE DATABASE " + schemaName);
+        assertUpdate("CREATE SCHEMA " + schemaName);
         hiveHadoop.runOnHive(format("CREATE VIEW %s.%s AS SELECT * FROM %s.customer", schemaName, viewName, SCHEMA));
         assertThat(computeScalar(format("SHOW TABLES FROM %s LIKE '%s'", schemaName, viewName))).isEqualTo(viewName);
         assertThatThrownBy(() -> computeActual("DESCRIBE " + schemaName + "." + viewName)).hasMessageContaining(format("%s.%s is not a Delta Lake table", schemaName, viewName));

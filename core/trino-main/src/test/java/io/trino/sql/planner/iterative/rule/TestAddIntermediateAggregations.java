@@ -15,13 +15,15 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.planner.assertions.AggregationFunction;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ExchangeNode;
-import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -35,7 +37,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -50,7 +51,7 @@ public class TestAddIntermediateAggregations
     @Test
     public void testBasic()
     {
-        ExpectedValueProvider<FunctionCall> aggregationPattern = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
+        ExpectedValueProvider<AggregationFunction> aggregationPattern = PlanMatchPattern.aggregationFunction("count", false, ImmutableList.of(anySymbol()));
 
         tester().assertThat(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
@@ -58,13 +59,13 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
+                                                    .addAggregation(p.symbol("b"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                                                     .source(
                                                             p.values(p.symbol("a"))))));
                 }))
@@ -100,8 +101,8 @@ public class TestAddIntermediateAggregations
     public void testNoInputCount()
     {
         // COUNT(*) is a special class of aggregation that doesn't take any input that should be tested
-        ExpectedValueProvider<FunctionCall> rawInputCount = PlanMatchPattern.functionCall("count", false, ImmutableList.of());
-        ExpectedValueProvider<FunctionCall> partialInputCount = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
+        ExpectedValueProvider<AggregationFunction> rawInputCount = PlanMatchPattern.aggregationFunction("count", false, ImmutableList.of());
+        ExpectedValueProvider<AggregationFunction> partialInputCount = PlanMatchPattern.aggregationFunction("count", false, ImmutableList.of(anySymbol()));
 
         tester().assertThat(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
@@ -109,13 +110,13 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.symbol("b"), expression("count(*)"), ImmutableList.of())
+                                                    .addAggregation(p.symbol("b"), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
                                                     .source(
                                                             p.values(p.symbol("a"))))));
                 }))
@@ -150,7 +151,7 @@ public class TestAddIntermediateAggregations
     @Test
     public void testMultipleExchanges()
     {
-        ExpectedValueProvider<FunctionCall> aggregationPattern = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
+        ExpectedValueProvider<AggregationFunction> aggregationPattern = PlanMatchPattern.aggregationFunction("count", false, ImmutableList.of(anySymbol()));
 
         tester().assertThat(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
@@ -158,7 +159,7 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
@@ -166,7 +167,7 @@ public class TestAddIntermediateAggregations
                                                     ExchangeNode.Scope.REMOTE,
                                                     p.aggregation(ap -> ap.globalGrouping()
                                                             .step(AggregationNode.Step.PARTIAL)
-                                                            .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
+                                                            .addAggregation(p.symbol("b"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                                                             .source(
                                                                     p.values(p.symbol("a")))))));
                 }))
@@ -208,13 +209,13 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
+                                                    .addAggregation(p.symbol("b"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                                                     .source(
                                                             p.values(p.symbol("a"))))));
                 }))
@@ -224,7 +225,7 @@ public class TestAddIntermediateAggregations
     @Test
     public void testNoLocalParallel()
     {
-        ExpectedValueProvider<FunctionCall> aggregationPattern = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
+        ExpectedValueProvider<AggregationFunction> aggregationPattern = PlanMatchPattern.aggregationFunction("count", false, ImmutableList.of(anySymbol()));
 
         tester().assertThat(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
@@ -232,13 +233,13 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
+                                                    .addAggregation(p.symbol("b"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                                                     .source(
                                                             p.values(p.symbol("a"))))));
                 }))
@@ -272,13 +273,13 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.singleGroupingSet(p.symbol("c"))
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
                                             p.aggregation(ap -> ap.singleGroupingSet(p.symbol("b"))
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
+                                                    .addAggregation(p.symbol("b"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                                                     .source(
                                                             p.values(p.symbol("a"))))));
                 }))
@@ -288,7 +289,7 @@ public class TestAddIntermediateAggregations
     @Test
     public void testInterimProject()
     {
-        ExpectedValueProvider<FunctionCall> aggregationPattern = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
+        ExpectedValueProvider<AggregationFunction> aggregationPattern = PlanMatchPattern.aggregationFunction("count", false, ImmutableList.of(anySymbol()));
 
         tester().assertThat(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
@@ -296,7 +297,7 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c"), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
@@ -304,7 +305,7 @@ public class TestAddIntermediateAggregations
                                                     Assignments.identity(p.symbol("b")),
                                                     p.aggregation(ap -> ap.globalGrouping()
                                                             .step(AggregationNode.Step.PARTIAL)
-                                                            .addAggregation(p.symbol("b"), expression("count(a)"), ImmutableList.of(BIGINT))
+                                                            .addAggregation(p.symbol("b"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
                                                             .source(
                                                                     p.values(p.symbol("a")))))));
                 }))

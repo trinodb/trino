@@ -516,8 +516,8 @@ the property may be configured for:
   - HDFS
 :::
 
-It is recommended to set the `exchange.compression-enabled` property to
-`true` in the cluster's `config.properties` file, to reduce the exchange
+It is recommended to set the `exchange.compression-codec` property to
+`LZ4` in the cluster's `config.properties` file, to reduce the exchange
 manager's overall I/O load. It is also recommended to configure a bucket
 lifecycle rule to automatically expire abandoned objects in the event of a node
 crash.

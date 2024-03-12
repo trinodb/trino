@@ -47,6 +47,7 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
@@ -401,7 +402,7 @@ public class CheckpointEntryIterator
         int commitInfoFields = 12;
         int jobFields = 5;
         int notebookFields = 1;
-        SqlRow commitInfoRow = block.getObject(pagePosition, SqlRow.class);
+        SqlRow commitInfoRow = getRow(block, pagePosition);
         CheckpointFieldReader commitInfo = new CheckpointFieldReader(session, commitInfoRow, type);
         log.debug("Block %s has %s fields", block, commitInfoRow.getFieldCount());
         if (commitInfoRow.getFieldCount() != commitInfoFields) {
@@ -456,7 +457,7 @@ public class CheckpointEntryIterator
         RowType type = protocolType.orElseThrow();
         int minProtocolFields = 2;
         int maxProtocolFields = 4;
-        SqlRow protocolEntryRow = block.getObject(pagePosition, SqlRow.class);
+        SqlRow protocolEntryRow = getRow(block, pagePosition);
         int fieldCount = protocolEntryRow.getFieldCount();
         log.debug("Block %s has %s fields", block, fieldCount);
         if (fieldCount < minProtocolFields || fieldCount > maxProtocolFields) {
@@ -483,7 +484,7 @@ public class CheckpointEntryIterator
         RowType type = metadataType.orElseThrow();
         int metadataFields = 8;
         int formatFields = 2;
-        SqlRow metadataEntryRow = block.getObject(pagePosition, SqlRow.class);
+        SqlRow metadataEntryRow = getRow(block, pagePosition);
         CheckpointFieldReader metadata = new CheckpointFieldReader(session, metadataEntryRow, type);
         log.debug("Block %s has %s fields", block, metadataEntryRow.getFieldCount());
         if (metadataEntryRow.getFieldCount() != metadataFields) {
@@ -521,7 +522,7 @@ public class CheckpointEntryIterator
         }
         RowType type = removeType.orElseThrow();
         int removeFields = 3;
-        SqlRow removeEntryRow = block.getObject(pagePosition, SqlRow.class);
+        SqlRow removeEntryRow = getRow(block, pagePosition);
         log.debug("Block %s has %s fields", block, removeEntryRow.getFieldCount());
         if (removeEntryRow.getFieldCount() != removeFields) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
@@ -552,7 +553,7 @@ public class CheckpointEntryIterator
             }
 
             checkState(!addPartitionValuesBlock.isNull(pagePosition), "Inconsistent blocks provided while building the add file entry");
-            SqlRow addPartitionValuesRow = addPartitionValuesBlock.getObject(pagePosition, SqlRow.class);
+            SqlRow addPartitionValuesRow = getRow(addPartitionValuesBlock, pagePosition);
             CheckpointFieldReader addPartitionValuesReader = new CheckpointFieldReader(session, addPartitionValuesRow, addPartitionValuesType.orElseThrow());
             Map<String, String> partitionValues = addPartitionValuesReader.getMap(stringMap, "partitionValues");
             Map<String, Optional<String>> canonicalPartitionValues = canonicalizePartitionValues(partitionValues);
@@ -562,7 +563,7 @@ public class CheckpointEntryIterator
 
             // Materialize from Parquet the information needed to build the AddEntry instance
             addBlock = addBlock.getLoadedBlock();
-            SqlRow addEntryRow = addBlock.getObject(pagePosition, SqlRow.class);
+            SqlRow addEntryRow = getRow(addBlock, pagePosition);
             log.debug("Block %s has %s fields", addBlock, addEntryRow.getFieldCount());
             CheckpointFieldReader addReader = new CheckpointFieldReader(session, addEntryRow, addType.orElseThrow());
 
@@ -699,7 +700,7 @@ public class CheckpointEntryIterator
             if (metadata.getType() instanceof RowType) {
                 if (checkpointRowStatisticsWritingEnabled) {
                     // RowType column statistics are not used for query planning, but need to be copied when writing out new Checkpoint files.
-                    values.put(metadata.getPhysicalName(), fieldBlock.getObject(fieldIndex, SqlRow.class));
+                    values.put(metadata.getPhysicalName(), getRow(fieldBlock, fieldIndex));
                 }
                 continue;
             }
@@ -717,7 +718,7 @@ public class CheckpointEntryIterator
         }
         RowType type = txnType.orElseThrow();
         int txnFields = 3;
-        SqlRow txnEntryRow = block.getObject(pagePosition, SqlRow.class);
+        SqlRow txnEntryRow = getRow(block, pagePosition);
         log.debug("Block %s has %s fields", block, txnEntryRow.getFieldCount());
         if (txnEntryRow.getFieldCount() != txnFields) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
@@ -839,5 +840,10 @@ public class CheckpointEntryIterator
         {
             return 1;
         }
+    }
+
+    private static SqlRow getRow(Block block, int position)
+    {
+        return ((RowBlock) block.getUnderlyingValueBlock()).getRow(block.getUnderlyingValuePosition(position));
     }
 }

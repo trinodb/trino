@@ -14,12 +14,10 @@
 package io.trino.filesystem.azure;
 
 import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobServiceClient;
-import com.azure.storage.blob.BlobServiceClientBuilder;
-import com.azure.storage.blob.models.StorageAccountInfo;
-import com.azure.storage.common.StorageSharedKeyCredential;
+import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.file.datalake.DataLakeFileSystemClient;
-import com.azure.storage.file.datalake.DataLakeFileSystemClientBuilder;
+import com.azure.storage.file.datalake.DataLakeServiceClient;
+import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
 import com.azure.storage.file.datalake.models.PathItem;
 import com.azure.storage.file.datalake.options.DataLakePathDeleteOptions;
 import io.opentelemetry.api.OpenTelemetry;
@@ -51,68 +49,80 @@ public abstract class AbstractTestAzureFileSystem
         return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
     }
 
-    enum AccountKind
+    protected enum AccountKind
     {
-        HIERARCHICAL, FLAT, BLOB
+        HIERARCHICAL, FLAT
     }
 
     private String account;
-    private StorageSharedKeyCredential credential;
+    private AzureAuth azureAuth;
     private AccountKind accountKind;
     private String containerName;
     private Location rootLocation;
     private BlobContainerClient blobContainerClient;
     private TrinoFileSystem fileSystem;
 
-    protected void initialize(String account, String accountKey, AccountKind expectedAccountKind)
+    protected void initializeWithAccessKey(String account, String accountKey, AccountKind accountKind)
             throws IOException
     {
-        this.account = account;
-        credential = new StorageSharedKeyCredential(account, accountKey);
+        initialize(account, new AzureAuthAccessKey(accountKey), accountKind);
+    }
 
-        String blobEndpoint = "https://%s.blob.core.windows.net".formatted(account);
-        BlobServiceClient blobServiceClient = new BlobServiceClientBuilder()
-                .endpoint(blobEndpoint)
-                .credential(credential)
-                .buildClient();
-        accountKind = getAccountKind(blobServiceClient);
-        checkState(accountKind == expectedAccountKind, "Expected %s account, but found %s".formatted(expectedAccountKind, accountKind));
+    protected void initializeWithOAuth(String account, String tenantId, String clientId, String clientSecret, AccountKind accountKind)
+            throws IOException
+    {
+        String clientEndpoint = "https://login.microsoftonline.com/%s/oauth2/v2.0/token".formatted(tenantId);
+        initialize(account, new AzureAuthOauth(clientEndpoint, tenantId, clientId, clientSecret), accountKind);
+    }
 
+    private void initialize(String account, AzureAuth azureAuth, AccountKind accountKind)
+            throws IOException
+    {
+        this.account = requireNonNull(account, "account is null");
+        this.azureAuth = requireNonNull(azureAuth, "azureAuth is null");
+        this.accountKind = requireNonNull(accountKind, "accountKind is null");
         containerName = "test-%s-%s".formatted(accountKind.name().toLowerCase(ROOT), randomUUID());
         rootLocation = Location.of("abfs://%s@%s.dfs.core.windows.net/".formatted(containerName, account));
 
-        blobContainerClient = blobServiceClient.getBlobContainerClient(containerName);
+        BlobContainerClientBuilder builder = new BlobContainerClientBuilder()
+                .endpoint("https://%s.blob.core.windows.net".formatted(account))
+                .containerName(containerName);
+        azureAuth.setAuth(account, builder);
+        blobContainerClient = builder.buildClient();
         // this will fail if the container already exists, which is what we want
         blobContainerClient.create();
+        boolean isHierarchicalNamespaceEnabled = isHierarchicalNamespaceEnabled();
+        if (accountKind == AccountKind.HIERARCHICAL) {
+            checkState(isHierarchicalNamespaceEnabled, "Expected hierarchical namespaces to be enabled for storage account %s and container %s with account kind %s".formatted(account, containerName, accountKind));
+        }
+        else {
+            checkState(!isHierarchicalNamespaceEnabled, "Expected hierarchical namespaces to not be enabled for storage account %s and container %s with account kind %s".formatted(account, containerName, accountKind));
+        }
 
         fileSystem = new AzureFileSystemFactory(
                 OpenTelemetry.noop(),
-                new AzureAuthAccessKey(accountKey),
+                azureAuth,
                 new AzureFileSystemConfig()).create(ConnectorIdentity.ofUser("test"));
 
         cleanupFiles();
     }
 
-    private static AccountKind getAccountKind(BlobServiceClient blobServiceClient)
+    private boolean isHierarchicalNamespaceEnabled()
             throws IOException
     {
-        StorageAccountInfo accountInfo = blobServiceClient.getAccountInfo();
-        if (accountInfo.getAccountKind() == com.azure.storage.blob.models.AccountKind.STORAGE_V2) {
-            if (accountInfo.isHierarchicalNamespaceEnabled()) {
-                return AccountKind.HIERARCHICAL;
-            }
-            return AccountKind.FLAT;
+        DataLakeFileSystemClient fileSystemClient = createDataLakeFileSystemClient();
+        try {
+            return fileSystemClient.getDirectoryClient("/").exists();
         }
-        if (accountInfo.getAccountKind() == com.azure.storage.blob.models.AccountKind.BLOB_STORAGE) {
-            return AccountKind.BLOB;
+        catch (RuntimeException e) {
+            throw new IOException("Failed to check whether hierarchical namespaces is enabled for the storage account %s and container %s".formatted(account, containerName));
         }
-        throw new IOException("Unsupported account kind '%s'".formatted(accountInfo.getAccountKind()));
     }
 
     @AfterAll
     void tearDown()
     {
-        credential = null;
+        azureAuth = null;
         fileSystem = null;
         if (blobContainerClient != null) {
             blobContainerClient.deleteIfExists();
@@ -129,12 +139,7 @@ public abstract class AbstractTestAzureFileSystem
     private void cleanupFiles()
     {
         if (accountKind == AccountKind.HIERARCHICAL) {
-            DataLakeFileSystemClient fileSystemClient = new DataLakeFileSystemClientBuilder()
-                    .endpoint("https://%s.dfs.core.windows.net".formatted(account))
-                    .fileSystemName(containerName)
-                    .credential(credential)
-                    .buildClient();
-
+            DataLakeFileSystemClient fileSystemClient = createDataLakeFileSystemClient();
             DataLakePathDeleteOptions deleteRecursiveOptions = new DataLakePathDeleteOptions().setIsRecursive(true);
             for (PathItem pathItem : fileSystemClient.listPaths()) {
                 if (pathItem.isDirectory()) {
@@ -148,6 +153,15 @@ public abstract class AbstractTestAzureFileSystem
         else {
             blobContainerClient.listBlobs().forEach(item -> blobContainerClient.getBlobClient(urlEncode(item.getName())).deleteIfExists());
         }
+    }
+
+    private DataLakeFileSystemClient createDataLakeFileSystemClient()
+    {
+        DataLakeServiceClientBuilder serviceClientBuilder = new DataLakeServiceClientBuilder()
+                .endpoint("https://%s.dfs.core.windows.net".formatted(account));
+        azureAuth.setAuth(account, serviceClientBuilder);
+        DataLakeServiceClient serviceClient = serviceClientBuilder.buildClient();
+        return serviceClient.getFileSystemClient(containerName);
     }
 
     @Override
@@ -172,6 +186,12 @@ public abstract class AbstractTestAzureFileSystem
     protected final void verifyFileSystemIsEmpty()
     {
         assertThat(blobContainerClient.listBlobs()).isEmpty();
+    }
+
+    @Override
+    protected boolean supportsCreateExclusive()
+    {
+        return true;
     }
 
     @Test

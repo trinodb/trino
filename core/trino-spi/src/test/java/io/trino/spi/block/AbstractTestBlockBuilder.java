@@ -203,6 +203,29 @@ public abstract class AbstractTestBlockBuilder<T>
         assertThat(actualValues).containsExactly(null, null, values.get(2), values.get(4), values.get(0));
     }
 
+    @Test
+    public void testResetTo()
+    {
+        List<T> values = getTestValues();
+        ValueBlock inputValues = createOffsetBlock(values);
+
+        BlockBuilder blockBuilder = createBlockBuilder();
+        blockBuilder.appendRange(inputValues, 0, inputValues.getPositionCount());
+        assertThat(blockToValues(blockBuilder.buildValueBlock())).containsExactlyElementsOf(values);
+
+        blockBuilder.resetTo(4);
+        assertThat(blockToValues(blockBuilder.buildValueBlock())).containsExactlyElementsOf(values.subList(0, 4));
+
+        blockBuilder.appendRange(inputValues, 0, inputValues.getPositionCount());
+        assertThat(blockToValues(blockBuilder.buildValueBlock())).containsExactlyElementsOf(Iterables.concat(values.subList(0, 4), values));
+
+        blockBuilder.resetTo(0);
+        assertThat(blockToValues(blockBuilder.buildValueBlock())).isEmpty();
+
+        blockBuilder.appendRange(inputValues, 0, inputValues.getPositionCount());
+        assertThat(blockToValues(blockBuilder.buildValueBlock())).containsExactlyElementsOf(values);
+    }
+
     /**
      * Create a block that is offset from the start of the underlying array
      */

@@ -1,1 +1,7 @@
 connector/memsql.rst connector/singlestore.rst
+connector/metastores.md object-storage/metastores.md
+connector/object-storage-file-formats.md object-storage/file-formats.md
+connector/hive-azure.md object-storage/legacy-azure.md
+connector/hive-cos.md object-storage/legacy-cos.md
+connector/hive-gcs-tutorial.md object-storage/legacy-gcs.md
+connector/hive-s3.md object-storage/legacy-s3.md

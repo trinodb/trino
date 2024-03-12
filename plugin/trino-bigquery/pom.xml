@@ -5,13 +5,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>440-SNAPSHOT</version>
+        <version>441-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-bigquery</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - BigQuery Connector</description>
+    <description>Trino - BigQuery connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -23,11 +23,6 @@
                 <groupId>io.opencensus</groupId>
                 <artifactId>opencensus-api</artifactId>
                 <version>0.31.1</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.commons</groupId>
-                <artifactId>commons-lang3</artifactId>
             </dependency>
 
             <dependency>
@@ -319,7 +314,7 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20240205</version>
+            <version>20240303</version>
         </dependency>
 
         <dependency>
@@ -518,7 +513,6 @@
                             <excludes>
                                 <!-- If you are adding entry here also add an entry to cloud-tests or cloud-tests-case-insensitive-mapping profile below -->
                                 <exclude>**/TestBigQueryAvroConnectorTest.java</exclude>
-                                <exclude>**/TestBigQueryArrowConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestBigQueryMetadataCaching.java</exclude>
                                 <exclude>**/TestBigQueryAvroTypeMapping.java</exclude>
@@ -527,7 +521,7 @@
                                 <exclude>**/TestBigQueryInstanceCleaner.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
                                 <exclude>**/TestBigQuery*FailureRecoveryTest.java</exclude>
-                                <exclude>**/TestBigQueryWithProxyConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestBigQueryWithProxyTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -594,9 +588,8 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestBigQueryArrowConnectorSmokeTest.java</include>
                                 <include>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</include>
-                                <include>**/TestBigQueryWithProxyConnectorSmokeTest.java</include>
+                                <include>**/TestBigQueryWithProxyTest.java</include>
                                 <include>**/TestBigQueryArrowTypeMapping.java</include>
                                 <include>**/TestBigQueryAvroTypeMapping.java</include>
                                 <include>**/TestBigQueryMetadataCaching.java</include>

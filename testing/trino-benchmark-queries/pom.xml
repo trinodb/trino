@@ -4,11 +4,12 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>440-SNAPSHOT</version>
+        <version>441-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-benchmark-queries</artifactId>
+    <description>Trino - Benchmark queries</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

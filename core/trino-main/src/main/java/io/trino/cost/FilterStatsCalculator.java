@@ -19,8 +19,8 @@ import com.google.common.collect.ListMultimap;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.spi.type.Type;
-import io.trino.sql.ExpressionUtils;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.IrUtils;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
@@ -67,7 +67,7 @@ import static io.trino.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
-import static io.trino.sql.ExpressionUtils.and;
+import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.IrExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -456,7 +456,7 @@ public class FilterStatsCalculator
 
         private boolean isEffectivelyLiteral(Expression expression)
         {
-            return ExpressionUtils.isEffectivelyLiteral(plannerContext, session, expression);
+            return IrUtils.isEffectivelyLiteral(plannerContext, session, expression);
         }
     }
 

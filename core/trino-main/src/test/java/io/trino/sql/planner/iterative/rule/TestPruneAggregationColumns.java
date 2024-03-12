@@ -28,8 +28,8 @@ import java.util.function.Predicate;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -50,7 +50,7 @@ public class TestPruneAggregationColumns
                                         singleGroupingSet("key"),
                                         ImmutableMap.of(
                                                 Optional.of("b"),
-                                                functionCall("count", false, ImmutableList.of())),
+                                                aggregationFunction("count", false, ImmutableList.of())),
                                         Optional.empty(),
                                         SINGLE,
                                         values("key"))));
@@ -74,7 +74,7 @@ public class TestPruneAggregationColumns
                 planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                         .source(planBuilder.values(key))
                         .singleGroupingSet(key)
-                        .addAggregation(a, PlanBuilder.expression("count()"), ImmutableList.of())
-                        .addAggregation(b, PlanBuilder.expression("count()"), ImmutableList.of())));
+                        .addAggregation(a, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
+                        .addAggregation(b, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())));
     }
 }

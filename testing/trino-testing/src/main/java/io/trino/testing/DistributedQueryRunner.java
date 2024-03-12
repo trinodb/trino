@@ -112,6 +112,8 @@ public class DistributedQueryRunner
     private TestingTrinoClient trinoClient;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private final AtomicInteger concurrentQueries = new AtomicInteger();
+    private volatile boolean spansValid = true;
 
     private boolean closed;
 
@@ -337,6 +339,7 @@ public class DistributedQueryRunner
     @Override
     public List<SpanData> getSpans()
     {
+        checkState(spansValid, "No valid spans, queries were executing concurrently");
         return spanExporter.getFinishedSpanItems();
     }
 
@@ -492,8 +495,14 @@ public class DistributedQueryRunner
     {
         lock.readLock().lock();
         try {
-            spanExporter.reset();
-            return trinoClient.execute(session, sql);
+            spansValid = concurrentQueries.incrementAndGet() == 1;
+            try {
+                spanExporter.reset();
+                return trinoClient.execute(session, sql);
+            }
+            finally {
+                concurrentQueries.decrementAndGet();
+            }
         }
         catch (Throwable e) {
             e.addSuppressed(new Exception("SQL: " + sql));
@@ -510,13 +519,19 @@ public class DistributedQueryRunner
         // session must be in a transaction registered with the transaction manager in this query runner
         getTransactionManager().getTransactionInfo(session.getRequiredTransactionId());
 
-        spanExporter.reset();
-        return coordinator.getQueryExplainer().getLogicalPlan(
-                session,
-                coordinator.getInstance(Key.get(SqlParser.class)).createStatement(sql),
-                ImmutableList.of(),
-                WarningCollector.NOOP,
-                createPlanOptimizersStatsCollector());
+        spansValid = concurrentQueries.incrementAndGet() == 1;
+        try {
+            spanExporter.reset();
+            return coordinator.getQueryExplainer().getLogicalPlan(
+                    session,
+                    coordinator.getInstance(Key.get(SqlParser.class)).createStatement(sql),
+                    ImmutableList.of(),
+                    WarningCollector.NOOP,
+                    createPlanOptimizersStatsCollector());
+        }
+        finally {
+            concurrentQueries.decrementAndGet();
+        }
     }
 
     public Plan getQueryPlan(QueryId queryId)

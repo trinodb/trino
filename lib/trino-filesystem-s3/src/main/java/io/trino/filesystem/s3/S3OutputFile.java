@@ -18,6 +18,7 @@ import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 import software.amazon.awssdk.services.s3.S3Client;
 
+import java.io.IOException;
 import java.io.OutputStream;
 
 import static java.util.Objects.requireNonNull;
@@ -38,14 +39,16 @@ final class S3OutputFile
     }
 
     @Override
-    public OutputStream create(AggregatedMemoryContext memoryContext)
+    public void createOrOverwrite(byte[] data)
+            throws IOException
     {
-        // always overwrite since Trino usually creates unique file names
-        return createOrOverwrite(memoryContext);
+        try (OutputStream out = create()) {
+            out.write(data);
+        }
     }
 
     @Override
-    public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
+    public OutputStream create(AggregatedMemoryContext memoryContext)
     {
         return new S3OutputStream(memoryContext, client, context, location);
     }

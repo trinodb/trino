@@ -84,7 +84,7 @@ import static io.trino.SystemSessionProperties.getTaskMinWriterCount;
 import static io.trino.SystemSessionProperties.isDistributedSortEnabled;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
-import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
@@ -476,11 +476,10 @@ public class AddLocalExchanges
                     node.getMeasures(),
                     node.getCommonBaseFrame(),
                     node.getRowsPerMatch(),
-                    node.getSkipToLabel(),
+                    node.getSkipToLabels(),
                     node.getSkipToPosition(),
                     node.isInitial(),
                     node.getPattern(),
-                    node.getSubsets(),
                     node.getVariableDefinitions());
 
             return deriveProperties(result, child.getProperties());

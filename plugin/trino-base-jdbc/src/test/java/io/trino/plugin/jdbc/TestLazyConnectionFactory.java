@@ -55,7 +55,7 @@ public class TestLazyConnectionFactory
 
         Injector injector = Guice.createInjector(binder -> {
             binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).toInstance(
-                    new DriverConnectionFactory(new Driver(), config, new EmptyCredentialProvider()));
+                    DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), new EmptyCredentialProvider()).build());
             binder.install(new RetryingConnectionFactoryModule());
         });
 

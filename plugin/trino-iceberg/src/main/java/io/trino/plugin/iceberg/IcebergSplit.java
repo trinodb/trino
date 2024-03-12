@@ -24,6 +24,7 @@ import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Map;
@@ -48,6 +49,7 @@ public class IcebergSplit
     private final String partitionDataJson;
     private final List<DeleteFile> deletes;
     private final SplitWeight splitWeight;
+    private final TupleDomain<IcebergColumnHandle> fileStatisticsDomain;
     private final Map<String, String> fileIoProperties;
     private final List<HostAddress> addresses;
 
@@ -63,6 +65,7 @@ public class IcebergSplit
             @JsonProperty("partitionDataJson") String partitionDataJson,
             @JsonProperty("deletes") List<DeleteFile> deletes,
             @JsonProperty("splitWeight") SplitWeight splitWeight,
+            @JsonProperty("fileStatisticsDomain") TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
             @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties)
     {
         this(
@@ -76,6 +79,7 @@ public class IcebergSplit
                 partitionDataJson,
                 deletes,
                 splitWeight,
+                fileStatisticsDomain,
                 fileIoProperties,
                 ImmutableList.of());
     }
@@ -91,6 +95,7 @@ public class IcebergSplit
             String partitionDataJson,
             List<DeleteFile> deletes,
             SplitWeight splitWeight,
+            TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
             Map<String, String> fileIoProperties,
             List<HostAddress> addresses)
     {
@@ -104,6 +109,7 @@ public class IcebergSplit
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
+        this.fileStatisticsDomain = requireNonNull(fileStatisticsDomain, "fileStatisticsDomain is null");
         this.fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
         this.addresses = requireNonNull(addresses, "addresses is null");
     }
@@ -183,6 +189,12 @@ public class IcebergSplit
     }
 
     @JsonProperty
+    public TupleDomain<IcebergColumnHandle> getFileStatisticsDomain()
+    {
+        return fileStatisticsDomain;
+    }
+
+    @JsonProperty
     public Map<String, String> getFileIoProperties()
     {
         return fileIoProperties;
@@ -207,6 +219,7 @@ public class IcebergSplit
                 + estimatedSizeOf(partitionDataJson)
                 + estimatedSizeOf(deletes, DeleteFile::getRetainedSizeInBytes)
                 + splitWeight.getRetainedSizeInBytes()
+                + fileStatisticsDomain.getRetainedSizeInBytes(IcebergColumnHandle::getRetainedSizeInBytes)
                 + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
     }
 
@@ -216,7 +229,8 @@ public class IcebergSplit
         ToStringHelper helper = toStringHelper(this)
                 .addValue(path)
                 .add("start", start)
-                .add("length", length);
+                .add("length", length)
+                .add("fileStatisticsDomain", fileStatisticsDomain);
         if (!deletes.isEmpty()) {
             helper.add("deleteFiles", deletes.size());
             helper.add("deleteRecords", deletes.stream()

@@ -4,13 +4,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>440-SNAPSHOT</version>
+        <version>441-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-jmx</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - JMX Connector</description>
+    <description>Trino - JMX connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

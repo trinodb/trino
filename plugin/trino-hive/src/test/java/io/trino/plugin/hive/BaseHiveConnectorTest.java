@@ -72,7 +72,6 @@ import org.assertj.core.api.AbstractLongAssert;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
@@ -184,7 +183,6 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
-import static java.nio.file.Files.writeString;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -3845,7 +3843,7 @@ public abstract class BaseHiveConnectorTest
                 .row("apple", canonicalizeType(VARCHAR).toString(), "partition key", "")
                 .row("pineapple", canonicalizeType(createVarcharType(65535)).toString(), "partition key", "")
                 .build();
-        assertThat(query("SHOW COLUMNS FROM test_show_columns_partition_key")).matches(expected);
+        assertThat(query("SHOW COLUMNS FROM test_show_columns_partition_key")).result().matches(expected);
     }
 
     // TODO: These should be moved to another class, when more connectors support arrays
@@ -7873,10 +7871,26 @@ public abstract class BaseHiveConnectorTest
             throws Exception
     {
         String tableName = "test_create_avro_table_with_schema_url";
-        File schemaFile = createAvroSchemaFile();
+        TrinoFileSystem fileSystem = getTrinoFileSystem();
+        Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+        fileSystem.createDirectory(tempDir);
+        String schema = """
+                {
+                    "namespace": "io.trino.test",
+                    "name": "camelCase",
+                    "type": "record",
+                    "fields": [
+                       { "name":"stringCol", "type":"string" },
+                       { "name":"a", "type":"int" }
+                    ]
+                }""";
+        Location schemaFile = tempDir.appendPath("avro_camelCamelCase_col.avsc");
+        try (OutputStream out = fileSystem.newOutputFile(schemaFile).create()) {
+            out.write(schema.getBytes(UTF_8));
+        }
 
-        String createTableSql = getAvroCreateTableSql(tableName, schemaFile.getAbsolutePath());
-        String expectedShowCreateTable = getAvroCreateTableSql(tableName, schemaFile.getPath());
+        String createTableSql = getAvroCreateTableSql(tableName, schemaFile);
+        String expectedShowCreateTable = getAvroCreateTableSql(tableName, schemaFile);
 
         assertUpdate(createTableSql);
 
@@ -7886,7 +7900,7 @@ public abstract class BaseHiveConnectorTest
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
-            verify(schemaFile.delete(), "cannot delete temporary file: %s", schemaFile);
+            fileSystem.deleteDirectory(tempDir);
         }
     }
 
@@ -7895,7 +7909,23 @@ public abstract class BaseHiveConnectorTest
             throws Exception
     {
         String tableName = "test_create_avro_table_with_camelcase_schema_url_" + randomNameSuffix();
-        File schemaFile = createAvroCamelCaseSchemaFile();
+        TrinoFileSystem fileSystem = getTrinoFileSystem();
+        Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+        fileSystem.createDirectory(tempDir);
+        String schema = """
+                {
+                    "namespace": "io.trino.test",
+                    "name": "camelCase",
+                    "type": "record",
+                    "fields": [
+                       { "name":"stringCol", "type":"string" },
+                       { "name":"a", "type":"int" }
+                    ]
+                }""";
+        Location schemaFile = tempDir.appendPath("avro_camelCamelCase_col.avsc");
+        try (OutputStream out = fileSystem.newOutputFile(schemaFile).create()) {
+            out.write(schema.getBytes(UTF_8));
+        }
 
         String createTableSql = format("CREATE TABLE %s.%s.%s (\n" +
                         "   stringCol varchar,\n" +
@@ -7917,7 +7947,7 @@ public abstract class BaseHiveConnectorTest
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
-            verify(schemaFile.delete(), "cannot delete temporary file: %s", schemaFile);
+            fileSystem.deleteDirectory(tempDir);
         }
     }
 
@@ -7926,114 +7956,9 @@ public abstract class BaseHiveConnectorTest
             throws Exception
     {
         String tableName = "test_create_avro_table_with_nested_camelcase_schema_url_" + randomNameSuffix();
-        File schemaFile = createAvroNestedCamelCaseSchemaFile();
-
-        String createTableSql = format("CREATE TABLE %s.%s.%s (\n" +
-                        "   nestedRow ROW(stringCol varchar, intCol int)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   avro_schema_url = '%s',\n" +
-                        "   format = 'AVRO'\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                tableName,
-                schemaFile);
-
-        assertUpdate(createTableSql);
-        try {
-            assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW('hi', 1))", 1);
-            assertQuery("SELECT nestedRow.stringCol FROM " + tableName, "SELECT 'hi'");
-        }
-        finally {
-            assertUpdate("DROP TABLE " + tableName);
-            verify(schemaFile.delete(), "cannot delete temporary file: %s", schemaFile);
-        }
-    }
-
-    @Test
-    public void testAlterAvroTableWithSchemaUrl()
-            throws Exception
-    {
-        testAlterAvroTableWithSchemaUrl(true, true, true);
-    }
-
-    protected void testAlterAvroTableWithSchemaUrl(boolean renameColumn, boolean addColumn, boolean dropColumn)
-            throws Exception
-    {
-        String tableName = "test_alter_avro_table_with_schema_url";
-        File schemaFile = createAvroSchemaFile();
-
-        assertUpdate(getAvroCreateTableSql(tableName, schemaFile.getAbsolutePath()));
-
-        try {
-            if (renameColumn) {
-                assertQueryFails(format("ALTER TABLE %s RENAME COLUMN dummy_col TO new_dummy_col", tableName), "ALTER TABLE not supported when Avro schema url is set");
-            }
-            if (addColumn) {
-                assertQueryFails(format("ALTER TABLE %s ADD COLUMN new_dummy_col VARCHAR", tableName), "ALTER TABLE not supported when Avro schema url is set");
-            }
-            if (dropColumn) {
-                assertQueryFails(format("ALTER TABLE %s DROP COLUMN dummy_col", tableName), "ALTER TABLE not supported when Avro schema url is set");
-            }
-        }
-        finally {
-            assertUpdate("DROP TABLE " + tableName);
-            verify(schemaFile.delete(), "cannot delete temporary file: %s", schemaFile);
-        }
-    }
-
-    private String getAvroCreateTableSql(String tableName, String schemaFile)
-    {
-        return format("CREATE TABLE %s.%s.%s (\n" +
-                        "   dummy_col varchar,\n" +
-                        "   another_dummy_col varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   avro_schema_url = '%s',\n" +
-                        "   format = 'AVRO'\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                tableName,
-                schemaFile);
-    }
-
-    private static File createAvroSchemaFile()
-            throws Exception
-    {
-        File schemaFile = File.createTempFile("avro_single_column-", ".avsc");
-        String schema = "{\n" +
-                "  \"namespace\": \"io.trino.test\",\n" +
-                "  \"name\": \"single_column\",\n" +
-                "  \"type\": \"record\",\n" +
-                "  \"fields\": [\n" +
-                "    { \"name\":\"string_col\", \"type\":\"string\" }\n" +
-                "]}";
-        writeString(schemaFile.toPath(), schema);
-        return schemaFile;
-    }
-
-    private static File createAvroCamelCaseSchemaFile()
-            throws Exception
-    {
-        File schemaFile = File.createTempFile("avro_camelCamelCase_col-", ".avsc");
-        String schema = "{\n" +
-                "  \"namespace\": \"io.trino.test\",\n" +
-                "  \"name\": \"camelCase\",\n" +
-                "  \"type\": \"record\",\n" +
-                "  \"fields\": [\n" +
-                "    { \"name\":\"stringCol\", \"type\":\"string\" },\n" +
-                "    { \"name\":\"a\", \"type\":\"int\" }\n" +
-                "]}";
-        writeString(schemaFile.toPath(), schema);
-        return schemaFile;
-    }
-
-    private static File createAvroNestedCamelCaseSchemaFile()
-            throws Exception
-    {
-        File schemaFile = File.createTempFile("avro_camelCamelCase_col-", ".avsc");
+        TrinoFileSystem fileSystem = getTrinoFileSystem();
+        Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+        fileSystem.createDirectory(tempDir);
         String schema = """
                 {
                     "namespace": "io.trino.test",
@@ -8054,8 +7979,95 @@ public abstract class BaseHiveConnectorTest
                         }
                     ]
                  }""";
-        writeString(schemaFile.toPath(), schema);
-        return schemaFile;
+        Location schemaFile = tempDir.appendPath("avro_camelCamelCase_col.avsc");
+        try (OutputStream out = fileSystem.newOutputFile(schemaFile).create()) {
+            out.write(schema.getBytes(UTF_8));
+        }
+
+        String createTableSql = format("CREATE TABLE %s.%s.%s (\n" +
+                        "   nestedRow ROW(stringCol varchar, intCol int)\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   avro_schema_url = '%s',\n" +
+                        "   format = 'AVRO'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                schemaFile);
+
+        assertUpdate(createTableSql);
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES ROW(ROW('hi', 1))", 1);
+            assertQuery("SELECT nestedRow.stringCol FROM " + tableName, "SELECT 'hi'");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            fileSystem.deleteDirectory(tempDir);
+        }
+    }
+
+    @Test
+    public void testAlterAvroTableWithSchemaUrl()
+            throws Exception
+    {
+        testAlterAvroTableWithSchemaUrl(true, true, true);
+    }
+
+    protected void testAlterAvroTableWithSchemaUrl(boolean renameColumn, boolean addColumn, boolean dropColumn)
+            throws Exception
+    {
+        String tableName = "test_alter_avro_table_with_schema_url";
+        TrinoFileSystem fileSystem = getTrinoFileSystem();
+        Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+        fileSystem.createDirectory(tempDir);
+        String schema = """
+                {
+                     "namespace": "io.trino.test",
+                     "name": "single_column",
+                     "type": "record",
+                     "fields": [
+                        { "name": "string_col", "type":"string" }
+                     ]
+                }""";
+        Location schemaFile = tempDir.appendPath("avro_single_column.avsc");
+        try (OutputStream out = fileSystem.newOutputFile(schemaFile).create()) {
+            out.write(schema.getBytes(UTF_8));
+        }
+
+        assertUpdate(getAvroCreateTableSql(tableName, schemaFile));
+
+        try {
+            if (renameColumn) {
+                assertQueryFails(format("ALTER TABLE %s RENAME COLUMN dummy_col TO new_dummy_col", tableName), "ALTER TABLE not supported when Avro schema url is set");
+            }
+            if (addColumn) {
+                assertQueryFails(format("ALTER TABLE %s ADD COLUMN new_dummy_col VARCHAR", tableName), "ALTER TABLE not supported when Avro schema url is set");
+            }
+            if (dropColumn) {
+                assertQueryFails(format("ALTER TABLE %s DROP COLUMN dummy_col", tableName), "ALTER TABLE not supported when Avro schema url is set");
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            fileSystem.deleteDirectory(tempDir);
+        }
+    }
+
+    private String getAvroCreateTableSql(String tableName, Location schemaFile)
+    {
+        return format("CREATE TABLE %s.%s.%s (\n" +
+                        "   dummy_col varchar,\n" +
+                        "   another_dummy_col varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   avro_schema_url = '%s',\n" +
+                        "   format = 'AVRO'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                schemaFile);
     }
 
     @Test
@@ -8160,7 +8172,7 @@ public abstract class BaseHiveConnectorTest
         // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
         boolean unsupported = (storageFormat == HiveStorageFormat.PARQUET || storageFormat == HiveStorageFormat.AVRO) && compressionCodec == HiveCompressionCodec.LZ4;
         if (unsupported) {
-            assertQueryFails(session, createTableSql, "Compression codec " + compressionCodec + " not supported for " + storageFormat);
+            assertQueryFails(session, createTableSql, "Compression codec " + compressionCodec + " not supported for " + storageFormat.humanName());
             return;
         }
         assertUpdate(session, createTableSql, 25);
@@ -8190,7 +8202,7 @@ public abstract class BaseHiveConnectorTest
         // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
         boolean unsupported = (storageFormat == HiveStorageFormat.PARQUET || storageFormat == HiveStorageFormat.AVRO) && compressionCodec == HiveCompressionCodec.LZ4;
         if (unsupported) {
-            assertQueryFails(session, createTableSql, "Compression codec " + compressionCodec + " not supported for " + storageFormat);
+            assertQueryFails(session, createTableSql, "Compression codec " + compressionCodec + " not supported for " + storageFormat.humanName());
             return;
         }
         assertUpdate(session, createTableSql, 25);
@@ -9091,6 +9103,50 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testCommentWithPartitionedTable()
+    {
+        String table = "test_comment_with_partitioned_table_" + randomNameSuffix();
+
+        assertUpdate("""
+                CREATE TABLE hive.tpch.%s (
+                   regular_column date COMMENT 'regular column comment',
+                   partition_column date COMMENT 'partition column comment'
+                )
+                COMMENT 'table comment'
+                WITH (
+                   partitioned_by = ARRAY['partition_column']
+                )
+                """.formatted(table));
+
+        assertThat(getColumnComment(table, "regular_column")).isEqualTo("regular column comment");
+        assertThat(getColumnComment(table, "partition_column")).isEqualTo("partition column comment");
+        assertThat(getTableComment("hive", "tpch", table)).isEqualTo("table comment");
+
+        assertUpdate("COMMENT ON COLUMN %s.regular_column IS 'new regular column comment'".formatted(table));
+        assertThat(getColumnComment(table, "regular_column")).isEqualTo("new regular column comment");
+        assertUpdate("COMMENT ON COLUMN %s.partition_column IS 'new partition column comment'".formatted(table));
+        assertThat(getColumnComment(table, "partition_column")).isEqualTo("new partition column comment");
+        assertUpdate("COMMENT ON TABLE %s IS 'new table comment'".formatted(table));
+        assertThat(getTableComment("hive", "tpch", table)).isEqualTo("new table comment");
+
+        assertUpdate("COMMENT ON COLUMN %s.regular_column IS ''".formatted(table));
+        assertThat(getColumnComment(table, "regular_column")).isEmpty();
+        assertUpdate("COMMENT ON COLUMN %s.partition_column IS ''".formatted(table));
+        assertThat(getColumnComment(table, "partition_column")).isEmpty();
+        assertUpdate("COMMENT ON TABLE %s IS ''".formatted(table));
+        assertThat(getTableComment("hive", "tpch", table)).isEmpty();
+
+        assertUpdate("COMMENT ON COLUMN %s.regular_column IS NULL".formatted(table));
+        assertThat(getColumnComment(table, "regular_column")).isNull();
+        assertUpdate("COMMENT ON COLUMN %s.partition_column IS NULL".formatted(table));
+        assertThat(getColumnComment(table, "partition_column")).isNull();
+        assertUpdate("COMMENT ON TABLE %s IS NULL".formatted(table));
+        assertThat(getTableComment("hive", "tpch", table)).isNull();
+
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
     public void testSelectWithShortZoneId()
             throws IOException
     {
@@ -9198,12 +9254,12 @@ public abstract class BaseHiveConnectorTest
     {
         requireNonNull(storageFormat, "storageFormat is null");
         requireNonNull(test, "test is null");
-        Session session = storageFormat.getSession();
+        Session session = storageFormat.session();
         try {
-            test.accept(session, storageFormat.getFormat());
+            test.accept(session, storageFormat.format());
         }
         catch (Exception | AssertionError e) {
-            throw new AssertionError(format("Failure for format %s with properties %s", storageFormat.getFormat(), session.getCatalogProperties()), e);
+            throw new AssertionError(format("Failure for format %s with properties %s", storageFormat.format(), session.getCatalogProperties()), e);
         }
     }
 
@@ -9232,37 +9288,21 @@ public abstract class BaseHiveConnectorTest
         return new JsonCodecFactory(objectMapperProvider).jsonCodec(IoPlan.class);
     }
 
-    private static class TestingHiveStorageFormat
+    private record TestingHiveStorageFormat(Session session, HiveStorageFormat format)
     {
-        private final Session session;
-        private final HiveStorageFormat format;
-
-        TestingHiveStorageFormat(Session session, HiveStorageFormat format)
+        private TestingHiveStorageFormat
         {
-            this.session = requireNonNull(session, "session is null");
-            this.format = requireNonNull(format, "format is null");
-        }
-
-        public Session getSession()
-        {
-            return session;
-        }
-
-        public HiveStorageFormat getFormat()
-        {
-            return format;
+            requireNonNull(session, "session is null");
+            requireNonNull(format, "format is null");
         }
     }
 
-    private static class TypeAndEstimate
+    private record TypeAndEstimate(Type type, EstimatedStatsAndCost estimate)
     {
-        public final Type type;
-        public final EstimatedStatsAndCost estimate;
-
-        public TypeAndEstimate(Type type, EstimatedStatsAndCost estimate)
+        private TypeAndEstimate
         {
-            this.type = requireNonNull(type, "type is null");
-            this.estimate = requireNonNull(estimate, "estimate is null");
+            requireNonNull(type, "type is null");
+            requireNonNull(estimate, "estimate is null");
         }
     }
 
@@ -9348,53 +9388,5 @@ public abstract class BaseHiveConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_small_file_threshold", "0B")
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "orc_tiny_stripe_threshold", "0B")
                 .build();
-    }
-
-    private static final class BucketedFilterTestSetup
-    {
-        private final String typeName;
-        private final List<String> values;
-        private final String filterValue;
-        private final long expectedPhysicalInputRows;
-        private final long expectedResult;
-
-        private BucketedFilterTestSetup(
-                String typeName,
-                List<String> values,
-                String filterValue,
-                long expectedPhysicalInputRows,
-                long expectedResult)
-        {
-            this.typeName = requireNonNull(typeName, "typeName is null");
-            this.values = requireNonNull(values, "values is null");
-            this.filterValue = requireNonNull(filterValue, "filterValue is null");
-            this.expectedPhysicalInputRows = expectedPhysicalInputRows;
-            this.expectedResult = expectedResult;
-        }
-
-        private String getTypeName()
-        {
-            return typeName;
-        }
-
-        private List<String> getValues()
-        {
-            return values;
-        }
-
-        private String getFilterValue()
-        {
-            return filterValue;
-        }
-
-        private long getExpectedPhysicalInputRows()
-        {
-            return expectedPhysicalInputRows;
-        }
-
-        private long getExpectedResult()
-        {
-            return expectedResult;
-        }
     }
 }

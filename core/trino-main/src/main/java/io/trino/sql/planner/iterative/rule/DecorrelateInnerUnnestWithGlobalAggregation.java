@@ -49,7 +49,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.ExpressionUtils.and;
+import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.rewriteWithMasks;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
@@ -183,8 +183,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
                 input.getOutputSymbols(),
                 unnestNode.getMappings(),
                 Optional.of(ordinalitySymbol),
-                LEFT,
-                Optional.empty());
+                LEFT);
 
         // append mask symbol based on ordinality to distinguish between the unnested rows and synthetic null rows
         Symbol mask = context.getSymbolAllocator().newSymbol("mask", BOOLEAN);
@@ -258,8 +257,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
         return isScalar(unnestNode.getSource(), lookup) &&
                 unnestNode.getReplicateSymbols().isEmpty() &&
                 basedOnCorrelation &&
-                unnestNode.getJoinType() == INNER &&
-                (unnestNode.getFilter().isEmpty() || unnestNode.getFilter().get().equals(TRUE_LITERAL));
+                unnestNode.getJoinType() == INNER;
     }
 
     private static PlanNode rewriteNodeSequence(PlanNode root, List<Symbol> leftOutputs, Symbol mask, PlanNode sequenceSource, PlanNodeId reducingAggregationId, PlanNodeId correlatedUnnestId, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)

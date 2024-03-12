@@ -40,6 +40,8 @@ public class TestLocations
                 Arguments.of("s3:/test_dir", "test_file.txt", "s3:/test_dir/test_file.txt"),
                 Arguments.of("s3://test_dir", "test_file.txt", "s3://test_dir/test_file.txt"),
                 Arguments.of("s3://test_dir/", "test_file.txt", "s3://test_dir/test_file.txt"),
+                Arguments.of("s3://test_dir/", "location?", "s3://test_dir/location?"),
+                Arguments.of("s3://test_dir/", "location#", "s3://test_dir/location#"),
                 Arguments.of("s3://dir_with_space ", "test_file.txt", "s3://dir_with_space /test_file.txt"),
                 Arguments.of("s3://dir_with_double_space  ", "test_file.txt", "s3://dir_with_double_space  /test_file.txt"));
     }

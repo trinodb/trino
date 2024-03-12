@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" child.project.url.inherit.append.path="false" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>150</version>
+        <version>151</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>440-SNAPSHOT</version>
+    <version>441-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -105,6 +105,7 @@
         <module>plugin/trino-resource-group-managers</module>
         <module>plugin/trino-session-property-managers</module>
         <module>plugin/trino-singlestore</module>
+        <module>plugin/trino-snowflake</module>
         <module>plugin/trino-sqlserver</module>
         <module>plugin/trino-teradata-functions</module>
         <module>plugin/trino-thrift</module>
@@ -132,8 +133,9 @@
         <module>testing/trino-tests</module>
     </modules>
 
-    <scm>
+    <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
         <connection>scm:git:git://github.com/trinodb/trino.git</connection>
+        <developerConnection>scm:git:git@github.com:trinodb/trino.git</developerConnection>
         <tag>HEAD</tag>
         <url>https://github.com/trinodb/trino</url>
     </scm>
@@ -169,39 +171,46 @@
             -XX:+UnlockDiagnosticVMOptions
             <!-- bump from default of 2 -->
             -XX:GCLockerRetryAllocationCount=10
+            <!-- # Allow loading dynamic agent used by JOL -->
+            -XX:+EnableDynamicAgentLoading
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
-        <dep.accumulo.version>1.10.2</dep.accumulo.version>
-        <dep.airlift.version>240</dep.airlift.version>
-        <dep.alluxio.version>309</dep.alluxio.version>
+        <dep.accumulo.version>3.0.0</dep.accumulo.version>
+        <dep.airlift.version>242</dep.airlift.version>
+        <dep.alluxio.version>310</dep.alluxio.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
         <dep.avro.version>1.11.3</dep.avro.version>
-        <dep.aws-sdk.version>1.12.657</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.674</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.5.1</dep.confluent.version>
-        <dep.docker.images.version>89</dep.docker.images.version>
+        <dep.docker.images.version>91</dep.docker.images.version>
         <dep.drift.version>1.21</dep.drift.version>
-        <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
-        <dep.errorprone.version>2.24.1</dep.errorprone.version>
-        <dep.flyway.version>10.7.2</dep.flyway.version>
+        <dep.errorprone.version>2.25.0</dep.errorprone.version>
+        <dep.flyway.version>10.9.0</dep.flyway.version>
         <dep.google.http.client.version>1.44.1</dep.google.http.client.version>
         <dep.iceberg.version>1.4.3</dep.iceberg.version>
         <dep.jna.version>5.14.0</dep.jna.version>
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.5</dep.jsonwebtoken.version>
-        <dep.kafka-clients.version>3.6.1</dep.kafka-clients.version>
+        <dep.kafka-clients.version>3.7.0</dep.kafka-clients.version>
+        <!-- TODO: https://github.com/airlift/airbase/pull/396 -->
+        <dep.modernizer.version>2.7.0</dep.modernizer.version>
         <dep.okio.version>3.8.0</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
-        <dep.protobuf.version>3.25.2</dep.protobuf.version>
+        <dep.protobuf.version>3.25.3</dep.protobuf.version>
         <dep.swagger.version>2.2.20</dep.swagger.version>
-        <dep.takari.version>2.1.3</dep.takari.version>
-        <dep.tcnative.version>2.0.62.Final</dep.tcnative.version>
+        <dep.takari.version>2.1.4</dep.takari.version>
+        <dep.tcnative.version>2.0.63.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>4.8.1</dep.wire.version>
+        <dep.zookeeper.version>3.9.1</dep.zookeeper.version>
+
+        <!-- To make possible "real quick build": default is same as in airbase parent -->
+        <failIfNoTests>true</failIfNoTests>
     </properties>
 
     <dependencyManagement>
@@ -210,7 +219,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.20</version>
+                <version>1.2.21</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -218,7 +227,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.32.0</version>
+                <version>26.33.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -272,17 +281,9 @@
             </dependency>
 
             <dependency>
-                <groupId>org.eclipse.jetty</groupId>
-                <artifactId>jetty-bom</artifactId>
-                <version>11.0.20</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.44.1</version>
+                <version>3.45.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -298,7 +299,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.19.5</version>
+                <version>1.19.7</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -306,7 +307,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.24.1</version>
+                <version>2.25.4</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -314,7 +315,7 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>3.4.0</version>
+                <version>3.5.1</version>
             </dependency>
 
             <dependency>
@@ -456,7 +457,7 @@
             <dependency>
                 <groupId>com.clickhouse</groupId>
                 <artifactId>clickhouse-jdbc</artifactId>
-                <version>0.6.0</version>
+                <version>0.6.0-patch1</version>
                 <classifier>all</classifier>
             </dependency>
 
@@ -499,7 +500,7 @@
             <dependency>
                 <groupId>com.github.docker-java</groupId>
                 <artifactId>docker-java-api</artifactId>
-                <version>3.3.4</version>
+                <version>3.3.6</version>
             </dependency>
 
             <dependency>
@@ -511,7 +512,7 @@
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.4.12</version>
+                <version>6.4.13</version>
             </dependency>
 
             <dependency>
@@ -523,7 +524,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>hadoop3-2.2.19</version>
+                <version>hadoop3-2.2.20</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -591,7 +592,7 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>12.6.0.jre11</version>
+                <version>12.6.1.jre11</version>
             </dependency>
 
             <dependency>
@@ -609,7 +610,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.9.1</version>
+                <version>11.10.1</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
@@ -949,7 +950,7 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.4.35</version>
+                <version>3.5.14</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
@@ -1439,6 +1440,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-snowflake</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-spi</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1658,6 +1665,12 @@
             </dependency>
 
             <dependency>
+                <groupId>jakarta.servlet</groupId>
+                <artifactId>jakarta.servlet-api</artifactId>
+                <version>6.0.0</version>
+            </dependency>
+
+            <dependency>
                 <groupId>junit</groupId>
                 <artifactId>junit</artifactId>
                 <version>4.13.2</version>
@@ -1667,7 +1680,7 @@
             <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
-                <version>1.14.11</version>
+                <version>1.14.12</version>
             </dependency>
 
             <dependency>
@@ -1781,6 +1794,10 @@
                     <exclusion>
                         <groupId>org.apache.zookeeper</groupId>
                         <artifactId>zookeeper</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-servlet</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -1999,7 +2016,39 @@
             <dependency>
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper</artifactId>
-                <version>3.9.1</version>
+                <version>${dep.zookeeper.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-classic</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-cli</groupId>
+                        <artifactId>commons-cli</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>log4j</groupId>
+                        <artifactId>log4j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-server</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-servlet</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.zookeeper</groupId>
+                <artifactId>zookeeper-jute</artifactId>
+                <version>${dep.zookeeper.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>ch.qos.logback</groupId>
@@ -2104,7 +2153,7 @@
             <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
-                <version>3.3.2</version>
+                <version>3.3.3</version>
             </dependency>
 
             <dependency>
@@ -2122,13 +2171,19 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.7.1</version>
+                <version>42.7.2</version>
             </dependency>
 
             <dependency>
                 <groupId>org.reactivestreams</groupId>
                 <artifactId>reactive-streams</artifactId>
                 <version>1.0.4</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.rnorth.duct-tape</groupId>
+                <artifactId>duct-tape</artifactId>
+                <version>1.0.8</version>
             </dependency>
 
             <dependency>
@@ -2242,11 +2297,22 @@
                         </execution>
                     </executions>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${dep.plugin.surefire.version}</version>
+                    <configuration>
+                        <failIfNoTests>${failIfNoTests}</failIfNoTests>
+                    </configuration>
+                </plugin>
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${dep.plugin.surefire.version}</version>
+                    <configuration>
+                        <failIfNoTests>${failIfNoTests}</failIfNoTests>
+                    </configuration>
                 </plugin>
 
                 <plugin>
@@ -2255,6 +2321,12 @@
                     <configuration>
                         <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                     </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-wrapper-plugin</artifactId>
+                    <version>3.2.0</version>
                 </plugin>
 
                 <plugin>
@@ -2272,7 +2344,7 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
-                    <version>3.1.1</version>
+                    <version>3.2.0</version>
                 </plugin>
 
                 <plugin>
@@ -2355,6 +2427,9 @@
                                 </includes>
                             </bannedDependencies>
                             <requireProfileIdsExist />
+                            <requirePropertyDiverges>
+                                <property>project.description</property>
+                            </requirePropertyDiverges>
                         </rules>
                     </configuration>
                 </plugin>
@@ -2368,6 +2443,7 @@
                 <plugin>
                     <groupId>io.github.git-commit-id</groupId>
                     <artifactId>git-commit-id-maven-plugin</artifactId>
+                    <version>8.0.0</version>
                     <configuration>
                         <runOnlyOnce>true</runOnlyOnce>
                         <injectAllReactorProjects>true</injectAllReactorProjects>
@@ -2521,163 +2597,6 @@
                                 </resources>
                             </exception>
                         </exceptions>
-                    </configuration>
-                </plugin>
-
-                <plugin>
-                    <groupId>de.qaware.maven</groupId>
-                    <artifactId>go-offline-maven-plugin</artifactId>
-                    <version>1.2.8</version>
-                    <configuration>
-                        <dynamicDependencies>
-                            <DynamicDependency>
-                                <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
-                                <artifactId>provisio-maven-plugin</artifactId>
-                                <version>1.0.20</version>
-                                <repositoryType>PLUGIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>org.apache.maven.plugins</groupId>
-                                <artifactId>maven-javadoc-plugin</artifactId>
-                                <version>3.2.0</version>
-                                <repositoryType>PLUGIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>org.apache.yetus</groupId>
-                                <artifactId>audience-annotations</artifactId>
-                                <version>0.8.0</version>
-                                <repositoryType>PLUGIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>io.airlift.drift</groupId>
-                                <artifactId>drift-javadoc</artifactId>
-                                <version>${dep.drift.version}</version>
-                                <repositoryType>PLUGIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>io.takari.maven.plugins</groupId>
-                                <artifactId>takari-lifecycle-plugin</artifactId>
-                                <version>${dep.takari.version}</version>
-                                <repositoryType>PLUGIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>com.google.errorprone</groupId>
-                                <artifactId>error_prone_core</artifactId>
-                                <version>${dep.errorprone.version}</version>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>org.junit.jupiter</groupId>
-                                <artifactId>junit-jupiter-engine</artifactId>
-                                <!-- legacy version which Surefire seems to need for some reason -->
-                                <version>5.3.2</version>
-                                <type>pom</type>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>org.junit.jupiter</groupId>
-                                <artifactId>junit-jupiter-params</artifactId>
-                                <!-- legacy version which Surefire seems to need for some reason -->
-                                <version>5.3.2</version>
-                                <type>pom</type>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>org.powermock</groupId>
-                                <artifactId>powermock-reflect</artifactId>
-                                <!-- legacy version which Surefire seems to need for some reason -->
-                                <version>2.0.5</version>
-                                <type>pom</type>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>junit</groupId>
-                                <artifactId>junit</artifactId>
-                                <!-- legacy version which Surefire seems to need for some reason -->
-                                <version>4.13</version>
-                                <type>pom</type>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>org.testng</groupId>
-                                <artifactId>testng</artifactId>
-                                <!-- legacy version which Surefire seems to need for some reason -->
-                                <version>5.10</version>
-                                <type>pom</type>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>org.assertj</groupId>
-                                <artifactId>assertj-core</artifactId>
-                                <!-- legacy version which Surefire seems to need for some reason -->
-                                <version>3.9.1</version>
-                                <type>pom</type>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>org.hamcrest</groupId>
-                                <artifactId>hamcrest-library</artifactId>
-                                <!-- legacy version which Surefire seems to need for some reason -->
-                                <version>1.3</version>
-                                <type>pom</type>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>org.easytesting</groupId>
-                                <artifactId>fest-assert</artifactId>
-                                <!-- legacy version which Surefire seems to need for some reason -->
-                                <version>1.4</version>
-                                <type>pom</type>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>org.apache.maven.surefire</groupId>
-                                <artifactId>surefire-testng</artifactId>
-                                <version>${dep.plugin.surefire.version}</version>
-                                <type>jar</type>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>org.junit.platform</groupId>
-                                <artifactId>junit-platform-launcher</artifactId>
-                                <!-- legacy version which Surefire seems to need for some reason -->
-                                <version>1.10.0</version>
-                                <type>jar</type>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>io.airlift</groupId>
-                                <artifactId>event-http</artifactId>
-                                <!-- it's not resolved by dependency-plugin correctly -->
-                                <version>${dep.airlift.version}</version>
-                                <type>jar</type>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>io.airlift</groupId>
-                                <artifactId>jmx-http-rpc</artifactId>
-                                <!-- it's not resolved by dependency-plugin correctly -->
-                                <version>${dep.airlift.version}</version>
-                                <type>jar</type>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>com.google.protobuf</groupId>
-                                <artifactId>protoc</artifactId>
-                                <type>exe</type>
-                                <classifier>linux-x86_64</classifier>
-                                <version>${dep.protobuf.version}</version>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>com.google.protobuf</groupId>
-                                <artifactId>protoc</artifactId>
-                                <type>exe</type>
-                                <classifier>linux-aarch_64</classifier>
-                                <version>${dep.protobuf.version}</version>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                        </dynamicDependencies>
                     </configuration>
                 </plugin>
             </plugins>

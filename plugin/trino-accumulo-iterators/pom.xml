@@ -5,17 +5,17 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>440-SNAPSHOT</version>
+        <version>441-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-accumulo-iterators</artifactId>
     <packaging>jar</packaging>
-    <description>Accumulo Iterators for the Trino Accumulo Connector</description>
+    <description>Trino - Accumulo iterators</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <project.build.targetJdk>8</project.build.targetJdk>
+        <project.build.targetJdk>11</project.build.targetJdk>
     </properties>
 
     <dependencies>
@@ -25,21 +25,22 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
-            <version>${dep.accumulo-hadoop.version}</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.accumulo</groupId>
             <artifactId>accumulo-core</artifactId>
             <version>${dep.accumulo.version}</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-client-runtime</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-1.2-api</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

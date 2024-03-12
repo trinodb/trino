@@ -67,11 +67,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Isolated;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -118,7 +119,7 @@ import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACT
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_QUERY_ID_NAME;
-import static io.trino.plugin.iceberg.procedure.RegisterTableProcedure.getLatestMetadataLocation;
+import static io.trino.plugin.iceberg.IcebergUtil.getLatestMetadataLocation;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -152,12 +153,14 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
+import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.offset;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@Isolated // TODO remove
 @TestInstance(PER_CLASS)
 public abstract class BaseIcebergConnectorTest
         extends BaseConnectorTest
@@ -3248,8 +3251,9 @@ public abstract class BaseIcebergConnectorTest
         }
 
         assertThat(query("SHOW STATS FOR " + tableName))
-                .skippingTypesCheck()
+                .result()
                 .exceptColumns("data_size", "low_value", "high_value") // these may vary between types
+                .skippingTypesCheck()
                 .matches("VALUES " +
                         "  ('d', 3e0, " + (format == AVRO ? "0.1e0" : "0.25e0") + ", NULL), " +
                         "  (NULL, NULL, NULL, 4e0)");
@@ -4186,11 +4190,12 @@ public abstract class BaseIcebergConnectorTest
         dataFile.put("file_size_in_bytes", alteredValue);
 
         // Write altered metadata
-        try (OutputStream out = fileSystem.newOutputFile(Location.of(manifestFile)).createOrOverwrite();
-                DataFileWriter<GenericData.Record> dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (DataFileWriter<GenericData.Record> dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
             dataFileWriter.create(schema, out);
             dataFileWriter.append(entry);
         }
+        fileSystem.newOutputFile(Location.of(manifestFile)).createOrOverwrite(out.toByteArray());
 
         // Ignoring Iceberg provided file size makes the query succeed
         Session session = Session.builder(getSession())
@@ -4714,6 +4719,35 @@ public abstract class BaseIcebergConnectorTest
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
+    @Test
+    public void testGetIcebergTableWithLegacyOrcBloomFilterProperties()
+            throws IOException
+    {
+        String tableName = "test_get_table_with_legacy_orc_bloom_filter_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+
+        String tableLocation = getTableLocation(tableName);
+        String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
+
+        TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
+        ImmutableMap<String, String> newProperties = ImmutableMap.<String, String>builder()
+                .putAll(tableMetadata.properties())
+                .put("orc.bloom.filter.columns", "x,y") // legacy incorrect property
+                .put("orc.bloom.filter.fpp", "0.2") // legacy incorrect property
+                .buildOrThrow();
+        TableMetadata newTableMetadata = newTableMetadata(
+                tableMetadata.schema(),
+                tableMetadata.spec(),
+                tableMetadata.sortOrder(),
+                tableMetadata.location(),
+                newProperties);
+        byte[] metadataJson = TableMetadataParser.toJson(newTableMetadata).getBytes(UTF_8);
+        fileSystem.newOutputFile(Location.of(metadataLocation)).createOrOverwrite(metadataJson);
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("orc_bloom_filter_columns", "orc_bloom_filter_fpp");
+    }
+
     protected abstract boolean supportsIcebergFileStatistics(String typeName);
 
     @Test
@@ -5162,7 +5196,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(allDataFilesAfterDelete).hasSize(6);
 
         // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
-        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey = 4");
+        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey = 3");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
 
@@ -5172,7 +5206,7 @@ public abstract class BaseIcebergConnectorTest
         List<String> allDataFilesAfterOptimizeWithWhere = getAllDataFilesFromTableDirectory(tableName);
         assertThat(allDataFilesAfterOptimizeWithWhere)
                 .hasSize(6)
-                .doesNotContain(allDataFilesInitially.stream().filter(file -> file.contains("regionkey=4"))
+                .doesNotContain(allDataFilesInitially.stream().filter(file -> file.contains("regionkey=3"))
                         .toArray(String[]::new));
 
         assertThat(query("SELECT * FROM " + tableName))
@@ -6086,44 +6120,54 @@ public abstract class BaseIcebergConnectorTest
         assertQuerySucceeds("CREATE TABLE " + tableName + "(col1 varchar)");
         long v1SnapshotId = getCurrentSnapshotId(tableName);
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v1SnapshotId))
-                .hasOutputTypes(ImmutableList.of(VARCHAR))
-                .returnsEmptyResult();
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR))
+                .isEmpty();
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN  col2 integer");
         assertThat(query("SELECT * FROM " + tableName))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER))
-                .returnsEmptyResult();
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER))
+                .isEmpty();
 
         assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 11)", 1);
         long v2SnapshotId = getCurrentSnapshotId(tableName);
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER))
                 .matches("VALUES (VARCHAR 'a', 11)");
         assertThat(query("SELECT * FROM " + tableName))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER))
                 .matches("VALUES (VARCHAR 'a', 11)");
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN  col3 bigint");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER))
                 .matches("VALUES (VARCHAR 'a', 11)");
         assertThat(query("SELECT * FROM " + tableName))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER, BIGINT))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER, BIGINT))
                 .matches("VALUES (VARCHAR 'a', 11, CAST(NULL AS bigint))");
 
         assertUpdate("INSERT INTO " + tableName + " VALUES ('b', 22, 32)", 1);
         long v3SnapshotId = getCurrentSnapshotId(tableName);
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v1SnapshotId))
-                .hasOutputTypes(ImmutableList.of(VARCHAR))
-                .returnsEmptyResult();
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR))
+                .isEmpty();
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER))
                 .matches("VALUES (VARCHAR 'a', 11)");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v3SnapshotId))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER, BIGINT))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER, BIGINT))
                 .matches("VALUES (VARCHAR 'a', 11, NULL), (VARCHAR 'b', 22, BIGINT '32')");
         assertThat(query("SELECT * FROM " + tableName))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER, BIGINT))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER, BIGINT))
                 .matches("VALUES (VARCHAR 'a', 11, NULL), (VARCHAR 'b', 22, BIGINT '32')");
     }
 
@@ -6135,42 +6179,51 @@ public abstract class BaseIcebergConnectorTest
         assertQuerySucceeds("CREATE TABLE " + tableName + "(col1 varchar, col2 integer, col3 boolean)");
         long v1SnapshotId = getCurrentSnapshotId(tableName);
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v1SnapshotId))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER, BOOLEAN))
-                .returnsEmptyResult();
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER, BOOLEAN))
+                .isEmpty();
 
         assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 1, true)", 1);
         long v2SnapshotId = getCurrentSnapshotId(tableName);
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER, BOOLEAN))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER, BOOLEAN))
                 .matches("VALUES (VARCHAR 'a', 1, true)");
 
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN  col3");
         assertUpdate("INSERT INTO " + tableName + " VALUES ('b', 2)", 1);
         long v3SnapshotId = getCurrentSnapshotId(tableName);
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v3SnapshotId))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER))
                 .matches("VALUES (VARCHAR 'a', 1), (VARCHAR 'b', 2)");
         assertThat(query("SELECT * FROM " + tableName))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER))
                 .matches("VALUES (VARCHAR 'a', 1), (VARCHAR 'b', 2)");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER, BOOLEAN))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER, BOOLEAN))
                 .matches("VALUES (VARCHAR 'a', 1, true)");
 
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN  col2");
         assertUpdate("INSERT INTO " + tableName + " VALUES ('c')", 1);
         long v4SnapshotId = getCurrentSnapshotId(tableName);
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v4SnapshotId))
-                .hasOutputTypes(ImmutableList.of(VARCHAR))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR))
                 .matches("VALUES (VARCHAR 'a'), (VARCHAR 'b'), (VARCHAR 'c')");
         assertThat(query("SELECT * FROM " + tableName))
-                .hasOutputTypes(ImmutableList.of(VARCHAR))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR))
                 .matches("VALUES (VARCHAR 'a'), (VARCHAR 'b'), (VARCHAR 'c')");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v3SnapshotId))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER))
                 .matches("VALUES (VARCHAR 'a', 1), (VARCHAR 'b', 2)");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId))
-                .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER, BOOLEAN))
+                .result()
+                .hasTypes(ImmutableList.of(VARCHAR, INTEGER, BOOLEAN))
                 .matches("VALUES (VARCHAR 'a', 1, true)");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -7077,11 +7130,11 @@ public abstract class BaseIcebergConnectorTest
         // Add duplicate field to produce validation error while reading the metadata file
         fieldsNode.add(newFieldNode);
 
-        String modifiedJson = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode);
-        try (OutputStream outputStream = fileSystem.newOutputFile(Location.of(metadataFileLocation)).createOrOverwrite()) {
-            // Corrupt metadata file by overwriting the invalid metadata content
-            outputStream.write(modifiedJson.getBytes(UTF_8));
-        }
+        byte[] modifiedJson = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(jsonNode);
+
+        // Corrupt metadata file by overwriting the invalid metadata content
+        fileSystem.newOutputFile(Location.of(metadataFileLocation)).createOrOverwrite(modifiedJson);
+
         assertThat(query("SELECT * FROM " + tableName))
                 .failure().hasMessage("Invalid metadata file for table tpch.%s".formatted(tableName));
 
@@ -7455,7 +7508,7 @@ public abstract class BaseIcebergConnectorTest
         // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
         if ((format == IcebergFileFormat.PARQUET || format == AVRO) && compressionCodec == HiveCompressionCodec.LZ4) {
             assertTrinoExceptionThrownBy(() -> computeActual(session, createTableSql))
-                    .hasMessage("Compression codec LZ4 not supported for " + capitalize(format.name().toLowerCase(ENGLISH)));
+                    .hasMessage("Compression codec LZ4 not supported for " + format.humanName());
             return;
         }
         assertUpdate(session, createTableSql, 25);
@@ -7863,10 +7916,5 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(getFieldFromLatestSnapshotSummary(tableName, TRINO_QUERY_ID_NAME))
                 .isEqualTo(queryId.toString());
-    }
-
-    private static String capitalize(String value)
-    {
-        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
     }
 }

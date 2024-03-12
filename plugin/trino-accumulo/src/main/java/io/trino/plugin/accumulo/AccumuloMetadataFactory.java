@@ -19,16 +19,16 @@ import static java.util.Objects.requireNonNull;
 
 public class AccumuloMetadataFactory
 {
-    private final AccumuloClient client;
+    private final AccumuloMetadataManager metadataManager;
 
     @Inject
-    public AccumuloMetadataFactory(AccumuloClient client)
+    public AccumuloMetadataFactory(AccumuloMetadataManager metadataManager)
     {
-        this.client = requireNonNull(client, "client is null");
+        this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
     }
 
     public AccumuloMetadata create()
     {
-        return new AccumuloMetadata(client);
+        return new AccumuloMetadata(metadataManager);
     }
 }

@@ -31,7 +31,6 @@ import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ExpressionUtils;
 import io.trino.sql.NodeUtils;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -113,7 +112,6 @@ import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
-import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -151,10 +149,10 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.OrderingTranslator.sortItemToSortOrder;
@@ -188,7 +186,6 @@ class QueryPlanner
     private final PlanNodeIdAllocator idAllocator;
     private final Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap;
     private final PlannerContext plannerContext;
-    private final TypeCoercion typeCoercion;
     private final Session session;
     private final SubqueryPlanner subqueryPlanner;
     private final Optional<TranslationMap> outerContext;
@@ -218,7 +215,6 @@ class QueryPlanner
         this.idAllocator = idAllocator;
         this.lambdaDeclarationToSymbolMap = lambdaDeclarationToSymbolMap;
         this.plannerContext = plannerContext;
-        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.session = session;
         this.outerContext = outerContext;
         this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries);
@@ -645,9 +641,8 @@ class QueryPlanner
             if (index >= 0) {
                 // This column is updated...
                 Expression original = orderedColumnValues.get(index);
-                Expression setExpression = coerceIfNecessary(analysis, original, original);
-                subPlanBuilder = subqueryPlanner.handleSubqueries(subPlanBuilder, setExpression, analysis.getSubqueries(node));
-                Expression rewritten = subPlanBuilder.rewrite(setExpression);
+                subPlanBuilder = subqueryPlanner.handleSubqueries(subPlanBuilder, original, analysis.getSubqueries(node));
+                Expression rewritten = coerceIfNecessary(analysis, original, subPlanBuilder.rewrite(original));
 
                 // If the updated column is non-null, check that the value is not null
                 if (mergeAnalysis.getNonNullableColumnHandles().contains(dataColumnHandle)) {
@@ -730,7 +725,7 @@ class QueryPlanner
 
             Expression predicate = new IfExpression(
                     // When predicate evaluates to UNKNOWN (e.g. NULL > 100), it should not violate the check constraint.
-                    new CoalesceExpression(coerceIfNecessary(analysis, symbol, symbol), TRUE_LITERAL),
+                    new CoalesceExpression(coerceIfNecessary(analysis, constraint, symbol), TRUE_LITERAL),
                     TRUE_LITERAL,
                     new Cast(failFunction(plannerContext.getMetadata(), CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), toSqlType(BOOLEAN)));
 
@@ -775,7 +770,7 @@ class QueryPlanner
                 .process(merge.getSource());
 
         RelationPlan joinPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
-                .planJoin(coerceIfNecessary(analysis, merge.getPredicate(), merge.getPredicate()), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), planWithPresentColumn, source, analysis.getSubqueries(merge));
+                .planJoin(merge.getPredicate(), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), planWithPresentColumn, source, analysis.getSubqueries(merge));
 
         PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
@@ -793,9 +788,8 @@ class QueryPlanner
             Optional<Expression> casePredicate = Optional.empty();
             if (mergeCase.getExpression().isPresent()) {
                 Expression original = mergeCase.getExpression().get();
-                Expression predicate = coerceIfNecessary(analysis, original, original);
-                casePredicate = Optional.of(predicate);
-                subPlan = subqueryPlanner.handleSubqueries(subPlan, predicate, analysis.getSubqueries(merge));
+                casePredicate = Optional.of(original);
+                subPlan = subqueryPlanner.handleSubqueries(subPlan, original, analysis.getSubqueries(merge));
             }
 
             ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
@@ -835,14 +829,15 @@ class QueryPlanner
             // Add the merge case number, needed by MarkDistinct
             rowBuilder.add(new GenericLiteral("INTEGER", String.valueOf(caseNumber)));
 
-            Optional<Expression> rewritten = casePredicate.map(subPlan::rewrite);
             Expression condition = presentColumn.toSymbolReference();
             if (mergeCase instanceof MergeInsert) {
                 condition = new IsNullPredicate(presentColumn.toSymbolReference());
             }
 
-            if (rewritten.isPresent()) {
-                condition = ExpressionUtils.and(condition, rewritten.get());
+            if (casePredicate.isPresent()) {
+                condition = and(
+                        condition,
+                        coerceIfNecessary(analysis, casePredicate.get(), subPlan.rewrite(casePredicate.get())));
             }
 
             whenClauses.add(new WhenClause(condition, new Row(rowBuilder.build())));
@@ -1134,7 +1129,7 @@ class QueryPlanner
         //    avg(v)
         // Needs to be rewritten as
         //    avg(CAST(v AS double))
-        PlanAndMappings coercions = coerce(subPlan, inputs, analysis, idAllocator, symbolAllocator, typeCoercion);
+        PlanAndMappings coercions = coerce(subPlan, inputs, analysis, idAllocator, symbolAllocator);
         subPlan = coercions.getSubPlan();
 
         GroupingSetsPlan groupingSets = planGroupingSets(subPlan, node, groupingSetAnalysis);
@@ -1455,7 +1450,7 @@ class QueryPlanner
             //    avg(v) OVER (ORDER BY v)
             // Needs to be rewritten as
             //    avg(CAST(v AS double)) OVER (ORDER BY v)
-            PlanAndMappings coercions = coerce(subPlan, inputs, analysis, idAllocator, symbolAllocator, typeCoercion);
+            PlanAndMappings coercions = coerce(subPlan, inputs, analysis, idAllocator, symbolAllocator);
             subPlan = coercions.getSubPlan();
 
             // For frame of type RANGE, append casts and functions necessary for frame bound calculations
@@ -1856,7 +1851,7 @@ class QueryPlanner
 
         PatternRecognitionComponents components = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .planPatternRecognitionComponents(
-                        subPlan::rewrite,
+                        subPlan.getTranslations(),
                         frame.getSubsets(),
                         ImmutableList.of(),
                         frame.getAfterMatchSkipTo(),
@@ -1879,11 +1874,10 @@ class QueryPlanner
                         components.getMeasures(),
                         Optional.of(baseFrame),
                         WINDOW,
-                        components.getSkipToLabel(),
+                        components.getSkipToLabels(),
                         components.getSkipToPosition(),
                         components.isInitial(),
                         components.getPattern(),
-                        components.getSubsets(),
                         components.getVariableDefinitions()));
     }
 
@@ -1929,15 +1923,28 @@ class QueryPlanner
                             .iterator());
             WindowFrame frame = window.getFrame().orElseThrow();
             Optional<Expression> endValue = frame.getEnd().orElseThrow().getValue();
-            endValue.ifPresent(inputsBuilder::add);
 
             List<Expression> inputs = inputsBuilder.build();
 
             subPlan = subqueryPlanner.handleSubqueries(subPlan, inputs, analysis.getSubqueries(node));
             subPlan = subPlan.appendProjections(inputs, symbolAllocator, idAllocator);
 
+            // Add projection for frame end, since WindowNode expects a symbol and does not support literals
+            // We don't use appendProjects because we don't want a mapping to be added for the literal
+            Optional<Symbol> endValueSymbol = Optional.empty();
+            if (endValue.isPresent()) {
+                Expression expression = endValue.get();
+                Assignments.Builder assignments = Assignments.builder();
+                assignments.putIdentities(subPlan.getRoot().getOutputSymbols());
+                Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getType(expression));
+                assignments.put(symbol, subPlan.rewrite(expression));
+
+                endValueSymbol = Optional.of(symbol);
+                subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build()));
+            }
+
             // process frame end
-            FrameOffsetPlanAndSymbol plan = planFrameOffset(subPlan, endValue.map(subPlan::translate));
+            FrameOffsetPlanAndSymbol plan = planFrameOffset(subPlan, endValueSymbol);
             subPlan = plan.getSubPlan();
             Optional<Symbol> frameEnd = plan.getFrameOffsetSymbol();
 
@@ -1987,7 +1994,7 @@ class QueryPlanner
 
         PatternRecognitionComponents components = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .planPatternRecognitionComponents(
-                        subPlan::rewrite,
+                        subPlan.getTranslations(),
                         frame.getSubsets(),
                         ImmutableList.of(analysis.getMeasureDefinition(windowMeasure)),
                         frame.getAfterMatchSkipTo(),
@@ -2012,11 +2019,10 @@ class QueryPlanner
                         components.getMeasures(),
                         Optional.of(baseFrame),
                         WINDOW,
-                        components.getSkipToLabel(),
+                        components.getSkipToLabels(),
                         components.getSkipToPosition(),
                         components.isInitial(),
                         components.getPattern(),
-                        components.getSubsets(),
                         components.getVariableDefinitions()));
     }
 
@@ -2025,7 +2031,7 @@ class QueryPlanner
      *
      * @return the new subplan and a mapping of each expression to the symbol representing the coercion or an existing symbol if a coercion wasn't needed
      */
-    public static PlanAndMappings coerce(PlanBuilder subPlan, List<Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, TypeCoercion typeCoercion)
+    public static PlanAndMappings coerce(PlanBuilder subPlan, List<Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
     {
         Assignments.Builder assignments = Assignments.builder();
         assignments.putIdentities(subPlan.getRoot().getOutputSymbols());

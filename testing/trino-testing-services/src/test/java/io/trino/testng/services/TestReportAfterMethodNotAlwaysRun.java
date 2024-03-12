@@ -20,7 +20,6 @@ import org.testng.annotations.AfterSuite;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestReportAfterMethodNotAlwaysRun
@@ -28,7 +27,7 @@ public class TestReportAfterMethodNotAlwaysRun
     @Test(dataProvider = "correctCases")
     public void testCorrectCases(Class<?> testClass)
     {
-        assertThatNoException().isThrownBy(() -> ReportAfterMethodNotAlwaysRun.checkHasAfterMethodsNotAlwaysRun(testClass));
+        ReportAfterMethodNotAlwaysRun.checkHasAfterMethodsNotAlwaysRun(testClass);
     }
 
     @DataProvider

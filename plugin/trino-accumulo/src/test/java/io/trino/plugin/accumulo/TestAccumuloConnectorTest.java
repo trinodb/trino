@@ -23,10 +23,14 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.regex.Pattern;
 
 import static io.trino.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static java.util.regex.Pattern.DOTALL;
+import static java.util.regex.Pattern.MULTILINE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -112,6 +116,40 @@ public class TestAccumuloConnectorTest
                 "SELECT * FROM orders WITH NO DATA",
                 "SELECT * FROM orders LIMIT 0",
                 "SELECT 0");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(1024);
+    }
+
+    @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        return OptionalInt.of(1024);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Table name exceeds a maximum length");
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Namespace name exceeds a maximum length of 1024");
+    }
+
+    @Test
+    @Override
+    public void testCreateSchemaWithLongName()
+    {
+        // Despite that create operating fails, invalid schema can be listed
+        assertThatThrownBy(super::testCreateSchemaWithLongName)
+                .isInstanceOf(AssertionError.class)
+                .hasMessageMatching(Pattern.compile(".*Expecting.*not\\sto\\scontain.*", MULTILINE | DOTALL));
     }
 
     @Test

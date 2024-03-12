@@ -15,8 +15,6 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.ByteSource;
-import com.google.common.io.ByteStreams;
 import com.google.common.reflect.ClassPath;
 import io.airlift.concurrent.MoreFutures;
 import io.trino.Session;
@@ -35,7 +33,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.List;
@@ -299,11 +296,9 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     .collect(toImmutableList());
             for (ClassPath.ResourceInfo resourceInfo : resources) {
                 String fileName = resourceInfo.getResourceName().replaceFirst("^" + Pattern.quote(resourcePath), quoteReplacement(tableLocation));
-                ByteSource byteSource = resourceInfo.asByteSource();
+                byte[] bytes = resourceInfo.asByteSource().read();
                 TrinoOutputFile trinoOutputFile = fileSystem.newOutputFile(Location.of(fileName));
-                try (OutputStream fileStream = trinoOutputFile.createOrOverwrite()) {
-                    ByteStreams.copy(byteSource.openBufferedStream(), fileStream);
-                }
+                trinoOutputFile.createOrOverwrite(bytes);
             }
         }
         catch (IOException e) {

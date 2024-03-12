@@ -246,10 +246,11 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.plan.WindowNode.Frame;
 import io.trino.sql.planner.rowpattern.AggregationValuePointer;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.ClassifierValuePointer;
+import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
+import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
-import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.relational.LambdaDefinitionExpression;
 import io.trino.sql.relational.RowExpression;
@@ -344,8 +345,8 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.SortExpressionExtractor.extractSortExpression;
@@ -1404,14 +1405,11 @@ public class LocalExecutionPlanner
             List<MeasureComputationSupplier> measureComputations = measuresBuilder.build();
 
             // 6. prepare SKIP TO navigation
-            Optional<LogicalIndexNavigation> skipToNavigation = node.getSkipToLabel().map(label -> {
-                Set<IrLabel> labels = node.getSubsets().get(label);
-                if (labels == null) {
-                    labels = ImmutableSet.of(label);
-                }
+            Optional<LogicalIndexNavigation> skipToNavigation = Optional.empty();
+            if (!node.getSkipToLabels().isEmpty()) {
                 boolean last = node.getSkipToPosition().equals(LAST);
-                return new LogicalIndexPointer(labels, last, false, 0, 0).toLogicalIndexNavigation(mapping);
-            });
+                skipToNavigation = Optional.of(new LogicalIndexPointer(node.getSkipToLabels(), last, false, 0, 0).toLogicalIndexNavigation(mapping));
+            }
 
             // 7. pass additional info like: rowsPerMatch, skipToPosition, initial to the WindowPartition factory supplier
             PartitionerSupplier partitionerSupplier = new PatternRecognitionPartitionerSupplier(
@@ -1455,32 +1453,23 @@ public class LocalExecutionPlanner
         private Supplier<PageProjection> prepareProjection(ExpressionAndValuePointers expressionAndValuePointers, LocalExecutionPlanContext context)
         {
             Expression rewritten = expressionAndValuePointers.getExpression();
-            List<Symbol> inputSymbols = expressionAndValuePointers.getLayout();
-            List<ValuePointer> valuePointers = expressionAndValuePointers.getValuePointers();
-            Set<Symbol> classifierSymbols = expressionAndValuePointers.getClassifierSymbols();
-            Set<Symbol> matchNumberSymbols = expressionAndValuePointers.getMatchNumberSymbols();
 
             // prepare input layout and type provider for compilation
             ImmutableMap.Builder<Symbol, Type> inputTypes = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, Integer> inputLayout = ImmutableMap.builder();
-            for (int i = 0; i < inputSymbols.size(); i++) {
-                if (classifierSymbols.contains(inputSymbols.get(i))) {
-                    inputTypes.put(inputSymbols.get(i), VARCHAR);
-                }
-                else if (matchNumberSymbols.contains(inputSymbols.get(i))) {
-                    inputTypes.put(inputSymbols.get(i), BIGINT);
-                }
-                else {
-                    ValuePointer pointer = valuePointers.get(i);
-                    if (pointer instanceof ScalarValuePointer scalar) {
-                        inputTypes.put(inputSymbols.get(i), context.getTypes().get(scalar.getInputSymbol()));
-                    }
-                    else {
-                        AggregationValuePointer aggregation = (AggregationValuePointer) pointer;
-                        inputTypes.put(inputSymbols.get(i), aggregation.getFunction().getSignature().getReturnType());
-                    }
-                }
-                inputLayout.put(inputSymbols.get(i), i);
+
+            List<ExpressionAndValuePointers.Assignment> assignments = expressionAndValuePointers.getAssignments();
+            for (int i = 0; i < assignments.size(); i++) {
+                ExpressionAndValuePointers.Assignment assignment = assignments.get(i);
+                inputLayout.put(assignment.symbol(), i);
+                inputTypes.put(
+                        assignment.symbol(),
+                        switch (assignment.valuePointer()) {
+                            case AggregationValuePointer pointer -> pointer.getFunction().getSignature().getReturnType();
+                            case ClassifierValuePointer pointer -> VARCHAR;
+                            case MatchNumberValuePointer pointer -> BIGINT;
+                            case ScalarValuePointer pointer -> context.getTypes().get(pointer.getInputSymbol());
+                        });
             }
 
             // compile expression using input layout and input types
@@ -1507,139 +1496,132 @@ public class LocalExecutionPlanner
             // for thread equivalence
             ImmutableList.Builder<MatchAggregationLabelDependency> labelDependencies = ImmutableList.builder();
 
-            List<ValuePointer> valuePointers = expressionAndValuePointers.getValuePointers();
-            Set<Symbol> classifierSymbols = expressionAndValuePointers.getClassifierSymbols();
-            Set<Symbol> matchNumberSymbols = expressionAndValuePointers.getMatchNumberSymbols();
-
             ImmutableList.Builder<PhysicalValueAccessor> valueAccessors = ImmutableList.builder();
-            for (ValuePointer valuePointer : valuePointers) {
-                if (valuePointer instanceof ScalarValuePointer pointer) {
-                    if (classifierSymbols.contains(pointer.getInputSymbol())) {
+            for (ExpressionAndValuePointers.Assignment assignment : expressionAndValuePointers.getAssignments()) {
+                switch (assignment.valuePointer()) {
+                    case ClassifierValuePointer pointer -> {
                         valueAccessors.add(new PhysicalValuePointer(
                                 CLASSIFIER,
                                 VARCHAR,
                                 pointer.getLogicalIndexPointer().toLogicalIndexNavigation(mapping)));
                     }
-                    else if (matchNumberSymbols.contains(pointer.getInputSymbol())) {
-                        valueAccessors.add(new PhysicalValuePointer(
-                                MATCH_NUMBER,
-                                BIGINT,
-                                pointer.getLogicalIndexPointer().toLogicalIndexNavigation(mapping)));
+                    case MatchNumberValuePointer pointer -> {
+                        valueAccessors.add(new PhysicalValuePointer(MATCH_NUMBER, BIGINT, LogicalIndexNavigation.NO_OP));
                     }
-                    else {
+                    case ScalarValuePointer pointer -> {
                         valueAccessors.add(new PhysicalValuePointer(
                                 getOnlyElement(getChannelsForSymbols(ImmutableList.of(pointer.getInputSymbol()), sourceLayout)),
                                 context.getTypes().get(pointer.getInputSymbol()),
                                 pointer.getLogicalIndexPointer().toLogicalIndexNavigation(mapping)));
                     }
-                }
-                else {
-                    AggregationValuePointer pointer = (AggregationValuePointer) valuePointer;
+                    case AggregationValuePointer pointer -> {
+                        boolean classifierInvolved = false;
 
-                    boolean classifierInvolved = false;
+                        ResolvedFunction resolvedFunction = pointer.getFunction();
+                        AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(pointer.getFunction());
 
-                    ResolvedFunction resolvedFunction = pointer.getFunction();
-                    AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(pointer.getFunction());
+                        ImmutableList.Builder<Map.Entry<Expression, Type>> builder = ImmutableList.builder();
+                        List<Type> signatureTypes = resolvedFunction.getSignature().getArgumentTypes();
+                        for (int i = 0; i < pointer.getArguments().size(); i++) {
+                            builder.add(new SimpleEntry<>(pointer.getArguments().get(i), signatureTypes.get(i)));
+                        }
+                        Map<Boolean, List<Map.Entry<Expression, Type>>> arguments = builder.build().stream()
+                                .collect(partitioningBy(entry -> entry.getKey() instanceof LambdaExpression));
 
-                    ImmutableList.Builder<Map.Entry<Expression, Type>> builder = ImmutableList.builder();
-                    List<Type> signatureTypes = resolvedFunction.getSignature().getArgumentTypes();
-                    for (int i = 0; i < pointer.getArguments().size(); i++) {
-                        builder.add(new SimpleEntry<>(pointer.getArguments().get(i), signatureTypes.get(i)));
-                    }
-                    Map<Boolean, List<Map.Entry<Expression, Type>>> arguments = builder.build().stream()
-                            .collect(partitioningBy(entry -> entry.getKey() instanceof LambdaExpression));
+                        // handle lambda arguments
+                        List<LambdaExpression> lambdaExpressions = arguments.get(true).stream()
+                                .map(Map.Entry::getKey)
+                                .map(LambdaExpression.class::cast)
+                                .collect(toImmutableList());
 
-                    // handle lambda arguments
-                    List<LambdaExpression> lambdaExpressions = arguments.get(true).stream()
-                            .map(Map.Entry::getKey)
-                            .map(LambdaExpression.class::cast)
-                            .collect(toImmutableList());
+                        List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
+                                .filter(FunctionType.class::isInstance)
+                                .map(FunctionType.class::cast)
+                                .collect(toImmutableList());
 
-                    List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
-                            .filter(FunctionType.class::isInstance)
-                            .map(FunctionType.class::cast)
-                            .collect(toImmutableList());
+                        // TODO when we support lambda arguments: lambda cannot have runtime-evaluated symbols -- add check in the Analyzer
+                        List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdaExpressions, aggregationImplementation.getLambdaInterfaces(), functionTypes);
 
-                    // TODO when we support lambda arguments: lambda cannot have runtime-evaluated symbols -- add check in the Analyzer
-                    List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdaExpressions, aggregationImplementation.getLambdaInterfaces(), functionTypes);
+                        // handle non-lambda arguments
+                        List<Integer> valueChannels = new ArrayList<>();
 
-                    // handle non-lambda arguments
-                    List<Integer> valueChannels = new ArrayList<>();
+                        Optional<Symbol> classifierArgumentSymbol = pointer.getClassifierSymbol();
+                        Optional<Symbol> matchNumberArgumentSymbol = pointer.getMatchNumberSymbol();
+                        Set<Symbol> runtimeEvaluatedSymbols = ImmutableSet.of(classifierArgumentSymbol, matchNumberArgumentSymbol).stream()
+                                .flatMap(Optional::stream)
+                                .collect(toImmutableSet());
 
-                    Symbol classifierArgumentSymbol = pointer.getClassifierSymbol();
-                    Symbol matchNumberArgumentSymbol = pointer.getMatchNumberSymbol();
-                    Set<Symbol> runtimeEvaluatedSymbols = ImmutableSet.of(classifierArgumentSymbol, matchNumberArgumentSymbol);
+                        for (Map.Entry<Expression, Type> argumentWithType : arguments.get(false)) {
+                            Expression argument = argumentWithType.getKey();
+                            boolean isRuntimeEvaluated = !(argument instanceof SymbolReference) || runtimeEvaluatedSymbols.contains(Symbol.from(argument));
+                            if (isRuntimeEvaluated) {
+                                List<Symbol> argumentInputSymbols = ImmutableList.copyOf(SymbolsExtractor.extractUnique(argument));
+                                Supplier<PageProjection> argumentProjectionSupplier = prepareArgumentProjection(argument, argumentInputSymbols, classifierArgumentSymbol, matchNumberArgumentSymbol, context);
 
-                    for (Map.Entry<Expression, Type> argumentWithType : arguments.get(false)) {
-                        Expression argument = argumentWithType.getKey();
-                        boolean isRuntimeEvaluated = !(argument instanceof SymbolReference) || runtimeEvaluatedSymbols.contains(Symbol.from(argument));
-                        if (isRuntimeEvaluated) {
-                            List<Symbol> argumentInputSymbols = ImmutableList.copyOf(SymbolsExtractor.extractUnique(argument));
-                            Supplier<PageProjection> argumentProjectionSupplier = prepareArgumentProjection(argument, argumentInputSymbols, classifierArgumentSymbol, matchNumberArgumentSymbol, context);
-
-                            List<Integer> argumentInputChannels = new ArrayList<>();
-                            for (Symbol symbol : argumentInputSymbols) {
-                                if (symbol.equals(classifierArgumentSymbol)) {
-                                    classifierInvolved = true;
-                                    argumentInputChannels.add(CLASSIFIER);
+                                List<Integer> argumentInputChannels = new ArrayList<>();
+                                for (Symbol symbol : argumentInputSymbols) {
+                                    if (classifierArgumentSymbol.isPresent() && symbol.equals(classifierArgumentSymbol.get())) {
+                                        classifierInvolved = true;
+                                        argumentInputChannels.add(CLASSIFIER);
+                                    }
+                                    else if (matchNumberArgumentSymbol.isPresent() && symbol.equals(matchNumberArgumentSymbol.get())) {
+                                        argumentInputChannels.add(MATCH_NUMBER);
+                                    }
+                                    else {
+                                        argumentInputChannels.add(sourceLayout.get(symbol));
+                                    }
                                 }
-                                else if (symbol.equals(matchNumberArgumentSymbol)) {
-                                    argumentInputChannels.add(MATCH_NUMBER);
-                                }
-                                else {
-                                    argumentInputChannels.add(sourceLayout.get(symbol));
-                                }
+
+                                Type argumentType = argumentWithType.getValue();
+                                ArgumentComputationSupplier argumentComputationSupplier = new ArgumentComputationSupplier(argumentProjectionSupplier, argumentType, argumentInputChannels, connectorSession);
+                                aggregationArguments.add(argumentComputationSupplier);
+
+                                // the runtime-evaluated argument will appear in an extra channel after all input channels
+                                valueChannels.add(firstUnusedChannel);
+                                firstUnusedChannel++;
                             }
-
-                            Type argumentType = argumentWithType.getValue();
-                            ArgumentComputationSupplier argumentComputationSupplier = new ArgumentComputationSupplier(argumentProjectionSupplier, argumentType, argumentInputChannels, connectorSession);
-                            aggregationArguments.add(argumentComputationSupplier);
-
-                            // the runtime-evaluated argument will appear in an extra channel after all input channels
-                            valueChannels.add(firstUnusedChannel);
-                            firstUnusedChannel++;
+                            else {
+                                valueChannels.add(sourceLayout.get(Symbol.from(argument)));
+                            }
                         }
-                        else {
-                            valueChannels.add(sourceLayout.get(Symbol.from(argument)));
-                        }
+
+                        AggregationWindowFunctionSupplier aggregationWindowFunctionSupplier = uncheckedCacheGet(
+                                aggregationWindowFunctionSupplierCache,
+                                new FunctionKey(resolvedFunction.getFunctionId(), resolvedFunction.getSignature()),
+                                () -> new AggregationWindowFunctionSupplier(
+                                        resolvedFunction.getSignature(),
+                                        aggregationImplementation,
+                                        resolvedFunction.getFunctionNullability()));
+                        matchAggregations.add(new MatchAggregationInstantiator(
+                                resolvedFunction.getSignature(),
+                                aggregationWindowFunctionSupplier,
+                                valueChannels,
+                                lambdaProviders,
+                                new SetEvaluatorSupplier(pointer.getSetDescriptor(), mapping)));
+                        labelDependencies.add(new MatchAggregationLabelDependency(
+                                pointer.getSetDescriptor().getLabels().stream()
+                                        .map(mapping::get)
+                                        .collect(toImmutableSet()),
+                                classifierInvolved));
+                        valueAccessors.add(new MatchAggregationPointer(matchAggregationIndex));
+                        matchAggregationIndex++;
                     }
-
-                    AggregationWindowFunctionSupplier aggregationWindowFunctionSupplier = uncheckedCacheGet(
-                            aggregationWindowFunctionSupplierCache,
-                            new FunctionKey(resolvedFunction.getFunctionId(), resolvedFunction.getSignature()),
-                            () -> new AggregationWindowFunctionSupplier(
-                                    resolvedFunction.getSignature(),
-                                    aggregationImplementation,
-                                    resolvedFunction.getFunctionNullability()));
-                    matchAggregations.add(new MatchAggregationInstantiator(
-                            resolvedFunction.getSignature(),
-                            aggregationWindowFunctionSupplier,
-                            valueChannels,
-                            lambdaProviders,
-                            new SetEvaluatorSupplier(pointer.getSetDescriptor(), mapping)));
-                    labelDependencies.add(new MatchAggregationLabelDependency(
-                            pointer.getSetDescriptor().getLabels().stream()
-                                    .map(mapping::get)
-                                    .collect(toImmutableSet()),
-                            classifierInvolved));
-                    valueAccessors.add(new MatchAggregationPointer(matchAggregationIndex));
-                    matchAggregationIndex++;
                 }
             }
 
             return new ValueAccessors(valueAccessors.build(), matchAggregations.build(), matchAggregationIndex, aggregationArguments.build(), firstUnusedChannel, labelDependencies.build());
         }
 
-        private Supplier<PageProjection> prepareArgumentProjection(Expression argument, List<Symbol> inputSymbols, Symbol classifierSymbol, Symbol matchNumberSymbol, LocalExecutionPlanContext context)
+        private Supplier<PageProjection> prepareArgumentProjection(Expression argument, List<Symbol> inputSymbols, Optional<Symbol> classifierSymbol, Optional<Symbol> matchNumberSymbol, LocalExecutionPlanContext context)
         {
             // prepare input layout and type provider for compilation
             ImmutableMap.Builder<Symbol, Type> inputTypes = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, Integer> inputLayout = ImmutableMap.builder();
             for (int i = 0; i < inputSymbols.size(); i++) {
-                if (inputSymbols.get(i).equals(classifierSymbol)) {
+                if (classifierSymbol.isPresent() && inputSymbols.get(i).equals(classifierSymbol.get())) {
                     inputTypes.put(inputSymbols.get(i), VARCHAR);
                 }
-                else if (inputSymbols.get(i).equals(matchNumberSymbol)) {
+                else if (matchNumberSymbol.isPresent() && inputSymbols.get(i).equals(matchNumberSymbol.get())) {
                     inputTypes.put(inputSymbols.get(i), BIGINT);
                 }
                 else {

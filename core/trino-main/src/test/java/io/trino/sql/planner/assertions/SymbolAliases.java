@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.HashMap;
@@ -42,6 +44,17 @@ public final class SymbolAliases
         this.map = ImmutableMap.copyOf(requireNonNull(aliases, "aliases is null"));
     }
 
+    public Expression rewrite(Expression expression)
+    {
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>() {
+            @Override
+            public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                return map.getOrDefault(node.getName(), node);
+            }
+        }, expression);
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -56,6 +69,11 @@ public final class SymbolAliases
         }
 
         return builder.build();
+    }
+
+    public Symbol getSymbol(String alias)
+    {
+        return Symbol.from(get(alias));
     }
 
     public SymbolReference get(String alias)

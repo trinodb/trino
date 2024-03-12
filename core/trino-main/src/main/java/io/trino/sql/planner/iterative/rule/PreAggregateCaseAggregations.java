@@ -14,7 +14,6 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.matching.Capture;
@@ -40,12 +39,13 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.IfExpression;
+import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -54,6 +54,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.isPreAggregateCaseAggregationsEnabled;
 import static io.trino.matching.Capture.newCapture;
@@ -65,6 +66,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -282,30 +284,36 @@ public class PreAggregateCaseAggregations
 
     private Map<PreAggregationKey, PreAggregation> getPreAggregations(List<CaseAggregation> aggregations, Context context)
     {
-        Set<PreAggregationKey> keys = new HashSet<>();
-        ImmutableMap.Builder<PreAggregationKey, PreAggregation> preAggregations = ImmutableMap.builder();
-        for (CaseAggregation aggregation : aggregations) {
-            PreAggregationKey preAggregationKey = new PreAggregationKey(aggregation);
-            if (keys.contains(preAggregationKey)) {
-                continue;
-            }
+        return aggregations.stream()
+                .collect(toImmutableSetMultimap(PreAggregationKey::new, identity()))
+                .asMap().entrySet().stream().collect(toImmutableMap(
+                        Map.Entry::getKey,
+                        entry -> {
+                            PreAggregationKey key = entry.getKey();
+                            Set<CaseAggregation> caseAggregations = (Set<CaseAggregation>) entry.getValue();
+                            Expression preProjection = key.projection;
 
-            // Cast pre-projection if needed to match aggregation input type.
-            // This is because entire "CASE WHEN" expression could be wrapped in CAST.
-            Expression preProjection = aggregation.getResult();
-            Type preProjectionType = getType(context, preProjection);
-            Type aggregationInputType = getOnlyElement(aggregation.getFunction().getSignature().getArgumentTypes());
-            if (!preProjectionType.equals(aggregationInputType)) {
-                preProjection = new Cast(preProjection, toSqlType(aggregationInputType));
-                preProjectionType = aggregationInputType;
-            }
+                            // Cast pre-projection if needed to match aggregation input type.
+                            // This is because entire "CASE WHEN" expression could be wrapped in CAST.
+                            Type preProjectionType = getType(context, preProjection);
+                            Type aggregationInputType = getOnlyElement(key.getFunction().getSignature().getArgumentTypes());
+                            if (!preProjectionType.equals(aggregationInputType)) {
+                                preProjection = new Cast(preProjection, toSqlType(aggregationInputType));
+                                preProjectionType = aggregationInputType;
+                            }
 
-            Symbol preProjectionSymbol = context.getSymbolAllocator().newSymbol(preProjection, preProjectionType);
-            Symbol preAggregationSymbol = context.getSymbolAllocator().newSymbol(aggregation.getAggregationSymbol());
-            preAggregations.put(preAggregationKey, new PreAggregation(preAggregationSymbol, preProjection, preProjectionSymbol));
-            keys.add(preAggregationKey);
-        }
-        return ImmutableMap.copyOf(preAggregations.buildOrThrow());
+                            // Wrap the preProjection with IF to retain the conditional nature on the CASE aggregation(s) during pre-aggregation
+                            if (!(preProjection instanceof SymbolReference || preProjection instanceof Literal)) {
+                                Expression unionConditions = or(caseAggregations.stream()
+                                        .map(CaseAggregation::getOperand)
+                                        .collect(toImmutableSet()));
+                                preProjection = new IfExpression(unionConditions, preProjection, null);
+                            }
+
+                            Symbol preProjectionSymbol = context.getSymbolAllocator().newSymbol(preProjection, preProjectionType);
+                            Symbol preAggregationSymbol = context.getSymbolAllocator().newSymbol(caseAggregations.iterator().next().getAggregationSymbol());
+                            return new PreAggregation(preAggregationSymbol, preProjection, preProjectionSymbol);
+                        }));
     }
 
     private Optional<List<CaseAggregation>> extractCaseAggregations(AggregationNode aggregationNode, ProjectNode projectNode, Context context)

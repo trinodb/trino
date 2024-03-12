@@ -89,7 +89,7 @@ public class SetColumnTypeTask
             if (metadata.getMaterializedView(session, qualifiedObjectName).isPresent()) {
                 exceptionMessage += ", but a materialized view with that name exists.";
             }
-            else if (metadata.getView(session, qualifiedObjectName).isPresent()) {
+            else if (metadata.isView(session, qualifiedObjectName)) {
                 exceptionMessage += ", but a view with that name exists.";
             }
             if (!statement.isTableExists()) {

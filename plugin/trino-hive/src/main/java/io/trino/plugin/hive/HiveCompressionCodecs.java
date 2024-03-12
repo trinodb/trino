@@ -43,7 +43,7 @@ public final class HiveCompressionCodecs
         // perform codec vs format validation
         if ((storageFormat == HiveStorageFormat.PARQUET && selectedCodec.getParquetCompressionCodec().isEmpty()) ||
                 (storageFormat == HiveStorageFormat.AVRO && selectedCodec.getAvroCompressionKind().isEmpty())) {
-            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Compression codec %s not supported for %s".formatted(selectedCodec, storageFormat));
+            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Compression codec %s not supported for %s".formatted(selectedCodec, storageFormat.humanName()));
         }
 
         return selectedCodec;

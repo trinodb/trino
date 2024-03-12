@@ -71,7 +71,7 @@ public class DropNotNullConstraintTask
             if (metadata.getMaterializedView(session, tableName).isPresent()) {
                 exceptionMessage += ", but a materialized view with that name exists.";
             }
-            else if (metadata.getView(session, tableName).isPresent()) {
+            else if (metadata.isView(session, tableName)) {
                 exceptionMessage += ", but a view with that name exists.";
             }
             if (!statement.isTableExists()) {

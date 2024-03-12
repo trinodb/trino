@@ -117,7 +117,6 @@ import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
 import io.trino.sql.analyzer.ExpressionAnalyzer.ParametersTypeAndAnalysis;
 import io.trino.sql.analyzer.ExpressionAnalyzer.TypeAndAnalysis;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
-import io.trino.sql.analyzer.PatternRecognitionAnalyzer.PatternRecognitionAnalysis;
 import io.trino.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
@@ -241,12 +240,14 @@ import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.SimpleGroupBy;
 import io.trino.sql.tree.SingleColumn;
+import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableFunctionArgument;
@@ -385,10 +386,10 @@ import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregation
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static io.trino.sql.analyzer.CanonicalizationAware.canonicalizationAwareKey;
+import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeJsonQueryExpression;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeJsonValueExpression;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
-import static io.trino.sql.analyzer.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.asQualifiedName;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
@@ -1614,6 +1615,7 @@ class StatementAnalyzer
                 List<Field> expressionOutputs = new ArrayList<>();
 
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
+                analysis.recordSubqueries(node, expressionAnalysis);
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType) {
                     Type elementType = ((ArrayType) expressionType).getElementType();
@@ -2072,7 +2074,7 @@ class StatementAnalyzer
                 }
             }, expression);
             // currently, only constant arguments are supported
-            Object constantValue = evaluateConstantExpression(inlined, type, plannerContext, session, accessControl, analysis.getParameters());
+            Object constantValue = evaluateConstant(inlined, type, plannerContext, session, accessControl);
             return new ArgumentAnalysis(
                     ScalarArgument.builder()
                             .type(type)
@@ -2560,14 +2562,10 @@ class StatementAnalyzer
 
             if (storageTable.isPresent()) {
                 List<Field> storageTableFields = analyzeStorageTable(table, viewFields, storageTable.get());
-                Scope accessControlScope = Scope.builder()
-                        .withRelationType(RelationId.anonymous(), new RelationType(viewFields))
-                        .build();
-                analyzeFiltersAndMasks(table, name, new RelationType(viewFields), accessControlScope);
-                analysis.registerTable(table, storageTable, name, session.getIdentity().getUser(), accessControlScope, Optional.of(originalSql));
-                analysis.addRelationCoercion(table, viewFields.stream().map(Field::getType).toArray(Type[]::new));
-                // use storage table output fields as they contain ColumnHandles
-                return createAndAssignScope(table, scope, storageTableFields);
+                analysis.setMaterializedViewStorageTableFields(table, storageTableFields);
+            }
+            else {
+                analysis.registerNamedQuery(table, query);
             }
 
             Scope accessControlScope = Scope.builder()
@@ -2576,7 +2574,6 @@ class StatementAnalyzer
             analyzeFiltersAndMasks(table, name, new RelationType(viewFields), accessControlScope);
             analysis.registerTable(table, storageTable, name, session.getIdentity().getUser(), accessControlScope, Optional.of(originalSql));
             viewFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
-            analysis.registerNamedQuery(table, query);
             return createAndAssignScope(table, scope, viewFields);
         }
 
@@ -2721,8 +2718,21 @@ class StatementAnalyzer
                     relation.getPattern(),
                     relation.getAfterMatchSkipTo());
 
-            analysis.setUndefinedLabels(relation.getPattern(), patternRecognitionAnalysis.getUndefinedLabels());
-            analysis.setRanges(patternRecognitionAnalysis.getRanges());
+            relation.getAfterMatchSkipTo()
+                    .flatMap(SkipTo::getIdentifier)
+                    .ifPresent(label -> analysis.addResolvedLabel(label, label.getCanonicalValue()));
+
+            for (SubsetDefinition subset : relation.getSubsets()) {
+                analysis.addResolvedLabel(subset.getName(), subset.getName().getCanonicalValue());
+                analysis.addSubsetLabels(
+                        subset,
+                        subset.getIdentifiers().stream()
+                                .map(Identifier::getCanonicalValue)
+                                .collect(Collectors.toSet()));
+            }
+
+            analysis.setUndefinedLabels(relation.getPattern(), patternRecognitionAnalysis.undefinedLabels());
+            analysis.setRanges(patternRecognitionAnalysis.ranges());
 
             PatternRecognitionAnalyzer.validateNoPatternSearchMode(relation.getPatternSearchMode());
             PatternRecognitionAnalyzer.validatePatternExclusions(relation.getRowsPerMatch(), relation.getPattern());
@@ -2739,8 +2749,9 @@ class StatementAnalyzer
             // analyze expressions in MEASURES and DEFINE (with set of all labels passed as context)
             for (VariableDefinition variableDefinition : relation.getVariableDefinitions()) {
                 Expression expression = variableDefinition.getExpression();
-                ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.getAllLabels());
+                ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.allLabels());
                 analysis.recordSubqueries(relation, expressionAnalysis);
+                analysis.addResolvedLabel(variableDefinition.getName(), variableDefinition.getName().getCanonicalValue());
                 Type type = expressionAnalysis.getType(expression);
                 if (!type.equals(BOOLEAN)) {
                     throw semanticException(TYPE_MISMATCH, expression, "Expression defining a label must be boolean (actual type: %s)", type);
@@ -2749,8 +2760,9 @@ class StatementAnalyzer
             ImmutableMap.Builder<NodeRef<Node>, Type> measureTypesBuilder = ImmutableMap.builder();
             for (MeasureDefinition measureDefinition : relation.getMeasures()) {
                 Expression expression = measureDefinition.getExpression();
-                ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.getAllLabels());
+                ExpressionAnalysis expressionAnalysis = analyzePatternRecognitionExpression(expression, inputScope, patternRecognitionAnalysis.allLabels());
                 analysis.recordSubqueries(relation, expressionAnalysis);
+                analysis.addResolvedLabel(measureDefinition.getName(), measureDefinition.getName().getCanonicalValue());
                 measureTypesBuilder.put(NodeRef.of(expression), expressionAnalysis.getType(expression));
             }
             Map<NodeRef<Node>, Type> measureTypes = measureTypesBuilder.buildOrThrow();
@@ -3015,7 +3027,7 @@ class StatementAnalyzer
                 throw semanticException(INVALID_ARGUMENTS, samplePercentage, "Sample percentage cannot be NULL");
             }
 
-            Object samplePercentageObject = evaluateConstantExpression(samplePercentage, samplePercentageType, plannerContext, session, accessControl, analysis.getParameters());
+            Object samplePercentageObject = evaluateConstant(samplePercentage, samplePercentageType, plannerContext, session, accessControl);
             if (samplePercentageObject == null) {
                 throw semanticException(INVALID_ARGUMENTS, samplePercentage, "Sample percentage cannot be NULL");
             }
@@ -5744,13 +5756,12 @@ class StatementAnalyzer
             Expression providedValue = analysis.getParameters().get(NodeRef.of(parameter));
             Object value;
             try {
-                value = evaluateConstantExpression(
+                value = evaluateConstant(
                         providedValue,
                         BIGINT,
                         plannerContext,
                         session,
-                        accessControl,
-                        analysis.getParameters());
+                        accessControl);
             }
             catch (VerifyException e) {
                 throw semanticException(INVALID_ARGUMENTS, parameter, "Non constant parameter value for %s: %s", context, providedValue);
@@ -5844,7 +5855,7 @@ class StatementAnalyzer
             if (versionType == UNKNOWN) {
                 throw semanticException(INVALID_ARGUMENTS, table.getQueryPeriod().get(), "Pointer value cannot be NULL");
             }
-            Object evaluatedVersion = evaluateConstantExpression(version.get(), versionType, plannerContext, session, accessControl, ImmutableMap.of());
+            Object evaluatedVersion = evaluateConstant(version.get(), versionType, plannerContext, session, accessControl);
             TableVersion extractedVersion = new TableVersion(pointerType, versionType, evaluatedVersion);
             validateVersionPointer(table.getQueryPeriod().get(), extractedVersion);
             return Optional.of(extractedVersion);

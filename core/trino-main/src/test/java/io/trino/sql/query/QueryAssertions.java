@@ -324,44 +324,6 @@ public class QueryAssertions
             return this;
         }
 
-        /**
-         * @deprecated use {@code result().exceptColumns(...)} instead.
-         */
-        @Deprecated
-        @CheckReturnValue
-        // TODO when exceptColumns(), projected() are removed, simplify constructor
-        public QueryAssert exceptColumns(String... columnNamesToExclude)
-        {
-            return new QueryAssert(
-                    runner,
-                    session,
-                    Optional.empty(), // original query would not produce projected result
-                    new TextDescription("%s except columns %s", description, Arrays.toString(columnNamesToExclude)),
-                    Optional.of(result.get().exceptColumns(columnNamesToExclude)),
-                    ordered,
-                    skipTypesCheck,
-                    skipResultsCorrectnessCheckForPushdown);
-        }
-
-        /**
-         * @deprecated use {@code result().projected(...)} instead.
-         */
-        @Deprecated
-        @CheckReturnValue
-        // TODO when exceptColumns(), projected() are removed, simplify constructor
-        public QueryAssert projected(String... columnNamesToInclude)
-        {
-            return new QueryAssert(
-                    runner,
-                    session,
-                    Optional.empty(), // original query would not produce projected result
-                    new TextDescription("%s projected with %s", description, Arrays.toString(columnNamesToInclude)),
-                    Optional.of(result.get().project(columnNamesToInclude)),
-                    ordered,
-                    skipTypesCheck,
-                    skipResultsCorrectnessCheckForPushdown);
-        }
-
         public QueryAssert succeeds()
         {
             MaterializedResult ignored = result.get();
@@ -393,17 +355,6 @@ public class QueryAssertions
             return this;
         }
 
-        /**
-         * @deprecated use {@code result().matches(...)} instead.
-         */
-        @Deprecated
-        @CanIgnoreReturnValue
-        public QueryAssert matches(MaterializedResult expected)
-        {
-            result().matches(expected);
-            return this;
-        }
-
         @CanIgnoreReturnValue
         public QueryAssert matches(PlanMatchPattern expectedPlan)
         {
@@ -425,37 +376,10 @@ public class QueryAssertions
         @CanIgnoreReturnValue
         public QueryAssert containsAll(@Language("SQL") String query)
         {
-            MaterializedResult expected = runner.execute(session, query);
-            result().containsAll(expected);
+            result().containsAll(query);
             return this;
         }
 
-        /**
-         * @deprecated use {@code result().hasType(...)} instead.
-         */
-        @Deprecated
-        @CanIgnoreReturnValue
-        public QueryAssert hasOutputTypes(List<Type> expectedTypes)
-        {
-            result().hasTypes(expectedTypes);
-            return this;
-        }
-
-        /**
-         * @deprecated use {@code result().hasType(...)} instead.
-         */
-        @Deprecated
-        @CanIgnoreReturnValue
-        public QueryAssert outputHasType(int index, Type expectedType)
-        {
-            result().hasType(index, expectedType);
-            return this;
-        }
-
-        /**
-         * @deprecated use {@code result().isEmpty()} instead.
-         */
-        @Deprecated
         @CanIgnoreReturnValue
         public QueryAssert returnsEmptyResult()
         {
@@ -794,6 +718,13 @@ public class QueryAssertions
         {
             MaterializedResult expected = runner.execute(session, query);
             return matches(expected);
+        }
+
+        @CanIgnoreReturnValue
+        public ResultAssert containsAll(@Language("SQL") String query)
+        {
+            MaterializedResult expected = runner.execute(session, query);
+            return containsAll(expected);
         }
 
         @CanIgnoreReturnValue

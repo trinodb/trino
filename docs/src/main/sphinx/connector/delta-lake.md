@@ -136,7 +136,7 @@ values. Typical usage does not require you to configure them.
     columns which are irrelevant for the query when reading Delta Lake
     checkpoint files.
     The equivalent catalog session property is ``checkpoint_filtering_enabled``.
-  - ``false``
+  - ``true``
 * - `delta.dynamic-filtering.wait-timeout`
   - Duration to wait for completion of [dynamic
     filtering](/admin/dynamic-filtering) during split generation. The equivalent
@@ -326,6 +326,35 @@ this table:
 
 No other types are supported.
 
+## Delta Lake table features
+
+The connector supports the following [Delta Lake table 
+features](https://github.com/delta-io/delta/blob/master/PROTOCOL.md#table-features):
+
+:::{list-table} Table features
+:widths: 70, 30
+:header-rows: 1
+
+* - Feature
+  - Description
+* - Append-only tables
+  - Writers only
+* - Column invariants
+  - Writers only
+* - CHECK constraints
+  - Writers only
+* - Change data feed
+  - Writers only
+* - Column mapping
+  - Readers and writers
+* - Deletion vectors
+  - Readers only
+* - Timestamp without time zone
+  - Readers and writers
+:::
+
+No other features are supported.
+
 ## Security
 
 The Delta Lake connector allows you to choose one of several means of providing
@@ -478,7 +507,7 @@ Write operations are supported for tables stored on the following systems:
 
 - S3 and S3-compatible storage
 
-  Writes to {doc}`Amazon S3 <hive-s3>` and S3-compatible storage must be enabled
+  Writes to {doc}`Amazon S3 </object-storage/legacy-s3>` and S3-compatible storage must be enabled
   with the `delta.enable-non-concurrent-writes` property. Writes to S3 can
   safely be made from multiple Trino clusters; however, write collisions are not
   detected when writing concurrently from other Delta Lake engines. You must

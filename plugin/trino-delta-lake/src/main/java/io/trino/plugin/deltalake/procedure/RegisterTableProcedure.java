@@ -166,7 +166,7 @@ public class RegisterTableProcedure
             // Verify we're registering a location with a valid table
             try {
                 TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table.getSchemaTableName(), tableLocation);
-                transactionLogAccess.getMetadataEntry(tableSnapshot, session); // verify metadata exists
+                transactionLogAccess.getMetadataEntry(session, tableSnapshot); // verify metadata exists
             }
             catch (TrinoException e) {
                 throw e;
@@ -175,7 +175,7 @@ public class RegisterTableProcedure
                 throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Failed to access table location: " + tableLocation, e);
             }
 
-            metastore.createTable(session, table, principalPrivileges);
+            metastore.createTable(table, principalPrivileges);
         }
     }
 }

@@ -71,10 +71,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static io.trino.sql.ExpressionUtils.combineConjuncts;
-import static io.trino.sql.ExpressionUtils.expressionOrNullSymbols;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
-import static io.trino.sql.ExpressionUtils.filterDeterministicConjuncts;
+import static io.trino.sql.ir.IrUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.expressionOrNullSymbols;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
+import static io.trino.sql.ir.IrUtils.filterDeterministicConjuncts;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.util.Objects.requireNonNull;
@@ -292,14 +292,7 @@ public class EffectivePredicateExtractor
         @Override
         public Expression visitUnnest(UnnestNode node, Void context)
         {
-            Expression sourcePredicate = node.getSource().accept(this, context);
-
-            return switch (node.getJoinType()) {
-                case INNER, LEFT -> pullExpressionThroughSymbols(
-                        combineConjuncts(metadata, node.getFilter().orElse(TRUE_LITERAL), sourcePredicate),
-                        node.getOutputSymbols());
-                case RIGHT, FULL -> TRUE_LITERAL;
-            };
+            return TRUE_LITERAL;
         }
 
         @Override

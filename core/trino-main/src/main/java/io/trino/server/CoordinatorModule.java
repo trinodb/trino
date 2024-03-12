@@ -64,6 +64,7 @@ import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
+import io.trino.execution.resourcegroups.ResourceGroupInfoProvider;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.TaskExecutionStats;
@@ -108,7 +109,6 @@ import io.trino.server.remotetask.RemoteTaskStats;
 import io.trino.server.ui.WebUiModule;
 import io.trino.server.ui.WorkerResource;
 import io.trino.spi.VersionEmbedder;
-import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainerFactory;
@@ -198,6 +198,7 @@ public class CoordinatorModule
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         binder.bind(QueryPreparer.class).in(Scopes.SINGLETON);
         OptionalBinder.newOptionalBinder(binder, SessionSupplier.class).setDefault().to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
+        binder.bind(ResourceGroupInfoProvider.class).to(ResourceGroupManager.class).in(Scopes.SINGLETON);
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
@@ -215,7 +216,6 @@ public class CoordinatorModule
 
         // cluster memory manager
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
-        binder.bind(ClusterMemoryPoolManager.class).to(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         install(internalHttpClientModule("memoryManager", ForMemoryManager.class)
                 .withTracing()
                 .withConfigDefaults(config -> {

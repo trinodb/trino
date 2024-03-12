@@ -166,8 +166,8 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                 Page page = nonEmptyPageSource.getNextPage();
                 assertThat(page).isNotNull();
                 assertThat(page.getPositionCount()).isEqualTo(1);
-                assertThat(page.getBlock(0).getInt(0, 0)).isEqualTo(keyColumnValue);
-                assertThat(page.getBlock(1).getSlice(0, 0, page.getBlock(1).getSliceLength(0)).toStringUtf8()).isEqualTo(dataColumnValue);
+                assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(keyColumnValue);
+                assertThat(VARCHAR.getSlice(page.getBlock(1), 0).toStringUtf8()).isEqualTo(dataColumnValue);
             }
         }
     }
@@ -291,8 +291,8 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                     Page page = nonEmptyPageSource.getNextPage();
                     assertThat(page).isNotNull();
                     assertThat(page.getPositionCount()).isEqualTo(1);
-                    assertThat(page.getBlock(0).getInt(0, 0)).isEqualTo(dateColumnValue);
-                    assertThat(page.getBlock(1).getSlice(0, 0, page.getBlock(1).getSliceLength(0)).toStringUtf8()).isEqualTo(receiptColumnValue);
+                    assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(dateColumnValue);
+                    assertThat(VARCHAR.getSlice(page.getBlock(1), 0).toStringUtf8()).isEqualTo(receiptColumnValue);
                     assertThat(((SqlDecimal) amountColumnType.getObjectValue(null, page.getBlock(2), 0)).toBigDecimal()).isEqualTo(amountColumnValue);
                 }
             }

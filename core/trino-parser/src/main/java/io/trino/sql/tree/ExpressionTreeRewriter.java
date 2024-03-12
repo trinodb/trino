@@ -866,10 +866,62 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitCurrentDate(CurrentDate node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteCurrentDate(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitCurrentTime(CurrentTime node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
                 Expression result = rewriter.rewriteCurrentTime(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitCurrentTimestamp(CurrentTimestamp node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteCurrentTimestamp(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitLocalTimestamp(LocalTimestamp node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteLocalTimestamp(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitLocalTime(LocalTime node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteLocalTime(node, context.get(), ExpressionTreeRewriter.this);
                 if (result != null) {
                     return result;
                 }
@@ -1155,26 +1207,6 @@ public final class ExpressionTreeRewriter<C>
             List<Expression> arguments = rewrite(node.getArguments(), context);
             if (!sameElements(node.getArguments(), arguments)) {
                 return new Format(arguments);
-            }
-
-            return node;
-        }
-
-        @Override
-        protected Expression visitLabelDereference(LabelDereference node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteLabelDereference(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            if (node.getReference().isPresent()) {
-                SymbolReference reference = rewrite(node.getReference().get(), context.get());
-                if (node.getReference().get() != reference) {
-                    return new LabelDereference(node.getLabel(), reference);
-                }
             }
 
             return node;

@@ -16,6 +16,7 @@ package io.trino.plugin.opa;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonCodec;
 import io.trino.plugin.opa.schema.OpaBatchQueryResult;
 import io.trino.plugin.opa.schema.OpaPluginContext;
@@ -52,13 +53,14 @@ public final class OpaBatchAccessControl
 
     @Inject
     public OpaBatchAccessControl(
+            LifeCycleManager lifeCycleManager,
             OpaHighLevelClient opaHighLevelClient,
             JsonCodec<OpaBatchQueryResult> batchResultCodec,
             OpaHttpClient opaHttpClient,
             OpaConfig config,
             OpaPluginContext pluginContext)
     {
-        super(opaHighLevelClient, config, pluginContext);
+        super(lifeCycleManager, opaHighLevelClient, config, pluginContext);
         this.opaBatchedPolicyUri = config.getOpaBatchUri().orElseThrow();
         this.batchResultCodec = requireNonNull(batchResultCodec, "batchResultCodec is null");
         this.opaHttpClient = requireNonNull(opaHttpClient, "opaHttpClient is null");

@@ -28,6 +28,8 @@ public class OpaConfig
     private boolean logRequests;
     private boolean logResponses;
     private boolean allowPermissionManagementOperations;
+    private Optional<URI> opaRowFiltersUri = Optional.empty();
+    private Optional<URI> opaColumnMaskingUri = Optional.empty();
 
     @NotNull
     public URI getOpaUri()
@@ -43,6 +45,7 @@ public class OpaConfig
         return this;
     }
 
+    @NotNull
     public Optional<URI> getOpaBatchUri()
     {
         return opaBatchUri;
@@ -92,6 +95,34 @@ public class OpaConfig
     public OpaConfig setAllowPermissionManagementOperations(boolean allowPermissionManagementOperations)
     {
         this.allowPermissionManagementOperations = allowPermissionManagementOperations;
+        return this;
+    }
+
+    @NotNull
+    public Optional<URI> getOpaRowFiltersUri()
+    {
+        return opaRowFiltersUri;
+    }
+
+    @Config("opa.policy.row-filters-uri")
+    @ConfigDescription("URI for fetching row filters - if not set no row filtering will be applied")
+    public OpaConfig setOpaRowFiltersUri(@NotNull URI opaRowFiltersUri)
+    {
+        this.opaRowFiltersUri = Optional.ofNullable(opaRowFiltersUri);
+        return this;
+    }
+
+    @NotNull
+    public Optional<URI> getOpaColumnMaskingUri()
+    {
+        return opaColumnMaskingUri;
+    }
+
+    @Config("opa.policy.column-masking-uri")
+    @ConfigDescription("URI for fetching column masks - if not set no masking will be applied")
+    public OpaConfig setOpaColumnMaskingUri(URI opaColumnMaskingUri)
+    {
+        this.opaColumnMaskingUri = Optional.ofNullable(opaColumnMaskingUri);
         return this;
     }
 }

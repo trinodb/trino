@@ -250,6 +250,25 @@ public class TableMetadata
                 columnStatistics);
     }
 
+    public TableMetadata withPartitionColumns(String currentVersion, List<Column> partitionColumns)
+    {
+        return new TableMetadata(
+                Optional.of(requireNonNull(currentVersion, "currentVersion is null")),
+                owner,
+                tableType,
+                dataColumns,
+                partitionColumns,
+                parameters,
+                storageFormat,
+                originalStorageFormat,
+                bucketProperty,
+                serdeParameters,
+                externalLocation,
+                viewOriginalText,
+                viewExpandedText,
+                columnStatistics);
+    }
+
     public TableMetadata withParameters(String currentVersion, Map<String, String> parameters)
     {
         return new TableMetadata(

@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg.cache;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.cache.CacheKeyProvider;
 
-import java.io.IOException;
 import java.util.Optional;
 
 public class IcebergCacheKeyProvider
@@ -24,8 +23,13 @@ public class IcebergCacheKeyProvider
 {
     @Override
     public Optional<String> getCacheKey(TrinoInputFile delegate)
-            throws IOException
     {
-        return Optional.of(delegate.location().path());
+        String path = delegate.location().path();
+        if (path.endsWith(".trinoSchema") || path.contains("/.trinoPermissions/")) {
+            // Needed to avoid caching files from FileHiveMetastore on coordinator during tests
+            return Optional.empty();
+        }
+        // Iceberg data and metadata files are immutable
+        return Optional.of(path);
     }
 }

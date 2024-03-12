@@ -24,7 +24,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.BigintType;
-import io.trino.sql.ExpressionUtils;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -46,6 +45,7 @@ import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createP
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
+import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -81,7 +81,7 @@ public class TestUnaliasSymbolReferences
                             p.filter(
                                     TRUE_LITERAL, // additional filter to test recursive call
                                     p.filter(
-                                            ExpressionUtils.and(
+                                            and(
                                                     dynamicFilterExpression(metadata, probeColumn1, dynamicFilterId1),
                                                     dynamicFilterExpression(metadata, probeColumn2, dynamicFilterId2)),
                                             p.tableScan(
