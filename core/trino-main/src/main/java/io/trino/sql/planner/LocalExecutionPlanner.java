@@ -2801,16 +2801,16 @@ public class LocalExecutionPlanner
                 }
                 return (buildGeometry, probeGeometry, radius) -> buildGeometry.contains(probeGeometry);
             }
-            else if (functionName.equals(builtinFunctionName(ST_WITHIN))) {
+            if (functionName.equals(builtinFunctionName(ST_WITHIN))) {
                 if (probeFirst) {
                     return (buildGeometry, probeGeometry, radius) -> probeGeometry.within(buildGeometry);
                 }
                 return (buildGeometry, probeGeometry, radius) -> buildGeometry.within(probeGeometry);
             }
-            else if (functionName.equals(builtinFunctionName(ST_INTERSECTS))) {
+            if (functionName.equals(builtinFunctionName(ST_INTERSECTS))) {
                 return (buildGeometry, probeGeometry, radius) -> buildGeometry.intersects(probeGeometry);
             }
-            else if (functionName.equals(builtinFunctionName(ST_DISTANCE))) {
+            if (functionName.equals(builtinFunctionName(ST_DISTANCE))) {
                 if (comparisonOperator.orElseThrow() == LESS_THAN) {
                     return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) < radius.getAsDouble();
                 }
