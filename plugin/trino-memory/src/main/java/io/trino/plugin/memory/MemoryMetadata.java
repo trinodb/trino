@@ -360,7 +360,12 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public synchronized Optional<ConnectorOutputMetadata> finishInsert(
+            ConnectorSession session,
+            ConnectorInsertTableHandle insertHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
     {
         requireNonNull(insertHandle, "insertHandle is null");
         MemoryInsertTableHandle memoryInsertHandle = (MemoryInsertTableHandle) insertHandle;

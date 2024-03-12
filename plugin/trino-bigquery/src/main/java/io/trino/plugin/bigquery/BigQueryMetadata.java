@@ -655,7 +655,12 @@ public class BigQueryMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishInsert(
+            ConnectorSession session,
+            ConnectorInsertTableHandle insertHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
     {
         BigQueryInsertTableHandle handle = (BigQueryInsertTableHandle) insertHandle;
         return finishInsert(session, handle.getRemoteTableName(), handle.getTemporaryRemoteTableName(), handle.getPageSinkIdColumnName(), handle.getColumnNames(), fragments);
