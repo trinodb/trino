@@ -16,12 +16,10 @@ package io.trino.sql.planner.assertions;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.FunctionCall;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -175,32 +173,21 @@ public final class WindowMatcher
             return this;
         }
 
-        public Builder addFunction(String outputAlias, ExpectedValueProvider<FunctionCall> functionCall)
+        public Builder addFunction(ExpectedValueProvider<WindowFunction> functionCall)
         {
-            return addFunction(Optional.of(outputAlias), functionCall);
-        }
-
-        public Builder addFunction(ExpectedValueProvider<FunctionCall> functionCall)
-        {
-            return addFunction(Optional.empty(), functionCall);
-        }
-
-        private Builder addFunction(Optional<String> outputAlias, ExpectedValueProvider<FunctionCall> functionCall)
-        {
-            windowFunctionMatchers.add(new AliasMatcher(outputAlias, new WindowFunctionMatcher(functionCall, Optional.empty(), Optional.empty())));
+            windowFunctionMatchers.add(
+                    new AliasMatcher(
+                            Optional.empty(),
+                            new WindowFunctionMatcher(functionCall)));
             return this;
         }
 
-        public Builder addFunction(
-                String outputAlias,
-                ExpectedValueProvider<FunctionCall> functionCall,
-                ResolvedFunction resolvedFunction,
-                ExpectedValueProvider<WindowNode.Frame> frame)
+        public Builder addFunction(String outputAlias, ExpectedValueProvider<WindowFunction> functionCall)
         {
             windowFunctionMatchers.add(
                     new AliasMatcher(
                             Optional.of(outputAlias),
-                            new WindowFunctionMatcher(functionCall, Optional.of(resolvedFunction), Optional.of(frame))));
+                            new WindowFunctionMatcher(functionCall)));
             return this;
         }
 

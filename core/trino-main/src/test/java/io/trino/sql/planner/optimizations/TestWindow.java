@@ -29,7 +29,6 @@ import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.ELIMIN
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
@@ -38,6 +37,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
@@ -48,6 +48,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 
 public class TestWindow
         extends BasePlanTest
@@ -60,7 +61,7 @@ public class TestWindow
                 anyTree(
                         window(pattern -> pattern
                                         .specification(specification(ImmutableList.of("orderkey"), ImmutableList.of(), ImmutableMap.of()))
-                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                        .addFunction(windowFunction("rank", ImmutableList.of(), DEFAULT_FRAME)),
                                 tableScan("orders", ImmutableMap.of("orderkey", "orderkey")))));
 
         assertDistributedPlan("SELECT row_number() OVER (PARTITION BY orderkey) FROM orders",
@@ -83,7 +84,7 @@ public class TestWindow
                 anyTree(
                         window(pattern -> pattern
                                         .specification(specification(ImmutableList.of("orderstatus"), ImmutableList.of(), ImmutableMap.of()))
-                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                        .addFunction(windowFunction("rank", ImmutableList.of(), DEFAULT_FRAME)),
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, REPARTITION,
                                                 tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus")))))));
@@ -129,7 +130,7 @@ public class TestWindow
                 anyTree(
                         window(pattern -> pattern
                                         .specification(specification(ImmutableList.of("orderstatus", "orderkey"), ImmutableList.of(), ImmutableMap.of()))
-                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                        .addFunction(windowFunction("rank", ImmutableList.of(), DEFAULT_FRAME)),
                                 exchange(LOCAL, GATHER,
                                         join(INNER, builder -> builder
                                                 .equiCriteria("orderstatus", "linestatus")
@@ -148,7 +149,7 @@ public class TestWindow
                 anyTree(
                         window(pattern -> pattern
                                         .specification(specification(ImmutableList.of("orderkey"), ImmutableList.of(), ImmutableMap.of()))
-                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                        .addFunction(windowFunction("rank", ImmutableList.of(), DEFAULT_FRAME)),
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, REPARTITION,
                                                 join(INNER, builder -> builder
@@ -171,7 +172,7 @@ public class TestWindow
                 anyTree(
                         window(pattern -> pattern
                                         .specification(specification(ImmutableList.of("custkey"), ImmutableList.of(), ImmutableMap.of()))
-                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                        .addFunction(windowFunction("rank", ImmutableList.of(), DEFAULT_FRAME)),
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, REPARTITION,
                                                 join(INNER, builder -> builder
@@ -193,7 +194,7 @@ public class TestWindow
                 anyTree(
                         window(pattern -> pattern
                                         .specification(specification(ImmutableList.of("custkey"), ImmutableList.of(), ImmutableMap.of()))
-                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                        .addFunction(windowFunction("rank", ImmutableList.of(), DEFAULT_FRAME)),
                                 aggregation(singleGroupingSet("custkey"), ImmutableMap.of(), Optional.empty(), FINAL,
                                         exchange(LOCAL, GATHER,
                                                 exchange(REMOTE, REPARTITION,
@@ -205,7 +206,7 @@ public class TestWindow
                 anyTree(
                         window(pattern -> pattern
                                         .specification(specification(ImmutableList.of("custkey"), ImmutableList.of(), ImmutableMap.of()))
-                                        .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
+                                        .addFunction(windowFunction("rank", ImmutableList.of(), DEFAULT_FRAME)),
                                 project(
                                         aggregation(singleGroupingSet("shippriority", "custkey"), ImmutableMap.of(), Optional.empty(), FINAL,
                                                 exchange(LOCAL, GATHER,

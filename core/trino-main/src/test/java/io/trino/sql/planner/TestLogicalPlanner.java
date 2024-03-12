@@ -58,6 +58,7 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.rowpattern.ClassifierValuePointer;
 import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
@@ -133,7 +134,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.identityProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -157,7 +157,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -197,6 +197,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestLogicalPlanner
         extends BasePlanTest
 {
+    private static final WindowNode.Frame ROWS_FROM_CURRENT = new WindowNode.Frame(
+            ROWS,
+            CURRENT_ROW,
+            Optional.empty(),
+            Optional.empty(),
+            UNBOUNDED_FOLLOWING,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
     @Test
     public void testAnalyze()
     {
@@ -2330,7 +2341,7 @@ public class TestLogicalPlanner
                                                                 new Symbol("value"))),
                                                         INTEGER)
                                                 .rowsPerMatch(WINDOW)
-                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .frame(ROWS_FROM_CURRENT)
                                                 .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
@@ -2351,9 +2362,12 @@ public class TestLogicalPlanner
                         project(
                                 patternRecognition(builder -> builder
                                                 .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
-                                                .addFunction("min", functionCall("min", ImmutableList.of("value")))
+                                                .addFunction("min", windowFunction(
+                                                        "min",
+                                                        ImmutableList.of("value"),
+                                                        ROWS_FROM_CURRENT))
                                                 .rowsPerMatch(WINDOW)
-                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .frame(ROWS_FROM_CURRENT)
                                                 .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
@@ -2379,9 +2393,12 @@ public class TestLogicalPlanner
                         project(
                                 patternRecognition(builder -> builder
                                                 .specification(specification(ImmutableList.of(), ImmutableList.of("id"), ImmutableMap.of("id", ASC_NULLS_LAST)))
-                                                .addFunction("min", functionCall("min", ImmutableList.of("value")))
+                                                .addFunction("min", windowFunction(
+                                                        "min",
+                                                        ImmutableList.of("value"),
+                                                        ROWS_FROM_CURRENT))
                                                 .rowsPerMatch(WINDOW)
-                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .frame(ROWS_FROM_CURRENT)
                                                 .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
@@ -2418,7 +2435,7 @@ public class TestLogicalPlanner
                                                                 new Symbol("value"))),
                                                         INTEGER)
                                                 .rowsPerMatch(WINDOW)
-                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .frame(ROWS_FROM_CURRENT)
                                                 .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
@@ -2459,9 +2476,12 @@ public class TestLogicalPlanner
                                                         ImmutableMap.of("classy", new ClassifierValuePointer(
                                                                 new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0))),
                                                         VARCHAR)
-                                                .addFunction("row_number", functionCall("row_number", ImmutableList.of()))
+                                                .addFunction("row_number", windowFunction(
+                                                        "row_number",
+                                                        ImmutableList.of(),
+                                                        ROWS_FROM_CURRENT))
                                                 .rowsPerMatch(WINDOW)
-                                                .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                .frame(ROWS_FROM_CURRENT)
                                                 .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
@@ -2513,9 +2533,12 @@ public class TestLogicalPlanner
                                                                 ImmutableMap.of("classy", new ClassifierValuePointer(
                                                                         new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0))),
                                                                 VARCHAR)
-                                                        .addFunction("min", functionCall("min", ImmutableList.of("input1")))
+                                                        .addFunction("min", windowFunction(
+                                                                "min",
+                                                                ImmutableList.of("input1"),
+                                                                ROWS_FROM_CURRENT))
                                                         .rowsPerMatch(WINDOW)
-                                                        .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                                        .frame(ROWS_FROM_CURRENT)
                                                         .pattern(new IrQuantified(new IrLabel("A"), oneOrMore(true)))
                                                         .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                                 values(

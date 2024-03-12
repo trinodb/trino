@@ -38,11 +38,11 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 
@@ -155,8 +155,8 @@ public class TestMergeAdjacentWindows
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
-                                        .addFunction(functionCall(AVG.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias)))
-                                        .addFunction(functionCall(SUM.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias))),
+                                        .addFunction(windowFunction(AVG.getSignature().getName().getFunctionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME))
+                                        .addFunction(windowFunction(SUM.getSignature().getName().getFunctionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME)),
                                 values(ImmutableMap.of(columnAAlias, 0))));
     }
 
@@ -193,8 +193,8 @@ public class TestMergeAdjacentWindows
                                         avgOutputAlias, PlanMatchPattern.expression(new SymbolReference(avgOutputAlias))),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationA)
-                                                .addFunction(lagOutputAlias, functionCall(LAG.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias, oneAlias)))
-                                                .addFunction(avgOutputAlias, functionCall(AVG.getSignature().getName().getFunctionName(), Optional.empty(), ImmutableList.of(columnAAlias))),
+                                                .addFunction(lagOutputAlias, windowFunction(LAG.getSignature().getName().getFunctionName(), ImmutableList.of(columnAAlias, oneAlias), DEFAULT_FRAME))
+                                                .addFunction(avgOutputAlias, windowFunction(AVG.getSignature().getName().getFunctionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME)),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         oneAlias, PlanMatchPattern.expression(new Cast(new LongLiteral("1"), dataType("bigint"))),

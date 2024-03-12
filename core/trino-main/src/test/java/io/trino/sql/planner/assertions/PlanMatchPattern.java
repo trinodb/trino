@@ -48,7 +48,6 @@ import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.FrameBoundType;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
@@ -75,17 +74,13 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.planner.plan.WindowFrameType;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.WindowFrame;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -447,36 +442,6 @@ public final class PlanMatchPattern
                 new SymbolAlias(markerSymbol),
                 toSymbolAliases(distinctSymbols),
                 Optional.of(new SymbolAlias(hashSymbol))));
-    }
-
-    public static ExpectedValueProvider<WindowNode.Frame> windowFrame(
-            WindowFrameType type,
-            FrameBoundType startType,
-            Optional<String> startValue,
-            FrameBoundType endType,
-            Optional<String> endValue,
-            Optional<String> sortKey)
-    {
-        return windowFrame(type, startType, startValue, sortKey, endType, endValue, sortKey);
-    }
-
-    public static ExpectedValueProvider<WindowNode.Frame> windowFrame(
-            WindowFrameType type,
-            FrameBoundType startType,
-            Optional<String> startValue,
-            Optional<String> sortKeyForStartComparison,
-            FrameBoundType endType,
-            Optional<String> endValue,
-            Optional<String> sortKeyForEndComparison)
-    {
-        return new WindowFrameProvider(
-                type,
-                startType,
-                startValue.map(SymbolAlias::new),
-                sortKeyForStartComparison.map(SymbolAlias::new),
-                endType,
-                endValue.map(SymbolAlias::new),
-                sortKeyForEndComparison.map(SymbolAlias::new));
     }
 
     public static PlanMatchPattern window(Consumer<WindowMatcher.Builder> handler, PlanMatchPattern source)
@@ -1157,11 +1122,6 @@ public final class PlanMatchPattern
         return new AnySymbol();
     }
 
-    public static ExpectedValueProvider<FunctionCall> functionCall(String name, List<String> args)
-    {
-        return new FunctionCallProvider(QualifiedName.of(name), toSymbolAliases(args));
-    }
-
     public static ExpectedValueProvider<AggregationFunction> aggregationFunction(String name, List<String> args)
     {
         return new AggregationFunctionProvider(
@@ -1202,12 +1162,9 @@ public final class PlanMatchPattern
                 Optional.of(symbol(filter)));
     }
 
-    public static ExpectedValueProvider<FunctionCall> functionCall(
-            String name,
-            Optional<WindowFrame> frame,
-            List<String> args)
+    public static ExpectedValueProvider<WindowFunction> windowFunction(String name, List<String> args, WindowNode.Frame frame)
     {
-        return new FunctionCallProvider(QualifiedName.of(name), frame, toSymbolAliases(args));
+        return new WindowFunctionProvider(name, frame, toSymbolAliases(args));
     }
 
     public static List<Expression> toSymbolReferences(List<PlanTestSymbol> aliases, SymbolAliases symbolAliases)

@@ -60,7 +60,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
@@ -75,11 +74,13 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
-import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
+import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
@@ -627,7 +628,7 @@ public class TestPushDownDereferencesRules
                                                                 UNBOUNDED_PRECEDING,
                                                                 Optional.empty(),
                                                                 Optional.empty(),
-                                                                UNBOUNDED_FOLLOWING,
+                                                                CURRENT_ROW,
                                                                 Optional.empty(),
                                                                 Optional.empty(),
                                                                 Optional.empty(),
@@ -651,7 +652,7 @@ public class TestPushDownDereferencesRules
                                 window(
                                         windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(singletonList("msg1"), singletonList("msg2"), ImmutableMap.of("msg2", SortOrder.ASC_NULLS_FIRST))
-                                                .addFunction(functionCall("min", singletonList("msg3"))),
+                                                .addFunction(windowFunction("min", singletonList("msg3"), DEFAULT_FRAME)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("msg1", expression(new SymbolReference("msg1")))

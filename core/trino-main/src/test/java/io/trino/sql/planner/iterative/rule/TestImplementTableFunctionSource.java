@@ -24,6 +24,7 @@ import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
+import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
@@ -43,16 +44,19 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableFunctionProcessor;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
@@ -62,6 +66,17 @@ import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 public class TestImplementTableFunctionSource
         extends BaseRuleTest
 {
+    private static final WindowNode.Frame FULL_FRAME = new WindowNode.Frame(
+            ROWS,
+            UNBOUNDED_PRECEDING,
+            Optional.empty(),
+            Optional.empty(),
+            UNBOUNDED_FOLLOWING,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
     @Test
     public void testNoSources()
     {
@@ -288,15 +303,15 @@ public class TestImplementTableFunctionSource
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_1_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_1_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c", "d")))
                                                         .right(window(// append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_2_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_2
                                                                 values("e", "f"))))))));
     }
@@ -396,22 +411,22 @@ public class TestImplementTableFunctionSource
                                                                                 .left(window(// append helper symbols for source input_1
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
-                                                                                                .addFunction("input_1_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                                                .addFunction("input_1_partition_size", functionCall("count", ImmutableList.of())),
+                                                                                                .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                                                .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_1
                                                                                         values("c", "d")))
                                                                                 .right(window(// append helper symbols for source input_2
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of()))
-                                                                                                .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                                                .addFunction("input_2_partition_size", functionCall("count", ImmutableList.of())),
+                                                                                                .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                                                .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_2
                                                                                         values("e", "f"))))))
                                                         .right(window(// append helper symbols for source input_3
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of(), ImmutableList.of("h"), ImmutableMap.of("h", DESC_NULLS_FIRST)))
-                                                                        .addFunction("input_3_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_3_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_3_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_3_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_3
                                                                 values("g", "h"))))))));
     }
@@ -486,15 +501,15 @@ public class TestImplementTableFunctionSource
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_1_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_1_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c", "d")))
                                                         .right(window(// append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("e"), ImmutableList.of("f"), ImmutableMap.of("f", DESC_NULLS_FIRST)))
-                                                                        .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_2_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_2
                                                                 values("e", "f"))))))));
     }
@@ -566,15 +581,15 @@ public class TestImplementTableFunctionSource
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_1_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_1_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c")))
                                                         .right(window(// append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_2_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_2
                                                                 values("d"))))))));
 
@@ -642,15 +657,15 @@ public class TestImplementTableFunctionSource
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_1_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_1_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c")))
                                                         .right(window(// append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_2_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_2
                                                                 values("d"))))))));
 
@@ -718,15 +733,15 @@ public class TestImplementTableFunctionSource
                                                         .left(window(// append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_2_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_2
                                                                 values("d")))
                                                         .right(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_1_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_1_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c"))))))));
 
@@ -794,15 +809,15 @@ public class TestImplementTableFunctionSource
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_1_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_1_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c")))
                                                         .right(window(// append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_2_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_2
                                                                 values("d"))))))));
     }
@@ -902,22 +917,22 @@ public class TestImplementTableFunctionSource
                                                                                 .left(window(// append helper symbols for source input_1
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
-                                                                                                .addFunction("input_1_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                                                .addFunction("input_1_partition_size", functionCall("count", ImmutableList.of())),
+                                                                                                .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                                                .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_1
                                                                                         values("c")))
                                                                                 .right(window(// append helper symbols for source input_2
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
-                                                                                                .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                                                .addFunction("input_2_partition_size", functionCall("count", ImmutableList.of())),
+                                                                                                .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                                                .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_2
                                                                                         values("d"))))))
                                                         .right(window(// append helper symbols for source input_3
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("e"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_3_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_3_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_3_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_3_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_3
                                                                 values("e"))))))));
     }
@@ -1029,15 +1044,15 @@ public class TestImplementTableFunctionSource
                                                                                 .left(window(// append helper symbols for source input_1
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
-                                                                                                .addFunction("input_1_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                                                .addFunction("input_1_partition_size", functionCall("count", ImmutableList.of())),
+                                                                                                .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                                                .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_1
                                                                                         values("c")))
                                                                                 .right(window(// append helper symbols for source input_2
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
-                                                                                                .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                                                .addFunction("input_2_partition_size", functionCall("count", ImmutableList.of())),
+                                                                                                .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                                                .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_2
                                                                                         values("d"))))))
                                                         .right(project(// append helper and partitioning symbols for co-partitioned nodes
@@ -1061,15 +1076,15 @@ public class TestImplementTableFunctionSource
                                                                                 .left(window(// append helper symbols for source input_3
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("e"), ImmutableList.of(), ImmutableMap.of()))
-                                                                                                .addFunction("input_3_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                                                .addFunction("input_3_partition_size", functionCall("count", ImmutableList.of())),
+                                                                                                .addFunction("input_3_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                                                .addFunction("input_3_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_3
                                                                                         values("e")))
                                                                                 .right(window(// append helper symbols for source input_4
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("f"), ImmutableList.of("g"), ImmutableMap.of("g", DESC_NULLS_FIRST)))
-                                                                                                .addFunction("input_4_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                                                .addFunction("input_4_partition_size", functionCall("count", ImmutableList.of())),
+                                                                                                .addFunction("input_4_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                                                .addFunction("input_4_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_4
                                                                                         values("f", "g")))))))))));
     }
@@ -1166,22 +1181,22 @@ public class TestImplementTableFunctionSource
                                                                                 .left(window(// append helper symbols for source input_2
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
-                                                                                                .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                                                .addFunction("input_2_partition_size", functionCall("count", ImmutableList.of())),
+                                                                                                .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                                                .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_2
                                                                                         values("d")))
                                                                                 .right(window(// append helper symbols for source input_3
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("e"), ImmutableList.of(), ImmutableMap.of()))
-                                                                                                .addFunction("input_3_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                                                .addFunction("input_3_partition_size", functionCall("count", ImmutableList.of())),
+                                                                                                .addFunction("input_3_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                                                .addFunction("input_3_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_3
                                                                                         values("e"))))))
                                                         .right(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_1_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_1_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c"))))))));
     }
@@ -1265,8 +1280,8 @@ public class TestImplementTableFunctionSource
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c_coerced"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_1_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_1_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 project(
                                                                         ImmutableMap.of("c_coerced", expression(new Cast(new SymbolReference("c"), dataType("integer")))),
@@ -1274,8 +1289,8 @@ public class TestImplementTableFunctionSource
                                                         .right(window(// append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("e"), ImmutableList.of("f"), ImmutableMap.of("f", DESC_NULLS_FIRST)))
-                                                                        .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_2_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_2
                                                                 values("e", "f"))))))));
     }
@@ -1350,15 +1365,15 @@ public class TestImplementTableFunctionSource
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c", "d"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_1_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_1_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c", "d")))
                                                         .right(window(// append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("e", "f"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_2_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_2
                                                                 values("e", "f"))))))));
     }
@@ -1430,15 +1445,15 @@ public class TestImplementTableFunctionSource
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_1_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_1_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c", "d")))
                                                         .right(window(// append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of()))
-                                                                        .addFunction("input_2_row_number", functionCall("row_number", ImmutableList.of()))
-                                                                        .addFunction("input_2_partition_size", functionCall("count", ImmutableList.of())),
+                                                                        .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
+                                                                        .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_2
                                                                 values("e", "f"))))))));
     }

@@ -37,11 +37,12 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.union;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -94,7 +95,7 @@ public class TestRecursiveCte
                                         window(windowBuilder -> windowBuilder
                                                         .addFunction(
                                                                 "count",
-                                                                functionCall("count", ImmutableList.of())),
+                                                                windowFunction("count", ImmutableList.of(), DEFAULT_FRAME)),
                                                 project(project(project(
                                                         ImmutableMap.of("expr_1", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), new LongLiteral("2")))),
                                                         filter(
