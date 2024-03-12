@@ -59,7 +59,7 @@ public class TestTransactionLogTail
             throws Exception
     {
         TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
-        TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tableLocation, Optional.of(10L));
+        TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tableLocation, Optional.of(10L), Optional.empty());
         return transactionLogTail.getFileEntries();
     }
 }
