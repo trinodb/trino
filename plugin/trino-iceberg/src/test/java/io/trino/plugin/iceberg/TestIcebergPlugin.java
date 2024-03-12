@@ -343,6 +343,23 @@ public class TestIcebergPlugin
                 .hasMessageContaining("'iceberg.nessie-catalog.authentication.token' must be configured with 'iceberg.nessie-catalog.authentication.type' BEARER");
     }
 
+    @Test
+    public void testSnowflakeCatalog()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "snowflake",
+                                "iceberg.snowflake-catalog.account-uri", "jdbc:snowflake://sample.url",
+                                "iceberg.snowflake-catalog.user", "user",
+                                "iceberg.snowflake-catalog.password", "password",
+                                "iceberg.snowflake-catalog.database", "database"),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
     private static ConnectorFactory getConnectorFactory()
     {
         return getOnlyElement(new IcebergPlugin().getConnectorFactories());

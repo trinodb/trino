@@ -37,8 +37,9 @@ To use Iceberg, you need:
 
 - Access to a {ref}`Hive metastore service (HMS) <hive-thrift-metastore>`, an
   {ref}`AWS Glue catalog <iceberg-glue-catalog>`, a {ref}`JDBC catalog
-  <iceberg-jdbc-catalog>`, a {ref}`REST catalog <iceberg-rest-catalog>`, or a
-  {ref}`Nessie server <iceberg-nessie-catalog>`.
+  <iceberg-jdbc-catalog>`, a {ref}`REST catalog <iceberg-rest-catalog>`,
+  a {ref}`Nessie server <iceberg-nessie-catalog>`, or a
+  {ref}`Snowflake catalog <iceberg-snowflake-catalog>`.
 
 - Data files stored in the file formats {ref}`ORC <hive-orc-configuration>` or
   {ref}`Parquet <hive-parquet-configuration>` (default) on a [supported file

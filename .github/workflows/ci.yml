@@ -696,6 +696,17 @@ jobs:
           ABFS_CONTAINER: ${{ vars.AZURE_ABFS_HIERARCHICAL_CONTAINER }}
           ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_HIERARCHICAL_ACCOUNT }}
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY }}
+          SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_URL: ${{ vars.SNOWFLAKE_URL }}
+          SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_CATALOG_SCHEMA: ${{ vars.SNOWFLAKE_CATALOG_SCHEMA }}
+          SNOWFLAKE_ROLE: ${{ vars.SNOWFLAKE_ROLE }}
+          SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}
+          SNOWFLAKE_CATALOG_S3_ACCESS_KEY_ID: ${{ vars.SNOWFLAKE_CATALOG_S3_ACCESS_KEY_ID }}
+          SNOWFLAKE_CATALOG_S3_SECRET_ACCESS_KEY: ${{ secrets.SNOWFLAKE_CATALOG_S3_SECRET_ACCESS_KEY }}
+          SNOWFLAKE_EXTERNAL_VOLUME: ${{ vars.SNOWFLAKE_EXTERNAL_VOLUME }}
+          SNOWFLAKE_CATALOG_S3_REGION: ${{ vars.SNOWFLAKE_CATALOG_S3_REGION }}
         if: >-
           contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
@@ -705,7 +716,18 @@ jobs:
             -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}" \
             -Dtesting.azure-abfs-container="${ABFS_CONTAINER}" \
             -Dtesting.azure-abfs-account="${ABFS_ACCOUNT}" \
-            -Dtesting.azure-abfs-access-key="${ABFS_ACCESS_KEY}"
+            -Dtesting.azure-abfs-access-key="${ABFS_ACCESS_KEY}" \
+            -Dtesting.snowflake.catalog.user="${SNOWFLAKE_USER}" \
+            -Dtesting.snowflake.catalog.password="${SNOWFLAKE_PASSWORD}" \
+            -Dtesting.snowflake.catalog.account-url="${SNOWFLAKE_URL}" \
+            -Dtesting.snowflake.catalog.database="${SNOWFLAKE_DATABASE}" \
+            -Dtesting.snowflake.catalog.schema="${SNOWFLAKE_CATALOG_SCHEMA}" \
+            -Dtesting.snowflake.catalog.role="${SNOWFLAKE_ROLE}" \
+            -Dtesting.snowflake.catalog.warehouse="${SNOWFLAKE_WAREHOUSE}" \
+            -Dtesting.snowflake.catalog.s3.access-key="${SNOWFLAKE_CATALOG_S3_ACCESS_KEY_ID}" \
+            -Dtesting.snowflake.catalog.s3.secret-key="${SNOWFLAKE_CATALOG_S3_SECRET_ACCESS_KEY}" \
+            -Dtesting.snowflake.catalog.s3.external.volume="${SNOWFLAKE_EXTERNAL_VOLUME}" \
+            -Dtesting.snowflake.catalog.s3.region="${SNOWFLAKE_CATALOG_S3_REGION}"
       - name: Cloud Redshift Tests ${{ matrix.profile }}
         id: tests-redshift
         env:

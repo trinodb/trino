@@ -576,6 +576,42 @@ iceberg.nessie-catalog.default-warehouse-dir=/tmp
 The Nessie catalog does not support [view management](sql-view-management) or
 [materialized view management](sql-materialized-view-management).
 
+(iceberg-snowflake-catalog)=
+
+### Snowflake catalog
+
+In order to use a Snowflake catalog, configure the catalog type with
+`iceberg.catalog.type=snowflake` and provide further details with the following
+properties:
+
+:::{list-table} Snowflake catalog configuration properties
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `iceberg.snowflake-catalog.account-uri`
+  - Snowflake JDBC account URI (required). Example:
+    `jdbc:snowflake://example123456789.snowflakecomputing.com`
+* - `iceberg.snowflake-catalog.user`
+  - Snowflake user (required).
+* - `iceberg.snowflake-catalog.password`
+  - Snowflake password (required).
+* - `iceberg.snowflake-catalog.database`
+  - Snowflake database name (required).
+* - `iceberg.snowflake-catalog.role`
+  - Snowflake role name
+:::
+
+```text
+connector.name=iceberg
+iceberg.catalog.type=snowflake
+iceberg.snowflake-catalog.account-uri=jdbc:snowflake://example1234567890.snowflakecomputing.com
+iceberg.snowflake-catalog.user=user
+iceberg.snowflake-catalog.password=secret
+iceberg.snowflake-catalog.database=db
+```
+
 (partition-projection)=
 
 ## Access tables with Athena partition projection metadata
