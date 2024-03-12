@@ -89,10 +89,10 @@ public class TestLikeMatcher
         assertFalse(match("%bcccccccca%", "bbbbbbbbxax"));
         assertFalse(match("%bbxxxxxa%", "bbbxxxxaz"));
         assertFalse(match("%aaaaaaxaaaaaa%", Strings.repeat("a", 20) +
-                                          Strings.repeat("b", 20) +
-                                          Strings.repeat("a", 20) +
-                                          Strings.repeat("b", 20) +
-                                          "the quick brown fox jumps over the lazy dog"));
+                Strings.repeat("b", 20) +
+                Strings.repeat("a", 20) +
+                Strings.repeat("b", 20) +
+                "the quick brown fox jumps over the lazy dog"));
 
         assertFalse(match("%abaaa%", "ababaa"));
 
