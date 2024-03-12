@@ -27,6 +27,12 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.tree.BetweenPredicate;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -167,7 +173,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                 .equiCriteria("A_1", "B_1")
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new PlanMatchPattern.DynamicFilterPattern("A_1", EQUAL, "B_1", false, OptionalLong.empty())))
+                                                new PlanMatchPattern.DynamicFilterPattern(new SymbolReference("A_1"), EQUAL, "B_1", false, OptionalLong.empty())))
                                 .left(
                                         node(FilterNode.class,
                                                 tableScan("table_undefined_a", ImmutableMap.of("A_1", "a_1"))))
@@ -186,7 +192,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                 .equiCriteria("A_1", "B_1")
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new PlanMatchPattern.DynamicFilterPattern("A_1", EQUAL, "B_1", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
+                                                new PlanMatchPattern.DynamicFilterPattern(new SymbolReference("A_1"), EQUAL, "B_1", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
                                 .left(
                                         node(FilterNode.class,
                                                 tableScan("table_small_a", ImmutableMap.of("A_1", "a_1"))))
@@ -208,7 +214,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                 .equiCriteria("A_1", "B_1")
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new PlanMatchPattern.DynamicFilterPattern("A_1", EQUAL, "B_1", false, OptionalLong.of(0L))))
+                                                new PlanMatchPattern.DynamicFilterPattern(new SymbolReference("A_1"), EQUAL, "B_1", false, OptionalLong.of(0L))))
                                 .left(
                                         node(FilterNode.class,
                                                 tableScan("table_small_a", ImmutableMap.of("A_1", "a_1"))))
@@ -230,7 +236,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                 .equiCriteria("A_1", "B_2")
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new PlanMatchPattern.DynamicFilterPattern("A_1", EQUAL, "B_2", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
+                                                new PlanMatchPattern.DynamicFilterPattern(new SymbolReference("A_1"), EQUAL, "B_2", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
                                 .left(
                                         node(FilterNode.class,
                                                 tableScan("table_small_a", ImmutableMap.of("A_1", "a_1"))))
@@ -253,7 +259,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                 .equiCriteria("A_1", "B_2")
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new PlanMatchPattern.DynamicFilterPattern("A_1", EQUAL, "B_2", false, OptionalLong.of(0L))))
+                                                new PlanMatchPattern.DynamicFilterPattern(new SymbolReference("A_1"), EQUAL, "B_2", false, OptionalLong.of(0L))))
                                 .left(
                                         node(FilterNode.class,
                                                 tableScan("table_small_a", ImmutableMap.of("A_1", "a_1"))))
@@ -270,7 +276,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                 .equiCriteria("A_2", "B_2")
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new PlanMatchPattern.DynamicFilterPattern("A_2", EQUAL, "B_2", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
+                                                new PlanMatchPattern.DynamicFilterPattern(new SymbolReference("A_2"), EQUAL, "B_2", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
                                 .left(
                                         node(FilterNode.class,
                                                 tableScan("table_small_a", ImmutableMap.of("A_2", "a_2"))))
@@ -292,7 +298,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                 .equiCriteria("A_1", "B_1")
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new PlanMatchPattern.DynamicFilterPattern("A_1", EQUAL, "B_1", false, OptionalLong.empty())))
+                                                new PlanMatchPattern.DynamicFilterPattern(new SymbolReference("A_1"), EQUAL, "B_1", false, OptionalLong.empty())))
                                 .left(
                                         node(FilterNode.class,
                                                 tableScan("table_small_a", ImmutableMap.of("A_1", "a_1"))))
@@ -314,8 +320,8 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                 .equiCriteria("A_2", "C_1")
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new PlanMatchPattern.DynamicFilterPattern("A_2", EQUAL, "C_1", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout)),
-                                                new PlanMatchPattern.DynamicFilterPattern("B_2", EQUAL, "C_1", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
+                                                new PlanMatchPattern.DynamicFilterPattern(new SymbolReference("A_2"), EQUAL, "C_1", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout)),
+                                                new PlanMatchPattern.DynamicFilterPattern(new SymbolReference("B_2"), EQUAL, "C_1", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
                                 .left(
                                         join(INNER, leftJoinBuilder -> leftJoinBuilder
                                                 .equiCriteria("A_2", "B_2")
@@ -365,12 +371,13 @@ public class TestDeterminePreferredDynamicFilterTimeout
                         JOIN table_small_c c ON b.b_2 = c.c_1 AND c.c_2 = b.b_3
                         WHERE a.a_1 BETWEEN b.b_1 AND b.b_2
                         """,
-                anyTree(filter("A_1 BETWEEN B_1 AND B_2",
+                anyTree(filter(
+                        new BetweenPredicate(new SymbolReference("A_1"), new SymbolReference("B_1"), new SymbolReference("B_2")),
                         join(INNER, builder -> builder
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new PlanMatchPattern.DynamicFilterPattern("A_1", GREATER_THAN_OR_EQUAL, "B_1", false, OptionalLong.of(0L)),
-                                                new PlanMatchPattern.DynamicFilterPattern("A_1", LESS_THAN_OR_EQUAL, "B_2", false, OptionalLong.of(0L))))
+                                                new PlanMatchPattern.DynamicFilterPattern(new SymbolReference("A_1"), GREATER_THAN_OR_EQUAL, "B_1", false, OptionalLong.of(0L)),
+                                                new PlanMatchPattern.DynamicFilterPattern(new SymbolReference("A_1"), LESS_THAN_OR_EQUAL, "B_2", false, OptionalLong.of(0L))))
                                 .left(
                                         filter(
                                                 TRUE_LITERAL,
@@ -384,8 +391,8 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                                                 equiJoinClause("B_3", "C_2")))
                                                         .dynamicFilter(
                                                                 ImmutableList.of(
-                                                                        new PlanMatchPattern.DynamicFilterPattern("B_2", EQUAL, "C_1", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout)),
-                                                                        new PlanMatchPattern.DynamicFilterPattern("B_3", EQUAL, "C_2", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
+                                                                        new PlanMatchPattern.DynamicFilterPattern(new SymbolReference("B_2"), EQUAL, "C_1", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout)),
+                                                                        new PlanMatchPattern.DynamicFilterPattern(new SymbolReference("B_3"), EQUAL, "C_2", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
                                                         .left(
                                                                 anyTree(
                                                                         tableScan("table_small_b", ImmutableMap.of("B_1", "b_1", "B_2", "b_2", "B_3", "b_3"))))
@@ -411,7 +418,8 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                                 .getDynamicConjuncts().get(0).getPreferredTimeout()
                                                 .equals(OptionalLong.of(waitForCascadingDynamicFiltersTimeout))),
                                 node(ExchangeNode.class,
-                                        filter("B_1 = random(5)",
+                                        filter(
+                                                new ComparisonExpression(EQUAL, new SymbolReference("B_1"), new FunctionCall(QualifiedName.of("random"), ImmutableList.of(new LongLiteral("5")))),
                                                 tableScan("table_small_b", ImmutableMap.of("B_1", "b_1")))))));
     }
 }

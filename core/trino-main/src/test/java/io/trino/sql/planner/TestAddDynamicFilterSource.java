@@ -31,6 +31,13 @@ import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.BetweenPredicate;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -58,9 +65,13 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.SUBTRACT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 
 public class TestAddDynamicFilterSource
         extends BasePlanTest
@@ -139,7 +150,8 @@ public class TestAddDynamicFilterSource
                     "SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
                     noSemiJoinRewrite(joinDistributionType),
                     anyTree(
-                            filter("S",
+                            filter(
+                                    new SymbolReference("S"),
                                     semiJoin("X", "Y", "S", Optional.of(semiJoinDistributionType), Optional.of(true),
                                             node(
                                                     FilterNode.class,
@@ -154,7 +166,7 @@ public class TestAddDynamicFilterSource
                                                                     DynamicFilterSourceNode.class,
                                                                     project(
                                                                             filter(
-                                                                                    "Z % 4 = 0",
+                                                                                    new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("Z"), new LongLiteral("4")), new LongLiteral("0")),
                                                                                     tableScan("lineitem", ImmutableMap.of("Y", "orderkey", "Z", "linenumber")))))))))));
         }
     }
@@ -222,11 +234,12 @@ public class TestAddDynamicFilterSource
         assertDistributedPlan(
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey BETWEEN l.orderkey AND l.partkey",
                 anyTree(
-                        filter("O_ORDERKEY BETWEEN L_ORDERKEY AND L_PARTKEY",
+                        filter(
+                                new BetweenPredicate(new SymbolReference("O_ORDERKEY"), new SymbolReference("L_ORDERKEY"), new SymbolReference("L_PARTKEY")),
                                 join(INNER, builder -> builder
                                         .dynamicFilter(ImmutableList.of(
-                                                new DynamicFilterPattern("L_ORDERKEY", LESS_THAN_OR_EQUAL, "O_ORDERKEY"),
-                                                new DynamicFilterPattern("L_PARTKEY", GREATER_THAN_OR_EQUAL, "O_ORDERKEY")))
+                                                new DynamicFilterPattern(new SymbolReference("L_ORDERKEY"), LESS_THAN_OR_EQUAL, "O_ORDERKEY"),
+                                                new DynamicFilterPattern(new SymbolReference("L_PARTKEY"), GREATER_THAN_OR_EQUAL, "O_ORDERKEY")))
                                         .left(
                                                 filter(
                                                         TRUE_LITERAL,
@@ -244,7 +257,8 @@ public class TestAddDynamicFilterSource
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey >= l.orderkey AND o.orderkey <= l.partkey - 1",
                 withJoinDistributionType(PARTITIONED),
                 anyTree(
-                        filter("O_ORDERKEY >= L_ORDERKEY AND O_ORDERKEY <= expr",
+                        filter(
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("O_ORDERKEY"), new SymbolReference("L_ORDERKEY")), new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("O_ORDERKEY"), new SymbolReference("expr")))),
                                 join(INNER, builder -> builder
                                         .left(
                                                 tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))
@@ -252,7 +266,7 @@ public class TestAddDynamicFilterSource
                                                 exchange(
                                                         LOCAL,
                                                         project(
-                                                                ImmutableMap.of("expr", expression("L_PARTKEY - BIGINT '1'")),
+                                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("L_PARTKEY"), new GenericLiteral("BIGINT", "1")))),
                                                                 exchange(
                                                                         REMOTE,
                                                                         tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey"))))))))));

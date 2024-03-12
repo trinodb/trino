@@ -27,6 +27,14 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -45,12 +53,16 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -122,7 +134,7 @@ public class TestIcebergProjectionPushdownPlans
                 session,
                 any(
                         project(
-                                ImmutableMap.of("expr", expression("col0[1]"), "expr_2", expression("col0[2]")),
+                                ImmutableMap.of("expr", expression(new SubscriptExpression(new SymbolReference("col0"), new io.trino.sql.tree.LongLiteral("1"))), "expr_2", expression(new SubscriptExpression(new SymbolReference("col0"), new io.trino.sql.tree.LongLiteral("2")))),
                                 tableScan(testTable, ImmutableMap.of("col0", "col0")))));
     }
 
@@ -175,7 +187,7 @@ public class TestIcebergProjectionPushdownPlans
                 format("SELECT col0.x FROM %s WHERE col0.x = col1 + 3 and col0.y = 2", testTable),
                 anyTree(
                         filter(
-                                "y = BIGINT '2' AND (x =  CAST((col1 + 3) AS BIGINT))",
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("y"), new GenericLiteral("BIGINT", "2")), new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), new LongLiteral("3")), dataType("bigint"))))),
                                 tableScan(
                                         table -> {
                                             IcebergTableHandle icebergTableHandle = (IcebergTableHandle) table;
@@ -191,7 +203,7 @@ public class TestIcebergProjectionPushdownPlans
                 format("SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5", testTable),
                 anyTree(
                         filter(
-                                "x = BIGINT '5'",
+                                new ComparisonExpression(EQUAL, new SymbolReference("x"), new GenericLiteral("BIGINT", "5")),
                                 tableScan(
                                         table -> {
                                             IcebergTableHandle icebergTableHandle = (IcebergTableHandle) table;
@@ -208,9 +220,9 @@ public class TestIcebergProjectionPushdownPlans
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "expr_0_x", expression("expr_0[1]"),
-                                        "expr_0", expression("expr_0"),
-                                        "expr_0_y", expression("expr_0[2]")),
+                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference("expr_0"), new LongLiteral("1"))),
+                                        "expr_0", expression(new SymbolReference("expr_0")),
+                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference("expr_0"), new LongLiteral("2")))),
                                 join(INNER, builder -> builder
                                         .equiCriteria("s_expr_1", "t_expr_1")
                                         .left(
@@ -222,7 +234,7 @@ public class TestIcebergProjectionPushdownPlans
                                         .right(
                                                 anyTree(
                                                         filter(
-                                                                "x = BIGINT '2'",
+                                                                new ComparisonExpression(EQUAL, new SymbolReference("x"), new GenericLiteral("BIGINT", "2")),
                                                                 tableScan(
                                                                         table -> {
                                                                             IcebergTableHandle icebergTableHandle = (IcebergTableHandle) table;

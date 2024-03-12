@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -47,7 +48,7 @@ public class TestPruneExchangeSourceColumns
                         exchange(
                                 values(ImmutableList.of("b")),
                                 strictProject(
-                                        ImmutableMap.of("c_1", expression("c_1")),
+                                        ImmutableMap.of("c_1", expression(new SymbolReference("c_1"))),
                                         values(ImmutableList.of("c_1", "c_2")))));
     }
 
@@ -71,10 +72,10 @@ public class TestPruneExchangeSourceColumns
                 .matches(
                         exchange(
                                 strictProject(
-                                        ImmutableMap.of("b_1", expression("b_1")),
+                                        ImmutableMap.of("b_1", expression(new SymbolReference("b_1"))),
                                         values(ImmutableList.of("b_1", "b_2"))),
                                 strictProject(
-                                        ImmutableMap.of("c_1", expression("c_1")),
+                                        ImmutableMap.of("c_1", expression(new SymbolReference("c_1"))),
                                         values(ImmutableList.of("c_1", "c_2")))));
     }
 

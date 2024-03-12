@@ -40,7 +40,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -119,7 +118,6 @@ import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.TestingTableExecuteHandle;
 import io.trino.testing.TestingTransactionHandle;
-import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -131,7 +129,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -140,7 +137,6 @@ import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.sql.ir.IrUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -1474,18 +1470,6 @@ public class PlanBuilder
     public static AggregationFunction aggregation(String name, List<Expression> arguments, OrderingScheme orderBy)
     {
         return new AggregationFunction(name, Optional.empty(), Optional.of(orderBy), false, arguments);
-    }
-
-    public static Expression expression(@Language("SQL") String sql)
-    {
-        return rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));
-    }
-
-    public static List<Expression> expressions(@Language("SQL") String... expressions)
-    {
-        return Stream.of(expressions)
-                .map(PlanBuilder::expression)
-                .collect(toImmutableList());
     }
 
     public TypeProvider getTypes()

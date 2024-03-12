@@ -19,10 +19,12 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
@@ -32,6 +34,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.RowsPerMatch.ALL_SHOW_EMPTY;
 import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 
 public class TestPrunePatternRecognitionSourceColumns
         extends BaseRuleTest
@@ -43,13 +47,13 @@ public class TestPrunePatternRecognitionSourceColumns
                 .on(p -> p.patternRecognition(builder -> builder
                         .rowsPerMatch(ONE)
                         .pattern(new IrLabel("X"))
-                        .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
+                        .addVariableDefinition(new IrLabel("X"), TRUE_LITERAL)
                         .source(p.values(p.symbol("a")))))
                 .matches(
                         patternRecognition(builder -> builder
                                         .rowsPerMatch(ONE)
                                         .pattern(new IrLabel("X"))
-                                        .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true")),
+                                        .addVariableDefinition(new IrLabel("X"), TRUE_LITERAL),
                                 strictProject(
                                         ImmutableMap.of(),
                                         values("a"))));
@@ -62,7 +66,7 @@ public class TestPrunePatternRecognitionSourceColumns
                 .on(p -> p.patternRecognition(builder -> builder
                         .rowsPerMatch(ALL_SHOW_EMPTY)
                         .pattern(new IrLabel("X"))
-                        .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
+                        .addVariableDefinition(new IrLabel("X"), TRUE_LITERAL)
                         .source(p.values(p.symbol("a")))))
                 .doesNotFire();
     }
@@ -75,7 +79,7 @@ public class TestPrunePatternRecognitionSourceColumns
                         .partitionBy(ImmutableList.of(p.symbol("a")))
                         .rowsPerMatch(ONE)
                         .pattern(new IrLabel("X"))
-                        .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
+                        .addVariableDefinition(new IrLabel("X"), TRUE_LITERAL)
                         .source(p.values(p.symbol("a")))))
                 .doesNotFire();
     }
@@ -88,7 +92,7 @@ public class TestPrunePatternRecognitionSourceColumns
                         .orderBy(new OrderingScheme(ImmutableList.of(p.symbol("a")), ImmutableMap.of(p.symbol("a"), ASC_NULLS_LAST)))
                         .rowsPerMatch(ONE)
                         .pattern(new IrLabel("X"))
-                        .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
+                        .addVariableDefinition(new IrLabel("X"), TRUE_LITERAL)
                         .source(p.values(p.symbol("a")))))
                 .doesNotFire();
     }
@@ -100,14 +104,14 @@ public class TestPrunePatternRecognitionSourceColumns
                 .on(p -> p.patternRecognition(builder -> builder
                         .addMeasure(
                                 p.symbol("measure"),
-                                PlanBuilder.expression("pointer"),
+                                new SymbolReference("pointer"),
                                 ImmutableMap.of("pointer", new ScalarValuePointer(
                                         new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
                                         new Symbol("a"))),
                                 BIGINT)
                         .rowsPerMatch(ONE)
                         .pattern(new IrLabel("X"))
-                        .addVariableDefinition(new IrLabel("X"), PlanBuilder.expression("true"))
+                        .addVariableDefinition(new IrLabel("X"), TRUE_LITERAL)
                         .source(p.values(p.symbol("a")))))
                 .doesNotFire();
     }
@@ -121,7 +125,7 @@ public class TestPrunePatternRecognitionSourceColumns
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                PlanBuilder.expression("pointer > 0"),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("pointer"), new LongLiteral("0")),
                                 ImmutableMap.of("pointer", new ScalarValuePointer(
                                         new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
                                         new Symbol("a"))))

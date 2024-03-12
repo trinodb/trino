@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
 import io.trino.Session;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.Split;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import io.trino.operator.dynamicfiltering.DynamicPageFilterCache;
 import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSourceProvider;
@@ -34,12 +36,20 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingTaskContext;
@@ -75,9 +85,12 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.ExpressionTestUtils.createExpression;
-import static io.trino.sql.ExpressionTestUtils.getTypes;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSplit.createLocalSplit;
@@ -108,6 +121,9 @@ public class BenchmarkScanFilterAndProjectOperator
     private static final int TOTAL_POSITIONS = 1_000_000;
     private static final DataSize FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = DataSize.of(500, KILOBYTE);
     private static final int FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = 256;
+
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction CONCAT = FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR));
 
     @State(Thread)
     public static class Context
@@ -207,10 +223,10 @@ public class BenchmarkScanFilterAndProjectOperator
         private RowExpression getFilter(Type type)
         {
             if (type == VARCHAR) {
-                return rowExpression("cast(varchar0 as bigint) % 2 = 0");
+                return rowExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new Cast(new SymbolReference("varchar0"), dataType("bigint")), new LongLiteral("2")), new LongLiteral("0")));
             }
             if (type == BIGINT) {
-                return rowExpression("bigint0 % 2 = 0");
+                return rowExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("bigint0"), new LongLiteral("2")), new LongLiteral("0")));
             }
             throw new IllegalArgumentException("filter not supported for type : " + type);
         }
@@ -220,26 +236,25 @@ public class BenchmarkScanFilterAndProjectOperator
             ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
             if (type == BIGINT) {
                 for (int i = 0; i < columnCount; i++) {
-                    builder.add(rowExpression("bigint" + i + " + 5"));
+                    builder.add(rowExpression(new ArithmeticBinaryExpression(ADD, new SymbolReference("bigint" + i), new LongLiteral("5"))));
                 }
             }
             else if (type == VARCHAR) {
                 for (int i = 0; i < columnCount; i++) {
                     // alternatively use identity expression rowExpression("varchar" + i, type) or
                     // rowExpression("substr(varchar" + i + ", 1, 1)", type)
-                    builder.add(rowExpression("concat(varchar" + i + ", 'foo')"));
+                    builder.add(rowExpression(new FunctionCall(CONCAT.toQualifiedName(), ImmutableList.of(new SymbolReference("varchar" + i), new StringLiteral("foo")))));
                 }
             }
             return builder.build();
         }
 
-        private RowExpression rowExpression(String value)
+        private RowExpression rowExpression(Expression expression)
         {
-            Expression expression = createExpression(value, TRANSACTION_MANAGER, PLANNER_CONTEXT, TypeProvider.copyOf(symbolTypes));
-
+            TypeProvider typeProvider = TypeProvider.copyOf(symbolTypes);
             return SqlToRowExpressionTranslator.translate(
                     expression,
-                    getTypes(TEST_SESSION, PLANNER_CONTEXT, TypeProvider.copyOf(symbolTypes), expression),
+                    new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(TEST_SESSION, typeProvider, expression),
                     sourceLayout,
                     PLANNER_CONTEXT.getMetadata(),
                     PLANNER_CONTEXT.getFunctionManager(),

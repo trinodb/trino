@@ -20,6 +20,8 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
@@ -33,8 +35,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFuncti
 import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 
 public class TestMultipleDistinctAggregationToMarkDistinct
         extends BaseRuleTest
@@ -106,8 +108,8 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                                         Assignments.builder()
                                                 .putIdentity(p.symbol("input1"))
                                                 .putIdentity(p.symbol("input2"))
-                                                .put(p.symbol("filter1"), expression("input2 > 0"))
-                                                .put(p.symbol("filter2"), expression("input1 > 0"))
+                                                .put(p.symbol("filter1"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input2"), new LongLiteral("0")))
+                                                .put(p.symbol("filter2"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input1"), new LongLiteral("0")))
                                                 .build(),
                                         p.values(
                                                 p.symbol("input1"),
@@ -125,8 +127,8 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                                         Assignments.builder()
                                                 .putIdentity(p.symbol("input1"))
                                                 .putIdentity(p.symbol("input2"))
-                                                .put(p.symbol("filter1"), expression("input2 > 0"))
-                                                .put(p.symbol("filter2"), expression("input1 > 0"))
+                                                .put(p.symbol("filter1"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input2"), new LongLiteral("0")))
+                                                .put(p.symbol("filter2"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input1"), new LongLiteral("0")))
                                                 .build(),
                                         p.values(
                                                 p.symbol("input1"),

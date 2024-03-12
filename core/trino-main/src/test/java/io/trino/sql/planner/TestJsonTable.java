@@ -31,8 +31,16 @@ import io.trino.operator.table.json.JsonTableValueColumn;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.JsonQuery;
 import io.trino.sql.tree.JsonValue;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Row;
+import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -51,12 +59,14 @@ import static io.trino.sql.planner.PathNodes.contextVariable;
 import static io.trino.sql.planner.PathNodes.literal;
 import static io.trino.sql.planner.PathNodes.memberAccessor;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictOutput;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.TableFunctionMatcher.TableArgumentValue.Builder.tableArgument;
+import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.type.Json2016Type.JSON_2016;
 import static io.trino.type.TestJsonPath2016TypeSerialization.JSON_PATH_2016;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,7 +101,7 @@ public class TestJsonTable
                         ImmutableList.of("json_col", "int_col", "bigint_col", "formatted_varchar_col"),
                         anyTree(
                                 project(
-                                        ImmutableMap.of("formatted_varchar_col", expression("\"$json_to_varchar\"(varchar_col, tinyint '1', false)")),
+                                        ImmutableMap.of("formatted_varchar_col", expression(new FunctionCall(QualifiedName.of("$json_to_varchar"), ImmutableList.of(new SymbolReference("varchar_col"), new GenericLiteral("tinyint", "1"), FALSE_LITERAL)))),
                                         tableFunction(builder -> builder
                                                         .name("$json_table")
                                                         .addTableArgument(
@@ -103,23 +113,23 @@ public class TestJsonTable
                                                         .properOutputs(ImmutableList.of("bigint_col", "varchar_col")),
                                                 project(
                                                         ImmutableMap.of(
-                                                                "context_item", expression("\"$varchar_to_json\"(json_col_coerced, false)"), // apply input function to context item
-                                                                "parameters_row", expression("CAST(ROW (int_col, \"$varchar_to_json\"(name_coerced, false)) AS ROW(ID integer, NAME json2016))")), // apply input function to formatted path parameter and gather path parameters in a row
+                                                                "context_item", expression(new FunctionCall(QualifiedName.of("$varchar_to_json"), ImmutableList.of(new SymbolReference("json_col_coerced"), FALSE_LITERAL))), // apply input function to context item
+                                                                "parameters_row", expression(new Cast(new Row(ImmutableList.of(new SymbolReference("int_col"), new FunctionCall(QualifiedName.of("$varchar_to_json"), ImmutableList.of(new SymbolReference("name_coerced"), FALSE_LITERAL)))), dataType("row(id integer, name json2016)")))), // apply input function to formatted path parameter and gather path parameters in a row
                                                         project(// coerce context item, path parameters and default expressions
                                                                 ImmutableMap.of(
-                                                                        "name_coerced", expression("CAST(name AS VARCHAR)"), // cast formatted path parameter to VARCHAR for the input function
-                                                                        "default_value_coerced", expression("CAST(default_value AS BIGINT)"), // cast default value to BIGINT to match declared return type for the column
-                                                                        "json_col_coerced", expression("CAST(json_col AS VARCHAR)"), // cast context item to VARCHAR for the input function
-                                                                        "int_col_coerced", expression("CAST(int_col AS BIGINT)")), // cast default value to BIGINT to match declared return type for the column
+                                                                        "name_coerced", expression(new Cast(new SymbolReference("name"), dataType("varchar"))), // cast formatted path parameter to VARCHAR for the input function
+                                                                        "default_value_coerced", expression(new Cast(new SymbolReference("default_value"), dataType("bigint"))), // cast default value to BIGINT to match declared return type for the column
+                                                                        "json_col_coerced", expression(new Cast(new SymbolReference("json_col"), dataType("varchar"))), // cast context item to VARCHAR for the input function
+                                                                        "int_col_coerced", expression(new Cast(new SymbolReference("int_col"), dataType("bigint")))), // cast default value to BIGINT to match declared return type for the column
                                                                 project(// pre-project context item, path parameters and default expressions
                                                                         ImmutableMap.of(
-                                                                                "name", expression("'[ala]'"),
-                                                                                "default_value", expression("5")),
+                                                                                "name", expression(new StringLiteral("[ala]")),
+                                                                                "default_value", expression(new LongLiteral("5"))),
                                                                         anyTree(
                                                                                 project(
                                                                                         ImmutableMap.of(
-                                                                                                "json_col", expression("'[1, 2, 3]'"),
-                                                                                                "int_col", expression("4")),
+                                                                                                "json_col", expression(new StringLiteral("[1, 2, 3]")),
+                                                                                                "int_col", expression(new LongLiteral("4"))),
                                                                                         values(1)))))))))));
     }
 

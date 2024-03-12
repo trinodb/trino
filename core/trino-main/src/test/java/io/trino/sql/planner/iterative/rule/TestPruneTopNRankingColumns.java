@@ -22,6 +22,7 @@ import io.trino.sql.planner.assertions.TopNRankingSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -125,7 +126,7 @@ public class TestPruneTopNRankingColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", expression("a"), "ranking", expression("ranking")),
+                                ImmutableMap.of("a", expression(new SymbolReference("a")), "ranking", expression(new SymbolReference("ranking"))),
                                 topNRanking(
                                         pattern -> pattern
                                                 .specification(
@@ -135,7 +136,7 @@ public class TestPruneTopNRankingColumns
                                                 .rankingType(ROW_NUMBER)
                                                 .maxRankingPerPartition(5),
                                         strictProject(
-                                                ImmutableMap.of("a", expression("a")),
+                                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
                                                 values("a", "b")))
                                         .withAlias("ranking", new TopNRankingSymbolMatcher())));
     }

@@ -23,17 +23,26 @@ import io.trino.sql.planner.assertions.TopNRankingSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 
 public class TestPushdownFilterIntoWindow
         extends BaseRuleTest
@@ -55,10 +64,12 @@ public class TestPushdownFilterIntoWindow
                     OrderingScheme orderingScheme = new OrderingScheme(
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
-                    return p.filter(expression("rank_1 < cast(100 as bigint)"), p.window(
-                            new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
-                            ImmutableMap.of(rankSymbol, newWindowNodeFunction(ranking, a)),
-                            p.values(p.symbol("a"))));
+                    return p.filter(
+                            new ComparisonExpression(LESS_THAN, new SymbolReference("rank_1"), new Cast(new LongLiteral("100"), dataType("bigint"))),
+                            p.window(
+                                    new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
+                                    ImmutableMap.of(rankSymbol, newWindowNodeFunction(ranking, a)),
+                                    p.values(p.symbol("a"))));
                 })
                 .matches(topNRanking(pattern -> pattern
                                 .maxRankingPerPartition(99)
@@ -83,13 +94,15 @@ public class TestPushdownFilterIntoWindow
                     OrderingScheme orderingScheme = new OrderingScheme(
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
-                    return p.filter(expression("cast(3 as bigint) < row_number_1 and row_number_1 < cast(100 as bigint)"), p.window(
-                            new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
-                            ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
-                            p.values(p.symbol("a"))));
+                    return p.filter(
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new Cast(new LongLiteral("3"), dataType("bigint")), new SymbolReference("row_number_1")), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Cast(new LongLiteral("100"), dataType("bigint"))))),
+                            p.window(
+                                    new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
+                                    ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
+                                    p.values(p.symbol("a"))));
                 })
                 .matches(filter(
-                        "cast(3 as bigint) < row_number_1 and row_number_1 < cast(100 as bigint)",
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new Cast(new LongLiteral("3"), dataType("bigint")), new SymbolReference("row_number_1")), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Cast(new LongLiteral("100"), dataType("bigint"))))),
                         topNRanking(pattern -> pattern
                                         .partial(false)
                                         .maxRankingPerPartition(99)
@@ -106,13 +119,17 @@ public class TestPushdownFilterIntoWindow
                     OrderingScheme orderingScheme = new OrderingScheme(
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
-                    return p.filter(expression("row_number_1 < cast(100 as bigint) and a = BIGINT '1'"), p.window(
-                            new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
-                            ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
-                            p.values(p.symbol("a"))));
+                    return p.filter(
+                            new LogicalExpression(AND, ImmutableList.of(
+                                    new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Cast(new LongLiteral("100"), dataType("bigint"))),
+                                    new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral("BIGINT", "1")))),
+                            p.window(
+                                    new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
+                                    ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
+                                    p.values(p.symbol("a"))));
                 })
                 .matches(filter(
-                        "a = BIGINT '1'",
+                        new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral("BIGINT", "1")),
                         topNRanking(pattern -> pattern
                                         .partial(false)
                                         .maxRankingPerPartition(99)
@@ -141,7 +158,7 @@ public class TestPushdownFilterIntoWindow
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.filter(
-                            expression("cast(3 as bigint) < row_number_1"),
+                            new ComparisonExpression(LESS_THAN, new Cast(new LongLiteral("3"), dataType("bigint")), new SymbolReference("row_number_1")),
                             p.window(
                                     new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                                     ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),

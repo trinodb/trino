@@ -15,13 +15,16 @@ package io.trino.cost;
 
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.ChooseAlternativeNode.FilteredTableScan;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.lang.Double.NaN;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -35,9 +38,11 @@ class TestChooseAlternativeRule
         tester().assertStatsFor(pb -> pb
                         .chooseAlternative(
                                 List.of(
-                                        pb.filter(expression("i1 = 5"),
+                                        pb.filter(
+                                                new ComparisonExpression(EQUAL, new SymbolReference("i1"), new LongLiteral("5")),
                                                 pb.values(pb.symbol("i1"), pb.symbol("i2"))),
-                                        pb.filter(expression("i1 = 10"),
+                                        pb.filter(
+                                                new ComparisonExpression(EQUAL, new SymbolReference("i1"), new LongLiteral("10")),
                                                 pb.values(pb.symbol("i1"), pb.symbol("i2")))),
                                 new FilteredTableScan(pb.tableScan(List.of(pb.symbol("i1"), pb.symbol("i2")), false), Optional.empty())))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()

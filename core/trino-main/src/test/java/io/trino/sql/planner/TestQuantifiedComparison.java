@@ -18,6 +18,8 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -48,7 +50,8 @@ public class TestQuantifiedComparison
     {
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey <> ALL (VALUES ROW(CAST(5 as BIGINT)), ROW(CAST(3 as BIGINT)))";
         assertPlan(query, anyTree(
-                filter("NOT S",
+                filter(
+                        new NotExpression(new SymbolReference("S")),
                         semiJoin("X", "Y", "S",
                                 tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                 values(ImmutableMap.of("Y", 0))))));

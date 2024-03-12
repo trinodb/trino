@@ -31,14 +31,15 @@ import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.PlanTester;
-import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -73,6 +74,9 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 import static io.trino.testing.PlanTesterBuilder.planTesterBuilder;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -131,35 +135,47 @@ public class TestCacheCommonSubqueries
                 anyTree(exchange(LOCAL,
                         chooseAlternativeNode(
                                 // original subplan
-                                strictProject(ImmutableMap.of("REGIONKEY_A", expression("REGIONKEY_A")),
-                                        filter("NATIONKEY_A > BIGINT '10'",
+                                strictProject(ImmutableMap.of("REGIONKEY_A", expression(new SymbolReference("REGIONKEY_A"))),
+                                        filter(
+                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("NATIONKEY_A"), new GenericLiteral("BIGINT", "10")),
                                                 tableScan("nation", ImmutableMap.of("NATIONKEY_A", "nationkey", "REGIONKEY_A", "regionkey")))),
                                 // store data in cache alternative
-                                strictProject(ImmutableMap.of("REGIONKEY_A", expression("REGIONKEY_A")),
-                                        filter("NATIONKEY_A > BIGINT '10'",
+                                strictProject(ImmutableMap.of("REGIONKEY_A", expression(new SymbolReference("REGIONKEY_A"))),
+                                        filter(
+                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("NATIONKEY_A"), new GenericLiteral("BIGINT", "10")),
                                                 cacheDataPlanNode(
-                                                        strictProject(ImmutableMap.of("REGIONKEY_A", expression("REGIONKEY_A"), "NATIONKEY_A", expression("NATIONKEY_A")),
-                                                                filter("NATIONKEY_A > BIGINT '10' OR NATIONKEY_A < BIGINT '5'",
+                                                        strictProject(ImmutableMap.of("REGIONKEY_A", expression(new SymbolReference("REGIONKEY_A")), "NATIONKEY_A", expression(new SymbolReference("NATIONKEY_A"))),
+                                                                filter(
+                                                                        new LogicalExpression(OR, ImmutableList.of(
+                                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("NATIONKEY_A"), new GenericLiteral("BIGINT", "10")),
+                                                                                new ComparisonExpression(LESS_THAN, new SymbolReference("NATIONKEY_A"), new GenericLiteral("BIGINT", "5")))),
                                                                         tableScan("nation", ImmutableMap.of("NATIONKEY_A", "nationkey", "REGIONKEY_A", "regionkey"))))))),
                                 // load data from cache alternative
-                                strictProject(ImmutableMap.of("REGIONKEY_A", expression("REGIONKEY_A")),
-                                        filter("NATIONKEY_A > BIGINT '10'",
+                                strictProject(ImmutableMap.of("REGIONKEY_A", expression(new SymbolReference("REGIONKEY_A"))),
+                                        filter(
+                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("NATIONKEY_A"), new GenericLiteral("BIGINT", "10")),
                                                 loadCachedDataPlanNode(signature, columnHandles, "REGIONKEY_A", "NATIONKEY_A")))),
                         chooseAlternativeNode(
                                 // original subplan
-                                strictProject(ImmutableMap.of("REGIONKEY_B", expression("REGIONKEY_B")),
-                                        filter("NATIONKEY_B < BIGINT '5'",
+                                strictProject(ImmutableMap.of("REGIONKEY_B", expression(new SymbolReference("REGIONKEY_B"))),
+                                        filter(
+                                                new ComparisonExpression(LESS_THAN, new SymbolReference("NATIONKEY_B"), new GenericLiteral("BIGINT", "5")),
                                                 tableScan("nation", ImmutableMap.of("NATIONKEY_B", "nationkey", "REGIONKEY_B", "regionkey")))),
                                 // store data in cache alternative
-                                strictProject(ImmutableMap.of("REGIONKEY_B", expression("REGIONKEY_B")),
-                                        filter("NATIONKEY_B < BIGINT '5'",
+                                strictProject(ImmutableMap.of("REGIONKEY_B", expression(new SymbolReference("REGIONKEY_B"))),
+                                        filter(
+                                                new ComparisonExpression(LESS_THAN, new SymbolReference("NATIONKEY_B"), new GenericLiteral("BIGINT", "5")),
                                                 cacheDataPlanNode(
-                                                        strictProject(ImmutableMap.of("REGIONKEY_B", expression("REGIONKEY_B"), "NATIONKEY_B", expression("NATIONKEY_B")),
-                                                                filter("NATIONKEY_B > BIGINT '10' OR NATIONKEY_B < BIGINT '5'",
+                                                        strictProject(ImmutableMap.of("REGIONKEY_B", expression(new SymbolReference("REGIONKEY_B")), "NATIONKEY_B", expression(new SymbolReference("NATIONKEY_B"))),
+                                                                filter(
+                                                                        new LogicalExpression(OR, ImmutableList.of(
+                                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("NATIONKEY_B"), new GenericLiteral("BIGINT", "10")),
+                                                                                new ComparisonExpression(LESS_THAN, new SymbolReference("NATIONKEY_B"), new GenericLiteral("BIGINT", "5")))),
                                                                         tableScan("nation", ImmutableMap.of("NATIONKEY_B", "nationkey", "REGIONKEY_B", "regionkey"))))))),
                                 // load data from cache alternative
-                                strictProject(ImmutableMap.of("REGIONKEY_B", expression("REGIONKEY_B")),
-                                        filter("NATIONKEY_B < BIGINT '5'",
+                                strictProject(ImmutableMap.of("REGIONKEY_B", expression(new SymbolReference("REGIONKEY_B"))),
+                                        filter(
+                                                new ComparisonExpression(LESS_THAN, new SymbolReference("NATIONKEY_B"), new GenericLiteral("BIGINT", "5")),
                                                 loadCachedDataPlanNode(signature, columnHandles, "REGIONKEY_B", "NATIONKEY_B")))))));
     }
 
@@ -192,13 +208,13 @@ public class TestCacheCommonSubqueries
                                         tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey")))
                                         .with(FilterNode.class, isNationKeyDynamicFilter),
                                 // store data in cache alternative
-                                strictProject(ImmutableMap.of("NATIONKEY", expression("NATIONKEY")),
+                                strictProject(ImmutableMap.of("NATIONKEY", expression(new SymbolReference("NATIONKEY"))),
                                         cacheDataPlanNode(
                                                 filter(TRUE_LITERAL, // for DF on nationkey
                                                         tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "REGIONKEY", "regionkey")))
                                                         .with(FilterNode.class, isNationKeyDynamicFilter))),
                                 // load data from cache alternative
-                                strictProject(ImmutableMap.of("NATIONKEY", expression("NATIONKEY")),
+                                strictProject(ImmutableMap.of("NATIONKEY", expression(new SymbolReference("NATIONKEY"))),
                                         loadCachedDataPlanNode(
                                                 signature,
                                                 dfDisjuncts -> dfDisjuncts.size() == 1,
@@ -208,11 +224,11 @@ public class TestCacheCommonSubqueries
                                         // original subplan
                                         tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey")),
                                         // store data in cache alternative
-                                        strictProject(ImmutableMap.of("REGIONKEY", expression("REGIONKEY")),
+                                        strictProject(ImmutableMap.of("REGIONKEY", expression(new SymbolReference("REGIONKEY"))),
                                                 cacheDataPlanNode(
                                                         tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "REGIONKEY", "regionkey")))),
                                         // load data from cache alternative
-                                        strictProject(ImmutableMap.of("REGIONKEY", expression("REGIONKEY")),
+                                        strictProject(ImmutableMap.of("REGIONKEY", expression(new SymbolReference("REGIONKEY"))),
                                                 loadCachedDataPlanNode(signature, "NATIONKEY", "REGIONKEY")))))));
     }
 
@@ -258,7 +274,7 @@ public class TestCacheCommonSubqueries
     @Test
     public void testAggregationQuery()
     {
-        ExpressionWithType nationkey = new ExpressionWithType("\"[nationkey:bigint]\"", BIGINT);
+        ExpressionWithType nationkey = new ExpressionWithType(new SymbolReference("[nationkey:bigint]"), BIGINT);
         Expression max = getFunctionCallBuilder("max", nationkey).build();
         Expression sum = getFunctionCallBuilder("sum", nationkey).build();
         Expression avg = getFunctionCallBuilder("avg", nationkey).build();
@@ -295,9 +311,9 @@ public class TestCacheCommonSubqueries
                                                         tableScan("nation", ImmutableMap.of("NATIONKEY_A", "nationkey", "REGIONKEY_A", "regionkey"))),
                                                 // store data in cache alternative
                                                 strictProject(ImmutableMap.of(
-                                                                "REGIONKEY_A", expression("REGIONKEY_A"),
-                                                                "MAX_PARTIAL_A", expression("MAX_PARTIAL_A"),
-                                                                "SUM_PARTIAL_A", expression("SUM_PARTIAL_A")),
+                                                                "REGIONKEY_A", expression(new SymbolReference("REGIONKEY_A")),
+                                                                "MAX_PARTIAL_A", expression(new SymbolReference("MAX_PARTIAL_A")),
+                                                                "SUM_PARTIAL_A", expression(new SymbolReference("SUM_PARTIAL_A"))),
                                                         cacheDataPlanNode(
                                                                 aggregation(
                                                                         singleGroupingSet("REGIONKEY_A"),
@@ -310,9 +326,9 @@ public class TestCacheCommonSubqueries
                                                                         tableScan("nation", ImmutableMap.of("NATIONKEY_A", "nationkey", "REGIONKEY_A", "regionkey"))))),
                                                 // load data from cache alternative
                                                 strictProject(ImmutableMap.of(
-                                                                "REGIONKEY_A", expression("REGIONKEY_A"),
-                                                                "MAX_PARTIAL_A", expression("MAX_PARTIAL_A"),
-                                                                "SUM_PARTIAL_A", expression("SUM_PARTIAL_A")),
+                                                                "REGIONKEY_A", expression(new SymbolReference("REGIONKEY_A")),
+                                                                "MAX_PARTIAL_A", expression(new SymbolReference("MAX_PARTIAL_A")),
+                                                                "SUM_PARTIAL_A", expression(new SymbolReference("SUM_PARTIAL_A"))),
                                                         loadCachedDataPlanNode(signature, "REGIONKEY_A", "MAX_PARTIAL_A", "SUM_PARTIAL_A", "AVG_PARTIAL_A")))))),
                         anyTree(aggregation(
                                 singleGroupingSet("REGIONKEY_B"),
@@ -334,9 +350,9 @@ public class TestCacheCommonSubqueries
                                                         tableScan("nation", ImmutableMap.of("NATIONKEY_B", "nationkey", "REGIONKEY_B", "regionkey"))),
                                                 // store data in cache alternative
                                                 strictProject(ImmutableMap.of(
-                                                                "REGIONKEY_B", expression("REGIONKEY_B"),
-                                                                "SUM_PARTIAL_B", expression("SUM_PARTIAL_B"),
-                                                                "AVG_PARTIAL_B", expression("AVG_PARTIAL_B")),
+                                                                "REGIONKEY_B", expression(new SymbolReference("REGIONKEY_B")),
+                                                                "SUM_PARTIAL_B", expression(new SymbolReference("SUM_PARTIAL_B")),
+                                                                "AVG_PARTIAL_B", expression(new SymbolReference("AVG_PARTIAL_B"))),
                                                         cacheDataPlanNode(
                                                                 aggregation(
                                                                         singleGroupingSet("REGIONKEY_B"),
@@ -349,9 +365,9 @@ public class TestCacheCommonSubqueries
                                                                         tableScan("nation", ImmutableMap.of("NATIONKEY_B", "nationkey", "REGIONKEY_B", "regionkey"))))),
                                                 // load data from cache alternative
                                                 strictProject(ImmutableMap.of(
-                                                                "REGIONKEY_B", expression("REGIONKEY_B"),
-                                                                "SUM_PARTIAL_B", expression("SUM_PARTIAL_B"),
-                                                                "AVG_PARTIAL_B", expression("AVG_PARTIAL_B")),
+                                                                "REGIONKEY_B", expression(new SymbolReference("REGIONKEY_B")),
+                                                                "SUM_PARTIAL_B", expression(new SymbolReference("SUM_PARTIAL_B")),
+                                                                "AVG_PARTIAL_B", expression(new SymbolReference("AVG_PARTIAL_B"))),
                                                         loadCachedDataPlanNode(signature, "REGIONKEY_B", "MAX_PARTIAL_B", "SUM_PARTIAL_B", "AVG_PARTIAL_B"))))))));
     }
 
@@ -370,9 +386,5 @@ public class TestCacheCommonSubqueries
     @SuppressWarnings("unused")
     private record ExpressionWithType(Expression expression, Type type)
     {
-        public ExpressionWithType(@Language("SQL") String expression, Type type)
-        {
-            this(PlanBuilder.expression(expression), type);
-        }
     }
 }

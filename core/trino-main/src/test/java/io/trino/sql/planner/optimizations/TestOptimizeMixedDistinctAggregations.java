@@ -29,6 +29,10 @@ import io.trino.sql.planner.iterative.rule.DistinctAggregationToGroupBy;
 import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -43,6 +47,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anySymbol;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -50,6 +55,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 
 public class TestOptimizeMixedDistinctAggregations
         extends BasePlanTest
@@ -92,8 +98,8 @@ public class TestOptimizeMixedDistinctAggregations
                 aggregation(singleGroupingSet(groupByKeysSecond), aggregationsSecond, Optional.empty(), SINGLE,
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression(group + " = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression(group + " = CAST (1 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference(group), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference(group), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                 aggregation(singleGroupingSet(groupByKeysFirst), aggregationsFirst, Optional.empty(), SINGLE,
                                         groupId(groups.build(), group,
                                                 tableScan)))));
@@ -118,8 +124,8 @@ public class TestOptimizeMixedDistinctAggregations
                         aggregation(aggregationsSecond,
                                 project(
                                         ImmutableMap.of(
-                                                "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                                "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                                "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                                "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                         aggregation(aggregationsFirst,
                                                 groupId(
                                                         ImmutableList.of(ImmutableList.of("b"), ImmutableList.of("a")),

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.enforceSingleRow;
@@ -40,10 +41,10 @@ public class TestPruneEnforceSingleRowColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", expression("a")),
+                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
                                 enforceSingleRow(
                                         strictProject(
-                                                ImmutableMap.of("a", expression("a")),
+                                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
                                                 values("a", "b")))));
     }
 

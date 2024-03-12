@@ -46,6 +46,7 @@ import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
@@ -208,22 +209,22 @@ public class TestAlternativesOptimizer
                 optimized,
                 chooseAlternativeNode(
                         strictProject(
-                                ImmutableMap.of(symbol, expression("true")),
+                                ImmutableMap.of(symbol, expression(new BooleanLiteral("true"))),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName))),
                         strictProject(
-                                ImmutableMap.of(symbol, expression("false")),
+                                ImmutableMap.of(symbol, expression(new BooleanLiteral("false"))),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName))),
                         strictProject(
-                                ImmutableMap.of(symbol, expression("true")),
+                                ImmutableMap.of(symbol, expression(new BooleanLiteral("true"))),
                                 PlanMatchPattern.filter(
                                         FALSE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName))),
                         strictProject(
-                                ImmutableMap.of(symbol, expression("false")),
+                                ImmutableMap.of(symbol, expression(new BooleanLiteral("false"))),
                                 PlanMatchPattern.filter(
                                         FALSE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName)))),
@@ -265,24 +266,24 @@ public class TestAlternativesOptimizer
                 optimized,
                 chooseAlternativeNode(
                         strictProject(
-                                ImmutableMap.of(columnName, expression("nationkey = 1")),
+                                ImmutableMap.of(columnName, expression(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new LongLiteral("1")))),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName, ImmutableMap.of("nationkey", "nationkey")))),
                         strictProject(
-                                ImmutableMap.of(columnName, expression("nationkey = 2")),
+                                ImmutableMap.of(columnName, expression(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new LongLiteral("2")))),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName, ImmutableMap.of("nationkey", "nationkey")))),
                         // Each rule returns the original plan. Since the results are accumulated, it's expected to have the same alternative twice.
                         // This might be improved in the future (see AlternativesOptimizer.exploreNode)
                         strictProject(
-                                ImmutableMap.of(columnName, expression("nationkey = 1")),
+                                ImmutableMap.of(columnName, expression(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new LongLiteral("1")))),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName, ImmutableMap.of("nationkey", "nationkey")))),
                         strictProject(
-                                ImmutableMap.of(columnName, expression("nationkey = 3")),
+                                ImmutableMap.of(columnName, expression(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new LongLiteral("3")))),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName, ImmutableMap.of("nationkey", "nationkey"))))),

@@ -20,15 +20,22 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.Row;
+import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 
 public class TestTransformCorrelatedSingleRowSubqueryToProject
         extends BaseRuleTest
@@ -54,15 +61,15 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),
                                 p.project(
-                                        Assignments.of(p.symbol("l_expr2"), expression("l_nationkey + 1")),
+                                        Assignments.of(p.symbol("l_expr2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), new LongLiteral("1"))),
                                         p.values(
                                                 ImmutableList.of(),
                                                 ImmutableList.of(
                                                         ImmutableList.of())))))
                 .matches(project(
                         ImmutableMap.of(
-                                "l_expr2", PlanMatchPattern.expression("l_nationkey + 1"),
-                                "l_nationkey", PlanMatchPattern.expression("l_nationkey")),
+                                "l_expr2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), new LongLiteral("1"))),
+                                "l_nationkey", PlanMatchPattern.expression(new SymbolReference("l_nationkey"))),
                         tableScan("nation", ImmutableMap.of("l_nationkey", "nationkey"))));
     }
 
@@ -87,11 +94,11 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                     return p.correlatedJoin(
                             ImmutableList.of(a),
                             p.values(3, a),
-                            p.values(ImmutableList.of(a), ImmutableList.of(ImmutableList.of(expression("a")))));
+                            p.values(ImmutableList.of(a), ImmutableList.of(ImmutableList.of(new SymbolReference("a")))));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("a", PlanMatchPattern.expression("a")),
+                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a"))),
                                 values(ImmutableList.of("a"), ImmutableList.of(
                                         ImmutableList.of(new NullLiteral()),
                                         ImmutableList.of(new NullLiteral()),
@@ -105,14 +112,14 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                     return p.correlatedJoin(
                             ImmutableList.of(a),
                             p.values(3, a, b),
-                            p.values(ImmutableList.of(a, c), ImmutableList.of(ImmutableList.of(expression("a"), expression("1")))));
+                            p.values(ImmutableList.of(a, c), ImmutableList.of(ImmutableList.of(new SymbolReference("a"), new LongLiteral("1")))));
                 })
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "a", PlanMatchPattern.expression("a"),
-                                        "b", PlanMatchPattern.expression("b"),
-                                        "c", PlanMatchPattern.expression("1")),
+                                        "a", PlanMatchPattern.expression(new SymbolReference("a")),
+                                        "b", PlanMatchPattern.expression(new SymbolReference("b")),
+                                        "c", PlanMatchPattern.expression(new LongLiteral("1"))),
                                 values(ImmutableList.of("a", "b"), ImmutableList.of(
                                         ImmutableList.of(new NullLiteral(), new NullLiteral()),
                                         ImmutableList.of(new NullLiteral(), new NullLiteral()),
@@ -134,8 +141,8 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "a", PlanMatchPattern.expression("a"),
-                                        "b", PlanMatchPattern.expression("null")),
+                                        "a", PlanMatchPattern.expression(new SymbolReference("a")),
+                                        "b", PlanMatchPattern.expression(new NullLiteral())),
                                 values(ImmutableList.of("a"), ImmutableList.of(
                                         ImmutableList.of(new NullLiteral()),
                                         ImmutableList.of(new NullLiteral()),
@@ -166,7 +173,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                     return p.correlatedJoin(
                             ImmutableList.of(a),
                             p.values(3, a),
-                            p.valuesOfExpressions(ImmutableList.of(p.symbol("b")), ImmutableList.of(expression("CAST(ROW('true') AS ROW(col boolean))"))));
+                            p.valuesOfExpressions(ImmutableList.of(p.symbol("b")), ImmutableList.of(new Cast(new Row(ImmutableList.of(new StringLiteral("true"))), dataType("row(\"col\" boolean)")))));
                 })
                 .doesNotFire();
     }

@@ -265,18 +265,18 @@ public class TestEliminateCrossJoins
                                                                 .left(
                                                                         strictProject(
                                                                                 ImmutableMap.of(
-                                                                                        "a2", expression("-a1"),
-                                                                                        "a1", expression("a1")),
+                                                                                        "a2", expression(new ArithmeticUnaryExpression(MINUS, new SymbolReference("a1"))),
+                                                                                        "a1", expression(new SymbolReference("a1"))),
                                                                                 PlanMatchPattern.values("a1")))
                                                                 .right(
                                                                         strictProject(
                                                                                 ImmutableMap.of(
-                                                                                        "e", expression("e")),
+                                                                                        "e", expression(new SymbolReference("e"))),
                                                                                 PlanMatchPattern.values("e")))))
                                                 .right(any())))
                                         .right(
                                                 strictProject(
-                                                        ImmutableMap.of("f", expression("-b")),
+                                                        ImmutableMap.of("f", expression(new ArithmeticUnaryExpression(MINUS, new SymbolReference("b")))),
                                                         PlanMatchPattern.values("b"))))));
     }
 

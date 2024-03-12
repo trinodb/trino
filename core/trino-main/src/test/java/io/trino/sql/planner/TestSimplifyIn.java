@@ -14,11 +14,15 @@
 package io.trino.sql.planner;
 
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 
 public class TestSimplifyIn
         extends BasePlanTest
@@ -29,7 +33,8 @@ public class TestSimplifyIn
         assertPlan(
                 "SELECT * FROM (VALUES 0) t(a) WHERE a IN (5)",
                 anyTree(
-                        filter("A = 5",
+                        filter(
+                                new ComparisonExpression(EQUAL, new SymbolReference("A"), new LongLiteral("5")),
                                 values("A"))));
     }
 }

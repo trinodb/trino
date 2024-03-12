@@ -22,6 +22,10 @@ import io.trino.spi.type.RowType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
@@ -31,6 +35,7 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
@@ -39,6 +44,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet
 import static io.trino.sql.planner.assertions.PlanMatchPattern.symbol;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.aggregation;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 
 public class TestDistinctAggregationToGroupBy
         extends BaseRuleTest
@@ -75,8 +81,8 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("b", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -103,9 +109,9 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)"),
-                                        "gid-filter-2", expression("group_id = CAST (2 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint")))),
+                                        "gid-filter-2", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("2"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("b", "c", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -135,9 +141,9 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct3-final", aggregationFunction("sum", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)"),
-                                        "gid-filter-2", expression("group_id = CAST (2 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint")))),
+                                        "gid-filter-2", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("2"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("b", "c", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -167,9 +173,9 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)"),
-                                        "gid-filter-2", expression("group_id = CAST (2 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint")))),
+                                        "gid-filter-2", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("2"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("b", "c", "group_id"),
                                         ImmutableMap.of(
@@ -201,9 +207,9 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)"),
-                                        "gid-filter-2", expression("group_id = CAST (2 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint")))),
+                                        "gid-filter-2", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("2"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("b", "c", "group_id"),
                                         ImmutableMap.of(
@@ -239,8 +245,8 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("a")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("a", "group_id"),
                                         ImmutableMap.of(
@@ -268,7 +274,7 @@ public class TestDistinctAggregationToGroupBy
                         .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b")))))
                 .matches(project(
-                        ImmutableMap.of("non-distinct-final", expression("COALESCE(\"non-distinct-expression\", CAST(0 AS bigint))")),
+                        ImmutableMap.of("non-distinct-final", expression(new CoalesceExpression(new SymbolReference("non-distinct-expression"), new Cast(new LongLiteral("0"), dataType("bigint"))))),
                         aggregation(
                                 globalAggregation(),
                                 ImmutableMap.of(
@@ -276,8 +282,8 @@ public class TestDistinctAggregationToGroupBy
                                         "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                                 project(
                                         ImmutableMap.of(
-                                                "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                                "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                                "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                                "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                         aggregation(
                                                 singleGroupingSet("b", "group_id"),
                                                 ImmutableMap.of("non-distinct", aggregationFunction("count", ImmutableList.of("a"))),
@@ -296,7 +302,7 @@ public class TestDistinctAggregationToGroupBy
                         .addAggregation(p.symbol("distinct"), aggregation("sum", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("groupingKey")))))
                 .matches(project(
-                        ImmutableMap.of("non-distinct-final", expression("COALESCE(\"non-distinct-expression\", CAST(0 AS bigint))")),
+                        ImmutableMap.of("non-distinct-final", expression(new CoalesceExpression(new SymbolReference("non-distinct-expression"), new Cast(new LongLiteral("0"), dataType("bigint"))))),
                         aggregation(
                                 singleGroupingSet("groupingKey"),
                                 ImmutableMap.of(
@@ -304,8 +310,8 @@ public class TestDistinctAggregationToGroupBy
                                         "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                                 project(
                                         ImmutableMap.of(
-                                                "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                                "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                                "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                                "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                         aggregation(
                                                 singleGroupingSet("groupingKey", "b", "group_id"),
                                                 ImmutableMap.of("non-distinct", aggregationFunction("count", ImmutableList.of("a"))),
@@ -343,8 +349,8 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("b", "c", "group_id"),
                                         ImmutableMap.of(),
@@ -371,8 +377,8 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct3-final", aggregationFunction("sum", false, ImmutableList.of(symbol("c")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("b", "c", "group_id"),
                                         ImmutableMap.of(),
@@ -400,8 +406,8 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct-final", aggregationFunction("count", false, ImmutableList.of(symbol("nested")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("nested", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -424,7 +430,7 @@ public class TestDistinctAggregationToGroupBy
                         .addAggregation(p.symbol("distinct"), aggregation("count", true, ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("b")))))
                 .matches(project(
-                        ImmutableMap.of("non-distinct-final", expression("COALESCE(\"non-distinct-expression\", CAST(0 AS bigint))")),
+                        ImmutableMap.of("non-distinct-final", expression(new CoalesceExpression(new SymbolReference("non-distinct-expression"), new Cast(new LongLiteral("0"), dataType("bigint"))))),
                         aggregation(
                                 globalAggregation(),
                                 ImmutableMap.of(
@@ -432,8 +438,8 @@ public class TestDistinctAggregationToGroupBy
                                         "distinct-final", aggregationFunction("count", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                                 project(
                                         ImmutableMap.of(
-                                                "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                                "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                                "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                                "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                         aggregation(
                                                 singleGroupingSet("b", "group_id"),
                                                 ImmutableMap.of("non-distinct", aggregationFunction("count", ImmutableList.of())),
@@ -453,8 +459,8 @@ public class TestDistinctAggregationToGroupBy
                         .source(p.values(p.symbol("a"), p.symbol("b")))))
                 .matches(project(
                         ImmutableMap.of(
-                                "count-final", expression("COALESCE(\"count-expression\", CAST(0 AS bigint))"),
-                                "non-distinct-final", expression("COALESCE(\"non-distinct-expression\", CAST(0 AS bigint))")),
+                                "count-final", expression(new CoalesceExpression(new SymbolReference("count-expression"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                "non-distinct-final", expression(new CoalesceExpression(new SymbolReference("non-distinct-expression"), new Cast(new LongLiteral("0"), dataType("bigint"))))),
                         aggregation(
                                 globalAggregation(),
                                 ImmutableMap.of(
@@ -463,8 +469,8 @@ public class TestDistinctAggregationToGroupBy
                                         "distinct-final", aggregationFunction("count", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                                 project(
                                         ImmutableMap.of(
-                                                "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                                "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                                "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                                "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                         aggregation(
                                                 singleGroupingSet("b", "group_id"),
                                                 ImmutableMap.of(
@@ -504,8 +510,8 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -532,9 +538,9 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)"),
-                                        "gid-filter-2", expression("group_id = CAST (2 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint")))),
+                                        "gid-filter-2", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("2"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "c", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -564,9 +570,9 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct3-final", aggregationFunction("sum", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)"),
-                                        "gid-filter-2", expression("group_id = CAST (2 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint")))),
+                                        "gid-filter-2", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("2"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "c", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -596,9 +602,9 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)"),
-                                        "gid-filter-2", expression("group_id = CAST (2 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint")))),
+                                        "gid-filter-2", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("2"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "c", "group_id"),
                                         ImmutableMap.of(
@@ -630,9 +636,9 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)"),
-                                        "gid-filter-2", expression("group_id = CAST (2 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint")))),
+                                        "gid-filter-2", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("2"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "c", "group_id"),
                                         ImmutableMap.of(
@@ -673,8 +679,8 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "c", "group_id"),
                                         ImmutableMap.of(),
@@ -701,8 +707,8 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct3-final", aggregationFunction("sum", false, ImmutableList.of(symbol("c")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "c", "group_id"),
                                         ImmutableMap.of(),
@@ -740,8 +746,8 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey1", "groupingKey2", "b", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -768,9 +774,9 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)"),
-                                        "gid-filter-2", expression("group_id = CAST (2 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint")))),
+                                        "gid-filter-2", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("2"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey1", "groupingKey2", "b", "c", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -800,9 +806,9 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct3-final", aggregationFunction("sum", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)"),
-                                        "gid-filter-2", expression("group_id = CAST (2 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint")))),
+                                        "gid-filter-2", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("2"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey1", "groupingKey2", "b", "c", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -832,9 +838,9 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)"),
-                                        "gid-filter-2", expression("group_id = CAST (2 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint")))),
+                                        "gid-filter-2", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("2"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey1", "groupingKey2", "b", "c", "group_id"),
                                         ImmutableMap.of(
@@ -866,9 +872,9 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct2-final", aggregationFunction("count", false, ImmutableList.of(symbol("c")), "gid-filter-2")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)"),
-                                        "gid-filter-2", expression("group_id = CAST (2 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint")))),
+                                        "gid-filter-2", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("2"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey1", "groupingKey2", "b", "c", "group_id"),
                                         ImmutableMap.of(
@@ -900,8 +906,8 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("b", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -935,8 +941,8 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -969,8 +975,8 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey", "b", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),
@@ -1024,8 +1030,8 @@ public class TestDistinctAggregationToGroupBy
                                 "distinct-final", aggregationFunction("sum", false, ImmutableList.of(symbol("b")), "gid-filter-1")),
                         project(
                                 ImmutableMap.of(
-                                        "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
-                                        "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
+                                        "gid-filter-0", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("0"), dataType("bigint")))),
+                                        "gid-filter-1", expression(new ComparisonExpression(EQUAL, new SymbolReference("group_id"), new Cast(new LongLiteral("1"), dataType("bigint"))))),
                                 aggregation(
                                         singleGroupingSet("groupingKey1", "groupingKey2", "b", "group_id"),
                                         ImmutableMap.of("non-distinct", aggregationFunction("sum", ImmutableList.of("a"))),

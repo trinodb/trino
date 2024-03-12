@@ -32,6 +32,7 @@ import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -445,11 +446,11 @@ public class TestReorderJoins
                                                 .equiCriteria("P2", "P1")
                                                 .left(
                                                         strictProject(
-                                                                ImmutableMap.of("P2", expression("A1")),
+                                                                ImmutableMap.of("P2", expression(new SymbolReference("A1"))),
                                                                 values("A1")))
                                                 .right(
                                                         strictProject(
-                                                                ImmutableMap.of("P1", expression("-(B1)")),
+                                                                ImmutableMap.of("P1", expression(new ArithmeticUnaryExpression(MINUS, new SymbolReference("B1")))),
                                                                 values("B1")))))));
     }
 
@@ -495,7 +496,7 @@ public class TestReorderJoins
                                 .left(values("C1"))
                                 .right(
                                         strictProject(
-                                                ImmutableMap.of("P1", expression("-(B1)")),
+                                                ImmutableMap.of("P1", expression(new ArithmeticUnaryExpression(MINUS, new SymbolReference("B1")))),
                                                 join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                         .equiCriteria("A1", "B1")
                                                         .left(values("A1"))

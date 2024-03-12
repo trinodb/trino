@@ -114,6 +114,12 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.IsNotNullPredicate;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.PlanTester;
@@ -137,6 +143,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -144,10 +151,11 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet
 import static io.trino.sql.planner.assertions.PlanMatchPattern.symbol;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.union;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.testing.PlanTesterBuilder.planTesterBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
@@ -331,7 +339,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                             .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.filter(
-                                            expression("true"),
+                                            new BooleanLiteral("true"),
                                             p.join(
                                                     INNER,
                                                     p.tableScan(
@@ -467,9 +475,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression("output1"),
-                                "final_output2", PlanMatchPattern.expression("output2"),
-                                "group_by_key", PlanMatchPattern.expression("left_groupingKey")),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2")),
+                                "group_by_key", PlanMatchPattern.expression(new SymbolReference("left_groupingKey"))),
                         join(
                                 INNER,
                                 builder -> builder
@@ -559,7 +567,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                             Assignments.builder()
                                                     .putIdentity(input1Symbol)
                                                     .putIdentity(input2Symbol)
-                                                    .put(groupingKey, expression("projectionInput1 + CAST(projectionInput2 as BIGINT)"))
+                                                    .put(groupingKey, new ArithmeticBinaryExpression(ADD, new SymbolReference("projectionInput1"), new Cast(new SymbolReference("projectionInput2"), dataType("bigint"))))
                                                     .build(),
                                             p.tableScan(tableScan -> tableScan
                                                     .setNodeId(new PlanNodeId(aggregationSourceId))
@@ -596,7 +604,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                             .source(
                                     p.project(
                                             Assignments.builder()
-                                                    .put(input1Symbol, expression("projectionInput1 + CAST(projectionInput2 as BIGINT)"))
+                                                    .put(input1Symbol, new ArithmeticBinaryExpression(ADD, new SymbolReference("projectionInput1"), new Cast(new SymbolReference("projectionInput2"), dataType("bigint"))))
                                                     .putIdentity(input2Symbol)
                                                     .putIdentity(groupingKey)
                                                     .build(),
@@ -642,7 +650,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                             .source(
                                     p.filter(
                                             new PlanNodeId(filterId),
-                                            expression("filterInput IS NOT NULL"),
+                                            new IsNotNullPredicate(new SymbolReference("filterInput")),
                                             p.tableScan(tableScan -> tableScan
                                                     .setNodeId(new PlanNodeId(aggregationSourceId))
                                                     .setTableHandle(testTableHandle(ruleTester))
@@ -678,7 +686,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                             .source(
                                     p.filter(
                                             new PlanNodeId(filterId),
-                                            expression("filterInput IS NOT NULL"),
+                                            new IsNotNullPredicate(new SymbolReference("filterInput")),
                                             p.tableScan(tableScan -> tableScan
                                                     .setNodeId(new PlanNodeId(aggregationSourceId))
                                                     .setTableHandle(testTableHandle(ruleTester))
@@ -691,9 +699,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression("output1"),
-                                "final_output2", PlanMatchPattern.expression("output2"),
-                                "group_by_key", PlanMatchPattern.expression("left_groupingKey")),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2")),
+                                "group_by_key", PlanMatchPattern.expression(new SymbolReference("left_groupingKey"))),
                         join(
                                 INNER,
                                 builder -> builder
@@ -704,7 +712,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                 Optional.empty(),
                                                 SINGLE,
                                                 filter(
-                                                        "left_filterInput IS NOT NULL",
+                                                        new IsNotNullPredicate(new SymbolReference("left_filterInput")),
                                                         tableScan(
                                                                 TABLE_NAME,
                                                                 ImmutableMap.of(
@@ -717,7 +725,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                 Optional.empty(),
                                                 SINGLE,
                                                 filter(
-                                                        "right_filterInput IS NOT NULL",
+                                                        new IsNotNullPredicate(new SymbolReference("right_filterInput")),
                                                         tableScan(
                                                                 TABLE_NAME,
                                                                 ImmutableMap.of(
@@ -769,7 +777,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                     .build(),
                                             ImmutableList.of(
                                                     p.filter(
-                                                            expression("input1_1Symbol > 0"),
+                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1Symbol"), new LongLiteral("0")),
                                                             p.tableScan(
                                                                     testTableHandle(ruleTester),
                                                                     ImmutableList.of(input11Symbol, input21Symbol, groupingKey1),
@@ -778,7 +786,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                             input21Symbol, COLUMN_2_HANDLE,
                                                                             groupingKey1, GROUPING_KEY_COLUMN_HANDLE))),
                                                     p.filter(
-                                                            expression("input2_2Symbol > 2"),
+                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2Symbol"), new LongLiteral("2")),
                                                             p.tableScan(
                                                                     testTableHandle(ruleTester),
                                                                     ImmutableList.of(input12Symbol, input22Symbol, groupingKey2),
@@ -812,8 +820,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression("output1"),
-                                "final_output2", PlanMatchPattern.expression("output2")),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2"))),
                         join(
                                 INNER,
                                 builder -> builder
@@ -850,9 +858,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression("output1"),
-                                "final_output2", PlanMatchPattern.expression("output2"),
-                                "final_output3", PlanMatchPattern.expression("output3")),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2")),
+                                "final_output3", PlanMatchPattern.expression(new SymbolReference("output3"))),
                         join(
                                 INNER,
                                 join -> join
@@ -899,10 +907,10 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression("output1"),
-                                "final_output2", PlanMatchPattern.expression("output2"),
-                                "final_output3", PlanMatchPattern.expression("output3"),
-                                "final_output4", PlanMatchPattern.expression("output4")),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2")),
+                                "final_output3", PlanMatchPattern.expression(new SymbolReference("output3")),
+                                "final_output4", PlanMatchPattern.expression(new SymbolReference("output4"))),
                         join(
                                 INNER,
                                 join -> join
@@ -949,9 +957,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression("output1"),
-                                "final_output2", PlanMatchPattern.expression("output2"),
-                                "final_output3", PlanMatchPattern.expression("output3")),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2")),
+                                "final_output3", PlanMatchPattern.expression(new SymbolReference("output3"))),
                         join(
                                 INNER,
                                 builder -> builder
@@ -992,9 +1000,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression("output1"),
-                                "final_output2", PlanMatchPattern.expression("output2"),
-                                "group_by_key", PlanMatchPattern.expression("left_groupingKey")),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2")),
+                                "group_by_key", PlanMatchPattern.expression(new SymbolReference("left_groupingKey"))),
                         join(
                                 INNER,
                                 builder -> builder
@@ -1056,7 +1064,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                     .build(),
                                             ImmutableList.of(
                                                     p.filter(
-                                                            expression("input1_1Symbol > 0"),
+                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1Symbol"), new LongLiteral("0")),
                                                             p.tableScan(
                                                                     testTableHandle(ruleTester),
                                                                     ImmutableList.of(input11Symbol, input21Symbol, groupingKey1),
@@ -1065,7 +1073,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                             input21Symbol, COLUMN_2_HANDLE,
                                                                             groupingKey1, GROUPING_KEY_COLUMN_HANDLE))),
                                                     p.filter(
-                                                            expression("input2_2Symbol > 2"),
+                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2Symbol"), new LongLiteral("2")),
                                                             p.tableScan(
                                                                     testTableHandle(ruleTester),
                                                                     ImmutableList.of(input12Symbol, input22Symbol, groupingKey2),
@@ -1076,9 +1084,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression("output1"),
-                                "final_output2", PlanMatchPattern.expression("output2"),
-                                "group_by_key", PlanMatchPattern.expression("left_groupingKey")),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2")),
+                                "group_by_key", PlanMatchPattern.expression(new SymbolReference("left_groupingKey"))),
                         join(
                                 INNER,
                                 builder -> builder
@@ -1090,7 +1098,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                 SINGLE,
                                                 union(
                                                         filter(
-                                                                "input1_1_1Symbol > 0",
+                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1_1Symbol"), new LongLiteral("0")),
                                                                 tableScan(
                                                                         TABLE_NAME,
                                                                         ImmutableMap.of(
@@ -1098,7 +1106,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                                 "input2_1_1Symbol", COLUMN_2,
                                                                                 "left_groupingKey1", GROUPING_KEY_COLUMN))),
                                                         filter(
-                                                                "input2_2_1Symbol > 2",
+                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2_1Symbol"), new LongLiteral("2")),
                                                                 tableScan(
                                                                         TABLE_NAME,
                                                                         ImmutableMap.of(
@@ -1115,7 +1123,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                 SINGLE,
                                                 union(
                                                         filter(
-                                                                "input1_1_2Symbol > 0",
+                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1_2Symbol"), new LongLiteral("0")),
                                                                 tableScan(
                                                                         TABLE_NAME,
                                                                         ImmutableMap.of(
@@ -1123,7 +1131,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                                 "input2_1_2Symbol", COLUMN_2,
                                                                                 "right_groupingKey1", GROUPING_KEY_COLUMN))),
                                                         filter(
-                                                                "input2_2_2Symbol > 2",
+                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2_2Symbol"), new LongLiteral("2")),
                                                                 tableScan(
                                                                         TABLE_NAME,
                                                                         ImmutableMap.of(

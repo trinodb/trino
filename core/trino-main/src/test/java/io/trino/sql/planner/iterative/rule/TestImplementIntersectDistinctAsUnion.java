@@ -20,13 +20,18 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.union;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestImplementIntersectDistinctAsUnion
         extends BaseRuleTest
@@ -55,15 +60,15 @@ public class TestImplementIntersectDistinctAsUnion
                                                 union(
                                                         project(
                                                                 ImmutableMap.of(
-                                                                        "leftValue", expression("a"),
-                                                                        "left_marker_1", expression("true"),
-                                                                        "left_marker_2", expression("CAST(null as boolean)")),
+                                                                        "leftValue", expression(new SymbolReference("a")),
+                                                                        "left_marker_1", expression(TRUE_LITERAL),
+                                                                        "left_marker_2", expression(new Cast(new NullLiteral(), dataType("boolean")))),
                                                                 values("a")),
                                                         project(
                                                                 ImmutableMap.of(
-                                                                        "rightValue", expression("b"),
-                                                                        "right_marker_1", expression("CAST(null as boolean)"),
-                                                                        "right_marker_2", expression("true")),
+                                                                        "rightValue", expression(new SymbolReference("b")),
+                                                                        "right_marker_1", expression(new Cast(new NullLiteral(), dataType("boolean"))),
+                                                                        "right_marker_2", expression(TRUE_LITERAL)),
                                                                 values("b")))))));
     }
 }

@@ -24,6 +24,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.function.Predicate;
@@ -46,7 +47,7 @@ public class TestPruneIndexSourceColumns
                 .on(p -> buildProjectedIndexSource(p, symbol -> symbol.getName().equals("orderkey")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("x", expression("orderkey")),
+                                ImmutableMap.of("x", expression(new SymbolReference("orderkey"))),
                                 constrainedIndexSource(
                                         "orders",
                                         ImmutableMap.of("orderkey", "orderkey"))));
