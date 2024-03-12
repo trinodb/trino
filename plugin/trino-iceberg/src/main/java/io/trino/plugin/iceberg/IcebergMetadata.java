@@ -1060,7 +1060,7 @@ public class IcebergMetadata
                 .map(Types.NestedField::fieldId)
                 .collect(toImmutableSet());
 
-        ImmutableList.Builder<TrinoSortField> sortFields = ImmutableList.<TrinoSortField>builder();
+        ImmutableList.Builder<TrinoSortField> sortFields = ImmutableList.builder();
         for (SortField sortField : sortOrder.fields()) {
             if (!sortField.transform().isIdentity()) {
                 continue;
