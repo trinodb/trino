@@ -2130,11 +2130,9 @@ public class DeltaLakeMetadata
     public Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
-        switch (executeHandle.getProcedureId()) {
-            case OPTIMIZE:
-                return getLayoutForOptimize(executeHandle);
-        }
-        throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
+        return switch (executeHandle.getProcedureId()) {
+            case OPTIMIZE -> getLayoutForOptimize(executeHandle);
+        };
     }
 
     private Optional<ConnectorTableLayout> getLayoutForOptimize(DeltaLakeTableExecuteHandle executeHandle)
@@ -2162,11 +2160,9 @@ public class DeltaLakeMetadata
     {
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
         DeltaLakeTableHandle table = (DeltaLakeTableHandle) updatedSourceTableHandle;
-        switch (executeHandle.getProcedureId()) {
-            case OPTIMIZE:
-                return beginOptimize(session, executeHandle, table);
-        }
-        throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
+        return switch (executeHandle.getProcedureId()) {
+            case OPTIMIZE -> beginOptimize(session, executeHandle, table);
+        };
     }
 
     private BeginTableExecuteResult<ConnectorTableExecuteHandle, ConnectorTableHandle> beginOptimize(
