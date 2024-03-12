@@ -61,13 +61,15 @@ public class TestDeltaLakeSelectCompatibility
                     "(2, 'spark+plus'), " +
                     "(3, 'spark space')," +
                     "(4, 'spark:colon')," +
-                    "(5, 'spark%percent')");
+                    "(5, 'spark%percent')," +
+                    "(6, 'spark/forwardslash')");
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES " +
                     "(10, 'trino=equal'), " +
                     "(20, 'trino+plus'), " +
                     "(30, 'trino space')," +
                     "(40, 'trino:colon')," +
-                    "(50, 'trino%percent')");
+                    "(50, 'trino%percent')," +
+                    "(60, 'trino/forwardslash')");
 
             List<Row> expectedRows = ImmutableList.of(
                     row(1, "spark=equal"),
@@ -75,11 +77,13 @@ public class TestDeltaLakeSelectCompatibility
                     row(3, "spark space"),
                     row(4, "spark:colon"),
                     row(5, "spark%percent"),
+                    row(6, "spark/forwardslash"),
                     row(10, "trino=equal"),
                     row(20, "trino+plus"),
                     row(30, "trino space"),
                     row(40, "trino:colon"),
-                    row(50, "trino%percent"));
+                    row(50, "trino%percent"),
+                    row(60, "trino/forwardslash"));
 
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
                     .containsOnly(expectedRows);

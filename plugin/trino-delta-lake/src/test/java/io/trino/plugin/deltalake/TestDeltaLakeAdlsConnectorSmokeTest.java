@@ -132,7 +132,11 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
                     .filter(resourceInfo -> resourceInfo.getResourceName().startsWith(resourcePath + "/"))
                     .collect(toImmutableList());
             for (ClassPath.ResourceInfo resourceInfo : resources) {
-                String fileName = resourceInfo.getResourceName().replaceFirst("^" + Pattern.quote(resourcePath), quoteReplacement(targetDirectory));
+                String fileName = resourceInfo.getResourceName()
+                        .replaceFirst("^" + Pattern.quote(resourcePath), quoteReplacement(targetDirectory))
+                        // Replace '%' (corresponding to '%' character url encoded) with '%25' in order
+                        // to maintain also after URL decoding from the Azure client the original '%'
+                        .replace("%", "%25");
                 ByteSource byteSource = resourceInfo.asByteSource();
                 azureContainerClient.getBlobClient(fileName).upload(byteSource.openBufferedStream(), byteSource.size());
             }
