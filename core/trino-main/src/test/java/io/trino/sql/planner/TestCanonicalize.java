@@ -27,13 +27,12 @@ import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
-
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 
 public class TestCanonicalize
         extends BasePlanTest
@@ -67,7 +66,7 @@ public class TestCanonicalize
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specification)
-                                        .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
+                                        .addFunction(windowFunction("row_number", ImmutableList.of(), DEFAULT_FRAME)),
                                 values("A"))),
                 ImmutableList.of(
                         new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
