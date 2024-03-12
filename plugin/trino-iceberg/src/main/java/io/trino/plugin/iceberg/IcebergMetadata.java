@@ -804,16 +804,13 @@ public class IcebergMetadata
                         }
                         catch (TableNotFoundException e) {
                             // Table disappeared during listing operation
-                            continue;
                         }
                         catch (UnknownTableTypeException e) {
                             // Skip unsupported table type in case that the table redirects are not enabled
-                            continue;
                         }
                         catch (RuntimeException e) {
                             // Table can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
                             log.warn(e, "Failed to access metadata of table %s during streaming table columns for %s", tableName, prefix);
-                            continue;
                         }
                     }
                     return tableMetadatas.build();
