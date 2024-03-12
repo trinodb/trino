@@ -35,23 +35,22 @@ import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.WindowFrame;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 
 public class TestReorderWindows
@@ -68,8 +67,6 @@ public class TestReorderWindows
 
     private static final PlanMatchPattern LINEITEM_TABLESCAN_DOQPRSST;
     private static final PlanMatchPattern LINEITEM_TABLESCAN_DOQRST;
-
-    private static final Optional<WindowFrame> commonFrame;
 
     private static final ExpectedValueProvider<DataOrganizationSpecification> windowA;
     private static final ExpectedValueProvider<DataOrganizationSpecification> windowAp;
@@ -99,8 +96,6 @@ public class TestReorderWindows
         columns.put(SUPPKEY_ALIAS, "suppkey");
         columns.put(TAX_ALIAS, "tax");
         LINEITEM_TABLESCAN_DOQRST = tableScan("lineitem", columns.buildOrThrow());
-
-        commonFrame = Optional.empty();
 
         windowA = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
@@ -151,15 +146,15 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowAp)
-                                        .addFunction(functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                        .addFunction(windowFunction("min", ImmutableList.of(TAX_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
-                                                        .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                        .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                                 project(
                                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                                         .specification(windowB)
-                                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                                                 anyTree(LINEITEM_TABLESCAN_DOQPRSST)))))));
 
         assertPlan(sql, pattern);
@@ -178,15 +173,15 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowAp)
-                                        .addFunction(functionCall("min", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                        .addFunction(windowFunction("min", ImmutableList.of(TAX_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
-                                                        .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                        .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                                 project(
                                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                                         .specification(windowB)
-                                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                                                 LINEITEM_TABLESCAN_DOQPRSST)))))));
     }
 
@@ -201,11 +196,11 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowApp)
-                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
-                                                        .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                        .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                                 LINEITEM_TABLESCAN_DOQRST)))));
 
         assertUnitPlan(
@@ -216,11 +211,11 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowApp)
-                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
-                                                        .addFunction(functionCall("sum", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                        .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                                 LINEITEM_TABLESCAN_DOQRST)))));
     }
 
@@ -236,11 +231,11 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowApp)
-                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
-                                                        .addFunction(functionCall("lag", commonFrame, ImmutableList.of(QUANTITY_ALIAS, "ONE"))),
+                                                        .addFunction(windowFunction("lag", ImmutableList.of(QUANTITY_ALIAS, "ONE"), DEFAULT_FRAME)),
                                                 project(ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), dataType("bigint")))),
                                                         project(ImmutableMap.of("expr", expression(new LongLiteral("1"))),
                                                                 LINEITEM_TABLESCAN_DOQRST)))))));
@@ -264,14 +259,14 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowA)
-                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                        .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         filter(
                                                 new NotExpression(new IsNullPredicate(new SymbolReference(RECEIPTDATE_ALIAS))),
                                                 project(
                                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                                         .specification(windowApp)
-                                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                                                 LINEITEM_TABLESCAN_DOQRST)))))));
     }
 
@@ -293,11 +288,11 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowApp)
-                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
-                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                                        .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                                 filter(
                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("SUPPKEY"), new GenericLiteral("BIGINT", "0")),
                                                         LINEITEM_TABLESCAN_DOQRST))))));
@@ -328,17 +323,17 @@ public class TestReorderWindows
                 anyTree(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowD)
-                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                        .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
-                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                        .addFunction(windowFunction("avg", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(windowC)
-                                                                .addFunction(functionCall("sum", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                .addFunction(windowFunction("sum", ImmutableList.of(DISCOUNT_ALIAS), DEFAULT_FRAME)),
                                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                                         .specification(windowE)
-                                                                        .addFunction(functionCall("sum", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                                                        .addFunction(windowFunction("sum", ImmutableList.of(TAX_ALIAS), DEFAULT_FRAME)),
                                                                 LINEITEM_TABLESCAN_DOQRST)))))));
     }
 

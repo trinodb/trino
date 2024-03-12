@@ -33,7 +33,6 @@ import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
 
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -55,7 +54,7 @@ public class PatternRecognitionMatcher
         implements Matcher
 {
     private final Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification;
-    private final Optional<ExpectedValueProvider<WindowNode.Frame>> frame;
+    private final Optional<WindowNode.Frame> frame;
     private final RowsPerMatch rowsPerMatch;
     private final Set<IrLabel> skipToLabels;
     private final SkipToPosition skipToPosition;
@@ -65,7 +64,7 @@ public class PatternRecognitionMatcher
 
     private PatternRecognitionMatcher(
             Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
-            Optional<ExpectedValueProvider<WindowNode.Frame>> frame,
+            Optional<WindowNode.Frame> frame,
             RowsPerMatch rowsPerMatch,
             Set<IrLabel> skipToLabels,
             SkipToPosition skipToPosition,
@@ -105,7 +104,7 @@ public class PatternRecognitionMatcher
             if (patternRecognitionNode.getCommonBaseFrame().isEmpty()) {
                 return NO_MATCH;
             }
-            if (!frame.get().getExpectedValue(symbolAliases).equals(patternRecognitionNode.getCommonBaseFrame().get())) {
+            if (!WindowFrameMatcher.matches(frame.get(), patternRecognitionNode.getCommonBaseFrame().get(), symbolAliases)) {
                 return NO_MATCH;
             }
         }
@@ -171,7 +170,7 @@ public class PatternRecognitionMatcher
         private Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification = Optional.empty();
         private final List<AliasMatcher> windowFunctionMatchers = new LinkedList<>();
         private final Map<String, TypedExpressionAndPointers> measures = new HashMap<>();
-        private Optional<ExpectedValueProvider<WindowNode.Frame>> frame = Optional.empty();
+        private Optional<WindowNode.Frame> frame = Optional.empty();
         private RowsPerMatch rowsPerMatch = ONE;
         private Set<IrLabel> skipToLabels = ImmutableSet.of();
         private SkipToPosition skipToPosition = PAST_LAST;
@@ -193,9 +192,9 @@ public class PatternRecognitionMatcher
         }
 
         @CanIgnoreReturnValue
-        public Builder addFunction(String outputAlias, ExpectedValueProvider<FunctionCall> functionCall)
+        public Builder addFunction(String outputAlias, ExpectedValueProvider<WindowFunction> functionCall)
         {
-            windowFunctionMatchers.add(new AliasMatcher(Optional.of(outputAlias), new WindowFunctionMatcher(functionCall, Optional.empty(), Optional.empty())));
+            windowFunctionMatchers.add(new AliasMatcher(Optional.of(outputAlias), new WindowFunctionMatcher(functionCall)));
             return this;
         }
 
@@ -218,7 +217,7 @@ public class PatternRecognitionMatcher
         }
 
         @CanIgnoreReturnValue
-        public Builder frame(ExpectedValueProvider<WindowNode.Frame> frame)
+        public Builder frame(WindowNode.Frame frame)
         {
             this.frame = Optional.of(frame);
             return this;
