@@ -1714,8 +1714,17 @@ public class HiveMetadata
     }
 
     @Override
-    public HiveOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
+    public HiveOutputTableHandle beginCreateTable(
+            ConnectorSession session,
+            ConnectorTableMetadata tableMetadata,
+            Optional<ConnectorTableLayout> layout,
+            RetryMode retryMode,
+            boolean replace)
     {
+        if (replace) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
+        }
+
         Optional<Location> externalLocation = Optional.ofNullable(getExternalLocation(tableMetadata.getProperties()))
                 .map(HiveMetadata::getValidatedExternalLocation);
         if (!createsOfNonManagedTablesEnabled && externalLocation.isPresent()) {
