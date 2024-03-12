@@ -1127,7 +1127,13 @@ jobs:
           config:
             - default
           suite:
+            # Starburst suites
+            - suite-sap-hana
+            - suite-stargate
+            - suite-starburst-snowflake
             - suite-subquery-cache
+            - suite-synapse
+            # End of Starburst suites
             - suite-1
             - suite-2
             - suite-3
@@ -1146,10 +1152,6 @@ jobs:
             - suite-gcs
             - suite-clients
             - suite-functions
-            - suite-sap-hana
-            - suite-synapse
-            - suite-starburst-snowflake
-            - suite-stargate
             - suite-tpch
             - suite-tpcds
             - suite-storage-formats-detailed
