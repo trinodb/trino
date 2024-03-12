@@ -231,6 +231,7 @@
         <dep.okio.version>3.8.0</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
+        <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.3</dep.protobuf.version>
         <dep.swagger.version>2.2.20</dep.swagger.version>
         <dep.takari.version>2.1.4</dep.takari.version>
@@ -2398,7 +2399,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
-                    <version>${dep.plugin.surefire.version}</version>
+                    <version>${dep.plugin.failsafe.version}</version>
                 </plugin>
 
                 <plugin>
