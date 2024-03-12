@@ -17,6 +17,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
         <dep.nessie.version>0.80.0</dep.nessie.version>
+        <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default} --add-opens=java.base/java.nio=ALL-UNNAMED</air.test.jvm.additional-arguments>
     </properties>
 
     <dependencies>
@@ -183,6 +184,11 @@
         </dependency>
 
         <dependency>
+            <groupId>net.snowflake</groupId>
+            <artifactId>snowflake-jdbc</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
         </dependency>
@@ -218,6 +224,11 @@
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-parquet</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-snowflake</artifactId>
         </dependency>
 
         <dependency>
@@ -656,6 +667,7 @@
                     <ignoredResourcePatterns>
                         <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
+                        <ignoredResourcePattern>mime.types</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>
@@ -689,6 +701,8 @@
                                 <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
+                                <exclude>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestTrinoSnowflakeCatalog.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -751,6 +765,8 @@
                                 <include>**/TestIcebergS3AndGlueMetastoreTest.java</include>
                                 <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
+                                <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include>
+                                <include>**/TestTrinoSnowflakeCatalog.java</include>
                             </includes>
                         </configuration>
                     </plugin>

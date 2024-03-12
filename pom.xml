@@ -207,6 +207,7 @@
         <dep.protobuf.version>3.25.3</dep.protobuf.version>
         <!-- temporary until upgraded in airbase: https://github.com/airlift/airbase/pull/403 -->
         <dep.slf4j.version>2.0.13</dep.slf4j.version>
+        <dep.snowflake.version>3.15.1</dep.snowflake.version>
         <dep.swagger.version>2.2.21</dep.swagger.version>
         <dep.takari.version>2.1.4</dep.takari.version>
         <dep.tcnative.version>2.0.65.Final</dep.tcnative.version>
@@ -1655,6 +1656,12 @@
             </dependency>
 
             <dependency>
+                <groupId>net.snowflake</groupId>
+                <artifactId>snowflake-jdbc</artifactId>
+                <version>${dep.snowflake.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.alluxio</groupId>
                 <artifactId>alluxio-core-client-fs</artifactId>
                 <version>${dep.alluxio.version}</version>
@@ -1875,6 +1882,12 @@
                         <artifactId>slf4j-api</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.iceberg</groupId>
+                <artifactId>iceberg-snowflake</artifactId>
+                <version>${dep.iceberg.version}</version>
             </dependency>
 
             <dependency>
