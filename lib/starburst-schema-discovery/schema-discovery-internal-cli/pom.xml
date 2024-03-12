@@ -9,7 +9,6 @@
     </parent>
 
     <artifactId>schema-discovery-internal-cli</artifactId>
-    <name>schema-discovery-cli</name>
     <description>This CLI is intended only for internal use, for speeding up debugging of schema discovery and using it outside of trino</description>
 
     <properties>

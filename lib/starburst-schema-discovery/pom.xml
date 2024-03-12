@@ -12,6 +12,7 @@
     <groupId>io.starburst.schema-discovery</groupId>
     <artifactId>starburst-schema-discovery</artifactId>
     <packaging>pom</packaging>
+    <description>Schema Discovery root pom</description>
 
     <licenses>
         <license>

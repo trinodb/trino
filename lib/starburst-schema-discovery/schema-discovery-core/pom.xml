@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>schema-discovery-core</artifactId>
+    <description>Schema Discovery Core</description>
 
     <properties>
         <air.main.basedir>${project.parent.parent.basedir}</air.main.basedir>

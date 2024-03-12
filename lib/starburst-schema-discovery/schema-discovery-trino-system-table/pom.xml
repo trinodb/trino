@@ -9,6 +9,7 @@
     </parent>
 
     <artifactId>schema-discovery-trino-system-table</artifactId>
+    <description>Schema Discovery System Table</description>
 
     <properties>
         <air.main.basedir>${project.parent.parent.basedir}</air.main.basedir>

@@ -9,8 +9,7 @@
     </parent>
 
     <artifactId>schema-discovery-test</artifactId>
-    <packaging>jar</packaging>
-    <name>schema-discovery-test</name>
+    <description>Schema Discovery Test</description>
 
     <properties>
         <air.main.basedir>${project.parent.parent.basedir}</air.main.basedir>
