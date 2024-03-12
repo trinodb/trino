@@ -3179,7 +3179,7 @@ public class IcebergMetadata
     private void beginTransaction(Table icebergTable)
     {
         verify(transaction == null, "transaction already set");
-        transaction = icebergTable.newTransaction();
+        transaction = catalog.newTransaction(icebergTable);
     }
 
     private static IcebergTableHandle checkValidTableHandle(ConnectorTableHandle tableHandle)
