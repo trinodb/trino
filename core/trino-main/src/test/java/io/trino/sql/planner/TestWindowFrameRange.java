@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DecimalLiteral;
@@ -32,22 +33,17 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
-import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
@@ -74,16 +70,19 @@ public class TestWindowFrameRange
                                                 ImmutableMap.of("key", SortOrder.ASC_NULLS_LAST)))
                                         .addFunction(
                                                 "array_agg_result",
-                                                functionCall("array_agg", ImmutableList.of("key")),
-                                                createTestMetadataManager().resolveBuiltinFunction("array_agg", fromTypes(INTEGER)),
-                                                windowFrame(
-                                                        RANGE,
-                                                        PRECEDING,
-                                                        Optional.of("frame_start_value"),
-                                                        Optional.of("key_for_frame_start_comparison"),
-                                                        CURRENT_ROW,
-                                                        Optional.empty(),
-                                                        Optional.empty())),
+                                                windowFunction(
+                                                        "array_agg",
+                                                        ImmutableList.of("key"),
+                                                        new WindowNode.Frame(
+                                                                RANGE,
+                                                                PRECEDING,
+                                                                Optional.of(new Symbol("frame_start_value")),
+                                                                Optional.of(new Symbol("key_for_frame_start_comparison")),
+                                                                CURRENT_ROW,
+                                                                Optional.empty(),
+                                                                Optional.empty(),
+                                                                Optional.empty(),
+                                                                Optional.empty()))),
                                 project(// coerce sort key to compare sort key values with frame start values
                                         ImmutableMap.of("key_for_frame_start_comparison", expression(new Cast(new SymbolReference("key"), dataType("decimal(12,1)")))),
                                         project(// calculate frame start value (sort key - frame offset)
@@ -121,16 +120,19 @@ public class TestWindowFrameRange
                                                 ImmutableMap.of("key", SortOrder.ASC_NULLS_LAST)))
                                         .addFunction(
                                                 "array_agg_result",
-                                                functionCall("array_agg", ImmutableList.of("key")),
-                                                createTestMetadataManager().resolveBuiltinFunction("array_agg", fromTypes(createDecimalType(2, 1))),
-                                                windowFrame(
-                                                        RANGE,
-                                                        CURRENT_ROW,
-                                                        Optional.empty(),
-                                                        Optional.empty(),
-                                                        FOLLOWING,
-                                                        Optional.of("frame_end_value"),
-                                                        Optional.of("key_for_frame_end_comparison"))),
+                                                windowFunction(
+                                                        "array_agg",
+                                                        ImmutableList.of("key"),
+                                                        new WindowNode.Frame(
+                                                                RANGE,
+                                                                CURRENT_ROW,
+                                                                Optional.empty(),
+                                                                Optional.empty(),
+                                                                FOLLOWING,
+                                                                Optional.of(new Symbol("frame_end_value")),
+                                                                Optional.of(new Symbol("key_for_frame_end_comparison")),
+                                                                Optional.empty(),
+                                                                Optional.empty()))),
                                 project(// coerce sort key to compare sort key values with frame end values
                                         ImmutableMap.of("key_for_frame_end_comparison", expression(new Cast(new SymbolReference("key"), dataType("decimal(12,1)")))),
                                         project(// calculate frame end value (sort key + frame offset)
@@ -168,16 +170,19 @@ public class TestWindowFrameRange
                                                 ImmutableMap.of("key", SortOrder.ASC_NULLS_LAST)))
                                         .addFunction(
                                                 "array_agg_result",
-                                                functionCall("array_agg", ImmutableList.of("key")),
-                                                createTestMetadataManager().resolveBuiltinFunction("array_agg", fromTypes(INTEGER)),
-                                                windowFrame(
-                                                        RANGE,
-                                                        PRECEDING,
-                                                        Optional.of("frame_start_value"),
-                                                        Optional.of("key"),
-                                                        FOLLOWING,
-                                                        Optional.of("frame_end_value"),
-                                                        Optional.of("key"))),
+                                                windowFunction(
+                                                        "array_agg",
+                                                        ImmutableList.of("key"),
+                                                        new WindowNode.Frame(
+                                                                RANGE,
+                                                                PRECEDING,
+                                                                Optional.of(new Symbol("frame_start_value")),
+                                                                Optional.of(new Symbol("key")),
+                                                                FOLLOWING,
+                                                                Optional.of(new Symbol("frame_end_value")),
+                                                                Optional.of(new Symbol("key")),
+                                                                Optional.empty(),
+                                                                Optional.empty()))),
                                 project(// calculate frame end value (sort key + frame end offset)
                                         ImmutableMap.of("frame_end_value", expression(new FunctionCall(QualifiedName.of("$operator$add"), ImmutableList.of(new SymbolReference("key"), new SymbolReference("y"))))),
                                         filter(// validate frame end offset values

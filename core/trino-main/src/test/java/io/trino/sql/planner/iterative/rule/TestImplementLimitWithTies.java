@@ -23,15 +23,14 @@ import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
-
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 
 public class TestImplementLimitWithTies
@@ -62,10 +61,7 @@ public class TestImplementLimitWithTies
                                                                 ImmutableMap.of("a", SortOrder.ASC_NULLS_FIRST)))
                                                         .addFunction(
                                                                 "rank_num",
-                                                                functionCall(
-                                                                        "rank",
-                                                                        Optional.empty(),
-                                                                        ImmutableList.of())),
+                                                                windowFunction("rank", ImmutableList.of(), DEFAULT_FRAME)),
                                                 values("a", "b")))));
     }
 }

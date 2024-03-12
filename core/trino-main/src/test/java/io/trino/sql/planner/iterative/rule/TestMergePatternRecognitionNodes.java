@@ -47,12 +47,11 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognition;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.RowsPerMatch.ALL_SHOW_EMPTY;
@@ -70,6 +69,17 @@ import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 public class TestMergePatternRecognitionNodes
         extends BaseRuleTest
 {
+    private static final WindowNode.Frame ROWS_CURRENT_TO_UNBOUNDED = new WindowNode.Frame(
+            ROWS,
+            CURRENT_ROW,
+            Optional.empty(),
+            Optional.empty(),
+            UNBOUNDED_FOLLOWING,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
     @Test
     public void testSpecificationsDoNotMatch()
     {
@@ -349,10 +359,10 @@ public class TestMergePatternRecognitionNodes
                                                         new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), false, true, 0, 0),
                                                         new Symbol("a"))),
                                                 BIGINT)
-                                        .addFunction("parent_function", functionCall("lag", ImmutableList.of("a")))
-                                        .addFunction("child_function", functionCall("lag", ImmutableList.of("b")))
+                                        .addFunction("parent_function", windowFunction("lag", ImmutableList.of("a"), DEFAULT_FRAME))
+                                        .addFunction("child_function", windowFunction("lag", ImmutableList.of("b"), DEFAULT_FRAME))
                                         .rowsPerMatch(WINDOW)
-                                        .frame(windowFrame(ROWS, CURRENT_ROW, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                        .frame(ROWS_CURRENT_TO_UNBOUNDED)
                                         .skipTo(LAST, new IrLabel("X"))
                                         .seek()
                                         .addSubset(new IrLabel("U"), ImmutableSet.of(new IrLabel("X")))

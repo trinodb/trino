@@ -215,14 +215,12 @@ public class WindowNode
             this.originalEndValue = requireNonNull(originalEndValue, "originalEndValue is null");
 
             if (startValue.isPresent()) {
-                checkArgument(originalStartValue.isPresent(), "originalStartValue must be present if startValue is present");
                 if (type == RANGE) {
                     checkArgument(sortKeyCoercedForFrameStartComparison.isPresent(), "for frame of type RANGE, sortKeyCoercedForFrameStartComparison must be present if startValue is present");
                 }
             }
 
             if (endValue.isPresent()) {
-                checkArgument(originalEndValue.isPresent(), "originalEndValue must be present if endValue is present");
                 if (type == RANGE) {
                     checkArgument(sortKeyCoercedForFrameEndComparison.isPresent(), "for frame of type RANGE, sortKeyCoercedForFrameEndComparison must be present if endValue is present");
                 }
