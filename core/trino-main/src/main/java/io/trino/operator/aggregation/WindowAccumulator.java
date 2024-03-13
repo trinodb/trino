@@ -24,7 +24,11 @@ public interface WindowAccumulator
 
     void addInput(WindowIndex index, int startPosition, int endPosition);
 
-    void removeInput(WindowIndex index, int startPosition, int endPosition);
+    /**
+     * @return Returns false when an NaN or Infinite input double value is
+     * encountered, true otherwise.
+     */
+    boolean removeInput(WindowIndex index, int startPosition, int endPosition);
 
     void evaluateFinal(BlockBuilder blockBuilder);
 }
