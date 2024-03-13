@@ -80,8 +80,6 @@ public class TestWindowFrameRange
                                                                 Optional.of(new Symbol("key_for_frame_start_comparison")),
                                                                 CURRENT_ROW,
                                                                 Optional.empty(),
-                                                                Optional.empty(),
-                                                                Optional.empty(),
                                                                 Optional.empty()))),
                                 project(// coerce sort key to compare sort key values with frame start values
                                         ImmutableMap.of("key_for_frame_start_comparison", expression(new Cast(new SymbolReference("key"), dataType("decimal(12,1)")))),
@@ -130,9 +128,7 @@ public class TestWindowFrameRange
                                                                 Optional.empty(),
                                                                 FOLLOWING,
                                                                 Optional.of(new Symbol("frame_end_value")),
-                                                                Optional.of(new Symbol("key_for_frame_end_comparison")),
-                                                                Optional.empty(),
-                                                                Optional.empty()))),
+                                                                Optional.of(new Symbol("key_for_frame_end_comparison"))))),
                                 project(// coerce sort key to compare sort key values with frame end values
                                         ImmutableMap.of("key_for_frame_end_comparison", expression(new Cast(new SymbolReference("key"), dataType("decimal(12,1)")))),
                                         project(// calculate frame end value (sort key + frame offset)
@@ -180,9 +176,7 @@ public class TestWindowFrameRange
                                                                 Optional.of(new Symbol("key")),
                                                                 FOLLOWING,
                                                                 Optional.of(new Symbol("frame_end_value")),
-                                                                Optional.of(new Symbol("key")),
-                                                                Optional.empty(),
-                                                                Optional.empty()))),
+                                                                Optional.of(new Symbol("key"))))),
                                 project(// calculate frame end value (sort key + frame end offset)
                                         ImmutableMap.of("frame_end_value", expression(new FunctionCall(QualifiedName.of("$operator$add"), ImmutableList.of(new SymbolReference("key"), new SymbolReference("y"))))),
                                         filter(// validate frame end offset values

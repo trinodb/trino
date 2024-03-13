@@ -93,8 +93,6 @@ public class TestWindowNode
                 Optional.empty(),
                 UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
 
         PlanNodeId id = newId();

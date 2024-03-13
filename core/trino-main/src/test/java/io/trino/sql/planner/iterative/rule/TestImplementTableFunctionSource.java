@@ -73,8 +73,6 @@ public class TestImplementTableFunctionSource
             Optional.empty(),
             UNBOUNDED_FOLLOWING,
             Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
             Optional.empty());
 
     @Test

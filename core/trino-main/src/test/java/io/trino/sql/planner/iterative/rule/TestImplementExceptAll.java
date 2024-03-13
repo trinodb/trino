@@ -62,8 +62,6 @@ public class TestImplementExceptAll
                 Optional.empty(),
                 UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
 
         tester().assertThat(new ImplementExceptAll(tester().getMetadata()))

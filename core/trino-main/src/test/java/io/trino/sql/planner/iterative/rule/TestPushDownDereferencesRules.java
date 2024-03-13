@@ -630,8 +630,6 @@ public class TestPushDownDereferencesRules
                                                                 Optional.empty(),
                                                                 CURRENT_ROW,
                                                                 Optional.empty(),
-                                                                Optional.empty(),
-                                                                Optional.empty(),
                                                                 Optional.empty()),
                                                         true)),
                                         p.values(

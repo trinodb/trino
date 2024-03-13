@@ -59,8 +59,6 @@ public class TestImplementIntersectAll
                 Optional.empty(),
                 UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
 
         tester().assertThat(new ImplementIntersectAll(tester().getMetadata()))
