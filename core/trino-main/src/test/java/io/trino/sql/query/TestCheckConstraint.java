@@ -447,7 +447,8 @@ public class TestCheckConstraint
     {
         // TODO Support subqueries for UPDATE statement in check constraint
         assertThat(assertions.query("UPDATE mock.tiny.nation_subquery SET nationkey = 100"))
-                .nonTrinoExceptionFailure().hasMessageContaining("Unexpected subquery expression in logical plan");
+                .failure()
+                .hasMessageContaining("Subqueries are not currently supported in CHECK constraints");
     }
 
     @Test
@@ -658,7 +659,8 @@ public class TestCheckConstraint
                 WHEN MATCHED THEN UPDATE SET regionkey = 9
                 WHEN NOT MATCHED THEN INSERT VALUES (101, 'POLAND', 0, 'No comment')
                 """))
-                .nonTrinoExceptionFailure().hasMessageContaining("Unexpected subquery expression in logical plan");
+                .failure()
+                .hasMessageContaining("Subqueries are not currently supported in CHECK constraints");
     }
 
     @Test
