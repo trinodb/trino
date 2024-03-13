@@ -199,7 +199,7 @@ public class TestDeltaLakeSplitManager
                     MetadataEntry metadataEntry,
                     ProtocolEntry protocolEntry,
                     TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
-                    Optional<Set<DeltaLakeColumnHandle>> projectedColumns)
+                    Set<DeltaLakeColumnHandle> projectedColumns)
             {
                 return addFileEntries.stream();
             }

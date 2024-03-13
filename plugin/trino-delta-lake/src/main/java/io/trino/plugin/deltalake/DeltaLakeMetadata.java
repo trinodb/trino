@@ -175,6 +175,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -978,7 +979,13 @@ public class DeltaLakeMetadata
                 if (replaceExistingTable) {
                     commitVersion = getMandatoryCurrentVersion(fileSystem, location, tableHandle.getReadVersion()) + 1;
                     transactionLogWriter = transactionLogWriterFactory.newWriter(session, location);
-                    try (Stream<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(session, getSnapshot(session, tableHandle), tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry())) {
+                    try (Stream<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(
+                            session,
+                            getSnapshot(session, tableHandle),
+                            tableHandle.getMetadataEntry(),
+                            tableHandle.getProtocolEntry(),
+                            TupleDomain.all(),
+                            alwaysTrue())) {
                         removeFileEntries = activeFiles
                                 .map(file -> new RemoveFileEntry(file.getPath(), file.getPartitionValues(), writeTimestamp, true))
                                 .collect(toImmutableList());
@@ -1368,7 +1375,9 @@ public class DeltaLakeMetadata
                         session,
                         getSnapshot(session, deltaLakeTableHandle),
                         deltaLakeTableHandle.getMetadataEntry(),
-                        deltaLakeTableHandle.getProtocolEntry())) {
+                        deltaLakeTableHandle.getProtocolEntry(),
+                        TupleDomain.all(),
+                        alwaysTrue())) {
                     activeFiles.forEach(file -> transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(file.getPath(), file.getPartitionValues(), writeTimestamp, true)));
                 }
             }
@@ -1530,7 +1539,13 @@ public class DeltaLakeMetadata
 
         if (!newColumnMetadata.isNullable()) {
             boolean tableHasDataFiles;
-            try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(session, getSnapshot(session, handle), handle.getMetadataEntry(), handle.getProtocolEntry())) {
+            try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(
+                    session,
+                    getSnapshot(session, handle),
+                    handle.getMetadataEntry(),
+                    handle.getProtocolEntry(),
+                    TupleDomain.all(),
+                    alwaysTrue())) {
                 tableHasDataFiles = addFileEntries.findAny().isPresent();
             }
             if (tableHasDataFiles) {
@@ -3379,7 +3394,12 @@ public class DeltaLakeMetadata
     {
         Map<String, AddFileEntry> addFileEntriesWithNoStats;
         try (Stream<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(
-                session, getSnapshot(session, tableHandle), tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry())) {
+                session,
+                getSnapshot(session, tableHandle),
+                tableHandle.getMetadataEntry(),
+                tableHandle.getProtocolEntry(),
+                TupleDomain.all(),
+                alwaysTrue())) {
             addFileEntriesWithNoStats = activeFiles.filter(addFileEntry -> addFileEntry.getStats().isEmpty()
                             || addFileEntry.getStats().get().getNumRecords().isEmpty()
                             || addFileEntry.getStats().get().getMaxValues().isEmpty()
@@ -3754,7 +3774,7 @@ public class DeltaLakeMetadata
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),
                 tableHandle.getEnforcedPartitionConstraint(),
-                tableHandle.getProjectedColumns());
+                tableHandle.getProjectedColumns().orElse(ImmutableSet.of()));
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         if (enforcedPartitionConstraint.isAll()) {
             return validDataFiles;
