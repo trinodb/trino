@@ -310,6 +310,7 @@
                             <skip>false</skip>
                             <includeArtifactIds>kafka-protobuf-provider,kafka-protobuf-types</includeArtifactIds>
                             <outputDirectory>${project.build.directory}</outputDirectory>
+                            <stripVersion>true</stripVersion>
                         </configuration>
                     </execution>
                     <execution>
