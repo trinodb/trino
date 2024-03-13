@@ -191,7 +191,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.data.Offset.offset;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseHiveConnectorTest
@@ -4858,8 +4857,6 @@ public abstract class BaseHiveConnectorTest
 
     private void testFileModifiedTimeHiddenColumn(HiveTimestampPrecision precision)
     {
-        long testStartTime = Instant.now().toEpochMilli();
-
         @Language("SQL") String createTable = "CREATE TABLE test_file_modified_time " +
                 "WITH (" +
                 "partitioned_by = ARRAY['col1']" +
@@ -4869,7 +4866,9 @@ public abstract class BaseHiveConnectorTest
                 "(1, 1), (4, 1), (7, 1), " +
                 "(2, 2), (5, 2) " +
                 " ) t(col0, col1) ";
+        long beforeCreateSecond = Instant.now().getEpochSecond();
         assertUpdate(createTable, 8);
+        long afterCreateSecond = Instant.now().getEpochSecond() + 1; // +1 to round up, not truncate
         assertThat(getQueryRunner().tableExists(getSession(), "test_file_modified_time")).isTrue();
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_file_modified_time");
@@ -4896,8 +4895,8 @@ public abstract class BaseHiveConnectorTest
             int col0 = (int) row.getField(0);
             int col1 = (int) row.getField(1);
             Instant fileModifiedTime = ((ZonedDateTime) row.getField(2)).toInstant();
-
-            assertThat(fileModifiedTime.toEpochMilli()).isCloseTo(testStartTime, offset(2000L));
+            assertThat(fileModifiedTime.getEpochSecond())
+                    .isBetween(beforeCreateSecond, afterCreateSecond);
             assertThat(col0 % 3).isEqualTo(col1);
             if (fileModifiedTimeMap.containsKey(col1)) {
                 assertThat(fileModifiedTimeMap).containsEntry(col1, fileModifiedTime);
