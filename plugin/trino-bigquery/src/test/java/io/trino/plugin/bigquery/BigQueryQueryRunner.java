@@ -123,16 +123,24 @@ public final class BigQueryQueryRunner
                 queryRunner.installPlugin(new BigQueryPlugin());
                 queryRunner.createCatalog("bigquery", "bigquery", connectorProperties);
 
-                queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TPCH_SCHEMA);
-                queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
-                return queryRunner;
-            }
-            catch (Throwable e) {
-                closeAllSuppress(e, queryRunner);
-                throw e;
-            }
+            queryRunner.execute(createSession(), "CREATE SCHEMA IF NOT EXISTS " + TPCH_SCHEMA);
+            queryRunner.execute(createSession(), "CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), initialTables);
+
+            return queryRunner;
         }
+        catch (Throwable e) {
+            closeAllSuppress(e, queryRunner);
+            throw e;
+        }
+    }
+
+    public static Session createSession()
+    {
+        return testSessionBuilder()
+                .setCatalog("bigquery")
+                .setSchema(TEST_SCHEMA)
+                .build();
     }
 
     public static class BigQuerySqlExecutor

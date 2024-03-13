@@ -141,8 +141,8 @@ public class BigQuerySplitManager
         TableId remoteTableId = bigQueryTableHandle.asPlainTable().getRemoteTableName().toTableId();
         TableDefinition.Type tableType = TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType());
         List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.projectedColumns())
-                ? createEmptyProjection(session, tableType, remoteTableId, filter)
-                : readFromBigQuery(session, tableType, remoteTableId, bigQueryTableHandle.projectedColumns(), tableConstraint);
+                ? createEmptyProjection(session, tableType, remoteTableId, actualParallelism, filter)
+                : readFromBigQuery(session, tableType, remoteTableId, bigQueryTableHandle.projectedColumns(), bigQueryTableHandle.asPlainTable().hasConnection(), actualParallelism, tableConstraint);
         return new FixedSplitSource(splits);
     }
 
@@ -156,6 +156,8 @@ public class BigQuerySplitManager
             TableDefinition.Type type,
             TableId remoteTableId,
             Optional<List<BigQueryColumnHandle>> projectedColumns,
+            boolean hasConnection,
+            int actualParallelism,
             TupleDomain<ColumnHandle> tableConstraint)
     {
         checkArgument(projectedColumns.isPresent() && projectedColumns.get().size() > 0, "Projected column is empty");
@@ -169,8 +171,10 @@ public class BigQuerySplitManager
             // Storage API doesn't support reading wildcard tables
             return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
         }
-        if (type == EXTERNAL) {
-            // Storage API doesn't support reading external tables
+
+        if (type == EXTERNAL && !hasConnection) {
+            // Storage API doesn't support reading materialized views and external tables
+            // without connection. Storage API does support BigLake external tables.
             return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
         }
         if (type == VIEW || type == MATERIALIZED_VIEW) {
