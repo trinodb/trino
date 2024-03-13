@@ -542,7 +542,7 @@ public class PinotClient
                     .scheme(scheme)
                     .appendPath(QUERY_URL_PATH)
                     .build();
-            LOG.info("Query '%s' on broker host '%s'", query.getQuery(), queryPathUri);
+            LOG.debug("Query '%s' on broker host '%s'", query.getQuery(), queryPathUri);
             Request.Builder builder = Request.Builder.preparePost().setUri(queryPathUri);
 
             ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
