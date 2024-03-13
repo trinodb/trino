@@ -178,7 +178,7 @@ public final class AggregationMaskCompiler
         body.append(new IfStatement()
                 .condition(maskBlock.instanceOf(DictionaryBlock.class))
                         .ifTrue(new BytecodeBlock()
-                                .append(maskValueBlock.set(maskBlock.cast(DictionaryBlock.class).invoke("getDictionary", ValueBlock.class, position).cast(ByteArrayBlock.class)))
+                                .append(maskValueBlock.set(maskBlock.cast(DictionaryBlock.class).invoke("getDictionary", ValueBlock.class).cast(ByteArrayBlock.class)))
                                 .append(rawIds.set(maskBlock.cast(DictionaryBlock.class).invoke("getRawIds", int[].class)))
                                 .append(rawIdsOffset.set(maskBlock.cast(DictionaryBlock.class).invoke("getRawIdsOffset", int.class)))
                                 .append(new ForLoop()
