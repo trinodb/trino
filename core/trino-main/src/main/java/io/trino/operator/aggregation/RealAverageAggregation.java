@@ -46,13 +46,18 @@ public final class RealAverageAggregation
     }
 
     @RemoveInputFunction
-    public static void removeInput(
+    public static boolean removeInput(
             @AggregationState LongState count,
             @AggregationState DoubleState sum,
             @SqlType("REAL") long value)
     {
-        count.setValue(count.getValue() - 1);
-        sum.setValue(sum.getValue() - intBitsToFloat((int) value));
+        double currentValue = sum.getValue();
+        if (Double.isFinite(currentValue)) {
+            sum.setValue(currentValue - intBitsToFloat((int) value));
+            count.setValue(count.getValue() - 1);
+            return true;
+        }
+        return false;
     }
 
     @CombineFunction
