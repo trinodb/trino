@@ -71,7 +71,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -227,38 +226,22 @@ public class TransactionLogAccess
                 .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
     }
 
-    // Deprecated in favor of the namesake method which allows checkpoint filtering
-    // to be able to perform partition pruning and stats projection on the `add` entries
-    // from the checkpoint.
-    /**
-     * @see #getActiveFiles(ConnectorSession, TableSnapshot, MetadataEntry, ProtocolEntry, TupleDomain, Optional)
-     */
-    @Deprecated
-    public Stream<AddFileEntry> getActiveFiles(ConnectorSession session, TableSnapshot tableSnapshot, MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
-    {
-        return retrieveActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue());
-    }
-
     public Stream<AddFileEntry> getActiveFiles(
             ConnectorSession session,
             TableSnapshot tableSnapshot,
             MetadataEntry metadataEntry,
             ProtocolEntry protocolEntry,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
-            Optional<Set<DeltaLakeColumnHandle>> projectedColumns)
+            Set<DeltaLakeColumnHandle> projectedColumns)
     {
-        Predicate<String> addStatsMinMaxColumnFilter = alwaysFalse();
-        if (projectedColumns.isPresent()) {
-            Set<String> baseColumnNames = projectedColumns.get().stream()
-                    .filter(DeltaLakeColumnHandle::isBaseColumn) // Only base column stats are supported
-                    .map(DeltaLakeColumnHandle::getColumnName)
-                    .collect(toImmutableSet());
-            addStatsMinMaxColumnFilter = baseColumnNames::contains;
-        }
-        return retrieveActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, addStatsMinMaxColumnFilter);
+        Set<String> baseColumnNames = projectedColumns.stream()
+                .filter(DeltaLakeColumnHandle::isBaseColumn) // Only base column stats are supported
+                .map(DeltaLakeColumnHandle::getColumnName)
+                .collect(toImmutableSet());
+        return getActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, baseColumnNames::contains);
     }
 
-    private Stream<AddFileEntry> retrieveActiveFiles(
+    public Stream<AddFileEntry> getActiveFiles(
             ConnectorSession session,
             TableSnapshot tableSnapshot,
             MetadataEntry metadataEntry,
