@@ -23,7 +23,6 @@ import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
 
-import static io.trino.testing.TestingProperties.getSapHanaJdbcDriverVersion;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
@@ -32,7 +31,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public abstract class AbstractSinglenodeSapHana
         extends EnvironmentProvider
 {
-    public static final File JDBC_DRIVER = new File("testing/trino-product-tests-launcher/target/ngdbc-%s.jar".formatted(getSapHanaJdbcDriverVersion()));
+    public static final File JDBC_DRIVER = new File("testing/trino-product-tests-launcher/target/ngdbc.jar");
     protected static final String CONTAINER_NAME = "sap-hana";
 
     private final SapHanaDockerInitializer dockerInitializer;

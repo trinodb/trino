@@ -56,9 +56,4 @@ public class TestingProperties
     {
         return requireNonNull(properties.get().getProperty(name), name + " is null");
     }
-
-    public static String getSapHanaJdbcDriverVersion()
-    {
-        return requireNonNull(properties.get().getProperty("dep.sap-hana-jdbc.version"), "dep.sap-hana-jdbc.version is null");
-    }
 }
