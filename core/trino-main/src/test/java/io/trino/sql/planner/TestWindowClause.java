@@ -104,8 +104,6 @@ public class TestWindowClause
                                                                 Optional.of(new Symbol("expr_b")),
                                                                 CURRENT_ROW,
                                                                 Optional.empty(),
-                                                                Optional.empty(),
-                                                                Optional.empty(),
                                                                 Optional.empty()))),
                                 project(
                                         ImmutableMap.of("frame_start", expression(new FunctionCall(QualifiedName.of("$operator$subtract"), ImmutableList.of(new SymbolReference("expr_b"), new SymbolReference("expr_c"))))),
@@ -180,9 +178,7 @@ public class TestWindowClause
                                                                 Optional.empty(),
                                                                 FOLLOWING,
                                                                 Optional.of(new Symbol("frame_bound")),
-                                                                Optional.of(new Symbol("coerced_sortkey")),
-                                                                Optional.empty(),
-                                                                Optional.empty()))),
+                                                                Optional.of(new Symbol("coerced_sortkey"))))),
                                 project(// frame bound value computation
                                         ImmutableMap.of("frame_bound", expression(new FunctionCall(QualifiedName.of("$operator$add"), ImmutableList.of(new SymbolReference("coerced_sortkey"), new SymbolReference("frame_offset"))))),
                                         project(// sort key coercion to frame bound type

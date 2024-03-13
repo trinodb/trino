@@ -207,12 +207,12 @@ public class TestPatternRecognitionNodeSerialization
                         new Function(
                                 rankFunction,
                                 ImmutableList.of(),
-                                new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+                                new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()),
                                 false)),
                 ImmutableMap.of(
                         new Symbol("measure"),
                         new Measure(new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of()), BOOLEAN)),
-                Optional.of(new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())),
+                Optional.of(new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty())),
                 WINDOW,
                 ImmutableSet.of(new IrLabel("B")),
                 LAST,

@@ -96,8 +96,6 @@ public class TestMergeWindows
             Optional.empty(),
             FrameBoundType.CURRENT_ROW,
             Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
             Optional.empty());
 
     private final ExpectedValueProvider<DataOrganizationSpecification> specificationA;
@@ -343,8 +341,6 @@ public class TestMergeWindows
                 Optional.empty(),
                 FrameBoundType.CURRENT_ROW,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
 
         ExpectedValueProvider<DataOrganizationSpecification> specificationC = specification(
@@ -358,8 +354,6 @@ public class TestMergeWindows
                 Optional.empty(),
                 Optional.empty(),
                 FrameBoundType.UNBOUNDED_FOLLOWING,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 
@@ -388,8 +382,6 @@ public class TestMergeWindows
                 Optional.empty(),
                 Optional.empty(),
                 FrameBoundType.UNBOUNDED_FOLLOWING,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 
