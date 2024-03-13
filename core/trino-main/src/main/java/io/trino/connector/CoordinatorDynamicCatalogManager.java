@@ -137,7 +137,7 @@ public class CoordinatorDynamicCatalogManager
                                     CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
                                     activeCatalogs.put(catalog.getCatalogHandle().getCatalogName(), newCatalog.getCatalog());
                                     allCatalogs.put(catalog.getCatalogHandle(), newCatalog);
-                                    log.info("-- Added catalog %s using connector %s --", storedCatalog.getName(), catalog.getConnectorName());
+                                    log.debug("-- Added catalog %s using connector %s --", storedCatalog.getName(), catalog.getConnectorName());
                                 }
                                 catch (Throwable e) {
                                     CatalogHandle catalogHandle = catalog != null ? catalog.getCatalogHandle() : createRootCatalogHandle(storedCatalog.getName(), new CatalogVersion("failed"));
@@ -227,7 +227,7 @@ public class CoordinatorDynamicCatalogManager
 
         if (!removedCatalogs.isEmpty()) {
             List<String> sortedHandles = removedCatalogs.stream().map(connector -> connector.getCatalogHandle().toString()).sorted().toList();
-            log.info("Pruned catalogs: %s", sortedHandles);
+            log.debug("Pruned catalogs: %s", sortedHandles);
         }
     }
 
@@ -273,7 +273,7 @@ public class CoordinatorDynamicCatalogManager
             activeCatalogs.put(catalogName, catalog.getCatalog());
             catalogStore.addOrReplaceCatalog(catalogProperties);
 
-            log.info("Added catalog: %s", catalog.getCatalogHandle());
+            log.debug("Added catalog: %s", catalog.getCatalogHandle());
         }
         finally {
             catalogsUpdateLock.unlock();
