@@ -37,9 +37,10 @@ public final class CountAggregation
     }
 
     @RemoveInputFunction
-    public static void removeInput(@AggregationState LongState state)
+    public static boolean removeInput(@AggregationState LongState state)
     {
         state.setValue(state.getValue() - 1);
+        return true;
     }
 
     @CombineFunction

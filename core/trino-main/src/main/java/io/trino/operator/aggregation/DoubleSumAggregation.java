@@ -38,10 +38,15 @@ public final class DoubleSumAggregation
     }
 
     @RemoveInputFunction
-    public static void removeInput(@AggregationState LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
+    public static boolean removeInput(@AggregationState LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        state.setLong(state.getLong() - 1);
-        state.setDouble(state.getDouble() - value);
+        double currentValue = state.getDouble();
+        if (Double.isFinite(currentValue)) {
+            state.setDouble(currentValue - value);
+            state.setLong(state.getLong() - 1);
+            return true;
+        }
+        return false;
     }
 
     @CombineFunction
