@@ -278,4 +278,12 @@ public class TestSqlServerConnectorTest
                 .add("close]bracket")
                 .build();
     }
+
+    @Test
+    @Override
+    public void testSelectInformationSchemaColumns()
+    {
+        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/10846
+        executeExclusively(super::testSelectInformationSchemaColumns);
+    }
 }
