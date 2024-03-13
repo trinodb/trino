@@ -22,11 +22,18 @@ import java.util.Optional;
 
 public class AwsSecurityConfig
 {
+    public enum DeploymentType
+    {
+        PROVISIONED,
+        SERVERLESS,
+    }
+
     private String accessKey;
     private String secretKey;
     private String region;
     private String iamRole;
     private String externalId;
+    private DeploymentType deploymentType;
 
     @NotNull
     public Optional<String> getAccessKey()
@@ -92,6 +99,19 @@ public class AwsSecurityConfig
     public AwsSecurityConfig setExternalId(String externalId)
     {
         this.externalId = externalId;
+        return this;
+    }
+
+    @NotNull
+    public DeploymentType getDeploymentType()
+    {
+        return deploymentType;
+    }
+
+    @Config("opensearch.aws.deployment-type")
+    public AwsSecurityConfig setDeploymentType(DeploymentType deploymentType)
+    {
+        this.deploymentType = deploymentType;
         return this;
     }
 }

@@ -21,6 +21,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.plugin.opensearch.AwsSecurityConfig.DeploymentType.SERVERLESS;
 
 public class TestAwsSecurityConfig
 {
@@ -32,7 +33,8 @@ public class TestAwsSecurityConfig
                 .setSecretKey(null)
                 .setRegion(null)
                 .setIamRole(null)
-                .setExternalId(null));
+                .setExternalId(null)
+                .setDeploymentType(null));
     }
 
     @Test
@@ -44,6 +46,7 @@ public class TestAwsSecurityConfig
                 .put("opensearch.aws.region", "region")
                 .put("opensearch.aws.iam-role", "iamRole")
                 .put("opensearch.aws.external-id", "externalId")
+                .put("opensearch.aws.deployment-type", "SERVERLESS")
                 .buildOrThrow();
 
         AwsSecurityConfig expected = new AwsSecurityConfig()
@@ -51,7 +54,8 @@ public class TestAwsSecurityConfig
                 .setSecretKey("secret")
                 .setRegion("region")
                 .setIamRole("iamRole")
-                .setExternalId("externalId");
+                .setExternalId("externalId")
+                .setDeploymentType(SERVERLESS);
 
         assertFullMapping(properties, expected);
     }
