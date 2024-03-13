@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.statistics;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
@@ -118,7 +119,7 @@ public class FileBasedTableStatisticsProvider
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),
                 tableHandle.getEnforcedPartitionConstraint(),
-                tableHandle.getProjectedColumns())) {
+                tableHandle.getProjectedColumns().orElse(ImmutableSet.of()))) {
             Iterator<AddFileEntry> addEntryIterator = addEntries.iterator();
             while (addEntryIterator.hasNext()) {
                 AddFileEntry addEntry = addEntryIterator.next();
