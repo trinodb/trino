@@ -362,6 +362,7 @@ import static io.trino.spi.StandardErrorCode.TABLE_HAS_NO_COLUMNS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_GROUPING_SETS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_STALE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
@@ -576,6 +577,8 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
             }
 
+            analysis.setUpdateType("INSERT");
+
             // analyze the query that creates the data
             Scope queryScope = analyze(insert.getQuery(), Optional.empty(), false);
 
@@ -671,7 +674,6 @@ class StatementAnalyzer
                             .map(Type::toString),
                     Column::new);
 
-            analysis.setUpdateType("INSERT");
             analysis.setUpdateTarget(
                     targetTableHandle.get().getCatalogHandle().getVersion(),
                     targetTable,
@@ -3368,6 +3370,8 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, update, "Updating views is not supported");
             }
 
+            analysis.setUpdateType("UPDATE");
+
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
             QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
             TableHandle handle = redirection.tableHandle()
@@ -3467,7 +3471,6 @@ class StatementAnalyzer
                 analysis.recordSubqueries(update, analyses.get(index));
             }
 
-            analysis.setUpdateType("UPDATE");
             analysis.setUpdateTarget(
                     handle.getCatalogHandle().getVersion(),
                     tableName,
@@ -3495,6 +3498,8 @@ class StatementAnalyzer
             if (metadata.isView(session, originalTableName)) {
                 throw semanticException(NOT_SUPPORTED, merge, "Merging into views is not supported");
             }
+
+            analysis.setUpdateType("MERGE");
 
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName);
             QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalTableName);
@@ -3638,7 +3643,6 @@ class StatementAnalyzer
                     .map(columnHandle -> new OutputColumn(new Column(columnHandle, dataColumnTypes.get(columnHandle).toString()), ImmutableSet.of()))
                     .collect(toImmutableList());
 
-            analysis.setUpdateType("MERGE");
             analysis.setUpdateTarget(targetTableHandle.getCatalogHandle().getVersion(), tableName, Optional.of(table), Optional.of(updatedColumns));
             List<List<ColumnHandle>> mergeCaseColumnHandles = buildCaseColumnLists(merge, dataColumnSchemas, allColumnHandles);
 
@@ -5146,6 +5150,11 @@ class StatementAnalyzer
             }
 
             verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, format("Check constraint for '%s'", name));
+
+            List<SubqueryExpression> subQueries = extractExpressions(ImmutableList.of(expression), SubqueryExpression.class);
+            if (!subQueries.isEmpty() && Set.of("UPDATE", "MERGE").contains(analysis.getUpdateType())) {
+                throw semanticException(UNSUPPORTED_SUBQUERY, subQueries.getFirst(), "Subqueries are not currently supported in CHECK constraints");
+            }
 
             ExpressionAnalysis expressionAnalysis;
             try {
