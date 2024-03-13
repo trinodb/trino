@@ -112,7 +112,14 @@ public class BigQuerySplitManager
         TableId remoteTableId = bigQueryTableHandle.asPlainTable().getRemoteTableName().toTableId();
         List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.getProjectedColumns()) ?
                 createEmptyProjection(session, remoteTableId, actualParallelism, filter) :
-                readFromBigQuery(session, TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType()), remoteTableId, bigQueryTableHandle.getProjectedColumns(), actualParallelism, tableConstraint);
+                readFromBigQuery(
+                        session,
+                        TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType()),
+                        remoteTableId,
+                        bigQueryTableHandle.getProjectedColumns(),
+                        bigQueryTableHandle.asPlainTable().hasConnection(),
+                        actualParallelism,
+                        tableConstraint);
         return new FixedSplitSource(splits);
     }
 
@@ -121,7 +128,14 @@ public class BigQuerySplitManager
         return projectedColumns.isPresent() && projectedColumns.get().isEmpty();
     }
 
-    private List<BigQuerySplit> readFromBigQuery(ConnectorSession session, TableDefinition.Type type, TableId remoteTableId, Optional<List<BigQueryColumnHandle>> projectedColumns, int actualParallelism, TupleDomain<ColumnHandle> tableConstraint)
+    private List<BigQuerySplit> readFromBigQuery(
+            ConnectorSession session,
+            TableDefinition.Type type,
+            TableId remoteTableId,
+            Optional<List<BigQueryColumnHandle>> projectedColumns,
+            boolean hasConnection,
+            int actualParallelism,
+            TupleDomain<ColumnHandle> tableConstraint)
     {
         checkArgument(projectedColumns.isPresent() && projectedColumns.get().size() > 0, "Projected column is empty");
         Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
@@ -134,8 +148,9 @@ public class BigQuerySplitManager
             // Storage API doesn't support reading wildcard tables
             return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
         }
-        if (type == MATERIALIZED_VIEW || type == EXTERNAL) {
+        if (type == MATERIALIZED_VIEW || (type == EXTERNAL && !hasConnection)) {
             // Storage API doesn't support reading materialized views and external tables
+            // without connection. Storage API does support BigLake external tables.
             return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
         }
         if (type == VIEW) {

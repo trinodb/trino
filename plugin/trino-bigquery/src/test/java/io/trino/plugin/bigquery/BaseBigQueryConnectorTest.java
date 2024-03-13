@@ -44,6 +44,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,12 +60,17 @@ public abstract class BaseBigQueryConnectorTest
     protected BigQuerySqlExecutor bigQuerySqlExecutor;
     private String gcpStorageBucket;
 
+    private String bigQueryConnectionId;
+
     @BeforeAll
     public void initBigQueryExecutor()
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
         // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
         this.gcpStorageBucket = System.getProperty("testing.gcp-storage-bucket");
+        this.bigQueryConnectionId = requireNonNull(
+                System.getProperty("testing.bigquery-connection-id"),
+                "testing.bigquery-connection-id is not set");
     }
 
     @Override
@@ -688,6 +694,42 @@ public abstract class BaseBigQueryConnectorTest
         finally {
             onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + externalTable);
         }
+    }
+
+    @Test
+    public void testBigLakeExternalTable()
+    {
+        String biglakeExternalTable = "test_biglake_external" + randomNameSuffix();
+        try {
+            onBigQuery("CREATE EXTERNAL TABLE test." + biglakeExternalTable +
+                    " WITH CONNECTION `" + bigQueryConnectionId + "`" +
+                    " OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
+            assertThat(getQueryRunner().tableExists(getSession(), biglakeExternalTable)).isTrue();
+
+            assertThat(query("DESCRIBE test." + biglakeExternalTable)).matches("DESCRIBE tpch.region");
+            assertThat(query("SELECT * FROM test." + biglakeExternalTable)).matches("SELECT * FROM tpch.region");
+
+            assertUpdate("DROP TABLE test." + biglakeExternalTable);
+            assertThat(getQueryRunner().tableExists(getSession(), biglakeExternalTable)).isFalse();
+            // BigLake tables should not run queries, since they are read directly using the storage read API.
+            assertJobCountForTable(biglakeExternalTable, 0);
+        }
+        finally {
+            onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + biglakeExternalTable);
+        }
+    }
+
+    private void assertJobCountForTable(String referencedTable, long expectedJobCount)
+    {
+        @Language("SQL")
+        String jobCountForTableQuery = """
+                     SELECT * FROM region-us.INFORMATION_SCHEMA.JOBS WHERE EXISTS(
+                         SELECT * FROM UNNEST(referenced_tables) AS referenced_table
+                             WHERE referenced_table.table_id = '%s')
+                    """.formatted(referencedTable);
+         // Use assertEventually in case there are delays in the BQ information schema.
+        assertEventually(() -> assertThat(bigQuerySqlExecutor.executeQuery(jobCountForTableQuery).getTotalRows())
+                .isEqualTo(expectedJobCount));
     }
 
     @Test
