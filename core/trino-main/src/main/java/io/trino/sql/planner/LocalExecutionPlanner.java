@@ -188,6 +188,7 @@ import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.planner.optimizations.IndexJoinOptimizer;
+import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.AggregationNode.Step;
@@ -2558,16 +2559,16 @@ public class LocalExecutionPlanner
                 }
                 return (buildGeometry, probeGeometry, radius) -> buildGeometry.contains(probeGeometry);
             }
-            else if (functionName.equals(builtinFunctionName(ST_WITHIN))) {
+            if (functionName.equals(builtinFunctionName(ST_WITHIN))) {
                 if (probeFirst) {
                     return (buildGeometry, probeGeometry, radius) -> probeGeometry.within(buildGeometry);
                 }
                 return (buildGeometry, probeGeometry, radius) -> buildGeometry.within(probeGeometry);
             }
-            else if (functionName.equals(builtinFunctionName(ST_INTERSECTS))) {
+            if (functionName.equals(builtinFunctionName(ST_INTERSECTS))) {
                 return (buildGeometry, probeGeometry, radius) -> buildGeometry.intersects(probeGeometry);
             }
-            else if (functionName.equals(builtinFunctionName(ST_DISTANCE))) {
+            if (functionName.equals(builtinFunctionName(ST_DISTANCE))) {
                 if (comparisonOperator.orElseThrow() == LESS_THAN) {
                     return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) < radius.getAsDouble();
                 }
@@ -3376,7 +3377,7 @@ public class LocalExecutionPlanner
                     tableExecuteContextManager,
                     shouldOutputRowCount(node),
                     session);
-            Map<Symbol, Integer> layout = ImmutableMap.of(node.getOutputSymbols().get(0), 0);
+            Map<Symbol, Integer> layout = ImmutableMap.of(getOnlyElement(node.getOutputSymbols()), 0);
 
             return new PhysicalOperation(operatorFactory, layout, context, source);
         }
@@ -3617,7 +3618,7 @@ public class LocalExecutionPlanner
                     getWriterScalingMinDataProcessed(session),
                     () -> context.getTaskContext().getQueryMemoryReservation().toBytes());
 
-            List<Symbol> expectedLayout = node.getInputs().get(0);
+            List<Symbol> expectedLayout = getOnlyElement(node.getInputs());
             Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
             context.addDriverFactory(
                     false,
@@ -3721,6 +3722,12 @@ public class LocalExecutionPlanner
                     "driver instance count must match the number of exchange partitions");
 
             return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchange), makeLayout(node), context);
+        }
+
+        @Override
+        public PhysicalOperation visitAdaptivePlanNode(AdaptivePlanNode node, LocalExecutionPlanContext context)
+        {
+            return node.getCurrentPlan().accept(this, context);
         }
 
         @Override

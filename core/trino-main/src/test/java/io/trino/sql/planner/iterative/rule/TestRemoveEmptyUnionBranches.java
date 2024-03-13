@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -102,7 +103,7 @@ public class TestRemoveEmptyUnionBranches
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("output", expression("input1")),
+                                ImmutableMap.of("output", expression(new SymbolReference("input1"))),
                                 values(ImmutableList.of("input1"), ImmutableList.of(ImmutableList.of(new NullLiteral())))));
     }
 

@@ -28,6 +28,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -100,16 +101,16 @@ public class TestPushProjectionThroughJoin
                         .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol("a1"), new Symbol("b1"))))
                         .left(
                                 strictProject(ImmutableMap.of(
-                                                "a3", expression("-(+a0)"),
-                                                "a1", expression("a1")),
+                                                "a3", expression(new ArithmeticUnaryExpression(MINUS, new ArithmeticUnaryExpression(PLUS, new SymbolReference("a0")))),
+                                                "a1", expression(new SymbolReference("a1"))),
                                         strictProject(ImmutableMap.of(
-                                                        "a0", expression("a0"),
-                                                        "a1", expression("a1")),
+                                                        "a0", expression(new SymbolReference("a0")),
+                                                        "a1", expression(new SymbolReference("a1"))),
                                                 PlanMatchPattern.values("a0", "a1"))))
                         .right(
                                 strictProject(ImmutableMap.of(
-                                                "b2", expression("+b1"),
-                                                "b1", expression("b1")),
+                                                "b2", expression(new ArithmeticUnaryExpression(PLUS, new SymbolReference("b1"))),
+                                                "b1", expression(new SymbolReference("b1"))),
                                         PlanMatchPattern.values("b0", "b1"))))
                         .withExactOutputs("a3", "b2"));
     }

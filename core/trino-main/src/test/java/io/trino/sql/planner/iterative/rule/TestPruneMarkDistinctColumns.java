@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -43,7 +44,7 @@ public class TestPruneMarkDistinctColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("key2", expression("key")),
+                                ImmutableMap.of("key2", expression(new SymbolReference("key"))),
                                 values(ImmutableList.of("key", "unused"))));
     }
 
@@ -66,12 +67,12 @@ public class TestPruneMarkDistinctColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("mark", expression("mark")),
+                                ImmutableMap.of("mark", expression(new SymbolReference("mark"))),
                                 markDistinct("mark", ImmutableList.of("key"), "hash",
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "key", expression("key"),
-                                                        "hash", expression("hash")),
+                                                        "key", expression(new SymbolReference("key")),
+                                                        "hash", expression(new SymbolReference("hash"))),
                                                 values(ImmutableList.of("key", "hash", "unused"))))));
     }
 

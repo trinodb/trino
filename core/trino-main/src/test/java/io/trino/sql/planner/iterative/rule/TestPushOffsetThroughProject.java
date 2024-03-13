@@ -42,7 +42,7 @@ public class TestPushOffsetThroughProject
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("b", expression("true")),
+                                ImmutableMap.of("b", expression(TRUE_LITERAL)),
                                 offset(5, values())));
     }
 

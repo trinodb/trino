@@ -15,6 +15,7 @@ package io.trino.sql.analyzer;
 
 import io.trino.Session;
 import io.trino.client.NodeVersion;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
@@ -76,7 +77,7 @@ public class QueryExplainer
             CostCalculator costCalculator,
             NodeVersion version)
     {
-        this.planOptimizers = requireNonNull(planOptimizersFactory.get(), "planOptimizers is null");
+        this.planOptimizers = requireNonNull(planOptimizersFactory.getPlanOptimizers(), "planOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
@@ -172,7 +173,8 @@ public class QueryExplainer
                 statsCalculator,
                 costCalculator,
                 warningCollector,
-                planOptimizersStatsCollector);
+                planOptimizersStatsCollector,
+                new CachingTableStatsProvider(plannerContext.getMetadata(), session));
         return logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED, true);
     }
 

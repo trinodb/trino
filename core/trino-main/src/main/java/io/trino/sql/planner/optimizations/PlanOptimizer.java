@@ -14,6 +14,7 @@
 package io.trino.sql.planner.optimizations;
 
 import io.trino.Session;
+import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.TableStatsProvider;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
@@ -35,7 +36,8 @@ public interface PlanOptimizer
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+            TableStatsProvider tableStatsProvider,
+            RuntimeInfoProvider runtimeInfoProvider)
     {
         public Context(
                 Session session,
@@ -44,7 +46,8 @@ public interface PlanOptimizer
                 PlanNodeIdAllocator idAllocator,
                 WarningCollector warningCollector,
                 PlanOptimizersStatsCollector planOptimizersStatsCollector,
-                TableStatsProvider tableStatsProvider)
+                TableStatsProvider tableStatsProvider,
+                RuntimeInfoProvider runtimeInfoProvider)
         {
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
@@ -53,6 +56,7 @@ public interface PlanOptimizer
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
             this.tableStatsProvider = requireNonNull(tableStatsProvider, "tableStatsProvider is null");
             this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
+            this.runtimeInfoProvider = requireNonNull(runtimeInfoProvider, "runtimeInfoProvider is null");
         }
     }
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>151</version>
+        <version>152</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -180,7 +180,7 @@
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.accumulo.version>3.0.0</dep.accumulo.version>
         <dep.airlift.version>242</dep.airlift.version>
-        <dep.alluxio.version>310</dep.alluxio.version>
+        <dep.alluxio.version>311</dep.alluxio.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
         <dep.avro.version>1.11.3</dep.avro.version>
         <dep.aws-sdk.version>1.12.674</dep.aws-sdk.version>
@@ -196,11 +196,10 @@
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.5</dep.jsonwebtoken.version>
         <dep.kafka-clients.version>3.7.0</dep.kafka-clients.version>
-        <!-- TODO: https://github.com/airlift/airbase/pull/396 -->
-        <dep.modernizer.version>2.7.0</dep.modernizer.version>
         <dep.okio.version>3.8.0</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
+        <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.3</dep.protobuf.version>
         <dep.swagger.version>2.2.20</dep.swagger.version>
         <dep.takari.version>2.1.4</dep.takari.version>
@@ -208,9 +207,6 @@
         <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>4.8.1</dep.wire.version>
         <dep.zookeeper.version>3.9.1</dep.zookeeper.version>
-
-        <!-- To make possible "real quick build": default is same as in airbase parent -->
-        <failIfNoTests>true</failIfNoTests>
     </properties>
 
     <dependencyManagement>
@@ -227,7 +223,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.33.0</version>
+                <version>26.34.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -1598,12 +1594,6 @@
             </dependency>
 
             <dependency>
-                <groupId>io.trino.orc</groupId>
-                <artifactId>orc-protobuf</artifactId>
-                <version>14</version>
-            </dependency>
-
-            <dependency>
                 <groupId>io.trino.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
                 <version>${dep.tempto.version}</version>
@@ -1662,12 +1652,6 @@
                 <groupId>it.unimi.dsi</groupId>
                 <artifactId>fastutil</artifactId>
                 <version>8.5.13</version>
-            </dependency>
-
-            <dependency>
-                <groupId>jakarta.servlet</groupId>
-                <artifactId>jakarta.servlet-api</artifactId>
-                <version>6.0.0</version>
             </dependency>
 
             <dependency>
@@ -1770,10 +1754,6 @@
                     <exclusion>
                         <groupId>io.netty</groupId>
                         <artifactId>netty-tcnative-boringssl-static</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>jakarta.servlet</groupId>
-                        <artifactId>jakarta.servlet-api</artifactId>
                     </exclusion>
                     <exclusion>
                         <groupId>org.alluxio</groupId>
@@ -1924,6 +1904,13 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.orc</groupId>
+                <artifactId>orc-format</artifactId>
+                <version>1.0.0</version>
+                <classifier>shaded-protobuf</classifier>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.parquet</groupId>
                 <artifactId>parquet-avro</artifactId>
                 <version>${dep.parquet.version}</version>
@@ -2005,12 +1992,6 @@
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
                 <version>0.19.0</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>jakarta.servlet</groupId>
-                        <artifactId>jakarta.servlet-api</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -2297,22 +2278,11 @@
                         </execution>
                     </executions>
                 </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <version>${dep.plugin.surefire.version}</version>
-                    <configuration>
-                        <failIfNoTests>${failIfNoTests}</failIfNoTests>
-                    </configuration>
-                </plugin>
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
-                    <version>${dep.plugin.surefire.version}</version>
-                    <configuration>
-                        <failIfNoTests>${failIfNoTests}</failIfNoTests>
-                    </configuration>
+                    <version>${dep.plugin.failsafe.version}</version>
                 </plugin>
 
                 <plugin>

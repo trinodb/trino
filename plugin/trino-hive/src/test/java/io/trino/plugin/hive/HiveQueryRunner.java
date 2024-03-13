@@ -47,8 +47,6 @@ import java.util.function.Function;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
-import static io.trino.plugin.hive.security.HiveSecurityModule.ALLOW_ALL;
-import static io.trino.plugin.hive.security.HiveSecurityModule.SQL_STANDARD;
 import static io.trino.plugin.tpch.ColumnNaming.SIMPLIFIED;
 import static io.trino.plugin.tpch.DecimalTypeMapping.DOUBLE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -237,7 +235,7 @@ public final class HiveQueryRunner
                 }
                 hiveProperties.put("hive.max-partitions-per-scan", "1000");
                 hiveProperties.put("hive.max-partitions-for-eager-load", "1000");
-                hiveProperties.put("hive.security", SQL_STANDARD);
+                hiveProperties.put("hive.security", "sql-standard");
                 hiveProperties.putAll(this.hiveProperties.buildOrThrow());
 
                 if (tpchBucketedCatalogEnabled) {
@@ -384,7 +382,7 @@ public final class HiveQueryRunner
 
         QueryRunner queryRunner = builder()
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
-                .setHiveProperties(ImmutableMap.of("hive.security", ALLOW_ALL))
+                .setHiveProperties(ImmutableMap.of("hive.security", "allow-all"))
                 .setSkipTimezoneSetup(true)
                 .setInitialTables(TpchTable.getTables())
                 .setBaseDataDir(baseDataDir)

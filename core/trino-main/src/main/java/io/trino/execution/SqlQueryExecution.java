@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
@@ -24,6 +25,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -56,6 +58,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.planner.AdaptivePlanner;
 import io.trino.sql.planner.InputExtractor;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LogicalPlanner;
@@ -67,6 +70,7 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.SplitSourceFactory;
 import io.trino.sql.planner.SubPlan;
+import io.trino.sql.planner.optimizations.AdaptivePlanOptimizer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.tree.ExplainAnalyze;
@@ -95,6 +99,7 @@ import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.PLANNING;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.STACK_OVERFLOW;
+import static io.trino.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
@@ -116,6 +121,7 @@ public class SqlQueryExecution
     private final OutputStatsEstimatorFactory outputStatsEstimatorFactory;
     private final TaskExecutionStats taskExecutionStats;
     private final List<PlanOptimizer> planOptimizers;
+    private final List<AdaptivePlanOptimizer> adaptivePlanOptimizers;
     private final PlanFragmenter planFragmenter;
     private final RemoteTaskFactory remoteTaskFactory;
     private final int scheduleSplitBatchSize;
@@ -155,6 +161,7 @@ public class SqlQueryExecution
             OutputStatsEstimatorFactory outputStatsEstimatorFactory,
             TaskExecutionStats taskExecutionStats,
             List<PlanOptimizer> planOptimizers,
+            List<AdaptivePlanOptimizer> adaptivePlanOptimizers,
             PlanFragmenter planFragmenter,
             RemoteTaskFactory remoteTaskFactory,
             int scheduleSplitBatchSize,
@@ -207,6 +214,9 @@ public class SqlQueryExecution
 
             // analyze query
             this.analysis = analyze(preparedQuery, stateMachine, warningCollector, planOptimizersStatsCollector, analyzerFactory);
+
+            // for adaptive planner
+            this.adaptivePlanOptimizers = ImmutableList.copyOf(requireNonNull(adaptivePlanOptimizers, "adaptivePlanOptimizers is null"));
 
             stateMachine.addStateChangeListener(state -> {
                 if (!state.isDone()) {
@@ -401,11 +411,12 @@ public class SqlQueryExecution
                 }, directExecutor());
 
                 try {
-                    PlanRoot plan = planQuery();
+                    CachingTableStatsProvider tableStatsProvider = new CachingTableStatsProvider(plannerContext.getMetadata(), getSession());
+                    PlanRoot plan = planQuery(tableStatsProvider);
                     // DynamicFilterService needs plan for query to be registered.
                     // Query should be registered before dynamic filter suppliers are requested in distribution planning.
                     registerDynamicFilteringQuery(plan);
-                    planDistribution(plan);
+                    planDistribution(plan, tableStatsProvider);
                 }
                 finally {
                     synchronized (this) {
@@ -457,20 +468,20 @@ public class SqlQueryExecution
         stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
     }
 
-    private PlanRoot planQuery()
+    private PlanRoot planQuery(CachingTableStatsProvider tableStatsProvider)
     {
         Span span = tracer.spanBuilder("planner")
                 .setParent(Context.current().with(getSession().getQuerySpan()))
                 .startSpan();
         try (var ignored = scopedSpan(span)) {
-            return doPlanQuery();
+            return doPlanQuery(tableStatsProvider);
         }
         catch (StackOverflowError e) {
             throw new TrinoException(STACK_OVERFLOW, "statement is too large (stack overflow during analysis)", e);
         }
     }
 
-    private PlanRoot doPlanQuery()
+    private PlanRoot doPlanQuery(CachingTableStatsProvider tableStatsProvider)
     {
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -482,7 +493,8 @@ public class SqlQueryExecution
                 statsCalculator,
                 costCalculator,
                 stateMachine.getWarningCollector(),
-                planOptimizersStatsCollector);
+                planOptimizersStatsCollector,
+                tableStatsProvider);
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
 
@@ -503,7 +515,7 @@ public class SqlQueryExecution
         return new PlanRoot(fragmentedPlan, !explainAnalyze);
     }
 
-    private void planDistribution(PlanRoot plan)
+    private void planDistribution(PlanRoot plan, CachingTableStatsProvider tableStatsProvider)
     {
         // if query was canceled, skip creating scheduler
         if (stateMachine.isDone()) {
@@ -563,6 +575,16 @@ public class SqlQueryExecution
                         failureDetector,
                         dynamicFilterService,
                         taskExecutionStats,
+                        new AdaptivePlanner(
+                                stateMachine.getSession(),
+                                plannerContext,
+                                adaptivePlanOptimizers,
+                                planFragmenter,
+                                DISTRIBUTED_PLAN_SANITY_CHECKER,
+                                typeAnalyzer,
+                                stateMachine.getWarningCollector(),
+                                planOptimizersStatsCollector,
+                                tableStatsProvider),
                         plan.getRoot());
                 break;
             default:
@@ -755,6 +777,7 @@ public class SqlQueryExecution
         private final OutputStatsEstimatorFactory outputStatsEstimatorFactory;
         private final TaskExecutionStats taskExecutionStats;
         private final List<PlanOptimizer> planOptimizers;
+        private final List<AdaptivePlanOptimizer> adaptivePlanOptimizers;
         private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
         private final ExecutorService queryExecutor;
@@ -823,7 +846,9 @@ public class SqlQueryExecution
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicies = requireNonNull(executionPolicies, "executionPolicies is null");
-            this.planOptimizers = planOptimizersFactory.get();
+            requireNonNull(planOptimizersFactory, "planOptimizersFactory is null");
+            this.planOptimizers = planOptimizersFactory.getPlanOptimizers();
+            this.adaptivePlanOptimizers = planOptimizersFactory.getAdaptivePlanOptimizers();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
@@ -862,6 +887,7 @@ public class SqlQueryExecution
                     outputStatsEstimatorFactory,
                     taskExecutionStats,
                     planOptimizers,
+                    adaptivePlanOptimizers,
                     planFragmenter,
                     remoteTaskFactory,
                     scheduleSplitBatchSize,

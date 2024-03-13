@@ -21,6 +21,7 @@ import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -127,7 +128,7 @@ public class TestPruneExchangeColumns
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("a", expression("a")),
+                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
                                 exchange(
                                         REMOTE,
                                         GATHER,

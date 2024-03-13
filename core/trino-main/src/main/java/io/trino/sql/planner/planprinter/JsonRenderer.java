@@ -14,8 +14,10 @@
 package io.trino.sql.planner.planprinter;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Map;
@@ -33,18 +35,15 @@ public class JsonRenderer
     @Override
     public String render(PlanRepresentation plan)
     {
-        return CODEC.toJson(renderJson(plan, plan.getRoot()));
+        return CODEC.toJson(renderJson(plan, plan.getRoot(), false));
     }
 
-    protected JsonRenderedNode renderJson(PlanRepresentation plan, NodeRepresentation node)
+    protected JsonRenderedNode renderJson(PlanRepresentation plan, NodeRepresentation node, boolean isAdaptivePlanInitialNode)
     {
-        List<JsonRenderedNode> children = node.getChildren().stream()
-                .map(plan::getNode)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .map(n -> renderJson(plan, n))
-                .collect(toImmutableList());
-
+        ImmutableList.Builder<JsonRenderedNode> children = ImmutableList.builder();
+        // Add initial children first
+        children.addAll(renderChildren(plan, node.getInitialChildren(), true));
+        children.addAll(renderChildren(plan, node.getChildren(), isAdaptivePlanInitialNode));
         return new JsonRenderedNode(
                 node.getId().toString(),
                 node.getName(),
@@ -52,7 +51,17 @@ public class JsonRenderer
                 node.getOutputs(),
                 node.getDetails(),
                 node.getEstimates(),
-                children);
+                children.build());
+    }
+
+    private List<JsonRenderedNode> renderChildren(PlanRepresentation plan, List<PlanNodeId> children, boolean isAdaptivePlanInitialNode)
+    {
+        return children.stream()
+                .map(isAdaptivePlanInitialNode ? plan::getInitialNode : plan::getNode)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(n -> renderJson(plan, n, isAdaptivePlanInitialNode))
+                .collect(toImmutableList());
     }
 
     public static class JsonRenderedNode

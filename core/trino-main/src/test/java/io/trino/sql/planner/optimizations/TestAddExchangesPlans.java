@@ -37,8 +37,11 @@ import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
@@ -93,6 +96,9 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.TopNNode.Step.FINAL;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -297,14 +303,14 @@ public class TestAddExchangesPlans
                 "SELECT name FROM nation ORDER BY regionkey, name OFFSET 5 LIMIT 2",
                 output(
                         project(
-                                ImmutableMap.of("name", PlanMatchPattern.expression("name")),
+                                ImmutableMap.of("name", expression(new SymbolReference("name"))),
                                 filter(
-                                        "row_num > BIGINT '5'",
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), new GenericLiteral("BIGINT", "5")),
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),
                                                 project(
-                                                        ImmutableMap.of("name", PlanMatchPattern.expression("name")),
+                                                        ImmutableMap.of("name", expression(new SymbolReference("name"))),
                                                         topN(
                                                                 7,
                                                                 ImmutableList.of(sort("regionkey", ASCENDING, LAST), sort("name", ASCENDING, LAST)),
@@ -322,9 +328,9 @@ public class TestAddExchangesPlans
                 "SELECT name FROM nation OFFSET 5 LIMIT 2",
                 any(
                         project(
-                                ImmutableMap.of("name", PlanMatchPattern.expression("name")),
+                                ImmutableMap.of("name", expression(new SymbolReference("name"))),
                                 filter(
-                                        "row_num > BIGINT '5'",
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), new GenericLiteral("BIGINT", "5")),
                                         exchange(
                                                 LOCAL,
                                                 REPARTITION,
@@ -351,7 +357,7 @@ public class TestAddExchangesPlans
                                 pattern -> pattern
                                         .partitionBy(ImmutableList.of()),
                                 project(
-                                        ImmutableMap.of("name", expression("name")),
+                                        ImmutableMap.of("name", expression(new SymbolReference("name"))),
                                         topN(
                                                 5,
                                                 ImmutableList.of(sort("nationkey", ASCENDING, LAST)),
@@ -372,9 +378,9 @@ public class TestAddExchangesPlans
                                         LOCAL,
                                         GATHER,
                                         project(
-                                                ImmutableMap.of("b", expression("b")),
+                                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                                 filter(
-                                                        "a < 10",
+                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("10")),
                                                         exchange(
                                                                 LOCAL,
                                                                 REPARTITION,
@@ -395,7 +401,7 @@ public class TestAddExchangesPlans
                                         ImmutableList.of(),
                                         ImmutableSet.of("regionkey"),
                                         project(
-                                                ImmutableMap.of("regionkey", expression("regionkey")),
+                                                ImmutableMap.of("regionkey", expression(new SymbolReference("regionkey"))),
                                                 topN(
                                                         5,
                                                         ImmutableList.of(sort("nationkey", ASCENDING, LAST)),
@@ -418,9 +424,9 @@ public class TestAddExchangesPlans
                                         ImmutableList.of(),
                                         ImmutableSet.of("b"),
                                         project(
-                                                ImmutableMap.of("b", expression("b")),
+                                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                                 filter(
-                                                        "a < 10",
+                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("10")),
                                                         exchange(
                                                                 LOCAL,
                                                                 REPARTITION,
@@ -436,7 +442,7 @@ public class TestAddExchangesPlans
                                 ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of("name"))),
                                 PARTIAL,
                                 project(
-                                        ImmutableMap.of("name", expression("name")),
+                                        ImmutableMap.of("name", expression(new SymbolReference("name"))),
                                         exchange(
                                                 LOCAL,
                                                 REPARTITION,
@@ -457,9 +463,9 @@ public class TestAddExchangesPlans
                                 ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of("b"))),
                                 PARTIAL,
                                 project(
-                                        ImmutableMap.of("b", expression("b")),
+                                        ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                         filter(
-                                                "a < 10",
+                                                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("10")),
                                                 exchange(
                                                         LOCAL,
                                                         REPARTITION,
@@ -692,7 +698,7 @@ public class TestAddExchangesPlans
                                                                                 Optional.empty(),
                                                                                 PARTIAL,
                                                                                 project(
-                                                                                        ImmutableMap.of("partkey_expr", expression("partkey % BIGINT '10'")),
+                                                                                        ImmutableMap.of("partkey_expr", expression(new ArithmeticBinaryExpression(MODULUS, new SymbolReference("partkey"), new GenericLiteral("BIGINT", "10")))),
                                                                                         tableScan("lineitem", ImmutableMap.of(
                                                                                                 "partkey", "partkey",
                                                                                                 "suppkey", "suppkey"))))))))))))));
@@ -722,7 +728,7 @@ public class TestAddExchangesPlans
                                                         Optional.empty(),
                                                         Step.PARTIAL,
                                                         project(
-                                                                ImmutableMap.of("orderkey_expr", expression("orderkey % BIGINT '10000'")),
+                                                                ImmutableMap.of("orderkey_expr", expression(new ArithmeticBinaryExpression(MODULUS, new SymbolReference("orderkey"), new GenericLiteral("BIGINT", "10000")))),
                                                                 tableScan("lineitem", ImmutableMap.of(
                                                                         "partkey", "partkey",
                                                                         "orderkey", "orderkey",

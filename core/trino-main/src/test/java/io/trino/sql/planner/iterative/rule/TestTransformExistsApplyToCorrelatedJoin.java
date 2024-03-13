@@ -20,17 +20,26 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 
 public class TestTransformExistsApplyToCorrelatedJoin
         extends BaseRuleTest
@@ -64,7 +73,7 @@ public class TestTransformExistsApplyToCorrelatedJoin
                         ImmutableList.of(),
                         values(ImmutableMap.of()),
                         project(
-                                ImmutableMap.of("b", PlanMatchPattern.expression("(\"count_expr\" > CAST(0 AS bigint))")),
+                                ImmutableMap.of("b", PlanMatchPattern.expression(new ComparisonExpression(GREATER_THAN, new SymbolReference("count_expr"), new Cast(new LongLiteral("0"), dataType("bigint"))))),
                                 aggregation(ImmutableMap.of("count_expr", aggregationFunction("count", ImmutableList.of())),
                                         values()))));
     }
@@ -80,15 +89,15 @@ public class TestTransformExistsApplyToCorrelatedJoin
                                 p.values(p.symbol("corr")),
                                 p.project(Assignments.of(),
                                         p.filter(
-                                                expression("corr = column"),
+                                                new ComparisonExpression(EQUAL, new SymbolReference("corr"), new SymbolReference("column")),
                                                 p.values(p.symbol("column"))))))
                 .matches(
-                        project(ImmutableMap.of("b", PlanMatchPattern.expression("COALESCE(subquerytrue, false)")),
+                        project(ImmutableMap.of("b", PlanMatchPattern.expression(new CoalesceExpression(new SymbolReference("subquerytrue"), FALSE_LITERAL))),
                                 correlatedJoin(
                                         ImmutableList.of("corr"),
                                         values("corr"),
                                         project(
-                                                ImmutableMap.of("subquerytrue", PlanMatchPattern.expression("true")),
+                                                ImmutableMap.of("subquerytrue", PlanMatchPattern.expression(TRUE_LITERAL)),
                                                 limit(1,
                                                         project(ImmutableMap.of(),
                                                                 node(FilterNode.class,

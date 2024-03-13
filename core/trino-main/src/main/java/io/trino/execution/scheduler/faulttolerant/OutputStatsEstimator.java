@@ -24,6 +24,8 @@ import static java.util.Objects.requireNonNull;
 
 public interface OutputStatsEstimator
 {
+    OutputStatsEstimateResult UNKNOWN = new OutputStatsEstimateResult(ImmutableLongArray.of(), 0, "UNKNOWN", false);
+
     Optional<OutputStatsEstimateResult> getEstimatedOutputStats(
             EventDrivenFaultTolerantQueryScheduler.StageExecution stageExecution,
             Function<StageId, EventDrivenFaultTolerantQueryScheduler.StageExecution> stageExecutionLookup,
@@ -32,17 +34,28 @@ public interface OutputStatsEstimator
     record OutputStatsEstimateResult(
             OutputDataSizeEstimate outputDataSizeEstimate,
             long outputRowCountEstimate,
-            String kind)
+            String kind,
+            boolean isAccurate)
     {
-        OutputStatsEstimateResult(ImmutableLongArray partitionDataSizes, long outputRowCountEstimate, String kind)
+        public OutputStatsEstimateResult(ImmutableLongArray partitionDataSizes, long outputRowCountEstimate, String kind, boolean isAccurate)
         {
-            this(new OutputDataSizeEstimate(partitionDataSizes), outputRowCountEstimate, kind);
+            this(new OutputDataSizeEstimate(partitionDataSizes), outputRowCountEstimate, kind, isAccurate);
         }
 
         public OutputStatsEstimateResult
         {
             requireNonNull(outputDataSizeEstimate, "outputDataSizeEstimate is null");
             requireNonNull(kind, "kind is null");
+        }
+
+        public static OutputStatsEstimateResult unknown()
+        {
+            return UNKNOWN;
+        }
+
+        public boolean isUnknown()
+        {
+            return this == UNKNOWN;
         }
     }
 }

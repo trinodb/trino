@@ -24,13 +24,13 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
-import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -84,7 +84,7 @@ public class TestPruneWindowColumns
                 .on(p -> buildProjectedWindow(p, symbol -> inputSymbolNameSet.contains(symbol.getName()), alwaysTrue()))
                 .matches(
                         strictProject(
-                                Maps.asMap(inputSymbolNameSet, PlanMatchPattern::expression),
+                                Maps.asMap(inputSymbolNameSet, symbol -> expression(new SymbolReference(symbol))),
                                 values(inputSymbolNameList)));
     }
 
@@ -98,8 +98,8 @@ public class TestPruneWindowColumns
                 .matches(
                         strictProject(
                                 ImmutableMap.of(
-                                        "output2", expression("output2"),
-                                        "unused", expression("unused")),
+                                        "output2", expression(new SymbolReference("output2")),
+                                        "unused", expression(new SymbolReference("unused"))),
                                 window(windowBuilder -> windowBuilder
                                                 .prePartitionedInputs(ImmutableSet.of())
                                                 .specification(
@@ -116,7 +116,7 @@ public class TestPruneWindowColumns
                                         strictProject(
                                                 Maps.asMap(
                                                         Sets.difference(inputSymbolNameSet, ImmutableSet.of("input1", "startValue1", "endValue1")),
-                                                        PlanMatchPattern::expression),
+                                                        symbol -> expression(new SymbolReference(symbol))),
                                                 values(inputSymbolNameList)))));
     }
 
@@ -154,8 +154,8 @@ public class TestPruneWindowColumns
                 .matches(
                         strictProject(
                                 ImmutableMap.of(
-                                        "output1", expression("output1"),
-                                        "output2", expression("output2")),
+                                        "output1", expression(new SymbolReference("output1")),
+                                        "output2", expression(new SymbolReference("output2"))),
                                 window(windowBuilder -> windowBuilder
                                                 .prePartitionedInputs(ImmutableSet.of())
                                                 .specification(
@@ -177,7 +177,7 @@ public class TestPruneWindowColumns
                                         strictProject(
                                                 Maps.asMap(
                                                         Sets.filter(inputSymbolNameSet, symbolName -> !symbolName.equals("unused")),
-                                                        PlanMatchPattern::expression),
+                                                        symbol -> expression(new SymbolReference(symbol))),
                                                 values(inputSymbolNameList)))));
     }
 

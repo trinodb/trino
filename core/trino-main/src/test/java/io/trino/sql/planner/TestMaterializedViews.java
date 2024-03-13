@@ -38,7 +38,11 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeParameter;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.PlanTester;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
@@ -56,6 +60,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneParametricType.TIMESTAMP_WI
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -65,6 +70,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableWriter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingMetadata.STALE_MV_STALENESS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -306,8 +313,8 @@ public class TestMaterializedViews
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "A_CAST", expression("CAST(A as BIGINT) + BIGINT '1'"),
-                                        "B_CAST", expression("CAST(B as BIGINT)")),
+                                        "A_CAST", expression(new ArithmeticBinaryExpression(ADD, new Cast(new SymbolReference("A"), dataType("bigint")), new GenericLiteral("BIGINT", "1"))),
+                                        "B_CAST", expression(new Cast(new SymbolReference("B"), dataType("bigint")))),
                                 tableScan("storage_table_with_casts", ImmutableMap.of("A", "a", "B", "b")))));
     }
 
@@ -318,7 +325,9 @@ public class TestMaterializedViews
                 anyTree(
                         tableWriter(List.of("A_CAST", "B_CAST"), List.of("a", "b"),
                                 exchange(LOCAL,
-                                        project(Map.of("A_CAST", expression("CAST(A AS tinyint)"), "B_CAST", expression("CAST(B AS varchar)")),
+                                        project(Map.of(
+                                                        "A_CAST", expression(new Cast(new SymbolReference("A"), dataType("tinyint"))),
+                                                        "B_CAST", expression(new Cast(new SymbolReference("B"), dataType("varchar")))),
                                                 tableScan("test_table", Map.of("A", "a", "B", "b")))))));
 
         // No-op REFRESH
@@ -332,9 +341,9 @@ public class TestMaterializedViews
     {
         assertPlan("SELECT * FROM timestamp_mv_test WHERE ts < TIMESTAMP '2024-01-01 00:00:00.000 America/New_York'",
                 anyTree(
-                        project(ImmutableMap.of("ts_0", expression("CAST(ts AS timestamp(3) with time zone)")),
+                        project(ImmutableMap.of("ts_0", expression(new Cast(new SymbolReference("ts"), dataType("timestamp(3) with time zone")))),
                                 filter(
-                                        "CAST(ts AS timestamp(3) with time zone) < TIMESTAMP '2024-01-01 00:00:00.000 America/New_York'",
+                                        new ComparisonExpression(LESS_THAN, new Cast(new SymbolReference("ts"), dataType("timestamp(3) with time zone")), new GenericLiteral("TIMESTAMP", "2024-01-01 00:00:00.000 America/New_York")),
                                         tableScan("timestamp_test_storage", ImmutableMap.of("ts", "ts", "id", "id"))))));
     }
 

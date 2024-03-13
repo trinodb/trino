@@ -21,7 +21,6 @@ import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
@@ -31,6 +30,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NotExpression;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.HashSet;
 import java.util.List;
@@ -212,7 +212,7 @@ public final class JoinMatcher
         private Optional<Boolean> expectedSpillable = Optional.empty();
         private PlanMatchPattern left;
         private PlanMatchPattern right;
-        private Optional<String> filter = Optional.empty();
+        private Optional<Expression> filter = Optional.empty();
         private boolean ignoreEquiCriteria;
 
         public Builder(JoinType joinType)
@@ -237,7 +237,7 @@ public final class JoinMatcher
         }
 
         @CanIgnoreReturnValue
-        public Builder filter(String expectedFilter)
+        public Builder filter(Expression expectedFilter)
         {
             this.filter = Optional.of(expectedFilter);
 
@@ -245,7 +245,7 @@ public final class JoinMatcher
         }
 
         @CanIgnoreReturnValue
-        public Builder dynamicFilter(Map<String, String> expectedDynamicFilter)
+        public Builder dynamicFilter(Map<Expression, String> expectedDynamicFilter)
         {
             this.dynamicFilter = Optional.of(expectedDynamicFilter.entrySet().stream()
                     .map(entry -> new PlanMatchPattern.DynamicFilterPattern(entry.getKey(), EQUAL, entry.getValue()))
@@ -257,7 +257,7 @@ public final class JoinMatcher
         @CanIgnoreReturnValue
         public Builder dynamicFilter(String key, String value)
         {
-            this.dynamicFilter = Optional.of(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern(key, EQUAL, value)));
+            this.dynamicFilter = Optional.of(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern(new SymbolReference(key), EQUAL, value)));
 
             return this;
         }
@@ -316,7 +316,7 @@ public final class JoinMatcher
                                     joinType,
                                     equiCriteria.orElse(ImmutableList.of()),
                                     ignoreEquiCriteria,
-                                    filter.map(PlanBuilder::expression),
+                                    filter,
                                     distributionType,
                                     expectedSpillable,
                                     dynamicFilter));

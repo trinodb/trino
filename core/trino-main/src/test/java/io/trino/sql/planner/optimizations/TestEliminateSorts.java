@@ -27,6 +27,10 @@ import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.rule.DetermineTableScanNodePartitioning;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -34,12 +38,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 
 public class TestEliminateSorts
         extends BasePlanTest
@@ -88,7 +94,8 @@ public class TestEliminateSorts
                 anyTree(
                         sort(
                                 anyTree(
-                                        filter("QUANTITY > CAST(10 AS DOUBLE)",
+                                        filter(
+                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("QUANTITY"), new Cast(new LongLiteral("10"), dataType("double"))),
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(windowSpec)
                                                                 .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),

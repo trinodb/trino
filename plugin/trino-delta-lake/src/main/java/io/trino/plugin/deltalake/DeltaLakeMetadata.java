@@ -177,6 +177,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.primitives.Ints.max;
 import static io.trino.filesystem.Locations.appendPath;
@@ -1012,8 +1013,17 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public DeltaLakeOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
+    public DeltaLakeOutputTableHandle beginCreateTable(
+            ConnectorSession session,
+            ConnectorTableMetadata tableMetadata,
+            Optional<ConnectorTableLayout> layout,
+            RetryMode retryMode,
+            boolean replace)
     {
+        if (replace) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
+        }
+
         validateTableColumns(tableMetadata);
 
         SchemaTableName schemaTableName = tableMetadata.getTable();
@@ -2130,11 +2140,9 @@ public class DeltaLakeMetadata
     public Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
-        switch (executeHandle.getProcedureId()) {
-            case OPTIMIZE:
-                return getLayoutForOptimize(executeHandle);
-        }
-        throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
+        return switch (executeHandle.getProcedureId()) {
+            case OPTIMIZE -> getLayoutForOptimize(executeHandle);
+        };
     }
 
     private Optional<ConnectorTableLayout> getLayoutForOptimize(DeltaLakeTableExecuteHandle executeHandle)
@@ -2145,7 +2153,7 @@ public class DeltaLakeMetadata
             return Optional.empty();
         }
         Map<String, DeltaLakeColumnHandle> columnsByName = optimizeHandle.getTableColumns().stream()
-                .collect(toImmutableMap(columnHandle -> columnHandle.getColumnName(), identity()));
+                .collect(toImmutableMap(DeltaLakeColumnHandle::getColumnName, identity()));
         ImmutableList.Builder<DeltaLakeColumnHandle> partitioningColumns = ImmutableList.builder();
         for (String columnName : partitionColumnNames) {
             partitioningColumns.add(columnsByName.get(columnName));
@@ -2162,11 +2170,9 @@ public class DeltaLakeMetadata
     {
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
         DeltaLakeTableHandle table = (DeltaLakeTableHandle) updatedSourceTableHandle;
-        switch (executeHandle.getProcedureId()) {
-            case OPTIMIZE:
-                return beginOptimize(session, executeHandle, table);
-        }
-        throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
+        return switch (executeHandle.getProcedureId()) {
+            case OPTIMIZE -> beginOptimize(session, executeHandle, table);
+        };
     }
 
     private BeginTableExecuteResult<ConnectorTableExecuteHandle, ConnectorTableHandle> beginOptimize(
@@ -2888,8 +2894,8 @@ public class DeltaLakeMetadata
         ImmutableList.Builder<Integer> dereferenceIndices = ImmutableList.builder();
 
         if (!column.isBaseColumn()) {
-            dereferenceNames.addAll(existingProjectionInfo.get().getDereferencePhysicalNames());
-            dereferenceIndices.addAll(existingProjectionInfo.get().getDereferenceIndices());
+            dereferenceNames.addAll(existingProjectionInfo.orElseThrow().getDereferencePhysicalNames());
+            dereferenceIndices.addAll(existingProjectionInfo.orElseThrow().getDereferenceIndices());
         }
 
         Type columnType = switch (columnMappingMode) {
@@ -3221,7 +3227,7 @@ public class DeltaLakeMetadata
         List<AddFileEntry> updatedAddFileEntries = computedStatistics.stream()
                 .map(statistics -> {
                     // Grouping by `PATH_COLUMN_NAME`.
-                    String filePathFromStatistics = VARCHAR.getSlice(statistics.getGroupingValues().get(0), 0).toStringUtf8();
+                    String filePathFromStatistics = VARCHAR.getSlice(getOnlyElement(statistics.getGroupingValues()), 0).toStringUtf8();
                     // Check if collected statistics are for files without stats.
                     // If AddFileEntry is present in addFileEntriesWithNoStats means that it does not have statistics so prepare updated entry.
                     // If null is returned from addFileEntriesWithNoStats means that statistics are present, and we don't need to do anything.
@@ -3665,7 +3671,7 @@ public class DeltaLakeMetadata
             columnType = column.getBaseType();
         }
         else {
-            DeltaLakeColumnProjectionInfo projectionInfo = column.getProjectionInfo().get();
+            DeltaLakeColumnProjectionInfo projectionInfo = column.getProjectionInfo().orElseThrow();
             columnName = column.getQualifiedPhysicalName();
             columnType = projectionInfo.getType();
         }

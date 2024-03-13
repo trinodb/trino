@@ -366,11 +366,8 @@ the catalog properties file. This property must be one of the following values:
 
 * - Property value
   - Description
-* - `legacy` (default value)
-  - Few authorization checks are enforced, thus allowing most operations. The
-    config properties `hive.allow-drop-table`, `hive.allow-rename-table`,
-    `hive.allow-add-column`, `hive.allow-drop-column` and
-    `hive.allow-rename-column` are used.
+* - `allow-all` (default value)
+  - No authorization checks are enforced.
 * - `read-only`
   - Operations that read data or metadata, such as `SELECT`, are permitted, but
     none of the operations that write data or metadata, such as `CREATE`,
@@ -388,8 +385,6 @@ the catalog properties file. This property must be one of the following values:
     [](/sql/revoke) commands.
 
     See the [](hive-sql-standard-based-authorization) section for details.
-* - `allow-all`
-  - No authorization checks are enforced.
 :::
 
 (hive-sql-standard-based-authorization)=

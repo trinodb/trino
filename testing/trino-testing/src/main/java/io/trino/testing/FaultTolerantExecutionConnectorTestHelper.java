@@ -54,6 +54,7 @@ public final class FaultTolerantExecutionConnectorTestHelper
     public static Map<String, String> enforceRuntimeAdaptivePartitioningProperties()
     {
         return ImmutableMap.<String, String>builder()
+                .put("fault-tolerant-execution-adaptive-query-planning-enabled", "true")
                 .put("fault-tolerant-execution-runtime-adaptive-partitioning-enabled", "true")
                 .put("fault-tolerant-execution-runtime-adaptive-partitioning-partition-count", "40")
                 // to ensure runtime adaptive partitioning is triggered

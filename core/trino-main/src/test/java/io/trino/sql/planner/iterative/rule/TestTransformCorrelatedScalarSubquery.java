@@ -19,10 +19,11 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SimpleCaseExpression;
@@ -45,10 +46,12 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 
 public class TestTransformCorrelatedScalarSubquery
         extends BaseRuleTest
@@ -84,7 +87,7 @@ public class TestTransformCorrelatedScalarSubquery
                 .on(p -> p.correlatedJoin(
                         ImmutableList.<Symbol>of(),
                         p.values(p.symbol("a")),
-                        p.values(ImmutableList.of(p.symbol("b")), ImmutableList.of(expressions("1")))))
+                        p.values(ImmutableList.of(p.symbol("b")), ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))))
                 .doesNotFire();
     }
 
@@ -97,7 +100,7 @@ public class TestTransformCorrelatedScalarSubquery
                         p.values(p.symbol("corr")),
                         p.enforceSingleRow(
                                 p.filter(
-                                        PlanBuilder.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                        new ComparisonExpression(EQUAL, new LongLiteral("1"), new SymbolReference("a")), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                         p.values(ImmutableList.of(p.symbol("a")), TWO_ROWS)))))
                 .matches(
                         project(
@@ -112,7 +115,7 @@ public class TestTransformCorrelatedScalarSubquery
                                                                 "unique",
                                                                 values("corr")),
                                                         filter(
-                                                                "1 = a",
+                                                                new ComparisonExpression(EQUAL, new LongLiteral("1"), new SymbolReference("a")),
                                                                 values("a")))))));
     }
 
@@ -125,9 +128,9 @@ public class TestTransformCorrelatedScalarSubquery
                         p.values(p.symbol("corr")),
                         p.enforceSingleRow(
                                 p.project(
-                                        Assignments.of(p.symbol("a2"), PlanBuilder.expression("a * 2")),
+                                        Assignments.of(p.symbol("a2"), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new LongLiteral("2"))),
                                         p.filter(
-                                                PlanBuilder.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                                new ComparisonExpression(EQUAL, new LongLiteral("1"), new SymbolReference("a")), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                                 p.values(ImmutableList.of(p.symbol("a")), TWO_ROWS))))))
                 .matches(
                         project(
@@ -141,8 +144,9 @@ public class TestTransformCorrelatedScalarSubquery
                                                         assignUniqueId(
                                                                 "unique",
                                                                 values("corr")),
-                                                        project(ImmutableMap.of("a2", expression("a * 2")),
-                                                                filter("1 = a",
+                                                        project(ImmutableMap.of("a2", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new LongLiteral("2")))),
+                                                                filter(
+                                                                        new ComparisonExpression(EQUAL, new LongLiteral("1"), new SymbolReference("a")),
                                                                         values("a"))))))));
     }
 
@@ -154,12 +158,12 @@ public class TestTransformCorrelatedScalarSubquery
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.project(
-                                Assignments.of(p.symbol("a3"), PlanBuilder.expression("a2 + 1")),
+                                Assignments.of(p.symbol("a3"), new ArithmeticBinaryExpression(ADD, new SymbolReference("a2"), new LongLiteral("1"))),
                                 p.enforceSingleRow(
                                         p.project(
-                                                Assignments.of(p.symbol("a2"), PlanBuilder.expression("a * 2")),
+                                                Assignments.of(p.symbol("a2"), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new LongLiteral("2"))),
                                                 p.filter(
-                                                        PlanBuilder.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                                        new ComparisonExpression(EQUAL, new LongLiteral("1"), new SymbolReference("a")), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                                         p.values(ImmutableList.of(p.symbol("a")), TWO_ROWS)))))))
                 .matches(
                         project(
@@ -174,11 +178,11 @@ public class TestTransformCorrelatedScalarSubquery
                                                                 "unique",
                                                                 values("corr")),
                                                         project(
-                                                                ImmutableMap.of("a3", expression("a2 + 1")),
+                                                                ImmutableMap.of("a3", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a2"), new LongLiteral("1")))),
                                                                 project(
-                                                                        ImmutableMap.of("a2", expression("a * 2")),
+                                                                        ImmutableMap.of("a2", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new LongLiteral("2")))),
                                                                         filter(
-                                                                                "1 = a",
+                                                                                new ComparisonExpression(EQUAL, new LongLiteral("1"), new SymbolReference("a")),
                                                                                 values("a")))))))));
     }
 
@@ -194,14 +198,14 @@ public class TestTransformCorrelatedScalarSubquery
                         TRUE_LITERAL,
                         p.enforceSingleRow(
                                 p.filter(
-                                        PlanBuilder.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                        new ComparisonExpression(EQUAL, new LongLiteral("1"), new SymbolReference("a")), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                         p.values(ImmutableList.of(p.symbol("a")), ONE_ROW)))))
                 .matches(
                         correlatedJoin(
                                 ImmutableList.of("corr"),
                                 values("corr"),
                                 filter(
-                                        "1 = a",
+                                        new ComparisonExpression(EQUAL, new LongLiteral("1"), new SymbolReference("a")),
                                         values("a")))
                                 .with(CorrelatedJoinNode.class, join -> join.getType() == LEFT));
     }

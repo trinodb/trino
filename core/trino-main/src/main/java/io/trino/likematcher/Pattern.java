@@ -13,8 +13,6 @@
  */
 package io.trino.likematcher;
 
-import com.google.common.base.Strings;
-
 import static com.google.common.base.Preconditions.checkArgument;
 
 sealed interface Pattern
@@ -51,7 +49,7 @@ sealed interface Pattern
         @Override
         public String toString()
         {
-            return Strings.repeat("_", length);
+            return "_".repeat(length);
         }
     }
 }

@@ -13,17 +13,27 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.tree.LogicalExpression.Operator.AND;
+import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 
 public class TestInlineProjectIntoFilter
         extends BaseRuleTest
@@ -34,17 +44,17 @@ public class TestInlineProjectIntoFilter
     {
         tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a"),
+                        new SymbolReference("a"),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("b > 0")),
+                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0"))),
                                 p.values(p.symbol("b")))))
                 .matches(
                         project(
-                                ImmutableMap.of("a", expression("true")),
+                                ImmutableMap.of("a", expression(TRUE_LITERAL)),
                                 filter(
-                                        "b > 0",
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0")),
                                         project(
-                                                ImmutableMap.of("b", expression("b")),
+                                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                                 values("b")))));
 
         tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
@@ -54,22 +64,22 @@ public class TestInlineProjectIntoFilter
                     Symbol c = p.symbol("c");
                     Symbol d = p.symbol("d");
                     return p.filter(
-                            PlanBuilder.expression("a AND b > c"),
+                            new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("c")))),
                             p.project(
                                     Assignments.builder()
-                                            .put(a, PlanBuilder.expression("d IS NULL"))
-                                            .put(b, PlanBuilder.expression("b"))
-                                            .put(c, PlanBuilder.expression("c"))
+                                            .put(a, new IsNullPredicate(new SymbolReference("d")))
+                                            .put(b, new SymbolReference("b"))
+                                            .put(c, new SymbolReference("c"))
                                             .build(),
                                     p.values(b, c, d)));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression("b"), "c", expression("c"), "a", expression("true")),
+                                ImmutableMap.of("b", expression(new SymbolReference("b")), "c", expression(new SymbolReference("c")), "a", expression(TRUE_LITERAL)),
                                 filter(
-                                        "d IS NULL AND b > c",
+                                        new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference("d")), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("c")))),
                                         project(
-                                                ImmutableMap.of("d", expression("d"), "b", expression("b"), "c", expression("c")),
+                                                ImmutableMap.of("d", expression(new SymbolReference("d")), "b", expression(new SymbolReference("b")), "c", expression(new SymbolReference("c"))),
                                                 values("b", "c", "d")))));
     }
 
@@ -78,9 +88,9 @@ public class TestInlineProjectIntoFilter
     {
         tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a OR false"),
+                        new LogicalExpression(OR, ImmutableList.of(new SymbolReference("a"), FALSE_LITERAL)),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("b > 0")),
+                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0"))),
                                 p.values(p.symbol("b")))))
                 .doesNotFire();
     }
@@ -90,17 +100,17 @@ public class TestInlineProjectIntoFilter
     {
         tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a AND a"),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new SymbolReference("a"))),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("b > 0")),
+                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0"))),
                                 p.values(p.symbol("b")))))
                 .doesNotFire();
 
         tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a AND (a OR false)"),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("a"), FALSE_LITERAL)))),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("b > 0")),
+                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0"))),
                                 p.values(p.symbol("b")))))
                 .doesNotFire();
     }
@@ -110,16 +120,18 @@ public class TestInlineProjectIntoFilter
     {
         tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a AND b"),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("c > 0"), p.symbol("b"), PlanBuilder.expression("c > 5")),
+                                Assignments.of(
+                                        p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new LongLiteral("0")),
+                                        p.symbol("b"), new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new LongLiteral("5"))),
                                 p.values(p.symbol("c")))))
                 .matches(
                         project(
                                 filter(
-                                        "c > 0 AND c > 5",
+                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new LongLiteral("0")), new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new LongLiteral("5")))),
                                         project(
-                                                ImmutableMap.of("c", expression("c")),
+                                                ImmutableMap.of("c", expression(new SymbolReference("c"))),
                                                 values("c")))));
     }
 
@@ -128,17 +140,21 @@ public class TestInlineProjectIntoFilter
     {
         tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a AND a AND b"),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new SymbolReference("a"), new SymbolReference("b"))),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("c > 0"), p.symbol("b"), PlanBuilder.expression("c > 5")),
+                                Assignments.of(
+                                        p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new LongLiteral("0")),
+                                        p.symbol("b"), new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new LongLiteral("5"))),
                                 p.values(p.symbol("c")))))
                 .matches(
                         project(
-                                ImmutableMap.of("a", expression("a"), "b", expression("true")),
+                                ImmutableMap.of("a", expression(new SymbolReference("a")), "b", expression(TRUE_LITERAL)),
                                 filter(
-                                        "a AND c > 5", // combineConjuncts() removed duplicate conjunct `a`. The predicate is now eligible for further inlining.
+                                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new LongLiteral("5")))), // combineConjuncts() removed duplicate conjunct `a`. The predicate is now eligible for further inlining.
                                         project(
-                                                ImmutableMap.of("a", expression("c > 0"), "c", expression("c")),
+                                                ImmutableMap.of(
+                                                        "a", expression(new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new LongLiteral("0"))),
+                                                        "c", expression(new SymbolReference("c"))),
                                                 values("c")))));
     }
 
@@ -148,18 +164,18 @@ public class TestInlineProjectIntoFilter
         // identity projection
         tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a"),
+                        new SymbolReference("a"),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("a")),
+                                Assignments.of(p.symbol("a"), new SymbolReference("a")),
                                 p.values(p.symbol("a")))))
                 .doesNotFire();
 
         // renaming projection
         tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
-                        PlanBuilder.expression("a"),
+                        new SymbolReference("a"),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("b")),
+                                Assignments.of(p.symbol("a"), new SymbolReference("b")),
                                 p.values(p.symbol("b")))))
                 .doesNotFire();
     }
@@ -169,9 +185,9 @@ public class TestInlineProjectIntoFilter
     {
         tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
-                        PlanBuilder.expression("corr"),
+                        new SymbolReference("corr"),
                         p.project(
-                                Assignments.of(p.symbol("a"), PlanBuilder.expression("b > 0")),
+                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0"))),
                                 p.values(p.symbol("b")))))
                 .doesNotFire();
     }

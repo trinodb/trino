@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cost.CachingTableStatsProvider;
+import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -36,6 +37,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
@@ -102,7 +104,9 @@ public class TestUnaliasSymbolReferences
                             ImmutableMap.of(dynamicFilterId1, buildAlias1, dynamicFilterId2, buildAlias2));
                 },
                 join(INNER, builder -> builder
-                        .dynamicFilter(ImmutableMap.of("probeColumn1", "column", "probeColumn2", "column"))
+                        .dynamicFilter(ImmutableMap.of(
+                                new SymbolReference("probeColumn1"), "column",
+                                new SymbolReference("probeColumn2"), "column"))
                         .left(
                                 filter(
                                         TRUE_LITERAL,
@@ -158,7 +162,8 @@ public class TestUnaliasSymbolReferences
                             idAllocator,
                             WarningCollector.NOOP,
                             createPlanOptimizersStatsCollector(),
-                            new CachingTableStatsProvider(metadata, session)));
+                            new CachingTableStatsProvider(metadata, session),
+                            RuntimeInfoProvider.noImplementation()));
 
             Plan actual = new Plan(optimized, planBuilder.getTypes(), StatsAndCosts.empty());
             PlanAssert.assertPlan(session, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), planTester.getStatsCalculator(), actual, pattern);

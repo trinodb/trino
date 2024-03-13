@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -20,6 +21,8 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +37,7 @@ import static io.trino.sql.tree.ComparisonExpression.Operator;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 import static io.trino.sql.tree.LogicalExpression.and;
 
 public class TestPushInequalityFilterExpressionBelowJoinRuleSet
@@ -78,10 +82,10 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         join(INNER, builder -> builder
-                                .filter("expr < a")
+                                .filter(new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new SymbolReference("a")))
                                 .left(values("a"))
                                 .right(project(
-                                        ImmutableMap.of("expr", expression("b + BIGINT '1'")),
+                                        ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new GenericLiteral("BIGINT", "1")))),
                                         values("b")))));
     }
 
@@ -102,13 +106,13 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         join(INNER, builder -> builder
-                                .filter("expr_less < a and expr_greater > a")
+                                .filter(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("expr_less"), new SymbolReference("a")), new ComparisonExpression(GREATER_THAN, new SymbolReference("expr_greater"), new SymbolReference("a")))))
                                 .left(values("a"))
                                 .right(
                                         project(
                                                 ImmutableMap.of(
-                                                        "expr_less", expression("b + BIGINT '1'"),
-                                                        "expr_greater", expression("b + BIGINT '10'")),
+                                                        "expr_less", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new GenericLiteral("BIGINT", "1"))),
+                                                        "expr_greater", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new GenericLiteral("BIGINT", "10")))),
                                                 values("b")))));
     }
 
@@ -127,11 +131,11 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         join(INNER, builder -> builder
-                                .filter("expr < a + BIGINT '2'")
+                                .filter(new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new GenericLiteral("BIGINT", "2"))))
                                 .left(values("a"))
                                 .right(
                                         project(
-                                                ImmutableMap.of("expr", expression("b + BIGINT '1'")),
+                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new GenericLiteral("BIGINT", "1")))),
                                                 values("b")))));
     }
 
@@ -168,13 +172,14 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         project(
-                                filter("expr < a",
+                                filter(
+                                        new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new SymbolReference("a")),
                                         join(INNER, builder -> builder
                                                 .left(
                                                         values("a"))
                                                 .right(
                                                         project(
-                                                                ImmutableMap.of("expr", expression("b + BIGINT '1'")),
+                                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new GenericLiteral("BIGINT", "1")))),
                                                                 values("b")))))));
     }
 
@@ -196,14 +201,14 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         project(
-                                filter("expr_less < a and expr_greater > a",
+                                filter(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("expr_less"), new SymbolReference("a")), new ComparisonExpression(GREATER_THAN, new SymbolReference("expr_greater"), new SymbolReference("a")))),
                                         join(INNER, builder -> builder
                                                 .left(values("a"))
                                                 .right(
                                                         project(
                                                                 ImmutableMap.of(
-                                                                        "expr_less", expression("b + BIGINT '1'"),
-                                                                        "expr_greater", expression("b + BIGINT '10'")),
+                                                                        "expr_less", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new GenericLiteral("BIGINT", "1"))),
+                                                                        "expr_greater", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new GenericLiteral("BIGINT", "10")))),
                                                                 values("b")))))));
     }
 
@@ -224,15 +229,16 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         project(
-                                filter("parent_expression < a",
+                                filter(
+                                        new ComparisonExpression(LESS_THAN, new SymbolReference("parent_expression"), new SymbolReference("a")),
                                         join(INNER, builder -> builder
-                                                .filter("join_expression < a")
+                                                .filter(new ComparisonExpression(LESS_THAN, new SymbolReference("join_expression"), new SymbolReference("a")))
                                                 .left(values("a"))
                                                 .right(
                                                         project(
                                                                 ImmutableMap.of(
-                                                                        "join_expression", expression("b + BIGINT '2'"),
-                                                                        "parent_expression", expression("b + BIGINT '1'")),
+                                                                        "join_expression", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new GenericLiteral("BIGINT", "2"))),
+                                                                        "parent_expression", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new GenericLiteral("BIGINT", "1")))),
                                                                 values("b"))))
                                                 .withExactOutputs("a", "b", "parent_expression"))));
     }

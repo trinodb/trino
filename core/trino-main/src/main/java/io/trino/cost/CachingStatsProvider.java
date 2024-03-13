@@ -42,15 +42,23 @@ public final class CachingStatsProvider
     private final Session session;
     private final TypeProvider types;
     private final TableStatsProvider tableStatsProvider;
+    private final RuntimeInfoProvider runtimeInfoProvider;
 
     private final Map<PlanNode, PlanNodeStatsEstimate> cache = new IdentityHashMap<>();
 
     public CachingStatsProvider(StatsCalculator statsCalculator, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
-        this(statsCalculator, Optional.empty(), noLookup(), session, types, tableStatsProvider);
+        this(statsCalculator, Optional.empty(), noLookup(), session, types, tableStatsProvider, RuntimeInfoProvider.noImplementation());
     }
 
-    public CachingStatsProvider(StatsCalculator statsCalculator, Optional<Memo> memo, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    public CachingStatsProvider(
+            StatsCalculator statsCalculator,
+            Optional<Memo> memo,
+            Lookup lookup,
+            Session session,
+            TypeProvider types,
+            TableStatsProvider tableStatsProvider,
+            RuntimeInfoProvider runtimeInfoProvider)
     {
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.memo = requireNonNull(memo, "memo is null");
@@ -58,6 +66,7 @@ public final class CachingStatsProvider
         this.session = requireNonNull(session, "session is null");
         this.types = requireNonNull(types, "types is null");
         this.tableStatsProvider = requireNonNull(tableStatsProvider, "tableStatsProvider is null");
+        this.runtimeInfoProvider = requireNonNull(runtimeInfoProvider, "runtimeInfoProvider is null");
     }
 
     @Override
@@ -79,7 +88,7 @@ public final class CachingStatsProvider
                 return stats;
             }
 
-            stats = statsCalculator.calculateStats(node, new StatsCalculator.Context(this, lookup, session, types, tableStatsProvider));
+            stats = statsCalculator.calculateStats(node, new StatsCalculator.Context(this, lookup, session, types, tableStatsProvider, runtimeInfoProvider));
             verify(cache.put(node, stats) == null, "Stats already set");
             return stats;
         }

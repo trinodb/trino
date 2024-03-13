@@ -45,12 +45,14 @@ import io.trino.connector.system.SchemaPropertiesSystemTable;
 import io.trino.connector.system.TableCommentSystemTable;
 import io.trino.connector.system.TablePropertiesSystemTable;
 import io.trino.connector.system.TransactionsSystemTable;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.ComposableStatsCalculator;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostCalculatorUsingExchanges;
 import io.trino.cost.CostCalculatorWithEstimatedExchanges;
 import io.trino.cost.CostComparator;
 import io.trino.cost.FilterStatsCalculator;
+import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.ScalarStatsCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsCalculatorModule.StatsRulesProvider;
@@ -153,6 +155,7 @@ import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.AdaptivePlanner;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LocalExecutionPlanner;
@@ -164,8 +167,10 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizers;
+import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SubPlan;
+import io.trino.sql.planner.optimizations.AdaptivePlanOptimizer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -804,6 +809,16 @@ public class PlanTester
 
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
     {
+        return getPlanOptimizersFactory(forceSingleNode).getPlanOptimizers();
+    }
+
+    public List<AdaptivePlanOptimizer> getAdaptivePlanOptimizers()
+    {
+        return getPlanOptimizersFactory(false).getAdaptivePlanOptimizers();
+    }
+
+    public PlanOptimizersFactory getPlanOptimizersFactory(boolean forceSingleNode)
+    {
         return new PlanOptimizers(
                 plannerContext,
                 new IrTypeAnalyzer(plannerContext),
@@ -818,7 +833,7 @@ public class PlanTester
                 new CostComparator(optimizerConfig),
                 taskCountEstimator,
                 nodePartitioningManager,
-                new RuleStatsRecorder()).get();
+                new RuleStatsRecorder());
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
@@ -850,22 +865,56 @@ public class PlanTester
                 statsCalculator,
                 costCalculator,
                 warningCollector,
-                planOptimizersStatsCollector);
+                planOptimizersStatsCollector,
+                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session));
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         // make PlanTester always compute plan statistics for test purposes
         return logicalPlanner.plan(analysis, stage);
     }
 
+    public SubPlan createAdaptivePlan(Session session, SubPlan subPlan, List<AdaptivePlanOptimizer> optimizers, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector, RuntimeInfoProvider runtimeInfoProvider)
+    {
+        AdaptivePlanner adaptivePlanner = new AdaptivePlanner(
+                session,
+                getPlannerContext(),
+                optimizers,
+                planFragmenter,
+                new PlanSanityChecker(false),
+                new IrTypeAnalyzer(plannerContext),
+                warningCollector,
+                planOptimizersStatsCollector,
+                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session));
+        return adaptivePlanner.optimize(subPlan, runtimeInfoProvider);
+    }
+
     private QueryExplainerFactory createQueryExplainerFactory(List<PlanOptimizer> optimizers)
     {
         return new QueryExplainerFactory(
-                () -> optimizers,
+                createPlanOptimizersFactory(optimizers),
                 planFragmenter,
                 plannerContext,
                 statsCalculator,
                 costCalculator,
                 new NodeVersion("test"));
+    }
+
+    private PlanOptimizersFactory createPlanOptimizersFactory(List<PlanOptimizer> optimizers)
+    {
+        return new PlanOptimizersFactory()
+        {
+            @Override
+            public List<PlanOptimizer> getPlanOptimizers()
+            {
+                return optimizers;
+            }
+
+            @Override
+            public List<AdaptivePlanOptimizer> getAdaptivePlanOptimizers()
+            {
+                throw new UnsupportedOperationException();
+            }
+        };
     }
 
     private AnalyzerFactory createAnalyzerFactory(QueryExplainerFactory queryExplainerFactory)

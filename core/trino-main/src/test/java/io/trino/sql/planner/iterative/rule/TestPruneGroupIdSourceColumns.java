@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -48,7 +49,7 @@ public class TestPruneGroupIdSourceColumns
                                 ImmutableList.of("a"),
                                 "group_id",
                                 strictProject(
-                                        ImmutableMap.of("a", expression("a"), "k", expression("k")),
+                                        ImmutableMap.of("a", expression(new SymbolReference("a")), "k", expression(new SymbolReference("k"))),
                                         values("a", "b", "k"))));
     }
 
@@ -76,7 +77,7 @@ public class TestPruneGroupIdSourceColumns
                                 ImmutableList.of("a"),
                                 "group_id",
                                 strictProject(
-                                        ImmutableMap.of("a", expression("a"), "k", expression("k")),
+                                        ImmutableMap.of("a", expression(new SymbolReference("a")), "k", expression(new SymbolReference("k"))),
                                         values("a", "b", "k"))));
     }
 

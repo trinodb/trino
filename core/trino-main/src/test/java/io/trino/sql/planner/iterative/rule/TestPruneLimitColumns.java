@@ -20,6 +20,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -46,11 +47,11 @@ public class TestPruneLimitColumns
                 .on(p -> buildProjectedLimit(p, symbol -> symbol.getName().equals("b")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("b", expression("b")),
+                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                 limit(
                                         1,
                                         strictProject(
-                                                ImmutableMap.of("b", expression("b")),
+                                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                                 values("a", "b")))));
     }
 
@@ -80,7 +81,7 @@ public class TestPruneLimitColumns
                                         1,
                                         ImmutableList.of(sort("a", ASCENDING, FIRST)),
                                         strictProject(
-                                                ImmutableMap.of("a", expression("a")),
+                                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
                                                 values("a", "b")))));
     }
 
@@ -105,7 +106,7 @@ public class TestPruneLimitColumns
                                         false,
                                         ImmutableList.of("a"),
                                         strictProject(
-                                                ImmutableMap.of("a", expression("a")),
+                                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
                                                 values("a", "b")))));
     }
 
