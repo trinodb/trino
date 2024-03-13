@@ -710,7 +710,7 @@ jobs:
             - { modules: plugin/trino-resource-group-managers }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-snowflake }
-            - { modules: plugin/trino-snowflake, profile: cloud-tests }
+            #- { modules: plugin/trino-snowflake, profile: cloud-tests } # Disabled for Starburst, since we don't ship this connector and don't have secrets configured to run its tests
             - { modules: plugin/trino-sqlserver }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
