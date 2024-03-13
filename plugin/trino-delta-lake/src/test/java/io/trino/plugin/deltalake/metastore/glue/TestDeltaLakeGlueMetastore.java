@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.Resources;
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
@@ -142,7 +141,7 @@ public class TestDeltaLakeGlueMetastore
         metadataFactory = injector.getInstance(DeltaLakeMetadataFactory.class);
 
         session = TestingConnectorSession.builder()
-                .setPropertyMetadata(injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {})).stream()
+                .setPropertyMetadata(injector.getInstance(new Key<Set<SessionPropertiesProvider>>() {}).stream()
                         .map(SessionPropertiesProvider::getSessionProperties)
                         .flatMap(List::stream)
                         .collect(toImmutableList()))

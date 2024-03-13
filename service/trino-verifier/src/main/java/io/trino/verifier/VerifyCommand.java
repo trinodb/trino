@@ -149,11 +149,11 @@ public class VerifyCommand
         try {
             VerifierConfig config = injector.getInstance(VerifierConfig.class);
             injector.injectMembers(this);
-            Set<String> supportedEventClients = injector.getInstance(Key.get(new TypeLiteral<Set<String>>() {}, SupportedEventClients.class));
+            Set<String> supportedEventClients = injector.getInstance(Key.get(new TypeLiteral<>() {}, SupportedEventClients.class));
             for (String clientType : config.getEventClients()) {
                 checkArgument(supportedEventClients.contains(clientType), "Unsupported event client: %s", clientType);
             }
-            Set<EventClient> eventClients = injector.getInstance(Key.get(new TypeLiteral<Set<EventClient>>() {}));
+            Set<EventClient> eventClients = injector.getInstance(new Key<>() {});
 
             VerifierDao dao = injector.getInstance(VerifierDao.class);
 
