@@ -39,22 +39,27 @@ import java.util.TreeMap;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.opensearch.AwsSecurityConfig.DeploymentType;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static org.apache.http.protocol.HttpCoreContext.HTTP_TARGET_HOST;
 
 class AwsRequestSigner
         implements HttpRequestInterceptor
 {
-    private static final String SERVICE_NAME = "aoss";
+    private final String serviceName;
     private final AWSCredentialsProvider credentialsProvider;
     private final AWS4Signer signer;
 
-    public AwsRequestSigner(String region, AWSCredentialsProvider credentialsProvider)
+    public AwsRequestSigner(String region, DeploymentType deploymentType, AWSCredentialsProvider credentialsProvider)
     {
         this.credentialsProvider = credentialsProvider;
         this.signer = new AWS4Signer();
+        this.serviceName = switch (deploymentType) {
+            case SERVERLESS -> "aoss";
+            case PROVISIONED -> "es";
+        };
 
-        signer.setServiceName(SERVICE_NAME);
+        signer.setServiceName(serviceName);
         signer.setRegionName(region);
     }
 
@@ -83,7 +88,7 @@ class AwsRequestSigner
             }
         }
 
-        DefaultRequest<?> awsRequest = new DefaultRequest<>(SERVICE_NAME);
+        DefaultRequest<?> awsRequest = new DefaultRequest<>(serviceName);
 
         HttpHost host = (HttpHost) context.getAttribute(HTTP_TARGET_HOST);
         if (host != null) {

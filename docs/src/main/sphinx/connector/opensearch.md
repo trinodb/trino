@@ -112,6 +112,8 @@ following options must be configured:
     the configured IAM user must be able to assume this role.
 * - `opensearch.aws.external-id`
   - Optional external ID to pass while assuming an AWS IAM role.
+* - `opensearch.aws.deployment-type`
+  - AWS OpenSearch deployment type. Possible values are `PROVISIONED` & `SERVERLESS`. This option is required.
 :::
 
 To enable password authentication, the `opensearch.security` option must be set
