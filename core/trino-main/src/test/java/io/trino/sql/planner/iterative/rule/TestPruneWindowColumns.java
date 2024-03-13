@@ -66,9 +66,7 @@ public class TestPruneWindowColumns
             Optional.of(new Symbol("orderKey")),
             CURRENT_ROW,
             Optional.of(new Symbol("endValue1")),
-            Optional.of(new Symbol("orderKey")),
-            Optional.empty(),
-            Optional.empty());
+            Optional.of(new Symbol("orderKey")));
 
     private static final WindowNode.Frame FRAME2 = new WindowNode.Frame(
             RANGE,
@@ -77,9 +75,7 @@ public class TestPruneWindowColumns
             Optional.of(new Symbol("orderKey")),
             CURRENT_ROW,
             Optional.of(new Symbol("endValue2")),
-            Optional.of(new Symbol("orderKey")),
-            Optional.empty(),
-            Optional.empty());
+            Optional.of(new Symbol("orderKey")));
 
     @Test
     public void testWindowNotNeeded()
@@ -216,9 +212,7 @@ public class TestPruneWindowColumns
                                                 Optional.of(orderKey),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue1),
-                                                Optional.of(orderKey),
-                                                Optional.of(startValue1.toSymbolReference()),
-                                                Optional.of(endValue2.toSymbolReference())),
+                                                Optional.of(orderKey)),
                                         false),
                                 output2,
                                 new WindowNode.Function(
@@ -231,9 +225,7 @@ public class TestPruneWindowColumns
                                                 Optional.of(orderKey),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue2),
-                                                Optional.of(orderKey),
-                                                Optional.of(startValue2.toSymbolReference()),
-                                                Optional.of(endValue2.toSymbolReference())),
+                                                Optional.of(orderKey)),
                                         false)),
                         hash,
                         p.values(

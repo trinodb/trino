@@ -136,9 +136,8 @@ public class ImplementTableFunctionSource
             Optional.empty(),
             UNBOUNDED_FOLLOWING,
             Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
             Optional.empty());
+
     private static final DataOrganizationSpecification UNORDERED_SINGLE_PARTITION = new DataOrganizationSpecification(ImmutableList.of(), Optional.empty());
 
     private final Metadata metadata;
