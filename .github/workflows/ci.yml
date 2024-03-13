@@ -1188,7 +1188,7 @@ jobs:
             - suite-clickhouse
             - suite-mysql
             - suite-iceberg
-            - suite-snowflake
+            #- suite-snowflake # This is OSS Snowflake connector suite. We run Starburst Snowflake suite instead.
             - suite-hudi
             - suite-ignite
           exclude:

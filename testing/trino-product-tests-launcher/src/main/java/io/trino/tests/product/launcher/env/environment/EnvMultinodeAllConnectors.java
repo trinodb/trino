@@ -78,7 +78,7 @@ public final class EnvMultinodeAllConnectors
                         "raptor_legacy",
                         "redis",
                         "redshift",
-                        "snowflake",
+                        // "snowflake", excluded to avoid confusion with Starburst's connector with similar name
                         "sqlserver",
                         "stargate",
                         "trino_thrift",
