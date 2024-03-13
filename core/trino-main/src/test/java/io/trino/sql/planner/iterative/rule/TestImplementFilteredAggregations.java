@@ -15,20 +15,20 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -37,8 +37,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 
 public class TestImplementFilteredAggregations
         extends BaseRuleTest
@@ -176,19 +174,5 @@ public class TestImplementFilteredAggregations
                                         project(
                                                 ImmutableMap.of("a", expression(new SymbolReference("a")), "g", expression(new SymbolReference("g")), "filter", expression(new SymbolReference("filter"))),
                                                 values("a", "g", "filter")))));
-    }
-
-    private FunctionCall functionWithFilter(String name, Symbol argument, Optional<Symbol> filter)
-    {
-        return new FunctionCall(
-                Optional.empty(),
-                QualifiedName.of(name),
-                Optional.empty(),
-                filter.map(Symbol::toSymbolReference),
-                Optional.empty(),
-                false,
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableList.of(argument.toSymbolReference()));
     }
 }

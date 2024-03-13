@@ -15,14 +15,15 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.SetExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.ApplyNode;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -82,13 +83,13 @@ public class TestUnwrapSingleColumnRowInApply
                                                 .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), new io.trino.sql.tree.LongLiteral("1"))))
+                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), new LongLiteral("1"))))
                                                         .put("nonRowValue", expression(new SymbolReference("nonRowValue")))
                                                         .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), new io.trino.sql.tree.LongLiteral("1"))))
+                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), new LongLiteral("1"))))
                                                         .put("nonRowElement", expression(new SymbolReference("nonRowElement")))
                                                         .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));
@@ -120,13 +121,13 @@ public class TestUnwrapSingleColumnRowInApply
                                                 .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), new io.trino.sql.tree.LongLiteral("1"))))
+                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), new LongLiteral("1"))))
                                                         .put("nonRowValue", expression(new SymbolReference("nonRowValue")))
                                                         .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), new io.trino.sql.tree.LongLiteral("1"))))
+                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), new LongLiteral("1"))))
                                                         .put("nonRowElement", expression(new SymbolReference("nonRowElement")))
                                                         .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));

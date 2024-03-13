@@ -15,25 +15,26 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -42,18 +43,17 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_PICOS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.LogicalExpression.Operator.AND;
+import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.UnwrapYearInComparison.calculateRangeEndInclusive;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
-import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
@@ -269,15 +269,15 @@ public class TestUnwrapYearInComparison
     @Test
     public void testNull()
     {
-        testUnwrap("date", "year(a) = CAST(NULL AS BIGINT)", new Cast(new NullLiteral(), dataType("boolean")));
-        testUnwrap("timestamp", "year(a) = CAST(NULL AS BIGINT)", new Cast(new NullLiteral(), dataType("boolean")));
+        testUnwrap("date", "year(a) = CAST(NULL AS BIGINT)", new Cast(new NullLiteral(), BOOLEAN));
+        testUnwrap("timestamp", "year(a) = CAST(NULL AS BIGINT)", new Cast(new NullLiteral(), BOOLEAN));
     }
 
     @Test
     public void testNaN()
     {
-        testUnwrap("date", "year(a) = nan()", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new FunctionCall(QualifiedName.of("year"), ImmutableList.of(new SymbolReference("a")))), new Cast(new NullLiteral(), dataType("boolean")))));
-        testUnwrap("timestamp", "year(a) = nan()", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new FunctionCall(QualifiedName.of("year"), ImmutableList.of(new SymbolReference("a")))), new Cast(new NullLiteral(), dataType("boolean")))));
+        testUnwrap("date", "year(a) = nan()", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new FunctionCall(QualifiedName.of("year"), ImmutableList.of(new SymbolReference("a")))), new Cast(new NullLiteral(), BOOLEAN))));
+        testUnwrap("timestamp", "year(a) = nan()", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new FunctionCall(QualifiedName.of("year"), ImmutableList.of(new SymbolReference("a")))), new Cast(new NullLiteral(), BOOLEAN))));
     }
 
     @Test

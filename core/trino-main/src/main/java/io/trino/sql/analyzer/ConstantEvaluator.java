@@ -20,13 +20,12 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.security.AccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NodeRef;
 import io.trino.type.TypeCoercion;
 
 import java.util.Map;
@@ -35,7 +34,6 @@ import java.util.Optional;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 
 public class ConstantEvaluator
 {
@@ -63,18 +61,18 @@ public class ConstantEvaluator
                 CorrelationSupport.DISALLOWED);
 
         TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, ImmutableMap.of(), ImmutableList.of(), session, plannerContext);
-        Expression rewritten = translationMap.rewrite(expression);
+        io.trino.sql.ir.Expression rewritten = translationMap.rewrite(expression);
 
         IrTypeAnalyzer analyzer = new IrTypeAnalyzer(plannerContext);
-        Map<NodeRef<Expression>, Type> types = analyzer.getTypes(session, TypeProvider.empty(), rewritten);
+        Map<io.trino.sql.ir.NodeRef<io.trino.sql.ir.Expression>, Type> types = analyzer.getTypes(session, TypeProvider.empty(), rewritten);
 
-        Type actualType = types.get(NodeRef.of(rewritten));
+        Type actualType = types.get(io.trino.sql.ir.NodeRef.of(rewritten));
         if (!new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(actualType, expectedType)) {
             throw semanticException(TYPE_MISMATCH, expression, "Cannot cast type %s to %s", actualType.getDisplayName(), expectedType.getDisplayName());
         }
 
         if (!actualType.equals(expectedType)) {
-            rewritten = new Cast(rewritten, toSqlType(expectedType), false);
+            rewritten = new Cast(rewritten, expectedType, false);
             types = analyzer.getTypes(session, TypeProvider.empty(), rewritten);
         }
 

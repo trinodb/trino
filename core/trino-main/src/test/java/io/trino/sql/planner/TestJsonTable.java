@@ -28,19 +28,19 @@ import io.trino.operator.table.json.JsonTablePlanSingle;
 import io.trino.operator.table.json.JsonTablePlanUnion;
 import io.trino.operator.table.json.JsonTableQueryColumn;
 import io.trino.operator.table.json.JsonTableValueColumn;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.TableFunctionNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.JsonQuery;
 import io.trino.sql.tree.JsonValue;
-import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -50,23 +50,26 @@ import static io.trino.operator.scalar.json.JsonQueryFunction.JSON_QUERY_FUNCTIO
 import static io.trino.operator.scalar.json.JsonValueFunction.JSON_VALUE_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.planner.JsonTablePlanComparator.planComparator;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.PathNodes.contextVariable;
 import static io.trino.sql.planner.PathNodes.literal;
 import static io.trino.sql.planner.PathNodes.memberAccessor;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictOutput;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.TableFunctionMatcher.TableArgumentValue.Builder.tableArgument;
-import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.type.Json2016Type.JSON_2016;
 import static io.trino.type.TestJsonPath2016TypeSerialization.JSON_PATH_2016;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -114,13 +117,13 @@ public class TestJsonTable
                                                 project(
                                                         ImmutableMap.of(
                                                                 "context_item", expression(new FunctionCall(QualifiedName.of("$varchar_to_json"), ImmutableList.of(new SymbolReference("json_col_coerced"), FALSE_LITERAL))), // apply input function to context item
-                                                                "parameters_row", expression(new Cast(new Row(ImmutableList.of(new SymbolReference("int_col"), new FunctionCall(QualifiedName.of("$varchar_to_json"), ImmutableList.of(new SymbolReference("name_coerced"), FALSE_LITERAL)))), dataType("row(id integer, name json2016)")))), // apply input function to formatted path parameter and gather path parameters in a row
+                                                                "parameters_row", expression(new Cast(new Row(ImmutableList.of(new SymbolReference("int_col"), new FunctionCall(QualifiedName.of("$varchar_to_json"), ImmutableList.of(new SymbolReference("name_coerced"), FALSE_LITERAL)))), rowType(field("id", INTEGER), field("name", JSON_2016))))), // apply input function to formatted path parameter and gather path parameters in a row
                                                         project(// coerce context item, path parameters and default expressions
                                                                 ImmutableMap.of(
-                                                                        "name_coerced", expression(new Cast(new SymbolReference("name"), dataType("varchar"))), // cast formatted path parameter to VARCHAR for the input function
-                                                                        "default_value_coerced", expression(new Cast(new SymbolReference("default_value"), dataType("bigint"))), // cast default value to BIGINT to match declared return type for the column
-                                                                        "json_col_coerced", expression(new Cast(new SymbolReference("json_col"), dataType("varchar"))), // cast context item to VARCHAR for the input function
-                                                                        "int_col_coerced", expression(new Cast(new SymbolReference("int_col"), dataType("bigint")))), // cast default value to BIGINT to match declared return type for the column
+                                                                        "name_coerced", expression(new Cast(new SymbolReference("name"), VARCHAR)), // cast formatted path parameter to VARCHAR for the input function
+                                                                        "default_value_coerced", expression(new Cast(new SymbolReference("default_value"), BIGINT)), // cast default value to BIGINT to match declared return type for the column
+                                                                        "json_col_coerced", expression(new Cast(new SymbolReference("json_col"), VARCHAR)), // cast context item to VARCHAR for the input function
+                                                                        "int_col_coerced", expression(new Cast(new SymbolReference("int_col"), BIGINT))), // cast default value to BIGINT to match declared return type for the column
                                                                 project(// pre-project context item, path parameters and default expressions
                                                                         ImmutableMap.of(
                                                                                 "name", expression(new StringLiteral("[ala]")),

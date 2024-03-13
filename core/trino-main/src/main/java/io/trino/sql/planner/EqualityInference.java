@@ -20,9 +20,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.metadata.Metadata;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrUtils;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.util.DisjointSet;
 
 import java.util.ArrayList;
@@ -357,7 +358,7 @@ public class EqualityInference
 
     private List<Expression> extractSubExpressions(Expression expression)
     {
-        return expressionCache.computeIfAbsent(expression, e -> SubExpressionExtractor.extract(e).collect(toImmutableList()));
+        return expressionCache.computeIfAbsent(expression, e -> IrUtils.preOrder(e).collect(toImmutableList()));
     }
 
     private Set<Symbol> extractUniqueSymbols(Expression expression)

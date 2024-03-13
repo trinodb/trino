@@ -18,8 +18,8 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.ArithmeticBinaryExpression.Operator;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.ir.ArithmeticBinaryExpression.Operator;
+import io.trino.sql.ir.ComparisonExpression;
 
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;

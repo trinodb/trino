@@ -14,19 +14,23 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SubscriptExpression;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.RowType.anonymousRow;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
@@ -45,32 +49,32 @@ public class TestUnwrapRowSubscript
     public void testWithCast()
     {
         test(
-                new SubscriptExpression(new Cast(new Row(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))), dataType("row(\"a\" bigint,\"b\" bigint)")), new LongLiteral("1")),
-                new Cast(new LongLiteral("1"), dataType("bigint")));
+                new SubscriptExpression(new Cast(new Row(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))), rowType(field("a", BIGINT), field("b", BIGINT))), new LongLiteral("1")),
+                new Cast(new LongLiteral("1"), BIGINT));
 
         test(
-                new SubscriptExpression(new Cast(new Row(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))), dataType("row(bigint,bigint)")), new LongLiteral("1")),
-                new Cast(new LongLiteral("1"), dataType("bigint")));
+                new SubscriptExpression(new Cast(new Row(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))), anonymousRow(BIGINT, BIGINT)), new LongLiteral("1")),
+                new Cast(new LongLiteral("1"), BIGINT));
 
         test(
-                new SubscriptExpression(new Cast(new SubscriptExpression(new Cast(new Row(ImmutableList.of(new Row(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))), new LongLiteral("3"))), dataType("row(row(smallint,smallint),bigint)")), new LongLiteral("1")), dataType("row(\"x\" bigint,\"y\" bigint)")), new LongLiteral("2")),
-                new Cast(new Cast(new LongLiteral("2"), dataType("smallint")), dataType("bigint")));
+                new SubscriptExpression(new Cast(new SubscriptExpression(new Cast(new Row(ImmutableList.of(new Row(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))), new LongLiteral("3"))), anonymousRow(anonymousRow(SMALLINT, SMALLINT), BIGINT)), new LongLiteral("1")), rowType(field("x", BIGINT), field("y", BIGINT))), new LongLiteral("2")),
+                new Cast(new Cast(new LongLiteral("2"), SMALLINT), BIGINT));
     }
 
     @Test
     public void testWithTryCast()
     {
         test(
-                new SubscriptExpression(new Cast(new Row(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))), dataType("row(\"a\" bigint,\"b\" bigint)"), true), new LongLiteral("1")),
-                new Cast(new LongLiteral("1"), dataType("bigint"), true));
+                new SubscriptExpression(new Cast(new Row(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))), rowType(field("a", BIGINT), field("b", BIGINT)), true), new LongLiteral("1")),
+                new Cast(new LongLiteral("1"), BIGINT, true));
 
         test(
-                new SubscriptExpression(new Cast(new Row(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))), dataType("row(bigint,bigint)"), true), new LongLiteral("1")),
-                new Cast(new LongLiteral("1"), dataType("bigint"), true));
+                new SubscriptExpression(new Cast(new Row(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))), anonymousRow(BIGINT, BIGINT), true), new LongLiteral("1")),
+                new Cast(new LongLiteral("1"), BIGINT, true));
 
         test(
-                new SubscriptExpression(new Cast(new SubscriptExpression(new Cast(new Row(ImmutableList.of(new Row(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))), new LongLiteral("3"))), dataType("row(row(smallint,smallint),bigint)"), true), new LongLiteral("1")), dataType("row(\"x\" bigint,\"y\" bigint)"), true), new LongLiteral("2")),
-                new Cast(new Cast(new LongLiteral("2"), dataType("smallint"), true), dataType("bigint"), true));
+                new SubscriptExpression(new Cast(new SubscriptExpression(new Cast(new Row(ImmutableList.of(new Row(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))), new LongLiteral("3"))), anonymousRow(anonymousRow(SMALLINT, SMALLINT), BIGINT), true), new LongLiteral("1")), rowType(field("x", BIGINT), field("y", BIGINT)), true), new LongLiteral("2")),
+                new Cast(new Cast(new LongLiteral("2"), SMALLINT, true), BIGINT, true));
     }
 
     private void test(Expression original, Expression unwrapped)

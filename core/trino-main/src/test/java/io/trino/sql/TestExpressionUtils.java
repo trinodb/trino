@@ -15,15 +15,15 @@ package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
+import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionUtils
@@ -33,19 +33,14 @@ public class TestExpressionUtils
     @Test
     public void testAnd()
     {
-        Expression a = name("a");
-        Expression b = name("b");
-        Expression c = name("c");
-        Expression d = name("d");
-        Expression e = name("e");
+        Expression a = new SymbolReference("a");
+        Expression b = new SymbolReference("b");
+        Expression c = new SymbolReference("c");
+        Expression d = new SymbolReference("d");
+        Expression e = new SymbolReference("e");
 
         assertThat(and(a, b, c, d, e)).isEqualTo(new LogicalExpression(AND, ImmutableList.of(a, b, c, d, e)));
 
         assertThat(combineConjuncts(metadata, a, b, a, c, d, c, e)).isEqualTo(new LogicalExpression(AND, ImmutableList.of(a, b, c, d, e)));
-    }
-
-    private static Identifier name(String name)
-    {
-        return new Identifier(name);
     }
 }

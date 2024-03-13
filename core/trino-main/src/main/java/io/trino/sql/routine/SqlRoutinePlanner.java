@@ -13,24 +13,22 @@
  */
 package io.trino.sql.routine;
 
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
-import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
@@ -38,7 +36,6 @@ import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter;
-import io.trino.sql.planner.sanity.SugarFreeChecker;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import io.trino.sql.relational.StandardFunctionResolution;
@@ -60,7 +57,6 @@ import io.trino.sql.tree.AssignmentStatement;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.CaseStatement;
 import io.trino.sql.tree.CaseStatementWhenClause;
-import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CompoundStatement;
 import io.trino.sql.tree.ControlStatement;
 import io.trino.sql.tree.ElseIfClause;
@@ -76,7 +72,6 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.RepeatStatement;
 import io.trino.sql.tree.ReturnStatement;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.VariableDeclaration;
 import io.trino.sql.tree.WhileStatement;
 
@@ -90,23 +85,20 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.planner.LogicalPlanner.buildLambdaDeclarationToSymbolMap;
 import static io.trino.sql.relational.Expressions.call;
 import static io.trino.sql.relational.Expressions.constantNull;
 import static io.trino.sql.relational.Expressions.field;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlRoutinePlanner
 {
     private final PlannerContext plannerContext;
-    private final WarningCollector warningCollector;
 
-    public SqlRoutinePlanner(PlannerContext plannerContext, WarningCollector warningCollector)
+    public SqlRoutinePlanner(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
     public IrRoutine planSqlFunction(Session session, FunctionSpecification function, SqlRoutineAnalysis routineAnalysis)
@@ -338,30 +330,26 @@ public final class SqlRoutinePlanner
 
             // Apply casts, desugar expression, and preform other rewrites
             TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, nodeRefSymbolMap, fieldSymbols, session, plannerContext);
-            Expression translated = coerceIfNecessary(analysis, expression, translationMap.rewrite(expression));
+            io.trino.sql.ir.Expression translated = coerceIfNecessary(analysis, expression, translationMap.rewrite(expression));
 
             // desugar the lambda captures
-            Expression lambdaCaptureDesugared = LambdaCaptureDesugaringRewriter.rewrite(translated, typeProvider, symbolAllocator);
+            io.trino.sql.ir.Expression lambdaCaptureDesugared = LambdaCaptureDesugaringRewriter.rewrite(translated, typeProvider, symbolAllocator);
 
             // The expression tree has been rewritten which breaks all the identity maps, so redo the analysis
             // to re-analyze coercions that might be necessary
-            ExpressionAnalyzer analyzer = createExpressionAnalyzer(session, typeProvider);
-            analyzer.analyze(lambdaCaptureDesugared, scope);
+            IrTypeAnalyzer analyzer = new IrTypeAnalyzer(plannerContext);
+            Map<io.trino.sql.ir.NodeRef<io.trino.sql.ir.Expression>, Type> types = analyzer.getTypes(session, typeProvider, lambdaCaptureDesugared);
 
             // optimize the expression
-            IrExpressionInterpreter interpreter = new IrExpressionInterpreter(lambdaCaptureDesugared, plannerContext, session, analyzer.getExpressionTypes());
-            Expression optimized = new LiteralEncoder(plannerContext)
-                    .toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), analyzer.getExpressionTypes().get(NodeRef.of(lambdaCaptureDesugared)));
-
-            // validate expression
-            SugarFreeChecker.validate(optimized);
+            IrExpressionInterpreter interpreter = new IrExpressionInterpreter(lambdaCaptureDesugared, plannerContext, session, types);
+            io.trino.sql.ir.Expression optimized = new LiteralEncoder(plannerContext)
+                    .toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), types.get(io.trino.sql.ir.NodeRef.of(lambdaCaptureDesugared)));
 
             // Analyze again after optimization
-            analyzer = createExpressionAnalyzer(session, typeProvider);
-            analyzer.analyze(optimized, scope);
+            types = analyzer.getTypes(session, typeProvider, optimized);
 
             // translate to RowExpression
-            TranslationVisitor translator = new TranslationVisitor(plannerContext.getMetadata(), plannerContext.getTypeManager(), analyzer.getExpressionTypes(), ImmutableMap.of(), context.variables());
+            TranslationVisitor translator = new TranslationVisitor(plannerContext.getMetadata(), plannerContext.getTypeManager(), types, ImmutableMap.of(), context.variables());
             RowExpression rowExpression = translator.process(optimized, null);
 
             // optimize RowExpression
@@ -371,26 +359,13 @@ public final class SqlRoutinePlanner
             return rowExpression;
         }
 
-        public static Expression coerceIfNecessary(Analysis analysis, Expression original, Expression rewritten)
+        public static io.trino.sql.ir.Expression coerceIfNecessary(Analysis analysis, Expression original, io.trino.sql.ir.Expression rewritten)
         {
             Type coercion = analysis.getCoercion(original);
             if (coercion == null) {
                 return rewritten;
             }
-            return new Cast(rewritten, toSqlType(coercion), false);
-        }
-
-        private ExpressionAnalyzer createExpressionAnalyzer(Session session, TypeProvider typeProvider)
-        {
-            return ExpressionAnalyzer.createWithoutSubqueries(
-                    plannerContext,
-                    new AllowAllAccessControl(),
-                    session,
-                    typeProvider,
-                    ImmutableMap.of(),
-                    node -> new VerifyException("Unexpected subquery"),
-                    warningCollector,
-                    false);
+            return new io.trino.sql.ir.Cast(rewritten, coercion, false);
         }
 
         private List<IrStatement> statements(List<ControlStatement> statements, Context context)
@@ -434,7 +409,7 @@ public final class SqlRoutinePlanner
         public TranslationVisitor(
                 Metadata metadata,
                 TypeManager typeManager,
-                Map<NodeRef<Expression>, Type> types,
+                Map<io.trino.sql.ir.NodeRef<io.trino.sql.ir.Expression>, Type> types,
                 Map<Symbol, Integer> layout,
                 Map<String, IrVariable> variables)
         {

@@ -11,24 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.planner;
+package io.trino.sql.ir;
 
-import io.trino.sql.tree.Expression;
-import io.trino.sql.util.AstUtils;
-
-import java.util.stream.Stream;
-
-/**
- * Extracts and returns the stream of all expression subtrees within an Expression, including Expression itself
- */
-public final class SubExpressionExtractor
+public abstract class Literal
+        extends Expression
 {
-    private SubExpressionExtractor() {}
-
-    public static Stream<Expression> extract(Expression expression)
+    @Override
+    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return AstUtils.preOrder(expression)
-                .filter(Expression.class::isInstance)
-                .map(Expression.class::cast);
+        return visitor.visitLiteral(this, context);
     }
 }

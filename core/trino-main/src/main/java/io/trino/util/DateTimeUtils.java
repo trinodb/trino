@@ -17,7 +17,7 @@ import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.sql.tree.IntervalLiteral.IntervalField;
+import io.trino.sql.ir.IntervalLiteral.IntervalField;
 import org.assertj.core.util.VisibleForTesting;
 import org.joda.time.DateTime;
 import org.joda.time.DurationFieldType;

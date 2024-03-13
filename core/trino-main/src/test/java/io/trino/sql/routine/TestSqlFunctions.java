@@ -528,7 +528,7 @@ class TestSqlFunctions
         SqlRoutineAnalyzer analyzer = new SqlRoutineAnalyzer(PLANNER_CONTEXT, WarningCollector.NOOP);
         SqlRoutineAnalysis analysis = analyzer.analyze(session, new AllowAllAccessControl(), function);
 
-        SqlRoutinePlanner planner = new SqlRoutinePlanner(PLANNER_CONTEXT, WarningCollector.NOOP);
+        SqlRoutinePlanner planner = new SqlRoutinePlanner(PLANNER_CONTEXT);
         IrRoutine routine = planner.planSqlFunction(session, function, analysis);
 
         SqlRoutineCompiler compiler = new SqlRoutineCompiler(createTestingFunctionManager());

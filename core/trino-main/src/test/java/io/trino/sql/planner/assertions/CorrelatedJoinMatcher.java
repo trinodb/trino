@@ -17,9 +17,9 @@ import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.Expression;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;

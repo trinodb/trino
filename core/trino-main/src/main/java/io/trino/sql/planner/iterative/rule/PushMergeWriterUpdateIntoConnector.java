@@ -22,6 +22,8 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
@@ -31,9 +33,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableUpdateNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Node;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -95,7 +94,7 @@ public class PushMergeWriterUpdateIntoConnector
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(context.getSession(), mergeWriter.getTarget().getHandle());
         List<String> orderedColumnNames = mergeWriter.getTarget().getMergeParadigmAndTypes().getColumnNames();
-        List<? extends Node> mergeAssignments = project.getAssignments().get(mergeProcessor.getMergeRowSymbol()).getChildren();
+        List<? extends Expression> mergeAssignments = project.getAssignments().get(mergeProcessor.getMergeRowSymbol()).getChildren();
 
         Map<ColumnHandle, Constant> assignments = buildAssignments(orderedColumnNames, mergeAssignments, columnHandles, context);
         if (assignments.isEmpty()) {
@@ -113,14 +112,14 @@ public class PushMergeWriterUpdateIntoConnector
 
     private Map<ColumnHandle, Constant> buildAssignments(
             List<String> orderedColumnNames,
-            List<? extends Node> mergeAssignments,
+            List<? extends Expression> mergeAssignments,
             Map<String, ColumnHandle> columnHandles,
             Context context)
     {
         ImmutableMap.Builder<ColumnHandle, Constant> assignmentsBuilder = ImmutableMap.builder();
         for (int i = 0; i < orderedColumnNames.size(); i++) {
             String columnName = orderedColumnNames.get(i);
-            Node assigmentNode = mergeAssignments.get(i);
+            Expression assigmentNode = mergeAssignments.get(i);
             if (assigmentNode instanceof SymbolReference) {
                 // the column is not updated
                 continue;

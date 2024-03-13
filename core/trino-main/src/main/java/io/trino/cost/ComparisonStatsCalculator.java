@@ -13,8 +13,8 @@
  */
 package io.trino.cost;
 
+import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.ComparisonExpression;
 
 import java.util.Optional;
 import java.util.OptionalDouble;

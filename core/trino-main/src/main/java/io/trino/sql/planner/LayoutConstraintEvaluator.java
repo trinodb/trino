@@ -19,8 +19,8 @@ import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NullLiteral;
 
 import java.util.Map;
 import java.util.Set;

@@ -18,14 +18,14 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.DefaultTraversalVisitor;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.planner.ExpressionExtractor;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -52,7 +52,7 @@ public final class AllFunctionsResolved
     }
 
     private static class Visitor
-            extends DefaultExpressionTraversalVisitor<Builder<Symbol>>
+            extends DefaultTraversalVisitor<Builder<Symbol>>
     {
         @Override
         protected Void visitFunctionCall(FunctionCall node, Builder<Symbol> context)

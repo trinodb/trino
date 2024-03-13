@@ -16,21 +16,23 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.SetOperationOutputMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -43,8 +45,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 
 public class TestImplementIntersectAll
         extends BaseRuleTest
@@ -115,13 +115,13 @@ public class TestImplementIntersectAll
                                                                                 "a1", expression(new SymbolReference("a_1")),
                                                                                 "b1", expression(new SymbolReference("b_1")),
                                                                                 "marker_left_1", expression(TRUE_LITERAL),
-                                                                                "marker_left_2", expression(new Cast(new NullLiteral(), dataType("boolean")))),
+                                                                                "marker_left_2", expression(new Cast(new NullLiteral(), BOOLEAN))),
                                                                         values("a_1", "b_1")),
                                                                 project(
                                                                         ImmutableMap.of(
                                                                                 "a2", expression(new SymbolReference("a_2")),
                                                                                 "b2", expression(new SymbolReference("b_2")),
-                                                                                "marker_right_1", expression(new Cast(new NullLiteral(), dataType("boolean"))),
+                                                                                "marker_right_1", expression(new Cast(new NullLiteral(), BOOLEAN)),
                                                                                 "marker_right_2", expression(TRUE_LITERAL)),
                                                                         values("a_2", "b_2")))
                                                                 .withAlias("a", new SetOperationOutputMatcher(0))

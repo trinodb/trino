@@ -14,21 +14,21 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.cost.PlanNodeStatsEstimate.unknown;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.DIVIDE;
 import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestValuesNodeStats

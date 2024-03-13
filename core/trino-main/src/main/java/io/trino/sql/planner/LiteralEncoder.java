@@ -38,16 +38,16 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.DecimalLiteral;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.StringLiteral;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
@@ -67,7 +67,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Float.intBitsToFloat;
@@ -111,7 +110,7 @@ public final class LiteralEncoder
             if (type.equals(UNKNOWN)) {
                 return new NullLiteral();
             }
-            return new Cast(new NullLiteral(), toSqlType(type), false);
+            return new Cast(new NullLiteral(), type, false);
         }
 
         checkArgument(Primitives.wrap(type.getJavaType()).isInstance(object), "object.getClass (%s) and type.getJavaType (%s) do not agree", object.getClass(), type.getJavaType());
@@ -163,21 +162,21 @@ public final class LiteralEncoder
                         BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                                 .setName("nan")
                                 .build(),
-                        toSqlType(REAL));
+                        REAL);
             }
             if (value.equals(Float.NEGATIVE_INFINITY)) {
                 return ArithmeticUnaryExpression.negative(new Cast(
                         BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                                 .setName("infinity")
                                 .build(),
-                        toSqlType(REAL)));
+                        REAL));
             }
             if (value.equals(Float.POSITIVE_INFINITY)) {
                 return new Cast(
                         BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                                 .setName("infinity")
                                 .build(),
-                        toSqlType(REAL));
+                        REAL);
             }
             return new GenericLiteral("REAL", value.toString());
         }
@@ -190,7 +189,7 @@ public final class LiteralEncoder
             else {
                 string = Decimals.toString((Int128) object, decimalType.getScale());
             }
-            return new Cast(new DecimalLiteral(string), toSqlType(type));
+            return new Cast(new DecimalLiteral(string), type);
         }
 
         if (type instanceof VarcharType varcharType) {
@@ -205,14 +204,14 @@ public final class LiteralEncoder
                 return stringLiteral;
             }
             if (boundedLength > valueLength) {
-                return new Cast(stringLiteral, toSqlType(type), false);
+                return new Cast(stringLiteral, type, false);
             }
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value [%s] does not fit in type %s", value.toStringUtf8(), varcharType));
         }
 
         if (type instanceof CharType) {
             StringLiteral stringLiteral = new StringLiteral(((Slice) object).toStringUtf8());
-            return new Cast(stringLiteral, toSqlType(type), false);
+            return new Cast(stringLiteral, type, false);
         }
 
         if (type.equals(BOOLEAN)) {

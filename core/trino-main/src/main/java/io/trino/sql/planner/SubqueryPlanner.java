@@ -24,6 +24,10 @@ import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.QueryPlanner.PlanAndMappings;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
@@ -32,19 +36,13 @@ import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.ExistsPredicate;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.QuantifiedComparisonExpression.Quantifier;
 import io.trino.sql.tree.Query;
-import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SubqueryExpression;
 
 import java.util.ArrayList;
@@ -60,11 +58,9 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -106,17 +102,17 @@ class SubqueryPlanner
         this.recursiveSubqueries = recursiveSubqueries;
     }
 
-    public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<Expression> expressions, Analysis.SubqueryAnalysis subqueries)
+    public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<io.trino.sql.tree.Expression> expressions, Analysis.SubqueryAnalysis subqueries)
     {
-        for (Expression expression : expressions) {
+        for (io.trino.sql.tree.Expression expression : expressions) {
             builder = handleSubqueries(builder, expression, subqueries);
         }
         return builder;
     }
 
-    public PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Analysis.SubqueryAnalysis subqueries)
+    public PlanBuilder handleSubqueries(PlanBuilder builder, io.trino.sql.tree.Expression expression, Analysis.SubqueryAnalysis subqueries)
     {
-        for (Cluster<InPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getInPredicatesSubqueries()))) {
+        for (Cluster<io.trino.sql.tree.InPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getInPredicatesSubqueries()))) {
             builder = planInPredicate(builder, cluster, subqueries);
         }
         for (Cluster<SubqueryExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getSubqueries()))) {
@@ -136,12 +132,12 @@ class SubqueryPlanner
      * Find subqueries from the candidate set that are children of the given parent
      * and that have not already been handled in the subplan
      */
-    private <T extends Expression> List<T> selectSubqueries(PlanBuilder subPlan, Expression parent, List<T> candidates)
+    private <T extends io.trino.sql.tree.Expression> List<T> selectSubqueries(PlanBuilder subPlan, io.trino.sql.tree.Expression parent, List<T> candidates)
     {
         SuccessorsFunction<Node> recurse = expression -> {
-            if (!(expression instanceof Expression) ||
-                    (!analysis.isColumnReference((Expression) expression) && // no point in following dereference chains
-                            !subPlan.canTranslate((Expression) expression))) { // don't consider subqueries under parts of the expression that have already been handled
+            if (!(expression instanceof io.trino.sql.tree.Expression) ||
+                    (!analysis.isColumnReference((io.trino.sql.tree.Expression) expression) && // no point in following dereference chains
+                            !subPlan.canTranslate((io.trino.sql.tree.Expression) expression))) { // don't consider subqueries under parts of the expression that have already been handled
                 return expression.getChildren();
             }
 
@@ -160,7 +156,7 @@ class SubqueryPlanner
     /**
      * Group expressions into clusters such that all entries in a cluster are #equals to each other
      */
-    private <T extends Expression> Collection<Cluster<T>> cluster(Scope scope, List<T> expressions)
+    private <T extends io.trino.sql.tree.Expression> Collection<Cluster<T>> cluster(Scope scope, List<T> expressions)
     {
         Map<ScopeAware<T>, List<T>> sets = new LinkedHashMap<>();
 
@@ -174,14 +170,14 @@ class SubqueryPlanner
                 .collect(toImmutableList());
     }
 
-    private PlanBuilder planInPredicate(PlanBuilder subPlan, Cluster<InPredicate> cluster, Analysis.SubqueryAnalysis subqueries)
+    private PlanBuilder planInPredicate(PlanBuilder subPlan, Cluster<io.trino.sql.tree.InPredicate> cluster, Analysis.SubqueryAnalysis subqueries)
     {
         // Plan one of the predicates from the cluster
-        InPredicate predicate = cluster.getRepresentative();
+        io.trino.sql.tree.InPredicate predicate = cluster.getRepresentative();
 
-        Expression value = predicate.getValue();
+        io.trino.sql.tree.Expression value = predicate.getValue();
         SubqueryExpression subquery = (SubqueryExpression) predicate.getValueList();
-        Symbol output = symbolAllocator.newSymbol(predicate, BOOLEAN);
+        Symbol output = symbolAllocator.newSymbol("expr", BOOLEAN);
 
         subPlan = handleSubqueries(subPlan, value, subqueries);
         subPlan = planInPredicate(subPlan, value, subquery, output, predicate, analysis.getPredicateCoercions(predicate));
@@ -199,10 +195,10 @@ class SubqueryPlanner
      */
     private PlanBuilder planInPredicate(
             PlanBuilder subPlan,
-            Expression value,
+            io.trino.sql.tree.Expression value,
             SubqueryExpression subquery,
             Symbol output,
-            Expression originalExpression,
+            io.trino.sql.tree.Expression originalExpression,
             Analysis.PredicateCoercions predicateCoercions)
     {
         PlanAndMappings subqueryPlan = planSubquery(subquery, predicateCoercions.getSubqueryCoercion(), subPlan.getTranslations());
@@ -249,7 +245,7 @@ class SubqueryPlanner
                 }
             }
 
-            Expression expression = new Cast(new Row(fields.build()), toSqlType(type));
+            Expression expression = new Cast(new Row(fields.build()), type);
 
             root = new ProjectNode(idAllocator.getNextId(), root, Assignments.of(column, expression));
         }
@@ -268,7 +264,7 @@ class SubqueryPlanner
                 mapAll(cluster, subPlan.getScope(), column));
     }
 
-    public PlanBuilder appendCorrelatedJoin(PlanBuilder subPlan, PlanNode subquery, Query query, JoinType type, Expression filterCondition, Map<ScopeAware<Expression>, Symbol> mappings)
+    public PlanBuilder appendCorrelatedJoin(PlanBuilder subPlan, PlanNode subquery, Query query, JoinType type, Expression filterCondition, Map<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings)
     {
         return new PlanBuilder(
                 subPlan.getTranslations()
@@ -283,12 +279,12 @@ class SubqueryPlanner
                         query));
     }
 
-    private PlanBuilder planExists(PlanBuilder subPlan, Cluster<ExistsPredicate> cluster)
+    private PlanBuilder planExists(PlanBuilder subPlan, Cluster<io.trino.sql.tree.ExistsPredicate> cluster)
     {
         // Plan one of the predicates from the cluster
-        ExistsPredicate existsPredicate = cluster.getRepresentative();
+        io.trino.sql.tree.ExistsPredicate existsPredicate = cluster.getRepresentative();
 
-        Expression subquery = existsPredicate.getSubquery();
+        io.trino.sql.tree.Expression subquery = existsPredicate.getSubquery();
         Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
 
         return new PlanBuilder(
@@ -303,25 +299,25 @@ class SubqueryPlanner
                         subquery));
     }
 
-    private RelationPlan planSubquery(Expression subquery, TranslationMap outerContext)
+    private RelationPlan planSubquery(io.trino.sql.tree.Expression subquery, TranslationMap outerContext)
     {
         return new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.of(outerContext), session, recursiveSubqueries)
                 .process(subquery, null);
     }
 
-    private PlanBuilder planQuantifiedComparison(PlanBuilder subPlan, Cluster<QuantifiedComparisonExpression> cluster, Analysis.SubqueryAnalysis subqueries)
+    private PlanBuilder planQuantifiedComparison(PlanBuilder subPlan, Cluster<io.trino.sql.tree.QuantifiedComparisonExpression> cluster, Analysis.SubqueryAnalysis subqueries)
     {
         // Plan one of the predicates from the cluster
-        QuantifiedComparisonExpression quantifiedComparison = cluster.getRepresentative();
+        io.trino.sql.tree.QuantifiedComparisonExpression quantifiedComparison = cluster.getRepresentative();
 
-        ComparisonExpression.Operator operator = quantifiedComparison.getOperator();
+        io.trino.sql.tree.ComparisonExpression.Operator operator = quantifiedComparison.getOperator();
         Quantifier quantifier = quantifiedComparison.getQuantifier();
-        Expression value = quantifiedComparison.getValue();
+        io.trino.sql.tree.Expression value = quantifiedComparison.getValue();
         SubqueryExpression subquery = (SubqueryExpression) quantifiedComparison.getSubquery();
 
         subPlan = handleSubqueries(subPlan, value, subqueries);
 
-        Symbol output = symbolAllocator.newSymbol(quantifiedComparison, BOOLEAN);
+        Symbol output = symbolAllocator.newSymbol("expr", BOOLEAN);
 
         Analysis.PredicateCoercions predicateCoercions = analysis.getPredicateCoercions(quantifiedComparison);
 
@@ -354,7 +350,7 @@ class SubqueryPlanner
                     // A <> ANY B <=> min B <> max B || A <> min B <=> !(min B = max B && A = min B) <=> !(A = ALL B)
                     // "A <> ANY B" is equivalent to "NOT (A = ALL B)" so add a rewrite for the initial quantifiedComparison to notAll
                         addNegation(
-                                planQuantifiedComparison(subPlan, EQUAL, Quantifier.ALL, value, subquery, output, predicateCoercions),
+                                planQuantifiedComparison(subPlan, io.trino.sql.tree.ComparisonExpression.Operator.EQUAL, Quantifier.ALL, value, subquery, output, predicateCoercions),
                                 cluster,
                                 output);
             };
@@ -373,7 +369,7 @@ class SubqueryPlanner
     /**
      * Adds a negation of the given input and remaps the provided expression to the negated expression
      */
-    private PlanBuilder addNegation(PlanBuilder subPlan, Cluster<? extends Expression> cluster, Symbol input)
+    private PlanBuilder addNegation(PlanBuilder subPlan, Cluster<? extends io.trino.sql.tree.Expression> cluster, Symbol input)
     {
         Symbol output = symbolAllocator.newSymbol("not", BOOLEAN);
 
@@ -391,10 +387,10 @@ class SubqueryPlanner
 
     private PlanBuilder planQuantifiedComparison(
             PlanBuilder subPlan,
-            ComparisonExpression.Operator operator,
+            io.trino.sql.tree.ComparisonExpression.Operator operator,
             Quantifier quantifier,
-            Expression value,
-            Expression subquery,
+            io.trino.sql.tree.Expression value,
+            io.trino.sql.tree.Expression subquery,
             Symbol assignment,
             Analysis.PredicateCoercions predicateCoercions)
     {
@@ -421,7 +417,7 @@ class SubqueryPlanner
         };
     }
 
-    private static ApplyNode.Operator mapOperator(ComparisonExpression.Operator operator)
+    private static ApplyNode.Operator mapOperator(io.trino.sql.tree.ComparisonExpression.Operator operator)
     {
         return switch (operator) {
             case EQUAL -> ApplyNode.Operator.EQUAL;
@@ -434,7 +430,7 @@ class SubqueryPlanner
         };
     }
 
-    private PlanAndMappings planValue(PlanBuilder subPlan, Expression value, Type actualType, Optional<Type> coercion)
+    private PlanAndMappings planValue(PlanBuilder subPlan, io.trino.sql.tree.Expression value, Type actualType, Optional<Type> coercion)
     {
         subPlan = subPlan.appendProjections(ImmutableList.of(value), symbolAllocator, idAllocator);
 
@@ -457,7 +453,7 @@ class SubqueryPlanner
         return coerceIfNecessary(subPlan, column, value, coercion);
     }
 
-    private PlanAndMappings planSubquery(Expression subquery, Optional<Type> coercion, TranslationMap outerContext)
+    private PlanAndMappings planSubquery(io.trino.sql.tree.Expression subquery, Optional<Type> coercion, TranslationMap outerContext)
     {
         Type type = analysis.getType(subquery);
         Symbol column = symbolAllocator.newSymbol("row", type);
@@ -485,23 +481,23 @@ class SubqueryPlanner
                 new ProjectNode(
                         idAllocator.getNextId(),
                         relationPlan.getRoot(),
-                        Assignments.of(column, new Cast(new Row(fields.build()), toSqlType(type)))));
+                        Assignments.of(column, new Cast(new Row(fields.build()), type))));
 
         return coerceIfNecessary(subqueryPlan, column, subquery, coercion);
     }
 
-    private PlanAndMappings coerceIfNecessary(PlanBuilder subPlan, Symbol symbol, Expression value, Optional<? extends Type> coercion)
+    private PlanAndMappings coerceIfNecessary(PlanBuilder subPlan, Symbol symbol, io.trino.sql.tree.Expression value, Optional<? extends Type> coercion)
     {
         Symbol coerced = symbol;
 
         if (coercion.isPresent()) {
-            coerced = symbolAllocator.newSymbol(value, coercion.get());
+            coerced = symbolAllocator.newSymbol("expr", coercion.get());
 
             Assignments assignments = Assignments.builder()
                     .putIdentities(subPlan.getRoot().getOutputSymbols())
                     .put(coerced, new Cast(
                             symbol.toSymbolReference(),
-                            toSqlType(coercion.get()),
+                            coercion.get(),
                             false))
                     .build();
 
@@ -511,7 +507,7 @@ class SubqueryPlanner
         return new PlanAndMappings(subPlan, ImmutableMap.of(NodeRef.of(value), coerced));
     }
 
-    private <T extends Expression> Map<ScopeAware<Expression>, Symbol> mapAll(Cluster<T> cluster, Scope scope, Symbol output)
+    private <T extends io.trino.sql.tree.Expression> Map<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mapAll(Cluster<T> cluster, Scope scope, Symbol output)
     {
         return cluster.getExpressions().stream()
                 .collect(toImmutableMap(
@@ -523,7 +519,7 @@ class SubqueryPlanner
     /**
      * A group of expressions that are equivalent to each other according to ScopeAware criteria
      */
-    private static class Cluster<T extends Expression>
+    private static class Cluster<T extends io.trino.sql.tree.Expression>
     {
         private final List<T> expressions;
 
@@ -533,7 +529,7 @@ class SubqueryPlanner
             this.expressions = ImmutableList.copyOf(expressions);
         }
 
-        public static <T extends Expression> Cluster<T> newCluster(List<T> expressions, Scope scope, Analysis analysis)
+        public static <T extends io.trino.sql.tree.Expression> Cluster<T> newCluster(List<T> expressions, Scope scope, Analysis analysis)
         {
             long count = expressions.stream()
                     .map(expression -> scopeAwareKey(expression, analysis, scope))
