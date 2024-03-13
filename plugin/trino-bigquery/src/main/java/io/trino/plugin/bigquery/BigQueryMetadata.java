@@ -17,6 +17,7 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
+import com.google.cloud.bigquery.ExternalTableDefinition;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.QueryParameterValue;
@@ -119,6 +120,7 @@ import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.cloud.bigquery.storage.v1.WriteStream.Type.COMMITTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -341,7 +343,7 @@ public class BigQueryMetadata
             return null;
         }
 
-        boolean useStorageApi = useStorageApi(session, schemaTableName.getTableName(), tableInfo.get().getDefinition().getType());
+        boolean useStorageApi = useStorageApi(session, schemaTableName.getTableName(), tableInfo.get().getDefinition());
         ImmutableList.Builder<BigQueryColumnHandle> columns = ImmutableList.builder();
         columns.addAll(client.buildColumnHandles(tableInfo.get(), useStorageApi));
         Optional<BigQueryPartitionType> partitionType = getPartitionType(tableInfo.get().getDefinition());
@@ -362,20 +364,33 @@ public class BigQueryMetadata
                 .withProjectedColumns(columns.build());
     }
 
-    private static boolean useStorageApi(ConnectorSession session, String tableName, TableDefinition.Type type)
+    private static boolean useStorageApi(ConnectorSession session, String tableName, TableDefinition tableDefinition)
     {
+        TableDefinition.Type type = tableDefinition.getType();
         if (isWildcardTable(type, tableName)) {
             // Storage API doesn't support reading wildcard tables
             return false;
         }
-        if (type == EXTERNAL) {
-            // Storage API doesn't support reading external tables
+        if (type == EXTERNAL && !isBigLakeTable(tableDefinition)) {
+            // Storage API doesn't support reading external tables except BigLake tables
             return false;
         }
         if ((type == VIEW || type == MATERIALIZED_VIEW) && isSkipViewMaterialization(session)) {
             return false;
         }
         return true;
+    }
+
+    private static boolean isBigLakeTable(TableDefinition tableDefinition)
+    {
+        if (tableDefinition instanceof ExternalTableDefinition externalTableDefinition) {
+            //BigLake tables are external with connectionId that don't have objectMetadata (ObjectTable discriminator) and their uri starts with gs:// (OMNI table discriminator)
+            List<String> sourceUris = externalTableDefinition.getSourceUris();
+            return !isNullOrEmpty(externalTableDefinition.getConnectionId()) &&
+                   isNullOrEmpty(externalTableDefinition.getObjectMetadata()) &&
+                   (sourceUris != null && sourceUris.stream().allMatch(uri -> uri.startsWith("gs://")));
+        }
+        return false;
     }
 
     private Optional<TableInfo> getTableInfoIgnoringConflicts(ConnectorSession session, SchemaTableName schemaTableName)
@@ -472,7 +487,7 @@ public class BigQueryMetadata
         return tableInfos.stream()
                 .collect(toImmutableMap(
                         table -> new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable()),
-                        table -> client.buildColumnHandles(table, useStorageApi(session, table.getTableId().getTable(), table.getDefinition().getType())).stream()
+                        table -> client.buildColumnHandles(table, useStorageApi(session, table.getTableId().getTable(), table.getDefinition())).stream()
                                 .map(BigQueryColumnHandle::getColumnMetadata)
                                 .collect(toImmutableList())));
     }
