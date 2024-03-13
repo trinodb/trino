@@ -108,6 +108,9 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
@@ -1082,12 +1085,45 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         return metadata.getSupportedType(session.toConnectorSession(catalogHandle), tableProperties, type)
+                .or(() -> this.getSupportedTypeForStructuralTypes(session, catalogHandle, tableProperties, type))
                 .map(newType -> {
                     if (!typeCoercion.isCompatible(newType, type)) {
                         throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format("Type '%s' is not compatible with the supplied type '%s' in getSupportedType", type, newType));
                     }
                     return newType;
                 });
+    }
+
+    private Optional<Type> getSupportedTypeForStructuralTypes(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
+    {
+        if (type instanceof ArrayType arrayType) {
+            Optional<Type> elementType = getSupportedType(session, catalogHandle, tableProperties, arrayType.getElementType());
+            if (elementType.isPresent()) {
+                return Optional.of(new ArrayType(elementType.get()));
+            }
+        }
+        if (type instanceof MapType mapType) {
+            Optional<io.trino.spi.type.Type> keyType = getSupportedType(session, catalogHandle, tableProperties, mapType.getKeyType());
+            Optional<io.trino.spi.type.Type> valueType = getSupportedType(session, catalogHandle, tableProperties, mapType.getValueType());
+            if (keyType.isPresent() || valueType.isPresent()) {
+                return Optional.of(new MapType(keyType.orElse(mapType.getKeyType()), valueType.orElse(mapType.getValueType()), typeManager.getTypeOperators()));
+            }
+        }
+        if (type instanceof RowType rowType) {
+            List<RowType.Field> originalFields = rowType.getFields();
+            List<Optional<RowType.Field>> newFields = originalFields.stream().map(field -> {
+                Optional<io.trino.spi.type.Type> supportedType = getSupportedType(session, catalogHandle, tableProperties, field.getType());
+                return supportedType.map(value -> new RowType.Field(field.getName(), value));
+            }).collect(toImmutableList());
+            if (newFields.stream().anyMatch(Optional::isPresent)) {
+                List<RowType.Field> fields = Streams.zip(
+                        originalFields.stream(),
+                        newFields.stream(),
+                        (originalField, newField) -> newField.orElse(originalField)).collect(toImmutableList());
+                return Optional.of(RowType.from(fields));
+            }
+        }
+        return Optional.empty();
     }
 
     @Override

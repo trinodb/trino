@@ -31,6 +31,9 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.ColumnDefinition;
@@ -57,6 +60,7 @@ import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -81,6 +85,7 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ROOT;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -99,6 +104,27 @@ class TestCreateTableTask
     private static final ConnectorTableMetadata PARENT_TABLE_WITH_COERCED_TYPE = new ConnectorTableMetadata(
             new SchemaTableName("schema", "parent_table_with_coerced_type"),
             List.of(new ColumnMetadata("a", TIMESTAMP_NANOS)));
+
+    private static final ConnectorTableMetadata PARENT_TABLE_WITH_COERCED_ARRAY_TYPE = new ConnectorTableMetadata(
+            new SchemaTableName("schema", "parent_table_with_coerced_array_type"),
+            List.of(
+                    new ColumnMetadata("a", new ArrayType(TIMESTAMP_NANOS)),
+                    new ColumnMetadata("b", new ArrayType(new ArrayType(TIMESTAMP_NANOS)))));
+
+    private static final ConnectorTableMetadata PARENT_TABLE_WITH_COERCED_MAP_TYPE = new ConnectorTableMetadata(
+            new SchemaTableName("schema", "parent_table_with_coerced_map_type"),
+            List.of(
+                    new ColumnMetadata("a", new MapType(SMALLINT, TIMESTAMP_NANOS, TESTING_TYPE_MANAGER.getTypeOperators())),
+                    new ColumnMetadata("b", new MapType(TIMESTAMP_NANOS, SMALLINT, TESTING_TYPE_MANAGER.getTypeOperators())),
+                    new ColumnMetadata("c", new MapType(new MapType(SMALLINT, TIMESTAMP_NANOS, TESTING_TYPE_MANAGER.getTypeOperators()), new MapType(SMALLINT, TIMESTAMP_NANOS, TESTING_TYPE_MANAGER.getTypeOperators()), TESTING_TYPE_MANAGER.getTypeOperators()))));
+
+    private static final ConnectorTableMetadata PARENT_TABLE_WITH_COERCED_ROW_TYPE = new ConnectorTableMetadata(
+            new SchemaTableName("schema", "parent_table_with_coerced_row_type"),
+            List.of(
+                    new ColumnMetadata("a", RowType.from(ImmutableList.of(new RowType.Field(Optional.of("field1"), TIMESTAMP_NANOS), new RowType.Field(Optional.of("field2"), SMALLINT), new RowType.Field(Optional.empty(), TIMESTAMP_NANOS), new RowType.Field(Optional.empty(), SMALLINT)))),
+                    new ColumnMetadata("b", RowType.from(ImmutableList.of(new RowType.Field(Optional.of("field1"), RowType.from(ImmutableList.of(new RowType.Field(Optional.empty(), TIMESTAMP_NANOS), new RowType.Field(Optional.empty(), SMALLINT)))))))));
+
+    private static final List<ConnectorTableMetadata> TABLES = ImmutableList.of(PARENT_TABLE, PARENT_TABLE_WITH_COERCED_TYPE, PARENT_TABLE_WITH_COERCED_ARRAY_TYPE, PARENT_TABLE_WITH_COERCED_MAP_TYPE, PARENT_TABLE_WITH_COERCED_ROW_TYPE);
 
     private QueryRunner queryRunner;
     private MockMetadata metadata;
@@ -417,6 +443,100 @@ class TestCreateTableTask
         });
     }
 
+    @Test
+    void testCreateTableWithCoercedArrayType()
+    {
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table_coerced_array_type"),
+                ImmutableList.of(
+                        new ColumnDefinition(
+                                QualifiedName.of("a"),
+                                toSqlType(new ArrayType(TIMESTAMP_NANOS)),
+                                true,
+                                emptyList(),
+                                Optional.empty()),
+                        new ColumnDefinition(
+                                QualifiedName.of("c"),
+                                toSqlType(new ArrayType(new ArrayType(TIMESTAMP_NANOS))),
+                                true,
+                                emptyList(),
+                                Optional.empty())),
+                IGNORE,
+                ImmutableList.of(),
+                Optional.empty());
+        queryRunner.inTransaction(transactionSession -> {
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), output -> {}));
+            List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().get(0).getColumns();
+            assertThat(columns.get(0).getType()).isEqualTo(new ArrayType(TIMESTAMP_MILLIS));
+            assertThat(columns.get(1).getType()).isEqualTo(new ArrayType(new ArrayType(TIMESTAMP_MILLIS)));
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateTableWithCoercedMapType()
+    {
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table_coerced_map_type"),
+                ImmutableList.of(
+                        new ColumnDefinition(
+                                QualifiedName.of("a"),
+                                toSqlType(new MapType(SMALLINT, TIMESTAMP_NANOS, TESTING_TYPE_MANAGER.getTypeOperators())),
+                                true,
+                                emptyList(),
+                                Optional.empty()),
+                        new ColumnDefinition(
+                                QualifiedName.of("b"),
+                                toSqlType(new MapType(TIMESTAMP_NANOS, SMALLINT, TESTING_TYPE_MANAGER.getTypeOperators())),
+                                true,
+                                emptyList(),
+                                Optional.empty()),
+                        new ColumnDefinition(
+                                QualifiedName.of("c"),
+                                toSqlType(new MapType(new MapType(TIMESTAMP_NANOS, SMALLINT, TESTING_TYPE_MANAGER.getTypeOperators()), new MapType(TIMESTAMP_NANOS, SMALLINT, TESTING_TYPE_MANAGER.getTypeOperators()), TESTING_TYPE_MANAGER.getTypeOperators())),
+                                true,
+                                emptyList(),
+                                Optional.empty())),
+                IGNORE,
+                ImmutableList.of(),
+                Optional.empty());
+        queryRunner.inTransaction(transactionSession -> {
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), output -> {}));
+            List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().get(0).getColumns();
+            assertThat(columns.get(0).getType()).isEqualTo(new MapType(SMALLINT, TIMESTAMP_MILLIS, TESTING_TYPE_MANAGER.getTypeOperators()));
+            assertThat(columns.get(1).getType()).isEqualTo(new MapType(TIMESTAMP_MILLIS, SMALLINT, TESTING_TYPE_MANAGER.getTypeOperators()));
+            assertThat(columns.get(2).getType()).isEqualTo(new MapType(new MapType(TIMESTAMP_MILLIS, SMALLINT, TESTING_TYPE_MANAGER.getTypeOperators()), new MapType(TIMESTAMP_MILLIS, SMALLINT, TESTING_TYPE_MANAGER.getTypeOperators()), TESTING_TYPE_MANAGER.getTypeOperators()));
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateTableWithCoercedRowType()
+    {
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table_coerced_row_type"),
+                ImmutableList.of(
+                        new ColumnDefinition(
+                                QualifiedName.of("a"),
+                                toSqlType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of("field1"), TIMESTAMP_NANOS), new RowType.Field(Optional.of("field2"), SMALLINT), new RowType.Field(Optional.empty(), TIMESTAMP_NANOS), new RowType.Field(Optional.empty(), SMALLINT)))),
+                                true,
+                                emptyList(),
+                                Optional.empty()),
+                        new ColumnDefinition(
+                                QualifiedName.of("b"),
+                                toSqlType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of("field1"), RowType.from(ImmutableList.of(new RowType.Field(Optional.of("field1"), TIMESTAMP_NANOS), new RowType.Field(Optional.of("field2"), SMALLINT), new RowType.Field(Optional.empty(), TIMESTAMP_NANOS), new RowType.Field(Optional.empty(), SMALLINT))))))),
+                                true,
+                                emptyList(),
+                                Optional.empty())),
+                IGNORE,
+                ImmutableList.of(),
+                Optional.empty());
+        queryRunner.inTransaction(transactionSession -> {
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, List.of(), output -> {}));
+            List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().get(0).getColumns();
+            assertThat(columns.get(0).getType()).isEqualTo(RowType.from(ImmutableList.of(new RowType.Field(Optional.of("field1"), TIMESTAMP_MILLIS), new RowType.Field(Optional.of("field2"), SMALLINT), new RowType.Field(Optional.empty(), TIMESTAMP_MILLIS), new RowType.Field(Optional.empty(), SMALLINT))));
+            assertThat(columns.get(1).getType()).isEqualTo(RowType.from(ImmutableList.of(new RowType.Field(Optional.of("field1"), RowType.from(ImmutableList.of(new RowType.Field(Optional.of("field1"), TIMESTAMP_MILLIS), new RowType.Field(Optional.of("field2"), SMALLINT), new RowType.Field(Optional.empty(), TIMESTAMP_MILLIS), new RowType.Field(Optional.empty(), SMALLINT)))))));
+            return null;
+        });
+    }
+
     private static CreateTable getCreateLikeStatement(boolean includingProperties)
     {
         return getCreateLikeStatement(QualifiedName.of("test_table_" + ThreadLocalRandom.current().longs(Long.MAX_VALUE)), includingProperties);
@@ -452,7 +572,7 @@ class TestCreateTableTask
         @Override
         public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
         {
-            if (tableName.equals(PARENT_TABLE.getTable()) || tableName.equals(PARENT_TABLE_WITH_COERCED_TYPE.getTable())) {
+            if (TABLES.stream().map(ConnectorTableMetadata::getTable).collect(toImmutableList()).contains(tableName)) {
                 return new TestingTableHandle(tableName);
             }
             return null;
@@ -471,11 +591,9 @@ class TestCreateTableTask
         public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
         {
             if ((tableHandle instanceof TestingTableHandle handle)) {
-                if (handle.getTableName().equals(PARENT_TABLE.getTable())) {
-                    return PARENT_TABLE;
-                }
-                if (handle.getTableName().equals(PARENT_TABLE_WITH_COERCED_TYPE.getTable())) {
-                    return PARENT_TABLE_WITH_COERCED_TYPE;
+                Optional<ConnectorTableMetadata> connectorTableMetadata = TABLES.stream().filter(table -> table.getTable().equals(handle.getTableName())).findFirst();
+                if (connectorTableMetadata.isPresent()) {
+                    return connectorTableMetadata.get();
                 }
             }
             return ConnectorMetadata.super.getTableMetadata(session, tableHandle);
