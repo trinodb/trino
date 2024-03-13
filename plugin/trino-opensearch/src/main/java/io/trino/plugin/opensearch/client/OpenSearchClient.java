@@ -237,6 +237,7 @@ public class OpenSearchClient
 
             awsSecurityConfig.ifPresent(securityConfig -> clientBuilder.addInterceptorLast(new AwsRequestSigner(
                     securityConfig.getRegion(),
+                    securityConfig.getDeploymentType(),
                     getAwsCredentialsProvider(securityConfig))));
 
             return clientBuilder;
