@@ -26,6 +26,7 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.expression.BytecodeExpressions;
+import io.airlift.bytecode.instruction.LabelNode;
 import io.trino.operator.window.InternalWindowIndex;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -287,22 +288,20 @@ public final class AccumulatorCompiler
 
         // Generate methods
         generateCopy(definition, WindowAccumulator.class);
-        generateAddOrRemoveInputWindowIndex(
+        generateAddInputWindowIndex(
                 definition,
                 stateFields,
                 argumentNullable,
                 lambdaProviderFields,
                 implementation.getInputFunction(),
-                "addInput",
                 callSiteBinder);
         implementation.getRemoveInputFunction().ifPresent(
-                removeInputFunction -> generateAddOrRemoveInputWindowIndex(
+                removeInputFunction -> generateRemoveInputWindowIndex(
                         definition,
                         stateFields,
                         argumentNullable,
                         lambdaProviderFields,
                         removeInputFunction,
-                        "removeInput",
                         callSiteBinder));
 
         generateEvaluateFinal(definition, stateFields, implementation.getOutputFunction(), callSiteBinder);
@@ -417,13 +416,12 @@ public final class AccumulatorCompiler
         body.ret();
     }
 
-    private static void generateAddOrRemoveInputWindowIndex(
+    private static void generateAddInputWindowIndex(
             ClassDefinition definition,
             List<FieldDefinition> stateField,
             List<Boolean> argumentNullable,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
-            String generatedFunctionName,
             CallSiteBinder callSiteBinder)
     {
         // TODO: implement masking based on maskChannel field once Window Functions support DISTINCT arguments to the functions.
@@ -434,7 +432,7 @@ public final class AccumulatorCompiler
 
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC),
-                generatedFunctionName,
+                "addInput",
                 type(void.class),
                 ImmutableList.of(index, startPosition, endPosition));
         Scope scope = method.getScope();
@@ -462,7 +460,7 @@ public final class AccumulatorCompiler
         invokeInputFunction.append(invokeDynamic(
                 BOOTSTRAP_METHOD,
                 ImmutableList.of(binding.getBindingId()),
-                generatedFunctionName,
+                "addInput",
                 binding.getType(),
                 getInvokeFunctionOnWindowIndexParameters(
                         scope.getThis(),
@@ -479,6 +477,75 @@ public final class AccumulatorCompiler
                                 .condition(anyParametersAreNull(argumentNullable, index, position))
                                 .ifFalse(invokeInputFunction)))
                 .ret();
+    }
+
+    private static void generateRemoveInputWindowIndex(
+            ClassDefinition definition,
+            List<FieldDefinition> stateField,
+            List<Boolean> argumentNullable,
+            List<FieldDefinition> lambdaProviderFields,
+            MethodHandle removeFunction,
+            CallSiteBinder callSiteBinder)
+    {
+        // TODO: implement masking based on maskChannel field once Window Functions support DISTINCT arguments to the functions.
+
+        Parameter index = arg("index", WindowIndex.class);
+        Parameter startPosition = arg("startPosition", int.class);
+        Parameter endPosition = arg("endPosition", int.class);
+
+        MethodDefinition method = definition.declareMethod(
+                a(PUBLIC),
+                "removeInput",
+                type(boolean.class),
+                ImmutableList.of(index, startPosition, endPosition));
+        Scope scope = method.getScope();
+        BytecodeBlock body = method.getBody();
+
+        Variable position = scope.declareVariable(int.class, "position");
+
+        // input parameters
+        Variable inputBlockPosition = scope.declareVariable(int.class, "inputBlockPosition");
+        List<Variable> inputBlockVariables = new ArrayList<>();
+        for (int i = 0; i < argumentNullable.size(); i++) {
+            inputBlockVariables.add(scope.declareVariable(Block.class, "inputBlock" + i));
+        }
+
+        Binding binding = callSiteBinder.bind(removeFunction);
+        BytecodeBlock invokeRemoveFunction = new BytecodeBlock();
+        // WindowIndex is built on PagesIndex, which simply wraps Blocks
+        // and currently does not understand ValueBlocks.
+        // Until PagesIndex is updated to understand ValueBlocks, the
+        // input function parameters must be directly unwrapped to ValueBlocks.
+        invokeRemoveFunction.append(inputBlockPosition.set(index.cast(InternalWindowIndex.class).invoke("getRawBlockPosition", int.class, position)));
+        for (int i = 0; i < inputBlockVariables.size(); i++) {
+            invokeRemoveFunction.append(inputBlockVariables.get(i).set(index.cast(InternalWindowIndex.class).invoke("getRawBlock", Block.class, constantInt(i), position)));
+        }
+        LabelNode returnFalse = new LabelNode("returnFalse");
+        invokeRemoveFunction.append(invokeDynamic(
+                BOOTSTRAP_METHOD,
+                ImmutableList.of(binding.getBindingId()),
+                "removeInput",
+                binding.getType(),
+                getInvokeFunctionOnWindowIndexParameters(
+                        scope.getThis(),
+                        stateField,
+                        inputBlockPosition,
+                        inputBlockVariables,
+                        lambdaProviderFields)));
+        invokeRemoveFunction.ifFalseGoto(returnFalse);
+
+        body.append(new ForLoop()
+                        .initialize(position.set(startPosition))
+                        .condition(BytecodeExpressions.lessThanOrEqual(position, endPosition))
+                        .update(position.increment())
+                        .body(new IfStatement()
+                                .condition(anyParametersAreNull(argumentNullable, index, position))
+                                .ifFalse(invokeRemoveFunction)))
+                .push(true)
+                .retBoolean()
+                .visitLabel(returnFalse)
+                .push(false)
+                .retBoolean();
     }
 
     private static BytecodeExpression anyParametersAreNull(

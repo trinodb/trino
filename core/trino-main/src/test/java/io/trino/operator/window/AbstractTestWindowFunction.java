@@ -67,6 +67,16 @@ public abstract class AbstractTestWindowFunction
         return WindowAssertions.executeWindowQueryWithNulls(sql, queryRunner);
     }
 
+    protected void assertWindowQueryWithNan(@Language("SQL") String sql, MaterializedResult expected)
+    {
+        WindowAssertions.assertWindowQueryWithNan(sql, expected, queryRunner);
+    }
+
+    protected void assertWindowQueryWithInfinity(@Language("SQL") String sql, MaterializedResult expected)
+    {
+        WindowAssertions.assertWindowQueryWithInfinity(sql, expected, queryRunner);
+    }
+
     protected void assertUnboundedWindowQueryWithNulls(@Language("SQL") String sql, MaterializedResult expected)
     {
         assertWindowQueryWithNulls(unbounded(sql), expected);
