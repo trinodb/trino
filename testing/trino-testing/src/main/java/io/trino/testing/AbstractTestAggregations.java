@@ -1433,4 +1433,21 @@ public abstract class AbstractTestAggregations
                     LIMIT 10)
                 GROUP BY id""");
     }
+
+    @Test
+    public void testAggregationMaskOnDictionaryInput()
+    {
+        assertThat(query("""
+                SELECT
+                    max(update_ts) FILTER (WHERE step_type = 'Rest')
+                FROM (VALUES
+                        ('cell_id', 'Rest', TIMESTAMP '2005-09-10 13:31:00.123 Europe/Warsaw'),
+                        ('cell_id', 'Rest', TIMESTAMP '2005-09-10 13:31:00.123 Europe/Warsaw')
+                    ) AS t(cell_id, step_type, update_ts)
+                -- UNNEST to produce DictionaryBlock
+                CROSS JOIN UNNEST (sequence(1, 1000)) AS a(e)
+                GROUP BY cell_id
+                """))
+                .matches("VALUES TIMESTAMP '2005-09-10 13:31:00.123 Europe/Warsaw'");
+    }
 }
