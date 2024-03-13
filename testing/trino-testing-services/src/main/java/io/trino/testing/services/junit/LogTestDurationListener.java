@@ -42,7 +42,6 @@ import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getThreadMXBean;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 
 public class LogTestDurationListener
@@ -50,7 +49,6 @@ public class LogTestDurationListener
 {
     private static final Logger log = Logger.get(LogTestDurationListener.class);
 
-    private static final Duration TEST_LOGGING_THRESHOLD = new Duration(20, SECONDS);
     private static final Duration GLOBAL_IDLE_LOGGING_THRESHOLD = new Duration(8, MINUTES);
 
     private final boolean enabled;
@@ -68,7 +66,6 @@ public class LogTestDurationListener
     {
         enabled = isEnabled();
         scheduledExecutorService = newSingleThreadScheduledExecutor(daemonThreadsNamed("TestHangMonitor"));
-        log.info("LogTestDurationListener enabled: %s", enabled);
     }
 
     private static boolean isEnabled()
@@ -193,10 +190,7 @@ public class LogTestDurationListener
         }
 
         try {
-            Duration duration = endTest(testIdentifier);
-            if (duration.compareTo(TEST_LOGGING_THRESHOLD) > 0) {
-                log.info("Test %s took %s", testName(testIdentifier), duration);
-            }
+            endTest(testIdentifier);
         }
         catch (RuntimeException | Error e) {
             reportListenerFailure(LogTestDurationListener.class, "executionFinished: \n%s", getStackTraceAsString(e));
