@@ -40,6 +40,25 @@ import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.FieldId;
 import io.trino.sql.analyzer.RelationType;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.DecimalLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.IntervalLiteral;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SearchedCaseExpression;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.RelationPlanner.PatternRecognitionComponents;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -65,27 +84,14 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowFrameType;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.Delete;
-import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.FunctionCall.NullTreatment;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.IntervalLiteral;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
@@ -94,22 +100,16 @@ import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.VariableDefinition;
-import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
 
@@ -151,7 +151,12 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.isNumericType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IntervalLiteral.IntervalField.DAY;
+import static io.trino.sql.ir.IntervalLiteral.IntervalField.YEAR;
+import static io.trino.sql.ir.IntervalLiteral.Sign.POSITIVE;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
@@ -165,12 +170,6 @@ import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.tree.IntervalLiteral.IntervalField.DAY;
-import static io.trino.sql.tree.IntervalLiteral.IntervalField.YEAR;
-import static io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE;
 import static io.trino.sql.tree.WindowFrame.Type.GROUPS;
 import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
@@ -225,11 +224,11 @@ class QueryPlanner
     {
         PlanBuilder builder = planQueryBody(query);
 
-        List<Expression> orderBy = analysis.getOrderByExpressions(query);
+        List<io.trino.sql.tree.Expression> orderBy = analysis.getOrderByExpressions(query);
         builder = subqueryPlanner.handleSubqueries(builder, orderBy, analysis.getSubqueries(query));
 
         List<SelectExpression> selectExpressions = analysis.getSelectExpressions(query);
-        List<Expression> outputs = selectExpressions.stream()
+        List<io.trino.sql.tree.Expression> outputs = selectExpressions.stream()
                 .map(SelectExpression::getExpression)
                 .collect(toImmutableList());
         builder = builder.appendProjections(Iterables.concat(orderBy, outputs), symbolAllocator, idAllocator);
@@ -336,7 +335,7 @@ class QueryPlanner
                         new GenericLiteral("BIGINT", "0")),
                 new Cast(
                         failFunction(plannerContext.getMetadata(), NOT_SUPPORTED, recursionLimitExceededMessage),
-                        toSqlType(BOOLEAN)),
+                        BOOLEAN),
                 TRUE_LITERAL);
         FilterNode filterNode = new FilterNode(idAllocator.getNextId(), windowNode, predicate);
 
@@ -424,7 +423,7 @@ class QueryPlanner
         builder = planWindowMeasures(node, builder, ImmutableList.copyOf(analysis.getWindowMeasures(node)));
 
         List<SelectExpression> selectExpressions = analysis.getSelectExpressions(node);
-        List<Expression> expressions = selectExpressions.stream()
+        List<io.trino.sql.tree.Expression> expressions = selectExpressions.stream()
                 .map(SelectExpression::getExpression)
                 .collect(toImmutableList());
         builder = subqueryPlanner.handleSubqueries(builder, expressions, analysis.getSubqueries(node));
@@ -434,14 +433,14 @@ class QueryPlanner
             builder = builder.appendProjections(expressions, symbolAllocator, idAllocator);
         }
 
-        List<Expression> outputs = outputExpressions(selectExpressions);
+        List<io.trino.sql.tree.Expression> outputs = outputExpressions(selectExpressions);
         if (node.getOrderBy().isPresent()) {
             // ORDER BY requires outputs of SELECT to be visible.
             // For queries with aggregation, it also requires grouping keys and translated aggregations.
             if (analysis.isAggregation(node)) {
                 // Add projections for aggregations required by ORDER BY. After this step, grouping keys and translated
                 // aggregations are visible.
-                List<Expression> orderByAggregates = analysis.getOrderByAggregates(node.getOrderBy().get());
+                List<io.trino.sql.tree.Expression> orderByAggregates = analysis.getOrderByAggregates(node.getOrderBy().get());
                 builder = builder.appendProjections(orderByAggregates, symbolAllocator, idAllocator);
             }
 
@@ -464,7 +463,7 @@ class QueryPlanner
             builder = planWindowMeasures(node, builder, ImmutableList.copyOf(analysis.getOrderByWindowMeasures(node.getOrderBy().get())));
         }
 
-        List<Expression> orderBy = analysis.getOrderByExpressions(node);
+        List<io.trino.sql.tree.Expression> orderBy = analysis.getOrderByExpressions(node);
         builder = subqueryPlanner.handleSubqueries(builder, orderBy, analysis.getSubqueries(node));
         builder = builder.appendProjections(Iterables.concat(orderBy, outputs), symbolAllocator, idAllocator);
 
@@ -489,9 +488,9 @@ class QueryPlanner
                 .anyMatch(Optional::isPresent);
     }
 
-    private static List<Expression> outputExpressions(List<SelectExpression> selectExpressions)
+    private static List<io.trino.sql.tree.Expression> outputExpressions(List<SelectExpression> selectExpressions)
     {
-        ImmutableList.Builder<Expression> result = ImmutableList.builder();
+        ImmutableList.Builder<io.trino.sql.tree.Expression> result = ImmutableList.builder();
         for (SelectExpression selectExpression : selectExpressions) {
             if (selectExpression.getUnfoldedExpressions().isPresent()) {
                 result.addAll(selectExpression.getUnfoldedExpressions().get());
@@ -548,7 +547,7 @@ class QueryPlanner
                 assignmentsBuilder.putIdentity(symbol);
             }
             else {
-                assignmentsBuilder.put(symbol, new Cast(new NullLiteral(), toSqlType(symbolAllocator.getTypes().get(symbol))));
+                assignmentsBuilder.put(symbol, new Cast(new NullLiteral(), symbolAllocator.getTypes().get(symbol)));
             }
         }
         List<Symbol> columnSymbols = columnSymbolsBuilder.build();
@@ -596,7 +595,7 @@ class QueryPlanner
         }
         Map<String, ColumnHandle> nameToHandle = nameToHandleBuilder.buildOrThrow();
 
-        Expression[] orderedColumnValuesArray = new Expression[updatedColumnHandles.size()];
+        io.trino.sql.tree.Expression[] orderedColumnValuesArray = new io.trino.sql.tree.Expression[updatedColumnHandles.size()];
         node.getAssignments().forEach(assignment -> {
             String name = assignment.getName().getValue();
             ColumnHandle handle = nameToHandle.get(name);
@@ -605,7 +604,7 @@ class QueryPlanner
                 orderedColumnValuesArray[index] = assignment.getValue();
             }
         });
-        List<Expression> orderedColumnValues = Arrays.stream(orderedColumnValuesArray).toList();
+        List<io.trino.sql.tree.Expression> orderedColumnValues = Arrays.stream(orderedColumnValuesArray).toList();
 
         // create table scan
         RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
@@ -640,14 +639,14 @@ class QueryPlanner
             int index = updatedColumnHandles.indexOf(dataColumnHandle);
             if (index >= 0) {
                 // This column is updated...
-                Expression original = orderedColumnValues.get(index);
+                io.trino.sql.tree.Expression original = orderedColumnValues.get(index);
                 subPlanBuilder = subqueryPlanner.handleSubqueries(subPlanBuilder, original, analysis.getSubqueries(node));
                 Expression rewritten = coerceIfNecessary(analysis, original, subPlanBuilder.rewrite(original));
 
                 // If the updated column is non-null, check that the value is not null
                 if (mergeAnalysis.getNonNullableColumnHandles().contains(dataColumnHandle)) {
                     String columnName = columnSchema.getName();
-                    rewritten = new CoalesceExpression(rewritten, new Cast(failFunction(metadata, INVALID_ARGUMENTS, "NULL value not allowed for NOT NULL column: " + columnName), toSqlType(columnSchema.getType())));
+                    rewritten = new CoalesceExpression(rewritten, new Cast(failFunction(metadata, INVALID_ARGUMENTS, "NULL value not allowed for NOT NULL column: " + columnName), columnSchema.getType()));
                 }
                 rowBuilder.add(rewritten);
                 assignments.put(field, rewritten);
@@ -674,7 +673,7 @@ class QueryPlanner
         // Finally, the merge row is complete
         Expression mergeRow = new Row(rowBuilder.build());
 
-        List<Expression> constraints = analysis.getCheckConstraints(table);
+        List<io.trino.sql.tree.Expression> constraints = analysis.getCheckConstraints(table);
         if (!constraints.isEmpty()) {
             subPlanBuilder = subPlanBuilder.withNewRoot(new ProjectNode(
                     idAllocator.getNextId(),
@@ -715,19 +714,19 @@ class QueryPlanner
         return createMergePipeline(table, relationPlan, projectNode, rowIdSymbol, mergeRowSymbol);
     }
 
-    private PlanBuilder addCheckConstraints(List<Expression> constraints, PlanBuilder subPlanBuilder)
+    private PlanBuilder addCheckConstraints(List<io.trino.sql.tree.Expression> constraints, PlanBuilder subPlanBuilder)
     {
         PlanBuilder constraintBuilder = subPlanBuilder.appendProjections(constraints, symbolAllocator, idAllocator);
 
         List<Expression> predicates = new ArrayList<>();
-        for (Expression constraint : constraints) {
+        for (io.trino.sql.tree.Expression constraint : constraints) {
             Expression symbol = constraintBuilder.translate(constraint).toSymbolReference();
 
             Expression predicate = new IfExpression(
                     // When predicate evaluates to UNKNOWN (e.g. NULL > 100), it should not violate the check constraint.
                     new CoalesceExpression(coerceIfNecessary(analysis, constraint, symbol), TRUE_LITERAL),
                     TRUE_LITERAL,
-                    new Cast(failFunction(plannerContext.getMetadata(), CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), toSqlType(BOOLEAN)));
+                    new Cast(failFunction(plannerContext.getMetadata(), CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), BOOLEAN));
 
             predicates.add(predicate);
         }
@@ -770,7 +769,7 @@ class QueryPlanner
                 .process(merge.getSource());
 
         RelationPlan joinPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
-                .planJoin(merge.getPredicate(), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), planWithPresentColumn, source, analysis.getSubqueries(merge));
+                .planJoin(merge.getPredicate(), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), planWithPresentColumn, source, analysis.getSubqueries(merge)); // TODO: ir
 
         PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
@@ -785,9 +784,9 @@ class QueryPlanner
         for (int caseNumber = 0; caseNumber < merge.getMergeCases().size(); caseNumber++) {
             MergeCase mergeCase = merge.getMergeCases().get(caseNumber);
 
-            Optional<Expression> casePredicate = Optional.empty();
+            Optional<io.trino.sql.tree.Expression> casePredicate = Optional.empty();
             if (mergeCase.getExpression().isPresent()) {
-                Expression original = mergeCase.getExpression().get();
+                io.trino.sql.tree.Expression original = mergeCase.getExpression().get();
                 casePredicate = Optional.of(original);
                 subPlan = subqueryPlanner.handleSubqueries(subPlan, original, analysis.getSubqueries(merge));
             }
@@ -800,14 +799,14 @@ class QueryPlanner
                 int fieldNumber = mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle);
                 Symbol field = planWithPresentColumn.getFieldMappings().get(fieldNumber);
                 if (index >= 0) {
-                    Expression setExpression = mergeCase.getSetExpressions().get(index);
+                    io.trino.sql.tree.Expression setExpression = mergeCase.getSetExpressions().get(index);
                     subPlan = subqueryPlanner.handleSubqueries(subPlan, setExpression, analysis.getSubqueries(merge));
                     Expression rewritten = subPlan.rewrite(setExpression);
                     rewritten = coerceIfNecessary(analysis, setExpression, rewritten);
                     if (nonNullableColumnHandles.contains(dataColumnHandle)) {
                         ColumnSchema columnSchema = dataColumnSchemas.get(fieldNumber);
                         String columnName = columnSchema.getName();
-                        rewritten = new CoalesceExpression(rewritten, new Cast(failFunction(metadata, INVALID_ARGUMENTS, "Assigning NULL to non-null MERGE target table column " + columnName), toSqlType(columnSchema.getType())));
+                        rewritten = new CoalesceExpression(rewritten, new Cast(failFunction(metadata, INVALID_ARGUMENTS, "Assigning NULL to non-null MERGE target table column " + columnName), columnSchema.getType()));
                     }
                     rowBuilder.add(rewritten);
                     assignments.put(field, rewritten);
@@ -842,7 +841,7 @@ class QueryPlanner
 
             whenClauses.add(new WhenClause(condition, new Row(rowBuilder.build())));
 
-            List<Expression> constraints = analysis.getCheckConstraints(mergeAnalysis.getTargetTable());
+            List<io.trino.sql.tree.Expression> constraints = analysis.getCheckConstraints(mergeAnalysis.getTargetTable());
             if (!constraints.isEmpty()) {
                 assignments.putIdentity(uniqueIdSymbol);
                 assignments.putIdentity(presentColumn);
@@ -859,7 +858,7 @@ class QueryPlanner
         // Build the "else" clause for the SearchedCaseExpression
         ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
         dataColumnSchemas.forEach(columnSchema ->
-                rowBuilder.add(new Cast(new NullLiteral(), toSqlType(columnSchema.getType()))));
+                rowBuilder.add(new Cast(new NullLiteral(), columnSchema.getType())));
         rowBuilder.add(new IsNotNullPredicate(presentColumn.toSymbolReference()));
         // The operation number
         rowBuilder.add(new GenericLiteral("TINYINT", "-1"));
@@ -907,7 +906,7 @@ class QueryPlanner
                         new IsNotNullPredicate(uniqueIdSymbol.toSymbolReference())),
                 new Cast(
                         failFunction(metadata, MERGE_TARGET_ROW_MULTIPLE_MATCHES, "One MERGE target table row matched more than one source row"),
-                        toSqlType(BOOLEAN)),
+                        BOOLEAN),
                 TRUE_LITERAL);
 
         FilterNode filterNode = new FilterNode(idAllocator.getNextId(), markDistinctNode, filter);
@@ -1047,10 +1046,10 @@ class QueryPlanner
                 .collect(toImmutableList());
     }
 
-    private static List<Symbol> computeOutputs(PlanBuilder builder, List<Expression> outputExpressions)
+    private static List<Symbol> computeOutputs(PlanBuilder builder, List<io.trino.sql.tree.Expression> outputExpressions)
     {
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
-        for (Expression expression : outputExpressions) {
+        for (io.trino.sql.tree.Expression expression : outputExpressions) {
             outputSymbols.add(builder.translate(expression));
         }
         return outputSymbols.build();
@@ -1077,7 +1076,7 @@ class QueryPlanner
                 new ValuesNode(idAllocator.getNextId(), 1));
     }
 
-    private PlanBuilder filter(PlanBuilder subPlan, Expression predicate, Node node)
+    private PlanBuilder filter(PlanBuilder subPlan, io.trino.sql.tree.Expression predicate, Node node)
     {
         if (predicate == null) {
             return subPlan;
@@ -1094,15 +1093,15 @@ class QueryPlanner
             return subPlan;
         }
 
-        ImmutableList.Builder<Expression> inputBuilder = ImmutableList.builder();
+        ImmutableList.Builder<io.trino.sql.tree.Expression> inputBuilder = ImmutableList.builder();
         analysis.getAggregates(node).stream()
-                .map(FunctionCall::getArguments)
+                .map(io.trino.sql.tree.FunctionCall::getArguments)
                 .flatMap(List::stream)
                 .filter(expression -> !(expression instanceof LambdaExpression)) // lambda expression is generated at execution time
                 .forEach(inputBuilder::add);
 
         analysis.getAggregates(node).stream()
-                .map(FunctionCall::getOrderBy)
+                .map(io.trino.sql.tree.FunctionCall::getOrderBy)
                 .map(NodeUtils::getSortItemsFromOrderBy)
                 .flatMap(List::stream)
                 .map(SortItem::getSortKey)
@@ -1110,7 +1109,7 @@ class QueryPlanner
 
         // filter expressions need to be projected first
         analysis.getAggregates(node).stream()
-                .map(FunctionCall::getFilter)
+                .map(io.trino.sql.tree.FunctionCall::getFilter)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .forEach(inputBuilder::add);
@@ -1118,7 +1117,7 @@ class QueryPlanner
         GroupingSetAnalysis groupingSetAnalysis = analysis.getGroupingSets(node);
         inputBuilder.addAll(groupingSetAnalysis.getComplexExpressions());
 
-        List<Expression> inputs = inputBuilder.build();
+        List<io.trino.sql.tree.Expression> inputs = inputBuilder.build();
         subPlan = subqueryPlanner.handleSubqueries(subPlan, inputs, analysis.getSubqueries(node));
         subPlan = subPlan.appendProjections(inputs, symbolAllocator, idAllocator);
 
@@ -1154,11 +1153,11 @@ class QueryPlanner
             groupingSetMappings.put(output, input);
         }
 
-        Map<ScopeAware<Expression>, Symbol> complexExpressions = new LinkedHashMap<>();
-        for (Expression expression : groupingSetAnalysis.getComplexExpressions()) {
+        Map<ScopeAware<io.trino.sql.tree.Expression>, Symbol> complexExpressions = new LinkedHashMap<>();
+        for (io.trino.sql.tree.Expression expression : groupingSetAnalysis.getComplexExpressions()) {
             if (!complexExpressions.containsKey(scopeAwareKey(expression, analysis, subPlan.getScope()))) {
                 Symbol input = subPlan.translate(expression);
-                Symbol output = symbolAllocator.newSymbol(expression, analysis.getType(expression), "gid");
+                Symbol output = symbolAllocator.newSymbol("expr", analysis.getType(expression), "gid");
                 complexExpressions.put(scopeAwareKey(expression, analysis, subPlan.getScope()), output);
                 groupingSetMappings.put(output, input);
             }
@@ -1226,13 +1225,13 @@ class QueryPlanner
         return new GroupingSetsPlan(subPlan, columnOnlyGroupingSets, groupingSets, groupIdSymbol);
     }
 
-    private PlanBuilder planAggregation(PlanBuilder subPlan, List<List<Symbol>> groupingSets, Optional<Symbol> groupIdSymbol, List<FunctionCall> aggregates, Function<Expression, Symbol> coercions)
+    private PlanBuilder planAggregation(PlanBuilder subPlan, List<List<Symbol>> groupingSets, Optional<Symbol> groupIdSymbol, List<io.trino.sql.tree.FunctionCall> aggregates, Function<io.trino.sql.tree.Expression, Symbol> coercions)
     {
         ImmutableList.Builder<AggregationAssignment> aggregateMappingBuilder = ImmutableList.builder();
 
         // deduplicate based on scope-aware equality
-        for (FunctionCall function : scopeAwareDistinct(subPlan, aggregates)) {
-            Symbol symbol = symbolAllocator.newSymbol(function, analysis.getType(function));
+        for (io.trino.sql.tree.FunctionCall function : scopeAwareDistinct(subPlan, aggregates)) {
+            Symbol symbol = symbolAllocator.newSymbol(function.getName().toString(), analysis.getType(function));
 
             // TODO: for ORDER BY arguments, rewrite them such that they match the actual arguments to the function. This is necessary to maintain the semantics of DISTINCT + ORDER BY,
             //   which requires that ORDER BY be a subset of arguments
@@ -1291,7 +1290,7 @@ class QueryPlanner
                 aggregationNode);
     }
 
-    private <T extends Expression> List<T> scopeAwareDistinct(PlanBuilder subPlan, List<T> expressions)
+    private <T extends io.trino.sql.tree.Expression> List<T> scopeAwareDistinct(PlanBuilder subPlan, List<T> expressions)
     {
         return expressions.stream()
                 .map(function -> scopeAwareKey(function, analysis, subPlan.getScope()))
@@ -1300,7 +1299,7 @@ class QueryPlanner
                 .collect(toImmutableList());
     }
 
-    public static OrderingScheme translateOrderingScheme(List<SortItem> items, Function<Expression, Symbol> coercions)
+    public static OrderingScheme translateOrderingScheme(List<SortItem> items, Function<io.trino.sql.tree.Expression, Symbol> coercions)
     {
         List<Symbol> coerced = items.stream()
                 .map(SortItem::getSortKey)
@@ -1397,19 +1396,19 @@ class QueryPlanner
                 (translations, groupingOperation) -> false);
     }
 
-    private PlanBuilder planWindowFunctions(Node node, PlanBuilder subPlan, List<FunctionCall> windowFunctions)
+    private PlanBuilder planWindowFunctions(Node node, PlanBuilder subPlan, List<io.trino.sql.tree.FunctionCall> windowFunctions)
     {
         if (windowFunctions.isEmpty()) {
             return subPlan;
         }
 
-        Map<ResolvedWindow, List<FunctionCall>> functions = scopeAwareDistinct(subPlan, windowFunctions)
+        Map<ResolvedWindow, List<io.trino.sql.tree.FunctionCall>> functions = scopeAwareDistinct(subPlan, windowFunctions)
                 .stream()
                 .collect(Collectors.groupingBy(analysis::getWindow));
 
-        for (Map.Entry<ResolvedWindow, List<FunctionCall>> entry : functions.entrySet()) {
+        for (Map.Entry<ResolvedWindow, List<io.trino.sql.tree.FunctionCall>> entry : functions.entrySet()) {
             ResolvedWindow window = entry.getKey();
-            List<FunctionCall> functionCalls = entry.getValue();
+            List<io.trino.sql.tree.FunctionCall> functionCalls = entry.getValue();
 
             // Pre-project inputs.
             // Predefined window parts (specified in WINDOW clause) can only use source symbols, and no output symbols.
@@ -1417,7 +1416,7 @@ class QueryPlanner
             // symbols are visible.
             // This issue is solved by analyzing window definitions in the source scope. After analysis, the expressions
             // are recorded as belonging to the source scope, and consequentially source symbols will be used to plan them.
-            ImmutableList.Builder<Expression> inputsBuilder = ImmutableList.<Expression>builder()
+            ImmutableList.Builder<io.trino.sql.tree.Expression> inputsBuilder = ImmutableList.<io.trino.sql.tree.Expression>builder()
                     .addAll(window.getPartitionBy())
                     .addAll(getSortItemsFromOrderBy(window.getOrderBy()).stream()
                             .map(SortItem::getSortKey)
@@ -1432,13 +1431,13 @@ class QueryPlanner
                 }
             }
 
-            for (FunctionCall windowFunction : functionCalls) {
+            for (io.trino.sql.tree.FunctionCall windowFunction : functionCalls) {
                 inputsBuilder.addAll(windowFunction.getArguments().stream()
                                 .filter(argument -> !(argument instanceof LambdaExpression)) // lambda expression is generated at execution time
                                 .collect(Collectors.toList()));
             }
 
-            List<Expression> inputs = inputsBuilder.build();
+            List<io.trino.sql.tree.Expression> inputs = inputsBuilder.build();
 
             subPlan = subqueryPlanner.handleSubqueries(subPlan, inputs, analysis.getSubqueries(node));
             subPlan = subPlan.appendProjections(inputs, symbolAllocator, idAllocator);
@@ -1460,8 +1459,8 @@ class QueryPlanner
             Optional<Symbol> sortKeyCoercedForFrameEndComparison = Optional.empty();
 
             if (window.getFrame().isPresent() && window.getFrame().get().getType() == RANGE) {
-                Optional<Expression> startValue = window.getFrame().get().getStart().getValue();
-                Optional<Expression> endValue = window.getFrame().get().getEnd().flatMap(FrameBound::getValue);
+                Optional<io.trino.sql.tree.Expression> startValue = window.getFrame().get().getStart().getValue();
+                Optional<io.trino.sql.tree.Expression> endValue = window.getFrame().get().getEnd().flatMap(FrameBound::getValue);
                 // record sortKey coercions for reuse
                 Map<Type, Symbol> sortKeyCoercions = new HashMap<>();
 
@@ -1478,8 +1477,8 @@ class QueryPlanner
                 sortKeyCoercedForFrameEndComparison = plan.getSortKeyCoercedForFrameBoundComparison();
             }
             else if (window.getFrame().isPresent() && (window.getFrame().get().getType() == ROWS || window.getFrame().get().getType() == GROUPS)) {
-                Optional<Expression> startValue = window.getFrame().get().getStart().getValue();
-                Optional<Expression> endValue = window.getFrame().get().getEnd().flatMap(FrameBound::getValue);
+                Optional<io.trino.sql.tree.Expression> startValue = window.getFrame().get().getStart().getValue();
+                Optional<io.trino.sql.tree.Expression> endValue = window.getFrame().get().getEnd().flatMap(FrameBound::getValue);
 
                 // process frame start
                 FrameOffsetPlanAndSymbol plan = planFrameOffset(subPlan, startValue.map(coercions::get));
@@ -1508,7 +1507,7 @@ class QueryPlanner
         return subPlan;
     }
 
-    private FrameBoundPlanAndSymbols planFrameBound(PlanBuilder subPlan, PlanAndMappings coercions, Optional<Expression> frameOffset, ResolvedWindow window, Map<Type, Symbol> sortKeyCoercions)
+    private FrameBoundPlanAndSymbols planFrameBound(PlanBuilder subPlan, PlanAndMappings coercions, Optional<io.trino.sql.tree.Expression> frameOffset, ResolvedWindow window, Map<Type, Symbol> sortKeyCoercions)
     {
         Optional<ResolvedFunction> frameBoundCalculationFunction = frameOffset.map(analysis::getFrameBoundCalculation);
 
@@ -1532,7 +1531,7 @@ class QueryPlanner
                 TRUE_LITERAL,
                 new Cast(
                         failFunction(plannerContext.getMetadata(), INVALID_WINDOW_FRAME, "Window frame offset value must not be negative or null"),
-                        toSqlType(BOOLEAN)));
+                        BOOLEAN));
         subPlan = subPlan.withNewRoot(new FilterNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
@@ -1541,7 +1540,7 @@ class QueryPlanner
         // Then, coerce the sortKey so that we can add / subtract the offset.
         // Note: for that we cannot rely on the usual mechanism of using the coerce() method. The coerce() method can only handle one coercion for a node,
         // while the sortKey node might require several different coercions, e.g. one for frame start and one for frame end.
-        Expression sortKey = Iterables.getOnlyElement(window.getOrderBy().orElseThrow().getSortItems()).getSortKey();
+        io.trino.sql.tree.Expression sortKey = Iterables.getOnlyElement(window.getOrderBy().orElseThrow().getSortItems()).getSortKey();
         Symbol sortKeyCoercedForFrameBoundCalculation = coercions.get(sortKey);
         Optional<Type> coercion = frameOffset.map(analysis::getSortKeyCoercionForFrameBoundCalculation);
         if (coercion.isPresent()) {
@@ -1553,7 +1552,7 @@ class QueryPlanner
             else {
                 Expression cast = new Cast(
                         coercions.get(sortKey).toSymbolReference(),
-                        toSqlType(expectedType),
+                        expectedType,
                         false);
                 sortKeyCoercedForFrameBoundCalculation = symbolAllocator.newSymbol(cast, expectedType);
                 sortKeyCoercions.put(expectedType, sortKeyCoercedForFrameBoundCalculation);
@@ -1596,7 +1595,7 @@ class QueryPlanner
             else {
                 Expression cast = new Cast(
                         coercions.get(sortKey).toSymbolReference(),
-                        toSqlType(expectedType),
+                        expectedType,
                         false);
                 Symbol castSymbol = symbolAllocator.newSymbol(cast, expectedType);
                 sortKeyCoercions.put(expectedType, castSymbol);
@@ -1630,7 +1629,7 @@ class QueryPlanner
                 TRUE_LITERAL,
                 new Cast(
                         failFunction(plannerContext.getMetadata(), INVALID_WINDOW_FRAME, "Window frame offset value must not be negative or null"),
-                        toSqlType(BOOLEAN)));
+                        BOOLEAN));
         subPlan = subPlan.withNewRoot(new FilterNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
@@ -1648,7 +1647,7 @@ class QueryPlanner
             int actualPrecision = ((DecimalType) offsetType).getPrecision();
 
             if (actualPrecision < maxBigintPrecision) {
-                offsetToBigint = new Cast(offsetSymbol.toSymbolReference(), toSqlType(BIGINT));
+                offsetToBigint = new Cast(offsetSymbol.toSymbolReference(), BIGINT);
             }
             else if (actualPrecision > maxBigintPrecision) {
                 // If the offset value exceeds max bigint, it implies that the frame bound falls beyond the partition bound.
@@ -1659,14 +1658,14 @@ class QueryPlanner
             else {
                 offsetToBigint = new IfExpression(
                         new ComparisonExpression(LESS_THAN_OR_EQUAL, offsetSymbol.toSymbolReference(), new DecimalLiteral(maxBigint)),
-                        new Cast(offsetSymbol.toSymbolReference(), toSqlType(BIGINT)),
+                        new Cast(offsetSymbol.toSymbolReference(), BIGINT),
                         new GenericLiteral("BIGINT", maxBigint));
             }
         }
         else {
             offsetToBigint = new Cast(
                     offsetSymbol.toSymbolReference(),
-                    toSqlType(BIGINT),
+                    BIGINT,
                     false);
         }
 
@@ -1685,7 +1684,7 @@ class QueryPlanner
     private static Expression zeroOfType(Type type)
     {
         if (isNumericType(type)) {
-            return new Cast(new LongLiteral("0"), toSqlType(type));
+            return new Cast(new LongLiteral("0"), type);
         }
         if (type.equals(INTERVAL_DAY_TIME)) {
             return new IntervalLiteral("0", POSITIVE, DAY);
@@ -1698,7 +1697,7 @@ class QueryPlanner
 
     private PlanBuilder planWindow(
             PlanBuilder subPlan,
-            List<FunctionCall> windowFunctions,
+            List<io.trino.sql.tree.FunctionCall> windowFunctions,
             ResolvedWindow window,
             PlanAndMappings coercions,
             Optional<Symbol> frameStartSymbol,
@@ -1733,11 +1732,11 @@ class QueryPlanner
                 frameEndSymbol,
                 sortKeyCoercedForFrameEndComparison);
 
-        ImmutableMap.Builder<ScopeAware<Expression>, Symbol> mappings = ImmutableMap.builder();
+        ImmutableMap.Builder<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
 
-        for (FunctionCall windowFunction : windowFunctions) {
-            Symbol newSymbol = symbolAllocator.newSymbol(windowFunction, analysis.getType(windowFunction));
+        for (io.trino.sql.tree.FunctionCall windowFunction : windowFunctions) {
+            Symbol newSymbol = symbolAllocator.newSymbol(windowFunction.getName().toString(), analysis.getType(windowFunction));
 
             NullTreatment nullTreatment = windowFunction.getNullTreatment()
                     .orElse(NullTreatment.RESPECT);
@@ -1795,7 +1794,7 @@ class QueryPlanner
 
     private PlanBuilder planPatternRecognition(
             PlanBuilder subPlan,
-            List<FunctionCall> windowFunctions,
+            List<io.trino.sql.tree.FunctionCall> windowFunctions,
             ResolvedWindow window,
             PlanAndMappings coercions,
             Optional<Symbol> frameEndSymbol)
@@ -1814,11 +1813,11 @@ class QueryPlanner
                 frameEndSymbol,
                 Optional.empty());
 
-        ImmutableMap.Builder<ScopeAware<Expression>, Symbol> mappings = ImmutableMap.builder();
+        ImmutableMap.Builder<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
 
-        for (FunctionCall windowFunction : windowFunctions) {
-            Symbol newSymbol = symbolAllocator.newSymbol(windowFunction, analysis.getType(windowFunction));
+        for (io.trino.sql.tree.FunctionCall windowFunction : windowFunctions) {
+            Symbol newSymbol = symbolAllocator.newSymbol(windowFunction.getName().toString(), analysis.getType(windowFunction));
 
             NullTreatment nullTreatment = windowFunction.getNullTreatment()
                     .orElse(NullTreatment.RESPECT);
@@ -1872,11 +1871,11 @@ class QueryPlanner
                         components.getVariableDefinitions()));
     }
 
-    public static DataOrganizationSpecification planWindowSpecification(List<Expression> partitionBy, Optional<OrderBy> orderBy, Function<Expression, Symbol> expressionRewrite)
+    public static DataOrganizationSpecification planWindowSpecification(List<io.trino.sql.tree.Expression> partitionBy, Optional<OrderBy> orderBy, Function<io.trino.sql.tree.Expression, Symbol> expressionRewrite)
     {
         // Rewrite PARTITION BY
         ImmutableList.Builder<Symbol> partitionBySymbols = ImmutableList.builder();
-        for (Expression expression : partitionBy) {
+        for (io.trino.sql.tree.Expression expression : partitionBy) {
             partitionBySymbols.add(expressionRewrite.apply(expression));
         }
 
@@ -1907,15 +1906,15 @@ class QueryPlanner
             checkState(window != null, "no resolved window for: " + windowMeasure);
 
             // pre-project inputs
-            ImmutableList.Builder<Expression> inputsBuilder = ImmutableList.<Expression>builder()
+            ImmutableList.Builder<io.trino.sql.tree.Expression> inputsBuilder = ImmutableList.<io.trino.sql.tree.Expression>builder()
                     .addAll(window.getPartitionBy())
                     .addAll(getSortItemsFromOrderBy(window.getOrderBy()).stream()
                             .map(SortItem::getSortKey)
                             .iterator());
             WindowFrame frame = window.getFrame().orElseThrow();
-            Optional<Expression> endValue = frame.getEnd().orElseThrow().getValue();
+            Optional<io.trino.sql.tree.Expression> endValue = frame.getEnd().orElseThrow().getValue();
 
-            List<Expression> inputs = inputsBuilder.build();
+            List<io.trino.sql.tree.Expression> inputs = inputsBuilder.build();
 
             subPlan = subqueryPlanner.handleSubqueries(subPlan, inputs, analysis.getSubqueries(node));
             subPlan = subPlan.appendProjections(inputs, symbolAllocator, idAllocator);
@@ -1924,10 +1923,10 @@ class QueryPlanner
             // We don't use appendProjects because we don't want a mapping to be added for the literal
             Optional<Symbol> endValueSymbol = Optional.empty();
             if (endValue.isPresent()) {
-                Expression expression = endValue.get();
+                io.trino.sql.tree.Expression expression = endValue.get();
                 Assignments.Builder assignments = Assignments.builder();
                 assignments.putIdentities(subPlan.getRoot().getOutputSymbols());
-                Symbol symbol = symbolAllocator.newSymbol(expression, analysis.getType(expression));
+                Symbol symbol = symbolAllocator.newSymbol("end", analysis.getType(expression));
                 assignments.put(symbol, subPlan.rewrite(expression));
 
                 endValueSymbol = Optional.of(symbol);
@@ -1946,9 +1945,9 @@ class QueryPlanner
         return subPlan;
     }
 
-    public static List<Expression> extractPatternRecognitionExpressions(List<VariableDefinition> variableDefinitions, List<MeasureDefinition> measureDefinitions)
+    public static List<io.trino.sql.tree.Expression> extractPatternRecognitionExpressions(List<VariableDefinition> variableDefinitions, List<MeasureDefinition> measureDefinitions)
     {
-        ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
+        ImmutableList.Builder<io.trino.sql.tree.Expression> expressions = ImmutableList.builder();
 
         variableDefinitions.stream()
                 .map(VariableDefinition::getExpression)
@@ -2020,23 +2019,23 @@ class QueryPlanner
      *
      * @return the new subplan and a mapping of each expression to the symbol representing the coercion or an existing symbol if a coercion wasn't needed
      */
-    public static PlanAndMappings coerce(PlanBuilder subPlan, List<Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+    public static PlanAndMappings coerce(PlanBuilder subPlan, List<io.trino.sql.tree.Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
     {
         Assignments.Builder assignments = Assignments.builder();
         assignments.putIdentities(subPlan.getRoot().getOutputSymbols());
 
-        Map<NodeRef<Expression>, Symbol> mappings = new HashMap<>();
-        for (Expression expression : expressions) {
+        Map<NodeRef<io.trino.sql.tree.Expression>, Symbol> mappings = new HashMap<>();
+        for (io.trino.sql.tree.Expression expression : expressions) {
             Type coercion = analysis.getCoercion(expression);
 
             // expressions may be repeated, for example, when resolving ordinal references in a GROUP BY clause
             if (!mappings.containsKey(NodeRef.of(expression))) {
                 if (coercion != null) {
-                    Symbol symbol = symbolAllocator.newSymbol(expression, coercion);
+                    Symbol symbol = symbolAllocator.newSymbol("expr", coercion);
 
                     assignments.put(symbol, new Cast(
                             subPlan.rewrite(expression),
-                            toSqlType(coercion),
+                            coercion,
                             false));
 
                     mappings.put(NodeRef.of(expression), symbol);
@@ -2056,17 +2055,14 @@ class QueryPlanner
         return new PlanAndMappings(subPlan, mappings);
     }
 
-    public static Expression coerceIfNecessary(Analysis analysis, Expression original, Expression rewritten)
+    public static Expression coerceIfNecessary(Analysis analysis, io.trino.sql.tree.Expression original, Expression rewritten)
     {
         Type coercion = analysis.getCoercion(original);
         if (coercion == null) {
             return rewritten;
         }
 
-        return new Cast(
-                rewritten,
-                toSqlType(coercion),
-                false);
+        return new Cast(rewritten, coercion, false);
     }
 
     public static NodeAndMappings coerce(RelationPlan plan, List<Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
@@ -2082,7 +2078,7 @@ class QueryPlanner
 
             if (!symbolAllocator.getTypes().get(input).equals(type)) {
                 Symbol coerced = symbolAllocator.newSymbol(input.getName(), type);
-                assignments.put(coerced, new Cast(input.toSymbolReference(), toSqlType(type)));
+                assignments.put(coerced, new Cast(input.toSymbolReference(), type));
                 mappings.add(coerced);
             }
             else {
@@ -2139,7 +2135,7 @@ class QueryPlanner
         return plan;
     }
 
-    private PlanBuilder distinct(PlanBuilder subPlan, QuerySpecification node, List<Expression> expressions)
+    private PlanBuilder distinct(PlanBuilder subPlan, QuerySpecification node, List<io.trino.sql.tree.Expression> expressions)
     {
         if (node.getSelect().isDistinct()) {
             List<Symbol> symbols = expressions.stream()
@@ -2157,7 +2153,7 @@ class QueryPlanner
         return subPlan;
     }
 
-    private Optional<OrderingScheme> orderingScheme(PlanBuilder subPlan, Optional<OrderBy> orderBy, List<Expression> orderByExpressions)
+    private Optional<OrderingScheme> orderingScheme(PlanBuilder subPlan, Optional<OrderBy> orderBy, List<io.trino.sql.tree.Expression> orderByExpressions)
     {
         if (orderBy.isEmpty() || (isSkipRedundantSort(session) && analysis.isOrderByRedundant(orderBy.get()))) {
             return Optional.empty();
@@ -2167,7 +2163,7 @@ class QueryPlanner
 
         ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
         Map<Symbol, SortOrder> orderings = new HashMap<>();
-        for (Expression fieldOrExpression : orderByExpressions) {
+        for (io.trino.sql.tree.Expression fieldOrExpression : orderByExpressions) {
             Symbol symbol = subPlan.translate(fieldOrExpression);
 
             SortItem sortItem = sortItems.next();
@@ -2264,9 +2260,9 @@ class QueryPlanner
     public static class PlanAndMappings
     {
         private final PlanBuilder subPlan;
-        private final Map<NodeRef<Expression>, Symbol> mappings;
+        private final Map<NodeRef<io.trino.sql.tree.Expression>, Symbol> mappings;
 
-        public PlanAndMappings(PlanBuilder subPlan, Map<NodeRef<Expression>, Symbol> mappings)
+        public PlanAndMappings(PlanBuilder subPlan, Map<NodeRef<io.trino.sql.tree.Expression>, Symbol> mappings)
         {
             this.subPlan = subPlan;
             this.mappings = ImmutableMap.copyOf(mappings);
@@ -2277,13 +2273,13 @@ class QueryPlanner
             return subPlan;
         }
 
-        public Symbol get(Expression expression)
+        public Symbol get(io.trino.sql.tree.Expression expression)
         {
             return tryGet(expression)
                     .orElseThrow(() -> new IllegalArgumentException(format("No mapping for expression: %s (%s)", expression, System.identityHashCode(expression))));
         }
 
-        public Optional<Symbol> tryGet(Expression expression)
+        public Optional<Symbol> tryGet(io.trino.sql.tree.Expression expression)
         {
             Symbol result = mappings.get(NodeRef.of(expression));
 
@@ -2298,10 +2294,10 @@ class QueryPlanner
     private static class AggregationAssignment
     {
         private final Symbol symbol;
-        private final Expression astExpression;
+        private final io.trino.sql.tree.Expression astExpression;
         private final Aggregation aggregation;
 
-        public AggregationAssignment(Symbol symbol, Expression astExpression, Aggregation aggregation)
+        public AggregationAssignment(Symbol symbol, io.trino.sql.tree.Expression astExpression, Aggregation aggregation)
         {
             this.astExpression = astExpression;
             this.symbol = symbol;
@@ -2313,7 +2309,7 @@ class QueryPlanner
             return symbol;
         }
 
-        public Expression getAstExpression()
+        public io.trino.sql.tree.Expression getAstExpression()
         {
             return astExpression;
         }

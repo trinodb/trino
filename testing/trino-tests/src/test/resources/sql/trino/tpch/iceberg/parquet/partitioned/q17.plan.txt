@@ -5,15 +5,15 @@ final aggregation over ()
                 cross join:
                     join (LEFT, PARTITIONED):
                         join (INNER, PARTITIONED):
-                            remote exchange (REPARTITION, HASH, ["partkey"])
-                                dynamic filter (["partkey"])
+                            remote exchange (REPARTITION, HASH, [partkey])
+                                dynamic filter ([partkey])
                                     scan lineitem
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["partkey_0"])
+                                remote exchange (REPARTITION, HASH, [partkey_0])
                                     scan part
                         final aggregation over (partkey_5)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["partkey_5"])
+                                remote exchange (REPARTITION, HASH, [partkey_5])
                                     partial aggregation over (partkey_5)
                                         scan lineitem
                     local exchange (GATHER, SINGLE, [])

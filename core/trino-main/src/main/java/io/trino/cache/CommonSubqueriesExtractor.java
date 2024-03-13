@@ -42,7 +42,10 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.CanonicalAggregation;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.sql.planner.IrTypeAnalyzer;
@@ -65,9 +68,6 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -89,7 +89,8 @@ import static io.trino.cache.CanonicalSubplanExtractor.canonicalExpressionToColu
 import static io.trino.cache.CanonicalSubplanExtractor.canonicalSymbolToColumnId;
 import static io.trino.cache.CanonicalSubplanExtractor.columnIdToSymbol;
 import static io.trino.cache.CanonicalSubplanExtractor.extractCanonicalSubplans;
-import static io.trino.sql.ExpressionFormatter.formatExpression;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.ExpressionFormatter.formatExpression;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.combineDisjuncts;
@@ -100,7 +101,6 @@ import static io.trino.sql.planner.iterative.rule.NormalizeOrExpressionRewriter.
 import static io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.pushFilterIntoTableScan;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -664,16 +664,14 @@ public final class CommonSubqueriesExtractor
                 groupByColumnSymbols.add(columnIdMapping.get(id));
             }
             else {
-                FunctionCall aggregationCall = (FunctionCall) entry.getValue();
+                CanonicalAggregation aggregationCall = (CanonicalAggregation) entry.getValue();
 
                 // Resolve filter expression in terms of subplan symbols
-                aggregationCall.getFilter()
-                        .ifPresent(expression -> checkState(expression instanceof SymbolReference));
-                Optional<Symbol> mask = aggregationCall.getFilter()
-                        .map(filter -> requireNonNull(columnIdMapping.get(canonicalExpressionToColumnId(filter))));
+                Optional<Symbol> mask = aggregationCall.getMask()
+                        .map(filter -> requireNonNull(columnIdMapping.get(canonicalExpressionToColumnId(filter.toSymbolReference()))));
 
                 // Resolve arguments in terms of subplan symbols
-                ResolvedFunction resolvedFunction = plannerContext.getMetadata().decodeFunction(aggregationCall.getName());
+                ResolvedFunction resolvedFunction = aggregationCall.getResolvedFunction();
                 List<Expression> arguments = aggregationCall.getArguments().stream()
                         .peek(argument -> checkState(argument instanceof SymbolReference))
                         .map(argument -> columnIdMapping.get(canonicalExpressionToColumnId(argument)).toSymbolReference())

@@ -5,33 +5,33 @@ local exchange (GATHER, SINGLE, [])
                 final aggregation over (custkey_0, name, orderdate, orderkey_5, totalprice)
                     local exchange (GATHER, SINGLE, [])
                         join (INNER, PARTITIONED):
-                            remote exchange (REPARTITION, HASH, ["orderkey_5"])
+                            remote exchange (REPARTITION, HASH, [orderkey_5])
                                 alternatives
                                     partial aggregation over (orderkey_5)
-                                        dynamic filter (["orderkey_5"])
+                                        dynamic filter ([orderkey_5])
                                             scan lineitem
                                     cache data
                                         partial aggregation over (orderkey_5)
-                                            dynamic filter (["orderkey_5"])
+                                            dynamic filter ([orderkey_5])
                                                 scan lineitem
                                     load from cache
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["orderkey"])
+                                remote exchange (REPARTITION, HASH, [orderkey])
                                     join (INNER, PARTITIONED):
-                                        remote exchange (REPARTITION, HASH, ["custkey_0"])
+                                        remote exchange (REPARTITION, HASH, [custkey_0])
                                             join (INNER, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, ["orderkey"])
+                                                remote exchange (REPARTITION, HASH, [orderkey])
                                                     alternatives
-                                                        dynamic filter (["custkey_0", "orderkey"])
+                                                        dynamic filter ([custkey_0, orderkey])
                                                             scan orders
                                                         cache data
-                                                            dynamic filter (["custkey_0", "orderkey"])
+                                                            dynamic filter ([custkey_0, orderkey])
                                                                 scan orders
                                                         load from cache
                                                 single aggregation over (orderkey_10)
                                                     final aggregation over (orderkey_10)
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPARTITION, HASH, ["orderkey_10"])
+                                                            remote exchange (REPARTITION, HASH, [orderkey_10])
                                                                 alternatives
                                                                     partial aggregation over (orderkey_10)
                                                                         scan lineitem
@@ -40,7 +40,7 @@ local exchange (GATHER, SINGLE, [])
                                                                             scan lineitem
                                                                     load from cache
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPARTITION, HASH, ["custkey"])
+                                            remote exchange (REPARTITION, HASH, [custkey])
                                                 alternatives
                                                     scan customer
                                                     cache data

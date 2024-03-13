@@ -67,7 +67,7 @@ public class TestHiveWithPlanAlternativesConnectorTest
                 "EXPLAIN SELECT name FROM nation WHERE nationkey = 8",
                 "ChooseAlternativeNode",
                 "TableScan",  // filter is subsumed by the connector
-                Pattern.quote("\"nationkey\" = BIGINT '8'"),  // filter is not subsumed by the connector
+                Pattern.quote("nationkey = BIGINT '8'"),  // filter is not subsumed by the connector
                 "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}",
                 "Trino version: .*");
     }

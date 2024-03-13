@@ -18,12 +18,11 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
@@ -34,7 +33,6 @@ public class BuiltinFunctionCallBuilder
     private String name;
     private List<TypeSignature> argumentTypes = new ArrayList<>();
     private List<Expression> argumentValues = new ArrayList<>();
-    private Optional<Expression> filter = Optional.empty();
 
     public static BuiltinFunctionCallBuilder resolve(Metadata metadata)
     {
@@ -78,24 +76,9 @@ public class BuiltinFunctionCallBuilder
         return this;
     }
 
-    public BuiltinFunctionCallBuilder setFilter(Expression filter)
-    {
-        this.filter = Optional.of(requireNonNull(filter, "filter is null"));
-        return this;
-    }
-
     public FunctionCall build()
     {
         ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, TypeSignatureProvider.fromTypeSignatures(argumentTypes));
-        return new FunctionCall(
-                Optional.empty(),
-                resolvedFunction.toQualifiedName(),
-                Optional.empty(),
-                filter,
-                Optional.empty(),
-                false,
-                Optional.empty(),
-                Optional.empty(),
-                argumentValues);
+        return new FunctionCall(resolvedFunction.toQualifiedName(), argumentValues);
     }
 }

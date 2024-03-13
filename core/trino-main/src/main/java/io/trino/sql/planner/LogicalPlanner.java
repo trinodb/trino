@@ -62,6 +62,15 @@ import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -85,24 +94,15 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
 import io.trino.sql.tree.Analyze;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.ExplainAnalyze;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshMaterializedView;
-import io.trino.sql.tree.Row;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableExecute;
@@ -150,7 +150,8 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
@@ -162,8 +163,6 @@ import static io.trino.sql.planner.plan.TableWriterNode.CreateReference;
 import static io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.trino.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -585,7 +584,7 @@ public class LogicalPlanner
                 if (supportsMissingColumnsOnInsert) {
                     continue;
                 }
-                expression = new Cast(new NullLiteral(), toSqlType(column.getType()));
+                expression = new Cast(new NullLiteral(), column.getType());
             }
             else {
                 Symbol input = visibleFieldMappings.get(index);
@@ -676,13 +675,13 @@ public class LogicalPlanner
 
     private Expression createNullNotAllowedFailExpression(String columnName, Type type)
     {
-        return new Cast(failFunction(metadata, CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), toSqlType(type));
+        return new Cast(failFunction(metadata, CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), type);
     }
 
     private static Function<Expression, Expression> failIfPredicateIsNotMet(Metadata metadata, ErrorCodeSupplier errorCode, String errorMessage)
     {
         FunctionCall fail = failFunction(metadata, errorCode, errorMessage);
-        return predicate -> new IfExpression(predicate, TRUE_LITERAL, new Cast(fail, toSqlType(BOOLEAN)));
+        return predicate -> new IfExpression(predicate, TRUE_LITERAL, new Cast(fail, BOOLEAN));
     }
 
     public static FunctionCall failFunction(Metadata metadata, ErrorCodeSupplier errorCode, String errorMessage)
@@ -844,12 +843,12 @@ public class LogicalPlanner
     private Expression noTruncationCast(Expression expression, Type fromType, Type toType)
     {
         if (fromType instanceof UnknownType || (!(toType instanceof VarcharType) && !(toType instanceof CharType))) {
-            return new Cast(expression, toSqlType(toType));
+            return new Cast(expression, toType);
         }
         int targetLength;
         if (toType instanceof VarcharType) {
             if (((VarcharType) toType).isUnbounded()) {
-                return new Cast(expression, toSqlType(toType));
+                return new Cast(expression, toType);
             }
             targetLength = ((VarcharType) toType).getBoundedLength();
         }
@@ -868,15 +867,15 @@ public class LogicalPlanner
                         new CoalesceExpression(
                                 new FunctionCall(
                                         spaceTrimmedLength.toQualifiedName(),
-                                        ImmutableList.of(new Cast(expression, toSqlType(VARCHAR)))),
+                                        ImmutableList.of(new Cast(expression, VARCHAR))),
                                 new GenericLiteral("BIGINT", "0"))),
-                new Cast(expression, toSqlType(toType)),
+                new Cast(expression, toType),
                 new Cast(
                         failFunction(metadata, INVALID_CAST_ARGUMENT, format(
                                 "Cannot truncate non-space characters when casting from %s to %s on INSERT",
                                 fromType.getDisplayName(),
                                 toType.getDisplayName())),
-                        toSqlType(toType)));
+                        toType));
     }
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
@@ -970,7 +969,7 @@ public class LogicalPlanner
         Map<Key, Symbol> allocations = new HashMap<>();
         Map<NodeRef<LambdaArgumentDeclaration>, Symbol> result = new LinkedHashMap<>();
 
-        for (Entry<NodeRef<Expression>, Type> entry : analysis.getTypes().entrySet()) {
+        for (Entry<NodeRef<io.trino.sql.tree.Expression>, Type> entry : analysis.getTypes().entrySet()) {
             if (!(entry.getKey().getNode() instanceof LambdaArgumentDeclaration argument)) {
                 continue;
             }
@@ -982,7 +981,7 @@ public class LogicalPlanner
             // get rewritten via TranslationMap
             Symbol symbol = allocations.get(key);
             if (symbol == null) {
-                symbol = symbolAllocator.newSymbol(argument, entry.getValue());
+                symbol = symbolAllocator.newSymbol(argument.getName().toString(), entry.getValue());
                 allocations.put(key, symbol);
             }
 
@@ -1011,7 +1010,7 @@ public class LogicalPlanner
         PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
         if (statement.getWhere().isPresent()) {
             SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of());
-            Expression whereExpression = statement.getWhere().get();
+            io.trino.sql.tree.Expression whereExpression = statement.getWhere().get();
             sourcePlanBuilder = subqueryPlanner.handleSubqueries(sourcePlanBuilder, whereExpression, analysis.getSubqueries(statement));
             sourcePlanBuilder = sourcePlanBuilder.withNewRoot(new FilterNode(idAllocator.getNextId(), sourcePlanBuilder.getRoot(), sourcePlanBuilder.rewrite(whereExpression)));
         }

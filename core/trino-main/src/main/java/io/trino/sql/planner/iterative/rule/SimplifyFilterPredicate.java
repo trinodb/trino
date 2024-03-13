@@ -17,31 +17,31 @@ import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.SearchedCaseExpression;
+import io.trino.sql.ir.SimpleCaseExpression;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.SearchedCaseExpression;
-import io.trino.sql.tree.SimpleCaseExpression;
-import io.trino.sql.tree.WhenClause;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.plan.Patterns.filter;
-import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * Simplify conditional expressions in filter predicate.

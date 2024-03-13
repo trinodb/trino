@@ -29,16 +29,16 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
@@ -56,6 +56,10 @@ import static io.trino.spi.predicate.Range.greaterThan;
 import static io.trino.spi.predicate.Range.lessThan;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -73,10 +77,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 import static io.trino.testing.PlanTesterBuilder.planTesterBuilder;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -241,7 +241,7 @@ public class TestCacheCommonSubqueries
                 new PlanSignature(
                         combine(
                                 scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01")),
-                                "filters=((\"[nationkey:bigint]\" IN (BIGINT '0', BIGINT '1')) OR (\"[regionkey:bigint]\" IN (BIGINT '0', BIGINT '1')))"),
+                                "filters=(([nationkey:bigint] IN (BIGINT '0', BIGINT '1')) OR ([regionkey:bigint] IN (BIGINT '0', BIGINT '1')))"),
                         Optional.empty(),
                         cacheColumnIds,
                         cacheColumnTypes),

@@ -20,8 +20,8 @@ import com.google.errorprone.annotations.Immutable;
 import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Map;

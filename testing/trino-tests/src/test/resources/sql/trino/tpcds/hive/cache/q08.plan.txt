@@ -4,17 +4,17 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (s_store_name)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["s_store_name"])
+                        remote exchange (REPARTITION, HASH, [s_store_name])
                             partial aggregation over (s_store_name)
                                 join (INNER, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, ["substring"])
+                                    remote exchange (REPARTITION, HASH, [substring])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 alternatives
-                                                    dynamic filter (await ["ss_sold_date_sk", "ss_store_sk"])
+                                                    dynamic filter (await [ss_sold_date_sk, ss_store_sk])
                                                         scan store_sales
                                                     cache data
-                                                        dynamic filter (await ["ss_sold_date_sk", "ss_store_sk"])
+                                                        dynamic filter (await [ss_sold_date_sk, ss_store_sk])
                                                             scan store_sales
                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])
@@ -32,33 +32,33 @@ local exchange (GATHER, SINGLE, [])
                                                             scan store
                                                         load from cache
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["substring_39"])
+                                        remote exchange (REPARTITION, HASH, [substring_39])
                                             final aggregation over (ca_zip)
-                                                local exchange (REPARTITION, HASH, ["ca_zip"])
-                                                    remote exchange (REPARTITION, HASH, ["ca_zip_31"])
+                                                local exchange (REPARTITION, HASH, [ca_zip])
+                                                    remote exchange (REPARTITION, HASH, [ca_zip_31])
                                                         partial aggregation over (ca_zip_31)
                                                             alternatives
                                                                 scan customer_address
                                                                 cache data
                                                                     scan customer_address
                                                                 load from cache
-                                                    remote exchange (REPARTITION, HASH, ["ca_zip_34"])
+                                                    remote exchange (REPARTITION, HASH, [ca_zip_34])
                                                         partial aggregation over (ca_zip_34)
                                                             final aggregation over (ca_zip_19)
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPARTITION, HASH, ["ca_zip_19"])
+                                                                    remote exchange (REPARTITION, HASH, [ca_zip_19])
                                                                         partial aggregation over (ca_zip_19)
                                                                             join (INNER, PARTITIONED):
-                                                                                remote exchange (REPARTITION, HASH, ["ca_address_sk_10"])
+                                                                                remote exchange (REPARTITION, HASH, [ca_address_sk_10])
                                                                                     alternatives
-                                                                                        dynamic filter (["ca_address_sk_10"])
+                                                                                        dynamic filter ([ca_address_sk_10])
                                                                                             scan customer_address
                                                                                         cache data
-                                                                                            dynamic filter (["ca_address_sk_10"])
+                                                                                            dynamic filter ([ca_address_sk_10])
                                                                                                 scan customer_address
                                                                                         load from cache
                                                                                 local exchange (GATHER, SINGLE, [])
-                                                                                    remote exchange (REPARTITION, HASH, ["c_current_addr_sk"])
+                                                                                    remote exchange (REPARTITION, HASH, [c_current_addr_sk])
                                                                                         alternatives
                                                                                             scan customer
                                                                                             cache data

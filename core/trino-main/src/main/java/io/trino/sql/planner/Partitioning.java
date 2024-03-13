@@ -22,8 +22,8 @@ import com.google.errorprone.annotations.Immutable;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.predicate.NullableValue;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SymbolReference;
 
 import java.util.Collection;
 import java.util.HashSet;

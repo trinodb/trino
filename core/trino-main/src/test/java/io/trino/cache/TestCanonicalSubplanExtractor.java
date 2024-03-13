@@ -28,6 +28,7 @@ import io.trino.cache.CanonicalSubplan.TopNRankingKey;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.spi.cache.CacheColumnId;
@@ -37,9 +38,16 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
-import io.trino.sql.planner.BuiltinFunctionCallBuilder;
+import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.CanonicalAggregation;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -53,13 +61,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.PlanTester;
 import io.trino.testing.TestingHandles;
 import io.trino.testing.TestingMetadata;
@@ -81,15 +82,15 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Map.entry;
@@ -165,10 +166,11 @@ public class TestCanonicalSubplanExtractor
                 entry(REGIONKEY_ID, new TpchColumnHandle("regionkey", BIGINT)));
         assertThat(nonAggregatedSubplan.getTableScan().get().getTableId()).isEqualTo(tableId);
 
-        Expression sum = getSumFunction();
-        Expression filteredSum = getSumFunctionBuilder()
-                .setFilter(columnIdToSymbol(regionKeyGreaterThan10).toSymbolReference())
-                .build();
+        Expression sum = sumNationkey();
+        Expression filteredSum = new CanonicalAggregation(
+                sumBigint(),
+                Optional.of(columnIdToSymbol(regionKeyGreaterThan10)),
+                List.of(new SymbolReference("[nationkey:bigint]")));
         CanonicalSubplan aggregatedSubplan = subplans.get(1);
         assertThat(aggregatedSubplan.getKeyChain()).containsExactly(new ScanFilterProjectKey(tableId), new AggregationKey(aggregatedSubplan.getGroupByColumns().get(), ImmutableSet.of(nonPullableConjunct)));
         assertThat(aggregatedSubplan.getConjuncts()).isEmpty();
@@ -220,7 +222,10 @@ public class TestCanonicalSubplanExtractor
                 entry(REGIONKEY_ID, new TpchColumnHandle("regionkey", BIGINT)));
         assertThat(nonAggregatedSubplan.getTableScan().get().getTableId()).isEqualTo(tableId);
 
-        Expression sum = getFunctionCallBuilder("sum", new ExpressionWithType(nationKeyPlusOne, BIGINT)).build();
+        Expression sum = new CanonicalAggregation(
+                sumBigint(),
+                Optional.empty(),
+                List.of(columnIdToSymbol(nationKeyPlusOne).toSymbolReference()));
         CanonicalSubplan aggregatedSubplan = subplans.get(1);
         assertThat(aggregatedSubplan.getKeyChain()).containsExactly(new ScanFilterProjectKey(tableId), new AggregationKey(aggregatedSubplan.getGroupByColumns().get(), ImmutableSet.of()));
         assertThat(aggregatedSubplan.getOriginalPlanNode()).isInstanceOf(AggregationNode.class);
@@ -297,7 +302,7 @@ public class TestCanonicalSubplanExtractor
                 entry(NATIONKEY_ID, NATIONKEY_REF),
                 entry(REGIONKEY_ID, REGIONKEY_REF));
 
-        Expression sum = getSumFunction();
+        Expression sum = sumNationkey();
         CanonicalSubplan aggregatedSubplan = subplans.get(1);
         assertThat(aggregatedSubplan.getOriginalPlanNode()).isInstanceOf(AggregationNode.class);
         assertThat(getGroupByExpressions(aggregatedSubplan)).contains(ImmutableList.of(new SymbolReference("[regionkey:bigint]")));
@@ -323,7 +328,7 @@ public class TestCanonicalSubplanExtractor
         CanonicalSubplan nonAggregatedSubplan = subplans.get(0);
         assertThat(nonAggregatedSubplan.getGroupByColumns()).isEmpty();
 
-        Expression sum = getSumFunction();
+        Expression sum = sumNationkey();
         CanonicalSubplan aggregatedSubplan = subplans.get(1);
         assertThat(aggregatedSubplan.getOriginalPlanNode()).isInstanceOf(AggregationNode.class);
         assertThat(aggregatedSubplan.getGroupByColumns()).contains(ImmutableSet.of());
@@ -790,35 +795,17 @@ public class TestCanonicalSubplanExtractor
         });
     }
 
-    private Expression getSumFunction()
+    private CanonicalAggregation sumNationkey()
     {
-        return getSumFunctionBuilder().build();
+        return new CanonicalAggregation(
+                sumBigint(),
+                Optional.empty(),
+                List.of(new SymbolReference("[nationkey:bigint]")));
     }
 
-    private BuiltinFunctionCallBuilder getSumFunctionBuilder()
+    private ResolvedFunction sumBigint()
     {
-        return getFunctionCallBuilder("sum", new ExpressionWithType(new SymbolReference("[nationkey:bigint]"), BIGINT));
-    }
-
-    private BuiltinFunctionCallBuilder getFunctionCallBuilder(String name, ExpressionWithType... arguments)
-    {
-        PlanTester planTester = getPlanTester();
-        BuiltinFunctionCallBuilder builder = BuiltinFunctionCallBuilder.resolve(planTester.getPlannerContext().getMetadata())
-                .setName(name);
-        for (ExpressionWithType argument : arguments) {
-            builder.addArgument(argument.type, argument.expression);
-        }
-        return builder;
-    }
-
-    // workaround for https://github.com/google/error-prone/issues/2713
-    @SuppressWarnings("unused")
-    private record ExpressionWithType(Expression expression, Type type)
-    {
-        public ExpressionWithType(CacheColumnId columnId, Type type)
-        {
-            this(columnIdToSymbol(columnId).toSymbolReference(), type);
-        }
+        return getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction("sum", TypeSignatureProvider.fromTypes(BIGINT));
     }
 
     private ProjectNode createScanAndProjectNode()

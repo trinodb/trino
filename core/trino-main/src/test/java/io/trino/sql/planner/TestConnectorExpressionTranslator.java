@@ -29,26 +29,26 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -83,7 +83,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -292,7 +291,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateCast()
     {
         assertTranslationRoundTrips(
-                new Cast(new SymbolReference("varchar_symbol_1"), toSqlType(VARCHAR_TYPE)),
+                new Cast(new SymbolReference("varchar_symbol_1"), VARCHAR_TYPE),
                 new Call(
                         VARCHAR_TYPE,
                         CAST_FUNCTION_NAME,
@@ -303,7 +302,7 @@ public class TestConnectorExpressionTranslator
                 TEST_SESSION,
                 new Cast(
                         new SymbolReference("varchar_symbol_1"),
-                        toSqlType(BIGINT),
+                        BIGINT,
                         true),
                 Optional.empty());
     }
@@ -437,7 +436,7 @@ public class TestConnectorExpressionTranslator
                             .setName("regexp_like")
                             .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
                             // Note: The result is not an optimized expression
-                            .addArgument(JONI_REGEXP, new Cast(new StringLiteral("a+"), toSqlType(JONI_REGEXP)))
+                            .addArgument(JONI_REGEXP, new Cast(new StringLiteral("a+"), JONI_REGEXP))
                             .build();
 
                     assertTranslationToConnectorExpression(transactionSession, input, translated);
@@ -454,7 +453,7 @@ public class TestConnectorExpressionTranslator
                 BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
                         .setName("json_extract_scalar")
                         .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
-                        .addArgument(JSON_PATH, new Cast(new StringLiteral("$.path"), toSqlType(JSON_PATH)))
+                        .addArgument(JSON_PATH, new Cast(new StringLiteral("$.path"), JSON_PATH))
                         .build(),
                 new Call(
                         VARCHAR_TYPE,

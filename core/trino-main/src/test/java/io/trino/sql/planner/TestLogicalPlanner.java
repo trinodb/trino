@@ -27,6 +27,25 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RowType;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SimpleCaseExpression;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -64,26 +83,7 @@ import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrQuantified;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SimpleCaseExpression;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.WhenClause;
 import io.trino.tests.QueryTemplate;
 import org.junit.jupiter.api.Test;
 
@@ -109,12 +109,21 @@ import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.SUBTRACT;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.LogicalExpression.Operator.AND;
+import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
@@ -129,7 +138,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -178,15 +186,6 @@ import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static io.trino.sql.planner.rowpattern.ir.IrQuantifier.oneOrMore;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.SUBTRACT;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
-import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
@@ -504,10 +503,10 @@ public class TestLogicalPlanner
                                                         project(
                                                                 ImmutableMap.of(
                                                                         "orderstatus1", expression(new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
-                                                                                new Cast(new SymbolReference("orderstatus"), dataType("varchar")),
+                                                                                new Cast(new SymbolReference("orderstatus"), VARCHAR),
                                                                                 new GenericLiteral("VARCHAR", "1")))),
                                                                         "orderstatus2", expression(new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
-                                                                                new Cast(new SymbolReference("orderstatus"), dataType("varchar")),
+                                                                                new Cast(new SymbolReference("orderstatus"), VARCHAR),
                                                                                 new GenericLiteral("VARCHAR", "2"))))),
                                                                 tableScan(
                                                                         "orders",
@@ -706,7 +705,7 @@ public class TestLogicalPlanner
                                                 equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")))
                                 .left(
                                         filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("NATION_NAME"), new Cast(new StringLiteral("blah"), dataType("varchar(25)"))),
+                                                new ComparisonExpression(EQUAL, new SymbolReference("NATION_NAME"), new Cast(new StringLiteral("blah"), createVarcharType(25))),
                                                 constrainedTableScan(
                                                         "nation",
                                                         ImmutableMap.of(),
@@ -716,7 +715,7 @@ public class TestLogicalPlanner
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        new ComparisonExpression(EQUAL, new SymbolReference("REGION_NAME"), new Cast(new StringLiteral("blah"), dataType("varchar(25)"))),
+                                                        new ComparisonExpression(EQUAL, new SymbolReference("REGION_NAME"), new Cast(new StringLiteral("blah"), createVarcharType(25))),
                                                         constrainedTableScan(
                                                                 "region",
                                                                 ImmutableMap.of(),
@@ -946,7 +945,7 @@ public class TestLogicalPlanner
                 anyTree(
                         correlatedJoin(
                                 List.of("r_row_number", "r_regionkey", "r_name", "r_comment"),
-                                new Cast(new NullLiteral(), dataType("boolean")),
+                                new Cast(new NullLiteral(), BOOLEAN),
                                 tableScan("region", Map.of(
                                         "r_row_number", "row_number",
                                         "r_regionkey", "regionkey",
@@ -972,7 +971,7 @@ public class TestLogicalPlanner
                                 new SimpleCaseExpression(
                                         new SymbolReference("is_distinct"),
                                         ImmutableList.of(new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
-                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())), new GenericLiteral("VARCHAR", "Scalar sub-query has returned multiple rows"))), dataType("boolean")))),
+                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())), new GenericLiteral("VARCHAR", "Scalar sub-query has returned multiple rows"))), BOOLEAN))),
                                 project(
                                         markDistinct("is_distinct", ImmutableList.of("unique"),
                                                 join(LEFT, builder -> builder
@@ -990,7 +989,7 @@ public class TestLogicalPlanner
                                 new SimpleCaseExpression(
                                         new SymbolReference("is_distinct"),
                                         ImmutableList.of(new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
-                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())), new GenericLiteral("VARCHAR", "Scalar sub-query has returned multiple rows"))), dataType("boolean")))),
+                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())), new GenericLiteral("VARCHAR", "Scalar sub-query has returned multiple rows"))), BOOLEAN))),
                                 project(
                                         markDistinct("is_distinct", ImmutableList.of("unique"),
                                                 join(LEFT, builder -> builder
@@ -1248,7 +1247,7 @@ public class TestLogicalPlanner
                                 new SimpleCaseExpression(
                                         new SymbolReference("is_distinct"),
                                         ImmutableList.of(new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
-                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())), new GenericLiteral("VARCHAR", "Scalar sub-query has returned multiple rows"))), dataType("boolean")))),
+                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())), new GenericLiteral("VARCHAR", "Scalar sub-query has returned multiple rows"))), BOOLEAN))),
                                 project(markDistinct(
                                         "is_distinct",
                                         ImmutableList.of("unique"),
@@ -2118,7 +2117,7 @@ public class TestLogicalPlanner
                         "JOIN (SELECT '' || x FROM (VALUES 'F') t(x)) t2(s) " +
                         "ON orders.orderstatus = t2.s",
                 any(project(
-                        ImmutableMap.of("cast", expression(new Cast(new SymbolReference("ORDER_STATUS"), dataType("varchar")))),
+                        ImmutableMap.of("cast", expression(new Cast(new SymbolReference("ORDER_STATUS"), VARCHAR))),
                         strictConstrainedTableScan(
                                 "orders",
                                 ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
@@ -2283,7 +2282,7 @@ public class TestLogicalPlanner
                         values(
                                 ImmutableList.of("field"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new Cast(new GenericLiteral("TINYINT", "1"), toSqlType(REAL))),
+                                        ImmutableList.of(new Cast(new GenericLiteral("TINYINT", "1"), REAL)),
                                         ImmutableList.of(new GenericLiteral("REAL", "1"))))));
 
         // rows coerced by field
@@ -2293,8 +2292,8 @@ public class TestLogicalPlanner
                         values(
                                 ImmutableList.of("field", "field0"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new Cast(new GenericLiteral("TINYINT", "1"), toSqlType(DOUBLE)), new GenericLiteral("REAL", "1")),
-                                        ImmutableList.of(new GenericLiteral("DOUBLE", "2"), new Cast(new GenericLiteral("SMALLINT", "2"), toSqlType(REAL)))))));
+                                        ImmutableList.of(new Cast(new GenericLiteral("TINYINT", "1"), DOUBLE), new GenericLiteral("REAL", "1")),
+                                        ImmutableList.of(new GenericLiteral("DOUBLE", "2"), new Cast(new GenericLiteral("SMALLINT", "2"), REAL))))));
 
         // entry of type other than Row coerced as a whole
         assertPlan("VALUES DOUBLE '1', CAST(ROW(2) AS row(bigint))",
@@ -2308,8 +2307,8 @@ public class TestLogicalPlanner
                                         new Cast(
                                                 new Cast(
                                                         new Row(ImmutableList.of(new LongLiteral("2"))),
-                                                        toSqlType(RowType.anonymous(ImmutableList.of(BIGINT)))),
-                                                toSqlType(RowType.anonymous(ImmutableList.of(DOUBLE)))))))));
+                                                        RowType.anonymous(ImmutableList.of(BIGINT))),
+                                                RowType.anonymous(ImmutableList.of(DOUBLE))))))));
     }
 
     @Test

@@ -4,16 +4,16 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (i_current_price, i_item_desc, i_item_id)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["i_current_price", "i_item_desc", "i_item_id"])
+                        remote exchange (REPARTITION, HASH, [i_current_price, i_item_desc, i_item_id])
                             intermediate aggregation over (i_current_price, i_item_desc, i_item_id)
                                 join (INNER, REPLICATED, can skip output duplicates):
                                     alternatives
                                         partial aggregation over (cs_item_sk)
-                                            dynamic filter (["cs_item_sk"])
+                                            dynamic filter ([cs_item_sk])
                                                 scan catalog_sales
                                         cache data
                                             partial aggregation over (cs_item_sk)
-                                                dynamic filter (["cs_item_sk"])
+                                                dynamic filter ([cs_item_sk])
                                                     scan catalog_sales
                                         load from cache
                                     local exchange (GATHER, SINGLE, [])
@@ -21,10 +21,10 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, REPLICATED, can skip output duplicates):
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     alternatives
-                                                        dynamic filter (await ["inv_date_sk", "inv_item_sk"])
+                                                        dynamic filter (await [inv_date_sk, inv_item_sk])
                                                             scan inventory
                                                         cache data
-                                                            dynamic filter (await ["inv_date_sk", "inv_item_sk"])
+                                                            dynamic filter (await [inv_date_sk, inv_item_sk])
                                                                 scan inventory
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])

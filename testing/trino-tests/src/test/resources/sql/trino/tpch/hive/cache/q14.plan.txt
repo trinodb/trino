@@ -3,16 +3,16 @@ final aggregation over ()
         remote exchange (GATHER, SINGLE, [])
             partial aggregation over ()
                 join (INNER, PARTITIONED):
-                    remote exchange (REPARTITION, HASH, ["partkey_0"])
+                    remote exchange (REPARTITION, HASH, [partkey_0])
                         alternatives
-                            dynamic filter (["partkey_0"])
+                            dynamic filter ([partkey_0])
                                 scan part
                             cache data
-                                dynamic filter (["partkey_0"])
+                                dynamic filter ([partkey_0])
                                     scan part
                             load from cache
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["partkey"])
+                        remote exchange (REPARTITION, HASH, [partkey])
                             alternatives
                                 scan lineitem
                                 cache data

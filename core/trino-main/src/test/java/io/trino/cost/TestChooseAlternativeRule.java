@@ -13,18 +13,18 @@
  */
 package io.trino.cost;
 
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.ChooseAlternativeNode.FilteredTableScan;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static java.lang.Double.NaN;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 

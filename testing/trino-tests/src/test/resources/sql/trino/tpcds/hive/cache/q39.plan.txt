@@ -2,20 +2,20 @@ remote exchange (GATHER, SINGLE, [])
     local exchange (GATHER, UNKNOWN, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             join (INNER, PARTITIONED):
-                remote exchange (REPARTITION, HASH, ["inv_item_sk", "inv_warehouse_sk"])
+                remote exchange (REPARTITION, HASH, [inv_item_sk, inv_warehouse_sk])
                     final aggregation over (d_moy, inv_item_sk, inv_warehouse_sk, w_warehouse_name)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["d_moy", "inv_item_sk", "inv_warehouse_sk", "w_warehouse_name"])
+                            remote exchange (REPARTITION, HASH, [d_moy, inv_item_sk, inv_warehouse_sk, w_warehouse_name])
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             alternatives
                                                 partial aggregation over (inv_date_sk, inv_item_sk, inv_warehouse_sk)
-                                                    dynamic filter (["inv_item_sk", "inv_item_sk", "inv_warehouse_sk"], await ["inv_date_sk", "inv_warehouse_sk"])
+                                                    dynamic filter ([inv_item_sk, inv_item_sk, inv_warehouse_sk], await [inv_date_sk, inv_warehouse_sk])
                                                         scan inventory
                                                 cache data
                                                     partial aggregation over (inv_date_sk, inv_item_sk, inv_warehouse_sk)
-                                                        dynamic filter (["inv_item_sk", "inv_item_sk", "inv_warehouse_sk"], await ["inv_date_sk", "inv_warehouse_sk"])
+                                                        dynamic filter ([inv_item_sk, inv_item_sk, inv_warehouse_sk], await [inv_date_sk, inv_warehouse_sk])
                                                             scan inventory
                                                 load from cache
                                             local exchange (GATHER, SINGLE, [])
@@ -28,36 +28,36 @@ remote exchange (GATHER, SINGLE, [])
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 alternatives
-                                                    dynamic filter (["i_item_sk"])
+                                                    dynamic filter ([i_item_sk])
                                                         scan item
                                                     cache data
-                                                        dynamic filter (["i_item_sk"])
+                                                        dynamic filter ([i_item_sk])
                                                             scan item
                                                     load from cache
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             alternatives
-                                                dynamic filter (["w_warehouse_sk"])
+                                                dynamic filter ([w_warehouse_sk])
                                                     scan warehouse
                                                 cache data
-                                                    dynamic filter (["w_warehouse_sk"])
+                                                    dynamic filter ([w_warehouse_sk])
                                                         scan warehouse
                                                 load from cache
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["inv_item_sk_12", "inv_warehouse_sk_13"])
+                    remote exchange (REPARTITION, HASH, [inv_item_sk_12, inv_warehouse_sk_13])
                         final aggregation over (d_moy_68, inv_item_sk_12, inv_warehouse_sk_13, w_warehouse_name_45)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["d_moy_68", "inv_item_sk_12", "inv_warehouse_sk_13", "w_warehouse_name_45"])
+                                remote exchange (REPARTITION, HASH, [d_moy_68, inv_item_sk_12, inv_warehouse_sk_13, w_warehouse_name_45])
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 alternatives
                                                     partial aggregation over (inv_date_sk_11, inv_item_sk_12, inv_warehouse_sk_13)
-                                                        dynamic filter (["inv_item_sk_12"], await ["inv_date_sk_11", "inv_warehouse_sk_13"])
+                                                        dynamic filter ([inv_item_sk_12], await [inv_date_sk_11, inv_warehouse_sk_13])
                                                             scan inventory
                                                     cache data
                                                         partial aggregation over (inv_date_sk_11, inv_item_sk_12, inv_warehouse_sk_13)
-                                                            dynamic filter (["inv_item_sk_12"], await ["inv_date_sk_11", "inv_warehouse_sk_13"])
+                                                            dynamic filter ([inv_item_sk_12], await [inv_date_sk_11, inv_warehouse_sk_13])
                                                                 scan inventory
                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])

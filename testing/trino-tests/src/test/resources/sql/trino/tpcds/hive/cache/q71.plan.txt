@@ -3,7 +3,7 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             final aggregation over (i_brand, i_brand_id, t_hour, t_minute)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["i_brand", "i_brand_id", "t_hour", "t_minute"])
+                    remote exchange (REPARTITION, HASH, [i_brand, i_brand_id, t_hour, t_minute])
                         intermediate aggregation over (i_brand, i_brand_id, t_hour, t_minute)
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
@@ -11,10 +11,10 @@ remote exchange (GATHER, SINGLE, [])
                                         partial aggregation over (ws_item_sk, ws_sold_time_sk)
                                             join (INNER, REPLICATED):
                                                 alternatives
-                                                    dynamic filter (["ws_item_sk"], await ["ws_sold_date_sk", "ws_sold_time_sk"])
+                                                    dynamic filter ([ws_item_sk], await [ws_sold_date_sk, ws_sold_time_sk])
                                                         scan web_sales
                                                     cache data
-                                                        dynamic filter (["ws_item_sk"], await ["ws_sold_date_sk", "ws_sold_time_sk"])
+                                                        dynamic filter ([ws_item_sk], await [ws_sold_date_sk, ws_sold_time_sk])
                                                             scan web_sales
                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])
@@ -27,10 +27,10 @@ remote exchange (GATHER, SINGLE, [])
                                         partial aggregation over (cs_item_sk, cs_sold_time_sk)
                                             join (INNER, REPLICATED):
                                                 alternatives
-                                                    dynamic filter (["cs_item_sk"], await ["cs_sold_date_sk", "cs_sold_time_sk"])
+                                                    dynamic filter ([cs_item_sk], await [cs_sold_date_sk, cs_sold_time_sk])
                                                         scan catalog_sales
                                                     cache data
-                                                        dynamic filter (["cs_item_sk"], await ["cs_sold_date_sk", "cs_sold_time_sk"])
+                                                        dynamic filter ([cs_item_sk], await [cs_sold_date_sk, cs_sold_time_sk])
                                                             scan catalog_sales
                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])
@@ -43,10 +43,10 @@ remote exchange (GATHER, SINGLE, [])
                                         partial aggregation over (ss_item_sk, ss_sold_time_sk)
                                             join (INNER, REPLICATED):
                                                 alternatives
-                                                    dynamic filter (["ss_item_sk"], await ["ss_sold_date_sk", "ss_sold_time_sk"])
+                                                    dynamic filter ([ss_item_sk], await [ss_sold_date_sk, ss_sold_time_sk])
                                                         scan store_sales
                                                     cache data
-                                                        dynamic filter (["ss_item_sk"], await ["ss_sold_date_sk", "ss_sold_time_sk"])
+                                                        dynamic filter ([ss_item_sk], await [ss_sold_date_sk, ss_sold_time_sk])
                                                             scan store_sales
                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])

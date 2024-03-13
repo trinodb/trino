@@ -4,15 +4,15 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (i_brand, i_brand_id)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["i_brand", "i_brand_id"])
+                        remote exchange (REPARTITION, HASH, [i_brand, i_brand_id])
                             partial aggregation over (i_brand, i_brand_id)
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         alternatives
-                                            dynamic filter (["ss_item_sk"], await ["ss_sold_date_sk"])
+                                            dynamic filter ([ss_item_sk], await [ss_sold_date_sk])
                                                 scan store_sales
                                             cache data
-                                                dynamic filter (["ss_item_sk"], await ["ss_sold_date_sk"])
+                                                dynamic filter ([ss_item_sk], await [ss_sold_date_sk])
                                                     scan store_sales
                                             load from cache
                                         local exchange (GATHER, SINGLE, [])

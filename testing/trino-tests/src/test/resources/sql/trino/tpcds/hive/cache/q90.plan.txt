@@ -7,10 +7,10 @@ cross join:
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 alternatives
-                                    dynamic filter (await ["ws_ship_hdemo_sk", "ws_sold_time_sk", "ws_web_page_sk"])
+                                    dynamic filter (await [ws_ship_hdemo_sk, ws_sold_time_sk, ws_web_page_sk])
                                         scan web_sales
                                     cache data
-                                        dynamic filter (await ["ws_ship_hdemo_sk", "ws_sold_time_sk", "ws_web_page_sk"])
+                                        dynamic filter (await [ws_ship_hdemo_sk, ws_sold_time_sk, ws_web_page_sk])
                                             scan web_sales
                                     load from cache
                                 local exchange (GATHER, SINGLE, [])
@@ -42,10 +42,10 @@ cross join:
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 alternatives
-                                    dynamic filter (await ["ws_ship_hdemo_sk_19", "ws_sold_time_sk_10", "ws_web_page_sk_21"])
+                                    dynamic filter (await [ws_ship_hdemo_sk_19, ws_sold_time_sk_10, ws_web_page_sk_21])
                                         scan web_sales
                                     cache data
-                                        dynamic filter (await ["ws_ship_hdemo_sk_19", "ws_sold_time_sk_10", "ws_web_page_sk_21"])
+                                        dynamic filter (await [ws_ship_hdemo_sk_19, ws_sold_time_sk_10, ws_web_page_sk_21])
                                             scan web_sales
                                     load from cache
                                 local exchange (GATHER, SINGLE, [])

@@ -178,7 +178,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         assertExplain(
                 "explain select name from nation where abs(nationkey) = 22",
-                Pattern.quote("abs(\"nationkey\")"),
+                Pattern.quote("abs(nationkey)"),
                 "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}",
                 "Trino version: .*");
     }
@@ -188,7 +188,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         assertExplain(
                 "EXPLAIN SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
-                "ScanFilter\\[.*, dynamicFilters = \\{\"nationkey\" = #df_\\d+ await}]");
+                "ScanFilter\\[.*, dynamicFilters = \\{nationkey = #df_\\d+ await}]");
     }
 
     @Test
@@ -196,7 +196,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         assertExplain(
                 "explain (type distributed) select name from nation where abs(nationkey) = 22",
-                Pattern.quote("abs(\"nationkey\")"),
+                Pattern.quote("abs(nationkey)"),
                 "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}",
                 "Trino version: .*");
     }
@@ -236,7 +236,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
                         .build(),
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
                 "Dynamic filters: \n.*ranges=25, \\{\\[0], ..., \\[24]}.* collection time=\\d+.*",
-                "ScanFilter\\[.*, dynamicFilters = \\{\"nationkey\" = #df_\\d+ await}]"));
+                "ScanFilter\\[.*, dynamicFilters = \\{nationkey = #df_\\d+ await}]"));
     }
 
     @Test

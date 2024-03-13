@@ -4,15 +4,15 @@ remote exchange (GATHER, SINGLE, [])
             cross join:
                 final aggregation over (partkey)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["partkey"])
+                        remote exchange (REPARTITION, HASH, [partkey])
                             partial aggregation over (partkey)
                                 join (INNER, REPLICATED):
-                                    dynamic filter (["suppkey"])
+                                    dynamic filter ([suppkey])
                                         scan partsupp
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             join (INNER, REPLICATED):
-                                                dynamic filter (await ["nationkey"])
+                                                dynamic filter (await [nationkey])
                                                     scan supplier
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -24,12 +24,12 @@ remote exchange (GATHER, SINGLE, [])
                                 remote exchange (GATHER, SINGLE, [])
                                     partial aggregation over ()
                                         join (INNER, REPLICATED):
-                                            dynamic filter (["suppkey_12"])
+                                            dynamic filter ([suppkey_12])
                                                 scan partsupp
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (await ["nationkey_22"])
+                                                        dynamic filter (await [nationkey_22])
                                                             scan supplier
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

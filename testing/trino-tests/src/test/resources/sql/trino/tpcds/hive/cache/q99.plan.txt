@@ -2,20 +2,20 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
-                final aggregation over (cc_name, sm_type, substr$gid)
+                final aggregation over (cc_name, expr$gid, sm_type)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["cc_name", "sm_type", "substr$gid"])
-                            intermediate aggregation over (cc_name, sm_type, substr$gid)
+                        remote exchange (REPARTITION, HASH, [cc_name, expr$gid, sm_type])
+                            intermediate aggregation over (cc_name, expr$gid, sm_type)
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             partial aggregation over (cs_call_center_sk, cs_ship_mode_sk, cs_warehouse_sk)
                                                 join (INNER, REPLICATED):
                                                     alternatives
-                                                        dynamic filter (await ["cs_call_center_sk", "cs_ship_date_sk", "cs_ship_mode_sk", "cs_warehouse_sk"])
+                                                        dynamic filter (await [cs_call_center_sk, cs_ship_date_sk, cs_ship_mode_sk, cs_warehouse_sk])
                                                             scan catalog_sales
                                                         cache data
-                                                            dynamic filter (await ["cs_call_center_sk", "cs_ship_date_sk", "cs_ship_mode_sk", "cs_warehouse_sk"])
+                                                            dynamic filter (await [cs_call_center_sk, cs_ship_date_sk, cs_ship_mode_sk, cs_warehouse_sk])
                                                                 scan catalog_sales
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])

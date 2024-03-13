@@ -13,18 +13,17 @@
  */
 package io.trino.sql.planner;
 
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
-import io.trino.sql.tree.DereferenceExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.SearchedCaseExpression;
-import io.trino.sql.tree.SimpleCaseExpression;
-import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.DefaultTraversalVisitor;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.SearchedCaseExpression;
+import io.trino.sql.ir.SimpleCaseExpression;
+import io.trino.sql.ir.SubscriptExpression;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -50,7 +49,7 @@ public final class NullabilityAnalyzer
     }
 
     private static class Visitor
-            extends DefaultExpressionTraversalVisitor<AtomicBoolean>
+            extends DefaultTraversalVisitor<AtomicBoolean>
     {
         @Override
         protected Void visitCast(Cast node, AtomicBoolean result)
@@ -72,13 +71,6 @@ public final class NullabilityAnalyzer
 
         @Override
         protected Void visitNullIfExpression(NullIfExpression node, AtomicBoolean result)
-        {
-            result.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitDereferenceExpression(DereferenceExpression node, AtomicBoolean result)
         {
             result.set(true);
             return null;

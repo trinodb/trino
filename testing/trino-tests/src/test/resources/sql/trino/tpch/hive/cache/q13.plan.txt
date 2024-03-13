@@ -3,22 +3,22 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             final aggregation over (count)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["count"])
+                    remote exchange (REPARTITION, HASH, [count])
                         partial aggregation over (count)
                             final aggregation over (custkey)
                                 local exchange (GATHER, SINGLE, [])
                                     partial aggregation over (custkey)
                                         join (RIGHT, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, ["custkey_0"])
+                                            remote exchange (REPARTITION, HASH, [custkey_0])
                                                 alternatives
-                                                    dynamic filter (["custkey_0"])
+                                                    dynamic filter ([custkey_0])
                                                         scan orders
                                                     cache data
-                                                        dynamic filter (["custkey_0"])
+                                                        dynamic filter ([custkey_0])
                                                             scan orders
                                                     load from cache
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["custkey"])
+                                                remote exchange (REPARTITION, HASH, [custkey])
                                                     alternatives
                                                         scan customer
                                                         cache data

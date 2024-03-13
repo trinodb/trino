@@ -9,7 +9,7 @@ cross join:
                                 partial aggregation over ()
                                     final aggregation over (group, ss_list_price)
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPARTITION, HASH, ["group", "ss_list_price"])
+                                            remote exchange (REPARTITION, HASH, [group, ss_list_price])
                                                 partial aggregation over (group, ss_list_price)
                                                     scan store_sales
                     final aggregation over ()
@@ -18,7 +18,7 @@ cross join:
                                 partial aggregation over ()
                                     final aggregation over (group_151, ss_list_price_12)
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPARTITION, HASH, ["group_151", "ss_list_price_12"])
+                                            remote exchange (REPARTITION, HASH, [group_151, ss_list_price_12])
                                                 partial aggregation over (group_151, ss_list_price_12)
                                                     scan store_sales
                 final aggregation over ()
@@ -27,7 +27,7 @@ cross join:
                             partial aggregation over ()
                                 final aggregation over (group_158, ss_list_price_42)
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["group_158", "ss_list_price_42"])
+                                        remote exchange (REPARTITION, HASH, [group_158, ss_list_price_42])
                                             partial aggregation over (group_158, ss_list_price_42)
                                                 scan store_sales
             final aggregation over ()
@@ -36,7 +36,7 @@ cross join:
                         partial aggregation over ()
                             final aggregation over (group_165, ss_list_price_72)
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["group_165", "ss_list_price_72"])
+                                    remote exchange (REPARTITION, HASH, [group_165, ss_list_price_72])
                                         partial aggregation over (group_165, ss_list_price_72)
                                             scan store_sales
         final aggregation over ()
@@ -45,7 +45,7 @@ cross join:
                     partial aggregation over ()
                         final aggregation over (group_172, ss_list_price_102)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["group_172", "ss_list_price_102"])
+                                remote exchange (REPARTITION, HASH, [group_172, ss_list_price_102])
                                     partial aggregation over (group_172, ss_list_price_102)
                                         scan store_sales
     final aggregation over ()
@@ -54,6 +54,6 @@ cross join:
                 partial aggregation over ()
                     final aggregation over (group_179, ss_list_price_132)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["group_179", "ss_list_price_132"])
+                            remote exchange (REPARTITION, HASH, [group_179, ss_list_price_132])
                                 partial aggregation over (group_179, ss_list_price_132)
                                     scan store_sales

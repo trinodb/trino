@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.NodeAndMappings;
 import io.trino.sql.planner.PlanCopier;
 import io.trino.sql.planner.Symbol;
@@ -30,7 +31,6 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.Comparator;
 import java.util.HashMap;

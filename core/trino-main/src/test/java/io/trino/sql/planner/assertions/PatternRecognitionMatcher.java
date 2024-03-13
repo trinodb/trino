@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
@@ -32,7 +33,6 @@ import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers.Assignment;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
-import io.trino.sql.tree.Expression;
 
 import java.util.HashMap;
 import java.util.LinkedList;

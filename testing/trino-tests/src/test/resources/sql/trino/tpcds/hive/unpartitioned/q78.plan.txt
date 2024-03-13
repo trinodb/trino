@@ -3,53 +3,53 @@ local exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 join (INNER, PARTITIONED):
-                    remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
+                    remote exchange (REPARTITION, HASH, [ss_customer_sk])
                         join (INNER, PARTITIONED):
                             final aggregation over (d_year, ss_customer_sk, ss_item_sk)
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["ss_customer_sk", "ss_item_sk"])
+                                    remote exchange (REPARTITION, HASH, [ss_customer_sk, ss_item_sk])
                                         intermediate aggregation over (d_year, ss_customer_sk, ss_item_sk)
                                             join (INNER, REPLICATED):
                                                 partial aggregation over (ss_customer_sk, ss_item_sk, ss_sold_date_sk)
                                                     join (LEFT, PARTITIONED):
-                                                        remote exchange (REPARTITION, HASH, ["ss_item_sk", "ss_ticket_number"])
-                                                            dynamic filter (["ss_customer_sk", "ss_customer_sk", "ss_item_sk"], await ["ss_sold_date_sk"])
+                                                        remote exchange (REPARTITION, HASH, [ss_item_sk, ss_ticket_number])
+                                                            dynamic filter ([ss_customer_sk, ss_customer_sk, ss_item_sk], await [ss_sold_date_sk])
                                                                 scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPARTITION, HASH, ["sr_item_sk", "sr_ticket_number"])
-                                                                dynamic filter (["sr_item_sk"])
+                                                            remote exchange (REPARTITION, HASH, [sr_item_sk, sr_ticket_number])
+                                                                dynamic filter ([sr_item_sk])
                                                                     scan store_returns
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan date_dim
-                            final aggregation over (d_year_21, ws_bill_customer_sk, ws_item_sk)
+                            final aggregation over (d_year_20, ws_bill_customer_sk, ws_item_sk)
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk", "ws_item_sk"])
-                                        intermediate aggregation over (d_year_21, ws_bill_customer_sk, ws_item_sk)
+                                    remote exchange (REPARTITION, HASH, [ws_bill_customer_sk, ws_item_sk])
+                                        intermediate aggregation over (d_year_20, ws_bill_customer_sk, ws_item_sk)
                                             join (INNER, REPLICATED):
                                                 partial aggregation over (ws_bill_customer_sk, ws_item_sk, ws_sold_date_sk)
                                                     join (LEFT, PARTITIONED):
-                                                        remote exchange (REPARTITION, HASH, ["ws_item_sk", "ws_order_number"])
-                                                            dynamic filter (["ws_bill_customer_sk"], await ["ws_sold_date_sk"])
+                                                        remote exchange (REPARTITION, HASH, [ws_item_sk, ws_order_number])
+                                                            dynamic filter ([ws_bill_customer_sk], await [ws_sold_date_sk])
                                                                 scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
+                                                            remote exchange (REPARTITION, HASH, [wr_item_sk, wr_order_number])
                                                                 scan web_returns
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan date_dim
-                    final aggregation over (cs_bill_customer_sk, cs_item_sk, d_year_63)
+                    final aggregation over (cs_bill_customer_sk, cs_item_sk, d_year_62)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk"])
-                                intermediate aggregation over (cs_bill_customer_sk, cs_item_sk, d_year_63)
+                            remote exchange (REPARTITION, HASH, [cs_bill_customer_sk])
+                                intermediate aggregation over (cs_bill_customer_sk, cs_item_sk, d_year_62)
                                     join (INNER, REPLICATED):
                                         partial aggregation over (cs_bill_customer_sk, cs_item_sk, cs_sold_date_sk)
                                             join (LEFT, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, ["cs_item_sk", "cs_order_number"])
-                                                    dynamic filter (await ["cs_sold_date_sk"])
+                                                remote exchange (REPARTITION, HASH, [cs_item_sk, cs_order_number])
+                                                    dynamic filter (await [cs_sold_date_sk])
                                                         scan catalog_sales
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["cr_item_sk", "cr_order_number"])
+                                                    remote exchange (REPARTITION, HASH, [cr_item_sk, cr_order_number])
                                                         scan catalog_returns
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])

@@ -5,14 +5,14 @@ final aggregation over ()
                 join (FULL, PARTITIONED):
                     final aggregation over (ss_customer_sk, ss_item_sk)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["ss_customer_sk", "ss_item_sk"])
+                            remote exchange (REPARTITION, HASH, [ss_customer_sk, ss_item_sk])
                                 partial aggregation over (ss_customer_sk, ss_item_sk)
                                     join (INNER, REPLICATED, can skip output duplicates):
                                         alternatives
-                                            dynamic filter (await ["ss_sold_date_sk"])
+                                            dynamic filter (await [ss_sold_date_sk])
                                                 scan store_sales
                                             cache data
-                                                dynamic filter (await ["ss_sold_date_sk"])
+                                                dynamic filter (await [ss_sold_date_sk])
                                                     scan store_sales
                                             load from cache
                                         local exchange (GATHER, SINGLE, [])
@@ -24,14 +24,14 @@ final aggregation over ()
                                                     load from cache
                     final aggregation over (cs_bill_customer_sk, cs_item_sk)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk", "cs_item_sk"])
+                            remote exchange (REPARTITION, HASH, [cs_bill_customer_sk, cs_item_sk])
                                 partial aggregation over (cs_bill_customer_sk, cs_item_sk)
                                     join (INNER, REPLICATED, can skip output duplicates):
                                         alternatives
-                                            dynamic filter (await ["cs_sold_date_sk"])
+                                            dynamic filter (await [cs_sold_date_sk])
                                                 scan catalog_sales
                                             cache data
-                                                dynamic filter (await ["cs_sold_date_sk"])
+                                                dynamic filter (await [cs_sold_date_sk])
                                                     scan catalog_sales
                                             load from cache
                                         local exchange (GATHER, SINGLE, [])

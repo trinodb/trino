@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -31,7 +32,6 @@ import io.trino.sql.planner.rowpattern.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
-import io.trino.sql.tree.Expression;
 
 import java.util.HashMap;
 import java.util.List;

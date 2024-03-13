@@ -24,13 +24,13 @@ import io.trino.spi.function.table.Descriptor;
 import io.trino.spi.function.table.DescriptorArgument;
 import io.trino.spi.function.table.ScalarArgument;
 import io.trino.spi.function.table.TableArgument;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Arrays;
 import java.util.List;

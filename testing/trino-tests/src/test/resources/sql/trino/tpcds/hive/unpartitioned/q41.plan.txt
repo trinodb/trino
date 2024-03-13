@@ -4,11 +4,11 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (i_product_name)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["i_product_name"])
+                        remote exchange (REPARTITION, HASH, [i_product_name])
                             partial aggregation over (i_product_name)
                                 single aggregation over (i_manufact, i_manufact_id, i_product_name, unique)
                                     join (INNER, REPLICATED, can skip output duplicates):
-                                        dynamic filter (await ["i_manufact"])
+                                        dynamic filter (await [i_manufact])
                                             scan item
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])

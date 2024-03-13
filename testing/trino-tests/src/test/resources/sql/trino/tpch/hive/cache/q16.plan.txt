@@ -3,31 +3,31 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             final aggregation over (brand, size, type)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["brand", "size", "type"])
+                    remote exchange (REPARTITION, HASH, [brand, size, type])
                         partial aggregation over (brand, size, type)
                             final aggregation over (brand, size, suppkey, type)
                                 local exchange (GATHER, SINGLE, [])
                                     partial aggregation over (brand, size, suppkey, type)
                                         semijoin (PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, ["suppkey"])
+                                            remote exchange (REPARTITION, HASH, [suppkey])
                                                 join (INNER, PARTITIONED):
-                                                    remote exchange (REPARTITION, HASH, ["partkey"])
+                                                    remote exchange (REPARTITION, HASH, [partkey])
                                                         alternatives
-                                                            dynamic filter (["partkey"])
+                                                            dynamic filter ([partkey])
                                                                 scan partsupp
                                                             cache data
-                                                                dynamic filter (["partkey"])
+                                                                dynamic filter ([partkey])
                                                                     scan partsupp
                                                             load from cache
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPARTITION, HASH, ["partkey_0"])
+                                                        remote exchange (REPARTITION, HASH, [partkey_0])
                                                             alternatives
                                                                 scan part
                                                                 cache data
                                                                     scan part
                                                                 load from cache
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["suppkey_5"])
+                                                remote exchange (REPARTITION, HASH, [suppkey_5])
                                                     alternatives
                                                         scan supplier
                                                         cache data

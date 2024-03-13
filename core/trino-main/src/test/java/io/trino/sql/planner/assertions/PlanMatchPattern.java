@@ -29,7 +29,10 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.DynamicFilters;
-import io.trino.sql.parser.SqlParser;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.GroupReference;
@@ -75,11 +78,6 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.DataType;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SortItem;
 
 import java.util.ArrayList;
@@ -102,13 +100,13 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
+import static io.trino.sql.ir.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static io.trino.sql.ir.IrUtils.extractDisjuncts;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static io.trino.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
 import static io.trino.sql.planner.plan.JoinType.INNER;
-import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
@@ -1087,12 +1085,6 @@ public final class PlanMatchPattern
     public static SetExpressionMatcher setExpression(ApplyNode.SetExpression expression)
     {
         return new SetExpressionMatcher(expression);
-    }
-
-    public static DataType dataType(String sqlType)
-    {
-        SqlParser parser = new SqlParser();
-        return parser.createType(sqlType);
     }
 
     public static ExpressionMatcher expression(Expression expression)

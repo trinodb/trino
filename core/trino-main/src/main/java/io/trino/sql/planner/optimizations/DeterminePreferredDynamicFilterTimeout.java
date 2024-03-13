@@ -22,6 +22,8 @@ import io.trino.cost.StatsProvider;
 import io.trino.cost.SymbolStatsEstimate;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
@@ -35,8 +37,6 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;

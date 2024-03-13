@@ -4,17 +4,17 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (i_item_id, w_warehouse_name)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["i_item_id", "w_warehouse_name"])
+                        remote exchange (REPARTITION, HASH, [i_item_id, w_warehouse_name])
                             intermediate aggregation over (i_item_id, w_warehouse_name)
                                 join (INNER, REPLICATED):
                                     partial aggregation over (i_item_id, inv_warehouse_sk)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 alternatives
-                                                    dynamic filter (["inv_item_sk"], await ["inv_date_sk", "inv_warehouse_sk"])
+                                                    dynamic filter ([inv_item_sk], await [inv_date_sk, inv_warehouse_sk])
                                                         scan inventory
                                                     cache data
-                                                        dynamic filter (["inv_item_sk"], await ["inv_date_sk", "inv_warehouse_sk"])
+                                                        dynamic filter ([inv_item_sk], await [inv_date_sk, inv_warehouse_sk])
                                                             scan inventory
                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])

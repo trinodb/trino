@@ -4,10 +4,10 @@ final aggregation over ()
             partial aggregation over ()
                 cross join:
                     join (LEFT, PARTITIONED):
-                        remote exchange (REPARTITION, HASH, ["cs_item_sk"])
+                        remote exchange (REPARTITION, HASH, [cs_item_sk])
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    dynamic filter (["cs_item_sk"], await ["cs_sold_date_sk"])
+                                    dynamic filter ([cs_item_sk], await [cs_sold_date_sk])
                                         scan catalog_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -17,10 +17,10 @@ final aggregation over ()
                                         scan date_dim
                         final aggregation over (cs_item_sk_18)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["cs_item_sk_18"])
+                                remote exchange (REPARTITION, HASH, [cs_item_sk_18])
                                     partial aggregation over (cs_item_sk_18)
                                         join (INNER, REPLICATED):
-                                            dynamic filter (await ["cs_sold_date_sk_37"])
+                                            dynamic filter (await [cs_sold_date_sk_37])
                                                 scan catalog_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])

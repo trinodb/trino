@@ -3,19 +3,19 @@ local exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (groupid, i_item_id$gid, s_state$gid)
-                    local exchange (REPARTITION, HASH, ["groupid", "i_item_id$gid", "s_state$gid"])
-                        remote exchange (REPARTITION, HASH, ["groupid", "i_item_id$gid", "s_state$gid"])
+                    local exchange (REPARTITION, HASH, [groupid, i_item_id$gid, s_state$gid])
+                        remote exchange (REPARTITION, HASH, [groupid, i_item_id$gid, s_state$gid])
                             partial aggregation over (groupid, i_item_id$gid, s_state$gid)
                                 join (INNER, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, ["ss_item_sk"])
+                                    remote exchange (REPARTITION, HASH, [ss_item_sk])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     alternatives
-                                                        dynamic filter (["ss_cdemo_sk", "ss_item_sk"], await ["ss_sold_date_sk", "ss_store_sk"])
+                                                        dynamic filter ([ss_cdemo_sk, ss_item_sk], await [ss_sold_date_sk, ss_store_sk])
                                                             scan store_sales
                                                         cache data
-                                                            dynamic filter (["ss_cdemo_sk", "ss_item_sk"], await ["ss_sold_date_sk", "ss_store_sk"])
+                                                            dynamic filter ([ss_cdemo_sk, ss_item_sk], await [ss_sold_date_sk, ss_store_sk])
                                                                 scan store_sales
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])
@@ -40,7 +40,7 @@ local exchange (GATHER, SINGLE, [])
                                                             scan date_dim
                                                         load from cache
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["i_item_sk"])
+                                        remote exchange (REPARTITION, HASH, [i_item_sk])
                                             alternatives
                                                 scan item
                                                 cache data

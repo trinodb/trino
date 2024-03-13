@@ -11,38 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.tree;
+package io.trino.sql.ir;
 
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 
-public class SymbolReference
-        extends Expression
+public final class NullLiteral
+        extends Literal
 {
-    private final String name;
-
-    public SymbolReference(String name)
+    @Override
+    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        super(Optional.empty());
-        this.name = name;
-    }
-
-    public String getName()
-    {
-        return name;
+        return visitor.visitNullLiteral(this, context);
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSymbolReference(this, context);
-    }
-
-    @Override
-    public List<Node> getChildren()
+    public List<? extends Expression> getChildren()
     {
         return ImmutableList.of();
     }
@@ -56,13 +41,19 @@ public class SymbolReference
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        SymbolReference that = (SymbolReference) o;
-        return Objects.equals(name, that.name);
+
+        return true;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name);
+        return getClass().hashCode();
+    }
+
+    @Override
+    public String toString()
+    {
+        return "null";
     }
 }

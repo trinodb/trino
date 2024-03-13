@@ -3,18 +3,18 @@ local exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["expr", "expr_7"])
+                    remote exchange (REPARTITION, HASH, [expr_7, expr_8])
                         final aggregation over (groupid, i_category$gid, i_class$gid)
-                            local exchange (REPARTITION, HASH, ["groupid", "i_category$gid", "i_class$gid"])
-                                remote exchange (REPARTITION, HASH, ["groupid", "i_category$gid", "i_class$gid"])
+                            local exchange (REPARTITION, HASH, [groupid, i_category$gid, i_class$gid])
+                                remote exchange (REPARTITION, HASH, [groupid, i_category$gid, i_class$gid])
                                     partial aggregation over (groupid, i_category$gid, i_class$gid)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 alternatives
-                                                    dynamic filter (["ws_item_sk"], await ["ws_sold_date_sk"])
+                                                    dynamic filter ([ws_item_sk], await [ws_sold_date_sk])
                                                         scan web_sales
                                                     cache data
-                                                        dynamic filter (["ws_item_sk"], await ["ws_sold_date_sk"])
+                                                        dynamic filter ([ws_item_sk], await [ws_sold_date_sk])
                                                             scan web_sales
                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])

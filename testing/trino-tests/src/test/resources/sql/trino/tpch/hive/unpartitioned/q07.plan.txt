@@ -3,31 +3,31 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             final aggregation over (expr$gid, name_21, name_27)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["expr$gid", "name_21", "name_27"])
+                    remote exchange (REPARTITION, HASH, [expr$gid, name_21, name_27])
                         partial aggregation over (expr$gid, name_21, name_27)
                             join (INNER, PARTITIONED):
-                                remote exchange (REPARTITION, HASH, ["orderkey"])
+                                remote exchange (REPARTITION, HASH, [orderkey])
                                     join (INNER, REPLICATED):
-                                        dynamic filter (["orderkey", "suppkey_0"])
+                                        dynamic filter ([orderkey, suppkey_0])
                                             scan lineitem
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (await ["nationkey"])
+                                                    dynamic filter (await [nationkey])
                                                         scan supplier
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan nation
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["orderkey_5"])
+                                    remote exchange (REPARTITION, HASH, [orderkey_5])
                                         join (INNER, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, ["custkey"])
-                                                dynamic filter (["custkey"])
+                                            remote exchange (REPARTITION, HASH, [custkey])
+                                                dynamic filter ([custkey])
                                                     scan orders
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["custkey_10"])
+                                                remote exchange (REPARTITION, HASH, [custkey_10])
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (await ["nationkey_13"])
+                                                        dynamic filter (await [nationkey_13])
                                                             scan customer
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

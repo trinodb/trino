@@ -34,39 +34,38 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.Array;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.BindExpression;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.ComparisonExpression.Operator;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LambdaArgumentDeclaration;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SearchedCaseExpression;
-import io.trino.sql.tree.SimpleCaseExpression;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.WhenClause;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.Array;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.BindExpression;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.ComparisonExpression.Operator;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LambdaArgumentDeclaration;
+import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.Literal;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SearchedCaseExpression;
+import io.trino.sql.ir.SimpleCaseExpression;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.WhenClause;
 import io.trino.type.FunctionType;
 import io.trino.type.TypeCoercion;
 import io.trino.util.FastutilSetHelper;
@@ -105,11 +104,10 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
+import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
-import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -122,7 +120,7 @@ public class IrExpressionInterpreter
     private final Expression expression;
     private final PlannerContext plannerContext;
     private final Metadata metadata;
-    private final LiteralInterpreter literalInterpreter;
+    private final IrLiteralInterpreter literalInterpreter;
     private final LiteralEncoder literalEncoder;
     private final Session session;
     private final ConnectorSession connectorSession;
@@ -137,7 +135,7 @@ public class IrExpressionInterpreter
         this.expression = requireNonNull(expression, "expression is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
-        this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
+        this.literalInterpreter = new IrLiteralInterpreter(plannerContext, session);
         this.literalEncoder = new LiteralEncoder(plannerContext);
         this.session = requireNonNull(session, "session is null");
         this.connectorSession = session.toConnectorSession();
@@ -173,7 +171,7 @@ public class IrExpressionInterpreter
     }
 
     private class Visitor
-            extends AstVisitor<Object, Object>
+            extends IrVisitor<Object, Object>
     {
         private final boolean optimize;
 
@@ -839,10 +837,6 @@ public class IrExpressionInterpreter
                     hasUnresolvedValue(argumentValues) ||
                     isDynamicFilter(node) ||
                     resolvedFunction.getSignature().getName().equals(FAIL_NAME))) {
-                verify(!node.isDistinct(), "distinct not supported");
-                verify(node.getOrderBy().isEmpty(), "order by not supported");
-                verify(node.getFilter().isEmpty(), "filter not supported");
-                verify(node.getWindow().isEmpty(), "window not supported");
                 return ResolvedFunctionCallBuilder.builder(resolvedFunction)
                         .setArguments(toExpressions(argumentValues, argumentTypes))
                         .build();
@@ -873,7 +867,6 @@ public class IrExpressionInterpreter
             Expression body = node.getBody();
             List<String> argumentNames = node.getArguments().stream()
                     .map(LambdaArgumentDeclaration::getName)
-                    .map(Identifier::getValue)
                     .collect(toImmutableList());
             FunctionType functionType = (FunctionType) expressionTypes.get(NodeRef.<Expression>of(node));
             checkArgument(argumentNames.size() == functionType.getArgumentTypes().size());
@@ -914,7 +907,7 @@ public class IrExpressionInterpreter
         public Object visitCast(Cast node, Object context)
         {
             Object value = processWithExceptionHandling(node.getExpression(), context);
-            Type targetType = plannerContext.getTypeManager().getType(toTypeSignature(node.getType()));
+            Type targetType = node.getType();
             Type sourceType = type(node.getExpression());
             if (value instanceof Expression) {
                 if (targetType.equals(sourceType)) {

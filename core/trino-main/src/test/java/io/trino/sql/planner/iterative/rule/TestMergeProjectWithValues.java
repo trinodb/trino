@@ -15,30 +15,29 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.RowType;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 
 public class TestMergeProjectWithValues
         extends BaseRuleTest
@@ -54,7 +53,7 @@ public class TestMergeProjectWithValues
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of(new Cast(
                                                 new Row(ImmutableList.of(new NullLiteral(), new NullLiteral())),
-                                                toSqlType(RowType.anonymous(ImmutableList.of(BIGINT, BIGINT))))))))
+                                                RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)))))))
                 .doesNotFire();
     }
 

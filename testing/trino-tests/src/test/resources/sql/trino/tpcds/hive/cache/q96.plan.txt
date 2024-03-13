@@ -6,10 +6,10 @@ final aggregation over ()
                     join (INNER, REPLICATED):
                         join (INNER, REPLICATED):
                             alternatives
-                                dynamic filter (await ["ss_hdemo_sk", "ss_sold_time_sk", "ss_store_sk"])
+                                dynamic filter (await [ss_hdemo_sk, ss_sold_time_sk, ss_store_sk])
                                     scan store_sales
                                 cache data
-                                    dynamic filter (await ["ss_hdemo_sk", "ss_sold_time_sk", "ss_store_sk"])
+                                    dynamic filter (await [ss_hdemo_sk, ss_sold_time_sk, ss_store_sk])
                                         scan store_sales
                                 load from cache
                             local exchange (GATHER, SINGLE, [])

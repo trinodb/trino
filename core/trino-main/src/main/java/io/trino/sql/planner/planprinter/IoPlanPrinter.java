@@ -29,6 +29,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.ChooseAlternativeNode;
@@ -46,7 +47,6 @@ import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan.IoPlanBuilder;
-import io.trino.sql.tree.Expression;
 
 import java.util.HashSet;
 import java.util.Map;

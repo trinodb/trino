@@ -34,6 +34,7 @@ import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
@@ -80,7 +81,6 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Map;

@@ -204,6 +204,13 @@ import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.LambdaArgumentDeclaration;
+import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.optimizations.IndexJoinOptimizer;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -276,13 +283,6 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.relational.LambdaDefinitionExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.LambdaArgumentDeclaration;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.FunctionType;
 
@@ -374,6 +374,9 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractDisjuncts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
@@ -399,9 +402,6 @@ import static io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.util.MoreMath.previousPowerOfTwo;
 import static io.trino.util.SpatialJoinUtils.ST_CONTAINS;
 import static io.trino.util.SpatialJoinUtils.ST_DISTANCE;
@@ -4119,7 +4119,7 @@ public class LocalExecutionPlanner
                         LambdaArgumentDeclaration argument = lambdaExpression.getArguments().get(j);
                         Type type = functionType.getArgumentTypes().get(j);
                         lambdaArgumentExpressionTypes.put(NodeRef.of(argument), type);
-                        lambdaArgumentSymbolTypes.put(new Symbol(argument.getName().getValue()), type);
+                        lambdaArgumentSymbolTypes.put(new Symbol(argument.getName()), type);
                     }
                     Map<NodeRef<Expression>, Type> expressionTypes = ImmutableMap.<NodeRef<Expression>, Type>builder()
                             // the lambda expression itself

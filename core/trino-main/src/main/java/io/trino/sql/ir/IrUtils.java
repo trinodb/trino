@@ -15,6 +15,8 @@ package io.trino.sql.ir;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.graph.SuccessorsFunction;
+import com.google.common.graph.Traverser;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -28,37 +30,27 @@ import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericDataType;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.RowDataType;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.metadata.ResolvedFunction.isResolved;
-import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -326,35 +318,65 @@ public final class IrUtils
         return result.build();
     }
 
-    public static Expression rewriteIdentifiersToSymbolReferences(Expression expression)
+    public static Stream<Expression> preOrder(Expression node)
     {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
-        {
-            @Override
-            public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                return new SymbolReference(node.getValue());
-            }
+        return stream(
+                Traverser.forTree((SuccessorsFunction<Expression>) Expression::getChildren)
+                        .depthFirstPreOrder(requireNonNull(node, "node is null")));
+    }
 
-            @Override
-            public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                return new LambdaExpression(node.getArguments(), treeRewriter.rewrite(node.getBody(), context));
-            }
+    /**
+     * <p>Compares two AST trees recursively by applying the provided comparator to each pair of nodes.</p>
+     *
+     * <p>The comparator can perform a hybrid shallow/deep comparison. If it returns true or false, the
+     * nodes and any subtrees are considered equal or different, respectively. If it returns null,
+     * the nodes are considered shallowly-equal and their children will be compared recursively.</p>
+     */
+    public static boolean treeEqual(Expression left, Expression right, BiFunction<Expression, Expression, Boolean> subtreeComparator)
+    {
+        Boolean equal = subtreeComparator.apply(left, right);
 
-            @Override
-            public Expression rewriteGenericDataType(GenericDataType node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                // do not rewrite identifiers within type parameters
-                return node;
-            }
+        if (equal != null) {
+            return equal;
+        }
 
-            @Override
-            public Expression rewriteRowDataType(RowDataType node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                // do not rewrite identifiers in field names
-                return node;
+        List<? extends Expression> leftChildren = left.getChildren();
+        List<? extends Expression> rightChildren = right.getChildren();
+
+        if (leftChildren.size() != rightChildren.size()) {
+            return false;
+        }
+
+        for (int i = 0; i < leftChildren.size(); i++) {
+            if (!treeEqual(leftChildren.get(i), rightChildren.get(i), subtreeComparator)) {
+                return false;
             }
-        }, expression);
+        }
+
+        return true;
+    }
+
+    /**
+     * <p>Computes a hash of the given AST by applying the provided subtree hasher at each level.</p>
+     *
+     * <p>If the hasher returns a non-empty {@link OptionalInt}, the value is treated as the hash for
+     * the subtree at that node. Otherwise, the hashes of its children are computed and combined.</p>
+     */
+    public static int treeHash(Expression node, Function<Expression, OptionalInt> subtreeHasher)
+    {
+        OptionalInt hash = subtreeHasher.apply(node);
+
+        if (hash.isPresent()) {
+            return hash.getAsInt();
+        }
+
+        List<? extends Expression> children = node.getChildren();
+
+        int result = node.getClass().hashCode();
+        for (Expression element : children) {
+            result = 31 * result + treeHash(element, subtreeHasher);
+        }
+
+        return result;
     }
 }

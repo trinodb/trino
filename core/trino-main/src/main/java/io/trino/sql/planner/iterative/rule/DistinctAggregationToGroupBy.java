@@ -22,6 +22,11 @@ import io.trino.metadata.FunctionResolver;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -31,11 +36,6 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.HashMap;
@@ -51,13 +51,12 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.AUTOMATIC;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.PRE_AGGREGATE;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.util.Map.Entry.comparingByValue;
 import static java.util.Objects.requireNonNull;
 
@@ -206,7 +205,7 @@ public class DistinctAggregationToGroupBy
             groupIdFilters.put(nonDistinctGroupFilterSymbol, new ComparisonExpression(
                     EQUAL,
                     groupSymbol.toSymbolReference(),
-                    new Cast(new LongLiteral("0"), toSqlType(BIGINT))));
+                    new Cast(new LongLiteral("0"), BIGINT)));
         }
 
         ImmutableMap.Builder<Symbol, Aggregation> outerAggregations = ImmutableMap.builder();
@@ -224,7 +223,7 @@ public class DistinctAggregationToGroupBy
                     groupIdFilters.put(filterSymbol, new ComparisonExpression(
                             EQUAL,
                             groupSymbol.toSymbolReference(),
-                            new Cast(new LongLiteral(groupId.toString()), toSqlType(BIGINT))));
+                            new Cast(new LongLiteral(groupId.toString()), BIGINT)));
                     return filterSymbol;
                 });
 
@@ -365,7 +364,7 @@ public class DistinctAggregationToGroupBy
         Assignments.Builder outputSymbols = Assignments.builder();
         for (Symbol symbol : outerAggregationNode.getOutputSymbols()) {
             if (coalesceSymbols.containsKey(symbol)) {
-                Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral("0"), toSqlType(BIGINT)));
+                Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT));
                 outputSymbols.put(coalesceSymbols.get(symbol), expression);
             }
             else {

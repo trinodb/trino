@@ -23,6 +23,14 @@ import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -33,14 +41,6 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -49,13 +49,13 @@ import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.combineDisjuncts;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.plan.JoinType.INNER;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDynamicFiltersChecker
@@ -184,7 +184,7 @@ public class TestDynamicFiltersChecker
                         ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(VerifyException.class)
-                .hasMessageMatching("Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\", operator=EQUAL, nullAllowed=false, timeout=null\\}\\] present in filter predicate whose source is not a table scan.");
+                .hasMessageMatching("Dynamic filters \\[Descriptor\\{id=DF, input=ORDERS_OK, operator=EQUAL, nullAllowed=false, timeout=null\\}\\] present in filter predicate whose source is not a table scan.");
     }
 
     @Test
@@ -239,7 +239,7 @@ public class TestDynamicFiltersChecker
                         ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(VerifyException.class)
-                .hasMessageMatching("Dynamic filter expression \\(\"LINEITEM_OK\" \\+ BIGINT '1'\\) must be a SymbolReference or a CAST of SymbolReference.");
+                .hasMessageMatching("Dynamic filter expression \\+\\(LINEITEM_OK, Literal\\[BIGINT, 1]\\) must be a SymbolReference or a CAST of SymbolReference.");
     }
 
     @Test
@@ -249,7 +249,7 @@ public class TestDynamicFiltersChecker
                 builder.join(
                         INNER,
                         builder.filter(
-                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, new Cast(new Cast(new SymbolReference("LINEITEM_OK"), dataType("int")), dataType("bigint"))),
+                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, new Cast(new Cast(new SymbolReference("LINEITEM_OK"), INTEGER), BIGINT)),
                                 lineitemTableScanNode),
                         ordersTableScanNode,
                         ImmutableList.of(new JoinNode.EquiJoinClause(lineitemOrderKeySymbol, ordersOrderKeySymbol)),
@@ -259,7 +259,7 @@ public class TestDynamicFiltersChecker
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
-        assertThatThrownBy(() -> validatePlan(root)).isInstanceOf(VerifyException.class).hasMessageMatching("The expression CAST\\(\"LINEITEM_OK\" AS int\\) within in a CAST in dynamic filter must be a SymbolReference.");
+        assertThatThrownBy(() -> validatePlan(root)).isInstanceOf(VerifyException.class).hasMessageMatching("The expression CAST\\(LINEITEM_OK AS integer\\) within in a CAST in dynamic filter must be a SymbolReference.");
     }
 
     @Test
@@ -354,7 +354,7 @@ public class TestDynamicFiltersChecker
                 Optional.of(new DynamicFilterId("DF")));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(VerifyException.class)
-                .hasMessageMatching("Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\", operator=EQUAL, nullAllowed=false, timeout=null\\}\\] present in filter predicate whose source is not a table scan.");
+                .hasMessageMatching("Dynamic filters \\[Descriptor\\{id=DF, input=ORDERS_OK, operator=EQUAL, nullAllowed=false, timeout=null\\}\\] present in filter predicate whose source is not a table scan.");
     }
 
     private void validatePlan(PlanNode root)

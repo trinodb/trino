@@ -21,7 +21,6 @@ import io.trino.connector.MockConnectorPlugin;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
-import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -56,7 +55,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSession;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -147,12 +145,11 @@ public class TestSetSessionTask
     public void testSetSession()
     {
         testSetSession("bar", new StringLiteral("baz"), "baz");
-        testSetSession("bar",
-                new TestingFunctionResolution(transactionManager, plannerContext)
-                        .functionCallBuilder("concat")
-                        .addArgument(VARCHAR, new StringLiteral("ban"))
-                        .addArgument(VARCHAR, new StringLiteral("ana"))
-                        .build(),
+        testSetSession(
+                "bar",
+                new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
+                        new StringLiteral("ban"),
+                        new StringLiteral("ana"))),
                 "banana");
     }
 
@@ -179,11 +176,10 @@ public class TestSetSessionTask
     @Test
     public void testSetSessionWithParameters()
     {
-        FunctionCall functionCall = new TestingFunctionResolution(transactionManager, plannerContext)
-                .functionCallBuilder("concat")
-                .addArgument(VARCHAR, new StringLiteral("ban"))
-                .addArgument(VARCHAR, new Parameter(0))
-                .build();
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
+                        new StringLiteral("ban"),
+                        new Parameter(0)));
+
         testSetSessionWithParameters("bar", functionCall, "banana", ImmutableList.of(new StringLiteral("ana")));
     }
 

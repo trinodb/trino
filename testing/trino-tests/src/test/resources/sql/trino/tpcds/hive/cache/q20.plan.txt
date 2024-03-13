@@ -3,19 +3,19 @@ local exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["i_class"])
+                    remote exchange (REPARTITION, HASH, [i_class])
                         final aggregation over (i_category, i_class, i_current_price, i_item_desc, i_item_id)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["i_category", "i_class", "i_current_price", "i_item_desc", "i_item_id"])
+                                remote exchange (REPARTITION, HASH, [i_category, i_class, i_current_price, i_item_desc, i_item_id])
                                     intermediate aggregation over (i_category, i_class, i_current_price, i_item_desc, i_item_id)
                                         join (INNER, REPLICATED):
                                             partial aggregation over (cs_item_sk)
                                                 join (INNER, REPLICATED):
                                                     alternatives
-                                                        dynamic filter (["cs_item_sk"], await ["cs_sold_date_sk"])
+                                                        dynamic filter ([cs_item_sk], await [cs_sold_date_sk])
                                                             scan catalog_sales
                                                         cache data
-                                                            dynamic filter (["cs_item_sk"], await ["cs_sold_date_sk"])
+                                                            dynamic filter ([cs_item_sk], await [cs_sold_date_sk])
                                                                 scan catalog_sales
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])

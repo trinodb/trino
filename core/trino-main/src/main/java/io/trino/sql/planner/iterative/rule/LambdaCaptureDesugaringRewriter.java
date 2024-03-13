@@ -18,17 +18,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.trino.sql.ir.BindExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.LambdaArgumentDeclaration;
+import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.BindExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.LambdaArgumentDeclaration;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -69,7 +68,6 @@ public final class LambdaCaptureDesugaringRewriter
 
             List<Symbol> lambdaArguments = node.getArguments().stream()
                     .map(LambdaArgumentDeclaration::getName)
-                    .map(Identifier::getValue)
                     .map(Symbol::new)
                     .collect(toImmutableList());
 
@@ -83,7 +81,7 @@ public final class LambdaCaptureDesugaringRewriter
             for (Symbol captureSymbol : captureSymbols) {
                 Symbol extraSymbol = symbolAllocator.newSymbol(captureSymbol.getName(), symbolTypes.get(captureSymbol));
                 captureSymbolToExtraSymbol.put(captureSymbol, extraSymbol);
-                newLambdaArguments.add(new LambdaArgumentDeclaration(new Identifier(extraSymbol.getName())));
+                newLambdaArguments.add(new LambdaArgumentDeclaration(extraSymbol.getName()));
             }
             newLambdaArguments.addAll(node.getArguments());
 

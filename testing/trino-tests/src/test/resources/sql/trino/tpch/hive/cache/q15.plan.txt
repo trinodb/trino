@@ -3,17 +3,17 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             join (INNER, REPLICATED):
                 join (INNER, PARTITIONED):
-                    remote exchange (REPARTITION, HASH, ["suppkey"])
+                    remote exchange (REPARTITION, HASH, [suppkey])
                         alternatives
-                            dynamic filter (["suppkey"])
+                            dynamic filter ([suppkey])
                                 scan supplier
                             cache data
-                                dynamic filter (["suppkey"])
+                                dynamic filter ([suppkey])
                                     scan supplier
                             load from cache
                     final aggregation over (suppkey_0)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["suppkey_0"])
+                            remote exchange (REPARTITION, HASH, [suppkey_0])
                                 alternatives
                                     partial aggregation over (suppkey_0)
                                         scan lineitem
@@ -29,7 +29,7 @@ remote exchange (GATHER, SINGLE, [])
                                     partial aggregation over ()
                                         final aggregation over (suppkey_7)
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["suppkey_7"])
+                                                remote exchange (REPARTITION, HASH, [suppkey_7])
                                                     alternatives
                                                         partial aggregation over (suppkey_7)
                                                             scan lineitem

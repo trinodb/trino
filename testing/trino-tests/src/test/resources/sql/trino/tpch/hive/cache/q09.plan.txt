@@ -3,50 +3,50 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             final aggregation over (expr$gid, name_23)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["expr$gid", "name_23"])
+                    remote exchange (REPARTITION, HASH, [expr$gid, name_23])
                         partial aggregation over (expr$gid, name_23)
                             join (INNER, REPLICATED):
                                 join (INNER, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, ["orderkey"])
+                                    remote exchange (REPARTITION, HASH, [orderkey])
                                         join (INNER, PARTITIONED):
                                             join (INNER, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, ["suppkey_6"])
+                                                remote exchange (REPARTITION, HASH, [suppkey_6])
                                                     join (INNER, PARTITIONED):
-                                                        remote exchange (REPARTITION, HASH, ["partkey_5"])
+                                                        remote exchange (REPARTITION, HASH, [partkey_5])
                                                             alternatives
-                                                                dynamic filter (["orderkey", "partkey_5", "partkey_5", "suppkey_6", "suppkey_6"])
+                                                                dynamic filter ([orderkey, partkey_5, partkey_5, suppkey_6, suppkey_6])
                                                                     scan lineitem
                                                                 cache data
-                                                                    dynamic filter (["orderkey", "partkey_5", "partkey_5", "suppkey_6", "suppkey_6"])
+                                                                    dynamic filter ([orderkey, partkey_5, partkey_5, suppkey_6, suppkey_6])
                                                                         scan lineitem
                                                                 load from cache
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPARTITION, HASH, ["partkey"])
+                                                            remote exchange (REPARTITION, HASH, [partkey])
                                                                 alternatives
-                                                                    dynamic filter (["partkey"])
+                                                                    dynamic filter ([partkey])
                                                                         scan part
                                                                     cache data
-                                                                        dynamic filter (["partkey"])
+                                                                        dynamic filter ([partkey])
                                                                             scan part
                                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["suppkey"])
+                                                    remote exchange (REPARTITION, HASH, [suppkey])
                                                         alternatives
-                                                            dynamic filter (["suppkey"], await ["nationkey"])
+                                                            dynamic filter ([suppkey], await [nationkey])
                                                                 scan supplier
                                                             cache data
-                                                                dynamic filter (["suppkey"], await ["nationkey"])
+                                                                dynamic filter ([suppkey], await [nationkey])
                                                                     scan supplier
                                                             load from cache
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["suppkey_12"])
+                                                remote exchange (REPARTITION, HASH, [suppkey_12])
                                                     alternatives
                                                         scan partsupp
                                                         cache data
                                                             scan partsupp
                                                         load from cache
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["orderkey_17"])
+                                        remote exchange (REPARTITION, HASH, [orderkey_17])
                                             alternatives
                                                 scan orders
                                                 cache data

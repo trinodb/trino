@@ -24,6 +24,7 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchConnectorFactory;
@@ -45,7 +46,15 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters.Descriptor;
-import io.trino.sql.planner.BuiltinFunctionCallBuilder;
+import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.CanonicalAggregation;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -70,15 +79,8 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SortItem.NullOrdering;
 import io.trino.sql.tree.SortItem.Ordering;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.PlanTester;
 import io.trino.testing.TestingTransactionHandle;
 import org.intellij.lang.annotations.Language;
@@ -91,6 +93,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -119,8 +122,17 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MODULUS;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.extractDisjuncts;
+import static io.trino.sql.ir.LogicalExpression.Operator.AND;
+import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -139,15 +151,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
-import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
@@ -795,7 +798,7 @@ public class TestCommonSubqueriesExtractor
         assertThat(aggregation.adaptCommonSubplan(aggregation.getCommonSubplan(), idAllocator)).isEqualTo(aggregation.getCommonSubplan());
 
         // validate signature
-        Expression sum = getFunctionCallBuilder("sum", NATIONKEY_EXPRESSION).build();
+        Expression sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(NAME_ID, canonicalExpressionToColumnId(sum));
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
         List<Type> cacheColumnsTypes = ImmutableList.of(createVarcharType(25), rowType);
@@ -881,7 +884,7 @@ public class TestCommonSubqueriesExtractor
         assertThat(aggregationB.adaptCommonSubplan(aggregationB.getCommonSubplan(), idAllocator)).isEqualTo(aggregationB.getCommonSubplan());
 
         // make sure plan signatures are same
-        Expression sum = getFunctionCallBuilder("sum", NATIONKEY_EXPRESSION).build();
+        Expression sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(sum));
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
@@ -950,13 +953,15 @@ public class TestCommonSubqueriesExtractor
         // make sure plan signatures are same
         CacheColumnId nationKeyGreaterThan10 = canonicalExpressionToColumnId(new ComparisonExpression(GREATER_THAN, new SymbolReference("[nationkey:bigint]"), new GenericLiteral("BIGINT", "10")));
         CacheColumnId nationKeyMultiplyBy2 = canonicalExpressionToColumnId(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("[nationkey:bigint]"), new GenericLiteral("BIGINT", "2")));
-        Expression max = getFunctionCallBuilder("max", new ExpressionWithType(new SymbolReference("[regionkey:bigint]"), BIGINT))
-                .setFilter(columnIdToSymbol(nationKeyGreaterThan10).toSymbolReference())
-                .build();
-        Expression sum = getFunctionCallBuilder("sum", NATIONKEY_EXPRESSION).build();
-        Expression avg = getFunctionCallBuilder("avg", new ExpressionWithType(nationKeyMultiplyBy2, BIGINT))
-                .setFilter(columnIdToSymbol(nationKeyGreaterThan10).toSymbolReference())
-                .build();
+        Expression max = canonicalAggregation(
+                "max",
+                Optional.of(columnIdToSymbol(nationKeyGreaterThan10)),
+                new ExpressionWithType(new SymbolReference("[regionkey:bigint]"), BIGINT));
+        Expression sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
+        Expression avg = canonicalAggregation(
+                "avg",
+                Optional.of(columnIdToSymbol(nationKeyGreaterThan10)),
+                new ExpressionWithType(nationKeyMultiplyBy2, BIGINT));
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(max), canonicalExpressionToColumnId(sum), canonicalExpressionToColumnId(avg));
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT,
@@ -1008,7 +1013,7 @@ public class TestCommonSubqueriesExtractor
 
         // make sure plan signatures are same
         CacheColumnId groupByColumn = canonicalExpressionToColumnId(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("[regionkey:bigint]"), new GenericLiteral("BIGINT", "2")));
-        Expression sum = getFunctionCallBuilder("sum", NATIONKEY_EXPRESSION).build();
+        Expression sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(groupByColumn, canonicalExpressionToColumnId(sum));
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
@@ -1081,8 +1086,8 @@ public class TestCommonSubqueriesExtractor
                         filter(new ComparisonExpression(LESS_THAN, new SymbolReference("REGIONKEY"), new GenericLiteral("BIGINT", "5")), commonSubplan)));
 
         // make sure plan signatures are same
-        Expression sum = getFunctionCallBuilder("sum", NATIONKEY_EXPRESSION).build();
-        Expression max = getFunctionCallBuilder("max", NATIONKEY_EXPRESSION).build();
+        Expression sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
+        Expression max = canonicalAggregation("max", NATIONKEY_EXPRESSION);
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(REGIONKEY_ID, NAME_ID, canonicalExpressionToColumnId(sum), canonicalExpressionToColumnId(max));
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
@@ -1142,7 +1147,7 @@ public class TestCommonSubqueriesExtractor
 
         // make sure plan signatures are same
         CacheColumnId nationKeyPlusOne = canonicalExpressionToColumnId(new ArithmeticBinaryExpression(ADD, new SymbolReference("[nationkey:bigint]"), new GenericLiteral("BIGINT", "1")));
-        Expression sum = getFunctionCallBuilder("sum", new ExpressionWithType(nationKeyPlusOne, BIGINT)).build();
+        Expression sum = canonicalAggregation("sum", new ExpressionWithType(nationKeyPlusOne, BIGINT));
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(NAME_ID, REGIONKEY_ID, canonicalExpressionToColumnId(sum));
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
@@ -1412,7 +1417,7 @@ public class TestCommonSubqueriesExtractor
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("[cache_column1]"), new LongLiteral("10"))), column1);
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, BIGINT);
         assertThat(subqueryA.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(new PlanSignature(
-                combine(scanFilterProjectKey(new CacheTableId(testTableHandle.getCatalogHandle().getId() + ":cache_table_id")), "filters=(((\"[cache_column1]\" % 4) = BIGINT '0') OR ((\"[cache_column2]\" % 2) = BIGINT '0'))"),
+                combine(scanFilterProjectKey(new CacheTableId(testTableHandle.getCatalogHandle().getId() + ":cache_table_id")), "filters=((([cache_column1] % 4) = BIGINT '0') OR (([cache_column2] % 2) = BIGINT '0'))"),
                 Optional.empty(),
                 cacheColumnIds,
                 cacheColumnsTypes),
@@ -1992,15 +1997,24 @@ public class TestCommonSubqueriesExtractor
                         new CacheColumnId("[cache_column1]"), Domain.create(ValueSet.ofRanges(lessThan(BIGINT, 5L), lessThan(BIGINT, 42L)), false)))));
     }
 
-    private BuiltinFunctionCallBuilder getFunctionCallBuilder(String name, ExpressionWithType... arguments)
+    private CanonicalAggregation canonicalAggregation(String name, ExpressionWithType... arguments)
     {
-        PlanTester planTester = getPlanTester();
-        BuiltinFunctionCallBuilder builder = BuiltinFunctionCallBuilder.resolve(planTester.getPlannerContext().getMetadata())
-                .setName(name);
-        for (ExpressionWithType argument : arguments) {
-            builder.addArgument(argument.type, argument.expression);
-        }
-        return builder;
+        return canonicalAggregation(name, Optional.empty(), arguments);
+    }
+
+    private CanonicalAggregation canonicalAggregation(String name, Optional<Symbol> mask, ExpressionWithType... arguments)
+    {
+        ResolvedFunction resolvedFunction = getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction(
+                name,
+                TypeSignatureProvider.fromTypes(Stream.of(arguments)
+                        .map(ExpressionWithType::type)
+                        .collect(toImmutableList())));
+        return new CanonicalAggregation(
+                resolvedFunction,
+                mask,
+                Stream.of(arguments)
+                        .map(ExpressionWithType::expression)
+                        .collect(toImmutableList()));
     }
 
     // workaround for https://github.com/google/error-prone/issues/2713

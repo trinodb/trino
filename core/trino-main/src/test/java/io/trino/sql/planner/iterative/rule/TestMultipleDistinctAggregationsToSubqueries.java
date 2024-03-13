@@ -105,6 +105,13 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -114,14 +121,7 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.PlanTester;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.AfterAll;
@@ -141,9 +141,10 @@ import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -154,8 +155,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.union;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
 import static io.trino.sql.planner.plan.JoinType.INNER;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.testing.PlanTesterBuilder.planTesterBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
@@ -567,7 +566,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                             Assignments.builder()
                                                     .putIdentity(input1Symbol)
                                                     .putIdentity(input2Symbol)
-                                                    .put(groupingKey, new ArithmeticBinaryExpression(ADD, new SymbolReference("projectionInput1"), new Cast(new SymbolReference("projectionInput2"), dataType("bigint"))))
+                                                    .put(groupingKey, new ArithmeticBinaryExpression(ADD, new SymbolReference("projectionInput1"), new Cast(new SymbolReference("projectionInput2"), BIGINT)))
                                                     .build(),
                                             p.tableScan(tableScan -> tableScan
                                                     .setNodeId(new PlanNodeId(aggregationSourceId))
@@ -604,7 +603,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                             .source(
                                     p.project(
                                             Assignments.builder()
-                                                    .put(input1Symbol, new ArithmeticBinaryExpression(ADD, new SymbolReference("projectionInput1"), new Cast(new SymbolReference("projectionInput2"), dataType("bigint"))))
+                                                    .put(input1Symbol, new ArithmeticBinaryExpression(ADD, new SymbolReference("projectionInput1"), new Cast(new SymbolReference("projectionInput2"), BIGINT)))
                                                     .putIdentity(input2Symbol)
                                                     .putIdentity(groupingKey)
                                                     .build(),

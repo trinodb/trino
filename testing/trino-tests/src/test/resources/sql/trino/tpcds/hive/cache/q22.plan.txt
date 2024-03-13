@@ -3,18 +3,18 @@ local exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (groupid, i_brand$gid, i_category$gid, i_class$gid, i_product_name$gid)
-                    local exchange (REPARTITION, HASH, ["groupid", "i_brand$gid", "i_category$gid", "i_class$gid", "i_product_name$gid"])
-                        remote exchange (REPARTITION, HASH, ["groupid", "i_brand$gid", "i_category$gid", "i_class$gid", "i_product_name$gid"])
+                    local exchange (REPARTITION, HASH, [groupid, i_brand$gid, i_category$gid, i_class$gid, i_product_name$gid])
+                        remote exchange (REPARTITION, HASH, [groupid, i_brand$gid, i_category$gid, i_class$gid, i_product_name$gid])
                             partial aggregation over (groupid, i_brand$gid, i_category$gid, i_class$gid, i_product_name$gid)
-                                local exchange (REPARTITION, HASH, ["i_product_name"])
-                                    remote exchange (REPARTITION, HASH, ["i_product_name"])
+                                local exchange (REPARTITION, HASH, [i_product_name])
+                                    remote exchange (REPARTITION, HASH, [i_product_name])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 alternatives
-                                                    dynamic filter (["inv_item_sk"], await ["inv_date_sk"])
+                                                    dynamic filter ([inv_item_sk], await [inv_date_sk])
                                                         scan inventory
                                                     cache data
-                                                        dynamic filter (["inv_item_sk"], await ["inv_date_sk"])
+                                                        dynamic filter ([inv_item_sk], await [inv_date_sk])
                                                             scan inventory
                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])

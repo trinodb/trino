@@ -16,11 +16,11 @@ package io.trino.sql.planner.assertions;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode.Type;
-import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Optional;

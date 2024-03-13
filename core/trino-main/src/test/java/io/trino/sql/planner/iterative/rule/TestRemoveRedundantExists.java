@@ -21,11 +21,11 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.testing.TestingMetadata;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestRemoveRedundantExists
         extends BaseRuleTest

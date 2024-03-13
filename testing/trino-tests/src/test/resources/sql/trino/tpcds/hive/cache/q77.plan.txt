@@ -3,22 +3,22 @@ local exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (channel$gid, groupid, id$gid)
-                    local exchange (REPARTITION, HASH, ["channel$gid", "groupid", "id$gid"])
-                        remote exchange (REPARTITION, HASH, ["channel$gid", "groupid", "id$gid"])
+                    local exchange (REPARTITION, HASH, [channel$gid, groupid, id$gid])
+                        remote exchange (REPARTITION, HASH, [channel$gid, groupid, id$gid])
                             partial aggregation over (channel$gid, groupid, id$gid)
                                 local exchange (REPARTITION, ROUND_ROBIN, [])
                                     join (LEFT, PARTITIONED):
                                         final aggregation over (ss_store_sk)
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["ss_store_sk"])
+                                                remote exchange (REPARTITION, HASH, [ss_store_sk])
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ss_store_sk)
                                                             join (INNER, REPLICATED):
                                                                 alternatives
-                                                                    dynamic filter (await ["ss_sold_date_sk", "ss_store_sk"])
+                                                                    dynamic filter (await [ss_sold_date_sk, ss_store_sk])
                                                                         scan store_sales
                                                                     cache data
-                                                                        dynamic filter (await ["ss_sold_date_sk", "ss_store_sk"])
+                                                                        dynamic filter (await [ss_sold_date_sk, ss_store_sk])
                                                                             scan store_sales
                                                                     load from cache
                                                                 local exchange (GATHER, SINGLE, [])
@@ -37,15 +37,15 @@ local exchange (GATHER, SINGLE, [])
                                                                     load from cache
                                         final aggregation over (sr_store_sk)
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["sr_store_sk"])
+                                                remote exchange (REPARTITION, HASH, [sr_store_sk])
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (sr_store_sk)
                                                             join (INNER, REPLICATED):
                                                                 alternatives
-                                                                    dynamic filter (await ["sr_returned_date_sk", "sr_store_sk"])
+                                                                    dynamic filter (await [sr_returned_date_sk, sr_store_sk])
                                                                         scan store_returns
                                                                     cache data
-                                                                        dynamic filter (await ["sr_returned_date_sk", "sr_store_sk"])
+                                                                        dynamic filter (await [sr_returned_date_sk, sr_store_sk])
                                                                             scan store_returns
                                                                     load from cache
                                                                 local exchange (GATHER, SINGLE, [])
@@ -65,14 +65,14 @@ local exchange (GATHER, SINGLE, [])
                                     cross join:
                                         final aggregation over (cs_call_center_sk)
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["cs_call_center_sk"])
+                                                remote exchange (REPARTITION, HASH, [cs_call_center_sk])
                                                     partial aggregation over (cs_call_center_sk)
                                                         join (INNER, REPLICATED):
                                                             alternatives
-                                                                dynamic filter (await ["cs_sold_date_sk"])
+                                                                dynamic filter (await [cs_sold_date_sk])
                                                                     scan catalog_sales
                                                                 cache data
-                                                                    dynamic filter (await ["cs_sold_date_sk"])
+                                                                    dynamic filter (await [cs_sold_date_sk])
                                                                         scan catalog_sales
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])
@@ -86,14 +86,14 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 final aggregation over (cr_call_center_sk)
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPARTITION, HASH, ["cr_call_center_sk"])
+                                                        remote exchange (REPARTITION, HASH, [cr_call_center_sk])
                                                             partial aggregation over (cr_call_center_sk)
                                                                 join (INNER, REPLICATED):
                                                                     alternatives
-                                                                        dynamic filter (await ["cr_returned_date_sk"])
+                                                                        dynamic filter (await [cr_returned_date_sk])
                                                                             scan catalog_returns
                                                                         cache data
-                                                                            dynamic filter (await ["cr_returned_date_sk"])
+                                                                            dynamic filter (await [cr_returned_date_sk])
                                                                                 scan catalog_returns
                                                                         load from cache
                                                                     local exchange (GATHER, SINGLE, [])
@@ -106,15 +106,15 @@ local exchange (GATHER, SINGLE, [])
                                     join (LEFT, PARTITIONED):
                                         final aggregation over (ws_web_page_sk)
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["ws_web_page_sk"])
+                                                remote exchange (REPARTITION, HASH, [ws_web_page_sk])
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ws_web_page_sk)
                                                             join (INNER, REPLICATED):
                                                                 alternatives
-                                                                    dynamic filter (await ["ws_sold_date_sk", "ws_web_page_sk"])
+                                                                    dynamic filter (await [ws_sold_date_sk, ws_web_page_sk])
                                                                         scan web_sales
                                                                     cache data
-                                                                        dynamic filter (await ["ws_sold_date_sk", "ws_web_page_sk"])
+                                                                        dynamic filter (await [ws_sold_date_sk, ws_web_page_sk])
                                                                             scan web_sales
                                                                     load from cache
                                                                 local exchange (GATHER, SINGLE, [])
@@ -133,15 +133,15 @@ local exchange (GATHER, SINGLE, [])
                                                                     load from cache
                                         final aggregation over (wr_web_page_sk)
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["wr_web_page_sk"])
+                                                remote exchange (REPARTITION, HASH, [wr_web_page_sk])
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (wr_web_page_sk)
                                                             join (INNER, REPLICATED):
                                                                 alternatives
-                                                                    dynamic filter (await ["wr_returned_date_sk", "wr_web_page_sk"])
+                                                                    dynamic filter (await [wr_returned_date_sk, wr_web_page_sk])
                                                                         scan web_returns
                                                                     cache data
-                                                                        dynamic filter (await ["wr_returned_date_sk", "wr_web_page_sk"])
+                                                                        dynamic filter (await [wr_returned_date_sk, wr_web_page_sk])
                                                                             scan web_returns
                                                                     load from cache
                                                                 local exchange (GATHER, SINGLE, [])

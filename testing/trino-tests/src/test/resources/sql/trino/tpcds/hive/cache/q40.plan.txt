@@ -4,28 +4,28 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (i_item_id, w_state)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["i_item_id", "w_state"])
+                        remote exchange (REPARTITION, HASH, [i_item_id, w_state])
                             intermediate aggregation over (i_item_id, w_state)
                                 join (INNER, REPLICATED):
                                     partial aggregation over (cs_warehouse_sk, i_item_id)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (LEFT, PARTITIONED):
-                                                    remote exchange (REPARTITION, HASH, ["cs_item_sk", "cs_order_number"])
+                                                    remote exchange (REPARTITION, HASH, [cs_item_sk, cs_order_number])
                                                         alternatives
-                                                            dynamic filter (["cs_item_sk"], await ["cs_sold_date_sk", "cs_warehouse_sk"])
+                                                            dynamic filter ([cs_item_sk], await [cs_sold_date_sk, cs_warehouse_sk])
                                                                 scan catalog_sales
                                                             cache data
-                                                                dynamic filter (["cs_item_sk"], await ["cs_sold_date_sk", "cs_warehouse_sk"])
+                                                                dynamic filter ([cs_item_sk], await [cs_sold_date_sk, cs_warehouse_sk])
                                                                     scan catalog_sales
                                                             load from cache
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPARTITION, HASH, ["cr_item_sk", "cr_order_number"])
+                                                        remote exchange (REPARTITION, HASH, [cr_item_sk, cr_order_number])
                                                             alternatives
-                                                                dynamic filter (["cr_item_sk"])
+                                                                dynamic filter ([cr_item_sk])
                                                                     scan catalog_returns
                                                                 cache data
-                                                                    dynamic filter (["cr_item_sk"])
+                                                                    dynamic filter ([cr_item_sk])
                                                                         scan catalog_returns
                                                                 load from cache
                                                 local exchange (GATHER, SINGLE, [])

@@ -53,6 +53,13 @@ import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -134,14 +141,7 @@ import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
 import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -171,6 +171,7 @@ import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.IrUtils.combineConjunctsWithDuplicates;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -180,7 +181,6 @@ import static io.trino.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregate
 import static io.trino.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.trino.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.trino.sql.planner.planprinter.TextRenderer.indentString;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
@@ -2339,16 +2339,7 @@ public class PlanPrinter
                 else {
                     qualifiedName = QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getFunctionName());
                 }
-                return new FunctionCall(
-                        rewritten.getLocation(),
-                        qualifiedName,
-                        rewritten.getWindow(),
-                        rewritten.getFilter(),
-                        rewritten.getOrderBy(),
-                        rewritten.isDistinct(),
-                        rewritten.getNullTreatment(),
-                        rewritten.getProcessingMode(),
-                        rewritten.getArguments());
+                return new FunctionCall(qualifiedName, rewritten.getArguments());
             }
         }, expression);
     }

@@ -4,39 +4,39 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (i_item_desc, i_item_id, s_store_id, s_store_name)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["i_item_desc", "i_item_id", "s_store_id", "s_store_name"])
+                        remote exchange (REPARTITION, HASH, [i_item_desc, i_item_id, s_store_id, s_store_name])
                             partial aggregation over (i_item_desc, i_item_id, s_store_id, s_store_name)
                                 join (INNER, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, ["i_item_sk"])
+                                    remote exchange (REPARTITION, HASH, [i_item_sk])
                                         alternatives
-                                            dynamic filter (["i_item_sk"])
+                                            dynamic filter ([i_item_sk])
                                                 scan item
                                             cache data
-                                                dynamic filter (["i_item_sk"])
+                                                dynamic filter ([i_item_sk])
                                                     scan item
                                             load from cache
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["cs_item_sk"])
+                                        remote exchange (REPARTITION, HASH, [cs_item_sk])
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         alternatives
-                                                            dynamic filter (["cs_bill_customer_sk", "cs_item_sk"], await ["cs_sold_date_sk"])
+                                                            dynamic filter ([cs_bill_customer_sk, cs_item_sk], await [cs_sold_date_sk])
                                                                 scan catalog_sales
                                                             cache data
-                                                                dynamic filter (["cs_bill_customer_sk", "cs_item_sk"], await ["cs_sold_date_sk"])
+                                                                dynamic filter ([cs_bill_customer_sk, cs_item_sk], await [cs_sold_date_sk])
                                                                     scan catalog_sales
                                                             load from cache
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 join (INNER, PARTITIONED):
-                                                                    remote exchange (REPARTITION, HASH, ["ss_customer_sk", "ss_item_sk", "ss_ticket_number"])
+                                                                    remote exchange (REPARTITION, HASH, [ss_customer_sk, ss_item_sk, ss_ticket_number])
                                                                         join (INNER, REPLICATED):
                                                                             alternatives
-                                                                                dynamic filter (["ss_customer_sk", "ss_item_sk", "ss_ticket_number"], await ["ss_sold_date_sk", "ss_store_sk"])
+                                                                                dynamic filter ([ss_customer_sk, ss_item_sk, ss_ticket_number], await [ss_sold_date_sk, ss_store_sk])
                                                                                     scan store_sales
                                                                                 cache data
-                                                                                    dynamic filter (["ss_customer_sk", "ss_item_sk", "ss_ticket_number"], await ["ss_sold_date_sk", "ss_store_sk"])
+                                                                                    dynamic filter ([ss_customer_sk, ss_item_sk, ss_ticket_number], await [ss_sold_date_sk, ss_store_sk])
                                                                                         scan store_sales
                                                                                 load from cache
                                                                             local exchange (GATHER, SINGLE, [])
@@ -47,13 +47,13 @@ local exchange (GATHER, SINGLE, [])
                                                                                             scan date_dim
                                                                                         load from cache
                                                                     local exchange (GATHER, SINGLE, [])
-                                                                        remote exchange (REPARTITION, HASH, ["sr_customer_sk", "sr_item_sk", "sr_ticket_number"])
+                                                                        remote exchange (REPARTITION, HASH, [sr_customer_sk, sr_item_sk, sr_ticket_number])
                                                                             join (INNER, REPLICATED):
                                                                                 alternatives
-                                                                                    dynamic filter (await ["sr_returned_date_sk"])
+                                                                                    dynamic filter (await [sr_returned_date_sk])
                                                                                         scan store_returns
                                                                                     cache data
-                                                                                        dynamic filter (await ["sr_returned_date_sk"])
+                                                                                        dynamic filter (await [sr_returned_date_sk])
                                                                                             scan store_returns
                                                                                     load from cache
                                                                                 local exchange (GATHER, SINGLE, [])

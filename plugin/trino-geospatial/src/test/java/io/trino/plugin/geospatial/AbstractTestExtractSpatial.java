@@ -15,11 +15,11 @@ package io.trino.plugin.geospatial;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.StringLiteral;
 
 import java.util.List;
 

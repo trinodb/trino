@@ -4,38 +4,38 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 final aggregation over (r_reason_desc)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["r_reason_desc"])
+                        remote exchange (REPARTITION, HASH, [r_reason_desc])
                             intermediate aggregation over (r_reason_desc)
                                 join (INNER, REPLICATED):
                                     partial aggregation over (wr_reason_sk)
                                         join (INNER, REPLICATED):
-                                            dynamic filter (["cd_demo_sk_9", "cd_education_status_12", "cd_marital_status_11"])
+                                            dynamic filter ([cd_demo_sk_9, cd_education_status_12, cd_marital_status_11])
                                                 scan customer_demographics
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     join (INNER, REPLICATED):
                                                         join (INNER, PARTITIONED):
-                                                            remote exchange (REPARTITION, HASH, ["ca_address_sk"])
-                                                                dynamic filter (["ca_address_sk"])
+                                                            remote exchange (REPARTITION, HASH, [ca_address_sk])
+                                                                dynamic filter ([ca_address_sk])
                                                                     scan customer_address
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPARTITION, HASH, ["wr_refunded_addr_sk"])
+                                                                remote exchange (REPARTITION, HASH, [wr_refunded_addr_sk])
                                                                     join (INNER, PARTITIONED):
-                                                                        remote exchange (REPARTITION, HASH, ["wr_refunded_cdemo_sk"])
+                                                                        remote exchange (REPARTITION, HASH, [wr_refunded_cdemo_sk])
                                                                             join (INNER, PARTITIONED):
-                                                                                remote exchange (REPARTITION, HASH, ["ws_item_sk", "ws_order_number"])
+                                                                                remote exchange (REPARTITION, HASH, [ws_item_sk, ws_order_number])
                                                                                     join (INNER, REPLICATED):
-                                                                                        dynamic filter (["ws_item_sk", "ws_order_number"], await ["ws_sold_date_sk", "ws_web_page_sk"])
+                                                                                        dynamic filter ([ws_item_sk, ws_order_number], await [ws_sold_date_sk, ws_web_page_sk])
                                                                                             scan web_sales
                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                                                 scan date_dim
                                                                                 local exchange (GATHER, SINGLE, [])
-                                                                                    remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
-                                                                                        dynamic filter (["wr_refunded_cdemo_sk"], await ["wr_reason_sk"])
+                                                                                    remote exchange (REPARTITION, HASH, [wr_item_sk, wr_order_number])
+                                                                                        dynamic filter ([wr_refunded_cdemo_sk], await [wr_reason_sk])
                                                                                             scan web_returns
                                                                         local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (REPARTITION, HASH, ["cd_demo_sk"])
+                                                                            remote exchange (REPARTITION, HASH, [cd_demo_sk])
                                                                                 scan customer_demographics
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

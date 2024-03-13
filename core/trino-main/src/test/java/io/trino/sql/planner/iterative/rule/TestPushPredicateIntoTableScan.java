@@ -37,18 +37,18 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -62,17 +62,15 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MODULUS;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.LogicalExpression.Operator.AND;
+import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
-import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPushPredicateIntoTableScan
@@ -227,7 +225,7 @@ public class TestPushPredicateIntoTableScan
                                                 new GenericLiteral("BIGINT", "42")),
                                         // non-translatable to connector expression
                                         new CoalesceExpression(
-                                                new Cast(new NullLiteral(), toSqlType(BOOLEAN)),
+                                                new Cast(new NullLiteral(), BOOLEAN),
                                                 new ComparisonExpression(
                                                         EQUAL,
                                                         new ArithmeticBinaryExpression(
@@ -393,7 +391,7 @@ public class TestPushPredicateIntoTableScan
 
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new Cast(new NullLiteral(), dataType("boolean")),
+                        new Cast(new NullLiteral(), BOOLEAN),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -402,7 +400,7 @@ public class TestPushPredicateIntoTableScan
 
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new Cast(new NullLiteral(), dataType("bigint"))),
+                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new Cast(new NullLiteral(), BIGINT)),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -411,7 +409,7 @@ public class TestPushPredicateIntoTableScan
 
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "44")), new Cast(new NullLiteral(), dataType("boolean")))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "44")), new Cast(new NullLiteral(), BOOLEAN))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),

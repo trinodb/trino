@@ -94,7 +94,6 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.TypeParameter;
@@ -132,7 +131,7 @@ public final class ExpressionFormatter
 
     public static String formatExpression(Expression expression)
     {
-        return new Formatter(Optional.empty(), Optional.empty()).process(expression, null);
+        return new Formatter(Optional.empty()).process(expression, null);
     }
 
     private static String formatIdentifier(String s)
@@ -144,14 +143,10 @@ public final class ExpressionFormatter
             extends AstVisitor<String, Void>
     {
         private final Optional<Function<Literal, String>> literalFormatter;
-        private final Optional<Function<SymbolReference, String>> symbolReferenceFormatter;
 
-        public Formatter(
-                Optional<Function<Literal, String>> literalFormatter,
-                Optional<Function<SymbolReference, String>> symbolReferenceFormatter)
+        public Formatter(Optional<Function<Literal, String>> literalFormatter)
         {
             this.literalFormatter = requireNonNull(literalFormatter, "literalFormatter is null");
-            this.symbolReferenceFormatter = requireNonNull(symbolReferenceFormatter, "symbolReferenceFormatter is null");
         }
 
         @Override
@@ -413,15 +408,6 @@ public final class ExpressionFormatter
         protected String visitLambdaArgumentDeclaration(LambdaArgumentDeclaration node, Void context)
         {
             return formatExpression(node.getName());
-        }
-
-        @Override
-        protected String visitSymbolReference(SymbolReference node, Void context)
-        {
-            if (symbolReferenceFormatter.isPresent()) {
-                return symbolReferenceFormatter.get().apply(node);
-            }
-            return formatIdentifier(node.getName());
         }
 
         @Override

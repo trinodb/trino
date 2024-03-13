@@ -19,14 +19,14 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.TestingColumnHandle;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.Rule.Context;
 import io.trino.sql.planner.iterative.Rule.Result;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.Test;
 

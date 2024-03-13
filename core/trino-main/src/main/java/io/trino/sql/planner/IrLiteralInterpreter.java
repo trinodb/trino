@@ -30,26 +30,24 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.BinaryLiteral;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.IntervalLiteral;
-import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.ir.BinaryLiteral;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.DecimalLiteral;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.IntervalLiteral;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.Literal;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.StringLiteral;
 
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.parseTimeWithTimeZone;
@@ -60,7 +58,7 @@ import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
 import static io.trino.util.DateTimeUtils.parseYearMonthInterval;
 import static java.util.Objects.requireNonNull;
 
-public final class LiteralInterpreter
+public final class IrLiteralInterpreter
 {
     private final PlannerContext plannerContext;
     private final ConnectorSession connectorSession;
@@ -68,7 +66,7 @@ public final class LiteralInterpreter
 
     private final Cache<Type, Function<GenericLiteral, Object>> genericLiteralEvaluatorCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
 
-    public LiteralInterpreter(PlannerContext plannerContext, Session session)
+    public IrLiteralInterpreter(PlannerContext plannerContext, Session session)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.connectorSession = session.toConnectorSession();
@@ -84,7 +82,7 @@ public final class LiteralInterpreter
     }
 
     private class LiteralVisitor
-            extends AstVisitor<Object, Void>
+            extends IrVisitor<Object, Void>
     {
         private final Type type;
 
@@ -153,18 +151,7 @@ public final class LiteralInterpreter
                         else {
                             resolvedFunction = plannerContext.getMetadata().getCoercion(VARCHAR, type);
                         }
-                        return evaluatedNode -> {
-                            try {
-                                return functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(evaluatedNode.getValue())));
-                            }
-                            catch (IllegalArgumentException e) {
-                                if (isJson) {
-                                    // TODO it may be not correct to propagate this exceptiion as-is in JSON case
-                                    throw e;
-                                }
-                                throw semanticException(INVALID_LITERAL, evaluatedNode, "No literal form for type %s", type);
-                            }
-                        };
+                        return evaluatedNode -> functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(evaluatedNode.getValue())));
                     });
                     yield evaluator.apply(node);
                 }

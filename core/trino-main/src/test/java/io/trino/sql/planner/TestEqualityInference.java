@@ -21,24 +21,24 @@ import com.google.common.collect.Iterables;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.TryFunction;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.Array;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.SearchedCaseExpression;
-import io.trino.sql.tree.SimpleCaseExpression;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.WhenClause;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.Array;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.SearchedCaseExpression;
+import io.trino.sql.ir.SimpleCaseExpression;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.WhenClause;
 import io.trino.type.FunctionType;
 import org.junit.jupiter.api.Test;
 
@@ -53,11 +53,10 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.EqualityInference.isInferenceCandidate;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEqualityInference
@@ -321,7 +320,7 @@ public class TestEqualityInference
     public void testExpressionsThatMayReturnNullOnNonNullInput()
     {
         List<Expression> candidates = ImmutableList.of(
-                new Cast(nameReference("b"), toSqlType(BIGINT), true), // try_cast
+                new Cast(nameReference("b"), BIGINT, true), // try_cast
                 functionResolution
                         .functionCallBuilder(TryFunction.NAME)
                         .addArgument(new FunctionType(ImmutableList.of(), VARCHAR), new LambdaExpression(ImmutableList.of(), nameReference("b")))

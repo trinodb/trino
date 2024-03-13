@@ -6,14 +6,14 @@ final aggregation over ()
                     join (RIGHT, PARTITIONED):
                         final aggregation over (ws_item_sk_9)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["ws_item_sk_9"])
+                                remote exchange (REPARTITION, HASH, [ws_item_sk_9])
                                     partial aggregation over (ws_item_sk_9)
                                         join (INNER, REPLICATED):
                                             alternatives
-                                                dynamic filter (["ws_item_sk_9"], await ["ws_sold_date_sk_6"])
+                                                dynamic filter ([ws_item_sk_9], await [ws_sold_date_sk_6])
                                                     scan web_sales
                                                 cache data
-                                                    dynamic filter (["ws_item_sk_9"], await ["ws_sold_date_sk_6"])
+                                                    dynamic filter ([ws_item_sk_9], await [ws_sold_date_sk_6])
                                                         scan web_sales
                                                 load from cache
                                             local exchange (GATHER, SINGLE, [])
@@ -24,14 +24,14 @@ final aggregation over ()
                                                             scan date_dim
                                                         load from cache
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["ws_item_sk"])
+                            remote exchange (REPARTITION, HASH, [ws_item_sk])
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         alternatives
-                                            dynamic filter (await ["ws_item_sk", "ws_sold_date_sk"])
+                                            dynamic filter (await [ws_item_sk, ws_sold_date_sk])
                                                 scan web_sales
                                             cache data
-                                                dynamic filter (await ["ws_item_sk", "ws_sold_date_sk"])
+                                                dynamic filter (await [ws_item_sk, ws_sold_date_sk])
                                                     scan web_sales
                                             load from cache
                                         local exchange (GATHER, SINGLE, [])

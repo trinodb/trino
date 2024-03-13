@@ -14,12 +14,12 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;

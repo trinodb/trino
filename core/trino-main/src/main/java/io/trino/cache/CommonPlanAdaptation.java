@@ -21,6 +21,7 @@ import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.Assignments;
@@ -28,7 +29,6 @@ import io.trino.sql.planner.plan.ChooseAlternativeNode.FilteredTableScan;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Map;
