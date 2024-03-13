@@ -74,7 +74,7 @@ public class TestAggregation
                 session,
                 """
                 WITH t(x) AS (VALUES 1)
-                SELECT max(x), current_timestamp, current_date, current_time, localtimestamp, localtime 
+                SELECT max(x), current_timestamp, current_date, current_time, localtimestamp, localtime
                 FROM t
                 """))
                 .matches(
