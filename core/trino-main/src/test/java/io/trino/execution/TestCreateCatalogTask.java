@@ -15,7 +15,6 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Key;
-import com.google.inject.TypeLiteral;
 import io.trino.client.NodeVersion;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.execution.warnings.WarningCollector;
@@ -65,7 +64,7 @@ public class TestCreateCatalogTask
         QueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION);
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.installPlugin(new MockConnectorPlugin(new FailConnectorFactory()));
-        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getCoordinator().getInstance(Key.get(new TypeLiteral<Map<Class<? extends Statement>, DataDefinitionTask<?>>>() {}));
+        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getCoordinator().getInstance(new Key<>() {});
         task = (CreateCatalogTask) tasks.get(CreateCatalog.class);
         queryStateMachine = QueryStateMachine.begin(
                 Optional.empty(),

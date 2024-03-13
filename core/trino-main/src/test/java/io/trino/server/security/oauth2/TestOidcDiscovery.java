@@ -16,7 +16,6 @@ package io.trino.server.security.oauth2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.inject.Key;
-import com.google.inject.TypeLiteral;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -253,7 +252,7 @@ public class TestOidcDiscovery
 
     private static void assertComponents(TestingTrinoServer server)
     {
-        List<Authenticator> authenticators = server.getInstance(Key.get(new TypeLiteral<List<Authenticator>>() {}));
+        List<Authenticator> authenticators = server.getInstance(new Key<>() {});
         assertThat(authenticators).hasSize(1);
         assertThat(authenticators.get(0)).isInstanceOf(OAuth2Authenticator.class);
         assertThat(server.getInstance(Key.get(WebUiAuthenticationFilter.class))).isInstanceOf(OAuth2WebUiAuthenticationFilter.class);

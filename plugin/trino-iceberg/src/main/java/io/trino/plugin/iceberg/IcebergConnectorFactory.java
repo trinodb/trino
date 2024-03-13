@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
@@ -125,15 +124,15 @@ public class IcebergConnectorFactory
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
             ConnectorPageSinkProvider pageSinkProvider = injector.getInstance(ConnectorPageSinkProvider.class);
             ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
-            Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<>() {}));
+            Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(new Key<>() {});
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
             IcebergMaterializedViewProperties materializedViewProperties = injector.getInstance(IcebergMaterializedViewProperties.class);
             IcebergAnalyzeProperties icebergAnalyzeProperties = injector.getInstance(IcebergAnalyzeProperties.class);
-            Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<>() {}));
-            Set<TableProcedureMetadata> tableProcedures = injector.getInstance(Key.get(new TypeLiteral<>() {}));
-            Set<ConnectorTableFunction> tableFunctions = injector.getInstance(Key.get(new TypeLiteral<>() {}));
+            Set<Procedure> procedures = injector.getInstance(new Key<>() {});
+            Set<TableProcedureMetadata> tableProcedures = injector.getInstance(new Key<>() {});
+            Set<ConnectorTableFunction> tableFunctions = injector.getInstance(new Key<>() {});
             FunctionProvider functionProvider = injector.getInstance(FunctionProvider.class);
-            Optional<ConnectorAccessControl> accessControl = injector.getInstance(Key.get(new TypeLiteral<>() {}));
+            Optional<ConnectorAccessControl> accessControl = injector.getInstance(new Key<>() {});
 
             verify(!injector.getBindings().containsKey(Key.get(HiveConfig.class)), "HiveConfig should not be bound");
 

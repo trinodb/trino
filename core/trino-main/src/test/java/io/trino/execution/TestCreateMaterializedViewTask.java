@@ -17,7 +17,6 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Key;
-import com.google.inject.TypeLiteral;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
@@ -105,7 +104,7 @@ class TestCreateMaterializedViewTask
                         .build())
                 .build()));
         queryRunner.createCatalog(TEST_CATALOG_NAME, "mock", ImmutableMap.of());
-        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getCoordinator().getInstance(Key.get(new TypeLiteral<Map<Class<? extends Statement>, DataDefinitionTask<?>>>() {}));
+        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getCoordinator().getInstance(new Key<>() {});
         task = (CreateMaterializedViewTask) tasks.get(CreateMaterializedView.class);
         this.queryRunner = queryRunner;
     }
