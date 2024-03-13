@@ -389,9 +389,17 @@ public class OpenSearchClient
                     int docsCount = root.get(i).get("docs.count").asInt();
                     int deletedDocsCount = root.get(i).get("docs.deleted").asInt();
                     if (docsCount == 0 && deletedDocsCount == 0) {
-                        // without documents, the index won't have any dynamic mappings, but maybe there are some explicit ones
-                        if (getIndexMetadata(index).getSchema().getFields().isEmpty()) {
-                            continue;
+                        try {
+                            // without documents, the index won't have any dynamic mappings, but maybe there are some explicit ones
+                            if (getIndexMetadata(index).getSchema().getFields().isEmpty()) {
+                                continue;
+                            }
+                        }
+                        catch (TrinoException e) {
+                            if (e.getErrorCode().equals(OPENSEARCH_INVALID_METADATA.toErrorCode())) {
+                                continue;
+                            }
+                            throw e;
                         }
                     }
                     result.add(index);
