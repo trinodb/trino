@@ -150,6 +150,7 @@ public class TestingTrinoServer
     static {
         Logging logging = Logging.initialize();
         logging.setLevel("io.trino.event.QueryMonitor", Level.ERROR);
+        logging.setLevel("org.eclipse.jetty", Level.ERROR);
     }
 
     public static final String SESSION_START_TIME_PROPERTY = "session_start_time";
