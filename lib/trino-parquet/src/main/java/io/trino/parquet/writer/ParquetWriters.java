@@ -85,6 +85,77 @@ final class ParquetWriters
 {
     private ParquetWriters() {}
 
+    static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType, Optional<DateTimeZone> parquetTimeZone)
+    {
+        if (BOOLEAN.equals(type)) {
+            return new BooleanValueWriter(valuesWriter, parquetType);
+        }
+        if (INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type)) {
+            return new IntegerValueWriter(valuesWriter, type, parquetType);
+        }
+        if (BIGINT.equals(type)) {
+            return new BigintValueWriter(valuesWriter, type, parquetType);
+        }
+        if (type instanceof DecimalType) {
+            if (parquetType.getPrimitiveTypeName() == INT32) {
+                return new Int32ShortDecimalValueWriter(valuesWriter, type, parquetType);
+            }
+            if (parquetType.getPrimitiveTypeName() == INT64) {
+                return new Int64ShortDecimalValueWriter(valuesWriter, type, parquetType);
+            }
+            if (((DecimalType) type).isShort()) {
+                return new FixedLenByteArrayShortDecimalValueWriter(valuesWriter, type, parquetType);
+            }
+            return new FixedLenByteArrayLongDecimalValueWriter(valuesWriter, type, parquetType);
+        }
+        if (DATE.equals(type)) {
+            return new DateValueWriter(valuesWriter, parquetType);
+        }
+        if (TIME_MICROS.equals(type)) {
+            verifyParquetType(type, parquetType, TimeLogicalTypeAnnotation.class, isTime(LogicalTypeAnnotation.TimeUnit.MICROS));
+            return new TimeMicrosValueWriter(valuesWriter, parquetType);
+        }
+        if (type instanceof TimestampType) {
+            if (parquetType.getPrimitiveTypeName().equals(PrimitiveType.PrimitiveTypeName.INT96)) {
+                checkArgument(parquetTimeZone.isPresent(), "parquetTimeZone must be provided for INT96 timestamps");
+                return new Int96TimestampValueWriter(valuesWriter, type, parquetType, parquetTimeZone.get());
+            }
+            if (TIMESTAMP_MILLIS.equals(type)) {
+                verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.MILLIS));
+                return new TimestampMillisValueWriter(valuesWriter, type, parquetType);
+            }
+            if (TIMESTAMP_MICROS.equals(type)) {
+                verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.MICROS));
+                return new BigintValueWriter(valuesWriter, type, parquetType);
+            }
+            if (TIMESTAMP_NANOS.equals(type)) {
+                verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.NANOS));
+                return new TimestampNanosValueWriter(valuesWriter, type, parquetType);
+            }
+        }
+
+        if (TIMESTAMP_TZ_MILLIS.equals(type)) {
+            return new TimestampTzMillisValueWriter(valuesWriter, parquetType);
+        }
+        if (TIMESTAMP_TZ_MICROS.equals(type)) {
+            return new TimestampTzMicrosValueWriter(valuesWriter, parquetType);
+        }
+        if (DOUBLE.equals(type)) {
+            return new DoubleValueWriter(valuesWriter, parquetType);
+        }
+        if (REAL.equals(type)) {
+            return new RealValueWriter(valuesWriter, parquetType);
+        }
+        if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
+            // Binary writer is suitable also for char data, as UTF-8 encoding is used on both sides.
+            return new BinaryValueWriter(valuesWriter, type, parquetType);
+        }
+        if (type instanceof UuidType) {
+            return new UuidValueWriter(valuesWriter, parquetType);
+        }
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported type for Parquet writer: %s", type));
+    }
+
     static List<ColumnWriter> getColumnWriters(
             MessageType messageType,
             Map<List<String>, Type> trinoTypes,
@@ -196,77 +267,6 @@ final class ParquetWriters
             }
             return path;
         }
-    }
-
-    private static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType, Optional<DateTimeZone> parquetTimeZone)
-    {
-        if (BOOLEAN.equals(type)) {
-            return new BooleanValueWriter(valuesWriter, parquetType);
-        }
-        if (INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type)) {
-            return new IntegerValueWriter(valuesWriter, type, parquetType);
-        }
-        if (BIGINT.equals(type)) {
-            return new BigintValueWriter(valuesWriter, type, parquetType);
-        }
-        if (type instanceof DecimalType) {
-            if (parquetType.getPrimitiveTypeName() == INT32) {
-                return new Int32ShortDecimalValueWriter(valuesWriter, type, parquetType);
-            }
-            if (parquetType.getPrimitiveTypeName() == INT64) {
-                return new Int64ShortDecimalValueWriter(valuesWriter, type, parquetType);
-            }
-            if (((DecimalType) type).isShort()) {
-                return new FixedLenByteArrayShortDecimalValueWriter(valuesWriter, type, parquetType);
-            }
-            return new FixedLenByteArrayLongDecimalValueWriter(valuesWriter, type, parquetType);
-        }
-        if (DATE.equals(type)) {
-            return new DateValueWriter(valuesWriter, parquetType);
-        }
-        if (TIME_MICROS.equals(type)) {
-            verifyParquetType(type, parquetType, TimeLogicalTypeAnnotation.class, isTime(LogicalTypeAnnotation.TimeUnit.MICROS));
-            return new TimeMicrosValueWriter(valuesWriter, parquetType);
-        }
-        if (type instanceof TimestampType) {
-            if (parquetType.getPrimitiveTypeName().equals(PrimitiveType.PrimitiveTypeName.INT96)) {
-                checkArgument(parquetTimeZone.isPresent(), "parquetTimeZone must be provided for INT96 timestamps");
-                return new Int96TimestampValueWriter(valuesWriter, type, parquetType, parquetTimeZone.get());
-            }
-            if (TIMESTAMP_MILLIS.equals(type)) {
-                verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.MILLIS));
-                return new TimestampMillisValueWriter(valuesWriter, type, parquetType);
-            }
-            if (TIMESTAMP_MICROS.equals(type)) {
-                verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.MICROS));
-                return new BigintValueWriter(valuesWriter, type, parquetType);
-            }
-            if (TIMESTAMP_NANOS.equals(type)) {
-                verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.NANOS));
-                return new TimestampNanosValueWriter(valuesWriter, type, parquetType);
-            }
-        }
-
-        if (TIMESTAMP_TZ_MILLIS.equals(type)) {
-            return new TimestampTzMillisValueWriter(valuesWriter, parquetType);
-        }
-        if (TIMESTAMP_TZ_MICROS.equals(type)) {
-            return new TimestampTzMicrosValueWriter(valuesWriter, parquetType);
-        }
-        if (DOUBLE.equals(type)) {
-            return new DoubleValueWriter(valuesWriter, parquetType);
-        }
-        if (REAL.equals(type)) {
-            return new RealValueWriter(valuesWriter, parquetType);
-        }
-        if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
-            // Binary writer is suitable also for char data, as UTF-8 encoding is used on both sides.
-            return new BinaryValueWriter(valuesWriter, type, parquetType);
-        }
-        if (type instanceof UuidType) {
-            return new UuidValueWriter(valuesWriter, parquetType);
-        }
-        throw new TrinoException(NOT_SUPPORTED, format("Unsupported type for Parquet writer: %s", type));
     }
 
     private static <T> void verifyParquetType(Type type, PrimitiveType parquetType, Class<T> annotationType, Predicate<T> predicate)
