@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
+import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -28,7 +29,9 @@ public class TestStarburstOracleConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(StarburstOracleConfig.class)
                 .setAuthenticationType("PASSWORD")
                 .setParallelismType(NO_PARALLELISM)
-                .setMaxSplitsPerScan(10));
+                .setMaxSplitsPerScan(10)
+                .setKeepAliveEnabled(false)
+                .setKeepAliveInterval(Duration.valueOf("30s")));
     }
 
     @Test
@@ -38,12 +41,16 @@ public class TestStarburstOracleConfig
                 .put("oracle.authentication.type", "NONE")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
+                .put("oracle.keep-alive.enabled", "true")
+                .put("oracle.keep-alive.interval", "5m")
                 .buildOrThrow();
 
         StarburstOracleConfig expected = new StarburstOracleConfig()
                 .setAuthenticationType("NONE")
                 .setParallelismType(PARTITIONS)
-                .setMaxSplitsPerScan(42);
+                .setMaxSplitsPerScan(42)
+                .setKeepAliveEnabled(true)
+                .setKeepAliveInterval(Duration.valueOf("5m"));
 
         assertFullMapping(properties, expected);
     }
@@ -55,12 +62,16 @@ public class TestStarburstOracleConfig
                 .put("oracle.authentication.type", "NONE")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
+                .put("oracle.keep-alive.enabled", "true")
+                .put("oracle.keep-alive.interval", "5m")
                 .buildOrThrow();
 
         StarburstOracleConfig expected = new StarburstOracleConfig()
                 .setAuthenticationType("NONE")
                 .setParallelismType(PARTITIONS)
-                .setMaxSplitsPerScan(42);
+                .setMaxSplitsPerScan(42)
+                .setKeepAliveEnabled(true)
+                .setKeepAliveInterval(Duration.valueOf("5m"));
 
         assertFullMapping(properties, expected);
     }

@@ -52,21 +52,25 @@ public class UserPasswordModule
     @Provides
     @Singleton
     @DefaultOracleBinding
-    public static ConnectionFactory connectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OracleConfig oracleConfig, CatalogName catalogName)
+    public static ConnectionFactory connectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, StarburstOracleConfig starburstOracleConfig, OracleConfig oracleConfig, CatalogName catalogName)
     {
-        if (oracleConfig.isConnectionPoolEnabled()) {
-            return new OraclePoolingConnectionFactory(
-                    catalogName,
-                    config,
-                    getConnectionProperties(oracleConfig),
-                    Optional.of(credentialProvider),
-                    new PasswordAuthenticationConnectionProvider(),
-                    oracleConfig);
+        ConnectionFactory connectionFactory = oracleConfig.isConnectionPoolEnabled() ?
+                new OraclePoolingConnectionFactory(
+                        catalogName,
+                        config,
+                        getConnectionProperties(oracleConfig),
+                        Optional.of(credentialProvider),
+                        new PasswordAuthenticationConnectionProvider(),
+                        oracleConfig) :
+                DriverConnectionFactory.builder(new OracleDriver(), config.getConnectionUrl(), credentialProvider)
+                        .setConnectionProperties(getConnectionProperties(oracleConfig))
+                        .build();
+        if (starburstOracleConfig.isKeepAliveEnabled()) {
+            return new StarburstOracleKeepAliveConnectionFactory(
+                    connectionFactory,
+                    starburstOracleConfig.getKeepAliveInterval());
         }
-
-        return DriverConnectionFactory.builder(new OracleDriver(), config.getConnectionUrl(), credentialProvider)
-                .setConnectionProperties(getConnectionProperties(oracleConfig))
-                .build();
+        return connectionFactory;
     }
 
     public static Properties getConnectionProperties(OracleConfig oracleConfig)

@@ -12,6 +12,9 @@ package com.starburstdata.trino.plugin.oracle;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
+import io.airlift.units.Duration;
+import io.airlift.units.MaxDuration;
+import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -24,6 +27,8 @@ public class StarburstOracleConfig
     private OracleParallelismType parallelismType = NO_PARALLELISM;
     private String authenticationType = PASSWORD;
     private int maxSplitsPerScan = 10; // Oracle always has a limit for number of concurrent connections
+    private boolean keepAliveEnabled;
+    private Duration keepAliveInterval = Duration.valueOf("30s");
 
     @NotNull
     public String getAuthenticationType()
@@ -66,6 +71,34 @@ public class StarburstOracleConfig
     public StarburstOracleConfig setMaxSplitsPerScan(int maxSplits)
     {
         this.maxSplitsPerScan = maxSplits;
+        return this;
+    }
+
+    public boolean isKeepAliveEnabled()
+    {
+        return keepAliveEnabled;
+    }
+
+    @Config("oracle.keep-alive.enabled")
+    @ConfigDescription("Enables JDBC connection watchdog to ensure that connection won't be closed by the database when idle")
+    public StarburstOracleConfig setKeepAliveEnabled(boolean keepAliveEnabled)
+    {
+        this.keepAliveEnabled = keepAliveEnabled;
+        return this;
+    }
+
+    @MinDuration("5s")
+    @MaxDuration("1h")
+    public Duration getKeepAliveInterval()
+    {
+        return keepAliveInterval;
+    }
+
+    @Config("oracle.keep-alive.interval")
+    @ConfigDescription("Interval to check for JDBC connection validity")
+    public StarburstOracleConfig setKeepAliveInterval(Duration keepAliveInterval)
+    {
+        this.keepAliveInterval = keepAliveInterval;
         return this;
     }
 }
