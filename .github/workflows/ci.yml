@@ -638,13 +638,15 @@ jobs:
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
           BIGQUERY_TESTING_PROJECT_ID: ${{ vars.BIGQUERY_TESTING_PROJECT_ID }}
           BIGQUERY_TESTING_PARENT_PROJECT_ID: ${{ vars.BIGQUERY_TESTING_PARENT_PROJECT_ID }}
+          BIGQUERY_TESTING_BIGLAKE_CONNECTION_ID: ${{ vars.BIGQUERY_TESTING_BIGLAKE_CONNECTION_ID }}
         if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-1 \
             -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.bigquery-project-id="${BIGQUERY_TESTING_PROJECT_ID}" \
-            -Dtesting.bigquery-parent-project-id="${BIGQUERY_TESTING_PARENT_PROJECT_ID}"
+            -Dtesting.bigquery-parent-project-id="${BIGQUERY_TESTING_PARENT_PROJECT_ID}" \
+            -Dtesting.bigquery-connection-id="${BIGQUERY_TESTING_BIGLAKE_CONNECTION_ID}"
       - name: Cloud BigQuery Smoke Tests
         id: tests-bq-smoke
         env:
