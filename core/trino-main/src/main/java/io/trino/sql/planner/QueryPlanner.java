@@ -1710,19 +1710,14 @@ class QueryPlanner
         FrameBoundType frameStartType = FrameBoundType.UNBOUNDED_PRECEDING;
         FrameBoundType frameEndType = CURRENT_ROW;
 
-        Optional<Expression> frameStartExpression = Optional.empty();
-        Optional<Expression> frameEndExpression = Optional.empty();
-
         if (window.getFrame().isPresent()) {
             WindowFrame frame = window.getFrame().get();
             frameType = mapWindowFrameType(frame.getType());
 
             frameStartType = mapFrameBoundType(frame.getStart().getType());
-            frameStartExpression = frame.getStart().getValue();
 
             if (frame.getEnd().isPresent()) {
                 frameEndType = mapFrameBoundType(frame.getEnd().get().getType());
-                frameEndExpression = frame.getEnd().get().getValue();
             }
         }
 
@@ -1736,9 +1731,7 @@ class QueryPlanner
                 sortKeyCoercedForFrameStartComparison,
                 frameEndType,
                 frameEndSymbol,
-                sortKeyCoercedForFrameEndComparison,
-                frameStartExpression,
-                frameEndExpression);
+                sortKeyCoercedForFrameEndComparison);
 
         ImmutableMap.Builder<ScopeAware<Expression>, Symbol> mappings = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
@@ -1819,9 +1812,7 @@ class QueryPlanner
                 Optional.empty(),
                 mapFrameBoundType(frameEnd.getType()),
                 frameEndSymbol,
-                Optional.empty(),
-                Optional.empty(),
-                frameEnd.getValue());
+                Optional.empty());
 
         ImmutableMap.Builder<ScopeAware<Expression>, Symbol> mappings = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
@@ -1988,9 +1979,7 @@ class QueryPlanner
                 Optional.empty(),
                 mapFrameBoundType(frameEnd.getType()),
                 frameEndSymbol,
-                Optional.empty(),
-                Optional.empty(),
-                frameEnd.getValue());
+                Optional.empty());
 
         PatternRecognitionComponents components = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .planPatternRecognitionComponents(

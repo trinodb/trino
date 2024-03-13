@@ -189,7 +189,7 @@ public class SetOperationNodeTranslator
     private WindowNode appendCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<Symbol> markers, List<Symbol> countOutputs, Symbol rowNumberSymbol)
     {
         ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
-        WindowNode.Frame defaultFrame = new WindowNode.Frame(ROWS, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        WindowNode.Frame defaultFrame = new WindowNode.Frame(ROWS, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty());
 
         for (int i = 0; i < markers.size(); i++) {
             Symbol output = countOutputs.get(i);

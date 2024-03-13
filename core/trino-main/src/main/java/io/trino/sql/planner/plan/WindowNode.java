@@ -176,8 +176,6 @@ public class WindowNode
                 Optional.empty(),
                 CURRENT_ROW,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
 
         private final WindowFrameType type;
@@ -188,10 +186,6 @@ public class WindowNode
         private final Optional<Symbol> endValue;
         private final Optional<Symbol> sortKeyCoercedForFrameEndComparison;
 
-        // This information is only used for printing the plan.
-        private final Optional<Expression> originalStartValue;
-        private final Optional<Expression> originalEndValue;
-
         @JsonCreator
         public Frame(
                 @JsonProperty("type") WindowFrameType type,
@@ -200,9 +194,7 @@ public class WindowNode
                 @JsonProperty("sortKeyCoercedForFrameStartComparison") Optional<Symbol> sortKeyCoercedForFrameStartComparison,
                 @JsonProperty("endType") FrameBoundType endType,
                 @JsonProperty("endValue") Optional<Symbol> endValue,
-                @JsonProperty("sortKeyCoercedForFrameEndComparison") Optional<Symbol> sortKeyCoercedForFrameEndComparison,
-                @JsonProperty("originalStartValue") Optional<Expression> originalStartValue,
-                @JsonProperty("originalEndValue") Optional<Expression> originalEndValue)
+                @JsonProperty("sortKeyCoercedForFrameEndComparison") Optional<Symbol> sortKeyCoercedForFrameEndComparison)
         {
             this.startType = requireNonNull(startType, "startType is null");
             this.startValue = requireNonNull(startValue, "startValue is null");
@@ -211,8 +203,6 @@ public class WindowNode
             this.endValue = requireNonNull(endValue, "endValue is null");
             this.sortKeyCoercedForFrameEndComparison = requireNonNull(sortKeyCoercedForFrameEndComparison, "sortKeyCoercedForFrameEndComparison is null");
             this.type = requireNonNull(type, "type is null");
-            this.originalStartValue = requireNonNull(originalStartValue, "originalStartValue is null");
-            this.originalEndValue = requireNonNull(originalEndValue, "originalEndValue is null");
 
             if (startValue.isPresent()) {
                 if (type == RANGE) {
@@ -267,18 +257,6 @@ public class WindowNode
         public Optional<Symbol> getSortKeyCoercedForFrameEndComparison()
         {
             return sortKeyCoercedForFrameEndComparison;
-        }
-
-        @JsonProperty
-        public Optional<Expression> getOriginalStartValue()
-        {
-            return originalStartValue;
-        }
-
-        @JsonProperty
-        public Optional<Expression> getOriginalEndValue()
-        {
-            return originalEndValue;
         }
 
         @Override
