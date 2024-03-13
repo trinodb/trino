@@ -21,6 +21,11 @@ import static java.util.Objects.requireNonNull;
 
 public interface HiveMetastoreFactory
 {
+    default boolean hasBuiltInCaching()
+    {
+        return false;
+    }
+
     boolean isImpersonationEnabled();
 
     /**
