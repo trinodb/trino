@@ -15,30 +15,30 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.ComparisonExpression.Operator;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonExpression.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.LogicalExpression.Operator.AND;
+import static io.trino.sql.ir.LogicalExpression.and;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.JoinType.INNER;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.ComparisonExpression.Operator;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
-import static io.trino.sql.tree.LogicalExpression.and;
 
 public class TestPushInequalityFilterExpressionBelowJoinRuleSet
         extends BaseRuleTest

@@ -14,18 +14,18 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NullLiteral;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 
 public class TestRemoveTrivialFilters
         extends BaseRuleTest
@@ -65,7 +65,7 @@ public class TestRemoveTrivialFilters
     {
         tester().assertThat(new RemoveTrivialFilters())
                 .on(p -> p.filter(
-                        new Cast(new NullLiteral(), dataType("boolean")),
+                        new Cast(new NullLiteral(), BOOLEAN),
                         p.values(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))))

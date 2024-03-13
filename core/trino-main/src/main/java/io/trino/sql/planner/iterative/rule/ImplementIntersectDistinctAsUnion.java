@@ -16,20 +16,20 @@ package io.trino.sql.planner.iterative.rule;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.plan.Patterns.Intersect.distinct;
 import static io.trino.sql.planner.plan.Patterns.intersect;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static java.util.Objects.requireNonNull;
 
 /**

@@ -40,6 +40,22 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IrUtils;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
@@ -58,21 +74,6 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.Row;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingTransactionHandle;
@@ -101,7 +102,9 @@ import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.or;
@@ -109,9 +112,6 @@ import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.tests.BogusType.BOGUS;
@@ -572,7 +572,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1))),
                                 new Row(ImmutableList.of(bigintLiteral(2))),
-                                new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT)))))),
+                                new Row(ImmutableList.of(new Cast(new NullLiteral(), BIGINT))))),
                 types,
                 typeAnalyzer))
                 .isEqualTo(or(
@@ -585,7 +585,7 @@ public class TestEffectivePredicateExtractor
                 new ValuesNode(
                         newId(),
                         ImmutableList.of(A),
-                        ImmutableList.of(new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT)))))),
+                        ImmutableList.of(new Row(ImmutableList.of(new Cast(new NullLiteral(), BIGINT))))),
                 types,
                 typeAnalyzer))
                 .isEqualTo(new IsNullPredicate(AE));
@@ -633,7 +633,7 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(D),
                         ImmutableList.of(
-                                new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(DOUBLE)))),
+                                new Row(ImmutableList.of(new Cast(new NullLiteral(), DOUBLE))),
                                 new Row(ImmutableList.of(doubleLiteral(Double.NaN))))),
                 types,
                 typeAnalyzer)).isEqualTo(TRUE_LITERAL);
@@ -656,7 +656,7 @@ public class TestEffectivePredicateExtractor
                 new ValuesNode(
                         newId(),
                         ImmutableList.of(D),
-                        ImmutableList.of(new Row(ImmutableList.of(new Cast(doubleLiteral(Double.NaN), toSqlType(REAL)))))),
+                        ImmutableList.of(new Row(ImmutableList.of(new Cast(doubleLiteral(Double.NaN), REAL))))),
                 TypeProvider.copyOf(ImmutableMap.of(D, REAL)),
                 typeAnalyzer)).isEqualTo(new NotExpression(new IsNullPredicate(DE)));
 
@@ -682,8 +682,8 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(A, B),
                         ImmutableList.of(
-                                new Row(ImmutableList.of(bigintLiteral(1), new Cast(new NullLiteral(), toSqlType(BIGINT)))),
-                                new Row(ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT)), bigintLiteral(200))))),
+                                new Row(ImmutableList.of(bigintLiteral(1), new Cast(new NullLiteral(), BIGINT))),
+                                new Row(ImmutableList.of(new Cast(new NullLiteral(), BIGINT), bigintLiteral(200))))),
                 types,
                 typeAnalyzer)).isEqualTo(and(
                 or(new ComparisonExpression(EQUAL, AE, bigintLiteral(1)), new IsNullPredicate(AE)),
@@ -1212,7 +1212,7 @@ public class TestEffectivePredicateExtractor
             Expression identityNormalizedExpression = expressionCache.get(expression);
             if (identityNormalizedExpression == null) {
                 // Make sure all sub-expressions are normalized first
-                SubExpressionExtractor.extract(expression)
+                IrUtils.preOrder(expression)
                         .filter(e -> !e.equals(expression))
                         .forEach(this::normalize);
 

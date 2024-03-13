@@ -37,29 +37,28 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.Node;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.Literal;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.type.JoniRegexp;
 import io.trino.type.JsonPathType;
 import io.trino.type.LikePattern;
@@ -105,8 +104,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
@@ -336,7 +333,7 @@ public final class ConnectorExpressionTranslator
                 if ((formalType == JONI_REGEXP || formalType instanceof Re2JRegexpType || formalType instanceof JsonPathType)
                         && argumentType instanceof VarcharType) {
                     // These types are not used in connector expressions, so require special handling when translating back to expressions.
-                    expression = new Cast(expression, toSqlType(formalType));
+                    expression = new Cast(expression, formalType);
                 }
                 else if (!argumentType.equals(formalType)) {
                     // There are no implicit coercions in connector expressions except for engine types that are not exposed in connector expressions.
@@ -381,7 +378,7 @@ public final class ConnectorExpressionTranslator
             Optional<Expression> translatedExpression = translate(expression);
 
             if (translatedExpression.isPresent()) {
-                return Optional.of(new Cast(translatedExpression.get(), toSqlType(type)));
+                return Optional.of(new Cast(translatedExpression.get(), type));
             }
 
             return Optional.empty();
@@ -543,19 +540,19 @@ public final class ConnectorExpressionTranslator
     }
 
     public static class SqlToConnectorExpressionTranslator
-            extends AstVisitor<Optional<ConnectorExpression>, Void>
+            extends IrVisitor<Optional<ConnectorExpression>, Void>
     {
         private final Session session;
         private final Map<NodeRef<Expression>, Type> types;
         private final PlannerContext plannerContext;
-        private final LiteralInterpreter literalInterpreter;
+        private final IrLiteralInterpreter literalInterpreter;
 
         public SqlToConnectorExpressionTranslator(Session session, Map<NodeRef<Expression>, Type> types, PlannerContext plannerContext)
         {
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-            this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
+            this.literalInterpreter = new IrLiteralInterpreter(plannerContext, session);
         }
 
         @Override
@@ -579,7 +576,7 @@ public final class ConnectorExpressionTranslator
             }
 
             ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builderWithExpectedSize(node.getTerms().size());
-            for (Node argument : node.getChildren()) {
+            for (Expression argument : node.getTerms()) {
                 Optional<ConnectorExpression> translated = process(argument);
                 if (translated.isEmpty()) {
                     return Optional.empty();
@@ -660,8 +657,7 @@ public final class ConnectorExpressionTranslator
 
             Optional<ConnectorExpression> translatedExpression = process(node.getExpression());
             if (translatedExpression.isPresent()) {
-                Type type = plannerContext.getTypeManager().getType(toTypeSignature(node.getType()));
-                return Optional.of(new Call(type, CAST_FUNCTION_NAME, List.of(translatedExpression.get())));
+                return Optional.of(new Call(node.getType(), CAST_FUNCTION_NAME, List.of(translatedExpression.get())));
             }
 
             return Optional.empty();
@@ -676,10 +672,6 @@ public final class ConnectorExpressionTranslator
 
             if (isEffectivelyLiteral(plannerContext, session, node)) {
                 return Optional.of(constantFor(node));
-            }
-
-            if (node.getFilter().isPresent() || node.getOrderBy().isPresent() || node.getWindow().isPresent() || node.getNullTreatment().isPresent() || node.isDistinct()) {
-                return Optional.empty();
             }
 
             CatalogSchemaFunctionName functionName = ResolvedFunction.extractFunctionName(node.getName());

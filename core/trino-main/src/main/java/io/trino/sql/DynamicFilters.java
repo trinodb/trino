@@ -30,16 +30,16 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DynamicFilterId;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Objects;
@@ -52,10 +52,10 @@ import static com.google.common.collect.ImmutableListMultimap.toImmutableListMul
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
+import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
-import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.util.Objects.requireNonNull;
 
 public final class DynamicFilters
@@ -141,14 +141,7 @@ public final class DynamicFilters
     public static Expression replaceDynamicFilterId(FunctionCall dynamicFilterFunctionCall, DynamicFilterId newId)
     {
         return new FunctionCall(
-                dynamicFilterFunctionCall.getLocation(),
                 dynamicFilterFunctionCall.getName(),
-                dynamicFilterFunctionCall.getWindow(),
-                dynamicFilterFunctionCall.getFilter(),
-                dynamicFilterFunctionCall.getOrderBy(),
-                dynamicFilterFunctionCall.isDistinct(),
-                dynamicFilterFunctionCall.getNullTreatment(),
-                dynamicFilterFunctionCall.getProcessingMode(),
                 ImmutableList.of(
                         dynamicFilterFunctionCall.getArguments().get(0),
                         dynamicFilterFunctionCall.getArguments().get(1),

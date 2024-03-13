@@ -14,8 +14,8 @@
 package io.trino.sql.planner;
 
 import io.trino.metadata.ResolvedFunction;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
 
 import java.util.ArrayList;
 import java.util.List;

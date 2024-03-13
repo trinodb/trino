@@ -15,17 +15,17 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NullLiteral;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.plan.Patterns.filter;
-import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Collections.emptyList;
 
 public class RemoveTrivialFilters

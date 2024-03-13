@@ -16,37 +16,36 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.function.CatalogSchemaFunctionName;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.SearchedCaseExpression;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.SearchedCaseExpression;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.WhenClause;
 
 import java.util.Optional;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static java.util.Objects.requireNonNull;
 
 public final class CanonicalizeExpressionRewriter
@@ -143,7 +142,7 @@ public final class CanonicalizeExpressionRewriter
                         || argumentType instanceof TimestampWithTimeZoneType
                         || argumentType instanceof VarcharType) {
                     // prefer `CAST(x as DATE)` to `date(x)`, see e.g. UnwrapCastInComparison
-                    return new Cast(treeRewriter.rewrite(argument, context), toSqlType(DateType.DATE));
+                    return new Cast(treeRewriter.rewrite(argument, context), DATE);
                 }
             }
 

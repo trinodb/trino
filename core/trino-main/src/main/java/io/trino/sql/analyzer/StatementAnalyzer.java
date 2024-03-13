@@ -122,7 +122,6 @@ import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.ScopeAware;
-import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AliasedRelation;
@@ -388,6 +387,8 @@ import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static io.trino.sql.analyzer.CanonicalizationAware.canonicalizationAwareKey;
 import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
+import static io.trino.sql.analyzer.DeterminismEvaluator.containsCurrentTimeFunctions;
+import static io.trino.sql.analyzer.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeJsonQueryExpression;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeJsonValueExpression;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
@@ -403,8 +404,6 @@ import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
-import static io.trino.sql.planner.DeterminismEvaluator.containsCurrentTimeFunctions;
-import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
 import static io.trino.sql.tree.Join.Type.FULL;
@@ -3004,7 +3003,7 @@ class StatementAnalyzer
         protected Scope visitSampledRelation(SampledRelation relation, Optional<Scope> scope)
         {
             Expression samplePercentage = relation.getSamplePercentage();
-            if (!SymbolsExtractor.extractNames(samplePercentage, analysis.getColumnReferences()).isEmpty()) {
+            if (!NamesExtractor.extractNames(samplePercentage, analysis.getColumnReferences()).isEmpty()) {
                 throw semanticException(EXPRESSION_NOT_CONSTANT, samplePercentage, "Sample percentage cannot contain column references");
             }
 

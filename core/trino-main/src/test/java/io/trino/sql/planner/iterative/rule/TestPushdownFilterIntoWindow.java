@@ -17,32 +17,31 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.SortOrder;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.TopNRankingSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 
 public class TestPushdownFilterIntoWindow
         extends BaseRuleTest
@@ -65,7 +64,7 @@ public class TestPushdownFilterIntoWindow
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.filter(
-                            new ComparisonExpression(LESS_THAN, new SymbolReference("rank_1"), new Cast(new LongLiteral("100"), dataType("bigint"))),
+                            new ComparisonExpression(LESS_THAN, new SymbolReference("rank_1"), new Cast(new LongLiteral("100"), BIGINT)),
                             p.window(
                                     new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                                     ImmutableMap.of(rankSymbol, newWindowNodeFunction(ranking, a)),
@@ -95,14 +94,14 @@ public class TestPushdownFilterIntoWindow
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new Cast(new LongLiteral("3"), dataType("bigint")), new SymbolReference("row_number_1")), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Cast(new LongLiteral("100"), dataType("bigint"))))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new Cast(new LongLiteral("3"), BIGINT), new SymbolReference("row_number_1")), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Cast(new LongLiteral("100"), BIGINT)))),
                             p.window(
                                     new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                                     ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                                     p.values(p.symbol("a"))));
                 })
                 .matches(filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new Cast(new LongLiteral("3"), dataType("bigint")), new SymbolReference("row_number_1")), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Cast(new LongLiteral("100"), dataType("bigint"))))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new Cast(new LongLiteral("3"), BIGINT), new SymbolReference("row_number_1")), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Cast(new LongLiteral("100"), BIGINT)))),
                         topNRanking(pattern -> pattern
                                         .partial(false)
                                         .maxRankingPerPartition(99)
@@ -121,7 +120,7 @@ public class TestPushdownFilterIntoWindow
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.filter(
                             new LogicalExpression(AND, ImmutableList.of(
-                                    new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Cast(new LongLiteral("100"), dataType("bigint"))),
+                                    new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Cast(new LongLiteral("100"), BIGINT)),
                                     new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral("BIGINT", "1")))),
                             p.window(
                                     new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
@@ -158,7 +157,7 @@ public class TestPushdownFilterIntoWindow
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.filter(
-                            new ComparisonExpression(LESS_THAN, new Cast(new LongLiteral("3"), dataType("bigint")), new SymbolReference("row_number_1")),
+                            new ComparisonExpression(LESS_THAN, new Cast(new LongLiteral("3"), BIGINT), new SymbolReference("row_number_1")),
                             p.window(
                                     new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                                     ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),

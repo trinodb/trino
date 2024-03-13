@@ -16,6 +16,8 @@ package io.trino.cost;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -23,8 +25,6 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.LongLiteral;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 

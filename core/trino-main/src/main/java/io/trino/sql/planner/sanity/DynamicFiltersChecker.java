@@ -20,8 +20,11 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.RetryPolicy;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrUtils;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.SubExpressionExtractor;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
@@ -32,9 +35,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.HashSet;
 import java.util.List;
@@ -48,6 +48,7 @@ import static com.google.common.collect.Sets.intersection;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.operator.join.JoinUtils.getJoinDynamicFilters;
 import static io.trino.operator.join.JoinUtils.getSemiJoinDynamicFilterId;
+import static io.trino.sql.ir.ExpressionFormatter.formatExpression;
 
 /**
  * When dynamic filter assignments are present on a Join node, they should be consumed by a Filter node on it's probe side
@@ -180,12 +181,12 @@ public class DynamicFiltersChecker
                 "Dynamic filter expression %s must be a SymbolReference or a CAST of SymbolReference.", expression);
         Cast castExpression = (Cast) expression;
         verify(castExpression.getExpression() instanceof SymbolReference,
-                "The expression %s within in a CAST in dynamic filter must be a SymbolReference.", castExpression.getExpression());
+                "The expression %s within in a CAST in dynamic filter must be a SymbolReference.", formatExpression(castExpression.getExpression()));
     }
 
     private static List<DynamicFilters.Descriptor> extractDynamicPredicates(Expression expression)
     {
-        return SubExpressionExtractor.extract(expression)
+        return IrUtils.preOrder(expression)
                 .map(DynamicFilters::getDescriptor)
                 .filter(Optional::isPresent)
                 .map(Optional::get)

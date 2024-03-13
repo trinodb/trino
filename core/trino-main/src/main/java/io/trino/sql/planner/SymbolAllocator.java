@@ -18,11 +18,9 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Field;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GroupingOperation;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.SymbolReference;
 import jakarta.annotation.Nullable;
 
 import java.util.HashMap;
@@ -109,10 +107,7 @@ public class SymbolAllocator
     public Symbol newSymbol(Expression expression, Type type, String suffix)
     {
         String nameHint = "expr";
-        if (expression instanceof Identifier identifier) {
-            nameHint = identifier.getValue();
-        }
-        else if (expression instanceof FunctionCall functionCall) {
+        if (expression instanceof FunctionCall functionCall) {
             // symbol allocation can happen during planning, before function calls are rewritten
             if (ResolvedFunction.isResolved(functionCall.getName())) {
                 nameHint = ResolvedFunction.extractFunctionName(functionCall.getName()).getFunctionName();
@@ -123,9 +118,6 @@ public class SymbolAllocator
         }
         else if (expression instanceof SymbolReference symbolReference) {
             nameHint = symbolReference.getName();
-        }
-        else if (expression instanceof GroupingOperation) {
-            nameHint = "grouping";
         }
 
         return newSymbol(nameHint, type, suffix);

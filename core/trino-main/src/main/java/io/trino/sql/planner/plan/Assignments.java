@@ -20,11 +20,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.trino.Session;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;

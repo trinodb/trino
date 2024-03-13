@@ -18,6 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -28,21 +35,15 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.SymbolReference;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -51,7 +52,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 
 public class TestReorderWindows
         extends BasePlanTest
@@ -236,7 +236,7 @@ public class TestReorderWindows
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
                                                         .addFunction(windowFunction("lag", ImmutableList.of(QUANTITY_ALIAS, "ONE"), DEFAULT_FRAME)),
-                                                project(ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), dataType("bigint")))),
+                                                project(ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), BIGINT))),
                                                         project(ImmutableMap.of("expr", expression(new LongLiteral("1"))),
                                                                 LINEITEM_TABLESCAN_DOQRST)))))));
     }

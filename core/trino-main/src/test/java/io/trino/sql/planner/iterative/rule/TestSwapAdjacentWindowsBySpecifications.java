@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;

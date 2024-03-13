@@ -15,21 +15,24 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -37,7 +40,6 @@ import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 
 public class TestReplaceJoinOverConstantWithProject
         extends BaseRuleTest
@@ -115,7 +117,7 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a")), ImmutableList.of(new Cast(new Row(ImmutableList.of(new StringLiteral("true"))), dataType("row(\"b\" boolean)")))),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a")), ImmutableList.of(new Cast(new Row(ImmutableList.of(new StringLiteral("true"))), rowType(field("b", BOOLEAN))))),
                                 p.values(5, p.symbol("b"))))
                 .doesNotFire();
     }

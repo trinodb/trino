@@ -28,6 +28,8 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -43,8 +45,6 @@ import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Row;
 
 import java.util.List;
 import java.util.Map;

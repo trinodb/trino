@@ -15,14 +15,9 @@ package io.trino.sql.planner;
 
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.sql.tree.CurrentDate;
-import io.trino.sql.tree.CurrentTime;
-import io.trino.sql.tree.CurrentTimestamp;
-import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.LocalTime;
-import io.trino.sql.tree.LocalTimestamp;
+import io.trino.sql.ir.DefaultTraversalVisitor;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -52,7 +47,7 @@ public final class DeterminismEvaluator
     }
 
     private static class Visitor
-            extends DefaultExpressionTraversalVisitor<AtomicBoolean>
+            extends DefaultTraversalVisitor<AtomicBoolean>
     {
         private final Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier;
 
@@ -69,54 +64,6 @@ public final class DeterminismEvaluator
                 return null;
             }
             return super.visitFunctionCall(node, deterministic);
-        }
-    }
-
-    public static boolean containsCurrentTimeFunctions(Expression expression)
-    {
-        requireNonNull(expression, "expression is null");
-
-        AtomicBoolean hasTemporalFunction = new AtomicBoolean(false);
-        new TemporalFunctionVisitor().process(expression, hasTemporalFunction);
-        return hasTemporalFunction.get();
-    }
-
-    private static class TemporalFunctionVisitor
-            extends DefaultExpressionTraversalVisitor<AtomicBoolean>
-    {
-        @Override
-        protected Void visitCurrentDate(CurrentDate node, AtomicBoolean currentTime)
-        {
-            currentTime.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitCurrentTime(CurrentTime node, AtomicBoolean currentTime)
-        {
-            currentTime.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitCurrentTimestamp(CurrentTimestamp node, AtomicBoolean currentTime)
-        {
-            currentTime.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitLocalTime(LocalTime node, AtomicBoolean currentTime)
-        {
-            currentTime.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitLocalTimestamp(LocalTimestamp node, AtomicBoolean currentTime)
-        {
-            currentTime.set(true);
-            return null;
         }
     }
 }

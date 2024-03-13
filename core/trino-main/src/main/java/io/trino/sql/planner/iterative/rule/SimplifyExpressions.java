@@ -17,15 +17,15 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.Rule;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.Set;

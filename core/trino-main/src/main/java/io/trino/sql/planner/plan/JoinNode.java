@@ -20,10 +20,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NullLiteral;
 
 import java.util.List;
 import java.util.Map;

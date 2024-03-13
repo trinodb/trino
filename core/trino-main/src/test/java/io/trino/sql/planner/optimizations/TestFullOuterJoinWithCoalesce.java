@@ -15,14 +15,15 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -36,7 +37,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.JoinType.FULL;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 
 public class TestFullOuterJoinWithCoalesce
         extends BasePlanTest

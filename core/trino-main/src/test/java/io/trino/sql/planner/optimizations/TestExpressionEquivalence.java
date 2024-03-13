@@ -23,20 +23,20 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.DecimalLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
@@ -44,22 +44,24 @@ import org.junit.jupiter.api.Test;
 import java.util.Set;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.LogicalExpression.Operator.AND;
+import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
-import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
-import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.function.Function.identity;
@@ -85,8 +87,8 @@ public class TestExpressionEquivalence
     public void testEquivalent()
     {
         assertEquivalent(
-                new Cast(new NullLiteral(), dataType("bigint")),
-                new Cast(new NullLiteral(), dataType("bigint")));
+                new Cast(new NullLiteral(), BIGINT),
+                new Cast(new NullLiteral(), BIGINT));
         assertEquivalent(
                 new ComparisonExpression(LESS_THAN, new SymbolReference("a_bigint"), new SymbolReference("b_double")),
                 new ComparisonExpression(GREATER_THAN, new SymbolReference("b_double"), new SymbolReference("a_bigint")));
@@ -222,11 +224,11 @@ public class TestExpressionEquivalence
     public void testNotEquivalent()
     {
         assertNotEquivalent(
-                new Cast(new NullLiteral(), dataType("boolean")),
+                new Cast(new NullLiteral(), BOOLEAN),
                 FALSE_LITERAL);
         assertNotEquivalent(
                 FALSE_LITERAL,
-                new Cast(new NullLiteral(), dataType("boolean")));
+                new Cast(new NullLiteral(), BOOLEAN));
         assertNotEquivalent(
                 TRUE_LITERAL,
                 FALSE_LITERAL);
@@ -288,30 +290,30 @@ public class TestExpressionEquivalence
                 new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("d_bigint"), new SymbolReference("c_bigint")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("b_bigint"), new SymbolReference("c_bigint")))));
 
         assertNotEquivalent(
-                new Cast(new GenericLiteral("TIME", "12:34:56.123 +00:00"), dataType("varchar")),
-                new Cast(new GenericLiteral("TIME", "14:34:56.123 +02:00"), dataType("varchar")));
+                new Cast(new GenericLiteral("TIME", "12:34:56.123 +00:00"), VARCHAR),
+                new Cast(new GenericLiteral("TIME", "14:34:56.123 +02:00"), VARCHAR));
         assertNotEquivalent(
-                new Cast(new GenericLiteral("TIME", "12:34:56.123456 +00:00"), dataType("varchar")),
-                new Cast(new GenericLiteral("TIME", "14:34:56.123456 +02:00"), dataType("varchar")));
+                new Cast(new GenericLiteral("TIME", "12:34:56.123456 +00:00"), VARCHAR),
+                new Cast(new GenericLiteral("TIME", "14:34:56.123456 +02:00"), VARCHAR));
         assertNotEquivalent(
-                new Cast(new GenericLiteral("TIME", "12:34:56.123456789 +00:00"), dataType("varchar")),
-                new Cast(new GenericLiteral("TIME", "14:34:56.123456789 +02:00"), dataType("varchar")));
+                new Cast(new GenericLiteral("TIME", "12:34:56.123456789 +00:00"), VARCHAR),
+                new Cast(new GenericLiteral("TIME", "14:34:56.123456789 +02:00"), VARCHAR));
         assertNotEquivalent(
-                new Cast(new GenericLiteral("TIME", "12:34:56.123456789012 +00:00"), dataType("varchar")),
-                new Cast(new GenericLiteral("TIME", "14:34:56.123456789012 +02:00"), dataType("varchar")));
+                new Cast(new GenericLiteral("TIME", "12:34:56.123456789012 +00:00"), VARCHAR),
+                new Cast(new GenericLiteral("TIME", "14:34:56.123456789012 +02:00"), VARCHAR));
 
         assertNotEquivalent(
-                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123 Europe/Warsaw"), dataType("varchar")),
-                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123 Europe/Paris"), dataType("varchar")));
+                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123 Europe/Warsaw"), VARCHAR),
+                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123 Europe/Paris"), VARCHAR));
         assertNotEquivalent(
-                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123456 Europe/Warsaw"), dataType("varchar")),
-                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123456 Europe/Paris"), dataType("varchar")));
+                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123456 Europe/Warsaw"), VARCHAR),
+                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123456 Europe/Paris"), VARCHAR));
         assertNotEquivalent(
-                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123456789 Europe/Warsaw"), dataType("varchar")),
-                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123456789 Europe/Paris"), dataType("varchar")));
+                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123456789 Europe/Warsaw"), VARCHAR),
+                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123456789 Europe/Paris"), VARCHAR));
         assertNotEquivalent(
-                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123456789012 Europe/Warsaw"), dataType("varchar")),
-                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123456789012 Europe/Paris"), dataType("varchar")));
+                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123456789012 Europe/Warsaw"), VARCHAR),
+                new Cast(new GenericLiteral("TIMESTAMP", "2020-05-10 12:34:56.123456789012 Europe/Paris"), VARCHAR));
     }
 
     private static void assertNotEquivalent(Expression leftExpression, Expression rightExpression)

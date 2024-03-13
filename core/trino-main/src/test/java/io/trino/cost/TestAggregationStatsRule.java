@@ -15,9 +15,9 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.function.Consumer;

@@ -64,8 +64,6 @@ import io.trino.sql.analyzer.PatternRecognitionAnalysis.Navigation;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationMode;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.ScalarInputDescriptor;
-import io.trino.sql.planner.LiteralInterpreter;
-import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
@@ -148,7 +146,6 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.ValueColumn;
@@ -745,19 +742,6 @@ public class ExpressionAnalyzer
                     node.getPrecision()
                             .map(TimestampType::createTimestampType)
                             .orElse(TIMESTAMP_MILLIS));
-        }
-
-        @Override
-        protected Type visitSymbolReference(SymbolReference node, Context context)
-        {
-            if (context.isInLambda()) {
-                Optional<ResolvedField> resolvedField = context.getScope().tryResolveField(node, QualifiedName.of(node.getName()));
-                if (resolvedField.isPresent() && context.getFieldToLambdaArgumentDeclaration().containsKey(FieldId.from(resolvedField.get()))) {
-                    return setExpressionType(node, resolvedField.get().getType());
-                }
-            }
-            Type type = symbolTypes.get(Symbol.from(node));
-            return setExpressionType(node, type);
         }
 
         @Override

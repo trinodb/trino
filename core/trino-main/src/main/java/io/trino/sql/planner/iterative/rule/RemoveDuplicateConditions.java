@@ -14,9 +14,9 @@
 package io.trino.sql.planner.iterative.rule;
 
 import io.trino.metadata.Metadata;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.LogicalExpression;
 
 import static io.trino.sql.ir.IrUtils.combinePredicates;
 import static io.trino.sql.ir.IrUtils.extractPredicates;
@@ -44,7 +44,7 @@ public class RemoveDuplicateConditions
     }
 
     private static class Visitor
-            extends io.trino.sql.tree.ExpressionRewriter<Void>
+            extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         private final Metadata metadata;
 

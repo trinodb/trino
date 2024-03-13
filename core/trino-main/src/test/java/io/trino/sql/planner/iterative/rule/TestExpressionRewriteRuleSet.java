@@ -16,34 +16,34 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.BigintType;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognition;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.rowpattern.Patterns.label;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestExpressionRewriteRuleSet
         extends BaseRuleTest
 {
     private final ExpressionRewriteRuleSet zeroRewriter = new ExpressionRewriteRuleSet(
-            (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.trino.sql.tree.ExpressionRewriter<>()
+            (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.trino.sql.ir.ExpressionRewriter<>()
             {
                 @Override
                 protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)

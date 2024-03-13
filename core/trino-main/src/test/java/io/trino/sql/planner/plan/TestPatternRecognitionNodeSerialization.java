@@ -20,10 +20,16 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.server.ExpressionSerialization;
+import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.parser.SqlParser;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.WindowNode.Frame;
@@ -38,15 +44,6 @@ import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrConcatenation;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
 import org.junit.jupiter.api.Test;
@@ -57,14 +54,13 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static io.trino.sql.planner.plan.SkipToPosition.LAST;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
-import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPatternRecognitionNodeSerialization
@@ -87,12 +83,10 @@ public class TestPatternRecognitionNodeSerialization
     public void testAggregationValuePointerRoundtrip()
     {
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionSerializer()));
-        provider.setJsonDeserializers(ImmutableMap.of(
-                Expression.class, new ExpressionSerialization.ExpressionDeserializer(new SqlParser()),
-                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
         provider.setKeyDeserializers(ImmutableMap.of(
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));
+        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TestingTypeManager())));
+
         JsonCodec<ValuePointer> codec = new JsonCodecFactory(provider).jsonCodec(ValuePointer.class);
 
         ResolvedFunction countFunction = createTestMetadataManager().resolveBuiltinFunction("count", ImmutableList.of());
@@ -116,8 +110,6 @@ public class TestPatternRecognitionNodeSerialization
     public void testExpressionAndValuePointersRoundtrip()
     {
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionSerializer()));
-        provider.setJsonDeserializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionDeserializer(new SqlParser())));
         JsonCodec<ExpressionAndValuePointers> codec = new JsonCodecFactory(provider).jsonCodec(ExpressionAndValuePointers.class);
 
         assertJsonRoundTrip(codec, new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of()));
@@ -125,7 +117,7 @@ public class TestPatternRecognitionNodeSerialization
         assertJsonRoundTrip(codec, new ExpressionAndValuePointers(
                 new IfExpression(
                         new ComparisonExpression(GREATER_THAN, new SymbolReference("classifier"), new SymbolReference("x")),
-                        new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()),
+                        new FunctionCall("rand", ImmutableList.of()),
                         new ArithmeticUnaryExpression(MINUS, new SymbolReference("match_number"))),
                 ImmutableList.of(
                         new ExpressionAndValuePointers.Assignment(
@@ -146,10 +138,7 @@ public class TestPatternRecognitionNodeSerialization
     public void testMeasureRoundtrip()
     {
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionSerializer()));
-        provider.setJsonDeserializers(ImmutableMap.of(
-                Expression.class, new ExpressionSerialization.ExpressionDeserializer(new SqlParser()),
-                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
+        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TestingTypeManager())));
         JsonCodec<Measure> codec = new JsonCodecFactory(provider).jsonCodec(Measure.class);
 
         assertJsonRoundTrip(codec, new Measure(
@@ -183,12 +172,10 @@ public class TestPatternRecognitionNodeSerialization
     public void testPatternRecognitionNodeRoundtrip()
     {
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionSerializer()));
-        provider.setJsonDeserializers(ImmutableMap.of(
-                Expression.class, new ExpressionSerialization.ExpressionDeserializer(new SqlParser()),
-                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
         provider.setKeyDeserializers(ImmutableMap.of(
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));
+        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TestingTypeManager())));
+
         JsonCodec<PatternRecognitionNode> codec = new JsonCodecFactory(provider).jsonCodec(PatternRecognitionNode.class);
 
         ResolvedFunction rankFunction = createTestMetadataManager().resolveBuiltinFunction("rank", ImmutableList.of());

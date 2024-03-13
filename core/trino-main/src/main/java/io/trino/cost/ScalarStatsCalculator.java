@@ -22,24 +22,23 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.Literal;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrLiteralInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.LiteralInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.Node;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.OptionalDouble;
@@ -72,23 +71,23 @@ public class ScalarStatsCalculator
     }
 
     private class Visitor
-            extends AstVisitor<SymbolStatsEstimate, Void>
+            extends IrVisitor<SymbolStatsEstimate, Void>
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
-        private final LiteralInterpreter literalInterpreter;
+        private final IrLiteralInterpreter literalInterpreter;
         private final TypeProvider types;
 
         Visitor(PlanNodeStatsEstimate input, Session session, TypeProvider types)
         {
             this.input = input;
             this.session = session;
-            this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
+            this.literalInterpreter = new IrLiteralInterpreter(plannerContext, session);
             this.types = types;
         }
 
         @Override
-        protected SymbolStatsEstimate visitNode(Node node, Void context)
+        protected SymbolStatsEstimate visitExpression(Expression node, Void context)
         {
             return SymbolStatsEstimate.unknown();
         }

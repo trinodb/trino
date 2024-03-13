@@ -36,25 +36,25 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.Test;
 
@@ -71,7 +71,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
@@ -437,8 +436,8 @@ public class TestPostgreSqlClient
                                 new InPredicate(
                                         new SymbolReference("c_varchar"),
                                         new InListExpression(List.of(
-                                                new Cast(new StringLiteral("value1"), toSqlType(VARCHAR_COLUMN.getColumnType())),
-                                                new Cast(new StringLiteral("value2"), toSqlType(VARCHAR_COLUMN.getColumnType())),
+                                                new Cast(new StringLiteral("value1"), VARCHAR_COLUMN.getColumnType()),
+                                                new Cast(new StringLiteral("value2"), VARCHAR_COLUMN.getColumnType()),
                                                 new SymbolReference("c_varchar2")))),
                                 Map.of("c_varchar", VARCHAR_COLUMN.getColumnType(), "c_varchar2", VARCHAR_COLUMN2.getColumnType())),
                         Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2))

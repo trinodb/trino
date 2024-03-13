@@ -16,15 +16,16 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.SortOrder;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -33,7 +34,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 

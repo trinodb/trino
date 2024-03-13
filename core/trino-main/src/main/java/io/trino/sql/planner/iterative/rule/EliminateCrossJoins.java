@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -31,7 +32,6 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.tree.Expression;
 
 import java.util.HashMap;
 import java.util.HashSet;

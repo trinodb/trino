@@ -23,6 +23,8 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -30,8 +32,6 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Expression;
 
 import java.util.Optional;
 import java.util.OptionalInt;

@@ -19,12 +19,12 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.FunctionId;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.Row;
 
 import java.util.Map;
 

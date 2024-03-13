@@ -15,15 +15,15 @@ package io.trino.plugin.geospatial;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.iterative.rule.test.RuleBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;

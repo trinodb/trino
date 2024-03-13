@@ -13,8 +13,8 @@
  */
 package io.trino.sql.planner;
 
+import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

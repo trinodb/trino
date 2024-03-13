@@ -26,6 +26,8 @@ import io.trino.metadata.TableProperties;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.Symbol;
@@ -75,8 +77,6 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.HashMap;
 import java.util.HashSet;

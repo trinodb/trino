@@ -15,20 +15,20 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -36,6 +36,10 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MODULUS;
+import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
+import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
@@ -49,10 +53,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
-import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 
 public class TestDecorrelateInnerUnnestWithGlobalAggregation
         extends BaseRuleTest

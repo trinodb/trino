@@ -97,8 +97,6 @@ import io.trino.operator.index.IndexManager;
 import io.trino.operator.scalar.json.JsonExistsFunction;
 import io.trino.operator.scalar.json.JsonQueryFunction;
 import io.trino.operator.scalar.json.JsonValueFunction;
-import io.trino.server.ExpressionSerialization.ExpressionDeserializer;
-import io.trino.server.ExpressionSerialization.ExpressionSerializer;
 import io.trino.server.PluginManager.PluginsProvider;
 import io.trino.server.SliceSerialization.SliceDeserializer;
 import io.trino.server.SliceSerialization.SliceSerializer;
@@ -143,7 +141,6 @@ import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.RuleStatsRecorder;
-import io.trino.sql.tree.Expression;
 import io.trino.tracing.ForTracing;
 import io.trino.tracing.TracingMetadata;
 import io.trino.type.BlockTypeOperators;
@@ -435,10 +432,6 @@ public class ServerMainModule
         // slice
         jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Slice.class).to(SliceDeserializer.class);
-
-        // expression
-        jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
-        jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
 
         // split monitor
         binder.bind(SplitMonitor.class).in(Scopes.SINGLETON);

@@ -24,6 +24,7 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -36,7 +37,6 @@ import io.trino.sql.relational.RowExpressionVisitor;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.SpecialForm.Form;
 import io.trino.sql.relational.VariableReferenceExpression;
-import io.trino.sql.tree.Expression;
 
 import java.util.Comparator;
 import java.util.HashMap;

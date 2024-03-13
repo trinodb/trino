@@ -17,16 +17,15 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.LambdaArgumentDeclaration;
+import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.LambdaArgumentDeclaration;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.StringLiteral;
 import io.trino.type.FunctionType;
 import org.junit.jupiter.api.Test;
 
@@ -63,15 +62,15 @@ public class TestArraySortAfterArrayDistinct
                         new FunctionCall(SORT_WITH_LAMBDA.toQualifiedName(), ImmutableList.of(
                                 new FunctionCall(ARRAY.toQualifiedName(), ImmutableList.of(new StringLiteral("a"))),
                                 new LambdaExpression(ImmutableList.of(
-                                        new LambdaArgumentDeclaration(new Identifier("a")),
-                                        new LambdaArgumentDeclaration(new Identifier("b"))),
+                                        new LambdaArgumentDeclaration("a"),
+                                        new LambdaArgumentDeclaration("b")),
                                         new LongLiteral("1")))))),
                 new FunctionCall(SORT_WITH_LAMBDA.toQualifiedName(), ImmutableList.of(
                         new FunctionCall(DISTINCT.toQualifiedName(), ImmutableList.of(
                                 new FunctionCall(ARRAY.toQualifiedName(), ImmutableList.of(new StringLiteral("a"))))),
                         new LambdaExpression(ImmutableList.of(
-                                new LambdaArgumentDeclaration(new Identifier("a")),
-                                new LambdaArgumentDeclaration(new Identifier("b"))),
+                                new LambdaArgumentDeclaration("a"),
+                                new LambdaArgumentDeclaration("b")),
                                 new LongLiteral("1")))));
     }
 

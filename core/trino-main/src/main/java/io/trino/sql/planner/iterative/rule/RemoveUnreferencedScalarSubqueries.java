@@ -20,13 +20,13 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtLeastScalar;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.filter;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
-import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class RemoveUnreferencedScalarSubqueries
         implements Rule<CorrelatedJoinNode>

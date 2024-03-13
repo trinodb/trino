@@ -18,15 +18,15 @@ import io.trino.Session;
 import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Optional;
