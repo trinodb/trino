@@ -15,7 +15,6 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Key;
-import com.google.inject.TypeLiteral;
 import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -58,7 +57,7 @@ public class TestDropCatalogTask
     {
         QueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION);
         queryRunner.installPlugin(new TpchPlugin());
-        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getCoordinator().getInstance(Key.get(new TypeLiteral<Map<Class<? extends Statement>, DataDefinitionTask<?>>>() {}));
+        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getCoordinator().getInstance(new Key<>() {});
         task = (DropCatalogTask) tasks.get(DropCatalog.class);
         this.queryRunner = queryRunner;
     }

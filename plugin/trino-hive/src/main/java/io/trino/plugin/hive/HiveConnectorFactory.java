@@ -17,7 +17,6 @@ import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
@@ -135,15 +134,15 @@ public class HiveConnectorFactory
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
             ConnectorPageSinkProvider pageSinkProvider = injector.getInstance(ConnectorPageSinkProvider.class);
             ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
-            Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<>() {}));
+            Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(new Key<>() {});
             HiveTableProperties hiveTableProperties = injector.getInstance(HiveTableProperties.class);
             HiveColumnProperties hiveColumnProperties = injector.getInstance(HiveColumnProperties.class);
             HiveAnalyzeProperties hiveAnalyzeProperties = injector.getInstance(HiveAnalyzeProperties.class);
             HiveMaterializedViewPropertiesProvider hiveMaterializedViewPropertiesProvider = injector.getInstance(HiveMaterializedViewPropertiesProvider.class);
-            Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<>() {}));
-            Set<TableProcedureMetadata> tableProcedures = injector.getInstance(Key.get(new TypeLiteral<>() {}));
-            Set<SystemTableProvider> systemTableProviders = injector.getInstance(Key.get(new TypeLiteral<>() {}));
-            Optional<ConnectorAccessControl> hiveAccessControl = injector.getInstance(Key.get(new TypeLiteral<Optional<ConnectorAccessControl>>() {}))
+            Set<Procedure> procedures = injector.getInstance(new Key<>() {});
+            Set<TableProcedureMetadata> tableProcedures = injector.getInstance(new Key<>() {});
+            Set<SystemTableProvider> systemTableProviders = injector.getInstance(new Key<>() {});
+            Optional<ConnectorAccessControl> hiveAccessControl = injector.getInstance(new Key<Optional<ConnectorAccessControl>>() {})
                     .map(accessControl -> new SystemTableAwareAccessControl(accessControl, systemTableProviders))
                     .map(accessControl -> new ClassLoaderSafeConnectorAccessControl(accessControl, classLoader));
 
@@ -164,7 +163,7 @@ public class HiveConnectorFactory
                     hiveAnalyzeProperties.getAnalyzeProperties(),
                     hiveMaterializedViewPropertiesProvider.getMaterializedViewProperties(),
                     hiveAccessControl,
-                    injector.getInstance(Key.get(new TypeLiteral<>() {})),
+                    injector.getInstance(new Key<>() {}),
                     injector.getInstance(FunctionProvider.class),
                     injector.getInstance(HiveConfig.class).isSingleStatementWritesOnly(),
                     classLoader);
