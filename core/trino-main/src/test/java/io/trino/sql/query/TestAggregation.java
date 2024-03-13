@@ -87,4 +87,25 @@ public class TestAggregation
                             TIME '12:24:0.000')
                         """);
     }
+
+    /**
+     * Regression test for <a href="https://github.com/trinodb/trino/issues/21002">#21002</a>
+     */
+    @Test
+    public void testAggregationMaskOnDictionaryInput()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT
+                    max(update_ts) FILTER (WHERE step_type = 'Rest')
+                FROM (VALUES
+                        ('cell_id', 'Rest', TIMESTAMP '2005-09-10 13:31:00.123 Europe/Warsaw'),
+                        ('cell_id', 'Rest', TIMESTAMP '2005-09-10 13:31:00.123 Europe/Warsaw')
+                    ) AS t(cell_id, step_type, update_ts)
+                -- UNNEST to produce DictionaryBlock
+                CROSS JOIN UNNEST (sequence(1, 1000)) AS a(e)
+                GROUP BY cell_id
+                """))
+                .matches("VALUES TIMESTAMP '2005-09-10 13:31:00.123 Europe/Warsaw'");
+    }
 }
