@@ -880,6 +880,8 @@ public abstract class BaseElasticsearchConnectorTest
 
         createIndex(indexName, mapping);
 
+        assertQueryReturnsEmptyResult("SHOW TABLES LIKE '" + indexName + "'");
+
         index(indexName, ImmutableMap.of("array_raw_field", "test"));
 
         assertThatThrownBy(() -> computeActual("SELECT array_raw_field FROM " + indexName))
