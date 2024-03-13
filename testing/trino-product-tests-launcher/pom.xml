@@ -153,59 +153,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.databricks</groupId>
-            <artifactId>databricks-jdbc</artifactId>
-            <version>2.6.36</version>
-            <scope>runtime</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>io.confluent</groupId>
-            <artifactId>kafka-protobuf-provider</artifactId>
-            <!-- This is under Confluent Community License and we use it under runtime scope only for tests -->
-            <scope>runtime</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>io.confluent</groupId>
-            <artifactId>kafka-protobuf-types</artifactId>
-            <!-- This is under Confluent Community License and we use it under runtime scope only for tests -->
-            <scope>runtime</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.hive</groupId>
-            <artifactId>hive-jdbc</artifactId>
-            <version>3.1.3</version>
-            <classifier>standalone</classifier>
-            <scope>runtime</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
             <scope>test</scope>
@@ -242,24 +189,6 @@
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.basepom.maven</groupId>
-                <artifactId>duplicate-finder-maven-plugin</artifactId>
-                <configuration>
-                    <ignoredDependencies>
-                        <dependency>
-                            <groupId>com.databricks</groupId>
-                            <artifactId>databricks-jdbc</artifactId>
-                        </dependency>
-
-                        <dependency>
-                            <groupId>org.apache.hive</groupId>
-                            <artifactId>hive-jdbc</artifactId>
-                        </dependency>
-                    </ignoredDependencies>
-                </configuration>
-            </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -301,43 +230,46 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>copy-kafka</id>
+                        <id>copy</id>
                         <goals>
-                            <goal>copy-dependencies</goal>
+                            <goal>copy</goal>
                         </goals>
                         <phase>package</phase>
                         <configuration>
                             <skip>false</skip>
-                            <includeArtifactIds>kafka-protobuf-provider,kafka-protobuf-types</includeArtifactIds>
-                            <outputDirectory>${project.build.directory}</outputDirectory>
-                            <stripVersion>true</stripVersion>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>copy-databricks</id>
-                        <goals>
-                            <goal>copy-dependencies</goal>
-                        </goals>
-                        <phase>package</phase>
-                        <configuration>
-                            <skip>false</skip>
-                            <includeArtifactIds>databricks-jdbc</includeArtifactIds>
-                            <outputDirectory>${project.build.directory}</outputDirectory>
-                            <stripVersion>true</stripVersion>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>copy-hive</id>
-                        <goals>
-                            <goal>copy-dependencies</goal>
-                        </goals>
-                        <phase>package</phase>
-                        <configuration>
-                            <skip>false</skip>
-                            <includeArtifactIds>hive-jdbc</includeArtifactIds>
-                            <outputDirectory>${project.build.directory}</outputDirectory>
-                            <stripVersion>true</stripVersion>
-                            <stripClassifier>true</stripClassifier>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>io.confluent</groupId>
+                                    <artifactId>kafka-protobuf-provider</artifactId>
+                                    <type>jar</type>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                    <destFileName>kafka-protobuf-provider.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>io.confluent</groupId>
+                                    <artifactId>kafka-protobuf-types</artifactId>
+                                    <type>jar</type>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                    <destFileName>kafka-protobuf-types.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.apache.hive</groupId>
+                                    <artifactId>hive-jdbc</artifactId>
+                                    <classifier>standalone</classifier>
+                                    <version>3.1.3</version>
+                                    <type>jar</type>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                    <destFileName>hive-jdbc.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.databricks</groupId>
+                                    <artifactId>databricks-jdbc</artifactId>
+                                    <version>2.6.36</version>
+                                    <type>jar</type>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                    <destFileName>databricks-jdbc.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
                         </configuration>
                     </execution>
                 </executions>
