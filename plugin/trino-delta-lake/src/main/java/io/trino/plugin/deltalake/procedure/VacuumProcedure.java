@@ -43,6 +43,7 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 
@@ -56,6 +57,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
@@ -200,7 +202,12 @@ public class VacuumProcedure
             List<Long> recentVersions = transactionLogAccess.getPastTableVersions(fileSystem, transactionLogDir, threshold, tableSnapshot.getVersion());
             Set<String> retainedPaths;
             try (Stream<AddFileEntry> activeAddEntries = transactionLogAccess.getActiveFiles(
-                    session, tableSnapshot, handle.getMetadataEntry(), handle.getProtocolEntry())) {
+                    session,
+                    tableSnapshot,
+                    handle.getMetadataEntry(),
+                    handle.getProtocolEntry(),
+                    TupleDomain.all(),
+                    alwaysTrue())) {
                 retainedPaths = Stream.concat(
                                 activeAddEntries
                                         .map(AddFileEntry::getPath),
