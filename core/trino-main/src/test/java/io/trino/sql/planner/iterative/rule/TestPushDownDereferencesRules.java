@@ -23,6 +23,17 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -31,18 +42,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.Test;
 
@@ -55,9 +54,13 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonExpression.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -81,14 +84,10 @@ import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.type.JsonType.JSON;
 import static java.util.Collections.singletonList;
 
 public class TestPushDownDereferencesRules
@@ -112,8 +111,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_1"), new SubscriptExpression(new Cast(new Row(ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), dataType("row(\"f1\" row(\"x\" bigint,\"y\" bigint),\"f2\" bigint)")), new LongLiteral("1")),
-                                        p.symbol("expr_2"), new SubscriptExpression(new SubscriptExpression(new Cast(new Row(ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), dataType("row(\"f1\" row(\"x\" bigint,\"y\" bigint),\"f2\" bigint)")), new LongLiteral("1")), new LongLiteral("2"))),
+                                        p.symbol("expr_1"), new SubscriptExpression(new Cast(new Row(ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), rowType(field("f1", rowType(field("x", BIGINT), field("y", BIGINT))), field("f2", BIGINT))), new LongLiteral("1")),
+                                        p.symbol("expr_2"), new SubscriptExpression(new SubscriptExpression(new Cast(new Row(ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), rowType(field("f1", rowType(field("x", BIGINT), field("y", BIGINT))), field("f2", BIGINT))), new LongLiteral("1")), new LongLiteral("2"))),
                                 p.project(
                                         Assignments.of(
                                                 p.symbol("a", ROW_TYPE), new SymbolReference("a"),
@@ -330,7 +329,7 @@ public class TestPushDownDereferencesRules
                                 new LogicalExpression(AND, ImmutableList.of(
                                         new ComparisonExpression(NOT_EQUAL, new SubscriptExpression(new SubscriptExpression(new SymbolReference("a"), new LongLiteral("1")), new LongLiteral("1")), new LongLiteral("5")),
                                         new ComparisonExpression(EQUAL, new SubscriptExpression(new SymbolReference("b"), new LongLiteral("2")), new LongLiteral("2")),
-                                        new IsNotNullPredicate(new Cast(new SubscriptExpression(new SymbolReference("a"), new LongLiteral("1")), dataType("json"))))),
+                                        new IsNotNullPredicate(new Cast(new SubscriptExpression(new SymbolReference("a"), new LongLiteral("1")), JSON)))),
                                 p.tableScan(
                                         testTable,
                                         ImmutableList.of(p.symbol("a", nestedRowType), p.symbol("b", ROW_TYPE)),
@@ -339,7 +338,7 @@ public class TestPushDownDereferencesRules
                                                 p.symbol("b", ROW_TYPE), new TpchColumnHandle("b", ROW_TYPE)))))
                 .matches(project(
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("expr"), new LongLiteral("5")), new ComparisonExpression(EQUAL, new SymbolReference("expr_0"), new LongLiteral("2")), new IsNotNullPredicate(new Cast(new SymbolReference("expr_1"), dataType("json"))))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("expr"), new LongLiteral("5")), new ComparisonExpression(EQUAL, new SymbolReference("expr_0"), new LongLiteral("2")), new IsNotNullPredicate(new Cast(new SymbolReference("expr_1"), JSON)))),
                                 strictProject(
                                         ImmutableMap.of(
                                                 "expr", PlanMatchPattern.expression(new SubscriptExpression(new SubscriptExpression(new SymbolReference("a"), new LongLiteral("1")), new LongLiteral("1"))),
@@ -486,7 +485,7 @@ public class TestPushDownDereferencesRules
                                         .put("msg_x", expression(new SymbolReference("x")))
                                         .put("z", expression(new SymbolReference("z")))
                                         .buildOrThrow(),
-                                sort(ImmutableList.of(sort("z", ASCENDING, SortItem.NullOrdering.FIRST)),
+                                sort(ImmutableList.of(sort("z", ASCENDING, FIRST)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("x", expression(new SubscriptExpression(new SymbolReference("msg"), new LongLiteral("1"))))

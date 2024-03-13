@@ -13,9 +13,9 @@
  */
 package io.trino.sql;
 
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.assertions.ExpressionVerifier;
 import io.trino.sql.planner.assertions.SymbolAliases;
-import io.trino.sql.tree.Expression;
 
 public final class ExpressionTestUtils
 {

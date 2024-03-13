@@ -25,15 +25,14 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
 import io.trino.testing.QueryRunner;
 import io.trino.transaction.TransactionManager;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -199,14 +198,7 @@ public class TestingFunctionResolution
         public FunctionCall build()
         {
             return new FunctionCall(
-                    Optional.empty(),
                     resolveFunction(name, TypeSignatureProvider.fromTypeSignatures(argumentTypes)).toQualifiedName(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    false,
-                    Optional.empty(),
-                    Optional.empty(),
                     argumentValues);
         }
     }

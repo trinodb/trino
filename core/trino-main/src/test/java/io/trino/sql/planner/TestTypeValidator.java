@@ -24,6 +24,8 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
@@ -34,8 +36,6 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.sanity.TypeValidator;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.Expression;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import org.junit.jupiter.api.Test;
 
@@ -49,7 +49,6 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -97,8 +96,8 @@ public class TestTypeValidator
     @Test
     public void testValidProject()
     {
-        Expression expression1 = new Cast(columnB.toSymbolReference(), toSqlType(BIGINT));
-        Expression expression2 = new Cast(columnC.toSymbolReference(), toSqlType(BIGINT));
+        Expression expression1 = new Cast(columnB.toSymbolReference(), BIGINT);
+        Expression expression2 = new Cast(columnC.toSymbolReference(), BIGINT);
         Assignments assignments = Assignments.builder()
                 .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1)
                 .put(symbolAllocator.newSymbol(expression2, BIGINT), expression2)
@@ -183,8 +182,8 @@ public class TestTypeValidator
     @Test
     public void testInvalidProject()
     {
-        Expression expression1 = new Cast(columnB.toSymbolReference(), toSqlType(INTEGER));
-        Expression expression2 = new Cast(columnA.toSymbolReference(), toSqlType(INTEGER));
+        Expression expression1 = new Cast(columnB.toSymbolReference(), INTEGER);
+        Expression expression2 = new Cast(columnA.toSymbolReference(), INTEGER);
         Assignments assignments = Assignments.builder()
                 .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1) // should be INTEGER
                 .put(symbolAllocator.newSymbol(expression1, INTEGER), expression2)

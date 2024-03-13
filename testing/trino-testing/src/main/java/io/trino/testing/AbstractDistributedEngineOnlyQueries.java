@@ -178,7 +178,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         assertExplain(
                 "explain select name from nation where abs(nationkey) = 22",
-                Pattern.quote("abs(\"nationkey\")"),
+                Pattern.quote("abs(nationkey)"),
                 "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}",
                 "Trino version: .*");
     }
@@ -188,7 +188,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         assertExplain(
                 "explain (type distributed) select name from nation where abs(nationkey) = 22",
-                Pattern.quote("abs(\"nationkey\")"),
+                Pattern.quote("abs(nationkey)"),
                 "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}",
                 "Trino version: .*");
     }

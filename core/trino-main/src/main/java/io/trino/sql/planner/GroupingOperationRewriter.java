@@ -19,13 +19,13 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.FieldId;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.ResolvedField;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.Array;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.Array;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.SubscriptExpression;
 
 import java.util.List;
 import java.util.Map;
@@ -34,14 +34,14 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static java.util.Objects.requireNonNull;
 
 public final class GroupingOperationRewriter
 {
     private GroupingOperationRewriter() {}
 
-    public static Expression rewriteGroupingOperation(GroupingOperation expression, Type type, List<Set<Integer>> groupingSets, Map<NodeRef<Expression>, ResolvedField> columnReferenceFields, Optional<Symbol> groupIdSymbol)
+    public static Expression rewriteGroupingOperation(GroupingOperation expression, Type type, List<Set<Integer>> groupingSets, Map<NodeRef<io.trino.sql.tree.Expression>, ResolvedField> columnReferenceFields, Optional<Symbol> groupIdSymbol)
     {
         requireNonNull(groupIdSymbol, "groupIdSymbol is null");
 

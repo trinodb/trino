@@ -16,18 +16,18 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.DecimalLiteral;
+import io.trino.sql.ir.Literal;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -35,12 +35,11 @@ import java.util.Optional;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.SUBTRACT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.SUBTRACT;
 
 public class TestInlineProjections
         extends BaseRuleTest
@@ -88,7 +87,7 @@ public class TestInlineProjections
                                         ImmutableMap.of(
                                                 "x", PlanMatchPattern.expression(new SymbolReference("x")),
                                                 "y", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("x"), new LongLiteral("2"))),
-                                                "z", PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("msg"), new io.trino.sql.tree.LongLiteral("1")))),
+                                                "z", PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("msg"), new LongLiteral("1")))),
                                         values(ImmutableMap.of("x", 0, "msg", 1)))));
     }
 
@@ -109,14 +108,14 @@ public class TestInlineProjections
                                         .put(p.symbol("decimal_addition"), new ArithmeticBinaryExpression(ADD, new SymbolReference("decimal_literal"), new SymbolReference("decimal_literal")))
                                         .build(),
                                 p.project(Assignments.builder()
-                                                .put(p.symbol("decimal_literal", createDecimalType(8, 4)), new Cast(new DecimalLiteral("12.5"), dataType("decimal(8,4)")))
+                                                .put(p.symbol("decimal_literal", createDecimalType(8, 4)), new Cast(new DecimalLiteral("12.5"), createDecimalType(8, 4)))
                                                 .build(),
                                         p.values(p.symbol("x")))))
                 .matches(
                         project(
                                 Map.of(
-                                        "decimal_multiplication", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY, new Cast(new DecimalLiteral("12.5"), dataType("decimal(8,4)")), new Cast(new DecimalLiteral("12.5"), dataType("decimal(8,4)")))),
-                                        "decimal_addition", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new Cast(new DecimalLiteral("12.5"), dataType("decimal(8,4)")), new Cast(new DecimalLiteral("12.5"), dataType("decimal(8,4)"))))),
+                                        "decimal_multiplication", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY, new Cast(new DecimalLiteral("12.5"), createDecimalType(8, 4)), new Cast(new DecimalLiteral("12.5"), createDecimalType(8, 4)))),
+                                        "decimal_addition", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new Cast(new DecimalLiteral("12.5"), createDecimalType(8, 4)), new Cast(new DecimalLiteral("12.5"), createDecimalType(8, 4))))),
                                 values(Map.of("x", 0))));
     }
 

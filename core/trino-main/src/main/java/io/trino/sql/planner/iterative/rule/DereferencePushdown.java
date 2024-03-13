@@ -16,14 +16,14 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.type.RowType;
+import io.trino.sql.ir.DefaultTraversalVisitor;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
 import java.util.List;
@@ -84,7 +84,7 @@ class DereferencePushdown
     {
         ImmutableList.Builder<Expression> builder = ImmutableList.builder();
 
-        new DefaultExpressionTraversalVisitor<ImmutableList.Builder<Expression>>()
+        new DefaultTraversalVisitor<ImmutableList.Builder<Expression>>()
         {
             @Override
             protected Void visitSubscriptExpression(SubscriptExpression node, ImmutableList.Builder<Expression> context)

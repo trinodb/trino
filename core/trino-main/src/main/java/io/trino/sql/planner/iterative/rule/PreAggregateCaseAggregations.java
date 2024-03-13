@@ -27,6 +27,14 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.Literal;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.SearchedCaseExpression;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
@@ -37,14 +45,6 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.SearchedCaseExpression;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.WhenClause;
 
 import java.util.List;
 import java.util.Map;
@@ -65,7 +65,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -298,7 +297,7 @@ public class PreAggregateCaseAggregations
                             Type preProjectionType = getType(context, preProjection);
                             Type aggregationInputType = getOnlyElement(key.getFunction().getSignature().getArgumentTypes());
                             if (!preProjectionType.equals(aggregationInputType)) {
-                                preProjection = new Cast(preProjection, toSqlType(aggregationInputType));
+                                preProjection = new Cast(preProjection, aggregationInputType);
                                 preProjectionType = aggregationInputType;
                             }
 
@@ -307,7 +306,7 @@ public class PreAggregateCaseAggregations
                                 Expression unionConditions = or(caseAggregations.stream()
                                         .map(CaseAggregation::getOperand)
                                         .collect(toImmutableSet()));
-                                preProjection = new IfExpression(unionConditions, preProjection, null);
+                                preProjection = new IfExpression(unionConditions, preProjection, Optional.empty());
                             }
 
                             Symbol preProjectionSymbol = context.getSymbolAllocator().newSymbol(preProjection, preProjectionType);
@@ -413,9 +412,7 @@ public class PreAggregateCaseAggregations
             }
 
             // cumulative aggregation default value need to be CAST to cumulative aggregation input type
-            cumulativeAggregationDefaultValue = Optional.of(new Cast(
-                    caseExpression.getDefaultValue().get(),
-                    toSqlType(aggregationType)));
+            cumulativeAggregationDefaultValue = Optional.of(new Cast(caseExpression.getDefaultValue().get(), aggregationType));
         }
 
         return Optional.of(new CaseAggregation(

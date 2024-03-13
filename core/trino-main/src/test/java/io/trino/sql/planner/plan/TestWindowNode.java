@@ -20,18 +20,14 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.server.ExpressionSerialization.ExpressionDeserializer;
-import io.trino.server.ExpressionSerialization.ExpressionSerializer;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.tree.Expression;
 import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
 import org.junit.jupiter.api.Test;
 
@@ -57,16 +53,13 @@ public class TestWindowNode
         functionResolution = new TestingFunctionResolution();
 
         // dependencies copied from ServerMainModule.java to avoid depending on whole ServerMainModule here
-        SqlParser sqlParser = new SqlParser();
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(ImmutableMap.of(
-                Expression.class, new ExpressionSerializer()));
-        provider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, new TypeDeserializer(functionResolution.getPlannerContext().getTypeManager()),
-                Expression.class, new ExpressionDeserializer(sqlParser),
-                TypeSignature.class, new TypeSignatureDeserializer()));
         provider.setKeyDeserializers(ImmutableMap.of(
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));
+
+        provider.setJsonDeserializers(ImmutableMap.of(
+                Type.class, new TypeDeserializer(new TestingTypeManager()::getType)));
+
         objectMapper = provider.get();
     }
 

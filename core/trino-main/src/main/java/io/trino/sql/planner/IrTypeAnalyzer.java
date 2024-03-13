@@ -34,42 +34,41 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.Array;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.BinaryLiteral;
-import io.trino.sql.tree.BindExpression;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IntervalLiteral;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.Node;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SearchedCaseExpression;
-import io.trino.sql.tree.SimpleCaseExpression;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.Array;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.BinaryLiteral;
+import io.trino.sql.ir.BindExpression;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.DecimalLiteral;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IntervalLiteral;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SearchedCaseExpression;
+import io.trino.sql.ir.SimpleCaseExpression;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.type.FunctionType;
 
 import java.util.ArrayList;
@@ -92,7 +91,6 @@ import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.DateTimes.extractTimePrecision;
 import static io.trino.type.DateTimes.extractTimestampPrecision;
 import static io.trino.type.DateTimes.timeHasTimeZone;
@@ -140,7 +138,7 @@ public class IrTypeAnalyzer
     }
 
     private static class Visitor
-            extends AstVisitor<Type, Context>
+            extends IrVisitor<Type, Context>
     {
         private static final AccessControl ALLOW_ALL_ACCESS_CONTROL = new AllowAllAccessControl();
 
@@ -177,15 +175,14 @@ public class IrTypeAnalyzer
         }
 
         @Override
-        public Type process(Node node, Context context)
+        public Type process(Expression node, Context context)
         {
-            if (node instanceof Expression) {
-                // don't double process a node
-                Type type = expressionTypes.get(NodeRef.of(((Expression) node)));
-                if (type != null) {
-                    return type;
-                }
+            // don't double process a node
+            Type type = expressionTypes.get(NodeRef.of(node));
+            if (type != null) {
+                return type;
             }
+
             return super.process(node, context);
         }
 
@@ -202,7 +199,7 @@ public class IrTypeAnalyzer
         @Override
         protected Type visitSymbolReference(SymbolReference node, Context context)
         {
-            Symbol symbol = Symbol.from(node);
+            Symbol symbol = new Symbol(node.getName());
             Type type = context.argumentTypes().get(symbol);
             if (type == null) {
                 type = symbolTypes.get(symbol);
@@ -505,7 +502,7 @@ public class IrTypeAnalyzer
             ImmutableMap.Builder<Symbol, Type> typeBindings = ImmutableMap.builder();
             for (int i = 0; i < argumentTypes.size(); i++) {
                 typeBindings.put(
-                        new Symbol(lambda.getArguments().get(i).getName().getValue()),
+                        new Symbol(lambda.getArguments().get(i).getName()),
                         argumentTypes.get(i));
             }
 
@@ -527,7 +524,7 @@ public class IrTypeAnalyzer
         public Type visitCast(Cast node, Context context)
         {
             process(node.getExpression(), context);
-            return setExpressionType(node, plannerContext.getTypeManager().getType(toTypeSignature(node.getType())));
+            return setExpressionType(node, node.getType());
         }
 
         @Override
@@ -549,12 +546,6 @@ public class IrTypeAnalyzer
 
         @Override
         protected Type visitExpression(Expression node, Context context)
-        {
-            throw new UnsupportedOperationException("Not a valid IR expression: " + node.getClass().getName());
-        }
-
-        @Override
-        protected Type visitNode(Node node, Context context)
         {
             throw new UnsupportedOperationException("Not a valid IR expression: " + node.getClass().getName());
         }

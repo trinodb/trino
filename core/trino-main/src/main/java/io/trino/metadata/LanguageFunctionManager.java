@@ -101,7 +101,7 @@ public class LanguageFunctionManager
     {
         checkState(analyzer == null, "plannerContext already set");
         analyzer = new SqlRoutineAnalyzer(plannerContext, WarningCollector.NOOP);
-        planner = new SqlRoutinePlanner(plannerContext, WarningCollector.NOOP);
+        planner = new SqlRoutinePlanner(plannerContext);
     }
 
     public void tryRegisterQuery(Session session)

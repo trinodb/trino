@@ -15,6 +15,15 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -25,24 +34,20 @@ import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.dataType;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonExpression.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.LogicalExpression.Operator.AND;
+import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -57,11 +62,6 @@ import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static io.trino.sql.tree.LogicalExpression.Operator.AND;
-import static io.trino.sql.tree.LogicalExpression.Operator.OR;
 
 public class TestImplementTableFunctionSource
         extends BaseRuleTest
@@ -281,8 +281,8 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), dataType("bigint"))))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), BIGINT)))),
                                 project(// append helper symbols for joined nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new GenericLiteral("BIGINT", "-1")), new CoalesceExpression(new SymbolReference("input_2_row_number"), new GenericLiteral("BIGINT", "-1"))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
@@ -373,9 +373,9 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of("combined_row_number_1_2_3"), ImmutableMap.of("combined_row_number_1_2_3", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_3_row_number"), new Cast(new NullLiteral(), dataType("bigint"))))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_3_row_number"), new Cast(new NullLiteral(), BIGINT)))),
                                 project(// append helper symbols for joined nodes
                                         ImmutableMap.of(
                                                 "combined_row_number_1_2_3", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_row_number_1_2"), new GenericLiteral("BIGINT", "-1")), new CoalesceExpression(new SymbolReference("input_3_row_number"), new GenericLiteral("BIGINT", "-1"))), new SymbolReference("combined_row_number_1_2"), new SymbolReference("input_3_row_number"))),
@@ -476,8 +476,8 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), dataType("bigint"))))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), BIGINT)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new GenericLiteral("BIGINT", "-1")), new CoalesceExpression(new SymbolReference("input_2_row_number"), new GenericLiteral("BIGINT", "-1"))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
@@ -556,8 +556,8 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), dataType("bigint"))))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), BIGINT)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new GenericLiteral("BIGINT", "-1")), new CoalesceExpression(new SymbolReference("input_2_row_number"), new GenericLiteral("BIGINT", "-1"))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
@@ -632,8 +632,8 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), dataType("bigint"))))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), BIGINT)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new GenericLiteral("BIGINT", "-1")), new CoalesceExpression(new SymbolReference("input_2_row_number"), new GenericLiteral("BIGINT", "-1"))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
@@ -708,8 +708,8 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), dataType("bigint"))))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), BIGINT)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_2_row_number"), new GenericLiteral("BIGINT", "-1")), new CoalesceExpression(new SymbolReference("input_1_row_number"), new GenericLiteral("BIGINT", "-1"))), new SymbolReference("input_2_row_number"), new SymbolReference("input_1_row_number"))),
@@ -784,8 +784,8 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), dataType("bigint"))))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), BIGINT)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new GenericLiteral("BIGINT", "-1")), new CoalesceExpression(new SymbolReference("input_2_row_number"), new GenericLiteral("BIGINT", "-1"))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
@@ -873,9 +873,9 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column_1_2_3"), ImmutableList.of("combined_row_number_1_2_3"), ImmutableMap.of("combined_row_number_1_2_3", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_3_row_number"), new Cast(new NullLiteral(), dataType("bigint"))))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_3_row_number"), new Cast(new NullLiteral(), BIGINT)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number_1_2_3", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_row_number_1_2"), new GenericLiteral("BIGINT", "-1")), new CoalesceExpression(new SymbolReference("input_3_row_number"), new GenericLiteral("BIGINT", "-1"))), new SymbolReference("combined_row_number_1_2"), new SymbolReference("input_3_row_number"))),
@@ -1002,10 +1002,10 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column_1_2", "combined_partition_column_3_4"), ImmutableList.of("combined_row_number_1_2_3_4"), ImmutableMap.of("combined_row_number_1_2_3_4", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_3_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_4", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_4_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_4_row_number"), new Cast(new NullLiteral(), dataType("bigint"))))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_3_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_4", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_4_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_4_row_number"), new Cast(new NullLiteral(), BIGINT)))),
                                 project(// append helper symbols for joined nodes
                                         ImmutableMap.of(
                                                 "combined_row_number_1_2_3_4", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_row_number_1_2"), new GenericLiteral("BIGINT", "-1")), new CoalesceExpression(new SymbolReference("combined_row_number_3_4"), new GenericLiteral("BIGINT", "-1"))), new SymbolReference("combined_row_number_1_2"), new SymbolReference("combined_row_number_3_4"))),
@@ -1140,9 +1140,9 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column_2_3", "c"), ImmutableList.of("combined_row_number_2_3_1"), ImmutableMap.of("combined_row_number_2_3_1", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_2_3_1")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_2_3_1")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_2_3_1")), new SymbolReference("input_3_row_number"), new Cast(new NullLiteral(), dataType("bigint"))))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_2_3_1")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_2_3_1")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_2_3_1")), new SymbolReference("input_3_row_number"), new Cast(new NullLiteral(), BIGINT)))),
                                 project(// append helper symbols for joined nodes
                                         ImmutableMap.of(
                                                 "combined_row_number_2_3_1", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_row_number_2_3"), new GenericLiteral("BIGINT", "-1")), new CoalesceExpression(new SymbolReference("input_1_row_number"), new GenericLiteral("BIGINT", "-1"))), new SymbolReference("combined_row_number_2_3"), new SymbolReference("input_1_row_number"))),
@@ -1220,7 +1220,7 @@ public class TestImplementTableFunctionSource
                                             Assignments.builder()
                                                     .put(c, new SymbolReference("c"))
                                                     .put(d, new SymbolReference("d"))
-                                                    .put(cCoerced, new Cast(new SymbolReference("c"), dataType("integer")))
+                                                    .put(cCoerced, new Cast(new SymbolReference("c"), INTEGER))
                                                     .build(),
                                             p.values(c, d)),
                                     p.values(e, f)),
@@ -1255,8 +1255,8 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), dataType("bigint"))))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), BIGINT)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new GenericLiteral("BIGINT", "-1")), new CoalesceExpression(new SymbolReference("input_2_row_number"), new GenericLiteral("BIGINT", "-1"))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
@@ -1282,7 +1282,7 @@ public class TestImplementTableFunctionSource
                                                                         .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 project(
-                                                                        ImmutableMap.of("c_coerced", expression(new Cast(new SymbolReference("c"), dataType("integer")))),
+                                                                        ImmutableMap.of("c_coerced", expression(new Cast(new SymbolReference("c"), INTEGER))),
                                                                         values("c", "d"))))
                                                         .right(window(// append helper symbols for source input_2
                                                                 builder -> builder
@@ -1340,8 +1340,8 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column_1", "combined_partition_column_2"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), dataType("bigint"))))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), BIGINT)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new GenericLiteral("BIGINT", "-1")), new CoalesceExpression(new SymbolReference("input_2_row_number"), new GenericLiteral("BIGINT", "-1"))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
@@ -1423,8 +1423,8 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), dataType("bigint")))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), dataType("bigint"))))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Cast(new NullLiteral(), BIGINT))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Cast(new NullLiteral(), BIGINT)))),
                                 project(// append helper symbols for joined nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new GenericLiteral("BIGINT", "-1")), new CoalesceExpression(new SymbolReference("input_2_row_number"), new GenericLiteral("BIGINT", "-1"))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),

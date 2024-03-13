@@ -20,20 +20,20 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.DecimalLiteral;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
@@ -42,12 +42,11 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
-import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.SUBTRACT;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.DIVIDE;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MODULUS;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.SUBTRACT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -117,7 +116,7 @@ public class TestScalarStatsCalculator
         assertCalculate(
                 functionResolution
                         .functionCallBuilder("length")
-                        .addArgument(createVarcharType(10), new Cast(new NullLiteral(), toSqlType(createVarcharType(10))))
+                        .addArgument(createVarcharType(10), new Cast(new NullLiteral(), createVarcharType(10)))
                         .build())
                 .distinctValuesCount(0.0)
                 .lowValueUnknown()
@@ -182,7 +181,7 @@ public class TestScalarStatsCalculator
                 .build();
 
         assertCalculate(
-                new Cast(new SymbolReference("a"), toSqlType(BIGINT)),
+                new Cast(new SymbolReference("a"), BIGINT),
                 inputStatistics,
                 TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), BIGINT)))
                 .lowValue(2.0)
@@ -206,7 +205,7 @@ public class TestScalarStatsCalculator
                 .build();
 
         assertCalculate(
-                new Cast(new SymbolReference("a"), toSqlType(BIGINT)),
+                new Cast(new SymbolReference("a"), BIGINT),
                 inputStatistics,
                 TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), BIGINT)))
                 .lowValue(2.0)
@@ -229,7 +228,7 @@ public class TestScalarStatsCalculator
                 .build();
 
         assertCalculate(
-                new Cast(new SymbolReference("a"), toSqlType(BIGINT)),
+                new Cast(new SymbolReference("a"), BIGINT),
                 inputStatistics,
                 TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), BIGINT)))
                 .lowValue(2.0)
@@ -253,7 +252,7 @@ public class TestScalarStatsCalculator
                 .build();
 
         assertCalculate(
-                new Cast(new SymbolReference("a"), toSqlType(DOUBLE)),
+                new Cast(new SymbolReference("a"), DOUBLE),
                 inputStatistics,
                 TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), DOUBLE)))
                 .lowValue(2.0)
@@ -267,7 +266,7 @@ public class TestScalarStatsCalculator
     public void testCastUnknown()
     {
         assertCalculate(
-                new Cast(new SymbolReference("a"), toSqlType(BIGINT)),
+                new Cast(new SymbolReference("a"), BIGINT),
                 PlanNodeStatsEstimate.unknown(),
                 TypeProvider.viewOf(ImmutableMap.of(new Symbol("a"), BIGINT)))
                 .lowValueUnknown()

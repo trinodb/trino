@@ -25,8 +25,8 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.planner.plan.DynamicFilterId;
-import io.trino.sql.tree.Cast;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -37,11 +37,10 @@ import java.util.concurrent.CompletableFuture;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLocalDynamicFiltersCollector
@@ -95,7 +94,7 @@ public class TestLocalDynamicFiltersCollector
         ColumnHandle column = new TestingColumnHandle("column");
         DynamicFilter filter = createDynamicFilter(
                 collector,
-                ImmutableList.of(new DynamicFilters.Descriptor(filterId, new Cast(symbol.toSymbolReference(), toSqlType(BIGINT)))),
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId, new Cast(symbol.toSymbolReference(), BIGINT))),
                 ImmutableMap.of(symbol, column),
                 symbolAllocator.getTypes());
 
