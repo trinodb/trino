@@ -102,7 +102,7 @@ public class TestPushDownDereferencesRules
         tester().assertThat(new PushDownDereferenceThroughFilter(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.filter(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new GenericLiteral("BIGINT", "5")),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new GenericLiteral(BIGINT, "5")),
                                 p.values(p.symbol("x"))))
                 .doesNotFire();
 
@@ -202,14 +202,14 @@ public class TestPushDownDereferencesRules
                                 p.join(INNER,
                                         p.values(p.symbol("msg1", ROW_TYPE)),
                                         p.values(p.symbol("msg2", ROW_TYPE)),
-                                        new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD, new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(2))), new GenericLiteral("BIGINT", "10")))))
+                                        new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD, new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(2))), new GenericLiteral(BIGINT, "10")))))
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "expr", expression(new SymbolReference("msg1_x")),
                                         "expr_2", expression(new SymbolReference("msg2"))),
                                 join(INNER, builder -> builder
-                                        .filter(new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD, new SymbolReference("msg1_x"), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(2))), new GenericLiteral("BIGINT", "10")))
+                                        .filter(new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD, new SymbolReference("msg1_x"), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(2))), new GenericLiteral(BIGINT, "10")))
                                         .left(
                                                 strictProject(
                                                         ImmutableMap.of(

@@ -58,6 +58,7 @@ import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampWithTimeZoneParametricType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
@@ -313,7 +314,7 @@ public class TestMaterializedViews
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "A_CAST", expression(new ArithmeticBinaryExpression(ADD, new Cast(new SymbolReference("A"), BIGINT), new GenericLiteral("BIGINT", "1"))),
+                                        "A_CAST", expression(new ArithmeticBinaryExpression(ADD, new Cast(new SymbolReference("A"), BIGINT), new GenericLiteral(BIGINT, "1"))),
                                         "B_CAST", expression(new Cast(new SymbolReference("B"), BIGINT))),
                                 tableScan("storage_table_with_casts", ImmutableMap.of("A", "a", "B", "b")))));
     }
@@ -333,7 +334,7 @@ public class TestMaterializedViews
         // No-op REFRESH
         assertPlan("REFRESH MATERIALIZED VIEW materialized_view_with_casts",
                 output(
-                        values(List.of("rows"), List.of(List.of(new GenericLiteral("BIGINT", "0"))))));
+                        values(List.of("rows"), List.of(List.of(new GenericLiteral(BIGINT, "0"))))));
     }
 
     @Test
@@ -343,7 +344,7 @@ public class TestMaterializedViews
                 anyTree(
                         project(ImmutableMap.of("ts_0", expression(new Cast(new SymbolReference("ts"), TIMESTAMP_TZ_MILLIS))),
                                 filter(
-                                        new ComparisonExpression(LESS_THAN, new Cast(new SymbolReference("ts"), TIMESTAMP_TZ_MILLIS), new GenericLiteral("TIMESTAMP", "2024-01-01 00:00:00.000 America/New_York")),
+                                        new ComparisonExpression(LESS_THAN, new Cast(new SymbolReference("ts"), TIMESTAMP_TZ_MILLIS), new GenericLiteral(createTimestampWithTimeZoneType(3), "2024-01-01 00:00:00.000 America/New_York")),
                                         tableScan("timestamp_test_storage", ImmutableMap.of("ts", "ts", "id", "id"))))));
     }
 

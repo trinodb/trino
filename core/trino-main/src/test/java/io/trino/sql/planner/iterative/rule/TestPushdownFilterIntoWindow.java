@@ -121,14 +121,14 @@ public class TestPushdownFilterIntoWindow
                     return p.filter(
                             new LogicalExpression(AND, ImmutableList.of(
                                     new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Cast(new LongLiteral(100), BIGINT)),
-                                    new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral("BIGINT", "1")))),
+                                    new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(BIGINT, "1")))),
                             p.window(
                                     new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                                     ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                                     p.values(p.symbol("a"))));
                 })
                 .matches(filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral("BIGINT", "1")),
+                        new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(BIGINT, "1")),
                         topNRanking(pattern -> pattern
                                         .partial(false)
                                         .maxRankingPerPartition(99)
