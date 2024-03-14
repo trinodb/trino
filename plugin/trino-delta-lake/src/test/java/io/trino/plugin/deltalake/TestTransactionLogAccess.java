@@ -614,7 +614,7 @@ public class TestTransactionLogAccess
                 },
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
+                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
@@ -847,7 +847,7 @@ public class TestTransactionLogAccess
                         .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
+                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .build());
 
@@ -887,7 +887,7 @@ public class TestTransactionLogAccess
                         .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
+                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .build());
 
@@ -906,7 +906,7 @@ public class TestTransactionLogAccess
                         .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
+                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .build());
     }
@@ -937,7 +937,7 @@ public class TestTransactionLogAccess
                         .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
+                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .build());
 
@@ -950,7 +950,7 @@ public class TestTransactionLogAccess
                     }
                 },
                 ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
+                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .build());
     }
