@@ -57,7 +57,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.alwaysTrue;
+import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
@@ -207,7 +207,7 @@ public class VacuumProcedure
                     handle.getMetadataEntry(),
                     handle.getProtocolEntry(),
                     TupleDomain.all(),
-                    alwaysTrue())) {
+                    alwaysFalse())) {
                 retainedPaths = Stream.concat(
                                 activeAddEntries
                                         .map(AddFileEntry::getPath),
