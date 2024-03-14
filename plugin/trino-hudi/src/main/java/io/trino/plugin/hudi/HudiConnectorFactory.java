@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 
 public class HudiConnectorFactory
@@ -81,8 +82,8 @@ public class HudiConnectorFactory
                     new HiveMetastoreModule(Optional.empty()),
                     new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry()),
                     new MBeanServerModule(),
+                    module.orElse(EMPTY_MODULE),
                     binder -> {
-                        module.ifPresent(binder::install);
                         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                         binder.bind(Tracer.class).toInstance(context.getTracer());
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
