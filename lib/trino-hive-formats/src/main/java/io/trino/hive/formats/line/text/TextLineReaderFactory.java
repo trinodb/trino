@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.hive.formats.HiveClassNames.TEXT_INPUT_FORMAT_CLASS;
 
 public class TextLineReaderFactory
         implements LineReaderFactory
@@ -45,7 +46,7 @@ public class TextLineReaderFactory
     @Override
     public String getHiveOutputFormatClassName()
     {
-        return "org.apache.hadoop.mapred.TextInputFormat";
+        return TEXT_INPUT_FORMAT_CLASS;
     }
 
     @Override
