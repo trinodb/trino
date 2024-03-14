@@ -501,7 +501,7 @@ public class IrTypeAnalyzer
             ImmutableMap.Builder<Symbol, Type> typeBindings = ImmutableMap.builder();
             for (int i = 0; i < argumentTypes.size(); i++) {
                 typeBindings.put(
-                        new Symbol(lambda.getArguments().get(i).getName()),
+                        new Symbol(lambda.getArguments().get(i)),
                         argumentTypes.get(i));
             }
 

@@ -176,7 +176,7 @@ public final class ExpressionFormatter
         protected String visitLambdaExpression(LambdaExpression node, Void context)
         {
             return "(" +
-                    Joiner.on(", ").join(node.getArguments().stream().map(LambdaArgumentDeclaration::getName).toList()) +
+                    String.join(", ", node.getArguments()) +
                     ") -> " +
                     process(node.getBody(), context);
         }

@@ -50,7 +50,6 @@ import io.trino.sql.ir.IntervalLiteral;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.LambdaArgumentDeclaration;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.LongLiteral;
@@ -313,9 +312,7 @@ public final class SqlToRowExpressionTranslator
             Type type = getType(node);
             List<Type> typeParameters = type.getTypeParameters();
             List<Type> argumentTypes = typeParameters.subList(0, typeParameters.size() - 1);
-            List<String> argumentNames = node.getArguments().stream()
-                    .map(LambdaArgumentDeclaration::getName)
-                    .collect(toImmutableList());
+            List<String> argumentNames = node.getArguments();
 
             return new LambdaDefinitionExpression(argumentTypes, argumentNames, body);
         }

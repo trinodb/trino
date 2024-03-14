@@ -34,7 +34,6 @@ import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
-import io.trino.sql.ir.LambdaArgumentDeclaration;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.LongLiteral;
@@ -130,9 +129,9 @@ public class TestPageFieldsToInputParametersRewriter
         builder = RowExpressionBuilder.create()
                 .addSymbol("array_bigint0", new ArrayType(BIGINT))
                 .addSymbol("array_bigint1", new ArrayType(BIGINT));
-        verifyEagerlyLoadedColumns(builder.buildExpression(new FunctionCall(TRANSFORM.toQualifiedName(), ImmutableList.of(new SymbolReference("array_bigint0"), new LambdaExpression(ImmutableList.of(new LambdaArgumentDeclaration("x")), new LongLiteral(1))))), 1, ImmutableSet.of());
-        verifyEagerlyLoadedColumns(builder.buildExpression(new FunctionCall(TRANSFORM.toQualifiedName(), ImmutableList.of(new SymbolReference("array_bigint0"), new LambdaExpression(ImmutableList.of(new LambdaArgumentDeclaration("x")), new ArithmeticBinaryExpression(MULTIPLY, new LongLiteral(2), new SymbolReference("x")))))), 1, ImmutableSet.of());
-        verifyEagerlyLoadedColumns(builder.buildExpression(new FunctionCall(ZIP_WITH.toQualifiedName(), ImmutableList.of(new SymbolReference("array_bigint0"), new SymbolReference("array_bigint1"), new LambdaExpression(ImmutableList.of(new LambdaArgumentDeclaration("x"), new LambdaArgumentDeclaration("y")), new ArithmeticBinaryExpression(MULTIPLY, new GenericLiteral("BIGINT", "2"), new SymbolReference("x")))))), 2, ImmutableSet.of());
+        verifyEagerlyLoadedColumns(builder.buildExpression(new FunctionCall(TRANSFORM.toQualifiedName(), ImmutableList.of(new SymbolReference("array_bigint0"), new LambdaExpression(ImmutableList.of("x"), new LongLiteral(1))))), 1, ImmutableSet.of());
+        verifyEagerlyLoadedColumns(builder.buildExpression(new FunctionCall(TRANSFORM.toQualifiedName(), ImmutableList.of(new SymbolReference("array_bigint0"), new LambdaExpression(ImmutableList.of("x"), new ArithmeticBinaryExpression(MULTIPLY, new LongLiteral(2), new SymbolReference("x")))))), 1, ImmutableSet.of());
+        verifyEagerlyLoadedColumns(builder.buildExpression(new FunctionCall(ZIP_WITH.toQualifiedName(), ImmutableList.of(new SymbolReference("array_bigint0"), new SymbolReference("array_bigint1"), new LambdaExpression(ImmutableList.of("x", "y"), new ArithmeticBinaryExpression(MULTIPLY, new GenericLiteral("BIGINT", "2"), new SymbolReference("x")))))), 2, ImmutableSet.of());
     }
 
     private static void verifyEagerlyLoadedColumns(RowExpression rowExpression, int columnCount)
