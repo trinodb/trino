@@ -13,14 +13,14 @@
  */
 package io.trino.hive.formats.line.csv;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class CsvConstants
 {
-    static final List<String> HIVE_SERDE_CLASS_NAMES = ImmutableList.of("org.apache.hadoop.hive.serde2.OpenCSVSerde");
+    static final Set<String> HIVE_SERDE_CLASS_NAMES = ImmutableSet.of("org.apache.hadoop.hive.serde2.OpenCSVSerde");
     static final String SEPARATOR_KEY = "separatorChar";
     static final String QUOTE_KEY = "quoteChar";
     static final String ESCAPE_KEY = "escapeChar";
