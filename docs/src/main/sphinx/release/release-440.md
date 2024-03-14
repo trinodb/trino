@@ -63,6 +63,10 @@
 
 ## Iceberg connector
 
+```{warning}
+This release has a major regression which is fixed in Trino 442.
+```
+
 * Improve latency of queries when file system caching is enabled. ({issue}`20803`)
 * Disallow setting the materialized view owner when using system security with
   the Glue catalog. ({issue}`20647`)
