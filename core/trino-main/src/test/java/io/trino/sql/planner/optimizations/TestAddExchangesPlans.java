@@ -29,7 +29,6 @@ import io.trino.spi.type.BigintType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -61,6 +60,7 @@ import static io.trino.SystemSessionProperties.USE_COST_BASED_PARTITIONING;
 import static io.trino.SystemSessionProperties.USE_EXACT_PARTITIONING;
 import static io.trino.SystemSessionProperties.isColocatedJoinEnabled;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MODULUS;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
@@ -145,7 +145,7 @@ public class TestAddExchangesPlans
                                         anyTree(
                                                 exchange(REMOTE, REPARTITION,
                                                         anyTree(
-                                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral(BIGINT, "1")))))))))));
+                                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(GenericLiteral.constant(BIGINT, 1L)))))))))));
     }
 
     @Test
@@ -185,7 +185,7 @@ public class TestAddExchangesPlans
                                                         anyTree(
                                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
                                                 exchange(REMOTE, REPARTITION,
-                                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral(BIGINT, "1")))))))
+                                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(GenericLiteral.constant(BIGINT, 1L)))))))
                                 .right(
                                         anyTree(
                                                 exchange(REMOTE, REPARTITION,
@@ -269,11 +269,11 @@ public class TestAddExchangesPlans
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1", "partition2"),
                                                 values(
                                                         ImmutableList.of("field", "partition2", "partition1"),
-                                                        ImmutableList.of(ImmutableList.of(new LongLiteral(1), new LongLiteral(2), new LongLiteral(1))))),
+                                                        ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(INTEGER, 1L))))),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3"),
                                                 values(
                                                         ImmutableList.of("partition3", "partition4", "field_0"),
-                                                        ImmutableList.of(ImmutableList.of(new LongLiteral(3), new LongLiteral(4), new LongLiteral(1)))))))));
+                                                        ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 3L), GenericLiteral.constant(INTEGER, 4L), GenericLiteral.constant(INTEGER, 1L)))))))));
 
         assertDistributedPlan(
                 query,
@@ -287,11 +287,11 @@ public class TestAddExchangesPlans
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1"),
                                                 values(
                                                         ImmutableList.of("field", "partition2", "partition1"),
-                                                        ImmutableList.of(ImmutableList.of(new LongLiteral(1), new LongLiteral(2), new LongLiteral(1))))),
+                                                        ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(INTEGER, 1L))))),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3"),
                                                 values(
                                                         ImmutableList.of("partition3", "partition4", "field_0"),
-                                                        ImmutableList.of(ImmutableList.of(new LongLiteral(3), new LongLiteral(4), new LongLiteral(1)))))))));
+                                                        ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 3L), GenericLiteral.constant(INTEGER, 4L), GenericLiteral.constant(INTEGER, 1L)))))))));
     }
 
     @Test
@@ -305,7 +305,7 @@ public class TestAddExchangesPlans
                         project(
                                 ImmutableMap.of("name", expression(new SymbolReference("name"))),
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), new GenericLiteral(BIGINT, "5")),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), GenericLiteral.constant(BIGINT, 5L)),
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),
@@ -330,7 +330,7 @@ public class TestAddExchangesPlans
                         project(
                                 ImmutableMap.of("name", expression(new SymbolReference("name"))),
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), new GenericLiteral(BIGINT, "5")),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), GenericLiteral.constant(BIGINT, 5L)),
                                         exchange(
                                                 LOCAL,
                                                 REPARTITION,
@@ -380,7 +380,7 @@ public class TestAddExchangesPlans
                                         project(
                                                 ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                                 filter(
-                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(10)),
+                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 10L)),
                                                         exchange(
                                                                 LOCAL,
                                                                 REPARTITION,
@@ -426,7 +426,7 @@ public class TestAddExchangesPlans
                                         project(
                                                 ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                                 filter(
-                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(10)),
+                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 10L)),
                                                         exchange(
                                                                 LOCAL,
                                                                 REPARTITION,
@@ -465,7 +465,7 @@ public class TestAddExchangesPlans
                                 project(
                                         ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                         filter(
-                                                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(10)),
+                                                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 10L)),
                                                 exchange(
                                                         LOCAL,
                                                         REPARTITION,
@@ -474,7 +474,7 @@ public class TestAddExchangesPlans
         assertPlan(
                 "SELECT 10, a FROM (VALUES 1) t(a)",
                 anyTree(
-                        values(ImmutableList.of("a", "expr"), ImmutableList.of(ImmutableList.of(new LongLiteral(1), new LongLiteral(10))))));
+                        values(ImmutableList.of("a", "expr"), ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 10L))))));
 
         assertPlan(
                 "SELECT 1 UNION ALL SELECT 1",
@@ -482,8 +482,8 @@ public class TestAddExchangesPlans
                         exchange(
                                 LOCAL,
                                 REPARTITION,
-                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new LongLiteral(1)))),
-                                values(ImmutableList.of("expr_0"), ImmutableList.of(ImmutableList.of(new LongLiteral(1)))))));
+                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L)))),
+                                values(ImmutableList.of("expr_0"), ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L)))))));
     }
 
     @Test
@@ -698,7 +698,7 @@ public class TestAddExchangesPlans
                                                                                 Optional.empty(),
                                                                                 PARTIAL,
                                                                                 project(
-                                                                                        ImmutableMap.of("partkey_expr", expression(new ArithmeticBinaryExpression(MODULUS, new SymbolReference("partkey"), new GenericLiteral(BIGINT, "10")))),
+                                                                                        ImmutableMap.of("partkey_expr", expression(new ArithmeticBinaryExpression(MODULUS, new SymbolReference("partkey"), GenericLiteral.constant(BIGINT, 10L)))),
                                                                                         tableScan("lineitem", ImmutableMap.of(
                                                                                                 "partkey", "partkey",
                                                                                                 "suppkey", "suppkey"))))))))))))));
@@ -728,7 +728,7 @@ public class TestAddExchangesPlans
                                                         Optional.empty(),
                                                         Step.PARTIAL,
                                                         project(
-                                                                ImmutableMap.of("orderkey_expr", expression(new ArithmeticBinaryExpression(MODULUS, new SymbolReference("orderkey"), new GenericLiteral(BIGINT, "10000")))),
+                                                                ImmutableMap.of("orderkey_expr", expression(new ArithmeticBinaryExpression(MODULUS, new SymbolReference("orderkey"), GenericLiteral.constant(BIGINT, 10000L)))),
                                                                 tableScan("lineitem", ImmutableMap.of(
                                                                         "partkey", "partkey",
                                                                         "orderkey", "orderkey",

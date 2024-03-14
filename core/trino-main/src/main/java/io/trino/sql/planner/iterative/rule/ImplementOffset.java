@@ -80,7 +80,7 @@ public class ImplementOffset
                 new ComparisonExpression(
                         GREATER_THAN,
                         rowNumberSymbol.toSymbolReference(),
-                        new GenericLiteral(BIGINT, Long.toString(parent.getCount()))));
+                        GenericLiteral.constant(BIGINT, parent.getCount())));
 
         ProjectNode projectNode = new ProjectNode(
                 context.getIdAllocator().getNextId(),

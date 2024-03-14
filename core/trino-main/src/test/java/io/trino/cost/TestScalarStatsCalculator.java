@@ -20,11 +20,10 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.type.Decimals;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
-import io.trino.sql.ir.DecimalLiteral;
-import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NullLiteral;
@@ -38,7 +37,10 @@ import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
+
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -65,37 +67,37 @@ public class TestScalarStatsCalculator
     @Test
     public void testLiteral()
     {
-        assertCalculate(new GenericLiteral(TINYINT, "7"))
+        assertCalculate(GenericLiteral.constant(TINYINT, 7L))
                 .distinctValuesCount(1.0)
                 .lowValue(7)
                 .highValue(7)
                 .nullsFraction(0.0);
 
-        assertCalculate(new GenericLiteral(SMALLINT, "8"))
+        assertCalculate(GenericLiteral.constant(SMALLINT, 8L))
                 .distinctValuesCount(1.0)
                 .lowValue(8)
                 .highValue(8)
                 .nullsFraction(0.0);
 
-        assertCalculate(new GenericLiteral(INTEGER, "9"))
+        assertCalculate(GenericLiteral.constant(INTEGER, 9L))
                 .distinctValuesCount(1.0)
                 .lowValue(9)
                 .highValue(9)
                 .nullsFraction(0.0);
 
-        assertCalculate(new GenericLiteral(BIGINT, Long.toString(MAX_VALUE)))
+        assertCalculate(GenericLiteral.constant(BIGINT, MAX_VALUE))
                 .distinctValuesCount(1.0)
                 .lowValue(Long.MAX_VALUE)
                 .highValue(Long.MAX_VALUE)
                 .nullsFraction(0.0);
 
-        assertCalculate(new DoubleLiteral(7.5))
+        assertCalculate(GenericLiteral.constant(DOUBLE, 7.5))
                 .distinctValuesCount(1.0)
                 .lowValue(7.5)
                 .highValue(7.5)
                 .nullsFraction(0.0);
 
-        assertCalculate(new DecimalLiteral("75.5"))
+        assertCalculate(GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("75.5"))))
                 .distinctValuesCount(1.0)
                 .lowValue(75.5)
                 .highValue(75.5)

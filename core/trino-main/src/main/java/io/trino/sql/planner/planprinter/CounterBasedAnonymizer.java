@@ -23,15 +23,11 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.BinaryLiteral;
-import io.trino.sql.ir.BooleanLiteral;
-import io.trino.sql.ir.DecimalLiteral;
-import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionFormatter;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IntervalLiteral;
 import io.trino.sql.ir.Literal;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
@@ -44,6 +40,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.Partitioning.ArgumentBinding;
 import static io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsHandle;
 import static io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsTarget;
@@ -119,25 +116,16 @@ public class CounterBasedAnonymizer
             return anonymizeLiteral("string", literal.getValue());
         }
         if (node instanceof GenericLiteral literal) {
+            if (literal.getType().equals(BOOLEAN)) {
+                return literal.getValue();
+            }
             return anonymizeLiteral(literal.getType().getDisplayName(), literal.getValue());
         }
         if (node instanceof BinaryLiteral literal) {
             return anonymizeLiteral("binary", new String(literal.getValue(), UTF_8));
         }
-        if (node instanceof DecimalLiteral literal) {
-            return anonymizeLiteral("decimal", literal.getValue());
-        }
-        if (node instanceof DoubleLiteral literal) {
-            return anonymizeLiteral("double", literal.getValue());
-        }
-        if (node instanceof LongLiteral literal) {
-            return anonymizeLiteral("long", literal.getValue());
-        }
         if (node instanceof IntervalLiteral literal) {
             return anonymizeLiteral("interval", literal.getValue());
-        }
-        if (node instanceof BooleanLiteral literal) {
-            return String.valueOf(literal.getValue());
         }
         if (node instanceof NullLiteral) {
             return "null";

@@ -16,12 +16,13 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
@@ -35,7 +36,7 @@ public class TestRemoveTrivialFilters
     {
         tester().assertThat(new RemoveTrivialFilters())
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new LongLiteral(1), new LongLiteral(1)),
+                        new ComparisonExpression(EQUAL, GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 1L)),
                         p.values()))
                 .doesNotFire();
     }
@@ -56,7 +57,7 @@ public class TestRemoveTrivialFilters
                         FALSE_LITERAL,
                         p.values(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(ImmutableList.of(new LongLiteral(1))))))
+                                ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L))))))
                 .matches(values("a"));
     }
 
@@ -68,7 +69,7 @@ public class TestRemoveTrivialFilters
                         new Cast(new NullLiteral(), BOOLEAN),
                         p.values(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(ImmutableList.of(new LongLiteral(1))))))
+                                ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L))))))
                 .matches(values(
                         ImmutableList.of("a"),
                         ImmutableList.of()));

@@ -22,7 +22,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -79,38 +78,38 @@ public class TestRecursiveCte
                         union(
                                 // base term
                                 project(project(project(
-                                        ImmutableMap.of("expr", expression(new LongLiteral(1))),
+                                        ImmutableMap.of("expr", expression(GenericLiteral.constant(INTEGER, 1L))),
                                         values()))),
                                 // first recursion step
                                 project(project(project(
-                                        ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), new LongLiteral(2)))),
+                                        ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), GenericLiteral.constant(INTEGER, 2L)))),
                                         filter(
-                                                new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new LongLiteral(6)),
+                                                new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), GenericLiteral.constant(INTEGER, 6L)),
                                                 project(project(project(
-                                                        ImmutableMap.of("expr", expression(new LongLiteral(1))),
+                                                        ImmutableMap.of("expr", expression(GenericLiteral.constant(INTEGER, 1L))),
                                                         values()))))))),
                                 // "post-recursion" step with convergence assertion
                                 filter(
                                         new IfExpression(
-                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("count"), new GenericLiteral(BIGINT, "0")),
-                                                new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new GenericLiteral(INTEGER, Integer.toString(NOT_SUPPORTED.toErrorCode().getCode())), new GenericLiteral(VARCHAR, "Recursion depth limit exceeded (1). Use 'max_recursion_depth' session property to modify the limit."))), BOOLEAN),
+                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("count"), GenericLiteral.constant(BIGINT, 0L)),
+                                                new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) NOT_SUPPORTED.toErrorCode().getCode()), new GenericLiteral(VARCHAR, "Recursion depth limit exceeded (1). Use 'max_recursion_depth' session property to modify the limit."))), BOOLEAN),
                                                 TRUE_LITERAL),
                                         window(windowBuilder -> windowBuilder
                                                         .addFunction(
                                                                 "count",
                                                                 windowFunction("count", ImmutableList.of(), DEFAULT_FRAME)),
                                                 project(project(project(
-                                                        ImmutableMap.of("expr_1", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), new LongLiteral(2)))),
+                                                        ImmutableMap.of("expr_1", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), GenericLiteral.constant(INTEGER, 2L)))),
                                                         filter(
-                                                                new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new LongLiteral(6)),
+                                                                new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), GenericLiteral.constant(INTEGER, 6L)),
                                                                 project(
                                                                         ImmutableMap.of("expr", expression(new SymbolReference("expr_0"))),
                                                                         project(project(project(
-                                                                                ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), new LongLiteral(2)))),
+                                                                                ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), GenericLiteral.constant(INTEGER, 2L)))),
                                                                                 filter(
-                                                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new LongLiteral(6)),
+                                                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), GenericLiteral.constant(INTEGER, 6L)),
                                                                                         project(project(project(
-                                                                                                ImmutableMap.of("expr", expression(new LongLiteral(1))),
+                                                                                                ImmutableMap.of("expr", expression(GenericLiteral.constant(INTEGER, 1L))),
                                                                                                 values()))))))))))))))));
 
         assertPlan(sql, CREATED, pattern);

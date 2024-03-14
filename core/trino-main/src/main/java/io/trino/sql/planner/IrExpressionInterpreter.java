@@ -39,7 +39,6 @@ import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.Array;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.BindExpression;
-import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
@@ -801,12 +800,6 @@ public class IrExpressionInterpreter
                 expressions.add(toExpression(terms.get(i), types.get(i)));
             }
             return new LogicalExpression(node.getOperator(), expressions.build());
-        }
-
-        @Override
-        protected Object visitBooleanLiteral(BooleanLiteral node, Object context)
-        {
-            return node.equals(BooleanLiteral.TRUE_LITERAL);
         }
 
         @Override

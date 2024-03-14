@@ -17,12 +17,9 @@ import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.BetweenPredicate;
-import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.DecimalLiteral;
-import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
@@ -33,7 +30,6 @@ import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
@@ -109,46 +105,6 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitLongLiteral(LongLiteral actual, Expression expectedExpression)
-    {
-        if (!(expectedExpression instanceof LongLiteral)) {
-            return false;
-        }
-
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression));
-    }
-
-    @Override
-    protected Boolean visitDoubleLiteral(DoubleLiteral actual, Expression expectedExpression)
-    {
-        if (!(expectedExpression instanceof DoubleLiteral)) {
-            return false;
-        }
-
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression));
-    }
-
-    @Override
-    protected Boolean visitDecimalLiteral(DecimalLiteral actual, Expression expectedExpression)
-    {
-        if (!(expectedExpression instanceof DecimalLiteral)) {
-            return false;
-        }
-
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression));
-    }
-
-    @Override
-    protected Boolean visitBooleanLiteral(BooleanLiteral actual, Expression expectedExpression)
-    {
-        if (!(expectedExpression instanceof BooleanLiteral)) {
-            return false;
-        }
-
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression));
-    }
-
-    @Override
     protected Boolean visitNullLiteral(NullLiteral node, Expression expectedExpression)
     {
         return expectedExpression instanceof NullLiteral;
@@ -156,22 +112,6 @@ public final class ExpressionVerifier
 
     private static String getValueFromLiteral(Expression expression)
     {
-        if (expression instanceof LongLiteral) {
-            return String.valueOf(((LongLiteral) expression).getValue());
-        }
-
-        if (expression instanceof BooleanLiteral) {
-            return String.valueOf(((BooleanLiteral) expression).getValue());
-        }
-
-        if (expression instanceof DoubleLiteral) {
-            return String.valueOf(((DoubleLiteral) expression).getValue());
-        }
-
-        if (expression instanceof DecimalLiteral) {
-            return String.valueOf(((DecimalLiteral) expression).getValue());
-        }
-
         if (expression instanceof GenericLiteral) {
             return ((GenericLiteral) expression).getValue();
         }

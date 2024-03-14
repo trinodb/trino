@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
@@ -28,6 +27,7 @@ import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -49,7 +49,7 @@ public class TestCanonicalize
                         ") t\n" +
                         "CROSS JOIN (VALUES 2)",
                 anyTree(
-                        values(ImmutableList.of("field", "expr"), ImmutableList.of(ImmutableList.of(new LongLiteral(2), new GenericLiteral(BIGINT, "1"))))));
+                        values(ImmutableList.of("field", "expr"), ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(BIGINT, 1L))))));
     }
 
     @Test

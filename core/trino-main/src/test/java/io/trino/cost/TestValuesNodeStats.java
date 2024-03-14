@@ -15,9 +15,7 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.planner.Symbol;
@@ -26,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.cost.PlanNodeStatsEstimate.unknown;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.DIVIDE;
@@ -40,9 +39,9 @@ public class TestValuesNodeStats
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", DOUBLE)),
                                 ImmutableList.of(
-                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, new GenericLiteral(BIGINT, "3"), new GenericLiteral(BIGINT, "3")), new DoubleLiteral(13.5e0)),
-                                        ImmutableList.of(new GenericLiteral(BIGINT, "55"), new NullLiteral()),
-                                        ImmutableList.of(new GenericLiteral(BIGINT, "6"), new DoubleLiteral(13.5e0)))))
+                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, GenericLiteral.constant(BIGINT, 3L), GenericLiteral.constant(BIGINT, 3L)), GenericLiteral.constant(DOUBLE, 13.5e0)),
+                                        ImmutableList.of(GenericLiteral.constant(BIGINT, 55L), new NullLiteral()),
+                                        ImmutableList.of(GenericLiteral.constant(BIGINT, 6L), GenericLiteral.constant(DOUBLE, 13.5e0)))))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(3)
@@ -89,7 +88,7 @@ public class TestValuesNodeStats
     {
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT)),
-                                ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(1), new LongLiteral(0))))))
+                                ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE, GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 0L))))))
                 .check(outputStats -> outputStats.equalTo(unknown()));
     }
 
@@ -104,7 +103,7 @@ public class TestValuesNodeStats
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT)),
                                 ImmutableList.of(
-                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, new LongLiteral(3), new NullLiteral())))))
+                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, GenericLiteral.constant(INTEGER, 3L), new NullLiteral())))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
         tester().assertStatsFor(pb -> pb

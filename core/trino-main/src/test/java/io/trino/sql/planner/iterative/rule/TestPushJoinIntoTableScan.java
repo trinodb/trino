@@ -272,7 +272,7 @@ public class TestPushJoinIntoTableScan
                                 right,
                                 new ComparisonExpression(
                                         ComparisonExpression.Operator.GREATER_THAN,
-                                        new ArithmeticBinaryExpression(MULTIPLY, new GenericLiteral(BIGINT, "44"), columnA1Symbol.toSymbolReference()),
+                                        new ArithmeticBinaryExpression(MULTIPLY, GenericLiteral.constant(BIGINT, 44L), columnA1Symbol.toSymbolReference()),
                                         columnB1Symbol.toSymbolReference()));
                     })
                     .matches(

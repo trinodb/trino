@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.ComparisonExpression.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.LogicalExpression.Operator.AND;
@@ -100,7 +101,7 @@ public class TestExtractSpatialLeftJoin
                             p.values(b),
                             new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                     distanceCall(a.toSymbolReference(), b.toSymbolReference()),
-                                    new LongLiteral(5)));
+                                    GenericLiteral.constant(INTEGER, 5L)));
                 })
                 .doesNotFire();
 
@@ -115,7 +116,7 @@ public class TestExtractSpatialLeftJoin
                             p.values(b),
                             new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                     sphericalDistanceCall(a.toSymbolReference(), b.toSymbolReference()),
-                                    new LongLiteral(5)));
+                                    GenericLiteral.constant(INTEGER, 5L)));
                 })
                 .doesNotFire();
 
@@ -130,7 +131,7 @@ public class TestExtractSpatialLeftJoin
                             p.values(point),
                             new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                     sphericalDistanceCall(toSphericalGeographyCall(wkt), point.toSymbolReference()),
-                                    new LongLiteral(5)));
+                                    GenericLiteral.constant(INTEGER, 5L)));
                 })
                 .doesNotFire();
     }
@@ -225,7 +226,7 @@ public class TestExtractSpatialLeftJoin
                     return p.join(LEFT,
                             p.values(wkt),
                             p.values(),
-                            containsCall(geometryFromTextCall(wkt), toPointCall(new LongLiteral(0), new LongLiteral(0))));
+                            containsCall(geometryFromTextCall(wkt), toPointCall(GenericLiteral.constant(INTEGER, 0L), GenericLiteral.constant(INTEGER, 0L))));
                 })
                 .doesNotFire();
     }

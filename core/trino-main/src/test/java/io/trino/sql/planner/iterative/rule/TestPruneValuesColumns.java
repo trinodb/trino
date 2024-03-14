@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -44,16 +45,16 @@ public class TestPruneValuesColumns
                                 p.values(
                                         ImmutableList.of(p.symbol("unused"), p.symbol("x")),
                                         ImmutableList.of(
-                                                ImmutableList.of(new LongLiteral(1), new LongLiteral(2)),
-                                                ImmutableList.of(new LongLiteral(3), new LongLiteral(4))))))
+                                                ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 2L)),
+                                                ImmutableList.of(GenericLiteral.constant(INTEGER, 3L), GenericLiteral.constant(INTEGER, 4L))))))
                 .matches(
                         project(
                                 ImmutableMap.of("y", PlanMatchPattern.expression(new SymbolReference("x"))),
                                 values(
                                         ImmutableList.of("x"),
                                         ImmutableList.of(
-                                                ImmutableList.of(new LongLiteral(2)),
-                                                ImmutableList.of(new LongLiteral(4))))));
+                                                ImmutableList.of(GenericLiteral.constant(INTEGER, 2L)),
+                                                ImmutableList.of(GenericLiteral.constant(INTEGER, 4L))))));
     }
 
     @Test
@@ -90,7 +91,7 @@ public class TestPruneValuesColumns
                                 Assignments.of(),
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("x")),
-                                        ImmutableList.of(new Cast(new Row(ImmutableList.of(new LongLiteral(1))), anonymousRow(BIGINT))))))
+                                        ImmutableList.of(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L))), anonymousRow(BIGINT))))))
                 .matches(
                         project(
                                 ImmutableMap.of(),
@@ -106,7 +107,7 @@ public class TestPruneValuesColumns
                                 Assignments.of(p.symbol("x"), new SymbolReference("x")),
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("x"), p.symbol("y")),
-                                        ImmutableList.of(new Cast(new Row(ImmutableList.of(new LongLiteral(1), new StringLiteral("a"))), anonymousRow(BIGINT, createCharType(2)))))))
+                                        ImmutableList.of(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("a"))), anonymousRow(BIGINT, createCharType(2)))))))
                 .doesNotFire();
     }
 }

@@ -17,13 +17,14 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.SystemSessionProperties;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -164,7 +165,7 @@ public class TestEliminateCrossJoins
                                                         LINEITEM_WITH_RETURNFLAG_TABLESCAN)))))
                                 .right(
                                         anyTree(filter(
-                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("O_SHIPPRIORITY"), new LongLiteral(10)),
+                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("O_SHIPPRIORITY"), GenericLiteral.constant(INTEGER, 10L)),
                                                 ORDERS_WITH_SHIPPRIORITY_TABLESCAN))))));
     }
 }

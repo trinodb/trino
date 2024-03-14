@@ -32,14 +32,12 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.Literal;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.StringLiteral;
@@ -2246,15 +2244,12 @@ public class TestDomainTranslator
 
     private static Literal bigintLiteral(long value)
     {
-        if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
-            return new GenericLiteral(BIGINT, Long.toString(value));
-        }
-        return new LongLiteral(value);
+        return GenericLiteral.constant(BIGINT, value);
     }
 
-    private static DoubleLiteral doubleLiteral(double value)
+    private static GenericLiteral doubleLiteral(double value)
     {
-        return new DoubleLiteral(value);
+        return GenericLiteral.constant(DOUBLE, value);
     }
 
     private static Expression realLiteral(String value)

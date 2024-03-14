@@ -16,11 +16,12 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -97,7 +98,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                                     new ComparisonExpression(
                                             LESS_THAN,
                                             b.toSymbolReference(),
-                                            new LongLiteral(3)),
+                                            GenericLiteral.constant(INTEGER, 3L)),
                                     p.values(2, b)));
                 })
                 .doesNotFire();
@@ -114,7 +115,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                                     new ComparisonExpression(
                                             LESS_THAN,
                                             b.toSymbolReference(),
-                                            new LongLiteral(3)),
+                                            GenericLiteral.constant(INTEGER, 3L)),
                                     p.values(2, b)));
                 })
                 .doesNotFire();

@@ -18,9 +18,8 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
-import io.trino.sql.ir.DecimalLiteral;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.IrExpressionInterpreter;
@@ -39,6 +38,7 @@ import java.util.Map;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.relational.Expressions.constant;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,11 +51,11 @@ public class TestSqlToRowExpressionTranslator
     @Timeout(10)
     public void testPossibleExponentialOptimizationTime()
     {
-        Expression expression = new LongLiteral(1);
+        Expression expression = GenericLiteral.constant(BIGINT, 1L);
         ImmutableMap.Builder<NodeRef<Expression>, Type> types = ImmutableMap.builder();
         types.put(NodeRef.of(expression), BIGINT);
         for (int i = 0; i < 100; i++) {
-            expression = new CoalesceExpression(expression, new LongLiteral(2));
+            expression = new CoalesceExpression(expression, GenericLiteral.constant(BIGINT, 2L));
             types.put(NodeRef.of(expression), BIGINT);
         }
         translateAndOptimize(expression, types.buildOrThrow());
@@ -67,21 +67,21 @@ public class TestSqlToRowExpressionTranslator
         // Short decimal
         assertThat(translateAndOptimize(new Cast(new NullLiteral(), createDecimalType(7, 2))))
                 .isEqualTo(constant(null, createDecimalType(7, 2)));
-        assertThat(translateAndOptimize(new DecimalLiteral("42")))
+        assertThat(translateAndOptimize(GenericLiteral.constant(createDecimalType(2), Decimals.valueOf(42))))
                 .isEqualTo(constant(42L, createDecimalType(2, 0)));
-        assertThat(translateAndOptimize(new Cast(new LongLiteral(42), createDecimalType(7, 2))))
+        assertThat(translateAndOptimize(new Cast(GenericLiteral.constant(INTEGER, 42L), createDecimalType(7, 2))))
                 .isEqualTo(constant(4200L, createDecimalType(7, 2)));
-        assertThat(translateAndOptimize(simplifyExpression(new Cast(new LongLiteral(42), createDecimalType(7, 2)))))
+        assertThat(translateAndOptimize(simplifyExpression(new Cast(GenericLiteral.constant(INTEGER, 42L), createDecimalType(7, 2)))))
                 .isEqualTo(constant(4200L, createDecimalType(7, 2)));
 
         // Long decimal
         assertThat(translateAndOptimize(new Cast(new NullLiteral(), createDecimalType(35, 2))))
                 .isEqualTo(constant(null, createDecimalType(35, 2)));
-        assertThat(translateAndOptimize(new DecimalLiteral("123456789012345678901234567890")))
+        assertThat(translateAndOptimize(GenericLiteral.constant(createDecimalType(30), Decimals.valueOf(new BigDecimal("123456789012345678901234567890")))))
                 .isEqualTo(constant(Decimals.valueOf(new BigDecimal("123456789012345678901234567890")), createDecimalType(30, 0)));
-        assertThat(translateAndOptimize(new Cast(new DecimalLiteral("123456789012345678901234567890"), createDecimalType(35, 2))))
+        assertThat(translateAndOptimize(new Cast(GenericLiteral.constant(createDecimalType(30), Decimals.valueOf(new BigDecimal("123456789012345678901234567890"))), createDecimalType(35, 2))))
                 .isEqualTo(constant(Decimals.valueOf(new BigDecimal("123456789012345678901234567890.00")), createDecimalType(35, 2)));
-        assertThat(translateAndOptimize(simplifyExpression(new Cast(new DecimalLiteral("123456789012345678901234567890"), createDecimalType(35, 2)))))
+        assertThat(translateAndOptimize(simplifyExpression(new Cast(GenericLiteral.constant(createDecimalType(30), Decimals.valueOf(new BigDecimal("123456789012345678901234567890"))), createDecimalType(35, 2)))))
                 .isEqualTo(constant(Decimals.valueOf(new BigDecimal("123456789012345678901234567890.00")), createDecimalType(35, 2)));
     }
 

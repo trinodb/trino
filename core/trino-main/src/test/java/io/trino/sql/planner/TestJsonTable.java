@@ -31,7 +31,6 @@ import io.trino.operator.table.json.JsonTableValueColumn;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
@@ -104,7 +103,7 @@ public class TestJsonTable
                         ImmutableList.of("json_col", "int_col", "bigint_col", "formatted_varchar_col"),
                         anyTree(
                                 project(
-                                        ImmutableMap.of("formatted_varchar_col", expression(new FunctionCall(QualifiedName.of("$json_to_varchar"), ImmutableList.of(new SymbolReference("varchar_col"), new GenericLiteral(TINYINT, "1"), FALSE_LITERAL)))),
+                                        ImmutableMap.of("formatted_varchar_col", expression(new FunctionCall(QualifiedName.of("$json_to_varchar"), ImmutableList.of(new SymbolReference("varchar_col"), GenericLiteral.constant(TINYINT, 1L), FALSE_LITERAL)))),
                                         tableFunction(builder -> builder
                                                         .name("$json_table")
                                                         .addTableArgument(
@@ -127,12 +126,12 @@ public class TestJsonTable
                                                                 project(// pre-project context item, path parameters and default expressions
                                                                         ImmutableMap.of(
                                                                                 "name", expression(new StringLiteral("[ala]")),
-                                                                                "default_value", expression(new LongLiteral(5))),
+                                                                                "default_value", expression(GenericLiteral.constant(INTEGER, 5L))),
                                                                         anyTree(
                                                                                 project(
                                                                                         ImmutableMap.of(
                                                                                                 "json_col", expression(new StringLiteral("[1, 2, 3]")),
-                                                                                                "int_col", expression(new LongLiteral(4))),
+                                                                                                "int_col", expression(GenericLiteral.constant(INTEGER, 4L))),
                                                                                         values(1)))))))))));
     }
 

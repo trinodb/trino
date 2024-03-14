@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
@@ -83,13 +83,13 @@ public class TestUnwrapSingleColumnRowInApply
                                                 .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), new LongLiteral(1))))
+                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), GenericLiteral.constant(INTEGER, 1L))))
                                                         .put("nonRowValue", expression(new SymbolReference("nonRowValue")))
                                                         .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), new LongLiteral(1))))
+                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), GenericLiteral.constant(INTEGER, 1L))))
                                                         .put("nonRowElement", expression(new SymbolReference("nonRowElement")))
                                                         .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));
@@ -121,13 +121,13 @@ public class TestUnwrapSingleColumnRowInApply
                                                 .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), new LongLiteral(1))))
+                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), GenericLiteral.constant(INTEGER, 1L))))
                                                         .put("nonRowValue", expression(new SymbolReference("nonRowValue")))
                                                         .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), new LongLiteral(1))))
+                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), GenericLiteral.constant(INTEGER, 1L))))
                                                         .put("nonRowElement", expression(new SymbolReference("nonRowElement")))
                                                         .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));
