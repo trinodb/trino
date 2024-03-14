@@ -65,7 +65,7 @@ public class TestCounterBasedAnonymizer
     {
         CounterBasedAnonymizer anonymizer = new CounterBasedAnonymizer();
 
-        assertThat(anonymizer.anonymize(new BinaryLiteral("DEF321")))
+        assertThat(anonymizer.anonymize(new BinaryLiteral(new byte[] {1, 2, 3})))
                 .isEqualTo("'binary_literal_1'");
 
         assertThat(anonymizer.anonymize(new StringLiteral("abc")))
