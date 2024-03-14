@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.hive.formats.HiveClassNames.REGEX_SERDE_CLASS;
 
 public class RegexDeserializerFactory
         implements LineDeserializerFactory
@@ -33,7 +34,7 @@ public class RegexDeserializerFactory
     @Override
     public Set<String> getHiveSerDeClassNames()
     {
-        return ImmutableSet.of("org.apache.hadoop.hive.serde2.RegexSerDe");
+        return ImmutableSet.of(REGEX_SERDE_CLASS);
     }
 
     @Override
