@@ -105,7 +105,7 @@ public final class DynamicFilters
             timeoutExpression = new NullLiteral();
         }
         else {
-            timeoutExpression = new LongLiteral(Long.toString(minDynamicFilterTimeout.get()));
+            timeoutExpression = new LongLiteral(minDynamicFilterTimeout.get());
         }
         return BuiltinFunctionCallBuilder.resolve(metadata)
                 .setName(nullAllowed ? NullableFunction.NAME : Function.NAME)
@@ -181,7 +181,7 @@ public final class DynamicFilters
 
     public static Expression replaceDynamicFilterTimeout(FunctionCall dynamicFilterFunctionCall, long timeout)
     {
-        LongLiteral timeoutArgument = new LongLiteral(Long.toString(timeout));
+        LongLiteral timeoutArgument = new LongLiteral(timeout);
 
         return new FunctionCall(
                 dynamicFilterFunctionCall.getName(),
@@ -232,7 +232,7 @@ public final class DynamicFilters
             timeout = OptionalLong.empty();
         }
         else if (timeoutExpression instanceof LongLiteral longTimeoutLiteral) {
-            timeout = OptionalLong.of(longTimeoutLiteral.getParsedValue());
+            timeout = OptionalLong.of(longTimeoutLiteral.getValue());
         }
         else {
             throw new IllegalArgumentException(format("timeout is expected to be an instance of LongLiteral or NullLiteral: %s", timeoutExpression.getClass().getSimpleName()));

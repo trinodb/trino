@@ -281,7 +281,7 @@ public class TestPushPredicateIntoTableScan
                                 functionResolution
                                         .functionCallBuilder("rand")
                                         .build(),
-                                new LongLiteral("42")),
+                                new LongLiteral(42)),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -295,7 +295,7 @@ public class TestPushPredicateIntoTableScan
     {
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral("17")), new GenericLiteral("BIGINT", "44")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral("15")), new GenericLiteral("BIGINT", "43")))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral(17)), new GenericLiteral("BIGINT", "44")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral(15)), new GenericLiteral("BIGINT", "43")))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -335,7 +335,7 @@ public class TestPushPredicateIntoTableScan
                                         functionResolution
                                                 .functionCallBuilder("rand")
                                                 .build(),
-                                        new LongLiteral("0"))),
+                                        new LongLiteral(0))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", orderStatusType)),
@@ -347,7 +347,7 @@ public class TestPushPredicateIntoTableScan
                                         functionResolution
                                                 .functionCallBuilder("rand")
                                                 .build(),
-                                        new LongLiteral("0")),
+                                        new LongLiteral(0)),
                                 constrainedTableScanWithTableLayout(
                                         "orders",
                                         ImmutableMap.of("orderstatus", singleValue(orderStatusType, utf8Slice("O"))),

@@ -100,15 +100,15 @@ public class TestMetadataQueryOptimization
                 anyTree(values(
                         ImmutableList.of("b", "c"),
                         ImmutableList.of(
-                                ImmutableList.of(new LongLiteral("6"), new LongLiteral("7")),
-                                ImmutableList.of(new LongLiteral("9"), new LongLiteral("10"))))));
+                                ImmutableList.of(new LongLiteral(6), new LongLiteral(7)),
+                                ImmutableList.of(new LongLiteral(9), new LongLiteral(10))))));
 
         assertPlan(
                 format("SELECT DISTINCT b, c FROM %s WHERE b > 7", testTable),
                 session,
                 anyTree(values(
                         ImmutableList.of("b", "c"),
-                        ImmutableList.of(ImmutableList.of(new LongLiteral("9"), new LongLiteral("10"))))));
+                        ImmutableList.of(ImmutableList.of(new LongLiteral(9), new LongLiteral(10))))));
 
         assertPlan(
                 format("SELECT DISTINCT b, c FROM %s WHERE b > 7 AND c < 8", testTable),

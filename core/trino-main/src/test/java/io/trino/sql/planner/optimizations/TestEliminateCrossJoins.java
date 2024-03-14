@@ -164,7 +164,7 @@ public class TestEliminateCrossJoins
                                                         LINEITEM_WITH_RETURNFLAG_TABLESCAN)))))
                                 .right(
                                         anyTree(filter(
-                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("O_SHIPPRIORITY"), new LongLiteral("10")),
+                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("O_SHIPPRIORITY"), new LongLiteral(10)),
                                                 ORDERS_WITH_SHIPPRIORITY_TABLESCAN))))));
     }
 }

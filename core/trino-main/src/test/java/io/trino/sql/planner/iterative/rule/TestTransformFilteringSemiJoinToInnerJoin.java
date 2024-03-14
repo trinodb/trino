@@ -50,7 +50,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                     Symbol b = p.symbol("b");
                     Symbol aInB = p.symbol("a_in_b");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a_in_b"), new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("5")))),
+                            new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a_in_b"), new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(5)))),
                             p.semiJoin(
                                     p.values(a),
                                     p.values(b),
@@ -65,7 +65,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                         ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a")), "a_in_b", PlanMatchPattern.expression(TRUE_LITERAL)),
                         join(INNER, builder -> builder
                                 .equiCriteria("a", "b")
-                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("5")))
+                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(5)))
                                 .left(values("a"))
                                 .right(
                                         aggregation(
@@ -119,7 +119,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                     Symbol b = p.symbol("b");
                     Symbol aInB = p.symbol("a_in_b");
                     return p.filter(
-                            new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("5")),
+                            new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(5)),
                             p.semiJoin(
                                     p.values(a),
                                     p.values(b),

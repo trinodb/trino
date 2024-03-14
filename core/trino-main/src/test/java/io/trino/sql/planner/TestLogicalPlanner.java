@@ -288,8 +288,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression(new SubscriptExpression(new SymbolReference("row"), new LongLiteral("1"))),
-                                        "output_2", expression(new SubscriptExpression(new SymbolReference("row"), new LongLiteral("2")))),
+                                        "output_1", expression(new SubscriptExpression(new SymbolReference("row"), new LongLiteral(1))),
+                                        "output_2", expression(new SubscriptExpression(new SymbolReference("row"), new LongLiteral(2)))),
                                 project(
                                         ImmutableMap.of("row", expression(new Row(ImmutableList.of(new SymbolReference("min"), new SymbolReference("max"))))),
                                         aggregation(
@@ -317,8 +317,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression(new SubscriptExpression(new SymbolReference("row"), new LongLiteral("1"))),
-                                        "output_2", expression(new SubscriptExpression(new SymbolReference("row"), new LongLiteral("2")))),
+                                        "output_1", expression(new SubscriptExpression(new SymbolReference("row"), new LongLiteral(1))),
+                                        "output_2", expression(new SubscriptExpression(new SymbolReference("row"), new LongLiteral(2)))),
                                 project(
                                         ImmutableMap.of("row", expression(new Row(ImmutableList.of(new SymbolReference("rand"), new SymbolReference("rand"))))),
                                         values(
@@ -329,8 +329,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression(new SubscriptExpression(new SymbolReference("r"), new LongLiteral("1"))),
-                                        "output_2", expression(new SubscriptExpression(new SymbolReference("r"), new LongLiteral("2")))),
+                                        "output_1", expression(new SubscriptExpression(new SymbolReference("r"), new LongLiteral(1))),
+                                        "output_2", expression(new SubscriptExpression(new SymbolReference("r"), new LongLiteral(2)))),
                                 values(
                                         ImmutableList.of("r"),
                                         ImmutableList.of(ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))))))));
@@ -342,8 +342,8 @@ public class TestLogicalPlanner
                                 any(
                                         project(
                                                 ImmutableMap.of(
-                                                        "output_1", expression(new SubscriptExpression(new SymbolReference("row"), new LongLiteral("1"))),
-                                                        "output_2", expression(new SubscriptExpression(new SymbolReference("row"), new LongLiteral("2")))),
+                                                        "output_1", expression(new SubscriptExpression(new SymbolReference("row"), new LongLiteral(1))),
+                                                        "output_2", expression(new SubscriptExpression(new SymbolReference("row"), new LongLiteral(2)))),
                                                 values(
                                                         ImmutableList.of("row"),
                                                         ImmutableList.of(
@@ -971,7 +971,7 @@ public class TestLogicalPlanner
                                 new SimpleCaseExpression(
                                         new SymbolReference("is_distinct"),
                                         ImmutableList.of(new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
-                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())), new GenericLiteral("VARCHAR", "Scalar sub-query has returned multiple rows"))), BOOLEAN))),
+                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new LongLiteral(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new GenericLiteral("VARCHAR", "Scalar sub-query has returned multiple rows"))), BOOLEAN))),
                                 project(
                                         markDistinct("is_distinct", ImmutableList.of("unique"),
                                                 join(LEFT, builder -> builder
@@ -989,7 +989,7 @@ public class TestLogicalPlanner
                                 new SimpleCaseExpression(
                                         new SymbolReference("is_distinct"),
                                         ImmutableList.of(new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
-                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())), new GenericLiteral("VARCHAR", "Scalar sub-query has returned multiple rows"))), BOOLEAN))),
+                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new LongLiteral(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new GenericLiteral("VARCHAR", "Scalar sub-query has returned multiple rows"))), BOOLEAN))),
                                 project(
                                         markDistinct("is_distinct", ImmutableList.of("unique"),
                                                 join(LEFT, builder -> builder
@@ -1247,7 +1247,7 @@ public class TestLogicalPlanner
                                 new SimpleCaseExpression(
                                         new SymbolReference("is_distinct"),
                                         ImmutableList.of(new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
-                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new LongLiteral(Integer.toString(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode())), new GenericLiteral("VARCHAR", "Scalar sub-query has returned multiple rows"))), BOOLEAN))),
+                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new LongLiteral(SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new GenericLiteral("VARCHAR", "Scalar sub-query has returned multiple rows"))), BOOLEAN))),
                                 project(markDistinct(
                                         "is_distinct",
                                         ImmutableList.of("unique"),
@@ -1574,19 +1574,19 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT 1 FROM nation GROUP BY GROUPING SETS (())",
                 output(
-                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
+                        values(List.of("c"), List.of(List.of(new LongLiteral(1))))));
 
         // no aggregate function at all over values
         assertPlan(
                 "SELECT 1 FROM (VALUES 1,2,3,4,5,6,7) GROUP BY GROUPING SETS (())",
                 output(
-                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
+                        values(List.of("c"), List.of(List.of(new LongLiteral(1))))));
 
         // no aggregate function at all over unnest
         assertPlan(
                 "SELECT 1 FROM UNNEST(sequence(1, 10)) GROUP BY GROUPING SETS (())",
                 output(
-                        values(List.of("c"), List.of(List.of(new LongLiteral("1"))))));
+                        values(List.of("c"), List.of(List.of(new LongLiteral(1))))));
     }
 
     @Test
@@ -2060,7 +2060,7 @@ public class TestLogicalPlanner
         assertPlan("SELECT * FROM nation, (SELECT 1 as a) temp WHERE regionkey = a",
                 output(
                         project(
-                                ImmutableMap.of("expr", expression(new LongLiteral("1"))),
+                                ImmutableMap.of("expr", expression(new LongLiteral(1))),
                                 filter(
                                         new ComparisonExpression(EQUAL, new SymbolReference("REGIONKEY"), new GenericLiteral("BIGINT", "1")),
                                         tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey"))))));
@@ -2105,9 +2105,9 @@ public class TestLogicalPlanner
                                 .right(
                                         values(ImmutableList.of("a"),
                                                 ImmutableList.of(
-                                                        ImmutableList.of(new LongLiteral("2")),
-                                                        ImmutableList.of(new LongLiteral("4")),
-                                                        ImmutableList.of(new LongLiteral("6"))))))));
+                                                        ImmutableList.of(new LongLiteral(2)),
+                                                        ImmutableList.of(new LongLiteral(4)),
+                                                        ImmutableList.of(new LongLiteral(6))))))));
 
         // Constraint is enforced on table scan, based on constant value in the other branch of the join.
         // The scalar constant branch of the join becomes obsolete, and join is removed.
@@ -2173,14 +2173,14 @@ public class TestLogicalPlanner
                 "SELECT * FROM nation, (SELECT a * 2 FROM (VALUES 1) t(a))",
                 any(
                         project(
-                                ImmutableMap.of("expr", expression(new LongLiteral("2"))),
+                                ImmutableMap.of("expr", expression(new LongLiteral(2))),
                                 tableScan("nation"))));
 
         assertPlan(
                 "SELECT * FROM nation, (SELECT b * 3 FROM (SELECT a * 2 FROM (VALUES 1) t1(a)) t2(b))",
                 any(
                         project(
-                                ImmutableMap.of("expr", expression(new LongLiteral("6"))),
+                                ImmutableMap.of("expr", expression(new LongLiteral(6))),
                                 tableScan("nation"))));
     }
 
@@ -2204,7 +2204,7 @@ public class TestLogicalPlanner
                                                                 PARTIAL,
                                                                 anyTree(
                                                                         project(
-                                                                                ImmutableMap.of("CONSTANT", expression(new LongLiteral("1"))),
+                                                                                ImmutableMap.of("CONSTANT", expression(new LongLiteral(1))),
                                                                                 tableScan("orders"))))))))));
     }
 
@@ -2306,7 +2306,7 @@ public class TestLogicalPlanner
                                         new Row(ImmutableList.of(new GenericLiteral("DOUBLE", "1"))),
                                         new Cast(
                                                 new Cast(
-                                                        new Row(ImmutableList.of(new LongLiteral("2"))),
+                                                        new Row(ImmutableList.of(new LongLiteral(2))),
                                                         RowType.anonymous(ImmutableList.of(BIGINT))),
                                                 RowType.anonymous(ImmutableList.of(DOUBLE))))))));
     }
@@ -2343,7 +2343,7 @@ public class TestLogicalPlanner
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
                                                 ImmutableList.of("id", "value"),
-                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral(1), new LongLiteral(90))))))));
 
         // row pattern measure `label` is not referenced
         assertPlan("SELECT min(value) OVER w " +
@@ -2369,7 +2369,7 @@ public class TestLogicalPlanner
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
                                                 ImmutableList.of("id", "value"),
-                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral(1), new LongLiteral(90))))))));
     }
 
     @Test
@@ -2400,7 +2400,7 @@ public class TestLogicalPlanner
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
                                                 ImmutableList.of("id", "value"),
-                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral(1), new LongLiteral(90))))))));
     }
 
     @Test
@@ -2437,7 +2437,7 @@ public class TestLogicalPlanner
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
                                                 ImmutableList.of("id", "value"),
-                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral(1), new LongLiteral(90))))))));
     }
 
     @Test
@@ -2483,7 +2483,7 @@ public class TestLogicalPlanner
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
                                                 ImmutableList.of("id", "value"),
-                                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("90"))))))));
+                                                ImmutableList.of(ImmutableList.of(new LongLiteral(1), new LongLiteral(90))))))));
     }
 
     @Test
@@ -2506,9 +2506,9 @@ public class TestLogicalPlanner
                         project(
                                 ImmutableMap.of(
                                         "output1", expression(new SymbolReference("id")),
-                                        "output2", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("value"), new LongLiteral("2"))),
+                                        "output2", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("value"), new LongLiteral(2))),
                                         "output3", expression(new FunctionCall(QualifiedName.of("lower"), ImmutableList.of(new SymbolReference("label")))),
-                                        "output4", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("min"), new LongLiteral("1")))),
+                                        "output4", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("min"), new LongLiteral(1)))),
                                 project(
                                         ImmutableMap.of(
                                                 "id", expression(new SymbolReference("id")),
@@ -2540,7 +2540,7 @@ public class TestLogicalPlanner
                                                         .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                                 values(
                                                         ImmutableList.of("id", "input1", "input2"),
-                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3")))))))));
+                                                        ImmutableList.of(ImmutableList.of(new LongLiteral(1), new LongLiteral(2), new LongLiteral(3)))))))));
     }
 
     @Test
@@ -2577,9 +2577,9 @@ public class TestLogicalPlanner
         assertPlan("SELECT * FROM (VALUES 1, 2, 3) t(a), LATERAL (VALUES a * 3)",
                 output(
                         values(ImmutableList.of("a", "expr"), ImmutableList.of(
-                                ImmutableList.of(new LongLiteral("1"), new LongLiteral("3")),
-                                ImmutableList.of(new LongLiteral("2"), new LongLiteral("6")),
-                                ImmutableList.of(new LongLiteral("3"), new LongLiteral("9"))))));
+                                ImmutableList.of(new LongLiteral(1), new LongLiteral(3)),
+                                ImmutableList.of(new LongLiteral(2), new LongLiteral(6)),
+                                ImmutableList.of(new LongLiteral(3), new LongLiteral(9))))));
     }
 
     @Test

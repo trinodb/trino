@@ -101,7 +101,7 @@ public abstract class AbstractPredicatePushdownTest
                         semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", enableDynamicFiltering,
                                 anyTree(
                                         filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("LINE_NUMBER"), new LongLiteral("2")),
+                                                new ComparisonExpression(EQUAL, new SymbolReference("LINE_NUMBER"), new LongLiteral(2)),
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINE_ORDER_KEY", "orderkey",
                                                         "LINE_NUMBER", "linenumber",
@@ -117,7 +117,7 @@ public abstract class AbstractPredicatePushdownTest
                 anyTree(
                         semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", enableDynamicFiltering,
                                 filter(
-                                        new ComparisonExpression(EQUAL, new SymbolReference("LINE_ORDER_KEY"), new Cast(new FunctionCall(QualifiedName.of("random"), ImmutableList.of(new LongLiteral("5"))), BIGINT)),
+                                        new ComparisonExpression(EQUAL, new SymbolReference("LINE_ORDER_KEY"), new Cast(new FunctionCall(QualifiedName.of("random"), ImmutableList.of(new LongLiteral(5))), BIGINT)),
                                         tableScan("lineitem", ImmutableMap.of(
                                                 "LINE_ORDER_KEY", "orderkey"))),
                                 node(ExchangeNode.class, // NO filter here
@@ -127,7 +127,7 @@ public abstract class AbstractPredicatePushdownTest
                 anyTree(
                         semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
                                 filter(
-                                        new ComparisonExpression(EQUAL, new SymbolReference("LINE_ORDER_KEY"), new Cast(new FunctionCall(QualifiedName.of("random"), ImmutableList.of(new LongLiteral("5"))), BIGINT)),
+                                        new ComparisonExpression(EQUAL, new SymbolReference("LINE_ORDER_KEY"), new Cast(new FunctionCall(QualifiedName.of("random"), ImmutableList.of(new LongLiteral(5))), BIGINT)),
                                         tableScan("lineitem", ImmutableMap.of(
                                                 "LINE_ORDER_KEY", "orderkey"))),
                                 anyTree(
@@ -289,9 +289,9 @@ public abstract class AbstractPredicatePushdownTest
                         join(LEFT, builder -> builder
                                 .equiCriteria("A", "B")
                                 .left(
-                                        assignUniqueId("unique", filter(new ComparisonExpression(EQUAL, new SymbolReference("A"), new LongLiteral("1")), values("A"))))
+                                        assignUniqueId("unique", filter(new ComparisonExpression(EQUAL, new SymbolReference("A"), new LongLiteral(1)), values("A"))))
                                 .right(
-                                        filter(new ComparisonExpression(EQUAL, new LongLiteral("1"), new SymbolReference("B")), values("B"))))));
+                                        filter(new ComparisonExpression(EQUAL, new LongLiteral(1), new SymbolReference("B")), values("B"))))));
     }
 
     @Test
@@ -393,7 +393,7 @@ public abstract class AbstractPredicatePushdownTest
                         // Order matters: size<>1 should be before 100/(size-1)=2.
                         // In this particular example, reversing the order leads to div-by-zero error.
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("size"), new LongLiteral("1")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(DIVIDE, new LongLiteral("100"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("size"), new LongLiteral("1"))), new LongLiteral("2")))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("size"), new LongLiteral(1)), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(100), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("size"), new LongLiteral(1))), new LongLiteral(2)))),
                                 tableScan("part", ImmutableMap.of(
                                         "partkey", "partkey",
                                         "size", "size")))));

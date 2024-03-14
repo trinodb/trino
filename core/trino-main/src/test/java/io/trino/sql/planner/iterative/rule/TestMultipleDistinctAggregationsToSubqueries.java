@@ -776,7 +776,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                     .build(),
                                             ImmutableList.of(
                                                     p.filter(
-                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1Symbol"), new LongLiteral("0")),
+                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1Symbol"), new LongLiteral(0)),
                                                             p.tableScan(
                                                                     testTableHandle(ruleTester),
                                                                     ImmutableList.of(input11Symbol, input21Symbol, groupingKey1),
@@ -785,7 +785,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                             input21Symbol, COLUMN_2_HANDLE,
                                                                             groupingKey1, GROUPING_KEY_COLUMN_HANDLE))),
                                                     p.filter(
-                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2Symbol"), new LongLiteral("2")),
+                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2Symbol"), new LongLiteral(2)),
                                                             p.tableScan(
                                                                     testTableHandle(ruleTester),
                                                                     ImmutableList.of(input12Symbol, input22Symbol, groupingKey2),
@@ -1063,7 +1063,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                     .build(),
                                             ImmutableList.of(
                                                     p.filter(
-                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1Symbol"), new LongLiteral("0")),
+                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1Symbol"), new LongLiteral(0)),
                                                             p.tableScan(
                                                                     testTableHandle(ruleTester),
                                                                     ImmutableList.of(input11Symbol, input21Symbol, groupingKey1),
@@ -1072,7 +1072,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                             input21Symbol, COLUMN_2_HANDLE,
                                                                             groupingKey1, GROUPING_KEY_COLUMN_HANDLE))),
                                                     p.filter(
-                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2Symbol"), new LongLiteral("2")),
+                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2Symbol"), new LongLiteral(2)),
                                                             p.tableScan(
                                                                     testTableHandle(ruleTester),
                                                                     ImmutableList.of(input12Symbol, input22Symbol, groupingKey2),
@@ -1097,7 +1097,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                 SINGLE,
                                                 union(
                                                         filter(
-                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1_1Symbol"), new LongLiteral("0")),
+                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1_1Symbol"), new LongLiteral(0)),
                                                                 tableScan(
                                                                         TABLE_NAME,
                                                                         ImmutableMap.of(
@@ -1105,7 +1105,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                                 "input2_1_1Symbol", COLUMN_2,
                                                                                 "left_groupingKey1", GROUPING_KEY_COLUMN))),
                                                         filter(
-                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2_1Symbol"), new LongLiteral("2")),
+                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2_1Symbol"), new LongLiteral(2)),
                                                                 tableScan(
                                                                         TABLE_NAME,
                                                                         ImmutableMap.of(
@@ -1122,7 +1122,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                 SINGLE,
                                                 union(
                                                         filter(
-                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1_2Symbol"), new LongLiteral("0")),
+                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1_2Symbol"), new LongLiteral(0)),
                                                                 tableScan(
                                                                         TABLE_NAME,
                                                                         ImmutableMap.of(
@@ -1130,7 +1130,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                                 "input2_1_2Symbol", COLUMN_2,
                                                                                 "right_groupingKey1", GROUPING_KEY_COLUMN))),
                                                         filter(
-                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2_2Symbol"), new LongLiteral("2")),
+                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2_2Symbol"), new LongLiteral(2)),
                                                                 tableScan(
                                                                         TABLE_NAME,
                                                                         ImmutableMap.of(

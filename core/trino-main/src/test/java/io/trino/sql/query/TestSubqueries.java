@@ -240,7 +240,7 @@ public class TestSubqueries
                                 .equiCriteria("expr", "a")
                                 .left(
                                         project(
-                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(SUBTRACT, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new SymbolReference("c")), new LongLiteral("1")))),
+                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(SUBTRACT, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new SymbolReference("c")), new LongLiteral(1)))),
                                                 any(
                                                         values("b", "c"))))
                                 .right(

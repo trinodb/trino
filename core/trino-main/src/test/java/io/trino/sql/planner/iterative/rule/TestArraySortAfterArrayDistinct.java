@@ -64,14 +64,14 @@ public class TestArraySortAfterArrayDistinct
                                 new LambdaExpression(ImmutableList.of(
                                         new LambdaArgumentDeclaration("a"),
                                         new LambdaArgumentDeclaration("b")),
-                                        new LongLiteral("1")))))),
+                                        new LongLiteral(1)))))),
                 new FunctionCall(SORT_WITH_LAMBDA.toQualifiedName(), ImmutableList.of(
                         new FunctionCall(DISTINCT.toQualifiedName(), ImmutableList.of(
                                 new FunctionCall(ARRAY.toQualifiedName(), ImmutableList.of(new StringLiteral("a"))))),
                         new LambdaExpression(ImmutableList.of(
                                 new LambdaArgumentDeclaration("a"),
                                 new LambdaArgumentDeclaration("b")),
-                                new LongLiteral("1")))));
+                                new LongLiteral(1)))));
     }
 
     private void test(Expression original, Expression rewritten)

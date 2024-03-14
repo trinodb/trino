@@ -358,7 +358,7 @@ public class IrTypeAnalyzer
             return setExpressionType(
                     node,
                     switch (baseType) {
-                        case RowType rowType -> rowType.getFields().get(toIntExact(((LongLiteral) node.getIndex()).getParsedValue()) - 1).getType();
+                        case RowType rowType -> rowType.getFields().get(toIntExact(((LongLiteral) node.getIndex()).getValue()) - 1).getType();
                         case ArrayType arrayType -> arrayType.getElementType();
                         case MapType mapType -> mapType.getValueType();
                         default -> throw new IllegalStateException("Unexpected type: " + baseType);
@@ -395,7 +395,7 @@ public class IrTypeAnalyzer
         @Override
         protected Type visitLongLiteral(LongLiteral node, Context context)
         {
-            if (node.getParsedValue() >= Integer.MIN_VALUE && node.getParsedValue() <= Integer.MAX_VALUE) {
+            if (node.getValue() >= Integer.MIN_VALUE && node.getValue() <= Integer.MAX_VALUE) {
                 return setExpressionType(node, INTEGER);
             }
 

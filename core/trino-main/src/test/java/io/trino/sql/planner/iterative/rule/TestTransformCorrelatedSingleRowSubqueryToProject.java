@@ -63,14 +63,14 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),
                                 p.project(
-                                        Assignments.of(p.symbol("l_expr2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), new LongLiteral("1"))),
+                                        Assignments.of(p.symbol("l_expr2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), new LongLiteral(1))),
                                         p.values(
                                                 ImmutableList.of(),
                                                 ImmutableList.of(
                                                         ImmutableList.of())))))
                 .matches(project(
                         ImmutableMap.of(
-                                "l_expr2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), new LongLiteral("1"))),
+                                "l_expr2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), new LongLiteral(1))),
                                 "l_nationkey", PlanMatchPattern.expression(new SymbolReference("l_nationkey"))),
                         tableScan("nation", ImmutableMap.of("l_nationkey", "nationkey"))));
     }
@@ -114,14 +114,14 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                     return p.correlatedJoin(
                             ImmutableList.of(a),
                             p.values(3, a, b),
-                            p.values(ImmutableList.of(a, c), ImmutableList.of(ImmutableList.of(new SymbolReference("a"), new LongLiteral("1")))));
+                            p.values(ImmutableList.of(a, c), ImmutableList.of(ImmutableList.of(new SymbolReference("a"), new LongLiteral(1)))));
                 })
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(new SymbolReference("a")),
                                         "b", PlanMatchPattern.expression(new SymbolReference("b")),
-                                        "c", PlanMatchPattern.expression(new LongLiteral("1"))),
+                                        "c", PlanMatchPattern.expression(new LongLiteral(1))),
                                 values(ImmutableList.of("a", "b"), ImmutableList.of(
                                         ImmutableList.of(new NullLiteral(), new NullLiteral()),
                                         ImmutableList.of(new NullLiteral(), new NullLiteral()),

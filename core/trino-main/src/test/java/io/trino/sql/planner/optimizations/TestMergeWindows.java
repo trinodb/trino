@@ -210,7 +210,7 @@ public class TestMergeWindows
                                                 project(
                                                         ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), BIGINT))),
                                                         project(
-                                                                ImmutableMap.of("expr", expression(new LongLiteral("1"))),
+                                                                ImmutableMap.of("expr", expression(new LongLiteral(1))),
                                                                 LINEITEM_TABLESCAN_DOQSS)))))));
     }
 
@@ -265,7 +265,7 @@ public class TestMergeWindows
                                         .addFunction(windowFunction("nth_value", ImmutableList.of(QUANTITY_ALIAS, "ONE"), COMMON_FRAME))
                                         .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), COMMON_FRAME)),
                                 project(ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), BIGINT))),
-                                        project(ImmutableMap.of("expr", expression(new LongLiteral("1"))),
+                                        project(ImmutableMap.of("expr", expression(new LongLiteral(1))),
                                                 LINEITEM_TABLESCAN_DOQS)))));
     }
 

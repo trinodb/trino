@@ -101,7 +101,7 @@ public class TestMergeAdjacentWindows
                                 newWindowNodeSpecification(p, "a"),
                                 ImmutableMap.of(p.symbol("avg_2"), newWindowNodeFunction(AVG, "a")),
                                 p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("5")),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(5)),
                                         p.window(
                                                 newWindowNodeSpecification(p, "a"),
                                                 ImmutableMap.of(p.symbol("avg_1"), newWindowNodeFunction(AVG, "a")),
@@ -174,7 +174,7 @@ public class TestMergeAdjacentWindows
                                 ImmutableMap.of(p.symbol("lagOutput"), newWindowNodeFunction(LAG, "a", "one")),
                                 p.project(
                                         Assignments.builder()
-                                                .put(p.symbol("one"), new Cast(new LongLiteral("1"), BIGINT))
+                                                .put(p.symbol("one"), new Cast(new LongLiteral(1), BIGINT))
                                                 .putIdentities(ImmutableList.of(p.symbol("a"), p.symbol("avgOutput")))
                                                 .build(),
                                         p.project(
@@ -196,7 +196,7 @@ public class TestMergeAdjacentWindows
                                                 .addFunction(avgOutputAlias, windowFunction(AVG.getSignature().getName().getFunctionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME)),
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        oneAlias, PlanMatchPattern.expression(new Cast(new LongLiteral("1"), BIGINT)),
+                                                        oneAlias, PlanMatchPattern.expression(new Cast(new LongLiteral(1), BIGINT)),
                                                         columnAAlias, PlanMatchPattern.expression(new SymbolReference(columnAAlias)),
                                                         unusedAlias, PlanMatchPattern.expression(new SymbolReference(unusedAlias))),
                                                 strictProject(

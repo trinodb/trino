@@ -141,7 +141,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                 session,
                 any(
                         project(
-                                ImmutableMap.of("expr", expression(new SubscriptExpression(new SymbolReference("col0"), new LongLiteral("1"))), "expr_2", expression(new SubscriptExpression(new SymbolReference("col0"), new LongLiteral("2")))),
+                                ImmutableMap.of("expr", expression(new SubscriptExpression(new SymbolReference("col0"), new LongLiteral(1))), "expr_2", expression(new SubscriptExpression(new SymbolReference("col0"), new LongLiteral(2)))),
                                 tableScan(testTable, ImmutableMap.of("col0", "col0")))));
     }
 
@@ -193,7 +193,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                         filter(
                                 new LogicalExpression(AND, ImmutableList.of(
                                         new ComparisonExpression(EQUAL, new SymbolReference("y"), new GenericLiteral("BIGINT", "2")),
-                                        new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), new LongLiteral("3")), BIGINT)))),
+                                        new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), new LongLiteral(3)), BIGINT)))),
                                 source2)));
 
         // Projection and predicate pushdown with overlapping columns
@@ -219,9 +219,9 @@ public class TestDeltaLakeProjectionPushdownPlans
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference("expr_0"), new LongLiteral("1"))),
+                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference("expr_0"), new LongLiteral(1))),
                                         "expr_0", expression(new SymbolReference("expr_0")),
-                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference("expr_0"), new LongLiteral("2")))),
+                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference("expr_0"), new LongLiteral(2)))),
                                 join(INNER, builder -> {
                                     PlanMatchPattern source = tableScan(
                                             table -> {

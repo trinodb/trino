@@ -39,10 +39,10 @@ class TestChooseAlternativeRule
                         .chooseAlternative(
                                 List.of(
                                         pb.filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("i1"), new LongLiteral("5")),
+                                                new ComparisonExpression(EQUAL, new SymbolReference("i1"), new LongLiteral(5)),
                                                 pb.values(pb.symbol("i1"), pb.symbol("i2"))),
                                         pb.filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("i1"), new LongLiteral("10")),
+                                                new ComparisonExpression(EQUAL, new SymbolReference("i1"), new LongLiteral(10)),
                                                 pb.values(pb.symbol("i1"), pb.symbol("i2")))),
                                 new FilteredTableScan(pb.tableScan(List.of(pb.symbol("i1"), pb.symbol("i2")), false), Optional.empty())))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()

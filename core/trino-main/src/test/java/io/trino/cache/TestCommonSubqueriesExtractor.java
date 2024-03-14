@@ -1273,13 +1273,13 @@ public class TestCommonSubqueriesExtractor
                 new PlanNodeId("filterA"),
                 scanA,
                 new LogicalExpression(OR, ImmutableList.of(
-                        new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("subquery_a_column1"), new LongLiteral("4")), new GenericLiteral("BIGINT", "0")),
-                        new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("subquery_a_column2"), new LongLiteral("2")), new GenericLiteral("BIGINT", "0")))));
+                        new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("subquery_a_column1"), new LongLiteral(4)), new GenericLiteral("BIGINT", "0")),
+                        new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("subquery_a_column2"), new LongLiteral(2)), new GenericLiteral("BIGINT", "0")))));
         ProjectNode projectA = new ProjectNode(
                 new PlanNodeId("projectA"),
                 filterA,
                 Assignments.of(
-                        subqueryAProjection1, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("subquery_a_column1"), new LongLiteral("10")),
+                        subqueryAProjection1, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("subquery_a_column1"), new LongLiteral(10)),
                         subqueryAColumn1, new SymbolReference("subquery_a_column1")));
 
         Symbol subqueryBColumn1 = symbolAllocator.newSymbol("subquery_b_column1", BIGINT);
@@ -1299,7 +1299,7 @@ public class TestCommonSubqueriesExtractor
                 new PlanNodeId("filterB"),
                 scanB,
                 and(
-                        new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("subquery_b_column1"), new LongLiteral("4")), new GenericLiteral("BIGINT", "0")),
+                        new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("subquery_b_column1"), new LongLiteral(4)), new GenericLiteral("BIGINT", "0")),
                         createDynamicFilterExpression(
                                 getPlanTester().getPlannerContext().getMetadata(),
                                 new DynamicFilterId("subquery_b_dynamic_id"),
@@ -1310,7 +1310,7 @@ public class TestCommonSubqueriesExtractor
                 new PlanNodeId("projectB"),
                 filterB,
                 Assignments.of(
-                        subqueryBProjection1, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("subquery_b_column1"), new LongLiteral("10"))));
+                        subqueryBProjection1, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("subquery_b_column1"), new LongLiteral(10))));
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         Map<PlanNode, CommonPlanAdaptation> planAdaptations = extractCommonSubqueries(
@@ -1339,11 +1339,11 @@ public class TestCommonSubqueriesExtractor
         PlanMatchPattern commonSubplan = strictProject(
                 ImmutableMap.of(
                         "column1", PlanMatchPattern.expression(new SymbolReference("column1")),
-                        "projection", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("column1"), new LongLiteral("10")))),
+                        "projection", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("column1"), new LongLiteral(10)))),
                 filter(
                         new LogicalExpression(OR, ImmutableList.of(
-                                new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("column1"), new LongLiteral("4")), new GenericLiteral("BIGINT", "0")),
-                                new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("column2"), new LongLiteral("2")), new GenericLiteral("BIGINT", "0")))),
+                                new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("column1"), new LongLiteral(4)), new GenericLiteral("BIGINT", "0")),
+                                new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("column2"), new LongLiteral(2)), new GenericLiteral("BIGINT", "0")))),
                         commonSubplanTableScan));
         assertPlan(symbolAllocator, subqueryA.getCommonSubplan(), commonSubplan);
         assertPlan(symbolAllocator, subqueryB.getCommonSubplan(), commonSubplan);
@@ -1409,12 +1409,12 @@ public class TestCommonSubqueriesExtractor
         assertPlan(symbolAllocator, subqueryB.adaptCommonSubplan(subqueryB.getCommonSubplan(), idAllocator),
                 strictProject(ImmutableMap.of("projection", PlanMatchPattern.expression(new SymbolReference("projection"))),
                         filter(
-                                new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("column1"), new LongLiteral("4")), new GenericLiteral("BIGINT", "0")),
+                                new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("column1"), new LongLiteral(4)), new GenericLiteral("BIGINT", "0")),
                                 commonSubplan)));
 
         // make sure plan signatures are same
         assertThat(subqueryA.getCommonSubplanSignature()).isEqualTo(subqueryB.getCommonSubplanSignature());
-        List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("[cache_column1]"), new LongLiteral("10"))), column1);
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("[cache_column1]"), new LongLiteral(10))), column1);
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, BIGINT);
         assertThat(subqueryA.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(new PlanSignature(
                 combine(scanFilterProjectKey(new CacheTableId(testTableHandle.getCatalogHandle().getId() + ":cache_table_id")), "filters=((([cache_column1] % 4) = BIGINT '0') OR (([cache_column2] % 2) = BIGINT '0'))"),

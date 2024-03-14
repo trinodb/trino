@@ -35,7 +35,7 @@ public class TestRemoveTrivialFilters
     {
         tester().assertThat(new RemoveTrivialFilters())
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new LongLiteral("1"), new LongLiteral("1")),
+                        new ComparisonExpression(EQUAL, new LongLiteral(1), new LongLiteral(1)),
                         p.values()))
                 .doesNotFire();
     }
@@ -56,7 +56,7 @@ public class TestRemoveTrivialFilters
                         FALSE_LITERAL,
                         p.values(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))))
+                                ImmutableList.of(ImmutableList.of(new LongLiteral(1))))))
                 .matches(values("a"));
     }
 
@@ -68,7 +68,7 @@ public class TestRemoveTrivialFilters
                         new Cast(new NullLiteral(), BOOLEAN),
                         p.values(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))))
+                                ImmutableList.of(ImmutableList.of(new LongLiteral(1))))))
                 .matches(values(
                         ImmutableList.of("a"),
                         ImmutableList.of()));

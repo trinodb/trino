@@ -419,7 +419,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                                 .equals(OptionalLong.of(waitForCascadingDynamicFiltersTimeout))),
                                 node(ExchangeNode.class,
                                         filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("B_1"), new FunctionCall(QualifiedName.of("random"), ImmutableList.of(new LongLiteral("5")))),
+                                                new ComparisonExpression(EQUAL, new SymbolReference("B_1"), new FunctionCall(QualifiedName.of("random"), ImmutableList.of(new LongLiteral(5)))),
                                                 tableScan("table_small_b", ImmutableMap.of("B_1", "b_1")))))));
     }
 }

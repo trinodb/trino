@@ -54,7 +54,7 @@ public class TestRuleTester
                                     Assignments.of(p.symbol("y"), new SymbolReference("x")),
                                     p.values(
                                             ImmutableList.of(p.symbol("x")),
-                                            ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))));
+                                            ImmutableList.of(ImmutableList.of(new LongLiteral(1))))));
 
             PlanMatchPattern expected = values(ImmutableList.of("different"), ImmutableList.of());
             assertThatThrownBy(() -> ruleAssert.matches(expected))
@@ -75,7 +75,7 @@ public class TestRuleTester
                     .on(p ->
                             p.values(
                                     List.of(p.symbol("x")),
-                                    List.of(List.of(new LongLiteral("1")))));
+                                    List.of(List.of(new LongLiteral(1)))));
 
             PlanMatchPattern expected = values(List.of("whatever"), List.of());
             assertThatThrownBy(() -> ruleAssert.matches(expected))

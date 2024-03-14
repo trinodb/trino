@@ -108,8 +108,8 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                                         Assignments.builder()
                                                 .putIdentity(p.symbol("input1"))
                                                 .putIdentity(p.symbol("input2"))
-                                                .put(p.symbol("filter1"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input2"), new LongLiteral("0")))
-                                                .put(p.symbol("filter2"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input1"), new LongLiteral("0")))
+                                                .put(p.symbol("filter1"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input2"), new LongLiteral(0)))
+                                                .put(p.symbol("filter2"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input1"), new LongLiteral(0)))
                                                 .build(),
                                         p.values(
                                                 p.symbol("input1"),
@@ -127,8 +127,8 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                                         Assignments.builder()
                                                 .putIdentity(p.symbol("input1"))
                                                 .putIdentity(p.symbol("input2"))
-                                                .put(p.symbol("filter1"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input2"), new LongLiteral("0")))
-                                                .put(p.symbol("filter2"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input1"), new LongLiteral("0")))
+                                                .put(p.symbol("filter1"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input2"), new LongLiteral(0)))
+                                                .put(p.symbol("filter2"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input1"), new LongLiteral(0)))
                                                 .build(),
                                         p.values(
                                                 p.symbol("input1"),

@@ -223,8 +223,8 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("corr"))),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(new Row(ImmutableList.of(new LongLiteral("1")))))))
-                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(ADD, new LongLiteral("1"), new SymbolReference("corr"))))));
+                                ImmutableList.of(new Row(ImmutableList.of(new LongLiteral(1)))))))
+                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(ADD, new LongLiteral(1), new SymbolReference("corr"))))));
 
         // correlation symbol in values (note: the resulting plan is not yet supported in execution)
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
@@ -238,11 +238,11 @@ public class TestMergeProjectWithValues
         // correlation symbol is not present in the resulting expression
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("x"), new LongLiteral("1")),
+                        Assignments.of(p.symbol("x"), new LongLiteral(1)),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(new Row(ImmutableList.of(new SymbolReference("corr")))))))
-                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))));
+                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new LongLiteral(1)))));
     }
 
     @Test
@@ -255,7 +255,7 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("x"), failFunction),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(new Row(ImmutableList.of(new LongLiteral("1")))))))
+                                ImmutableList.of(new Row(ImmutableList.of(new LongLiteral(1)))))))
                 .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(failFunction))));
     }
 
@@ -274,22 +274,22 @@ public class TestMergeProjectWithValues
                     assignments.putIdentity(a); // identity assignment
                     assignments.put(d, b.toSymbolReference()); // renaming assignment
                     assignments.put(e, new IsNullPredicate(a.toSymbolReference())); // expression involving input symbol
-                    assignments.put(f, new LongLiteral("1")); // constant expression
+                    assignments.put(f, new LongLiteral(1)); // constant expression
                     return p.project(
                             assignments.build(),
                             p.valuesOfExpressions(
                                     ImmutableList.of(a, b, c),
                                     ImmutableList.of(
-                                            new Row(ImmutableList.of(new GenericLiteral("CHAR", "x"), new BooleanLiteral("true"), new LongLiteral("1"))),
-                                            new Row(ImmutableList.of(new GenericLiteral("CHAR", "y"), new BooleanLiteral("false"), new LongLiteral("2"))),
-                                            new Row(ImmutableList.of(new GenericLiteral("CHAR", "z"), new BooleanLiteral("true"), new LongLiteral("3"))))));
+                                            new Row(ImmutableList.of(new GenericLiteral("CHAR", "x"), new BooleanLiteral("true"), new LongLiteral(1))),
+                                            new Row(ImmutableList.of(new GenericLiteral("CHAR", "y"), new BooleanLiteral("false"), new LongLiteral(2))),
+                                            new Row(ImmutableList.of(new GenericLiteral("CHAR", "z"), new BooleanLiteral("true"), new LongLiteral(3))))));
                 })
                 .matches(values(
                         ImmutableList.of("a", "d", "e", "f"),
                         ImmutableList.of(
-                                ImmutableList.of(new GenericLiteral("CHAR", "x"), new BooleanLiteral("true"), new IsNullPredicate(new GenericLiteral("CHAR", "x")), new LongLiteral("1")),
-                                ImmutableList.of(new GenericLiteral("CHAR", "y"), new BooleanLiteral("false"), new IsNullPredicate(new GenericLiteral("CHAR", "y")), new LongLiteral("1")),
-                                ImmutableList.of(new GenericLiteral("CHAR", "z"), new BooleanLiteral("true"), new IsNullPredicate(new GenericLiteral("CHAR", "z")), new LongLiteral("1")))));
+                                ImmutableList.of(new GenericLiteral("CHAR", "x"), new BooleanLiteral("true"), new IsNullPredicate(new GenericLiteral("CHAR", "x")), new LongLiteral(1)),
+                                ImmutableList.of(new GenericLiteral("CHAR", "y"), new BooleanLiteral("false"), new IsNullPredicate(new GenericLiteral("CHAR", "y")), new LongLiteral(1)),
+                                ImmutableList.of(new GenericLiteral("CHAR", "z"), new BooleanLiteral("true"), new IsNullPredicate(new GenericLiteral("CHAR", "z")), new LongLiteral(1)))));
 
         // ValuesNode has no rows
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
@@ -304,7 +304,7 @@ public class TestMergeProjectWithValues
                     assignments.putIdentity(a); // identity assignment
                     assignments.put(d, b.toSymbolReference()); // renaming assignment
                     assignments.put(e, new IsNullPredicate(a.toSymbolReference())); // expression involving input symbol
-                    assignments.put(f, new LongLiteral("1")); // constant expression
+                    assignments.put(f, new LongLiteral(1)); // constant expression
                     return p.project(
                             assignments.build(),
                             p.values(

@@ -72,12 +72,12 @@ public class TestRemoveRedundantLimit
                         p.limit(
                                 0,
                                 p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("5")),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(5)),
                                         p.values(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 ImmutableList.of(
-                                                        ImmutableList.of(new LongLiteral("1"), new LongLiteral("10")),
-                                                        ImmutableList.of(new LongLiteral("2"), new LongLiteral("11")))))))
+                                                        ImmutableList.of(new LongLiteral(1), new LongLiteral(10)),
+                                                        ImmutableList.of(new LongLiteral(2), new LongLiteral(11)))))))
                 // TODO: verify contents
                 .matches(values(ImmutableMap.of()));
     }
@@ -106,12 +106,12 @@ public class TestRemoveRedundantLimit
                         true,
                         ImmutableList.of(p.symbol("a")),
                         p.filter(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("5")),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(5)),
                                 p.values(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of(
-                                                ImmutableList.of(new LongLiteral("1"), new LongLiteral("10")),
-                                                ImmutableList.of(new LongLiteral("2"), new LongLiteral("11")))))))
+                                                ImmutableList.of(new LongLiteral(1), new LongLiteral(10)),
+                                                ImmutableList.of(new LongLiteral(2), new LongLiteral(11)))))))
                 .matches(
                         node(FilterNode.class,
                                         node(ValuesNode.class)));

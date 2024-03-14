@@ -679,7 +679,7 @@ public class TestComparisonStatsCalculator
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
 
         rowCount = 897.0;
-        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new LongLiteral("10"), DOUBLE)))
+        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("u"), new Cast(new LongLiteral(10), DOUBLE)))
                 .outputRowsCount(rowCount)
                 .symbolStats("u", equalTo(capNDV(updateNDV(zeroNullsFraction(uStats), -1), rowCount)))
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));

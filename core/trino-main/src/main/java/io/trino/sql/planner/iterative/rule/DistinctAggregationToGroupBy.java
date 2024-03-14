@@ -205,7 +205,7 @@ public class DistinctAggregationToGroupBy
             groupIdFilters.put(nonDistinctGroupFilterSymbol, new ComparisonExpression(
                     EQUAL,
                     groupSymbol.toSymbolReference(),
-                    new Cast(new LongLiteral("0"), BIGINT)));
+                    new Cast(new LongLiteral(0), BIGINT)));
         }
 
         ImmutableMap.Builder<Symbol, Aggregation> outerAggregations = ImmutableMap.builder();
@@ -223,7 +223,7 @@ public class DistinctAggregationToGroupBy
                     groupIdFilters.put(filterSymbol, new ComparisonExpression(
                             EQUAL,
                             groupSymbol.toSymbolReference(),
-                            new Cast(new LongLiteral(groupId.toString()), BIGINT)));
+                            new Cast(new LongLiteral(groupId), BIGINT)));
                     return filterSymbol;
                 });
 
@@ -364,7 +364,7 @@ public class DistinctAggregationToGroupBy
         Assignments.Builder outputSymbols = Assignments.builder();
         for (Symbol symbol : outerAggregationNode.getOutputSymbols()) {
             if (coalesceSymbols.containsKey(symbol)) {
-                Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT));
+                Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral(0), BIGINT));
                 outputSymbols.put(coalesceSymbols.get(symbol), expression);
             }
             else {

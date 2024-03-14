@@ -283,8 +283,8 @@ public class TestJoinNodeFlattener
         ValuesNode valuesB = p.values(b1, b2);
         ValuesNode valuesC = p.values(c1, c2);
         Expression bcFilter = and(
-                new ComparisonExpression(GREATER_THAN, c2.toSymbolReference(), new LongLiteral("0")),
-                new ComparisonExpression(NOT_EQUAL, c2.toSymbolReference(), new LongLiteral("7")),
+                new ComparisonExpression(GREATER_THAN, c2.toSymbolReference(), new LongLiteral(0)),
+                new ComparisonExpression(NOT_EQUAL, c2.toSymbolReference(), new LongLiteral(7)),
                 new ComparisonExpression(GREATER_THAN, b2.toSymbolReference(), c2.toSymbolReference()));
         ComparisonExpression abcFilter = new ComparisonExpression(
                 LESS_THAN,

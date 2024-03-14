@@ -35,6 +35,7 @@ import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.ir.LogicalExpression.Operator.AND;
+import static java.lang.Long.MAX_VALUE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCounterBasedAnonymizer
@@ -51,9 +52,9 @@ public class TestCounterBasedAnonymizer
     public void testSymbolReferenceAnonymization()
     {
         LogicalExpression expression = new LogicalExpression(AND, ImmutableList.of(
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("1")),
-                new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new LongLiteral("2")),
-                new ComparisonExpression(EQUAL, new SymbolReference("c"), new LongLiteral("3"))));
+                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(1)),
+                new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new LongLiteral(2)),
+                new ComparisonExpression(EQUAL, new SymbolReference("c"), new LongLiteral(3))));
         CounterBasedAnonymizer anonymizer = new CounterBasedAnonymizer();
         assertThat(anonymizer.anonymize(expression))
                 .isEqualTo("((\"symbol_1\" > 'long_literal_1') AND (\"symbol_2\" < 'long_literal_2') AND (\"symbol_3\" = 'long_literal_3'))");
@@ -82,10 +83,10 @@ public class TestCounterBasedAnonymizer
         assertThat(anonymizer.anonymize(new DoubleLiteral(String.valueOf(Double.MAX_VALUE))))
                 .isEqualTo("'double_literal_6'");
 
-        assertThat(anonymizer.anonymize(new LongLiteral(String.valueOf(6554))))
+        assertThat(anonymizer.anonymize(new LongLiteral(6554)))
                 .isEqualTo("'long_literal_7'");
 
-        assertThat(anonymizer.anonymize(new LongLiteral(String.valueOf(Long.MAX_VALUE))))
+        assertThat(anonymizer.anonymize(new LongLiteral(MAX_VALUE)))
                 .isEqualTo("'long_literal_8'");
 
         assertThat(anonymizer.anonymize(new BooleanLiteral("true")))

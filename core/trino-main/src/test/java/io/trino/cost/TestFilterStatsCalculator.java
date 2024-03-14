@@ -212,7 +212,7 @@ public class TestFilterStatsCalculator
                 new DecimalLiteral("-3"),
                 new DoubleLiteral("-3.0"),
                 new ArithmeticBinaryExpression(SUBTRACT, new DoubleLiteral("4.0"), new DoubleLiteral("7.0")),
-                new Cast(new LongLiteral("-3"), createDecimalType(7, 3)))) {
+                new Cast(new LongLiteral(-3), createDecimalType(7, 3)))) {
             assertExpression(new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(minusThree, DOUBLE)))
                     .outputRowsCount(18.75)
                     .symbolStats(new Symbol("x"), symbolAssert ->
@@ -274,29 +274,29 @@ public class TestFilterStatsCalculator
         assertExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new SymbolReference("emptyRange")))
                 .outputRowsCount(0);
 
-        assertExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("y"), new LongLiteral("20"))))
+        assertExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("y"), new LongLiteral(20))))
                 .outputRowsCount(0);
-        assertExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("y"), new LongLiteral("20"))))
+        assertExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("y"), new LongLiteral(20))))
                 .outputRowsCount(0);
-        assertExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("y"), new LongLiteral("25"))))
+        assertExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("y"), new LongLiteral(25))))
                 .outputRowsCount(0);
-        assertExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("y"), new LongLiteral("25"))))
+        assertExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("y"), new LongLiteral(25))))
                 .outputRowsCount(0);
 
         double nullsFractionY = 0.5;
         double inputRowCount = standardInputStatistics.getOutputRowCount();
         double nonNullRowCount = inputRowCount * (1 - nullsFractionY);
         SymbolStatsEstimate nonNullStatsX = xStats.mapNullsFraction(nullsFraction -> 0.0);
-        assertExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("y"), new LongLiteral("25"))))
+        assertExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("y"), new LongLiteral(25))))
                 .outputRowsCount(nonNullRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
-        assertExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("y"), new LongLiteral("25"))))
+        assertExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("y"), new LongLiteral(25))))
                 .outputRowsCount(nonNullRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
-        assertExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("y"), new LongLiteral("20"))))
+        assertExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("y"), new LongLiteral(20))))
                 .outputRowsCount(nonNullRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
-        assertExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("y"), new LongLiteral("20"))))
+        assertExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("y"), new LongLiteral(20))))
                 .outputRowsCount(nonNullRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
     }
@@ -426,8 +426,8 @@ public class TestFilterStatsCalculator
         double inequalityFilterSelectivityY = 0.4;
         assertExpression(
                 new LogicalExpression(AND, ImmutableList.of(
-                        new BetweenPredicate(new SymbolReference("x"), new Cast(new LongLiteral("-5"), DOUBLE), new Cast(new LongLiteral("5"), DOUBLE)),
-                        new ComparisonExpression(GREATER_THAN, new SymbolReference("y"), new Cast(new LongLiteral("1"), DOUBLE)))),
+                        new BetweenPredicate(new SymbolReference("x"), new Cast(new LongLiteral(-5), DOUBLE), new Cast(new LongLiteral(5), DOUBLE)),
+                        new ComparisonExpression(GREATER_THAN, new SymbolReference("y"), new Cast(new LongLiteral(1), DOUBLE)))),
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0").build())
                 .outputRowsCount(filterSelectivityX * inputRowCount)
                 .symbolStats("x", symbolAssertX)
@@ -435,8 +435,8 @@ public class TestFilterStatsCalculator
 
         assertExpression(
                 new LogicalExpression(AND, ImmutableList.of(
-                        new BetweenPredicate(new SymbolReference("x"), new Cast(new LongLiteral("-5"), DOUBLE), new Cast(new LongLiteral("5"), DOUBLE)),
-                        new ComparisonExpression(GREATER_THAN, new SymbolReference("y"), new Cast(new LongLiteral("1"), DOUBLE)))),
+                        new BetweenPredicate(new SymbolReference("x"), new Cast(new LongLiteral(-5), DOUBLE), new Cast(new LongLiteral(5), DOUBLE)),
+                        new ComparisonExpression(GREATER_THAN, new SymbolReference("y"), new Cast(new LongLiteral(1), DOUBLE)))),
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "1").build())
                 .outputRowsCount(filterSelectivityX * inequalityFilterSelectivityY * inputRowCount)
                 .symbolStats("x", symbolAssertX)
@@ -444,8 +444,8 @@ public class TestFilterStatsCalculator
 
         assertExpression(
                 new LogicalExpression(AND, ImmutableList.of(
-                        new BetweenPredicate(new SymbolReference("x"), new Cast(new LongLiteral("-5"), DOUBLE), new Cast(new LongLiteral("5"), DOUBLE)),
-                        new ComparisonExpression(GREATER_THAN, new SymbolReference("y"), new Cast(new LongLiteral("1"), DOUBLE)))),
+                        new BetweenPredicate(new SymbolReference("x"), new Cast(new LongLiteral(-5), DOUBLE), new Cast(new LongLiteral(5), DOUBLE)),
+                        new ComparisonExpression(GREATER_THAN, new SymbolReference("y"), new Cast(new LongLiteral(1), DOUBLE)))),
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
                 .outputRowsCount(filterSelectivityX * Math.pow(inequalityFilterSelectivityY, 0.5) * inputRowCount)
                 .symbolStats("x", symbolAssertX)
@@ -454,7 +454,7 @@ public class TestFilterStatsCalculator
         double nullFilterSelectivityY = 0.5;
         assertExpression(
                 new LogicalExpression(AND, ImmutableList.of(
-                        new BetweenPredicate(new SymbolReference("x"), new Cast(new LongLiteral("-5"), DOUBLE), new Cast(new LongLiteral("5"), DOUBLE)),
+                        new BetweenPredicate(new SymbolReference("x"), new Cast(new LongLiteral(-5), DOUBLE), new Cast(new LongLiteral(5), DOUBLE)),
                         new IsNullPredicate(new SymbolReference("y")))),
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "1").build())
                 .outputRowsCount(filterSelectivityX * nullFilterSelectivityY * inputRowCount)
@@ -463,7 +463,7 @@ public class TestFilterStatsCalculator
 
         assertExpression(
                 new LogicalExpression(AND, ImmutableList.of(
-                        new BetweenPredicate(new SymbolReference("x"), new Cast(new LongLiteral("-5"), DOUBLE), new Cast(new LongLiteral("5"), DOUBLE)),
+                        new BetweenPredicate(new SymbolReference("x"), new Cast(new LongLiteral(-5), DOUBLE), new Cast(new LongLiteral(5), DOUBLE)),
                         new IsNullPredicate(new SymbolReference("y")))),
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
                 .outputRowsCount(filterSelectivityX * Math.pow(nullFilterSelectivityY, 0.5) * inputRowCount)
@@ -472,7 +472,7 @@ public class TestFilterStatsCalculator
 
         assertExpression(
                 new LogicalExpression(AND, ImmutableList.of(
-                        new BetweenPredicate(new SymbolReference("x"), new Cast(new LongLiteral("-5"), DOUBLE), new Cast(new LongLiteral("5"), DOUBLE)),
+                        new BetweenPredicate(new SymbolReference("x"), new Cast(new LongLiteral(-5), DOUBLE), new Cast(new LongLiteral(5), DOUBLE)),
                         new IsNullPredicate(new SymbolReference("y")))),
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0").build())
                 .outputRowsCount(filterSelectivityX * inputRowCount)
@@ -481,8 +481,8 @@ public class TestFilterStatsCalculator
 
         assertExpression(
                 new LogicalExpression(AND, ImmutableList.of(
-                        new ComparisonExpression(LESS_THAN, new SymbolReference("y"), new Cast(new LongLiteral("1"), DOUBLE)),
-                        new ComparisonExpression(LESS_THAN, new Cast(new LongLiteral("0"), DOUBLE), new SymbolReference("y")))),
+                        new ComparisonExpression(LESS_THAN, new SymbolReference("y"), new Cast(new LongLiteral(1), DOUBLE)),
+                        new ComparisonExpression(LESS_THAN, new Cast(new LongLiteral(0), DOUBLE), new SymbolReference("y")))),
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
                 .outputRowsCount(100)
                 .symbolStats("y", symbolAssert -> symbolAssert.averageRowSize(4.0)
@@ -493,10 +493,10 @@ public class TestFilterStatsCalculator
 
         assertExpression(
                 new LogicalExpression(AND, ImmutableList.of(
-                        new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new Cast(new LongLiteral("0"), DOUBLE)),
+                        new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new Cast(new LongLiteral(0), DOUBLE)),
                         new LogicalExpression(OR, ImmutableList.of(
-                                new ComparisonExpression(LESS_THAN, new SymbolReference("y"), new Cast(new LongLiteral("1"), DOUBLE)),
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("y"), new Cast(new LongLiteral("2"), DOUBLE)))))),
+                                new ComparisonExpression(LESS_THAN, new SymbolReference("y"), new Cast(new LongLiteral(1), DOUBLE)),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("y"), new Cast(new LongLiteral(2), DOUBLE)))))),
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
                 .outputRowsCount(filterSelectivityX * Math.pow(inequalityFilterSelectivityY, 0.5) * inputRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
@@ -512,10 +512,10 @@ public class TestFilterStatsCalculator
 
         assertExpression(
                 new LogicalExpression(AND, ImmutableList.of(
-                        new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new Cast(new LongLiteral("0"), DOUBLE)),
+                        new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new Cast(new LongLiteral(0), DOUBLE)),
                         new LogicalExpression(OR, ImmutableList.of(
-                                new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new Cast(new LongLiteral("1"), DOUBLE)),
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("y"), new Cast(new LongLiteral("1"), DOUBLE)))))),
+                                new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new Cast(new LongLiteral(1), DOUBLE)),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("y"), new Cast(new LongLiteral(1), DOUBLE)))))),
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
                 .outputRowsCount(172.0)
                 .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
@@ -532,17 +532,17 @@ public class TestFilterStatsCalculator
         assertExpression(
                 new LogicalExpression(AND, ImmutableList.of(
                         new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(
-                                new Cast(new LongLiteral("0"), DOUBLE),
-                                new Cast(new LongLiteral("1"), DOUBLE),
-                                new Cast(new LongLiteral("2"), DOUBLE)))),
+                                new Cast(new LongLiteral(0), DOUBLE),
+                                new Cast(new LongLiteral(1), DOUBLE),
+                                new Cast(new LongLiteral(2), DOUBLE)))),
                         new LogicalExpression(OR, ImmutableList.of(
-                                new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(new LongLiteral("0"), DOUBLE)),
+                                new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(new LongLiteral(0), DOUBLE)),
                                 new LogicalExpression(AND, ImmutableList.of(
-                                        new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(new LongLiteral("1"), DOUBLE)),
-                                        new ComparisonExpression(EQUAL, new SymbolReference("y"), new Cast(new LongLiteral("1"), DOUBLE)))),
+                                        new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(new LongLiteral(1), DOUBLE)),
+                                        new ComparisonExpression(EQUAL, new SymbolReference("y"), new Cast(new LongLiteral(1), DOUBLE)))),
                                 new LogicalExpression(AND, ImmutableList.of(
-                                        new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(new LongLiteral("2"), DOUBLE)),
-                                        new ComparisonExpression(EQUAL, new SymbolReference("y"), new Cast(new LongLiteral("1"), DOUBLE)))))))),
+                                        new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(new LongLiteral(2), DOUBLE)),
+                                        new ComparisonExpression(EQUAL, new SymbolReference("y"), new Cast(new LongLiteral(1), DOUBLE)))))))),
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
                 .outputRowsCount(20.373798)
                 .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
@@ -558,7 +558,7 @@ public class TestFilterStatsCalculator
 
         assertExpression(
                 new LogicalExpression(AND, ImmutableList.of(
-                        new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new Cast(new LongLiteral("0"), DOUBLE)),
+                        new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new Cast(new LongLiteral(0), DOUBLE)),
                         new Cast(new NullLiteral(), BOOLEAN))),
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
                 .outputRowsCount(filterSelectivityX * inputRowCount * 0.9)

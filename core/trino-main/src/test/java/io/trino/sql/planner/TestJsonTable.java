@@ -127,12 +127,12 @@ public class TestJsonTable
                                                                 project(// pre-project context item, path parameters and default expressions
                                                                         ImmutableMap.of(
                                                                                 "name", expression(new StringLiteral("[ala]")),
-                                                                                "default_value", expression(new LongLiteral("5"))),
+                                                                                "default_value", expression(new LongLiteral(5))),
                                                                         anyTree(
                                                                                 project(
                                                                                         ImmutableMap.of(
                                                                                                 "json_col", expression(new StringLiteral("[1, 2, 3]")),
-                                                                                                "int_col", expression(new LongLiteral("4"))),
+                                                                                                "int_col", expression(new LongLiteral(4))),
                                                                                         values(1)))))))))));
     }
 
