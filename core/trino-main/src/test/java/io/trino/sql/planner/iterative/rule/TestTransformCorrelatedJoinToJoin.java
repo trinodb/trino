@@ -74,7 +74,7 @@ public class TestTransformCorrelatedJoinToJoin
                             new ComparisonExpression(
                                     LESS_THAN,
                                     b.toSymbolReference(),
-                                    new LongLiteral("3")),
+                                    new LongLiteral(3)),
                             p.filter(
                                     new ComparisonExpression(
                                             GREATER_THAN,
@@ -84,7 +84,7 @@ public class TestTransformCorrelatedJoinToJoin
                 })
                 .matches(
                         join(JoinType.INNER, builder -> builder
-                                .filter(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("a")), new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new LongLiteral("3")))))
+                                .filter(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("a")), new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new LongLiteral(3)))))
                                 .left(values("a"))
                                 .right(
                                         filter(
@@ -131,7 +131,7 @@ public class TestTransformCorrelatedJoinToJoin
                             new ComparisonExpression(
                                     LESS_THAN,
                                     b.toSymbolReference(),
-                                    new LongLiteral("3")),
+                                    new LongLiteral(3)),
                             p.filter(
                                     new ComparisonExpression(
                                             GREATER_THAN,
@@ -141,7 +141,7 @@ public class TestTransformCorrelatedJoinToJoin
                 })
                 .matches(
                         join(JoinType.LEFT, builder -> builder
-                                .filter(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("a")), new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new LongLiteral("3")))))
+                                .filter(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("a")), new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new LongLiteral(3)))))
                                 .left(values("a"))
                                 .right(
                                         filter(

@@ -83,13 +83,13 @@ public class TestUnwrapSingleColumnRowInApply
                                                 .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), new LongLiteral("1"))))
+                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), new LongLiteral(1))))
                                                         .put("nonRowValue", expression(new SymbolReference("nonRowValue")))
                                                         .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), new LongLiteral("1"))))
+                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), new LongLiteral(1))))
                                                         .put("nonRowElement", expression(new SymbolReference("nonRowElement")))
                                                         .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));
@@ -121,13 +121,13 @@ public class TestUnwrapSingleColumnRowInApply
                                                 .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), new LongLiteral("1"))))
+                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), new LongLiteral(1))))
                                                         .put("nonRowValue", expression(new SymbolReference("nonRowValue")))
                                                         .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), new LongLiteral("1"))))
+                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), new LongLiteral(1))))
                                                         .put("nonRowElement", expression(new SymbolReference("nonRowElement")))
                                                         .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));

@@ -48,14 +48,14 @@ public class TestRemoveRedundantOffset
                         p.values(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(
-                                        ImmutableList.of(new LongLiteral("1")),
-                                        ImmutableList.of(new LongLiteral("2"))))))
+                                        ImmutableList.of(new LongLiteral(1)),
+                                        ImmutableList.of(new LongLiteral(2))))))
                 .matches(
                         values(
                                 ImmutableList.of("a"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new LongLiteral("1")),
-                                        ImmutableList.of(new LongLiteral("2")))));
+                                        ImmutableList.of(new LongLiteral(1)),
+                                        ImmutableList.of(new LongLiteral(2)))));
     }
 
     @Test

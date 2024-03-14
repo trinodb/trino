@@ -140,7 +140,7 @@ public class RewriteSpatialPartitioningAggregation
                                 node.getSource(),
                                 Assignments.builder()
                                         .putIdentities(node.getSource().getOutputSymbols())
-                                        .put(partitionCountSymbol, new LongLiteral(Integer.toString(partitionCount)))
+                                        .put(partitionCountSymbol, new LongLiteral(partitionCount))
                                         .putAll(envelopeAssignments.buildOrThrow())
                                         .build()))
                         .setAggregations(aggregations.buildOrThrow())

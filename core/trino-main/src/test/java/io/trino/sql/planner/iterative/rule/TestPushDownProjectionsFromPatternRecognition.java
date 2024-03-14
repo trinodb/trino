@@ -70,9 +70,9 @@ public class TestPushDownProjectionsFromPatternRecognition
                         .addVariableDefinition(
                                 new IrLabel("X"),
                                 new ComparisonExpression(GREATER_THAN, new FunctionCall(MAX_BY, ImmutableList.of(
-                                        new ArithmeticBinaryExpression(ADD, new LongLiteral("1"), new FunctionCall(QualifiedName.of("match_number"), ImmutableList.of())),
+                                        new ArithmeticBinaryExpression(ADD, new LongLiteral(1), new FunctionCall(QualifiedName.of("match_number"), ImmutableList.of())),
                                         new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new StringLiteral("x"), new FunctionCall(QualifiedName.of("classifier"), ImmutableList.of()))))),
-                                        new LongLiteral("5")))
+                                        new LongLiteral(5)))
                         .source(p.values(p.symbol("a")))))
                 .doesNotFire();
     }
@@ -85,7 +85,7 @@ public class TestPushDownProjectionsFromPatternRecognition
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new ComparisonExpression(GREATER_THAN, new FunctionCall(MAX_BY, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), new LongLiteral("5")))
+                                new ComparisonExpression(GREATER_THAN, new FunctionCall(MAX_BY, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), new LongLiteral(5)))
                         .source(p.values(p.symbol("a"), p.symbol("b")))))
                 .doesNotFire();
     }
@@ -99,11 +99,11 @@ public class TestPushDownProjectionsFromPatternRecognition
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new ComparisonExpression(LESS_THAN, new SymbolReference("agg"), new LongLiteral("5")),
+                                new ComparisonExpression(LESS_THAN, new SymbolReference("agg"), new LongLiteral(5)),
                                 ImmutableMap.of("agg", new AggregationValuePointer(
                                         maxBy,
                                         new AggregatedSetDescriptor(ImmutableSet.of(), true),
-                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral("1")), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new LongLiteral("2"))),
+                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral(1)), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new LongLiteral(2))),
                                         Optional.empty(),
                                         Optional.empty())))
                         .source(p.values(p.symbol("a"), p.symbol("b")))))
@@ -112,7 +112,7 @@ public class TestPushDownProjectionsFromPatternRecognition
                                         .pattern(new IrLabel("X"))
                                         .addVariableDefinition(
                                                 new IrLabel("X"),
-                                                new ComparisonExpression(LESS_THAN, new SymbolReference("agg"), new LongLiteral("5")),
+                                                new ComparisonExpression(LESS_THAN, new SymbolReference("agg"), new LongLiteral(5)),
                                                 ImmutableMap.of("agg", new AggregationValuePointer(
                                                         maxBy,
                                                         new AggregatedSetDescriptor(ImmutableSet.of(), true),
@@ -121,8 +121,8 @@ public class TestPushDownProjectionsFromPatternRecognition
                                                         Optional.empty()))),
                                 project(
                                         ImmutableMap.of(
-                                                "expr_1", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral("1"))),
-                                                "expr_2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new LongLiteral("2"))),
+                                                "expr_1", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral(1))),
+                                                "expr_2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new LongLiteral(2))),
                                                 "a", PlanMatchPattern.expression(new SymbolReference("a")),
                                                 "b", PlanMatchPattern.expression(new SymbolReference("b"))),
                                         values("a", "b"))));

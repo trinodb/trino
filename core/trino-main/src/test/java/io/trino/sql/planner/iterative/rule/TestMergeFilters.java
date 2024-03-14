@@ -41,12 +41,12 @@ public class TestMergeFilters
         tester().assertThat(new MergeFilters(metadata))
                 .on(p ->
                         p.filter(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("44")),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(44)),
                                 p.filter(
-                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("42")),
+                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(42)),
                                         p.values(p.symbol("a"), p.symbol("b")))))
                 .matches(filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("42")), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("44")))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(42)), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(44)))),
                         values(ImmutableMap.of("a", 0, "b", 1))));
     }
 }

@@ -96,7 +96,7 @@ public class TestExtractSpatialInnerJoin
                     Symbol a = p.symbol("a", GEOMETRY);
                     Symbol b = p.symbol("b", GEOMETRY);
                     return p.filter(
-                            new ComparisonExpression(GREATER_THAN, distanceCall(a.toSymbolReference(), b.toSymbolReference()), new LongLiteral("5")),
+                            new ComparisonExpression(GREATER_THAN, distanceCall(a.toSymbolReference(), b.toSymbolReference()), new LongLiteral(5)),
                             p.join(INNER,
                                     p.values(a),
                                     p.values(b)));
@@ -110,7 +110,7 @@ public class TestExtractSpatialInnerJoin
                     Symbol a = p.symbol("a", SPHERICAL_GEOGRAPHY);
                     Symbol b = p.symbol("b", SPHERICAL_GEOGRAPHY);
                     return p.filter(
-                            new ComparisonExpression(LESS_THAN, sphericalDistanceCall(a.toSymbolReference(), b.toSymbolReference()), new LongLiteral("5")),
+                            new ComparisonExpression(LESS_THAN, sphericalDistanceCall(a.toSymbolReference(), b.toSymbolReference()), new LongLiteral(5)),
                             p.join(INNER,
                                     p.values(a),
                                     p.values(b)));
@@ -124,7 +124,7 @@ public class TestExtractSpatialInnerJoin
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", SPHERICAL_GEOGRAPHY);
                     return p.filter(
-                            new ComparisonExpression(LESS_THAN, sphericalDistanceCall(toSphericalGeographyCall(wkt), point.toSymbolReference()), new LongLiteral("5")),
+                            new ComparisonExpression(LESS_THAN, sphericalDistanceCall(toSphericalGeographyCall(wkt), point.toSymbolReference()), new LongLiteral(5)),
                             p.join(INNER,
                                     p.values(wkt),
                                     p.values(point)));
@@ -224,7 +224,7 @@ public class TestExtractSpatialInnerJoin
                 {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     return p.filter(
-                            containsCall(geometryFromTextCall(wkt), toPointCall(new LongLiteral("0"), new LongLiteral("0"))),
+                            containsCall(geometryFromTextCall(wkt), toPointCall(new LongLiteral(0), new LongLiteral(0))),
                             p.join(INNER,
                                     p.values(wkt),
                                     p.values()));

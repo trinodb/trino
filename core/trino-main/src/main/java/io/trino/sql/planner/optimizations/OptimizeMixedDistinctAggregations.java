@@ -208,7 +208,7 @@ public class OptimizeMixedDistinctAggregations
             Assignments.Builder outputSymbols = Assignments.builder();
             for (Symbol symbol : aggregationNode.getOutputSymbols()) {
                 if (coalesceSymbols.containsKey(symbol)) {
-                    Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT));
+                    Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral(0), BIGINT));
                     outputSymbols.put(coalesceSymbols.get(symbol), expression);
                 }
                 else {
@@ -331,7 +331,7 @@ public class OptimizeMixedDistinctAggregations
 
                     Expression expression = createIfExpression(
                             groupSymbol.toSymbolReference(),
-                            new Cast(new LongLiteral("1"), BIGINT), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
+                            new Cast(new LongLiteral(1), BIGINT), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
                             ComparisonExpression.Operator.EQUAL,
                             symbol.toSymbolReference(),
                             symbolAllocator.getTypes().get(symbol));
@@ -343,7 +343,7 @@ public class OptimizeMixedDistinctAggregations
                     outputNonDistinctAggregateSymbols.put(aggregationOutputSymbolsMap.get(symbol), newSymbol);
                     Expression expression = createIfExpression(
                             groupSymbol.toSymbolReference(),
-                            new Cast(new LongLiteral("0"), BIGINT), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
+                            new Cast(new LongLiteral(0), BIGINT), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
                             ComparisonExpression.Operator.EQUAL,
                             symbol.toSymbolReference(),
                             symbolAllocator.getTypes().get(symbol));

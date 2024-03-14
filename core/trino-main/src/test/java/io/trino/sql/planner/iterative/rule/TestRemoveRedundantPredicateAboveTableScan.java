@@ -233,7 +233,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
     {
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral("17")), new GenericLiteral("BIGINT", "44")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral("15")), new GenericLiteral("BIGINT", "43")))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral(17)), new GenericLiteral("BIGINT", "44")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral(15)), new GenericLiteral("BIGINT", "43")))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -261,7 +261,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("nationkey"), new LongLiteral("3")), new ComparisonExpression(GREATER_THAN, new SymbolReference("nationkey"), new LongLiteral("0")))), new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("nationkey"), new LongLiteral("3")), new ComparisonExpression(LESS_THAN, new SymbolReference("nationkey"), new LongLiteral("1")))))),
+                        new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("nationkey"), new LongLiteral(3)), new ComparisonExpression(GREATER_THAN, new SymbolReference("nationkey"), new LongLiteral(0)))), new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("nationkey"), new LongLiteral(3)), new ComparisonExpression(LESS_THAN, new SymbolReference("nationkey"), new LongLiteral(1)))))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),

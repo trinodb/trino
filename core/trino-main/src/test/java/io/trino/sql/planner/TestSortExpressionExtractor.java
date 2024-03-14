@@ -97,13 +97,13 @@ public class TestSortExpressionExtractor
 
         assertNoSortExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b1"), new SymbolReference("p1")), new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b2"), new SymbolReference("p1")))));
 
-        assertNoSortExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new FunctionCall(SIN.toQualifiedName(), ImmutableList.of(new SymbolReference("b2"))), new SymbolReference("p1")), new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b2"), new SymbolReference("p1")), new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("p1"), new LongLiteral("10"))))))));
+        assertNoSortExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new FunctionCall(SIN.toQualifiedName(), ImmutableList.of(new SymbolReference("b2"))), new SymbolReference("p1")), new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b2"), new SymbolReference("p1")), new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("p1"), new LongLiteral(10))))))));
 
         assertGetSortExpression(
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new FunctionCall(SIN.toQualifiedName(), ImmutableList.of(new SymbolReference("b2"))), new SymbolReference("p1")), new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b2"), new SymbolReference("p1")), new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("p1"), new LongLiteral("10"))))))),
+                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new FunctionCall(SIN.toQualifiedName(), ImmutableList.of(new SymbolReference("b2"))), new SymbolReference("p1")), new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b2"), new SymbolReference("p1")), new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("p1"), new LongLiteral(10))))))),
                 "b2",
                 new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b2"), new SymbolReference("p1")),
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("p1"), new LongLiteral("10"))));
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("p1"), new LongLiteral(10))));
 
         assertGetSortExpression(
                 new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("b1"), new SymbolReference("p1")), new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b1"), new SymbolReference("p1")))),
@@ -116,10 +116,10 @@ public class TestSortExpressionExtractor
                 new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b1"), new SymbolReference("p1")));
 
         assertGetSortExpression(
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("b1"), new SymbolReference("p1")), new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b1"), new SymbolReference("p1")), new ComparisonExpression(GREATER_THAN, new SymbolReference("b2"), new SymbolReference("p1")), new ComparisonExpression(LESS_THAN, new SymbolReference("b2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("p1"), new LongLiteral("10"))), new ComparisonExpression(GREATER_THAN, new SymbolReference("b2"), new SymbolReference("p2")))),
+                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("b1"), new SymbolReference("p1")), new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("b1"), new SymbolReference("p1")), new ComparisonExpression(GREATER_THAN, new SymbolReference("b2"), new SymbolReference("p1")), new ComparisonExpression(LESS_THAN, new SymbolReference("b2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("p1"), new LongLiteral(10))), new ComparisonExpression(GREATER_THAN, new SymbolReference("b2"), new SymbolReference("p2")))),
                 "b2",
                 new ComparisonExpression(GREATER_THAN, new SymbolReference("b2"), new SymbolReference("p1")),
-                new ComparisonExpression(LESS_THAN, new SymbolReference("b2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("p1"), new LongLiteral("10"))),
+                new ComparisonExpression(LESS_THAN, new SymbolReference("b2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("p1"), new LongLiteral(10))),
                 new ComparisonExpression(GREATER_THAN, new SymbolReference("b2"), new SymbolReference("p2")));
 
         assertGetSortExpression(

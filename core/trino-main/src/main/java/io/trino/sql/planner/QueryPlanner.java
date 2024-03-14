@@ -892,7 +892,7 @@ class QueryPlanner
                 subPlanProject,
                 Assignments.builder()
                         .putIdentities(subPlanProject.getOutputSymbols())
-                        .put(caseNumberSymbol, new SubscriptExpression(mergeRowSymbol.toSymbolReference(), new LongLiteral(Long.toString(mergeAnalysis.getMergeRowType().getFields().size()))))
+                        .put(caseNumberSymbol, new SubscriptExpression(mergeRowSymbol.toSymbolReference(), new LongLiteral(mergeAnalysis.getMergeRowType().getFields().size())))
                         .build());
 
         // Mark distinct combinations of the unique_id value and the case_number
@@ -1684,7 +1684,7 @@ class QueryPlanner
     private static Expression zeroOfType(Type type)
     {
         if (isNumericType(type)) {
-            return new Cast(new LongLiteral("0"), type);
+            return new Cast(new LongLiteral(0), type);
         }
         if (type.equals(INTERVAL_DAY_TIME)) {
             return new IntervalLiteral("0", POSITIVE, DAY);

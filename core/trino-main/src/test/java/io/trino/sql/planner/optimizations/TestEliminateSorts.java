@@ -95,7 +95,7 @@ public class TestEliminateSorts
                         sort(
                                 anyTree(
                                         filter(
-                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("QUANTITY"), new Cast(new LongLiteral("10"), DOUBLE)),
+                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("QUANTITY"), new Cast(new LongLiteral(10), DOUBLE)),
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(windowSpec)
                                                                 .addFunction(windowFunction("row_number", ImmutableList.of(), DEFAULT_FRAME)),

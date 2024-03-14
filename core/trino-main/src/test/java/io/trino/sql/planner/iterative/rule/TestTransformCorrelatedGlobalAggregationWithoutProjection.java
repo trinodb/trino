@@ -101,9 +101,9 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.project(
-                                Assignments.of(p.symbol("expr_2"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("expr"), new LongLiteral("1"))),
+                                Assignments.of(p.symbol("expr_2"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("expr"), new LongLiteral(1))),
                                 p.project(
-                                        Assignments.of(p.symbol("expr"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new LongLiteral("1"))),
+                                        Assignments.of(p.symbol("expr"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new LongLiteral(1))),
                                         p.aggregation(ab -> ab
                                                 .source(p.values(p.symbol("a"), p.symbol("b")))
                                                 .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
@@ -139,7 +139,7 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        p.project(Assignments.of(p.symbol("expr"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new LongLiteral("1"))),
+                        p.project(Assignments.of(p.symbol("expr"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new LongLiteral(1))),
                                 p.aggregation(ab -> ab
                                         .source(p.values(p.symbol("a"), p.symbol("b")))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))

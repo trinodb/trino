@@ -130,7 +130,7 @@ public class TestTableFunctionInvocation
                                 .addCopartitioning(ImmutableList.of("INPUT_1", "INPUT_3"))
                                 .properOutputs(ImmutableList.of("OUTPUT")),
                         anyTree(project(ImmutableMap.of("c1", expression(new StringLiteral("a"))), values(1))),
-                        anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))),
+                        anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(new LongLiteral(1))))),
                         anyTree(project(ImmutableMap.of("c3", expression(new StringLiteral("b"))), values(1))))));
     }
 
@@ -213,7 +213,7 @@ public class TestTableFunctionInvocation
                                         .passThroughSymbols(ImmutableList.of(ImmutableList.of("a", "b")))
                                         .requiredSymbols(ImmutableList.of(ImmutableList.of("a")))
                                         .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())),
-                                values(ImmutableList.of("a", "b"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"), TRUE_LITERAL))))));
+                                values(ImmutableList.of("a", "b"), ImmutableList.of(ImmutableList.of(new LongLiteral(1), TRUE_LITERAL))))));
 
         // no table function outputs are referenced. All pass-through symbols are pruned from the TableFunctionProcessorNode. The unused symbol "b" is pruned from the source values node.
         assertPlan("SELECT 'constant' c FROM TABLE(mock.system.pass_through_function(input => TABLE(SELECT 1, true) t(a, b)))",
@@ -228,7 +228,7 @@ public class TestTableFunctionInvocation
                                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of()))
                                                 .requiredSymbols(ImmutableList.of(ImmutableList.of("a")))
                                                 .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())),
-                                        values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))))));
+                                        values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral(1))))))));
     }
 
     @Test
@@ -283,7 +283,7 @@ public class TestTableFunctionInvocation
                                         project(
                                                 rowNumber(
                                                         builder -> builder.partitionBy(ImmutableList.of()),
-                                                        values(ImmutableList.of("c"), ImmutableList.of(ImmutableList.of(new LongLiteral("2")))))
+                                                        values(ImmutableList.of("c"), ImmutableList.of(ImmutableList.of(new LongLiteral(2)))))
                                                         .withAlias("input_2_row_number", new RowNumberSymbolMatcher()))))));
     }
 }

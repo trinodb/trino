@@ -268,11 +268,11 @@ public class TestAddExchangesPlans
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1", "partition2"),
                                                 values(
                                                         ImmutableList.of("field", "partition2", "partition1"),
-                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("1"))))),
+                                                        ImmutableList.of(ImmutableList.of(new LongLiteral(1), new LongLiteral(2), new LongLiteral(1))))),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3"),
                                                 values(
                                                         ImmutableList.of("partition3", "partition4", "field_0"),
-                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("3"), new LongLiteral("4"), new LongLiteral("1")))))))));
+                                                        ImmutableList.of(ImmutableList.of(new LongLiteral(3), new LongLiteral(4), new LongLiteral(1)))))))));
 
         assertDistributedPlan(
                 query,
@@ -286,11 +286,11 @@ public class TestAddExchangesPlans
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1"),
                                                 values(
                                                         ImmutableList.of("field", "partition2", "partition1"),
-                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("1"))))),
+                                                        ImmutableList.of(ImmutableList.of(new LongLiteral(1), new LongLiteral(2), new LongLiteral(1))))),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3"),
                                                 values(
                                                         ImmutableList.of("partition3", "partition4", "field_0"),
-                                                        ImmutableList.of(ImmutableList.of(new LongLiteral("3"), new LongLiteral("4"), new LongLiteral("1")))))))));
+                                                        ImmutableList.of(ImmutableList.of(new LongLiteral(3), new LongLiteral(4), new LongLiteral(1)))))))));
     }
 
     @Test
@@ -379,7 +379,7 @@ public class TestAddExchangesPlans
                                         project(
                                                 ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                                 filter(
-                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("10")),
+                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(10)),
                                                         exchange(
                                                                 LOCAL,
                                                                 REPARTITION,
@@ -425,7 +425,7 @@ public class TestAddExchangesPlans
                                         project(
                                                 ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                                 filter(
-                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("10")),
+                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(10)),
                                                         exchange(
                                                                 LOCAL,
                                                                 REPARTITION,
@@ -464,7 +464,7 @@ public class TestAddExchangesPlans
                                 project(
                                         ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                         filter(
-                                                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("10")),
+                                                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(10)),
                                                 exchange(
                                                         LOCAL,
                                                         REPARTITION,
@@ -473,7 +473,7 @@ public class TestAddExchangesPlans
         assertPlan(
                 "SELECT 10, a FROM (VALUES 1) t(a)",
                 anyTree(
-                        values(ImmutableList.of("a", "expr"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"), new LongLiteral("10"))))));
+                        values(ImmutableList.of("a", "expr"), ImmutableList.of(ImmutableList.of(new LongLiteral(1), new LongLiteral(10))))));
 
         assertPlan(
                 "SELECT 1 UNION ALL SELECT 1",
@@ -481,8 +481,8 @@ public class TestAddExchangesPlans
                         exchange(
                                 LOCAL,
                                 REPARTITION,
-                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))),
-                                values(ImmutableList.of("expr_0"), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))))));
+                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new LongLiteral(1)))),
+                                values(ImmutableList.of("expr_0"), ImmutableList.of(ImmutableList.of(new LongLiteral(1)))))));
     }
 
     @Test

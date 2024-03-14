@@ -52,7 +52,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("1")),
+                            new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(1)),
                             p.project(
                                     Assignments.identity(a),
                                     p.rowNumber(
@@ -232,7 +232,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), new GenericLiteral("BIGINT", "5")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("row_number"), new LongLiteral("2")), new GenericLiteral("BIGINT", "0")))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), new GenericLiteral("BIGINT", "5")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("row_number"), new LongLiteral(2)), new GenericLiteral("BIGINT", "0")))),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -242,7 +242,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(filter(
-                        new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("row_number"), new LongLiteral("2")), new GenericLiteral("BIGINT", "0")),
+                        new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("row_number"), new LongLiteral(2)), new GenericLiteral("BIGINT", "0")),
                         project(
                                 ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SymbolReference("row_number"))),
                                 rowNumber(

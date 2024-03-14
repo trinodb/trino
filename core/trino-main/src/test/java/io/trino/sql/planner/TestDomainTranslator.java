@@ -2262,7 +2262,7 @@ public class TestDomainTranslator
         if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
             return new GenericLiteral("BIGINT", Long.toString(value));
         }
-        return new LongLiteral(Long.toString(value));
+        return new LongLiteral(value);
     }
 
     private static DoubleLiteral doubleLiteral(double value)

@@ -63,13 +63,13 @@ public class TestDeterminismEvaluator
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
-                        ImmutableList.of(lambda("a", comparison(GREATER_THAN, input("a"), new LongLiteral("0"))))),
+                        ImmutableList.of(lambda("a", comparison(GREATER_THAN, input("a"), new LongLiteral(0))))),
                 metadata)).isTrue();
         assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
-                        ImmutableList.of(lambda("a", comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(input("a"))), new LongLiteral("0"))))),
+                        ImmutableList.of(lambda("a", comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(input("a"))), new LongLiteral(0))))),
                 metadata)).isFalse();
     }
 

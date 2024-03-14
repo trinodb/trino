@@ -84,88 +84,88 @@ public class TestCanonicalizeExpressionRewriter
     public void testRewriteIfExpression()
     {
         assertRewritten(
-                new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("x"), new LongLiteral("0")), new LongLiteral("0"), new LongLiteral("1")),
-                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("x"), new LongLiteral("0")), new LongLiteral("0"))), Optional.of(new LongLiteral("1"))));
+                new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("x"), new LongLiteral(0)), new LongLiteral(0), new LongLiteral(1)),
+                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("x"), new LongLiteral(0)), new LongLiteral(0))), Optional.of(new LongLiteral(1))));
     }
 
     @Test
     public void testCanonicalizeArithmetic()
     {
         assertRewritten(
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral("1")),
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral("1")));
+                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral(1)),
+                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(ADD, new LongLiteral("1"), new SymbolReference("a")),
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral("1")));
+                new ArithmeticBinaryExpression(ADD, new LongLiteral(1), new SymbolReference("a")),
+                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new LongLiteral("1")),
-                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new LongLiteral("1")));
+                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new LongLiteral(1)),
+                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(MULTIPLY, new LongLiteral("1"), new SymbolReference("a")),
-                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new LongLiteral("1")));
+                new ArithmeticBinaryExpression(MULTIPLY, new LongLiteral(1), new SymbolReference("a")),
+                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new LongLiteral(1)));
     }
 
     @Test
     public void testCanonicalizeComparison()
     {
         assertRewritten(
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("1")),
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("1")));
+                new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(1)),
+                new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ComparisonExpression(EQUAL, new LongLiteral("1"), new SymbolReference("a")),
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("1")));
+                new ComparisonExpression(EQUAL, new LongLiteral(1), new SymbolReference("a")),
+                new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new LongLiteral("1")),
-                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new LongLiteral("1")));
+                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new LongLiteral(1)),
+                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ComparisonExpression(NOT_EQUAL, new LongLiteral("1"), new SymbolReference("a")),
-                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new LongLiteral("1")));
+                new ComparisonExpression(NOT_EQUAL, new LongLiteral(1), new SymbolReference("a")),
+                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("1")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("1")));
+                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(1)),
+                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ComparisonExpression(GREATER_THAN, new LongLiteral("1"), new SymbolReference("a")),
-                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("1")));
+                new ComparisonExpression(GREATER_THAN, new LongLiteral(1), new SymbolReference("a")),
+                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("1")),
-                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("1")));
+                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(1)),
+                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ComparisonExpression(LESS_THAN, new LongLiteral("1"), new SymbolReference("a")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("1")));
+                new ComparisonExpression(LESS_THAN, new LongLiteral(1), new SymbolReference("a")),
+                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new LongLiteral("1")),
-                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new LongLiteral("1")));
+                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new LongLiteral(1)),
+                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new LongLiteral("1"), new SymbolReference("a")),
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new LongLiteral("1")));
+                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new LongLiteral(1), new SymbolReference("a")),
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new LongLiteral("1")),
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new LongLiteral("1")));
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new LongLiteral(1)),
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new LongLiteral("1"), new SymbolReference("a")),
-                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new LongLiteral("1")));
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new LongLiteral(1), new SymbolReference("a")),
+                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new LongLiteral(1)));
 
         assertRewritten(
-                new ComparisonExpression(IS_DISTINCT_FROM, new LongLiteral("1"), new SymbolReference("a")),
-                new ComparisonExpression(IS_DISTINCT_FROM, new LongLiteral("1"), new SymbolReference("a")));
+                new ComparisonExpression(IS_DISTINCT_FROM, new LongLiteral(1), new SymbolReference("a")),
+                new ComparisonExpression(IS_DISTINCT_FROM, new LongLiteral(1), new SymbolReference("a")));
 
         assertRewritten(
-                new ComparisonExpression(IS_DISTINCT_FROM, new LongLiteral("1"), new SymbolReference("a")),
-                new ComparisonExpression(IS_DISTINCT_FROM, new LongLiteral("1"), new SymbolReference("a")));
+                new ComparisonExpression(IS_DISTINCT_FROM, new LongLiteral(1), new SymbolReference("a")),
+                new ComparisonExpression(IS_DISTINCT_FROM, new LongLiteral(1), new SymbolReference("a")));
     }
 
     @Test
@@ -174,20 +174,20 @@ public class TestCanonicalizeExpressionRewriter
         // typed literals are encoded as Cast(Literal) in current IR
 
         assertRewritten(
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(new LongLiteral("1"), createDecimalType(5, 2))),
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(new LongLiteral("1"), createDecimalType(5, 2))));
+                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(new LongLiteral(1), createDecimalType(5, 2))),
+                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(new LongLiteral(1), createDecimalType(5, 2))));
 
         assertRewritten(
-                new ComparisonExpression(EQUAL, new Cast(new LongLiteral("1"), createDecimalType(5, 2)), new SymbolReference("a")),
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(new LongLiteral("1"), createDecimalType(5, 2))));
+                new ComparisonExpression(EQUAL, new Cast(new LongLiteral(1), createDecimalType(5, 2)), new SymbolReference("a")),
+                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(new LongLiteral(1), createDecimalType(5, 2))));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(new LongLiteral("1"), createDecimalType(5, 2))),
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(new LongLiteral("1"), createDecimalType(5, 2))));
+                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(new LongLiteral(1), createDecimalType(5, 2))),
+                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(new LongLiteral(1), createDecimalType(5, 2))));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(ADD, new Cast(new LongLiteral("1"), createDecimalType(5, 2)), new SymbolReference("a")),
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(new LongLiteral("1"), createDecimalType(5, 2))));
+                new ArithmeticBinaryExpression(ADD, new Cast(new LongLiteral(1), createDecimalType(5, 2)), new SymbolReference("a")),
+                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(new LongLiteral(1), createDecimalType(5, 2))));
     }
 
     @Test

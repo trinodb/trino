@@ -237,7 +237,7 @@ public class TestReorderWindows
                                                         .specification(windowA)
                                                         .addFunction(windowFunction("lag", ImmutableList.of(QUANTITY_ALIAS, "ONE"), DEFAULT_FRAME)),
                                                 project(ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), BIGINT))),
-                                                        project(ImmutableMap.of("expr", expression(new LongLiteral("1"))),
+                                                        project(ImmutableMap.of("expr", expression(new LongLiteral(1))),
                                                                 LINEITEM_TABLESCAN_DOQRST)))))));
     }
 

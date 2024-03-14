@@ -108,7 +108,7 @@ public class TestPlanMatchingFramework
     {
         assertMinimallyOptimizedPlan("SELECT orderkey, 2 FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "TWO"),
-                        project(ImmutableMap.of("TWO", expression(new LongLiteral("2"))),
+                        project(ImmutableMap.of("TWO", expression(new LongLiteral(2))),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
     }
 
@@ -117,7 +117,7 @@ public class TestPlanMatchingFramework
     {
         assertMinimallyOptimizedPlan("SELECT orderkey, 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
-                        project(ImmutableMap.of("EXPRESSION", expression(new ArithmeticBinaryExpression(ADD, new Cast(new LongLiteral("1"), BIGINT), new SymbolReference("ORDERKEY")))),
+                        project(ImmutableMap.of("EXPRESSION", expression(new ArithmeticBinaryExpression(ADD, new Cast(new LongLiteral(1), BIGINT), new SymbolReference("ORDERKEY")))),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
     }
 
@@ -127,7 +127,7 @@ public class TestPlanMatchingFramework
         assertMinimallyOptimizedPlan("SELECT orderkey, 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
                         strictProject(ImmutableMap.of(
-                                        "EXPRESSION", expression(new ArithmeticBinaryExpression(ADD, new Cast(new LongLiteral("1"), BIGINT), new SymbolReference("ORDERKEY"))),
+                                        "EXPRESSION", expression(new ArithmeticBinaryExpression(ADD, new Cast(new LongLiteral(1), BIGINT), new SymbolReference("ORDERKEY"))),
                                         "ORDERKEY", expression(new SymbolReference("ORDERKEY"))),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
     }
@@ -139,7 +139,7 @@ public class TestPlanMatchingFramework
                 output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
                         project(ImmutableMap.of(
                                         "ORDERKEY", expression(new SymbolReference("ORDERKEY")),
-                                        "EXPRESSION", expression(new ArithmeticBinaryExpression(ADD, new Cast(new LongLiteral("1"), BIGINT), new SymbolReference("ORDERKEY")))),
+                                        "EXPRESSION", expression(new ArithmeticBinaryExpression(ADD, new Cast(new LongLiteral(1), BIGINT), new SymbolReference("ORDERKEY")))),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
     }
 
@@ -246,7 +246,7 @@ public class TestPlanMatchingFramework
     {
         assertThatThrownBy(() -> assertMinimallyOptimizedPlan("SELECT discount, orderkey, 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
-                        strictProject(ImmutableMap.of("EXPRESSION", expression(new ArithmeticBinaryExpression(ADD, new LongLiteral("1"), new SymbolReference("ORDERKEY"))), "ORDERKEY", expression(new SymbolReference("ORDERKEY"))),
+                        strictProject(ImmutableMap.of("EXPRESSION", expression(new ArithmeticBinaryExpression(ADD, new LongLiteral(1), new SymbolReference("ORDERKEY"))), "ORDERKEY", expression(new SymbolReference("ORDERKEY"))),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))))))
                 .isInstanceOf(AssertionError.class)
                 .hasMessageStartingWith("Plan does not match");
@@ -276,7 +276,7 @@ public class TestPlanMatchingFramework
     {
         assertThatThrownBy(() -> assertMinimallyOptimizedPlan("SELECT 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY"),
-                        project(ImmutableMap.of("EXPRESSION", expression(new ArithmeticBinaryExpression(ADD, new Cast(new LongLiteral("1"), BIGINT), new SymbolReference("ORDERKEY")))),
+                        project(ImmutableMap.of("EXPRESSION", expression(new ArithmeticBinaryExpression(ADD, new Cast(new LongLiteral(1), BIGINT), new SymbolReference("ORDERKEY")))),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageMatching("missing expression for alias .*");
