@@ -29,7 +29,6 @@ import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.LongLiteral;
@@ -142,7 +141,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                 TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(44L, 45L, 46L)))))))
                 .matches(
                         filter(
-                                new InPredicate(new SymbolReference("nationkey"), new InListExpression(ImmutableList.of(new GenericLiteral("BIGINT", "44"), new GenericLiteral("BIGINT", "45")))),
+                                new InPredicate(new SymbolReference("nationkey"), ImmutableList.of(new GenericLiteral("BIGINT", "44"), new GenericLiteral("BIGINT", "45"))),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of("nationkey", Domain.multipleValues(BIGINT, ImmutableList.of(44L, 45L, 46L))),

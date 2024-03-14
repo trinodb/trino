@@ -45,7 +45,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IntervalLiteral;
 import io.trino.sql.ir.IrVisitor;
@@ -566,8 +565,7 @@ public final class SqlToRowExpressionTranslator
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
             RowExpression value = process(node.getValue(), context);
             arguments.add(value);
-            InListExpression values = (InListExpression) node.getValueList();
-            for (Expression testValue : values.getValues()) {
+            for (Expression testValue : node.getValueList()) {
                 arguments.add(process(testValue, context));
             }
 

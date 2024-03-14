@@ -346,13 +346,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitInPredicate(InPredicate node, Void context)
         {
-            return "(" + process(node.getValue(), context) + " IN " + process(node.getValueList(), context) + ")";
-        }
-
-        @Override
-        protected String visitInListExpression(InListExpression node, Void context)
-        {
-            return "(" + joinExpressions(node.getValues()) + ")";
+            return "(" + process(node.getValue(), context) + " IN " + joinExpressions(node.getValueList()) + ")";
         }
 
         private String formatBinaryExpression(String operator, Expression left, Expression right)

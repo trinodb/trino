@@ -27,7 +27,6 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.LambdaExpression;
@@ -327,7 +326,7 @@ public class TestEqualityInference
                         .build(),
                 new NullIfExpression(nameReference("b"), number(1)),
                 new IfExpression(nameReference("b"), number(1), new NullLiteral()),
-                new InPredicate(nameReference("b"), new InListExpression(ImmutableList.of(new NullLiteral()))),
+                new InPredicate(nameReference("b"), ImmutableList.of(new NullLiteral())),
                 new SearchedCaseExpression(ImmutableList.of(new WhenClause(new IsNotNullPredicate(nameReference("b")), new NullLiteral())), Optional.empty()),
                 new SimpleCaseExpression(nameReference("b"), ImmutableList.of(new WhenClause(number(1), new NullLiteral())), Optional.empty()),
                 new SubscriptExpression(new Array(ImmutableList.of(new NullLiteral())), nameReference("b")));
