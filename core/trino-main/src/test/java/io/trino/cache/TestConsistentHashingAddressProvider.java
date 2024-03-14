@@ -98,7 +98,9 @@ public class TestConsistentHashingAddressProvider
             String planSignature,
             CacheSplitId splitId)
     {
-        return addressProvider.getPreferredAddress(planSignature + splitId);
+        String key = planSignature + splitId;
+        return addressProvider.getPreferredAddress(key)
+                .orElseThrow(() -> new RuntimeException("Unable to locate key: " + key));
     }
 
     private static void assertFairDistribution(ConsistentHashingAddressProvider addressProvider, String planSignature, Set<Node> nodeNames)

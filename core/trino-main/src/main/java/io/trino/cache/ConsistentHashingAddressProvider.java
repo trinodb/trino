@@ -23,6 +23,7 @@ import org.ishugaliy.allgood.consistent.hash.ConsistentHash;
 import org.ishugaliy.allgood.consistent.hash.HashRing;
 import org.ishugaliy.allgood.consistent.hash.hasher.DefaultHasher;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -47,12 +48,11 @@ public class ConsistentHashingAddressProvider
         refreshHashRing();
     }
 
-    public HostAddress getPreferredAddress(String key)
+    public Optional<HostAddress> getPreferredAddress(String key)
     {
         refreshHashRingIfNeeded();
         return consistentHashRing.locate(key)
-                .orElseThrow(() -> new RuntimeException("Unable to locate key: " + key))
-                .getHostAndPort();
+                .map(TrinoNode::getHostAndPort);
     }
 
     public void refreshHashRingIfNeeded()

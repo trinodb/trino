@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.node.NodeInfo;
 import io.trino.metadata.Split;
+import io.trino.spi.HostAddress;
 import io.trino.spi.cache.CacheManager;
 import io.trino.spi.cache.CacheSplitId;
 import io.trino.spi.cache.PlanSignature;
@@ -88,14 +89,21 @@ public class CacheSplitSource
                                 split.getFailoverHappened()));
             }
             else {
-                newBatch.add(
-                        new Split(
-                                split.getCatalogHandle(),
-                                split.getConnectorSplit(),
-                                splitId,
-                                Optional.of(false),
-                                Optional.of(ImmutableList.of(addressProvider.getPreferredAddress(canonicalSignature + splitId))),
-                                split.getFailoverHappened()));
+                Optional<HostAddress> preferredAddress = addressProvider.getPreferredAddress(canonicalSignature + splitId);
+                if (preferredAddress.isPresent()) {
+                    newBatch.add(
+                            new Split(
+                                    split.getCatalogHandle(),
+                                    split.getConnectorSplit(),
+                                    splitId,
+                                    Optional.of(false),
+                                    Optional.of(ImmutableList.of(preferredAddress.get())),
+                                    split.getFailoverHappened()));
+                }
+                else {
+                    // Skip caching if no preferred address could be located which could be due to no available nodes
+                    newBatch.add(split);
+                }
             }
         }
         return new SplitBatch(newBatch.build(), batch.isLastBatch());
