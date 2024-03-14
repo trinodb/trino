@@ -995,7 +995,7 @@ public class IcebergPageSourceProvider
 
         ParquetDataSource dataSource = null;
         try {
-            dataSource = createDataSource(inputFile, fileSize, OptionalLong.of(fileSize), options, memoryContext, fileFormatDataSourceStats);
+            dataSource = createDataSource(inputFile, OptionalLong.of(fileSize), options, memoryContext, fileFormatDataSourceStats);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
