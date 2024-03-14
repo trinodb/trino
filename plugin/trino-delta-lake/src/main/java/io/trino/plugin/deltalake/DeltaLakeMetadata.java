@@ -173,6 +173,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -1396,7 +1397,7 @@ public class DeltaLakeMetadata
                     handle.getMetadataEntry(),
                     handle.getProtocolEntry(),
                     TupleDomain.all(),
-                    alwaysTrue())) {
+                    alwaysFalse())) {
                 tableHasDataFiles = addFileEntries.findAny().isPresent();
             }
             if (tableHasDataFiles) {
