@@ -19,15 +19,16 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 public final class InPredicate
         extends Expression
 {
     private final Expression value;
-    private final Expression valueList;
+    private final List<Expression> valueList;
 
     @JsonCreator
-    public InPredicate(Expression value, Expression valueList)
+    public InPredicate(Expression value, List<Expression> valueList)
     {
         this.value = value;
         this.valueList = valueList;
@@ -40,7 +41,7 @@ public final class InPredicate
     }
 
     @JsonProperty
-    public Expression getValueList()
+    public List<Expression> getValueList()
     {
         return valueList;
     }
@@ -54,7 +55,10 @@ public final class InPredicate
     @Override
     public List<? extends Expression> getChildren()
     {
-        return ImmutableList.of(value, valueList);
+        return ImmutableList.<Expression>builder()
+                .add(value)
+                .addAll(valueList)
+                .build();
     }
 
     @Override
@@ -81,6 +85,10 @@ public final class InPredicate
     @Override
     public String toString()
     {
-        return "In(%s, %s)".formatted(value, valueList);
+        return "In(%s, [%s])".formatted(
+                value,
+                valueList.stream()
+                        .map(Expression::toString)
+                        .collect(Collectors.joining(", ")));
     }
 }

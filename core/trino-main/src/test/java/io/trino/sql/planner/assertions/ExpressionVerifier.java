@@ -27,7 +27,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNotNullPredicate;
@@ -49,7 +48,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.metadata.ResolvedFunction.isResolved;
@@ -252,42 +250,8 @@ public final class ExpressionVerifier
             return false;
         }
 
-        if (actual.getValueList() instanceof InListExpression || !(expected.getValueList() instanceof InListExpression)) {
-            return process(actual.getValue(), expected.getValue()) &&
-                    process(actual.getValueList(), expected.getValueList());
-        }
-
-        /*
-         * In some cases, actual.getValueList() and expected.getValueList() might be of different types,
-         * although they originated from identical single-element InListExpression.
-         *
-         * This happens because actual passes through the analyzer, planner, and possibly optimizers,
-         * one of which sometimes takes the liberty of unpacking the InListExpression.
-         *
-         * Since the expected value doesn't go through all of that, we have to deal with the case
-         * of the actual value being unpacked, but the expected value being an InListExpression.
-         *
-         * If the expected value is a value list, but the actual is e.g. a SymbolReference,
-         * we need to unpack the value from the list to enable comparison: so that when we hit
-         * visitSymbolReference, the expected.toString() call returns something that the symbolAliases
-         * actually contains.
-         * For example, InListExpression.toString returns "(onlyitem)" rather than "onlyitem".
-         */
-        List<Expression> values = ((InListExpression) expected.getValueList()).getValues();
-        checkState(values.size() == 1, "Multiple expressions in expected value list %s, but actual value is not a list: %s", values, actual.getValue());
-        Expression onlyExpectedExpression = values.get(0);
         return process(actual.getValue(), expected.getValue()) &&
-                process(actual.getValueList(), onlyExpectedExpression);
-    }
-
-    @Override
-    protected Boolean visitInListExpression(InListExpression actual, Expression expectedExpression)
-    {
-        if (!(expectedExpression instanceof InListExpression expected)) {
-            return false;
-        }
-
-        return process(actual.getValues(), expected.getValues());
+                process(actual.getValueList(), expected.getValueList());
     }
 
     @Override

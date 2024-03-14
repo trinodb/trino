@@ -39,7 +39,6 @@ import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.Literal;
@@ -1142,12 +1141,12 @@ public class TestDomainTranslator
     @Test
     public void testFromUnprocessableInPredicate()
     {
-        assertUnsupportedPredicate(new InPredicate(unprocessableExpression1(C_BIGINT), new InListExpression(ImmutableList.of(TRUE_LITERAL))));
-        assertUnsupportedPredicate(new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN)))));
+        assertUnsupportedPredicate(new InPredicate(unprocessableExpression1(C_BIGINT), ImmutableList.of(TRUE_LITERAL)));
+        assertUnsupportedPredicate(new InPredicate(C_BOOLEAN.toSymbolReference(), ImmutableList.of(unprocessableExpression1(C_BOOLEAN))));
         assertUnsupportedPredicate(
-                new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(TRUE_LITERAL, unprocessableExpression1(C_BOOLEAN)))));
+                new InPredicate(C_BOOLEAN.toSymbolReference(), ImmutableList.of(TRUE_LITERAL, unprocessableExpression1(C_BOOLEAN))));
         assertPredicateTranslates(
-                not(new InPredicate(C_BOOLEAN.toSymbolReference(), new InListExpression(ImmutableList.of(unprocessableExpression1(C_BOOLEAN))))),
+                not(new InPredicate(C_BOOLEAN.toSymbolReference(), ImmutableList.of(unprocessableExpression1(C_BOOLEAN)))),
                 tupleDomain(C_BOOLEAN, Domain.notNull(BOOLEAN)),
                 not(equal(C_BOOLEAN, unprocessableExpression1(C_BOOLEAN))));
     }
@@ -1408,18 +1407,18 @@ public class TestDomainTranslator
         assertPredicateTranslates(
                 new InPredicate(
                         C_BIGINT.toSymbolReference(),
-                        new InListExpression(ImmutableList.of(cast(toExpression(1L, SMALLINT), BIGINT)))),
+                        ImmutableList.of(cast(toExpression(1L, SMALLINT), BIGINT))),
                 tupleDomain(C_BIGINT, Domain.singleValue(BIGINT, 1L)));
 
         assertPredicateTranslates(
                 new InPredicate(
                         cast(C_SMALLINT, BIGINT),
-                        new InListExpression(ImmutableList.of(toExpression(1L, BIGINT)))),
+                        ImmutableList.of(toExpression(1L, BIGINT))),
                 tupleDomain(C_SMALLINT, Domain.singleValue(SMALLINT, 1L)));
 
         assertUnsupportedPredicate(new InPredicate(
                 cast(C_BIGINT, INTEGER),
-                new InListExpression(ImmutableList.of(toExpression(1L, INTEGER)))));
+                ImmutableList.of(toExpression(1L, INTEGER))));
     }
 
     @Test
@@ -1427,21 +1426,21 @@ public class TestDomainTranslator
     {
         assertPredicateIsAlwaysFalse(new InPredicate(
                 C_BIGINT.toSymbolReference(),
-                new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT)))));
+                ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT))));
 
         assertUnsupportedPredicate(not(new InPredicate(
                 cast(C_SMALLINT, BIGINT),
-                new InListExpression(ImmutableList.of(toExpression(null, BIGINT))))));
+                ImmutableList.of(toExpression(null, BIGINT)))));
 
         assertPredicateTranslates(
                 new InPredicate(
                         C_BIGINT.toSymbolReference(),
-                        new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT)))),
+                        ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT))),
                 tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), false)));
 
         assertPredicateIsAlwaysFalse(not(new InPredicate(
                 C_BIGINT.toSymbolReference(),
-                new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT))))));
+                ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT)))));
     }
 
     @Test
@@ -2204,7 +2203,7 @@ public class TestDomainTranslator
     {
         List<Type> types = nCopies(values.size(), expressisonType);
         List<Expression> expressions = literalEncoder.toExpressions(values, types);
-        return new InPredicate(expression, new InListExpression(expressions));
+        return new InPredicate(expression, expressions);
     }
 
     private static BetweenPredicate between(Expression expression, Expression min, Expression max)

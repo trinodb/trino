@@ -27,7 +27,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
@@ -133,19 +132,17 @@ public class UnwrapYearInComparison
         {
             InPredicate inPredicate = treeRewriter.defaultRewrite(node, null);
             Expression value = inPredicate.getValue();
-            Expression valueList = inPredicate.getValueList();
 
             if (!(value instanceof FunctionCall call) ||
                     !extractFunctionName(call.getName()).equals(builtinFunctionName("year")) ||
-                    call.getArguments().size() != 1 ||
-                    !(valueList instanceof InListExpression inListExpression)) {
+                    call.getArguments().size() != 1) {
                 return inPredicate;
             }
 
             // Convert each value to a comparison expression and try to unwrap it.
             // unwrap the InPredicate only in case we manage to unwrap the entire value list
-            ImmutableList.Builder<Expression> comparisonExpressions = ImmutableList.builderWithExpectedSize(inListExpression.getValues().size());
-            for (Expression rightExpression : inListExpression.getValues()) {
+            ImmutableList.Builder<Expression> comparisonExpressions = ImmutableList.builderWithExpectedSize(node.getValueList().size());
+            for (Expression rightExpression : node.getValueList()) {
                 ComparisonExpression comparisonExpression = new ComparisonExpression(EQUAL, value, rightExpression);
                 Expression unwrappedExpression = unwrapYear(comparisonExpression);
                 if (unwrappedExpression == comparisonExpression) {

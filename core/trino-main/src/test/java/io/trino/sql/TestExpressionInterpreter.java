@@ -28,7 +28,6 @@ import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
@@ -362,68 +361,68 @@ public class TestExpressionInterpreter
     public void testIn()
     {
         assertOptimizedEquals(
-                new InPredicate(new LongLiteral(3), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new LongLiteral(5)))),
+                new InPredicate(new LongLiteral(3), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new LongLiteral(5))),
                 TRUE_LITERAL);
         assertOptimizedEquals(
-                new InPredicate(new LongLiteral(3), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(9), new LongLiteral(5)))),
+                new InPredicate(new LongLiteral(3), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(9), new LongLiteral(5))),
                 FALSE_LITERAL);
         assertOptimizedEquals(
-                new InPredicate(new LongLiteral(3), new InListExpression(ImmutableList.of(new LongLiteral(2), new Cast(new NullLiteral(), INTEGER), new LongLiteral(3), new LongLiteral(5)))),
+                new InPredicate(new LongLiteral(3), ImmutableList.of(new LongLiteral(2), new Cast(new NullLiteral(), INTEGER), new LongLiteral(3), new LongLiteral(5))),
                 TRUE_LITERAL);
 
         assertOptimizedEquals(
-                new InPredicate(new Cast(new NullLiteral(), INTEGER), new InListExpression(ImmutableList.of(new LongLiteral(2), new Cast(new NullLiteral(), INTEGER), new LongLiteral(3), new LongLiteral(5)))),
+                new InPredicate(new Cast(new NullLiteral(), INTEGER), ImmutableList.of(new LongLiteral(2), new Cast(new NullLiteral(), INTEGER), new LongLiteral(3), new LongLiteral(5))),
                 new NullLiteral());
         assertOptimizedEquals(
-                new InPredicate(new LongLiteral(3), new InListExpression(ImmutableList.of(new LongLiteral(2), new Cast(new NullLiteral(), INTEGER)))),
+                new InPredicate(new LongLiteral(3), ImmutableList.of(new LongLiteral(2), new Cast(new NullLiteral(), INTEGER))),
                 new NullLiteral());
 
         assertOptimizedEquals(
-                new InPredicate(new SymbolReference("bound_value"), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(1234), new LongLiteral(3), new LongLiteral(5)))),
+                new InPredicate(new SymbolReference("bound_value"), ImmutableList.of(new LongLiteral(2), new LongLiteral(1234), new LongLiteral(3), new LongLiteral(5))),
                 TRUE_LITERAL);
         assertOptimizedEquals(
-                new InPredicate(new SymbolReference("bound_value"), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new LongLiteral(5)))),
+                new InPredicate(new SymbolReference("bound_value"), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new LongLiteral(5))),
                 FALSE_LITERAL);
         assertOptimizedEquals(
-                new InPredicate(new LongLiteral(1234), new InListExpression(ImmutableList.of(new LongLiteral(2), new SymbolReference("bound_value"), new LongLiteral(3), new LongLiteral(5)))),
+                new InPredicate(new LongLiteral(1234), ImmutableList.of(new LongLiteral(2), new SymbolReference("bound_value"), new LongLiteral(3), new LongLiteral(5))),
                 TRUE_LITERAL);
         assertOptimizedEquals(
-                new InPredicate(new LongLiteral(99), new InListExpression(ImmutableList.of(new LongLiteral(2), new SymbolReference("bound_value"), new LongLiteral(3), new LongLiteral(5)))),
+                new InPredicate(new LongLiteral(99), ImmutableList.of(new LongLiteral(2), new SymbolReference("bound_value"), new LongLiteral(3), new LongLiteral(5))),
                 FALSE_LITERAL);
         assertOptimizedEquals(
-                new InPredicate(new SymbolReference("bound_value"), new InListExpression(ImmutableList.of(new LongLiteral(2), new SymbolReference("bound_value"), new LongLiteral(3), new LongLiteral(5)))),
+                new InPredicate(new SymbolReference("bound_value"), ImmutableList.of(new LongLiteral(2), new SymbolReference("bound_value"), new LongLiteral(3), new LongLiteral(5))),
                 TRUE_LITERAL);
 
         assertOptimizedEquals(
-                new InPredicate(new SymbolReference("unbound_value"), new InListExpression(ImmutableList.of(new LongLiteral(1)))),
+                new InPredicate(new SymbolReference("unbound_value"), ImmutableList.of(new LongLiteral(1))),
                 new ComparisonExpression(EQUAL, new SymbolReference("unbound_value"), new LongLiteral(1)));
 
         assertOptimizedEquals(
-                new InPredicate(new LongLiteral(3), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0))))),
-                new InPredicate(new LongLiteral(3), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0))))));
+                new InPredicate(new LongLiteral(3), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)))),
+                new InPredicate(new LongLiteral(3), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)))));
         assertOptimizedEquals(
-                new InPredicate(new Cast(new NullLiteral(), INTEGER), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0))))),
-                new InPredicate(new Cast(new NullLiteral(), INTEGER), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0))))));
+                new InPredicate(new Cast(new NullLiteral(), INTEGER), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)))),
+                new InPredicate(new Cast(new NullLiteral(), INTEGER), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)))));
         assertOptimizedEquals(
-                new InPredicate(new LongLiteral(3), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new Cast(new NullLiteral(), INTEGER), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0))))),
-                new InPredicate(new LongLiteral(3), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new Cast(new NullLiteral(), INTEGER), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0))))));
+                new InPredicate(new LongLiteral(3), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new Cast(new NullLiteral(), INTEGER), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)))),
+                new InPredicate(new LongLiteral(3), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new Cast(new NullLiteral(), INTEGER), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)))));
         assertOptimizedEquals(
-                new InPredicate(new Cast(new NullLiteral(), INTEGER), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new Cast(new NullLiteral(), INTEGER), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0))))),
-                new InPredicate(new Cast(new NullLiteral(), INTEGER), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new Cast(new NullLiteral(), INTEGER), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0))))));
+                new InPredicate(new Cast(new NullLiteral(), INTEGER), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new Cast(new NullLiteral(), INTEGER), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)))),
+                new InPredicate(new Cast(new NullLiteral(), INTEGER), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new Cast(new NullLiteral(), INTEGER), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)))));
         assertOptimizedEquals(
-                new InPredicate(new LongLiteral(3), new InListExpression(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0))))),
-                new InPredicate(new LongLiteral(3), new InListExpression(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0))))));
-        assertTrinoExceptionThrownBy(() -> evaluate(new InPredicate(new LongLiteral(3), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)))))))
+                new InPredicate(new LongLiteral(3), ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)))),
+                new InPredicate(new LongLiteral(3), ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0)))));
+        assertTrinoExceptionThrownBy(() -> evaluate(new InPredicate(new LongLiteral(3), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(5), new LongLiteral(0))))))
                 .hasErrorCode(DIVISION_BY_ZERO);
 
         assertOptimizedEquals(
-                new InPredicate(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0)), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new LongLiteral(5)))),
-                new InPredicate(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0)), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new LongLiteral(5)))));
+                new InPredicate(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0)), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new LongLiteral(5))),
+                new InPredicate(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0)), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(3), new LongLiteral(5))));
         assertOptimizedEquals(
-                new InPredicate(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0)), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(2), new LongLiteral(4)))),
-                new InPredicate(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0)), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(4)))));
+                new InPredicate(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0)), ImmutableList.of(new LongLiteral(2), new LongLiteral(4), new LongLiteral(2), new LongLiteral(4))),
+                new InPredicate(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0)), ImmutableList.of(new LongLiteral(2), new LongLiteral(4))));
         assertOptimizedEquals(
-                new InPredicate(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0)), new InListExpression(ImmutableList.of(new LongLiteral(2), new LongLiteral(2)))),
+                new InPredicate(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0)), ImmutableList.of(new LongLiteral(2), new LongLiteral(2))),
                 new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0)), new LongLiteral(2)));
     }
 
