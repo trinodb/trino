@@ -324,7 +324,6 @@ public class TranslationMap
                 case BetweenPredicate expression -> translate(expression);
                 case IfExpression expression -> translate(expression);
                 case InPredicate expression -> translate(expression);
-                case InListExpression expression -> translate(expression);
                 case SimpleCaseExpression expression -> translate(expression);
                 case SearchedCaseExpression expression -> translate(expression);
                 case WhenClause expression -> translate(expression);
@@ -415,18 +414,13 @@ public class TranslationMap
                 expression.getDefaultValue().map(this::translateExpression));
     }
 
-    private io.trino.sql.ir.Expression translate(InListExpression expression)
-    {
-        return new io.trino.sql.ir.InListExpression(expression.getValues().stream()
-                .map(this::translateExpression)
-                .collect(toImmutableList()));
-    }
-
     private io.trino.sql.ir.Expression translate(InPredicate expression)
     {
         return new io.trino.sql.ir.InPredicate(
                 translateExpression(expression.getValue()),
-                translateExpression(expression.getValueList()));
+                ((InListExpression) expression.getValueList()).getValues().stream()
+                        .map(this::translateExpression)
+                        .collect(toImmutableList()));
     }
 
     private io.trino.sql.ir.Expression translate(IfExpression expression)

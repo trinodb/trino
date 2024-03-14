@@ -44,7 +44,6 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNotNullPredicate;
@@ -505,7 +504,7 @@ public final class ConnectorExpressionTranslator
             Optional<List<Expression>> translatedValues = extractExpressionsFromArrayCall(values);
 
             if (translatedValue.isPresent() && translatedValues.isPresent()) {
-                return Optional.of(new InPredicate(translatedValue.get(), new InListExpression(translatedValues.get())));
+                return Optional.of(new InPredicate(translatedValue.get(), translatedValues.get()));
             }
 
             return Optional.empty();
@@ -831,15 +830,14 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitInPredicate(InPredicate node, Void context)
         {
-            InListExpression valueList = (InListExpression) node.getValueList();
             Optional<ConnectorExpression> valueExpression = process(node.getValue());
 
             if (valueExpression.isEmpty()) {
                 return Optional.empty();
             }
 
-            ImmutableList.Builder<ConnectorExpression> values = ImmutableList.builderWithExpectedSize(valueList.getValues().size());
-            for (Expression value : valueList.getValues()) {
+            ImmutableList.Builder<ConnectorExpression> values = ImmutableList.builderWithExpectedSize(node.getValueList().size());
+            for (Expression value : node.getValueList()) {
                 // TODO: NULL should be eliminated on the engine side (within a rule)
                 if (value == null || value instanceof NullLiteral) {
                     return Optional.empty();
@@ -854,7 +852,7 @@ public final class ConnectorExpressionTranslator
                 values.add(processedValue.get());
             }
 
-            ConnectorExpression arrayExpression = new Call(new ArrayType(typeOf(node.getValueList())), ARRAY_CONSTRUCTOR_FUNCTION_NAME, values.build());
+            ConnectorExpression arrayExpression = new Call(new ArrayType(typeOf(node.getValue())), ARRAY_CONSTRUCTOR_FUNCTION_NAME, values.build());
             return Optional.of(new Call(typeOf(node), IN_PREDICATE_FUNCTION_NAME, List.of(valueExpression.get(), arrayExpression)));
         }
 

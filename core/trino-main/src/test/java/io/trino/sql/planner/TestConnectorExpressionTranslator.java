@@ -38,7 +38,6 @@ import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
@@ -468,8 +467,8 @@ public class TestConnectorExpressionTranslator
         String value = "value_1";
         assertTranslationRoundTrips(
                 new InPredicate(
-                    new SymbolReference("varchar_symbol_1"),
-                    new InListExpression(List.of(new SymbolReference("varchar_symbol_1"), new GenericLiteral("VARCHAR", value)))),
+                        new SymbolReference("varchar_symbol_1"),
+                        List.of(new SymbolReference("varchar_symbol_1"), new GenericLiteral("VARCHAR", value))),
                 new Call(
                     BOOLEAN,
                     StandardFunctions.IN_PREDICATE_FUNCTION_NAME,

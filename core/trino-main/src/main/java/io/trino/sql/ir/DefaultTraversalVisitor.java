@@ -93,7 +93,9 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitInPredicate(InPredicate node, C context)
     {
         process(node.getValue(), context);
-        process(node.getValueList(), context);
+        for (Expression argument : node.getValueList()) {
+            process(argument, context);
+        }
 
         return null;
     }
@@ -118,16 +120,6 @@ public abstract class DefaultTraversalVisitor<C>
 
         node.getDefaultValue()
                 .ifPresent(value -> process(value, context));
-
-        return null;
-    }
-
-    @Override
-    protected Void visitInListExpression(InListExpression node, C context)
-    {
-        for (Expression value : node.getValues()) {
-            process(value, context);
-        }
 
         return null;
     }

@@ -37,7 +37,6 @@ import java.util.List;
         @JsonSubTypes.Type(value = FunctionCall.class, name = "call"),
         @JsonSubTypes.Type(value = GenericLiteral.class, name = "constant"),
         @JsonSubTypes.Type(value = IfExpression.class, name = "if"),
-        @JsonSubTypes.Type(value = InListExpression.class, name = "list"),
         @JsonSubTypes.Type(value = InPredicate.class, name = "in"),
         @JsonSubTypes.Type(value = IntervalLiteral.class, name = "interval"),
         @JsonSubTypes.Type(value = IsNotNullPredicate.class, name = "isNotNull"),
@@ -60,7 +59,7 @@ import java.util.List;
 public abstract sealed class Expression
         permits ArithmeticBinaryExpression, ArithmeticUnaryExpression, Array, BetweenPredicate,
         BindExpression, Cast, CoalesceExpression, ComparisonExpression, FunctionCall,
-        IfExpression, InListExpression, InPredicate, IsNotNullPredicate, IsNullPredicate,
+        IfExpression, InPredicate, IsNotNullPredicate, IsNullPredicate,
         LambdaArgumentDeclaration, LambdaExpression, Literal, LogicalExpression,
         NotExpression, NullIfExpression, Row, SearchedCaseExpression, SimpleCaseExpression,
         SubscriptExpression, SymbolReference, WhenClause

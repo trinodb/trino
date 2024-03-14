@@ -35,7 +35,6 @@ import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
@@ -340,7 +339,7 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(2)
                                 .nullsFraction(0));
 
-        assertExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral(1.0)), new InPredicate(new Cast(new StringLiteral("b"), createVarcharType(3)), new InListExpression(ImmutableList.of(new Cast(new StringLiteral("a"), createVarcharType(3)), new Cast(new StringLiteral("b"), createVarcharType(3))))), new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral(3.0)))))
+        assertExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral(1.0)), new InPredicate(new Cast(new StringLiteral("b"), createVarcharType(3)), ImmutableList.of(new Cast(new StringLiteral("a"), createVarcharType(3)), new Cast(new StringLiteral("b"), createVarcharType(3)))), new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral(3.0)))))
                 .equalTo(standardInputStatistics);
     }
 
@@ -404,7 +403,7 @@ public class TestFilterStatsCalculator
                 new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(new GenericLiteral("JSON", "[13]"), new SymbolReference("x"))))))
                 .outputRowsCountUnknown();
 
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new InPredicate(new StringLiteral("a"), new InListExpression(ImmutableList.of(new StringLiteral("b"), new StringLiteral("c")))), new ComparisonExpression(EQUAL, new SymbolReference("unknownRange"), new DoubleLiteral(3.0)))))
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new InPredicate(new StringLiteral("a"), ImmutableList.of(new StringLiteral("b"), new StringLiteral("c"))), new ComparisonExpression(EQUAL, new SymbolReference("unknownRange"), new DoubleLiteral(3.0)))))
                 .outputRowsCount(0);
 
         assertExpression(new LogicalExpression(AND, ImmutableList.of(new Cast(new NullLiteral(), BOOLEAN), new Cast(new NullLiteral(), BOOLEAN)))).equalTo(zeroStatistics);
@@ -531,10 +530,10 @@ public class TestFilterStatsCalculator
 
         assertExpression(
                 new LogicalExpression(AND, ImmutableList.of(
-                        new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(
+                        new InPredicate(new SymbolReference("x"), ImmutableList.of(
                                 new Cast(new LongLiteral(0), DOUBLE),
                                 new Cast(new LongLiteral(1), DOUBLE),
-                                new Cast(new LongLiteral(2), DOUBLE)))),
+                                new Cast(new LongLiteral(2), DOUBLE))),
                         new LogicalExpression(OR, ImmutableList.of(
                                 new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(new LongLiteral(0), DOUBLE)),
                                 new LogicalExpression(AND, ImmutableList.of(
@@ -724,12 +723,12 @@ public class TestFilterStatsCalculator
                                 .highValue(xStats.getHighValue())
                                 .nullsFraction(xStats.getNullsFraction()));
 
-        assertExpression(new InPredicate(new StringLiteral("a"), new InListExpression(ImmutableList.of(new StringLiteral("a"), new StringLiteral("b"))))).equalTo(standardInputStatistics);
-        assertExpression(new InPredicate(new StringLiteral("a"), new InListExpression(ImmutableList.of(new StringLiteral("a"), new StringLiteral("b"), new Cast(new NullLiteral(), createVarcharType(1)))))).equalTo(standardInputStatistics);
-        assertExpression(new InPredicate(new StringLiteral("a"), new InListExpression(ImmutableList.of(new StringLiteral("b"), new StringLiteral("c"))))).outputRowsCount(0);
-        assertExpression(new InPredicate(new StringLiteral("a"), new InListExpression(ImmutableList.of(new StringLiteral("b"), new StringLiteral("c"), new Cast(new NullLiteral(), createVarcharType(1)))))).outputRowsCount(0);
-        assertExpression(new InPredicate(new Cast(new StringLiteral("b"), createVarcharType(3)), new InListExpression(ImmutableList.of(new Cast(new StringLiteral("a"), createVarcharType(3)), new Cast(new StringLiteral("b"), createVarcharType(3)))))).equalTo(standardInputStatistics);
-        assertExpression(new InPredicate(new Cast(new StringLiteral("c"), createVarcharType(3)), new InListExpression(ImmutableList.of(new Cast(new StringLiteral("a"), createVarcharType(3)), new Cast(new StringLiteral("b"), createVarcharType(3)))))).outputRowsCount(0);
+        assertExpression(new InPredicate(new StringLiteral("a"), ImmutableList.of(new StringLiteral("a"), new StringLiteral("b")))).equalTo(standardInputStatistics);
+        assertExpression(new InPredicate(new StringLiteral("a"), ImmutableList.of(new StringLiteral("a"), new StringLiteral("b"), new Cast(new NullLiteral(), createVarcharType(1))))).equalTo(standardInputStatistics);
+        assertExpression(new InPredicate(new StringLiteral("a"), ImmutableList.of(new StringLiteral("b"), new StringLiteral("c")))).outputRowsCount(0);
+        assertExpression(new InPredicate(new StringLiteral("a"), ImmutableList.of(new StringLiteral("b"), new StringLiteral("c"), new Cast(new NullLiteral(), createVarcharType(1))))).outputRowsCount(0);
+        assertExpression(new InPredicate(new Cast(new StringLiteral("b"), createVarcharType(3)), ImmutableList.of(new Cast(new StringLiteral("a"), createVarcharType(3)), new Cast(new StringLiteral("b"), createVarcharType(3))))).equalTo(standardInputStatistics);
+        assertExpression(new InPredicate(new Cast(new StringLiteral("c"), createVarcharType(3)), ImmutableList.of(new Cast(new StringLiteral("a"), createVarcharType(3)), new Cast(new StringLiteral("b"), createVarcharType(3))))).outputRowsCount(0);
     }
 
     @Test
@@ -750,28 +749,28 @@ public class TestFilterStatsCalculator
     public void testInPredicateFilter()
     {
         // One value in range
-        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new DoubleLiteral(7.5)))))
+        assertExpression(new InPredicate(new SymbolReference("x"), ImmutableList.of(new DoubleLiteral(7.5))))
                 .outputRowsCount(18.75)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(7.5)
                                 .highValue(7.5)
                                 .nullsFraction(0.0));
-        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-7.5")))))
+        assertExpression(new InPredicate(new SymbolReference("x"), ImmutableList.of(new GenericLiteral("DOUBLE", "-7.5"))))
                 .outputRowsCount(18.75)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(-7.5)
                                 .highValue(-7.5)
                                 .nullsFraction(0.0));
-        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new ArithmeticBinaryExpression(ADD, new GenericLiteral("BIGINT", "2"), new DoubleLiteral(5.5))))))
+        assertExpression(new InPredicate(new SymbolReference("x"), ImmutableList.of(new ArithmeticBinaryExpression(ADD, new GenericLiteral("BIGINT", "2"), new DoubleLiteral(5.5)))))
                 .outputRowsCount(18.75)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(7.5)
                                 .highValue(7.5)
                                 .nullsFraction(0.0));
-        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new DoubleLiteral(-7.5)))))
+        assertExpression(new InPredicate(new SymbolReference("x"), ImmutableList.of(new DoubleLiteral(-7.5))))
                 .outputRowsCount(18.75)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
@@ -780,7 +779,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Multiple values in range
-        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new DoubleLiteral(1.5), new DoubleLiteral(2.5), new DoubleLiteral(7.5)))))
+        assertExpression(new InPredicate(new SymbolReference("x"), ImmutableList.of(new DoubleLiteral(1.5), new DoubleLiteral(2.5), new DoubleLiteral(7.5))))
                 .outputRowsCount(56.25)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
@@ -795,7 +794,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.5));
 
         // Multiple values some in some out of range
-        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral(1.5), new DoubleLiteral(2.5), new DoubleLiteral(7.5), new DoubleLiteral(314.0)))))
+        assertExpression(new InPredicate(new SymbolReference("x"), ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral(1.5), new DoubleLiteral(2.5), new DoubleLiteral(7.5), new DoubleLiteral(314.0))))
                 .outputRowsCount(56.25)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
@@ -804,7 +803,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Multiple values some including NULL
-        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral(1.5), new DoubleLiteral(2.5), new DoubleLiteral(7.5), new DoubleLiteral(314.0), new Cast(new NullLiteral(), DOUBLE)))))
+        assertExpression(new InPredicate(new SymbolReference("x"), ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral(1.5), new DoubleLiteral(2.5), new DoubleLiteral(7.5), new DoubleLiteral(314.0), new Cast(new NullLiteral(), DOUBLE))))
                 .outputRowsCount(56.25)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
@@ -813,7 +812,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Multiple values in unknown range
-        assertExpression(new InPredicate(new SymbolReference("unknownRange"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral(1.5), new DoubleLiteral(2.5), new DoubleLiteral(7.5), new DoubleLiteral(314.0)))))
+        assertExpression(new InPredicate(new SymbolReference("unknownRange"), ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral(1.5), new DoubleLiteral(2.5), new DoubleLiteral(7.5), new DoubleLiteral(314.0))))
                 .outputRowsCount(90.0)
                 .symbolStats("unknownRange", symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
@@ -822,25 +821,25 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Casted literals as value
-        assertExpression(new InPredicate(new SymbolReference("mediumVarchar"), new InListExpression(ImmutableList.of(new Cast(new StringLiteral("abc"), MEDIUM_VARCHAR_TYPE)))))
+        assertExpression(new InPredicate(new SymbolReference("mediumVarchar"), ImmutableList.of(new Cast(new StringLiteral("abc"), MEDIUM_VARCHAR_TYPE))))
                 .outputRowsCount(4)
                 .symbolStats("mediumVarchar", symbolStats ->
                         symbolStats.distinctValuesCount(1)
                                 .nullsFraction(0.0));
 
-        assertExpression(new InPredicate(new SymbolReference("mediumVarchar"), new InListExpression(ImmutableList.of(new Cast(new StringLiteral("abc"), createVarcharType(100)), new Cast(new StringLiteral("def"), createVarcharType(100))))))
+        assertExpression(new InPredicate(new SymbolReference("mediumVarchar"), ImmutableList.of(new Cast(new StringLiteral("abc"), createVarcharType(100)), new Cast(new StringLiteral("def"), createVarcharType(100)))))
                 .outputRowsCount(8)
                 .symbolStats("mediumVarchar", symbolStats ->
                         symbolStats.distinctValuesCount(2)
                                 .nullsFraction(0.0));
 
         // No value in range
-        assertExpression(new InPredicate(new SymbolReference("y"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral(6.0), new DoubleLiteral(31.1341), new GenericLiteral("DOUBLE", "-0.000000002"), new DoubleLiteral(314.0)))))
+        assertExpression(new InPredicate(new SymbolReference("y"), ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral(6.0), new DoubleLiteral(31.1341), new GenericLiteral("DOUBLE", "-0.000000002"), new DoubleLiteral(314.0))))
                 .outputRowsCount(0.0)
                 .symbolStats("y", SymbolStatsAssertion::empty);
 
         // More values in range than distinct values
-        assertExpression(new InPredicate(new SymbolReference("z"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-1"), new DoubleLiteral(3.14), new DoubleLiteral(0.0), new DoubleLiteral(1.0), new DoubleLiteral(2.0), new DoubleLiteral(3.0), new DoubleLiteral(4.0), new DoubleLiteral(5.0), new DoubleLiteral(6.0), new DoubleLiteral(7.0), new DoubleLiteral(8.0), new GenericLiteral("DOUBLE", "-2")))))
+        assertExpression(new InPredicate(new SymbolReference("z"), ImmutableList.of(new GenericLiteral("DOUBLE", "-1"), new DoubleLiteral(3.14), new DoubleLiteral(0.0), new DoubleLiteral(1.0), new DoubleLiteral(2.0), new DoubleLiteral(3.0), new DoubleLiteral(4.0), new DoubleLiteral(5.0), new DoubleLiteral(6.0), new DoubleLiteral(7.0), new DoubleLiteral(8.0), new GenericLiteral("DOUBLE", "-2"))))
                 .outputRowsCount(900.0)
                 .symbolStats("z", symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
@@ -849,7 +848,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Values in weird order
-        assertExpression(new InPredicate(new SymbolReference("z"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-1"), new DoubleLiteral(1.0), new DoubleLiteral(0.0)))))
+        assertExpression(new InPredicate(new SymbolReference("z"), ImmutableList.of(new GenericLiteral("DOUBLE", "-1"), new DoubleLiteral(1.0), new DoubleLiteral(0.0))))
                 .outputRowsCount(540.0)
                 .symbolStats("z", symbolStats ->
                         symbolStats.distinctValuesCount(3.0)

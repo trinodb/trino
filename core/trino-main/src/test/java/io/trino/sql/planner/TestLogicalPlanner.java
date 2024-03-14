@@ -33,7 +33,6 @@ import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
@@ -1932,7 +1931,7 @@ public class TestLogicalPlanner
                                                         ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O")))))))
                                 .right(
                                         filter(
-                                                new InPredicate(new SymbolReference("expr"), new InListExpression(ImmutableList.of(new StringLiteral("F"), new StringLiteral("O")))),
+                                                new InPredicate(new SymbolReference("expr"), ImmutableList.of(new StringLiteral("F"), new StringLiteral("O"))),
                                                 values(
                                                         ImmutableList.of("expr"),
                                                         ImmutableList.of(ImmutableList.of(new StringLiteral("O")), ImmutableList.of(new StringLiteral("F")))))))));
@@ -2035,7 +2034,7 @@ public class TestLogicalPlanner
                                                         ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O")))))))
                                 .right(
                                         filter(
-                                                new InPredicate(new SymbolReference("expr"), new InListExpression(ImmutableList.of(new StringLiteral("F"), new StringLiteral("O")))),
+                                                new InPredicate(new SymbolReference("expr"), ImmutableList.of(new StringLiteral("F"), new StringLiteral("O"))),
                                                 values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new StringLiteral("O")), ImmutableList.of(new StringLiteral("F")))))))));
 
         // Constraint for the table is derived, based on constant values in the other branch of the join.
@@ -2050,14 +2049,14 @@ public class TestLogicalPlanner
                                 .equiCriteria("ORDER_KEY", "expr")
                                 .left(
                                         filter(
-                                                new InPredicate(new SymbolReference("ORDER_KEY"), new InListExpression(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new GenericLiteral("BIGINT", "2")))),
+                                                new InPredicate(new SymbolReference("ORDER_KEY"), ImmutableList.of(new GenericLiteral("BIGINT", "1"), new GenericLiteral("BIGINT", "2"))),
                                                 strictConstrainedTableScan(
                                                         "orders",
                                                         ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
                                                         ImmutableMap.of())))
                                 .right(
                                         filter(
-                                                new InPredicate(new SymbolReference("expr"), new InListExpression(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new GenericLiteral("BIGINT", "2")))),
+                                                new InPredicate(new SymbolReference("expr"), ImmutableList.of(new GenericLiteral("BIGINT", "1"), new GenericLiteral("BIGINT", "2"))),
                                                 values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")), ImmutableList.of(new GenericLiteral("BIGINT", "2")))))))));
     }
 

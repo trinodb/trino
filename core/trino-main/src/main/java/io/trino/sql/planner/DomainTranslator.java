@@ -45,7 +45,6 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNotNullPredicate;
@@ -198,7 +197,7 @@ public final class DomainTranslator
             return processRange(type, range, reference);
         }
 
-        Expression excludedPointsExpression = new NotExpression(new InPredicate(reference, new InListExpression(excludedPoints)));
+        Expression excludedPointsExpression = new NotExpression(new InPredicate(reference, excludedPoints));
         if (excludedPoints.size() == 1) {
             excludedPointsExpression = new ComparisonExpression(NOT_EQUAL, reference, getOnlyElement(excludedPoints));
         }
@@ -263,7 +262,7 @@ public final class DomainTranslator
             disjuncts.add(new ComparisonExpression(EQUAL, reference, getOnlyElement(singleValues)));
         }
         else if (singleValues.size() > 1) {
-            disjuncts.add(new InPredicate(reference, new InListExpression(singleValues)));
+            disjuncts.add(new InPredicate(reference, singleValues));
         }
         return disjuncts;
     }
@@ -282,7 +281,7 @@ public final class DomainTranslator
             predicate = new ComparisonExpression(EQUAL, reference, getOnlyElement(values));
         }
         else {
-            predicate = new InPredicate(reference, new InListExpression(values));
+            predicate = new InPredicate(reference, values);
         }
 
         if (!discreteValues.isInclusive()) {
@@ -932,11 +931,7 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitInPredicate(InPredicate node, Boolean complement)
         {
-            if (!(node.getValueList() instanceof InListExpression valueList)) {
-                return super.visitInPredicate(node, complement);
-            }
-
-            checkState(!valueList.getValues().isEmpty(), "InListExpression should never be empty");
+            checkState(!node.getValueList().isEmpty(), "InListExpression should never be empty");
 
             Optional<ExtractionResult> directExtractionResult = processSimpleInPredicate(node, complement);
             if (directExtractionResult.isPresent()) {
@@ -944,7 +939,7 @@ public final class DomainTranslator
             }
 
             ImmutableList.Builder<Expression> disjuncts = ImmutableList.builder();
-            for (Expression expression : valueList.getValues()) {
+            for (Expression expression : node.getValueList()) {
                 disjuncts.add(new ComparisonExpression(EQUAL, node.getValue(), expression));
             }
             ExtractionResult extractionResult = process(or(disjuncts.build()), complement);
@@ -968,11 +963,10 @@ public final class DomainTranslator
             Symbol symbol = Symbol.from(node.getValue());
             Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(node);
             Type type = expressionTypes.get(NodeRef.of(node.getValue()));
-            InListExpression valueList = (InListExpression) node.getValueList();
-            List<Object> inValues = new ArrayList<>(valueList.getValues().size());
+            List<Object> inValues = new ArrayList<>(node.getValueList().size());
             List<Expression> excludedExpressions = new ArrayList<>();
 
-            for (Expression expression : valueList.getValues()) {
+            for (Expression expression : node.getValueList()) {
                 Object value = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes)
                         .optimize(NoOpSymbolResolver.INSTANCE);
                 if (value == null || value instanceof NullLiteral) {
@@ -1022,7 +1016,7 @@ public final class DomainTranslator
                 remainingExpression = new NotExpression(new ComparisonExpression(EQUAL, node.getValue(), getOnlyElement(excludedExpressions)));
             }
             else {
-                remainingExpression = new NotExpression(new InPredicate(node.getValue(), new InListExpression(excludedExpressions)));
+                remainingExpression = new NotExpression(new InPredicate(node.getValue(), excludedExpressions));
             }
 
             return Optional.of(new ExtractionResult(tupleDomain, remainingExpression));
