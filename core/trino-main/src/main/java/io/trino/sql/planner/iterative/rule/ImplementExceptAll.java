@@ -104,7 +104,7 @@ public class ImplementExceptAll
                     greatest.toQualifiedName(),
                     ImmutableList.of(
                             new ArithmeticBinaryExpression(SUBTRACT, count, result.getCountSymbols().get(i).toSymbolReference()),
-                            new GenericLiteral(BIGINT, "0")));
+                            GenericLiteral.constant(BIGINT, 0L)));
         }
 
         // filter rows so that expected number of rows remains

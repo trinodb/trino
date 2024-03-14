@@ -19,7 +19,10 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.block.BlockJsonSerde;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -138,7 +141,13 @@ public class TestPatternRecognitionNodeSerialization
     public void testMeasureRoundtrip()
     {
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TestingTypeManager())));
+        provider.setJsonDeserializers(ImmutableMap.of(
+                Type.class, new TypeDeserializer(new TestingTypeManager()),
+                Block.class, new BlockJsonSerde.Deserializer(new TestingBlockEncodingSerde())));
+
+        provider.setJsonSerializers(ImmutableMap.of(
+                Block.class, new BlockJsonSerde.Serializer(new TestingBlockEncodingSerde())));
+
         JsonCodec<Measure> codec = new JsonCodecFactory(provider).jsonCodec(Measure.class);
 
         assertJsonRoundTrip(codec, new Measure(
@@ -149,7 +158,7 @@ public class TestPatternRecognitionNodeSerialization
                 new ExpressionAndValuePointers(
                         new IfExpression(
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("match_number"), new SymbolReference("x")),
-                                new GenericLiteral(BIGINT, "10"),
+                                GenericLiteral.constant(BIGINT, 10L),
                                 new ArithmeticUnaryExpression(MINUS, new SymbolReference("y"))),
                         ImmutableList.of(
                                 new ExpressionAndValuePointers.Assignment(

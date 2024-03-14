@@ -21,8 +21,8 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.type.FunctionType;
@@ -62,13 +62,13 @@ public class TestDeterminismEvaluator
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
-                        ImmutableList.of(lambda("a", comparison(GREATER_THAN, input("a"), new LongLiteral(0))))),
+                        ImmutableList.of(lambda("a", comparison(GREATER_THAN, input("a"), GenericLiteral.constant(INTEGER, 0L))))),
                 metadata)).isTrue();
         assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
-                        ImmutableList.of(lambda("a", comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(input("a"))), new LongLiteral(0))))),
+                        ImmutableList.of(lambda("a", comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(input("a"))), GenericLiteral.constant(INTEGER, 0L))))),
                 metadata)).isFalse();
     }
 

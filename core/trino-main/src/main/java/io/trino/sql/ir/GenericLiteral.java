@@ -16,26 +16,82 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Primitives;
+import com.google.errorprone.annotations.DoNotCall;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Objects.requireNonNull;
 
 public final class GenericLiteral
         extends Literal
 {
     private final Type type;
-    private final String value;
+    private final String stringValue;
+    private final Object rawValue;
+
+    public static GenericLiteral constant(Type type, Object rawValue)
+    {
+        checkArgument(
+                Primitives.wrap(type.getJavaType()).isAssignableFrom(rawValue.getClass()),
+                "Improper Java type (%s) for type '%s'",
+                rawValue.getClass().getName(),
+                type.toString());
+
+        return new GenericLiteral(type, null, rawValue);
+    }
 
     @JsonCreator
-    public GenericLiteral(Type type, String value)
+    @DoNotCall // For JSON deserialization only
+    public static GenericLiteral fromJson(
+            @JsonProperty Type type,
+            @JsonProperty Block rawValueAsBlock,
+            @JsonProperty String stringValue)
+    {
+        return new GenericLiteral(type, stringValue, readNativeValue(type, rawValueAsBlock, 0));
+    }
+
+    @Deprecated
+    public GenericLiteral(Type type, String stringValue)
+    {
+        this(verifyLegacyType(type), stringValue, null);
+    }
+
+    private static Type verifyLegacyType(Type type)
+    {
+        if (type.equals(TINYINT) ||
+                type.equals(SMALLINT) ||
+                type.equals(INTEGER) ||
+                type.equals(BIGINT) ||
+                type.equals(BOOLEAN) ||
+                type.equals(DOUBLE) ||
+                type instanceof DecimalType) {
+            throw new IllegalArgumentException("Call constant(%s, ...)".formatted(type));
+        }
+
+        return type;
+    }
+
+    public GenericLiteral(Type type, String stringValue, Object rawValue)
     {
         requireNonNull(type, "type is null");
-        requireNonNull(value, "value is null");
         this.type = type;
-        this.value = value;
+        this.stringValue = stringValue;
+        this.rawValue = rawValue;
     }
 
     @JsonProperty
@@ -44,10 +100,30 @@ public final class GenericLiteral
         return type;
     }
 
-    @JsonProperty
+    @JsonProperty("value")
+    public Block getRawValueAsBlock()
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        writeNativeValue(type, blockBuilder, rawValue);
+        return blockBuilder.build();
+    }
+
+    @Deprecated
     public String getValue()
     {
-        return value;
+        return stringValue == null ? rawValue.toString() : stringValue;
+    }
+
+    // TODO: rename to getValue once the other implementation is gone
+    public Object getRawValue()
+    {
+        return rawValue;
+    }
+
+    @JsonProperty
+    public String getStringValue()
+    {
+        return stringValue;
     }
 
     @Override
@@ -63,29 +139,27 @@ public final class GenericLiteral
     }
 
     @Override
-    public int hashCode()
+    public boolean equals(Object o)
     {
-        return Objects.hash(value, type);
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        GenericLiteral that = (GenericLiteral) o;
+        return Objects.equals(type, that.type) && Objects.equals(stringValue, that.stringValue) && Objects.equals(rawValue, that.rawValue);
     }
 
     @Override
-    public boolean equals(Object obj)
+    public int hashCode()
     {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-
-        GenericLiteral other = (GenericLiteral) obj;
-        return Objects.equals(this.value, other.value) &&
-                Objects.equals(this.type, other.type);
+        return Objects.hash(type, stringValue, rawValue);
     }
 
     @Override
     public String toString()
     {
-        return "Literal[%s, %s]".formatted(type, value);
+        return "Literal[%s, %s]".formatted(type, stringValue == null ? rawValue : stringValue);
     }
 }

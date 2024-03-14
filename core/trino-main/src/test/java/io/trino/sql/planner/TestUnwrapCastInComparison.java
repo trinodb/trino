@@ -18,13 +18,11 @@ import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.StringLiteral;
@@ -67,9 +65,9 @@ public class TestUnwrapCastInComparison
     public void testEquals()
     {
         // representable
-        testUnwrap("smallint", "a = DOUBLE '1'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "1")));
+        testUnwrap("smallint", "a = DOUBLE '1'", new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 1L)));
 
-        testUnwrap("bigint", "a = DOUBLE '1'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(BIGINT, "1")));
+        testUnwrap("bigint", "a = DOUBLE '1'", new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 1L)));
 
         // non-representable
         testUnwrap("smallint", "a = DOUBLE '1.1'", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new Cast(new NullLiteral(), BOOLEAN))));
@@ -78,25 +76,25 @@ public class TestUnwrapCastInComparison
         testUnwrap("bigint", "a = DOUBLE '1.1'", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new Cast(new NullLiteral(), BOOLEAN))));
 
         // below top of range
-        testUnwrap("smallint", "a = DOUBLE '32766'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32766")));
+        testUnwrap("smallint", "a = DOUBLE '32766'", new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32766L)));
 
         // round to top of range
         testUnwrap("smallint", "a = DOUBLE '32766.9'", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new Cast(new NullLiteral(), BOOLEAN))));
 
         // top of range
-        testUnwrap("smallint", "a = DOUBLE '32767'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32767")));
+        testUnwrap("smallint", "a = DOUBLE '32767'", new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32767L)));
 
         // above range
         testUnwrap("smallint", "a = DOUBLE '32768.1'", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new Cast(new NullLiteral(), BOOLEAN))));
 
         // above bottom of range
-        testUnwrap("smallint", "a = DOUBLE '-32767'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32767")));
+        testUnwrap("smallint", "a = DOUBLE '-32767'", new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32767L)));
 
         // round to bottom of range
         testUnwrap("smallint", "a = DOUBLE '-32767.9'", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new Cast(new NullLiteral(), BOOLEAN))));
 
         // bottom of range
-        testUnwrap("smallint", "a = DOUBLE '-32768'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32768")));
+        testUnwrap("smallint", "a = DOUBLE '-32768'", new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32768L)));
 
         // below range
         testUnwrap("smallint", "a = DOUBLE '-32768.1'", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new Cast(new NullLiteral(), BOOLEAN))));
@@ -118,9 +116,9 @@ public class TestUnwrapCastInComparison
     public void testNotEquals()
     {
         // representable
-        testUnwrap("smallint", "a <> DOUBLE '1'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "1")));
+        testUnwrap("smallint", "a <> DOUBLE '1'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 1L)));
 
-        testUnwrap("bigint", "a <> DOUBLE '1'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new GenericLiteral(BIGINT, "1")));
+        testUnwrap("bigint", "a <> DOUBLE '1'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 1L)));
 
         // non-representable
         testUnwrap("smallint", "a <> DOUBLE '1.1'", new LogicalExpression(OR, ImmutableList.of(new NotExpression(new IsNullPredicate(new SymbolReference("a"))), new Cast(new NullLiteral(), BOOLEAN))));
@@ -131,13 +129,13 @@ public class TestUnwrapCastInComparison
         testUnwrap("bigint", "a <> DOUBLE '1.1'", new LogicalExpression(OR, ImmutableList.of(new NotExpression(new IsNullPredicate(new SymbolReference("a"))), new Cast(new NullLiteral(), BOOLEAN))));
 
         // below top of range
-        testUnwrap("smallint", "a <> DOUBLE '32766'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32766")));
+        testUnwrap("smallint", "a <> DOUBLE '32766'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32766L)));
 
         // round to top of range
         testUnwrap("smallint", "a <> DOUBLE '32766.9'", new LogicalExpression(OR, ImmutableList.of(new NotExpression(new IsNullPredicate(new SymbolReference("a"))), new Cast(new NullLiteral(), BOOLEAN))));
 
         // top of range
-        testUnwrap("smallint", "a <> DOUBLE '32767'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32767")));
+        testUnwrap("smallint", "a <> DOUBLE '32767'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32767L)));
 
         // above range
         testUnwrap("smallint", "a <> DOUBLE '32768.1'", new LogicalExpression(OR, ImmutableList.of(new NotExpression(new IsNullPredicate(new SymbolReference("a"))), new Cast(new NullLiteral(), BOOLEAN))));
@@ -146,13 +144,13 @@ public class TestUnwrapCastInComparison
         testUnwrap("bigint", "a <> DOUBLE '18446744073709551616'", new LogicalExpression(OR, ImmutableList.of(new NotExpression(new IsNullPredicate(new SymbolReference("a"))), new Cast(new NullLiteral(), BOOLEAN))));
 
         // above bottom of range
-        testUnwrap("smallint", "a <> DOUBLE '-32767'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32767")));
+        testUnwrap("smallint", "a <> DOUBLE '-32767'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32767L)));
 
         // round to bottom of range
         testUnwrap("smallint", "a <> DOUBLE '-32767.9'", new LogicalExpression(OR, ImmutableList.of(new NotExpression(new IsNullPredicate(new SymbolReference("a"))), new Cast(new NullLiteral(), BOOLEAN))));
 
         // bottom of range
-        testUnwrap("smallint", "a <> DOUBLE '-32768'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32768")));
+        testUnwrap("smallint", "a <> DOUBLE '-32768'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32768L)));
 
         // below range
         testUnwrap("smallint", "a <> DOUBLE '-32768.1'", new LogicalExpression(OR, ImmutableList.of(new NotExpression(new IsNullPredicate(new SymbolReference("a"))), new Cast(new NullLiteral(), BOOLEAN))));
@@ -162,34 +160,34 @@ public class TestUnwrapCastInComparison
     public void testLessThan()
     {
         // representable
-        testUnwrap("smallint", "a < DOUBLE '1'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(SMALLINT, "1")));
+        testUnwrap("smallint", "a < DOUBLE '1'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 1L)));
 
-        testUnwrap("bigint", "a < DOUBLE '1'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(BIGINT, "1")));
+        testUnwrap("bigint", "a < DOUBLE '1'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 1L)));
 
         // non-representable
-        testUnwrap("smallint", "a < DOUBLE '1.1'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "1")));
+        testUnwrap("smallint", "a < DOUBLE '1.1'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 1L)));
 
-        testUnwrap("bigint", "a < DOUBLE '1.1'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(BIGINT, "1")));
+        testUnwrap("bigint", "a < DOUBLE '1.1'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 1L)));
 
-        testUnwrap("smallint", "a < DOUBLE '1.9'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(SMALLINT, "2")));
+        testUnwrap("smallint", "a < DOUBLE '1.9'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 2L)));
 
         // below top of range
-        testUnwrap("smallint", "a < DOUBLE '32766'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32766")));
+        testUnwrap("smallint", "a < DOUBLE '32766'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32766L)));
 
         // round to top of range
-        testUnwrap("smallint", "a < DOUBLE '32766.9'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32767")));
+        testUnwrap("smallint", "a < DOUBLE '32766.9'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32767L)));
 
         // top of range
-        testUnwrap("smallint", "a < DOUBLE '32767'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32767")));
+        testUnwrap("smallint", "a < DOUBLE '32767'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32767L)));
 
         // above range
         testUnwrap("smallint", "a < DOUBLE '32768.1'", new LogicalExpression(OR, ImmutableList.of(new NotExpression(new IsNullPredicate(new SymbolReference("a"))), new Cast(new NullLiteral(), BOOLEAN))));
 
         // above bottom of range
-        testUnwrap("smallint", "a < DOUBLE '-32767'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32767")));
+        testUnwrap("smallint", "a < DOUBLE '-32767'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32767L)));
 
         // round to bottom of range
-        testUnwrap("smallint", "a < DOUBLE '-32767.9'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32768")));
+        testUnwrap("smallint", "a < DOUBLE '-32767.9'", new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32768L)));
 
         // bottom of range
         testUnwrap("smallint", "a < DOUBLE '-32768'", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new Cast(new NullLiteral(), BOOLEAN))));
@@ -205,22 +203,22 @@ public class TestUnwrapCastInComparison
     public void testLessThanOrEqual()
     {
         // representable
-        testUnwrap("smallint", "a <= DOUBLE '1'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "1")));
+        testUnwrap("smallint", "a <= DOUBLE '1'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 1L)));
 
-        testUnwrap("bigint", "a <= DOUBLE '1'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(BIGINT, "1")));
+        testUnwrap("bigint", "a <= DOUBLE '1'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 1L)));
 
         // non-representable
-        testUnwrap("smallint", "a <= DOUBLE '1.1'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "1")));
+        testUnwrap("smallint", "a <= DOUBLE '1.1'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 1L)));
 
-        testUnwrap("bigint", "a <= DOUBLE '1.1'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(BIGINT, "1")));
+        testUnwrap("bigint", "a <= DOUBLE '1.1'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 1L)));
 
-        testUnwrap("smallint", "a <= DOUBLE '1.9'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(SMALLINT, "2")));
+        testUnwrap("smallint", "a <= DOUBLE '1.9'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 2L)));
 
         // below top of range
-        testUnwrap("smallint", "a <= DOUBLE '32766'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32766")));
+        testUnwrap("smallint", "a <= DOUBLE '32766'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32766L)));
 
         // round to top of range
-        testUnwrap("smallint", "a <= DOUBLE '32766.9'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32767")));
+        testUnwrap("smallint", "a <= DOUBLE '32766.9'", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32767L)));
 
         // top of range
         testUnwrap("smallint", "a <= DOUBLE '32767'", new LogicalExpression(OR, ImmutableList.of(new NotExpression(new IsNullPredicate(new SymbolReference("a"))), new Cast(new NullLiteral(), BOOLEAN))));
@@ -232,13 +230,13 @@ public class TestUnwrapCastInComparison
         testUnwrap("bigint", "a <= DOUBLE '18446744073709551616'", new LogicalExpression(OR, ImmutableList.of(new NotExpression(new IsNullPredicate(new SymbolReference("a"))), new Cast(new NullLiteral(), BOOLEAN))));
 
         // above bottom of range
-        testUnwrap("smallint", "a <= DOUBLE '-32767'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32767")));
+        testUnwrap("smallint", "a <= DOUBLE '-32767'", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32767L)));
 
         // round to bottom of range
-        testUnwrap("smallint", "a <= DOUBLE '-32767.9'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32768")));
+        testUnwrap("smallint", "a <= DOUBLE '-32767.9'", new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32768L)));
 
         // bottom of range
-        testUnwrap("smallint", "a <= DOUBLE '-32768'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32768")));
+        testUnwrap("smallint", "a <= DOUBLE '-32768'", new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32768L)));
 
         // below range
         testUnwrap("smallint", "a <= DOUBLE '-32768.1'", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new Cast(new NullLiteral(), BOOLEAN))));
@@ -248,22 +246,22 @@ public class TestUnwrapCastInComparison
     public void testGreaterThan()
     {
         // representable
-        testUnwrap("smallint", "a > DOUBLE '1'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(SMALLINT, "1")));
+        testUnwrap("smallint", "a > DOUBLE '1'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 1L)));
 
-        testUnwrap("bigint", "a > DOUBLE '1'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(BIGINT, "1")));
+        testUnwrap("bigint", "a > DOUBLE '1'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 1L)));
 
         // non-representable
-        testUnwrap("smallint", "a > DOUBLE '1.1'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(SMALLINT, "1")));
+        testUnwrap("smallint", "a > DOUBLE '1.1'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 1L)));
 
-        testUnwrap("smallint", "a > DOUBLE '1.9'", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "2")));
+        testUnwrap("smallint", "a > DOUBLE '1.9'", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 2L)));
 
-        testUnwrap("bigint", "a > DOUBLE '1.9'", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(BIGINT, "2")));
+        testUnwrap("bigint", "a > DOUBLE '1.9'", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 2L)));
 
         // below top of range
-        testUnwrap("smallint", "a > DOUBLE '32766'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32766")));
+        testUnwrap("smallint", "a > DOUBLE '32766'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32766L)));
 
         // round to top of range
-        testUnwrap("smallint", "a > DOUBLE '32766.9'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32767")));
+        testUnwrap("smallint", "a > DOUBLE '32766.9'", new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32767L)));
 
         // top of range
         testUnwrap("smallint", "a > DOUBLE '32767'", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new Cast(new NullLiteral(), BOOLEAN))));
@@ -275,13 +273,13 @@ public class TestUnwrapCastInComparison
         testUnwrap("bigint", "a > DOUBLE '18446744073709551616'", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new Cast(new NullLiteral(), BOOLEAN))));
 
         // above bottom of range
-        testUnwrap("smallint", "a > DOUBLE '-32767'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32767")));
+        testUnwrap("smallint", "a > DOUBLE '-32767'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32767L)));
 
         // round to bottom of range
-        testUnwrap("smallint", "a > DOUBLE '-32767.9'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32768")));
+        testUnwrap("smallint", "a > DOUBLE '-32767.9'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32768L)));
 
         // bottom of range
-        testUnwrap("smallint", "a > DOUBLE '-32768'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32768")));
+        testUnwrap("smallint", "a > DOUBLE '-32768'", new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32768L)));
 
         // below range
         testUnwrap("smallint", "a > DOUBLE '-32768.1'", new LogicalExpression(OR, ImmutableList.of(new NotExpression(new IsNullPredicate(new SymbolReference("a"))), new Cast(new NullLiteral(), BOOLEAN))));
@@ -291,34 +289,34 @@ public class TestUnwrapCastInComparison
     public void testGreaterThanOrEqual()
     {
         // representable
-        testUnwrap("smallint", "a >= DOUBLE '1'", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "1")));
+        testUnwrap("smallint", "a >= DOUBLE '1'", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 1L)));
 
-        testUnwrap("bigint", "a >= DOUBLE '1'", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(BIGINT, "1")));
+        testUnwrap("bigint", "a >= DOUBLE '1'", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 1L)));
 
         // non-representable
-        testUnwrap("smallint", "a >= DOUBLE '1.1'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(SMALLINT, "1")));
+        testUnwrap("smallint", "a >= DOUBLE '1.1'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 1L)));
 
-        testUnwrap("bigint", "a >= DOUBLE '1.1'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(BIGINT, "1")));
+        testUnwrap("bigint", "a >= DOUBLE '1.1'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 1L)));
 
-        testUnwrap("smallint", "a >= DOUBLE '1.9'", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "2")));
+        testUnwrap("smallint", "a >= DOUBLE '1.9'", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 2L)));
 
         // below top of range
-        testUnwrap("smallint", "a >= DOUBLE '32766'", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32766")));
+        testUnwrap("smallint", "a >= DOUBLE '32766'", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32766L)));
 
         // round to top of range
-        testUnwrap("smallint", "a >= DOUBLE '32766.9'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32767")));
+        testUnwrap("smallint", "a >= DOUBLE '32766.9'", new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32767L)));
 
         // top of range
-        testUnwrap("smallint", "a >= DOUBLE '32767'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32767")));
+        testUnwrap("smallint", "a >= DOUBLE '32767'", new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32767L)));
 
         // above range
         testUnwrap("smallint", "a >= DOUBLE '32768.1'", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new Cast(new NullLiteral(), BOOLEAN))));
 
         // above bottom of range
-        testUnwrap("smallint", "a >= DOUBLE '-32767'", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32767")));
+        testUnwrap("smallint", "a >= DOUBLE '-32767'", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32767L)));
 
         // round to bottom of range
-        testUnwrap("smallint", "a >= DOUBLE '-32767.9'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32768")));
+        testUnwrap("smallint", "a >= DOUBLE '-32767.9'", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32768L)));
 
         // bottom of range
         testUnwrap("smallint", "a >= DOUBLE '-32768'", new LogicalExpression(OR, ImmutableList.of(new NotExpression(new IsNullPredicate(new SymbolReference("a"))), new Cast(new NullLiteral(), BOOLEAN))));
@@ -334,9 +332,9 @@ public class TestUnwrapCastInComparison
     public void testDistinctFrom()
     {
         // representable
-        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '1'", new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("a"), new GenericLiteral(SMALLINT, "1")));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '1'", new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 1L)));
 
-        testUnwrap("bigint", "a IS DISTINCT FROM DOUBLE '1'", new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("a"), new GenericLiteral(BIGINT, "1")));
+        testUnwrap("bigint", "a IS DISTINCT FROM DOUBLE '1'", new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 1L)));
 
         // non-representable
         testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '1.1'");
@@ -346,13 +344,13 @@ public class TestUnwrapCastInComparison
         testRemoveFilter("bigint", "a IS DISTINCT FROM DOUBLE '1.9'");
 
         // below top of range
-        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '32766'", new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32766")));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '32766'", new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32766L)));
 
         // round to top of range
         testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '32766.9'");
 
         // top of range
-        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '32767'", new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("a"), new GenericLiteral(SMALLINT, "32767")));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '32767'", new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 32767L)));
 
         // above range
         testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '32768.1'");
@@ -361,13 +359,13 @@ public class TestUnwrapCastInComparison
         testRemoveFilter("bigint", "a IS DISTINCT FROM DOUBLE '18446744073709551616'");
 
         // above bottom of range
-        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '-32767'", new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32767")));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '-32767'", new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32767L)));
 
         // round to bottom of range
         testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '-32767.9'");
 
         // bottom of range
-        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '-32768'", new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("a"), new GenericLiteral(SMALLINT, "-32768")));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '-32768'", new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, -32768L)));
 
         // below range
         testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '-32768.1'");
@@ -424,15 +422,15 @@ public class TestUnwrapCastInComparison
     {
         // smoke tests for various type combinations
         for (String type : asList("SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE")) {
-            testUnwrap("tinyint", format("a = %s '1'", type), new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(TINYINT, "1")));
+            testUnwrap("tinyint", format("a = %s '1'", type), new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(TINYINT, 1L)));
         }
 
         for (String type : asList("INTEGER", "BIGINT", "REAL", "DOUBLE")) {
-            testUnwrap("smallint", format("a = %s '1'", type), new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(SMALLINT, "1")));
+            testUnwrap("smallint", format("a = %s '1'", type), new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(SMALLINT, 1L)));
         }
 
         for (String type : asList("BIGINT", "DOUBLE")) {
-            testUnwrap("integer", format("a = %s '1'", type), new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(1)));
+            testUnwrap("integer", format("a = %s '1'", type), new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
         }
 
         testUnwrap("real", "a = DOUBLE '1'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral(REAL, "1.0")));
@@ -628,14 +626,14 @@ public class TestUnwrapCastInComparison
     public void testNoEffect()
     {
         // BIGINT->DOUBLE implicit cast is not injective if the double constant is >= 2^53 and <= double(2^63 - 1)
-        testUnwrap("bigint", "a = DOUBLE '9007199254740992'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral(9.007199254740992E15)));
+        testUnwrap("bigint", "a = DOUBLE '9007199254740992'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), GenericLiteral.constant(DOUBLE, 9.007199254740992E15)));
 
-        testUnwrap("bigint", "a = DOUBLE '9223372036854775807'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral(9.223372036854776E18)));
+        testUnwrap("bigint", "a = DOUBLE '9223372036854775807'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), GenericLiteral.constant(DOUBLE, 9.223372036854776E18)));
 
         // BIGINT->DOUBLE implicit cast is not injective if the double constant is <= -2^53 and >= double(-2^63 + 1)
-        testUnwrap("bigint", "a = DOUBLE '-9007199254740992'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral(-9.007199254740992E15)));
+        testUnwrap("bigint", "a = DOUBLE '-9007199254740992'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), GenericLiteral.constant(DOUBLE, -9.007199254740992E15)));
 
-        testUnwrap("bigint", "a = DOUBLE '-9223372036854775807'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral(-9.223372036854776E18)));
+        testUnwrap("bigint", "a = DOUBLE '-9223372036854775807'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), GenericLiteral.constant(DOUBLE, -9.223372036854776E18)));
 
         // BIGINT->REAL implicit cast is not injective if the real constant is >= 2^23 and <= real(2^63 - 1)
         testUnwrap("bigint", "a = REAL '8388608'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new GenericLiteral(REAL, "8388608.0")));
@@ -658,16 +656,16 @@ public class TestUnwrapCastInComparison
         testUnwrap("integer", "a = REAL '-2147483647'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new GenericLiteral(REAL, "-2.1474836E9")));
 
         // DECIMAL(p)->DOUBLE not injective for p > 15
-        testUnwrap("decimal(16)", "a = DOUBLE '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral(1.0)));
+        testUnwrap("decimal(16)", "a = DOUBLE '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), GenericLiteral.constant(DOUBLE, 1.0)));
 
         // DECIMAL(p)->REAL not injective for p > 7
         testUnwrap("decimal(8)", "a = REAL '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new GenericLiteral(REAL, "1.0")));
 
         // no implicit cast between VARCHAR->INTEGER
-        testUnwrap("varchar", "CAST(a AS INTEGER) = INTEGER '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), INTEGER), new LongLiteral(1)));
+        testUnwrap("varchar", "CAST(a AS INTEGER) = INTEGER '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), INTEGER), GenericLiteral.constant(INTEGER, 1L)));
 
         // no implicit cast between DOUBLE->INTEGER
-        testUnwrap("double", "CAST(a AS INTEGER) = INTEGER '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), INTEGER), new LongLiteral(1)));
+        testUnwrap("double", "CAST(a AS INTEGER) = INTEGER '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), INTEGER), GenericLiteral.constant(INTEGER, 1L)));
     }
 
     @Test
@@ -806,7 +804,7 @@ public class TestUnwrapCastInComparison
     {
         assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s AND rand() = 42", inputType, inputPredicate),
                 output(
-                        filter(new ComparisonExpression(EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral(42.0)),
+                        filter(new ComparisonExpression(EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), GenericLiteral.constant(DOUBLE, 42.0)),
                                 values("a"))));
     }
 
@@ -817,7 +815,7 @@ public class TestUnwrapCastInComparison
 
     private void testUnwrap(Session session, String inputType, String inputPredicate, Expression expected)
     {
-        Expression antiOptimization = new ComparisonExpression(EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral(42.0));
+        Expression antiOptimization = new ComparisonExpression(EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), GenericLiteral.constant(DOUBLE, 42.0));
         if (expected instanceof LogicalExpression logical && logical.getOperator() == OR) {
             expected = new LogicalExpression(OR, ImmutableList.<Expression>builder()
                     .addAll(logical.getTerms())

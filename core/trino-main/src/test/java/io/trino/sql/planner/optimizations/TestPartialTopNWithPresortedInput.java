@@ -28,7 +28,7 @@ import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -189,8 +189,8 @@ public class TestPartialTopNWithPresortedInput
                                                         values(
                                                                 ImmutableList.of("id"),
                                                                 ImmutableList.of(
-                                                                        ImmutableList.of(new LongLiteral(1)),
-                                                                        ImmutableList.of(new LongLiteral(1))))))))));
+                                                                        ImmutableList.of(GenericLiteral.constant(INTEGER, 1L)),
+                                                                        ImmutableList.of(GenericLiteral.constant(INTEGER, 1L))))))))));
     }
 
     @Test
@@ -208,9 +208,9 @@ public class TestPartialTopNWithPresortedInput
                         topN(1, ImmutableList.of(sort("k", ASCENDING, LAST)), FINAL,
                                 anyTree(
                                         limit(1, ImmutableList.of(), true, ImmutableList.of("k"),
-                                                project(ImmutableMap.of("k", expression(new SubscriptExpression(new SymbolReference("nested"), new LongLiteral(1)))),
+                                                project(ImmutableMap.of("k", expression(new SubscriptExpression(new SymbolReference("nested"), GenericLiteral.constant(INTEGER, 1L)))),
                                                         filter(
-                                                                new ComparisonExpression(EQUAL, new SubscriptExpression(new SymbolReference("nested"), new LongLiteral(1)), new LongLiteral(1)),
+                                                                new ComparisonExpression(EQUAL, new SubscriptExpression(new SymbolReference("nested"), GenericLiteral.constant(INTEGER, 1L)), GenericLiteral.constant(INTEGER, 1L)),
                                                                 tableScan("with_nested_field", ImmutableMap.of("nested", "nested")))))))));
     }
 }

@@ -405,7 +405,7 @@ public class DecorrelateUnnest
                     new ComparisonExpression(
                             GREATER_THAN,
                             rowNumberSymbol.toSymbolReference(),
-                            new GenericLiteral(BIGINT, "1")),
+                            GenericLiteral.constant(BIGINT, 1L)),
                     new Cast(
                             failFunction(metadata, SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                             BOOLEAN),
@@ -448,7 +448,7 @@ public class DecorrelateUnnest
                     new FilterNode(
                             idAllocator.getNextId(),
                             sourceNode,
-                            new ComparisonExpression(LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), new GenericLiteral(BIGINT, Long.toString(node.getCount())))),
+                            new ComparisonExpression(LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), GenericLiteral.constant(BIGINT, node.getCount()))),
                     Optional.of(rowNumberSymbol));
         }
 
@@ -477,7 +477,7 @@ public class DecorrelateUnnest
                     new FilterNode(
                             idAllocator.getNextId(),
                             windowNode,
-                            new ComparisonExpression(LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), new GenericLiteral(BIGINT, Long.toString(node.getCount())))),
+                            new ComparisonExpression(LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), GenericLiteral.constant(BIGINT, node.getCount()))),
                     Optional.of(rowNumberSymbol));
         }
 

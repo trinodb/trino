@@ -29,7 +29,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SubscriptExpression;
@@ -51,6 +50,7 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -102,7 +102,7 @@ public class TestPushDownDereferencesRules
         tester().assertThat(new PushDownDereferenceThroughFilter(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.filter(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new GenericLiteral(BIGINT, "5")),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), GenericLiteral.constant(BIGINT, 5L)),
                                 p.values(p.symbol("x"))))
                 .doesNotFire();
 
@@ -111,8 +111,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_1"), new SubscriptExpression(new Cast(new Row(ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), rowType(field("f1", rowType(field("x", BIGINT), field("y", BIGINT))), field("f2", BIGINT))), new LongLiteral(1)),
-                                        p.symbol("expr_2"), new SubscriptExpression(new SubscriptExpression(new Cast(new Row(ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), rowType(field("f1", rowType(field("x", BIGINT), field("y", BIGINT))), field("f2", BIGINT))), new LongLiteral(1)), new LongLiteral(2))),
+                                        p.symbol("expr_1"), new SubscriptExpression(new Cast(new Row(ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), rowType(field("f1", rowType(field("x", BIGINT), field("y", BIGINT))), field("f2", BIGINT))), GenericLiteral.constant(INTEGER, 1L)),
+                                        p.symbol("expr_2"), new SubscriptExpression(new SubscriptExpression(new Cast(new Row(ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), rowType(field("f1", rowType(field("x", BIGINT), field("y", BIGINT))), field("f2", BIGINT))), GenericLiteral.constant(INTEGER, 1L)), GenericLiteral.constant(INTEGER, 2L))),
                                 p.project(
                                         Assignments.of(
                                                 p.symbol("a", ROW_TYPE), new SymbolReference("a"),
@@ -124,7 +124,7 @@ public class TestPushDownDereferencesRules
         tester().assertThat(new PushDownDereferenceThroughProject(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("expr", ROW_TYPE), new SymbolReference("a"), p.symbol("a_x"), new SubscriptExpression(new SymbolReference("a"), new LongLiteral(1))),
+                                Assignments.of(p.symbol("expr", ROW_TYPE), new SymbolReference("a"), p.symbol("a_x"), new SubscriptExpression(new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L))),
                                 p.project(
                                         Assignments.of(p.symbol("a", ROW_TYPE), new SymbolReference("a")),
                                         p.values(p.symbol("a", ROW_TYPE)))))
@@ -137,7 +137,7 @@ public class TestPushDownDereferencesRules
         tester().assertThat(new PushDownDereferenceThroughProject(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), new SubscriptExpression(new SymbolReference("msg"), new LongLiteral(1))),
+                                Assignments.of(p.symbol("x"), new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 1L))),
                                 p.project(
                                         Assignments.of(
                                                 p.symbol("y"), new SymbolReference("y"),
@@ -148,7 +148,7 @@ public class TestPushDownDereferencesRules
                                 ImmutableMap.of("x", expression(new SymbolReference("msg_x"))),
                                 strictProject(
                                         ImmutableMap.of(
-                                                "msg_x", expression(new SubscriptExpression(new SymbolReference("msg"), new LongLiteral(1))),
+                                                "msg_x", expression(new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 1L))),
                                                 "y", expression(new SymbolReference("y")),
                                                 "msg", expression(new SymbolReference("msg"))),
                                         values("msg", "y"))));
@@ -161,8 +161,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("left_x"), new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)))
-                                        .put(p.symbol("right_y"), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(2)))
+                                        .put(p.symbol("left_x"), new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L)))
+                                        .put(p.symbol("right_y"), new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 2L)))
                                         .put(p.symbol("z"), new SymbolReference("z"))
                                         .build(),
                                 p.join(INNER,
@@ -179,14 +179,14 @@ public class TestPushDownDereferencesRules
                                         .left(
                                                 strictProject(
                                                         ImmutableMap.of(
-                                                                "x", expression(new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1))),
+                                                                "x", expression(new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L))),
                                                                 "msg1", expression(new SymbolReference("msg1")),
                                                                 "unreferenced_symbol", expression(new SymbolReference("unreferenced_symbol"))),
                                                         values("msg1", "unreferenced_symbol")))
                                         .right(
                                                 strictProject(
                                                         ImmutableMap.<String, ExpressionMatcher>builder()
-                                                                .put("y", expression(new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(2))))
+                                                                .put("y", expression(new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 2L))))
                                                                 .put("z", expression(new SymbolReference("z")))
                                                                 .put("msg2", expression(new SymbolReference("msg2")))
                                                                 .buildOrThrow(),
@@ -197,23 +197,23 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr"), new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)),
+                                        p.symbol("expr"), new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L)),
                                         p.symbol("expr_2"), new SymbolReference("msg2")),
                                 p.join(INNER,
                                         p.values(p.symbol("msg1", ROW_TYPE)),
                                         p.values(p.symbol("msg2", ROW_TYPE)),
-                                        new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD, new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(2))), new GenericLiteral(BIGINT, "10")))))
+                                        new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD, new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L)), new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 2L))), GenericLiteral.constant(BIGINT, 10L)))))
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "expr", expression(new SymbolReference("msg1_x")),
                                         "expr_2", expression(new SymbolReference("msg2"))),
                                 join(INNER, builder -> builder
-                                        .filter(new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD, new SymbolReference("msg1_x"), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(2))), new GenericLiteral(BIGINT, "10")))
+                                        .filter(new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD, new SymbolReference("msg1_x"), new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 2L))), GenericLiteral.constant(BIGINT, 10L)))
                                         .left(
                                                 strictProject(
                                                         ImmutableMap.of(
-                                                                "msg1_x", expression(new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1))),
+                                                                "msg1_x", expression(new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L))),
                                                                 "msg1", expression(new SymbolReference("msg1"))),
                                                         values("msg1")))
                                         .right(values("msg2")))));
@@ -226,8 +226,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)))
-                                        .put(p.symbol("msg2_x"), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(1)))
+                                        .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L)))
+                                        .put(p.symbol("msg2_x"), new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L)))
                                         .build(),
                                 p.semiJoin(
                                         p.symbol("msg2", ROW_TYPE),
@@ -241,7 +241,7 @@ public class TestPushDownDereferencesRules
                         strictProject(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                         .put("msg1_x", PlanMatchPattern.expression(new SymbolReference("expr")))
-                                        .put("msg2_x", PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(1))))   // Not pushed down because msg2 is sourceJoinSymbol
+                                        .put("msg2_x", PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L))))   // Not pushed down because msg2 is sourceJoinSymbol
                                         .buildOrThrow(),
                                 semiJoin(
                                         "msg2",
@@ -249,7 +249,7 @@ public class TestPushDownDereferencesRules
                                         "match",
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "expr", PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1))),
+                                                        "expr", PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L))),
                                                         "msg1", PlanMatchPattern.expression(new SymbolReference("msg1")),
                                                         "msg2", PlanMatchPattern.expression(new SymbolReference("msg2"))),
                                                 values("msg1", "msg2")),
@@ -263,7 +263,7 @@ public class TestPushDownDereferencesRules
         tester().assertThat(new PushDownDereferenceThroughUnnest(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), new SubscriptExpression(new SymbolReference("msg"), new LongLiteral(1))),
+                                Assignments.of(p.symbol("x"), new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 1L))),
                                 p.unnest(
                                         ImmutableList.of(p.symbol("msg", ROW_TYPE)),
                                         ImmutableList.of(new UnnestNode.Mapping(p.symbol("arr", arrayType), ImmutableList.of(p.symbol("field")))),
@@ -276,7 +276,7 @@ public class TestPushDownDereferencesRules
                                 unnest(
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "msg_x", expression(new SubscriptExpression(new SymbolReference("msg"), new LongLiteral(1))),
+                                                        "msg_x", expression(new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 1L))),
                                                         "msg", expression(new SymbolReference("msg")),
                                                         "arr", expression(new SymbolReference("arr"))),
                                                 values("msg", "arr")))));
@@ -289,8 +289,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("deref_replicate", BIGINT), new SubscriptExpression(new SymbolReference("replicate"), new LongLiteral(2)),
-                                        p.symbol("deref_unnest", BIGINT), new SubscriptExpression(new SymbolReference("unnested_row"), new LongLiteral(2))),
+                                        p.symbol("deref_replicate", BIGINT), new SubscriptExpression(new SymbolReference("replicate"), GenericLiteral.constant(INTEGER, 2L)),
+                                        p.symbol("deref_unnest", BIGINT), new SubscriptExpression(new SymbolReference("unnested_row"), GenericLiteral.constant(INTEGER, 2L))),
                                 p.unnest(
                                         ImmutableList.of(p.symbol("replicate", rowType)),
                                         ImmutableList.of(
@@ -302,13 +302,13 @@ public class TestPushDownDereferencesRules
                         strictProject(
                                 ImmutableMap.of(
                                         "deref_replicate", expression(new SymbolReference("symbol")),
-                                        "deref_unnest", expression(new SubscriptExpression(new SymbolReference("unnested_row"), new LongLiteral(2)))),    // not pushed down
+                                        "deref_unnest", expression(new SubscriptExpression(new SymbolReference("unnested_row"), GenericLiteral.constant(INTEGER, 2L)))),    // not pushed down
                                 unnest(
                                         ImmutableList.of("replicate", "symbol"),
                                         ImmutableList.of(unnestMapping("nested", ImmutableList.of("unnested_bigint", "unnested_row"))),
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "symbol", expression(new SubscriptExpression(new SymbolReference("replicate"), new LongLiteral(2))),
+                                                        "symbol", expression(new SubscriptExpression(new SymbolReference("replicate"), GenericLiteral.constant(INTEGER, 2L))),
                                                         "replicate", expression(new SymbolReference("replicate")),
                                                         "nested", expression(new SymbolReference("nested"))),
                                                 values("replicate", "nested")))));
@@ -327,9 +327,9 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.filter(
                                 new LogicalExpression(AND, ImmutableList.of(
-                                        new ComparisonExpression(NOT_EQUAL, new SubscriptExpression(new SubscriptExpression(new SymbolReference("a"), new LongLiteral(1)), new LongLiteral(1)), new LongLiteral(5)),
-                                        new ComparisonExpression(EQUAL, new SubscriptExpression(new SymbolReference("b"), new LongLiteral(2)), new LongLiteral(2)),
-                                        new IsNotNullPredicate(new Cast(new SubscriptExpression(new SymbolReference("a"), new LongLiteral(1)), JSON)))),
+                                        new ComparisonExpression(NOT_EQUAL, new SubscriptExpression(new SubscriptExpression(new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)), GenericLiteral.constant(INTEGER, 1L)), GenericLiteral.constant(INTEGER, 5L)),
+                                        new ComparisonExpression(EQUAL, new SubscriptExpression(new SymbolReference("b"), GenericLiteral.constant(INTEGER, 2L)), GenericLiteral.constant(INTEGER, 2L)),
+                                        new IsNotNullPredicate(new Cast(new SubscriptExpression(new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)), JSON)))),
                                 p.tableScan(
                                         testTable,
                                         ImmutableList.of(p.symbol("a", nestedRowType), p.symbol("b", ROW_TYPE)),
@@ -338,12 +338,12 @@ public class TestPushDownDereferencesRules
                                                 p.symbol("b", ROW_TYPE), new TpchColumnHandle("b", ROW_TYPE)))))
                 .matches(project(
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("expr"), new LongLiteral(5)), new ComparisonExpression(EQUAL, new SymbolReference("expr_0"), new LongLiteral(2)), new IsNotNullPredicate(new Cast(new SymbolReference("expr_1"), JSON)))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("expr"), GenericLiteral.constant(INTEGER, 5L)), new ComparisonExpression(EQUAL, new SymbolReference("expr_0"), GenericLiteral.constant(INTEGER, 2L)), new IsNotNullPredicate(new Cast(new SymbolReference("expr_1"), JSON)))),
                                 strictProject(
                                         ImmutableMap.of(
-                                                "expr", PlanMatchPattern.expression(new SubscriptExpression(new SubscriptExpression(new SymbolReference("a"), new LongLiteral(1)), new LongLiteral(1))),
-                                                "expr_0", expression(new SubscriptExpression(new SymbolReference("b"), new LongLiteral(2))),
-                                                "expr_1", expression(new SubscriptExpression(new SymbolReference("a"), new LongLiteral(1))),
+                                                "expr", PlanMatchPattern.expression(new SubscriptExpression(new SubscriptExpression(new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)), GenericLiteral.constant(INTEGER, 1L))),
+                                                "expr_0", expression(new SubscriptExpression(new SymbolReference("b"), GenericLiteral.constant(INTEGER, 2L))),
+                                                "expr_1", expression(new SubscriptExpression(new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L))),
                                                 "a", expression(new SymbolReference("a")),
                                                 "b", expression(new SymbolReference("b"))),
                                         tableScan(
@@ -361,21 +361,21 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr", BIGINT), new SubscriptExpression(new SymbolReference("msg"), new LongLiteral(1)),
-                                        p.symbol("expr_2", BIGINT), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(1))),
+                                        p.symbol("expr", BIGINT), new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 1L)),
+                                        p.symbol("expr_2", BIGINT), new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L))),
                                 p.filter(
-                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SubscriptExpression(new SymbolReference("msg"), new LongLiteral(1)), new StringLiteral("foo")), new IsNotNullPredicate(new SymbolReference("msg2")))),
+                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 1L)), new StringLiteral("foo")), new IsNotNullPredicate(new SymbolReference("msg2")))),
                                         p.values(p.symbol("msg", ROW_TYPE), p.symbol("msg2", ROW_TYPE)))))
                 .matches(
                         strictProject(
                                 ImmutableMap.of(
                                         "expr", expression(new SymbolReference("msg_x")),
-                                        "expr_2", expression(new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(1)))), // not pushed down since predicate contains msg2 reference
+                                        "expr_2", expression(new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L)))), // not pushed down since predicate contains msg2 reference
                                 filter(
                                         new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("msg_x"), new StringLiteral("foo")), new IsNotNullPredicate(new SymbolReference("msg2")))),
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "msg_x", expression(new SubscriptExpression(new SymbolReference("msg"), new LongLiteral(1))),
+                                                        "msg_x", expression(new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 1L))),
                                                         "msg", expression(new SymbolReference("msg")),
                                                         "msg2", expression(new SymbolReference("msg2"))),
                                                 values("msg", "msg2")))));
@@ -388,8 +388,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)))
-                                        .put(p.symbol("msg2_y"), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(2)))
+                                        .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L)))
+                                        .put(p.symbol("msg2_y"), new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 2L)))
                                         .put(p.symbol("z"), new SymbolReference("z"))
                                         .build(),
                                 p.limit(10,
@@ -399,7 +399,7 @@ public class TestPushDownDereferencesRules
                         strictProject(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                         .put("msg1_x", expression(new SymbolReference("x")))
-                                        .put("msg2_y", expression(new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(2))))
+                                        .put("msg2_y", expression(new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 2L))))
                                         .put("z", expression(new SymbolReference("z")))
                                         .buildOrThrow(),
                                 limit(
@@ -407,7 +407,7 @@ public class TestPushDownDereferencesRules
                                         ImmutableList.of(sort("msg2", ASCENDING, FIRST)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("x", expression(new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1))))
+                                                        .put("x", expression(new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L))))
                                                         .put("z", expression(new SymbolReference("z")))
                                                         .put("msg1", expression(new SymbolReference("msg1")))
                                                         .put("msg2", expression(new SymbolReference("msg2")))
@@ -421,8 +421,8 @@ public class TestPushDownDereferencesRules
         tester().assertThat(new PushDownDereferencesThroughLimit(tester().getTypeAnalyzer()))
                 .on(p -> p.project(
                         Assignments.builder()
-                                .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)))
-                                .put(p.symbol("msg2_y"), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(2)))
+                                .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L)))
+                                .put(p.symbol("msg2_y"), new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 2L)))
                                 .put(p.symbol("z"), new SymbolReference("z"))
                                 .build(),
                         p.limit(
@@ -434,7 +434,7 @@ public class TestPushDownDereferencesRules
                         strictProject(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                         .put("msg1_x", expression(new SymbolReference("x")))
-                                        .put("msg2_y", expression(new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(2))))
+                                        .put("msg2_y", expression(new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 2L))))
                                         .put("z", expression(new SymbolReference("z")))
                                         .buildOrThrow(),
                                 limit(
@@ -444,7 +444,7 @@ public class TestPushDownDereferencesRules
                                         ImmutableList.of("msg2"),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("x", expression(new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1))))
+                                                        .put("x", expression(new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L))))
                                                         .put("z", expression(new SymbolReference("z")))
                                                         .put("msg1", expression(new SymbolReference("msg1")))
                                                         .put("msg2", expression(new SymbolReference("msg2")))
@@ -460,8 +460,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg_x"), new SubscriptExpression(new SymbolReference("msg"), new LongLiteral(1)))
-                                        .put(p.symbol("msg_y"), new SubscriptExpression(new SymbolReference("msg"), new LongLiteral(2)))
+                                        .put(p.symbol("msg_x"), new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 1L)))
+                                        .put(p.symbol("msg_y"), new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 2L)))
                                         .put(p.symbol("z"), new SymbolReference("z"))
                                         .build(),
                                 p.sort(
@@ -473,7 +473,7 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg_x"), new SubscriptExpression(new SymbolReference("msg"), new LongLiteral(1)))
+                                        .put(p.symbol("msg_x"), new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 1L)))
                                         .put(p.symbol("z"), new SymbolReference("z"))
                                         .build(),
                                 p.sort(
@@ -488,7 +488,7 @@ public class TestPushDownDereferencesRules
                                 sort(ImmutableList.of(sort("z", ASCENDING, FIRST)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("x", expression(new SubscriptExpression(new SymbolReference("msg"), new LongLiteral(1))))
+                                                        .put("x", expression(new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 1L))))
                                                         .put("z", expression(new SymbolReference("z")))
                                                         .put("msg", expression(new SymbolReference("msg")))
                                                         .buildOrThrow(),
@@ -502,8 +502,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)))
-                                        .put(p.symbol("msg2_x"), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(1)))
+                                        .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L)))
+                                        .put(p.symbol("msg2_x"), new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L)))
                                         .build(),
                                 p.rowNumber(
                                         ImmutableList.of(p.symbol("msg1", ROW_TYPE)),
@@ -513,7 +513,7 @@ public class TestPushDownDereferencesRules
                 .matches(
                         strictProject(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                        .put("msg1_x", expression(new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1))))
+                                        .put("msg1_x", expression(new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L))))
                                         .put("msg2_x", expression(new SymbolReference("expr")))
                                         .buildOrThrow(),
                                 rowNumber(
@@ -521,7 +521,7 @@ public class TestPushDownDereferencesRules
                                                 .partitionBy(ImmutableList.of("msg1")),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("expr", expression(new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(1))))
+                                                        .put("expr", expression(new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L))))
                                                         .put("msg1", expression(new SymbolReference("msg1")))
                                                         .put("msg2", expression(new SymbolReference("msg2")))
                                                         .buildOrThrow(),
@@ -535,9 +535,9 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)))
-                                        .put(p.symbol("msg2_x"), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(1)))
-                                        .put(p.symbol("msg3_x"), new SubscriptExpression(new SymbolReference("msg3"), new LongLiteral(1)))
+                                        .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L)))
+                                        .put(p.symbol("msg2_x"), new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L)))
+                                        .put(p.symbol("msg3_x"), new SubscriptExpression(new SymbolReference("msg3"), GenericLiteral.constant(INTEGER, 1L)))
                                         .build(),
                                 p.topNRanking(
                                         new DataOrganizationSpecification(
@@ -553,15 +553,15 @@ public class TestPushDownDereferencesRules
                 .matches(
                         strictProject(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                        .put("msg1_x", expression(new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1))))
-                                        .put("msg2_x", expression(new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(1))))
+                                        .put("msg1_x", expression(new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L))))
+                                        .put("msg2_x", expression(new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L))))
                                         .put("msg3_x", expression(new SymbolReference("expr")))
                                         .buildOrThrow(),
                                 topNRanking(
                                         pattern -> pattern.specification(singletonList("msg1"), singletonList("msg2"), ImmutableMap.of("msg2", ASC_NULLS_FIRST)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("expr", expression(new SubscriptExpression(new SymbolReference("msg3"), new LongLiteral(1))))
+                                                        .put("expr", expression(new SubscriptExpression(new SymbolReference("msg3"), GenericLiteral.constant(INTEGER, 1L))))
                                                         .put("msg1", expression(new SymbolReference("msg1")))
                                                         .put("msg2", expression(new SymbolReference("msg2")))
                                                         .put("msg3", expression(new SymbolReference("msg3")))
@@ -576,21 +576,21 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)))
-                                        .put(p.symbol("msg2_x"), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(1)))
+                                        .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L)))
+                                        .put(p.symbol("msg2_x"), new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L)))
                                         .build(),
                                 p.topN(5, ImmutableList.of(p.symbol("msg1", ROW_TYPE)),
                                         p.values(p.symbol("msg1", ROW_TYPE), p.symbol("msg2", ROW_TYPE)))))
                 .matches(
                         strictProject(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                        .put("msg1_x", expression(new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1))))
+                                        .put("msg1_x", expression(new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L))))
                                         .put("msg2_x", expression(new SymbolReference("expr")))
                                         .buildOrThrow(),
                                 topN(5, ImmutableList.of(sort("msg1", ASCENDING, FIRST)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("expr", expression(new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(1))))
+                                                        .put("expr", expression(new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L))))
                                                         .put("msg1", expression(new SymbolReference("msg1")))
                                                         .put("msg2", expression(new SymbolReference("msg2")))
                                                         .buildOrThrow(),
@@ -604,11 +604,11 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)))
-                                        .put(p.symbol("msg2_x"), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(1)))
-                                        .put(p.symbol("msg3_x"), new SubscriptExpression(new SymbolReference("msg3"), new LongLiteral(1)))
-                                        .put(p.symbol("msg4_x"), new SubscriptExpression(new SymbolReference("msg4"), new LongLiteral(1)))
-                                        .put(p.symbol("msg5_x"), new SubscriptExpression(new SymbolReference("msg5"), new LongLiteral(1)))
+                                        .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L)))
+                                        .put(p.symbol("msg2_x"), new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L)))
+                                        .put(p.symbol("msg3_x"), new SubscriptExpression(new SymbolReference("msg3"), GenericLiteral.constant(INTEGER, 1L)))
+                                        .put(p.symbol("msg4_x"), new SubscriptExpression(new SymbolReference("msg4"), GenericLiteral.constant(INTEGER, 1L)))
+                                        .put(p.symbol("msg5_x"), new SubscriptExpression(new SymbolReference("msg5"), GenericLiteral.constant(INTEGER, 1L)))
                                         .build(),
                                 p.window(
                                         new DataOrganizationSpecification(
@@ -640,9 +640,9 @@ public class TestPushDownDereferencesRules
                 .matches(
                         strictProject(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                        .put("msg1_x", expression(new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)))) // not pushed down because used in partitionBy
-                                        .put("msg2_x", expression(new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(1)))) // not pushed down because used in orderBy
-                                        .put("msg3_x", expression(new SubscriptExpression(new SymbolReference("msg3"), new LongLiteral(1)))) // not pushed down because the whole column is used in windowNode function
+                                        .put("msg1_x", expression(new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L)))) // not pushed down because used in partitionBy
+                                        .put("msg2_x", expression(new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L)))) // not pushed down because used in orderBy
+                                        .put("msg3_x", expression(new SubscriptExpression(new SymbolReference("msg3"), GenericLiteral.constant(INTEGER, 1L)))) // not pushed down because the whole column is used in windowNode function
                                         .put("msg4_x", expression(new SymbolReference("expr"))) // pushed down because msg4[1] is being used in the function
                                         .put("msg5_x", expression(new SymbolReference("expr2"))) // pushed down because not referenced in windowNode
                                         .buildOrThrow(),
@@ -657,8 +657,8 @@ public class TestPushDownDereferencesRules
                                                         .put("msg3", expression(new SymbolReference("msg3")))
                                                         .put("msg4", expression(new SymbolReference("msg4")))
                                                         .put("msg5", expression(new SymbolReference("msg5")))
-                                                        .put("expr", expression(new SubscriptExpression(new SymbolReference("msg4"), new LongLiteral(1))))
-                                                        .put("expr2", expression(new SubscriptExpression(new SymbolReference("msg5"), new LongLiteral(1))))
+                                                        .put("expr", expression(new SubscriptExpression(new SymbolReference("msg4"), GenericLiteral.constant(INTEGER, 1L))))
+                                                        .put("expr2", expression(new SubscriptExpression(new SymbolReference("msg5"), GenericLiteral.constant(INTEGER, 1L))))
                                                         .buildOrThrow(),
                                                 values("msg1", "msg2", "msg3", "msg4", "msg5")))));
     }
@@ -670,7 +670,7 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("expr"), new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)))
+                                        .put(p.symbol("expr"), new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L)))
                                         .build(),
                                 p.assignUniqueId(
                                         p.symbol("unique"),
@@ -683,7 +683,7 @@ public class TestPushDownDereferencesRules
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("msg1", expression(new SymbolReference("msg1")))
-                                                        .put("msg1_x", expression(new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1))))
+                                                        .put("msg1_x", expression(new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L))))
                                                         .buildOrThrow(),
                                                 values("msg1")))));
     }
@@ -695,8 +695,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1)))
-                                        .put(p.symbol("msg2_x"), new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(1)))
+                                        .put(p.symbol("msg1_x"), new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L)))
+                                        .put(p.symbol("msg2_x"), new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L)))
                                         .build(),
                                 p.markDistinct(
                                         p.symbol("is_distinct", BOOLEAN),
@@ -706,7 +706,7 @@ public class TestPushDownDereferencesRules
                         strictProject(
                                 ImmutableMap.of(
                                         "msg1_x", expression(new SymbolReference("expr")), // pushed down
-                                        "msg2_x", expression(new SubscriptExpression(new SymbolReference("msg2"), new LongLiteral(1)))),   // not pushed down because used in markDistinct
+                                        "msg2_x", expression(new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L)))),   // not pushed down because used in markDistinct
                                 markDistinct(
                                         "is_distinct",
                                         singletonList("msg2"),
@@ -714,7 +714,7 @@ public class TestPushDownDereferencesRules
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("msg1", expression(new SymbolReference("msg1")))
                                                         .put("msg2", expression(new SymbolReference("msg2")))
-                                                        .put("expr", expression(new SubscriptExpression(new SymbolReference("msg1"), new LongLiteral(1))))
+                                                        .put("expr", expression(new SubscriptExpression(new SymbolReference("msg1"), GenericLiteral.constant(INTEGER, 1L))))
                                                         .buildOrThrow(),
                                                 values("msg1", "msg2")))));
     }
@@ -727,8 +727,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_1"), new SubscriptExpression(new SymbolReference("a"), new LongLiteral(1)),
-                                        p.symbol("expr_2"), new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(ADD, new SubscriptExpression(new SubscriptExpression(new SymbolReference("a"), new LongLiteral(1)), new LongLiteral(1)), new LongLiteral(2)), new SubscriptExpression(new SubscriptExpression(new SymbolReference("b"), new LongLiteral(1)), new LongLiteral(1))), new SubscriptExpression(new SubscriptExpression(new SymbolReference("b"), new LongLiteral(1)), new LongLiteral(2)))),
+                                        p.symbol("expr_1"), new SubscriptExpression(new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)),
+                                        p.symbol("expr_2"), new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(ADD, new SubscriptExpression(new SubscriptExpression(new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)), GenericLiteral.constant(INTEGER, 1L)), GenericLiteral.constant(INTEGER, 2L)), new SubscriptExpression(new SubscriptExpression(new SymbolReference("b"), GenericLiteral.constant(INTEGER, 1L)), GenericLiteral.constant(INTEGER, 1L))), new SubscriptExpression(new SubscriptExpression(new SymbolReference("b"), GenericLiteral.constant(INTEGER, 1L)), GenericLiteral.constant(INTEGER, 2L)))),
                                 p.project(
                                         Assignments.identity(ImmutableList.of(p.symbol("a", complexType), p.symbol("b", complexType))),
                                         p.values(p.symbol("a", complexType), p.symbol("b", complexType)))))
@@ -736,14 +736,14 @@ public class TestPushDownDereferencesRules
                         strictProject(
                                 ImmutableMap.of(
                                         "expr_1", expression(new SymbolReference("a_f1")),
-                                        "expr_2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(ADD, new SubscriptExpression(new SymbolReference("a_f1"), new LongLiteral(1)), new LongLiteral(2)), new SymbolReference("b_f1_f1")), new SymbolReference("b_f1_f2")))),
+                                        "expr_2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(ADD, new SubscriptExpression(new SymbolReference("a_f1"), GenericLiteral.constant(INTEGER, 1L)), GenericLiteral.constant(INTEGER, 2L)), new SymbolReference("b_f1_f1")), new SymbolReference("b_f1_f2")))),
                                 strictProject(
                                         ImmutableMap.of(
                                                 "a", expression(new SymbolReference("a")),
                                                 "b", expression(new SymbolReference("b")),
-                                                "a_f1", expression(new SubscriptExpression(new SymbolReference("a"), new LongLiteral(1))),
-                                                "b_f1_f1", PlanMatchPattern.expression(new SubscriptExpression(new SubscriptExpression(new SymbolReference("b"), new LongLiteral(1)), new LongLiteral(1))),
-                                                "b_f1_f2", PlanMatchPattern.expression(new SubscriptExpression(new SubscriptExpression(new SymbolReference("b"), new LongLiteral(1)), new LongLiteral(2)))),
+                                                "a_f1", expression(new SubscriptExpression(new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L))),
+                                                "b_f1_f1", PlanMatchPattern.expression(new SubscriptExpression(new SubscriptExpression(new SymbolReference("b"), GenericLiteral.constant(INTEGER, 1L)), GenericLiteral.constant(INTEGER, 1L))),
+                                                "b_f1_f2", PlanMatchPattern.expression(new SubscriptExpression(new SubscriptExpression(new SymbolReference("b"), GenericLiteral.constant(INTEGER, 1L)), GenericLiteral.constant(INTEGER, 2L)))),
                                         values("a", "b"))));
     }
 }

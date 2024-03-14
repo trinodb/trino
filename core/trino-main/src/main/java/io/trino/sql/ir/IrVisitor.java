@@ -57,16 +57,6 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitDoubleLiteral(DoubleLiteral node, C context)
-    {
-        return visitLiteral(node, context);
-    }
-
-    protected R visitDecimalLiteral(DecimalLiteral node, C context)
-    {
-        return visitLiteral(node, context);
-    }
-
     protected R visitGenericLiteral(GenericLiteral node, C context)
     {
         return visitLiteral(node, context);
@@ -108,11 +98,6 @@ public abstract class IrVisitor<R, C>
     }
 
     protected R visitBinaryLiteral(BinaryLiteral node, C context)
-    {
-        return visitLiteral(node, context);
-    }
-
-    protected R visitBooleanLiteral(BooleanLiteral node, C context)
     {
         return visitLiteral(node, context);
     }
@@ -165,11 +150,6 @@ public abstract class IrVisitor<R, C>
     protected R visitSubscriptExpression(SubscriptExpression node, C context)
     {
         return visitExpression(node, context);
-    }
-
-    protected R visitLongLiteral(LongLiteral node, C context)
-    {
-        return visitLiteral(node, context);
     }
 
     protected R visitLogicalExpression(LogicalExpression node, C context)

@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IsNotNullPredicate;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
@@ -210,7 +211,7 @@ public class TestMergeWindows
                                                 project(
                                                         ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), BIGINT))),
                                                         project(
-                                                                ImmutableMap.of("expr", expression(new LongLiteral(1))),
+                                                                ImmutableMap.of("expr", expression(GenericLiteral.constant(INTEGER, 1L))),
                                                                 LINEITEM_TABLESCAN_DOQSS)))))));
     }
 
@@ -265,7 +266,7 @@ public class TestMergeWindows
                                         .addFunction(windowFunction("nth_value", ImmutableList.of(QUANTITY_ALIAS, "ONE"), COMMON_FRAME))
                                         .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), COMMON_FRAME)),
                                 project(ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), BIGINT))),
-                                        project(ImmutableMap.of("expr", expression(new LongLiteral(1))),
+                                        project(ImmutableMap.of("expr", expression(GenericLiteral.constant(INTEGER, 1L))),
                                                 LINEITEM_TABLESCAN_DOQS)))));
     }
 

@@ -54,8 +54,8 @@ public final class GroupingOperationRewriter
         // See SQL:2011:4.16.2 and SQL:2011:6.9.10.
         if (groupingSets.size() == 1) {
             return switch (type) {
-                case BigintType unused -> new GenericLiteral(BIGINT, "0");
-                case IntegerType unused -> new GenericLiteral(INTEGER, "0");
+                case BigintType unused -> GenericLiteral.constant(BIGINT, 0L);
+                case IntegerType unused -> GenericLiteral.constant(INTEGER, 0L);
                 default -> throw new IllegalArgumentException("Unexpected type for GROUPING operation: " + type);
             };
         }
@@ -72,10 +72,10 @@ public final class GroupingOperationRewriter
                 .collect(toImmutableList());
 
         List<Expression> groupingResults = groupingSets.stream()
-                .map(groupingSet -> String.valueOf(calculateGrouping(groupingSet, columns)))
+                .map(groupingSet -> calculateGrouping(groupingSet, columns))
                 .map(value -> switch (type) {
-                    case BigintType unused -> new GenericLiteral(BIGINT, value);
-                    case IntegerType unused -> new GenericLiteral(INTEGER, value);
+                    case BigintType unused -> GenericLiteral.constant(BIGINT, value);
+                    case IntegerType unused -> GenericLiteral.constant(INTEGER, value);
                     default -> throw new IllegalArgumentException("Unexpected type for GROUPING operation: " + type);
                 })
                 .collect(toImmutableList());
@@ -83,7 +83,7 @@ public final class GroupingOperationRewriter
         // It is necessary to add a 1 to the groupId because the underlying array is indexed starting at 1
         return new SubscriptExpression(
                 new Array(groupingResults),
-                new ArithmeticBinaryExpression(ADD, groupIdSymbol.get().toSymbolReference(), new GenericLiteral(BIGINT, "1")));
+                new ArithmeticBinaryExpression(ADD, groupIdSymbol.get().toSymbolReference(), GenericLiteral.constant(BIGINT, 1L)));
     }
 
     private static int translateFieldToInteger(FieldId fieldId, RelationId requiredOriginRelationId)

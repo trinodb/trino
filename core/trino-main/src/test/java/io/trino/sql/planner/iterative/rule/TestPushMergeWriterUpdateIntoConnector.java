@@ -27,7 +27,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.planner.IrTypeAnalyzer;
@@ -67,7 +67,7 @@ public class TestPushMergeWriterUpdateIntoConnector
                         Symbol rowId = p.symbol("row_id");
                         Symbol rowCount = p.symbol("row_count");
                         // set column name and constant update
-                        Expression updateMergeRowExpression = new Row(ImmutableList.of(p.symbol("column_1").toSymbolReference(), new LongLiteral(1), TRUE_LITERAL, new LongLiteral(1), new LongLiteral(1)));
+                        Expression updateMergeRowExpression = new Row(ImmutableList.of(p.symbol("column_1").toSymbolReference(), GenericLiteral.constant(INTEGER, 1L), TRUE_LITERAL, GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 1L)));
 
                         return p.tableFinish(
                                 p.merge(
@@ -106,7 +106,7 @@ public class TestPushMergeWriterUpdateIntoConnector
                         Symbol rowCount = p.symbol("row_count");
                         // set arithmetic expression which we don't support yet
                         Expression updateMergeRowExpression = new Row(ImmutableList.of(p.symbol("column_1").toSymbolReference(),
-                                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, p.symbol("col1").toSymbolReference(), new LongLiteral(5))));
+                                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, p.symbol("col1").toSymbolReference(), GenericLiteral.constant(INTEGER, 5L))));
 
                         return p.tableFinish(
                                 p.merge(

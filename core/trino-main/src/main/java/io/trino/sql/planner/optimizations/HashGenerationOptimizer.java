@@ -861,14 +861,14 @@ public class HashGenerationOptimizer
             return Optional.empty();
         }
 
-        Expression result = new GenericLiteral(BIGINT, String.valueOf(INITIAL_HASH_VALUE));
+        Expression result = GenericLiteral.constant(BIGINT, (long) INITIAL_HASH_VALUE);
         for (Symbol symbol : symbols) {
             Expression hashField = BuiltinFunctionCallBuilder.resolve(metadata)
                     .setName(HASH_CODE)
                     .addArgument(symbolAllocator.getTypes().get(symbol), new SymbolReference(symbol.getName()))
                     .build();
 
-            hashField = new CoalesceExpression(hashField, new GenericLiteral(BIGINT, String.valueOf(NULL_HASH_CODE)));
+            hashField = new CoalesceExpression(hashField, GenericLiteral.constant(BIGINT, (long) NULL_HASH_CODE));
 
             result = BuiltinFunctionCallBuilder.resolve(metadata)
                     .setName("combine_hash")
@@ -915,7 +915,7 @@ public class HashGenerationOptimizer
 
         private Expression getHashExpression(Metadata metadata, TypeProvider types)
         {
-            Expression hashExpression = new GenericLiteral(BIGINT, Integer.toString(INITIAL_HASH_VALUE));
+            Expression hashExpression = GenericLiteral.constant(BIGINT, (long) INITIAL_HASH_VALUE);
             for (Symbol field : fields) {
                 hashExpression = getHashFunctionCall(hashExpression, field, metadata, types);
             }
@@ -938,7 +938,7 @@ public class HashGenerationOptimizer
 
         private static Expression orNullHashCode(Expression expression)
         {
-            return new CoalesceExpression(expression, new GenericLiteral(BIGINT, String.valueOf(NULL_HASH_CODE)));
+            return new CoalesceExpression(expression, GenericLiteral.constant(BIGINT, (long) NULL_HASH_CODE));
         }
 
         @Override

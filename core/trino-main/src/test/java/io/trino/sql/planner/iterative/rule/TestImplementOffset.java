@@ -52,7 +52,7 @@ public class TestImplementOffset
                         strictProject(
                                 ImmutableMap.of("a", expression(new SymbolReference("a")), "b", expression(new SymbolReference("b"))),
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), new GenericLiteral(BIGINT, "2")),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), GenericLiteral.constant(BIGINT, 2L)),
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),
@@ -77,7 +77,7 @@ public class TestImplementOffset
                         strictProject(
                                 ImmutableMap.of("a", expression(new SymbolReference("a")), "b", expression(new SymbolReference("b"))),
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), new GenericLiteral(BIGINT, "2")),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), GenericLiteral.constant(BIGINT, 2L)),
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),

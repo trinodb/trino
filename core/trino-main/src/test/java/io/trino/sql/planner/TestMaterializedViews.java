@@ -314,7 +314,7 @@ public class TestMaterializedViews
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "A_CAST", expression(new ArithmeticBinaryExpression(ADD, new Cast(new SymbolReference("A"), BIGINT), new GenericLiteral(BIGINT, "1"))),
+                                        "A_CAST", expression(new ArithmeticBinaryExpression(ADD, new Cast(new SymbolReference("A"), BIGINT), GenericLiteral.constant(BIGINT, 1L))),
                                         "B_CAST", expression(new Cast(new SymbolReference("B"), BIGINT))),
                                 tableScan("storage_table_with_casts", ImmutableMap.of("A", "a", "B", "b")))));
     }
@@ -334,7 +334,7 @@ public class TestMaterializedViews
         // No-op REFRESH
         assertPlan("REFRESH MATERIALIZED VIEW materialized_view_with_casts",
                 output(
-                        values(List.of("rows"), List.of(List.of(new GenericLiteral(BIGINT, "0"))))));
+                        values(List.of("rows"), List.of(List.of(GenericLiteral.constant(BIGINT, 0L))))));
     }
 
     @Test
