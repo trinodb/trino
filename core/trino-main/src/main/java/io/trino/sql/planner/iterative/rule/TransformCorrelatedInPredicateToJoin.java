@@ -293,7 +293,7 @@ public class TransformCorrelatedInPredicateToJoin
         if (value == null) {
             return new Cast(new NullLiteral(), BOOLEAN);
         }
-        return new BooleanLiteral(value.toString());
+        return new BooleanLiteral(value);
     }
 
     private static class DecorrelatingVisitor

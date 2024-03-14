@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
-import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.FunctionCall;
@@ -36,6 +35,8 @@ import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
+import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
@@ -68,8 +69,8 @@ public class TestMergeProjectWithValues
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of(
-                                                new Row(ImmutableList.of(new GenericLiteral("CHAR", "x"), new BooleanLiteral("true"))),
-                                                new Row(ImmutableList.of(new GenericLiteral("CHAR", "y"), new BooleanLiteral("false")))))))
+                                                new Row(ImmutableList.of(new GenericLiteral("CHAR", "x"), TRUE_LITERAL)),
+                                                new Row(ImmutableList.of(new GenericLiteral("CHAR", "y"), FALSE_LITERAL))))))
                 .matches(values(2));
 
         // ValuesNode has no output symbols and two rows
@@ -110,21 +111,21 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("a"), new GenericLiteral("CHAR", "x"), p.symbol("b"), new BooleanLiteral("true")),
+                                Assignments.of(p.symbol("a"), new GenericLiteral("CHAR", "x"), p.symbol("b"), TRUE_LITERAL),
                                 p.values(
                                         ImmutableList.of(),
                                         ImmutableList.of(ImmutableList.of(), ImmutableList.of()))))
                 .matches(values(
                         ImmutableList.of("a", "b"),
                         ImmutableList.of(
-                                ImmutableList.of(new GenericLiteral("CHAR", "x"), new BooleanLiteral("true")),
-                                ImmutableList.of(new GenericLiteral("CHAR", "x"), new BooleanLiteral("true")))));
+                                ImmutableList.of(new GenericLiteral("CHAR", "x"), TRUE_LITERAL),
+                                ImmutableList.of(new GenericLiteral("CHAR", "x"), TRUE_LITERAL))));
 
         // ValuesNode has no rows
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("a"), new GenericLiteral("CHAR", "x"), p.symbol("b"), new BooleanLiteral("true")),
+                                Assignments.of(p.symbol("a"), new GenericLiteral("CHAR", "x"), p.symbol("b"), TRUE_LITERAL),
                                 p.values(
                                         ImmutableList.of(),
                                         ImmutableList.of())))
@@ -280,16 +281,16 @@ public class TestMergeProjectWithValues
                             p.valuesOfExpressions(
                                     ImmutableList.of(a, b, c),
                                     ImmutableList.of(
-                                            new Row(ImmutableList.of(new GenericLiteral("CHAR", "x"), new BooleanLiteral("true"), new LongLiteral(1))),
-                                            new Row(ImmutableList.of(new GenericLiteral("CHAR", "y"), new BooleanLiteral("false"), new LongLiteral(2))),
-                                            new Row(ImmutableList.of(new GenericLiteral("CHAR", "z"), new BooleanLiteral("true"), new LongLiteral(3))))));
+                                            new Row(ImmutableList.of(new GenericLiteral("CHAR", "x"), TRUE_LITERAL, new LongLiteral(1))),
+                                            new Row(ImmutableList.of(new GenericLiteral("CHAR", "y"), FALSE_LITERAL, new LongLiteral(2))),
+                                            new Row(ImmutableList.of(new GenericLiteral("CHAR", "z"), TRUE_LITERAL, new LongLiteral(3))))));
                 })
                 .matches(values(
                         ImmutableList.of("a", "d", "e", "f"),
                         ImmutableList.of(
-                                ImmutableList.of(new GenericLiteral("CHAR", "x"), new BooleanLiteral("true"), new IsNullPredicate(new GenericLiteral("CHAR", "x")), new LongLiteral(1)),
-                                ImmutableList.of(new GenericLiteral("CHAR", "y"), new BooleanLiteral("false"), new IsNullPredicate(new GenericLiteral("CHAR", "y")), new LongLiteral(1)),
-                                ImmutableList.of(new GenericLiteral("CHAR", "z"), new BooleanLiteral("true"), new IsNullPredicate(new GenericLiteral("CHAR", "z")), new LongLiteral(1)))));
+                                ImmutableList.of(new GenericLiteral("CHAR", "x"), TRUE_LITERAL, new IsNullPredicate(new GenericLiteral("CHAR", "x")), new LongLiteral(1)),
+                                ImmutableList.of(new GenericLiteral("CHAR", "y"), FALSE_LITERAL, new IsNullPredicate(new GenericLiteral("CHAR", "y")), new LongLiteral(1)),
+                                ImmutableList.of(new GenericLiteral("CHAR", "z"), TRUE_LITERAL, new IsNullPredicate(new GenericLiteral("CHAR", "z")), new LongLiteral(1)))));
 
         // ValuesNode has no rows
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
