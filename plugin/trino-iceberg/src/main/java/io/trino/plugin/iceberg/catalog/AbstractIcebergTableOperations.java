@@ -44,10 +44,10 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.hive.formats.HiveClassNames.FILE_INPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.FILE_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
 import static io.trino.plugin.hive.HiveType.toHiveType;
-import static io.trino.plugin.hive.util.HiveClassNames.FILE_INPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.FILE_OUTPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
