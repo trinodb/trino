@@ -478,4 +478,12 @@ public class TestIgniteConnectorTest
     {
         return "Date must be between 1970-01-01 and 9999-12-31 in Ignite: " + date;
     }
+
+    @Test
+    @Override
+    public void testSelectInformationSchemaColumns()
+    {
+        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/16671
+        executeExclusively(super::testSelectInformationSchemaColumns);
+    }
 }
