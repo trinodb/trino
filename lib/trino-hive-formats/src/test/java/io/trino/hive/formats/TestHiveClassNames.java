@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.util;
+package io.trino.hive.formats;
 
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
@@ -39,30 +39,30 @@ import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hive.hcatalog.data.JsonSerDe;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.hive.util.HiveClassNames.AVRO_CONTAINER_INPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.AVRO_CONTAINER_OUTPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.COLUMNAR_SERDE_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.FILE_INPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.FILE_OUTPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.JSON_SERDE_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.LAZY_BINARY_COLUMNAR_SERDE_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_INPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.OPENCSV_SERDE_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.ORC_INPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.ORC_OUTPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.ORC_SERDE_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.RCFILE_INPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.RCFILE_OUTPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.REGEX_SERDE_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.SEQUENCEFILE_INPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveClassNames.TEXT_INPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.AVRO_CONTAINER_INPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.AVRO_CONTAINER_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.AVRO_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.COLUMNAR_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.FILE_INPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.FILE_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.JSON_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.LAZY_BINARY_COLUMNAR_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.MAPRED_PARQUET_INPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.OPENCSV_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.ORC_INPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.ORC_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.ORC_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.RCFILE_INPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.RCFILE_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.REGEX_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.SEQUENCEFILE_INPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.TEXT_INPUT_FORMAT_CLASS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveClassNames
