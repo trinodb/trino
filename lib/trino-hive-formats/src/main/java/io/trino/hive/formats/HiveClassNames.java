@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.util;
+package io.trino.hive.formats;
 
 public final class HiveClassNames
 {
