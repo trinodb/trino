@@ -141,6 +141,6 @@ public class ImplementLimitWithTies
                 new ComparisonExpression(
                         LESS_THAN_OR_EQUAL,
                         rankSymbol.toSymbolReference(),
-                        new GenericLiteral(BIGINT, Long.toString(limitNode.getCount()))));
+                        GenericLiteral.constant(BIGINT, limitNode.getCount())));
     }
 }

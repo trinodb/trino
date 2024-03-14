@@ -389,7 +389,7 @@ public class LogicalPlanner
         if ((statement instanceof CreateTableAsSelect && analysis.getCreate().orElseThrow().isCreateTableAsSelectNoOp()) ||
                 statement instanceof RefreshMaterializedView && analysis.isSkipMaterializedViewRefresh()) {
             Symbol symbol = symbolAllocator.newSymbol("rows", BIGINT);
-            PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(new Row(ImmutableList.of(new GenericLiteral(BIGINT, "0")))));
+            PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(BIGINT, 0L)))));
             return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol));
         }
         return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);
@@ -688,7 +688,7 @@ public class LogicalPlanner
     {
         return BuiltinFunctionCallBuilder.resolve(metadata)
                 .setName("fail")
-                .addArgument(INTEGER, new GenericLiteral(INTEGER, Integer.toString(errorCode.toErrorCode().getCode())))
+                .addArgument(INTEGER, GenericLiteral.constant(INTEGER, (long) errorCode.toErrorCode().getCode()))
                 .addArgument(VARCHAR, new GenericLiteral(VARCHAR, errorMessage))
                 .build();
     }
@@ -863,12 +863,12 @@ public class LogicalPlanner
                 // check if the trimmed value fits in the target type
                 new ComparisonExpression(
                         GREATER_THAN_OR_EQUAL,
-                        new GenericLiteral(BIGINT, Integer.toString(targetLength)),
+                        GenericLiteral.constant(BIGINT, (long) targetLength),
                         new CoalesceExpression(
                                 new FunctionCall(
                                         spaceTrimmedLength.toQualifiedName(),
                                         ImmutableList.of(new Cast(expression, VARCHAR))),
-                                new GenericLiteral(BIGINT, "0"))),
+                                GenericLiteral.constant(BIGINT, 0L))),
                 new Cast(expression, toType),
                 new Cast(
                         failFunction(metadata, INVALID_CAST_ARGUMENT, format(

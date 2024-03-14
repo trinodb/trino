@@ -34,7 +34,6 @@ import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
@@ -42,7 +41,6 @@ import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullIfExpression;
 import io.trino.sql.ir.StringLiteral;
@@ -152,7 +150,7 @@ public class TestConnectorExpressionTranslator
         assertTranslationRoundTrips(
                 new SubscriptExpression(
                         new SymbolReference("row_symbol_1"),
-                        new LongLiteral(1)),
+                        GenericLiteral.constant(INTEGER, 1L)),
                 new FieldDereference(
                         INTEGER,
                         new Variable("row_symbol_1", ROW_TYPE),
@@ -234,7 +232,7 @@ public class TestConnectorExpressionTranslator
                 TEST_SESSION,
                 new BetweenPredicate(
                         new SymbolReference("double_symbol_1"),
-                        new DoubleLiteral(1.2),
+                        GenericLiteral.constant(DOUBLE, 1.2),
                         new SymbolReference("double_symbol_2")),
                 new Call(
                         BOOLEAN,

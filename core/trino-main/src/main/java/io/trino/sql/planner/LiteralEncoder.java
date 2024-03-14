@@ -28,8 +28,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
-import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.SqlDate;
@@ -39,13 +37,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
-import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.DecimalLiteral;
-import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.StringLiteral;
 import jakarta.annotation.Nullable;
@@ -115,44 +109,14 @@ public final class LiteralEncoder
 
         checkArgument(Primitives.wrap(type.getJavaType()).isInstance(object), "object.getClass (%s) and type.getJavaType (%s) do not agree", object.getClass(), type.getJavaType());
 
-        if (type.equals(TINYINT)) {
-            return new GenericLiteral(TINYINT, object.toString());
-        }
-
-        if (type.equals(SMALLINT)) {
-            return new GenericLiteral(SMALLINT, object.toString());
-        }
-
-        if (type.equals(INTEGER)) {
-            return new LongLiteral((Long) object);
-        }
-
-        if (type.equals(BIGINT)) {
-            LongLiteral expression = new LongLiteral((Long) object);
-            if (expression.getValue() >= Integer.MIN_VALUE && expression.getValue() <= Integer.MAX_VALUE) {
-                return new GenericLiteral(BIGINT, object.toString());
-            }
-            return expression;
-        }
-
-        if (type.equals(DOUBLE)) {
-            Double value = (Double) object;
-            if (value.isNaN()) {
-                return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                        .setName("nan")
-                        .build();
-            }
-            if (value.equals(Double.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                        .setName("infinity")
-                        .build());
-            }
-            if (value.equals(Double.POSITIVE_INFINITY)) {
-                return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                        .setName("infinity")
-                        .build();
-            }
-            return new DoubleLiteral(value);
+        if (type.equals(BOOLEAN) ||
+                type.equals(TINYINT) ||
+                type.equals(SMALLINT) ||
+                type.equals(INTEGER) ||
+                type.equals(BIGINT) ||
+                type.equals(DOUBLE) ||
+                type instanceof DecimalType) {
+            return GenericLiteral.constant(type, object);
         }
 
         if (type.equals(REAL)) {
@@ -181,17 +145,6 @@ public final class LiteralEncoder
             return new GenericLiteral(REAL, value.toString());
         }
 
-        if (type instanceof DecimalType decimalType) {
-            String string;
-            if (decimalType.isShort()) {
-                string = Decimals.toString((long) object, decimalType.getScale());
-            }
-            else {
-                string = Decimals.toString((Int128) object, decimalType.getScale());
-            }
-            return new Cast(new DecimalLiteral(string), type);
-        }
-
         if (type instanceof VarcharType varcharType) {
             Slice value = (Slice) object;
             if (varcharType.isUnbounded()) {
@@ -212,10 +165,6 @@ public final class LiteralEncoder
         if (type instanceof CharType) {
             StringLiteral stringLiteral = new StringLiteral(((Slice) object).toStringUtf8());
             return new Cast(stringLiteral, type, false);
-        }
-
-        if (type.equals(BOOLEAN)) {
-            return new BooleanLiteral((Boolean) object);
         }
 
         if (type.equals(DATE)) {

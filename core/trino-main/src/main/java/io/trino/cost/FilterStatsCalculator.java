@@ -25,6 +25,7 @@ import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IrVisitor;
@@ -260,16 +261,20 @@ public class FilterStatsCalculator
         }
 
         @Override
-        protected PlanNodeStatsEstimate visitBooleanLiteral(BooleanLiteral node, Void context)
+        protected PlanNodeStatsEstimate visitGenericLiteral(GenericLiteral node, Void context)
         {
-            if (node.getValue()) {
-                return input;
+            if (node.getType().equals(BOOLEAN)) {
+                if (Boolean.parseBoolean(node.getValue())) {
+                    return input;
+                }
+
+                PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+                result.setOutputRowCount(0.0);
+                input.getSymbolsWithKnownStatistics().forEach(symbol -> result.addSymbolStatistics(symbol, SymbolStatsEstimate.zero()));
+                return result.build();
             }
 
-            PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
-            result.setOutputRowCount(0.0);
-            input.getSymbolsWithKnownStatistics().forEach(symbol -> result.addSymbolStatistics(symbol, SymbolStatsEstimate.zero()));
-            return result.build();
+            return super.visitGenericLiteral(node, context);
         }
 
         @Override

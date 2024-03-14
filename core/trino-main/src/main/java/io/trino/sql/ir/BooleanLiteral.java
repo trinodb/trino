@@ -13,67 +13,12 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
-import java.util.Objects;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 public final class BooleanLiteral
-        extends Literal
 {
-    public static final BooleanLiteral TRUE_LITERAL = new BooleanLiteral(true);
-    public static final BooleanLiteral FALSE_LITERAL = new BooleanLiteral(false);
+    public static final GenericLiteral TRUE_LITERAL = GenericLiteral.constant(BOOLEAN, true);
+    public static final GenericLiteral FALSE_LITERAL = GenericLiteral.constant(BOOLEAN, false);
 
-    private final boolean value;
-
-    @JsonCreator
-    public BooleanLiteral(boolean value)
-    {
-        this.value = value;
-    }
-
-    @JsonProperty
-    public boolean getValue()
-    {
-        return value;
-    }
-
-    @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitBooleanLiteral(this, context);
-    }
-
-    @Override
-    public List<? extends Expression> getChildren()
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(value);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        BooleanLiteral other = (BooleanLiteral) obj;
-        return Objects.equals(this.value, other.value);
-    }
-
-    @Override
-    public String toString()
-    {
-        return Boolean.toString(value);
-    }
+    private BooleanLiteral() {}
 }

@@ -235,7 +235,7 @@ public class TestWindowFilterPushDown
                 output(
                         ImmutableList.of("name", "ranking"),
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("ranking"), new GenericLiteral(BIGINT, "1")), new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), new GenericLiteral(BIGINT, "3")))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("ranking"), GenericLiteral.constant(BIGINT, 1L)), new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), GenericLiteral.constant(BIGINT, 3L)))),
                                 topNRanking(
                                         pattern -> pattern
                                                 .rankingType(rankingType)
@@ -298,7 +298,7 @@ public class TestWindowFilterPushDown
                 output(
                         ImmutableList.of("name", "row_number"),
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new GenericLiteral(BIGINT, "1")), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), new GenericLiteral(BIGINT, "3")))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), GenericLiteral.constant(BIGINT, 1L)), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), GenericLiteral.constant(BIGINT, 3L)))),
                                 rowNumber(
                                         pattern -> pattern
                                                 .maxRowCountPerPartition(Optional.of(2)),

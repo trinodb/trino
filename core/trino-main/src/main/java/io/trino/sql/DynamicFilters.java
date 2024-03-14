@@ -32,12 +32,11 @@ import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
@@ -55,9 +54,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.INTEGER;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
@@ -105,7 +107,7 @@ public final class DynamicFilters
             timeoutExpression = new NullLiteral();
         }
         else {
-            timeoutExpression = new LongLiteral(minDynamicFilterTimeout.get());
+            timeoutExpression = GenericLiteral.constant(IntegerType.INTEGER, minDynamicFilterTimeout.get());
         }
         return BuiltinFunctionCallBuilder.resolve(metadata)
                 .setName(nullAllowed ? NullableFunction.NAME : Function.NAME)
@@ -181,7 +183,7 @@ public final class DynamicFilters
 
     public static Expression replaceDynamicFilterTimeout(FunctionCall dynamicFilterFunctionCall, long timeout)
     {
-        LongLiteral timeoutArgument = new LongLiteral(timeout);
+        Expression timeoutArgument = GenericLiteral.constant(IntegerType.INTEGER, timeout);
 
         return new FunctionCall(
                 dynamicFilterFunctionCall.getName(),
@@ -223,22 +225,30 @@ public final class DynamicFilters
         String id = ((StringLiteral) idExpression).getValue();
 
         Expression nullAllowedExpression = arguments.get(3);
-        checkArgument(nullAllowedExpression instanceof BooleanLiteral, "nullAllowedExpression is expected to be an instance of BooleanLiteral: %s", nullAllowedExpression.getClass().getSimpleName());
-        boolean nullAllowed = ((BooleanLiteral) nullAllowedExpression).getValue();
+        checkArgument(nullAllowedExpression instanceof GenericLiteral literal && literal.getType().equals(BooleanType.BOOLEAN), "nullAllowedExpression is expected to be a boolean constant: %s", nullAllowedExpression.getClass().getSimpleName());
+        boolean nullAllowed = Boolean.parseBoolean(((GenericLiteral) nullAllowedExpression).getValue());
 
         Expression timeoutExpression = arguments.get(4);
         OptionalLong timeout;
         if (timeoutExpression instanceof NullLiteral) {
             timeout = OptionalLong.empty();
         }
-        else if (timeoutExpression instanceof LongLiteral longTimeoutLiteral) {
-            timeout = OptionalLong.of(longTimeoutLiteral.getValue());
+        else if (timeoutExpression instanceof GenericLiteral longTimeoutLiteral && isInteger(longTimeoutLiteral.getType())) {
+            timeout = OptionalLong.of(Long.parseLong(longTimeoutLiteral.getValue()));
         }
         else {
             throw new IllegalArgumentException(format("timeout is expected to be an instance of LongLiteral or NullLiteral: %s", timeoutExpression.getClass().getSimpleName()));
         }
 
         return Optional.of(new Descriptor(new DynamicFilterId(id), probeSymbol, operator, nullAllowed, timeout));
+    }
+
+    private static boolean isInteger(Type type)
+    {
+        return type.equals(BIGINT)
+                || type.equals(IntegerType.INTEGER)
+                || type.equals(SMALLINT)
+                || type.equals(TINYINT);
     }
 
     private static boolean isDynamicFilterFunction(FunctionCall functionCall)

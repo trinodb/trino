@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
@@ -181,7 +180,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
 
         public Expression rewriteUsingBounds(ApplyNode.QuantifiedComparison quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)
         {
-            BooleanLiteral emptySetResult;
+            GenericLiteral emptySetResult;
             Function<List<Expression>, Expression> quantifier;
             if (quantifiedComparison.quantifier() == ALL) {
                 emptySetResult = TRUE_LITERAL;
@@ -196,7 +195,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             return new SimpleCaseExpression(
                     countAllValue.toSymbolReference(),
                     ImmutableList.of(new WhenClause(
-                            new GenericLiteral(BIGINT, "0"),
+                            GenericLiteral.constant(BIGINT, 0L),
                             emptySetResult)),
                     Optional.of(quantifier.apply(ImmutableList.of(
                             comparisonWithExtremeValue,

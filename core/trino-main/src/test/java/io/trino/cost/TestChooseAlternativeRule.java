@@ -14,7 +14,7 @@
 package io.trino.cost;
 
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.ChooseAlternativeNode.FilteredTableScan;
@@ -24,6 +24,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static java.lang.Double.NaN;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -39,10 +40,10 @@ class TestChooseAlternativeRule
                         .chooseAlternative(
                                 List.of(
                                         pb.filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("i1"), new LongLiteral(5)),
+                                                new ComparisonExpression(EQUAL, new SymbolReference("i1"), GenericLiteral.constant(BIGINT, 5L)),
                                                 pb.values(pb.symbol("i1"), pb.symbol("i2"))),
                                         pb.filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("i1"), new LongLiteral(10)),
+                                                new ComparisonExpression(EQUAL, new SymbolReference("i1"), GenericLiteral.constant(BIGINT, 10L)),
                                                 pb.values(pb.symbol("i1"), pb.symbol("i2")))),
                                 new FilteredTableScan(pb.tableScan(List.of(pb.symbol("i1"), pb.symbol("i2")), false), Optional.empty())))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()

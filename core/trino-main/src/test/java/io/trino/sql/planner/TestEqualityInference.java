@@ -26,11 +26,11 @@ import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NullIfExpression;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SearchedCaseExpression;
@@ -51,6 +51,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
@@ -401,9 +402,13 @@ public class TestEqualityInference
         return new SymbolReference(symbol);
     }
 
-    private static LongLiteral number(long number)
+    private static GenericLiteral number(long number)
     {
-        return new LongLiteral(number);
+        if (number >= Integer.MIN_VALUE && number < Integer.MAX_VALUE) {
+            return GenericLiteral.constant(INTEGER, number);
+        }
+
+        return GenericLiteral.constant(BIGINT, number);
     }
 
     private static Set<Symbol> symbols(String... symbols)

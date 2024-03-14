@@ -53,7 +53,7 @@ public class TestImplementLimitWithTies
                         strictProject(
                                 ImmutableMap.of("a", expression(new SymbolReference("a")), "b", expression(new SymbolReference("b"))),
                                 filter(
-                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("rank_num"), new GenericLiteral(BIGINT, "2")),
+                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("rank_num"), GenericLiteral.constant(BIGINT, 2L)),
                                         window(
                                                 windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(specification(

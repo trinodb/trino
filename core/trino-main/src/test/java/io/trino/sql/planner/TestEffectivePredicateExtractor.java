@@ -43,7 +43,6 @@ import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.FunctionCall;
@@ -51,7 +50,6 @@ import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
@@ -1109,15 +1107,12 @@ public class TestEffectivePredicateExtractor
 
     private static Expression bigintLiteral(long number)
     {
-        if (number < Integer.MAX_VALUE && number > Integer.MIN_VALUE) {
-            return new GenericLiteral(BIGINT, String.valueOf(number));
-        }
-        return new LongLiteral(number);
+        return GenericLiteral.constant(BIGINT, number);
     }
 
     private static Expression doubleLiteral(double value)
     {
-        return new DoubleLiteral(value);
+        return GenericLiteral.constant(DOUBLE, value);
     }
 
     private static ComparisonExpression equals(Expression expression1, Expression expression2)

@@ -22,11 +22,10 @@ import io.trino.metadata.FunctionResolver;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -205,7 +204,7 @@ public class DistinctAggregationToGroupBy
             groupIdFilters.put(nonDistinctGroupFilterSymbol, new ComparisonExpression(
                     EQUAL,
                     groupSymbol.toSymbolReference(),
-                    new Cast(new LongLiteral(0), BIGINT)));
+                    GenericLiteral.constant(BIGINT, 0L)));
         }
 
         ImmutableMap.Builder<Symbol, Aggregation> outerAggregations = ImmutableMap.builder();
@@ -223,7 +222,7 @@ public class DistinctAggregationToGroupBy
                     groupIdFilters.put(filterSymbol, new ComparisonExpression(
                             EQUAL,
                             groupSymbol.toSymbolReference(),
-                            new Cast(new LongLiteral(groupId), BIGINT)));
+                            GenericLiteral.constant(BIGINT, (long) groupId)));
                     return filterSymbol;
                 });
 
@@ -364,7 +363,7 @@ public class DistinctAggregationToGroupBy
         Assignments.Builder outputSymbols = Assignments.builder();
         for (Symbol symbol : outerAggregationNode.getOutputSymbols()) {
             if (coalesceSymbols.containsKey(symbol)) {
-                Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral(0), BIGINT));
+                Expression expression = new CoalesceExpression(symbol.toSymbolReference(), GenericLiteral.constant(BIGINT, 0L));
                 outputSymbols.put(coalesceSymbols.get(symbol), expression);
             }
             else {

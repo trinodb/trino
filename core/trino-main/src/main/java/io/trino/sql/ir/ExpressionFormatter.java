@@ -17,10 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -30,9 +27,6 @@ import static java.util.stream.Collectors.joining;
 
 public final class ExpressionFormatter
 {
-    private static final ThreadLocal<DecimalFormat> doubleFormatter = ThreadLocal.withInitial(
-            () -> new DecimalFormat("0.###################E0###", new DecimalFormatSymbols(Locale.US)));
-
     private ExpressionFormatter() {}
 
     public static String formatExpression(Expression expression)
@@ -80,15 +74,6 @@ public final class ExpressionFormatter
             return builder.toString();
         }
 
-        @Override
-        protected String visitBooleanLiteral(BooleanLiteral node, Void context)
-        {
-            return literalFormatter
-                    .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> String.valueOf(node.getValue()));
-        }
-
-        @Override
         protected String visitStringLiteral(StringLiteral node, Void context)
         {
             return literalFormatter
@@ -116,31 +101,6 @@ public final class ExpressionFormatter
         protected String visitSubscriptExpression(SubscriptExpression node, Void context)
         {
             return formatExpression(node.getBase()) + "[" + formatExpression(node.getIndex()) + "]";
-        }
-
-        @Override
-        protected String visitLongLiteral(LongLiteral node, Void context)
-        {
-            return literalFormatter
-                    .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> Long.toString(node.getValue()));
-        }
-
-        @Override
-        protected String visitDoubleLiteral(DoubleLiteral node, Void context)
-        {
-            return literalFormatter
-                    .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> doubleFormatter.get().format(node.getValue()));
-        }
-
-        @Override
-        protected String visitDecimalLiteral(DecimalLiteral node, Void context)
-        {
-            return literalFormatter
-                    .map(formatter -> formatter.apply(node))
-                    // TODO return node value without "DECIMAL '..'" when FeaturesConfig#parseDecimalLiteralsAsDouble switch is removed
-                    .orElseGet(() -> "DECIMAL '" + node.getValue() + "'");
         }
 
         @Override

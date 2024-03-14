@@ -40,11 +40,11 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.BetweenPredicate;
-import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNotNullPredicate;
@@ -1196,10 +1196,15 @@ public final class DomainTranslator
         }
 
         @Override
-        protected ExtractionResult visitBooleanLiteral(BooleanLiteral node, Boolean complement)
+        protected ExtractionResult visitGenericLiteral(GenericLiteral node, Boolean complement)
         {
-            boolean value = complement ? !node.getValue() : node.getValue();
-            return new ExtractionResult(value ? TupleDomain.all() : TupleDomain.none(), TRUE_LITERAL);
+            if (node.getType().equals(BOOLEAN)) {
+                boolean value = Boolean.parseBoolean(node.getValue());
+                value = complement != value;
+                return new ExtractionResult(value ? TupleDomain.all() : TupleDomain.none(), TRUE_LITERAL);
+            }
+
+            return super.visitGenericLiteral(node, complement);
         }
 
         @Override

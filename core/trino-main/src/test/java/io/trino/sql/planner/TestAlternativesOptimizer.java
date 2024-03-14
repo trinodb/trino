@@ -32,10 +32,9 @@ import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.cache.SignatureKey;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanAssert;
@@ -210,22 +209,22 @@ public class TestAlternativesOptimizer
                 optimized,
                 chooseAlternativeNode(
                         strictProject(
-                                ImmutableMap.of(symbol, expression(new BooleanLiteral(true))),
+                                ImmutableMap.of(symbol, expression(TRUE_LITERAL)),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName))),
                         strictProject(
-                                ImmutableMap.of(symbol, expression(new BooleanLiteral(false))),
+                                ImmutableMap.of(symbol, expression(FALSE_LITERAL)),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName))),
                         strictProject(
-                                ImmutableMap.of(symbol, expression(new BooleanLiteral(true))),
+                                ImmutableMap.of(symbol, expression(TRUE_LITERAL)),
                                 PlanMatchPattern.filter(
                                         FALSE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName))),
                         strictProject(
-                                ImmutableMap.of(symbol, expression(new BooleanLiteral(false))),
+                                ImmutableMap.of(symbol, expression(FALSE_LITERAL)),
                                 PlanMatchPattern.filter(
                                         FALSE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName)))),
@@ -247,7 +246,7 @@ public class TestAlternativesOptimizer
         PlanBuilder planBuilder = new PlanBuilder(idAllocator, getPlanTester().getPlannerContext(), session);
         Symbol symbol = planBuilder.symbol(columnName, BIGINT);
         ProjectNode plan = planBuilder.project(
-                Assignments.of(symbol, new ComparisonExpression(EQUAL, new SymbolReference(columnName), new LongLiteral(1))),
+                Assignments.of(symbol, new ComparisonExpression(EQUAL, new SymbolReference(columnName), GenericLiteral.constant(BIGINT, 1L))),
                 planBuilder.filter(
                         idAllocator.getNextId(),
                         TRUE_LITERAL,
@@ -260,31 +259,31 @@ public class TestAlternativesOptimizer
                 plan,
                 planBuilder.getTypes(),
                 ImmutableSet.of(
-                        new CreateAlternativesForProject(new ComparisonExpression(EQUAL, new SymbolReference(columnName), new LongLiteral(2))),
-                        new CreateAlternativesForProject(new ComparisonExpression(EQUAL, new SymbolReference(columnName), new LongLiteral(3)))));
+                        new CreateAlternativesForProject(new ComparisonExpression(EQUAL, new SymbolReference(columnName), GenericLiteral.constant(BIGINT, 2L))),
+                        new CreateAlternativesForProject(new ComparisonExpression(EQUAL, new SymbolReference(columnName), GenericLiteral.constant(BIGINT, 3L)))));
 
         assertPlan(
                 optimized,
                 chooseAlternativeNode(
                         strictProject(
-                                ImmutableMap.of(columnName, expression(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new LongLiteral(1)))),
+                                ImmutableMap.of(columnName, expression(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), GenericLiteral.constant(BIGINT, 1L)))),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName, ImmutableMap.of("nationkey", "nationkey")))),
                         strictProject(
-                                ImmutableMap.of(columnName, expression(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new LongLiteral(2)))),
+                                ImmutableMap.of(columnName, expression(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), GenericLiteral.constant(BIGINT, 2L)))),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName, ImmutableMap.of("nationkey", "nationkey")))),
                         // Each rule returns the original plan. Since the results are accumulated, it's expected to have the same alternative twice.
                         // This might be improved in the future (see AlternativesOptimizer.exploreNode)
                         strictProject(
-                                ImmutableMap.of(columnName, expression(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new LongLiteral(1)))),
+                                ImmutableMap.of(columnName, expression(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), GenericLiteral.constant(BIGINT, 1L)))),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName, ImmutableMap.of("nationkey", "nationkey")))),
                         strictProject(
-                                ImmutableMap.of(columnName, expression(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new LongLiteral(3)))),
+                                ImmutableMap.of(columnName, expression(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), GenericLiteral.constant(BIGINT, 3L)))),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName, ImmutableMap.of("nationkey", "nationkey"))))),

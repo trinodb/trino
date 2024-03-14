@@ -22,24 +22,26 @@ import io.trino.Session;
 import io.trino.cache.CacheUtils;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.BinaryLiteral;
-import io.trino.sql.ir.BooleanLiteral;
-import io.trino.sql.ir.DecimalLiteral;
-import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IntervalLiteral;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Literal;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.StringLiteral;
 
@@ -98,30 +100,6 @@ public final class IrLiteralInterpreter
         }
 
         @Override
-        protected Object visitBooleanLiteral(BooleanLiteral node, Void context)
-        {
-            return node.getValue();
-        }
-
-        @Override
-        protected Long visitLongLiteral(LongLiteral node, Void context)
-        {
-            return node.getValue();
-        }
-
-        @Override
-        protected Double visitDoubleLiteral(DoubleLiteral node, Void context)
-        {
-            return node.getValue();
-        }
-
-        @Override
-        protected Object visitDecimalLiteral(DecimalLiteral node, Void context)
-        {
-            return Decimals.parse(node.getValue()).getObject();
-        }
-
-        @Override
         protected Slice visitStringLiteral(StringLiteral node, Void context)
         {
             return Slices.utf8Slice(node.getValue());
@@ -137,6 +115,13 @@ public final class IrLiteralInterpreter
         protected Object visitGenericLiteral(GenericLiteral node, Void context)
         {
             return switch (type) {
+                case BooleanType type -> node.getRawValue();
+                case TinyintType type -> node.getRawValue();
+                case SmallintType type -> node.getRawValue();
+                case IntegerType type -> node.getRawValue();
+                case BigintType type -> node.getRawValue();
+                case DoubleType type -> node.getRawValue();
+                case DecimalType type -> node.getRawValue();
                 case TimeType unused -> parseTime(node.getValue());
                 case TimeWithTimeZoneType value -> parseTimeWithTimeZone(value.getPrecision(), node.getValue());
                 case TimestampType value -> parseTimestamp(value.getPrecision(), node.getValue());
