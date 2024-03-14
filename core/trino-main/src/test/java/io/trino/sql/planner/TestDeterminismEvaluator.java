@@ -21,7 +21,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.LambdaArgumentDeclaration;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NullLiteral;
@@ -98,6 +97,6 @@ public class TestDeterminismEvaluator
 
     private static LambdaExpression lambda(String symbol, Expression body)
     {
-        return new LambdaExpression(ImmutableList.of(new LambdaArgumentDeclaration(symbol)), body);
+        return new LambdaExpression(ImmutableList.of(symbol), body);
     }
 }

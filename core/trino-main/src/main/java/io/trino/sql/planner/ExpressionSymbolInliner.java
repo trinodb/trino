@@ -18,7 +18,6 @@ import com.google.common.collect.Multiset;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.LambdaArgumentDeclaration;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.SymbolReference;
 
@@ -72,12 +71,10 @@ public final class ExpressionSymbolInliner
         @Override
         public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            for (LambdaArgumentDeclaration argument : node.getArguments()) {
-                excludedNames.add(argument.getName());
-            }
+            excludedNames.addAll(node.getArguments());
             Expression result = treeRewriter.defaultRewrite(node, context);
-            for (LambdaArgumentDeclaration argument : node.getArguments()) {
-                verify(excludedNames.remove(argument.getName()));
+            for (String argument : node.getArguments()) {
+                verify(excludedNames.remove(argument));
             }
             return result;
         }
