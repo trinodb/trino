@@ -20,15 +20,11 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
-
 public final class BooleanLiteral
         extends Literal
 {
-    public static final BooleanLiteral TRUE_LITERAL = new BooleanLiteral("true");
-    public static final BooleanLiteral FALSE_LITERAL = new BooleanLiteral("false");
+    public static final BooleanLiteral TRUE_LITERAL = new BooleanLiteral(true);
+    public static final BooleanLiteral FALSE_LITERAL = new BooleanLiteral(false);
 
     private final boolean value;
 
@@ -36,14 +32,6 @@ public final class BooleanLiteral
     public BooleanLiteral(boolean value)
     {
         this.value = value;
-    }
-
-    public BooleanLiteral(String value)
-    {
-        requireNonNull(value, "value is null");
-        checkArgument(value.toLowerCase(ENGLISH).equals("true") || value.toLowerCase(ENGLISH).equals("false"));
-
-        this.value = value.toLowerCase(ENGLISH).equals("true");
     }
 
     @JsonProperty
