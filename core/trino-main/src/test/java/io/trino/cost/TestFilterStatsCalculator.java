@@ -196,7 +196,7 @@ public class TestFilterStatsCalculator
     public void testComparison()
     {
         double lessThan3Rows = 487.5;
-        assertExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("3.0")))
+        assertExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral(3.0)))
                 .outputRowsCount(lessThan3Rows)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
@@ -205,13 +205,13 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(26)
                                 .nullsFraction(0.0));
 
-        assertExpression(new ComparisonExpression(GREATER_THAN, new ArithmeticUnaryExpression(MINUS, new SymbolReference("x")), new DoubleLiteral("-3.0")))
+        assertExpression(new ComparisonExpression(GREATER_THAN, new ArithmeticUnaryExpression(MINUS, new SymbolReference("x")), new DoubleLiteral(-3.0)))
                 .outputRowsCount(lessThan3Rows);
 
         for (Expression minusThree : ImmutableList.of(
                 new DecimalLiteral("-3"),
-                new DoubleLiteral("-3.0"),
-                new ArithmeticBinaryExpression(SUBTRACT, new DoubleLiteral("4.0"), new DoubleLiteral("7.0")),
+                new DoubleLiteral(-3.0),
+                new ArithmeticBinaryExpression(SUBTRACT, new DoubleLiteral(4.0), new DoubleLiteral(7.0)),
                 new Cast(new LongLiteral(-3), createDecimalType(7, 3)))) {
             assertExpression(new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(minusThree, DOUBLE)))
                     .outputRowsCount(18.75)
@@ -304,7 +304,7 @@ public class TestFilterStatsCalculator
     @Test
     public void testOrStats()
     {
-        assertExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0")), new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new GenericLiteral("DOUBLE", "-7.5")))))
+        assertExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral(0.0)), new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new GenericLiteral("DOUBLE", "-7.5")))))
                 .outputRowsCount(375)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
@@ -313,7 +313,7 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(20.0)
                                 .nullsFraction(0.0));
 
-        assertExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral("0.0")), new ComparisonExpression(EQUAL, new SymbolReference("x"), new GenericLiteral("DOUBLE", "-7.5")))))
+        assertExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral(0.0)), new ComparisonExpression(EQUAL, new SymbolReference("x"), new GenericLiteral("DOUBLE", "-7.5")))))
                 .outputRowsCount(37.5)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
@@ -322,7 +322,7 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(2.0)
                                 .nullsFraction(0.0));
 
-        assertExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral("1.0")), new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral("3.0")))))
+        assertExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral(1.0)), new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral(3.0)))))
                 .outputRowsCount(37.5)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
@@ -331,7 +331,7 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(2)
                                 .nullsFraction(0));
 
-        assertExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral("1.0")), new ComparisonExpression(EQUAL, new StringLiteral("a"), new StringLiteral("b")), new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral("3.0")))))
+        assertExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral(1.0)), new ComparisonExpression(EQUAL, new StringLiteral("a"), new StringLiteral("b")), new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral(3.0)))))
                 .outputRowsCount(37.5)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
@@ -340,7 +340,7 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(2)
                                 .nullsFraction(0));
 
-        assertExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral("1.0")), new InPredicate(new Cast(new StringLiteral("b"), createVarcharType(3)), new InListExpression(ImmutableList.of(new Cast(new StringLiteral("a"), createVarcharType(3)), new Cast(new StringLiteral("b"), createVarcharType(3))))), new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral("3.0")))))
+        assertExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral(1.0)), new InPredicate(new Cast(new StringLiteral("b"), createVarcharType(3)), new InListExpression(ImmutableList.of(new Cast(new StringLiteral("a"), createVarcharType(3)), new Cast(new StringLiteral("b"), createVarcharType(3))))), new ComparisonExpression(EQUAL, new SymbolReference("x"), new DoubleLiteral(3.0)))))
                 .equalTo(standardInputStatistics);
     }
 
@@ -357,15 +357,15 @@ public class TestFilterStatsCalculator
     public void testAndStats()
     {
         // unknown input
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0")), new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("1.0")))), PlanNodeStatsEstimate.unknown()).outputRowsCountUnknown();
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0")), new ComparisonExpression(LESS_THAN, new SymbolReference("y"), new DoubleLiteral("1.0")))), PlanNodeStatsEstimate.unknown()).outputRowsCountUnknown();
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral(0.0)), new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral(1.0)))), PlanNodeStatsEstimate.unknown()).outputRowsCountUnknown();
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral(0.0)), new ComparisonExpression(LESS_THAN, new SymbolReference("y"), new DoubleLiteral(1.0)))), PlanNodeStatsEstimate.unknown()).outputRowsCountUnknown();
         // zeroStatistics input
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0")), new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("1.0")))), zeroStatistics).equalTo(zeroStatistics);
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0")), new ComparisonExpression(LESS_THAN, new SymbolReference("y"), new DoubleLiteral("1.0")))), zeroStatistics).equalTo(zeroStatistics);
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral(0.0)), new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral(1.0)))), zeroStatistics).equalTo(zeroStatistics);
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral(0.0)), new ComparisonExpression(LESS_THAN, new SymbolReference("y"), new DoubleLiteral(1.0)))), zeroStatistics).equalTo(zeroStatistics);
 
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0")), new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new DoubleLiteral("1.0"))))).equalTo(zeroStatistics);
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral(0.0)), new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new DoubleLiteral(1.0))))).equalTo(zeroStatistics);
 
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0")), new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new GenericLiteral("DOUBLE", "-7.5")))))
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral(0.0)), new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new GenericLiteral("DOUBLE", "-7.5")))))
                 .outputRowsCount(281.25)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
@@ -375,13 +375,13 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Impossible, with symbol-to-expression comparisons
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new DoubleLiteral("0.0"), new DoubleLiteral("1.0"))), new ComparisonExpression(EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new DoubleLiteral("0.0"), new DoubleLiteral("3.0"))))))
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new DoubleLiteral(0.0), new DoubleLiteral(1.0))), new ComparisonExpression(EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new DoubleLiteral(0.0), new DoubleLiteral(3.0))))))
                 .outputRowsCount(0)
                 .symbolStats(new Symbol("x"), SymbolStatsAssertion::emptyRange)
                 .symbolStats(new Symbol("y"), SymbolStatsAssertion::emptyRange);
 
         // first argument unknown
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(new GenericLiteral("JSON", "[]"), new SymbolReference("x"))), new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0")))))
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(new GenericLiteral("JSON", "[]"), new SymbolReference("x"))), new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral(0.0)))))
                 .outputRowsCount(337.5)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
@@ -390,7 +390,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0));
 
         // second argument unknown
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0")), new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(new GenericLiteral("JSON", "[]"), new SymbolReference("x"))))))
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral(0.0)), new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(new GenericLiteral("JSON", "[]"), new SymbolReference("x"))))))
                 .outputRowsCount(337.5)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
@@ -404,11 +404,11 @@ public class TestFilterStatsCalculator
                 new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(new GenericLiteral("JSON", "[13]"), new SymbolReference("x"))))))
                 .outputRowsCountUnknown();
 
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new InPredicate(new StringLiteral("a"), new InListExpression(ImmutableList.of(new StringLiteral("b"), new StringLiteral("c")))), new ComparisonExpression(EQUAL, new SymbolReference("unknownRange"), new DoubleLiteral("3.0")))))
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new InPredicate(new StringLiteral("a"), new InListExpression(ImmutableList.of(new StringLiteral("b"), new StringLiteral("c")))), new ComparisonExpression(EQUAL, new SymbolReference("unknownRange"), new DoubleLiteral(3.0)))))
                 .outputRowsCount(0);
 
         assertExpression(new LogicalExpression(AND, ImmutableList.of(new Cast(new NullLiteral(), BOOLEAN), new Cast(new NullLiteral(), BOOLEAN)))).equalTo(zeroStatistics);
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new Cast(new NullLiteral(), BOOLEAN), new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0")), new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new DoubleLiteral("1.0"))))))).equalTo(zeroStatistics);
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new Cast(new NullLiteral(), BOOLEAN), new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral(0.0)), new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new DoubleLiteral(1.0))))))).equalTo(zeroStatistics);
 
         Consumer<SymbolStatsAssertion> symbolAssertX = symbolAssert -> symbolAssert.averageRowSize(4.0)
                 .lowValue(-5.0)
@@ -572,7 +572,7 @@ public class TestFilterStatsCalculator
     @Test
     public void testNotStats()
     {
-        assertExpression(new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral("0.0"))))
+        assertExpression(new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new DoubleLiteral(0.0))))
                 .outputRowsCount(625) // FIXME - nulls shouldn't be restored
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
@@ -631,7 +631,7 @@ public class TestFilterStatsCalculator
     public void testBetweenOperatorFilter()
     {
         // Only right side cut
-        assertExpression(new BetweenPredicate(new SymbolReference("x"), new DoubleLiteral("7.5"), new DoubleLiteral("12.0")))
+        assertExpression(new BetweenPredicate(new SymbolReference("x"), new DoubleLiteral(7.5), new DoubleLiteral(12.0)))
                 .outputRowsCount(93.75)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
@@ -647,7 +647,7 @@ public class TestFilterStatsCalculator
                                 .lowValue(-10)
                                 .highValue(-7.5)
                                 .nullsFraction(0.0));
-        assertExpression(new BetweenPredicate(new SymbolReference("x"), new DoubleLiteral("-12.0"), new DoubleLiteral("-7.5")))
+        assertExpression(new BetweenPredicate(new SymbolReference("x"), new DoubleLiteral(-12.0), new DoubleLiteral(-7.5)))
                 .outputRowsCount(93.75)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
@@ -656,7 +656,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Both sides cut
-        assertExpression(new BetweenPredicate(new SymbolReference("x"), new GenericLiteral("DOUBLE", "-2.5"), new DoubleLiteral("2.5")))
+        assertExpression(new BetweenPredicate(new SymbolReference("x"), new GenericLiteral("DOUBLE", "-2.5"), new DoubleLiteral(2.5)))
                 .outputRowsCount(187.5)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(10.0)
@@ -665,7 +665,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Both sides cut unknownRange
-        assertExpression(new BetweenPredicate(new SymbolReference("unknownRange"), new DoubleLiteral("2.72"), new DoubleLiteral("3.14")))
+        assertExpression(new BetweenPredicate(new SymbolReference("unknownRange"), new DoubleLiteral(2.72), new DoubleLiteral(3.14)))
                 .outputRowsCount(112.5)
                 .symbolStats("unknownRange", symbolStats ->
                         symbolStats.distinctValuesCount(6.25)
@@ -674,7 +674,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Left side open, cut on open side
-        assertExpression(new BetweenPredicate(new SymbolReference("leftOpen"), new GenericLiteral("DOUBLE", "-10"), new DoubleLiteral("10.0")))
+        assertExpression(new BetweenPredicate(new SymbolReference("leftOpen"), new GenericLiteral("DOUBLE", "-10"), new DoubleLiteral(10.0)))
                 .outputRowsCount(180.0)
                 .symbolStats("leftOpen", symbolStats ->
                         symbolStats.distinctValuesCount(10.0)
@@ -683,7 +683,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Right side open, cut on open side
-        assertExpression(new BetweenPredicate(new SymbolReference("rightOpen"), new GenericLiteral("DOUBLE", "-10"), new DoubleLiteral("10.0")))
+        assertExpression(new BetweenPredicate(new SymbolReference("rightOpen"), new GenericLiteral("DOUBLE", "-10"), new DoubleLiteral(10.0)))
                 .outputRowsCount(180.0)
                 .symbolStats("rightOpen", symbolStats ->
                         symbolStats.distinctValuesCount(10.0)
@@ -692,12 +692,12 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Filter all
-        assertExpression(new BetweenPredicate(new SymbolReference("y"), new DoubleLiteral("27.5"), new DoubleLiteral("107.0")))
+        assertExpression(new BetweenPredicate(new SymbolReference("y"), new DoubleLiteral(27.5), new DoubleLiteral(107.0)))
                 .outputRowsCount(0.0)
                 .symbolStats("y", SymbolStatsAssertion::empty);
 
         // Filter nothing
-        assertExpression(new BetweenPredicate(new SymbolReference("y"), new GenericLiteral("DOUBLE", "-100"), new DoubleLiteral("100.0")))
+        assertExpression(new BetweenPredicate(new SymbolReference("y"), new GenericLiteral("DOUBLE", "-100"), new DoubleLiteral(100.0)))
                 .outputRowsCount(500.0)
                 .symbolStats("y", symbolStats ->
                         symbolStats.distinctValuesCount(20.0)
@@ -706,7 +706,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Filter non exact match
-        assertExpression(new BetweenPredicate(new SymbolReference("z"), new GenericLiteral("DOUBLE", "-100"), new DoubleLiteral("100.0")))
+        assertExpression(new BetweenPredicate(new SymbolReference("z"), new GenericLiteral("DOUBLE", "-100"), new DoubleLiteral(100.0)))
                 .outputRowsCount(900.0)
                 .symbolStats("z", symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
@@ -750,7 +750,7 @@ public class TestFilterStatsCalculator
     public void testInPredicateFilter()
     {
         // One value in range
-        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new DoubleLiteral("7.5")))))
+        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new DoubleLiteral(7.5)))))
                 .outputRowsCount(18.75)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
@@ -764,14 +764,14 @@ public class TestFilterStatsCalculator
                                 .lowValue(-7.5)
                                 .highValue(-7.5)
                                 .nullsFraction(0.0));
-        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new ArithmeticBinaryExpression(ADD, new GenericLiteral("BIGINT", "2"), new DoubleLiteral("5.5"))))))
+        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new ArithmeticBinaryExpression(ADD, new GenericLiteral("BIGINT", "2"), new DoubleLiteral(5.5))))))
                 .outputRowsCount(18.75)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(7.5)
                                 .highValue(7.5)
                                 .nullsFraction(0.0));
-        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new DoubleLiteral("-7.5")))))
+        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new DoubleLiteral(-7.5)))))
                 .outputRowsCount(18.75)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
@@ -780,7 +780,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Multiple values in range
-        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new DoubleLiteral("1.5"), new DoubleLiteral("2.5"), new DoubleLiteral("7.5")))))
+        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new DoubleLiteral(1.5), new DoubleLiteral(2.5), new DoubleLiteral(7.5)))))
                 .outputRowsCount(56.25)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
@@ -795,7 +795,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.5));
 
         // Multiple values some in some out of range
-        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral("1.5"), new DoubleLiteral("2.5"), new DoubleLiteral("7.5"), new DoubleLiteral("314.0")))))
+        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral(1.5), new DoubleLiteral(2.5), new DoubleLiteral(7.5), new DoubleLiteral(314.0)))))
                 .outputRowsCount(56.25)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
@@ -804,7 +804,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Multiple values some including NULL
-        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral("1.5"), new DoubleLiteral("2.5"), new DoubleLiteral("7.5"), new DoubleLiteral("314.0"), new Cast(new NullLiteral(), DOUBLE)))))
+        assertExpression(new InPredicate(new SymbolReference("x"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral(1.5), new DoubleLiteral(2.5), new DoubleLiteral(7.5), new DoubleLiteral(314.0), new Cast(new NullLiteral(), DOUBLE)))))
                 .outputRowsCount(56.25)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
@@ -813,7 +813,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Multiple values in unknown range
-        assertExpression(new InPredicate(new SymbolReference("unknownRange"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral("1.5"), new DoubleLiteral("2.5"), new DoubleLiteral("7.5"), new DoubleLiteral("314.0")))))
+        assertExpression(new InPredicate(new SymbolReference("unknownRange"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral(1.5), new DoubleLiteral(2.5), new DoubleLiteral(7.5), new DoubleLiteral(314.0)))))
                 .outputRowsCount(90.0)
                 .symbolStats("unknownRange", symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
@@ -835,12 +835,12 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // No value in range
-        assertExpression(new InPredicate(new SymbolReference("y"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral("6.0"), new DoubleLiteral("31.1341"), new GenericLiteral("DOUBLE", "-0.000000002"), new DoubleLiteral("314.0")))))
+        assertExpression(new InPredicate(new SymbolReference("y"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-42"), new DoubleLiteral(6.0), new DoubleLiteral(31.1341), new GenericLiteral("DOUBLE", "-0.000000002"), new DoubleLiteral(314.0)))))
                 .outputRowsCount(0.0)
                 .symbolStats("y", SymbolStatsAssertion::empty);
 
         // More values in range than distinct values
-        assertExpression(new InPredicate(new SymbolReference("z"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-1"), new DoubleLiteral("3.14"), new DoubleLiteral("0.0"), new DoubleLiteral("1.0"), new DoubleLiteral("2.0"), new DoubleLiteral("3.0"), new DoubleLiteral("4.0"), new DoubleLiteral("5.0"), new DoubleLiteral("6.0"), new DoubleLiteral("7.0"), new DoubleLiteral("8.0"), new GenericLiteral("DOUBLE", "-2")))))
+        assertExpression(new InPredicate(new SymbolReference("z"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-1"), new DoubleLiteral(3.14), new DoubleLiteral(0.0), new DoubleLiteral(1.0), new DoubleLiteral(2.0), new DoubleLiteral(3.0), new DoubleLiteral(4.0), new DoubleLiteral(5.0), new DoubleLiteral(6.0), new DoubleLiteral(7.0), new DoubleLiteral(8.0), new GenericLiteral("DOUBLE", "-2")))))
                 .outputRowsCount(900.0)
                 .symbolStats("z", symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
@@ -849,7 +849,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Values in weird order
-        assertExpression(new InPredicate(new SymbolReference("z"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-1"), new DoubleLiteral("1.0"), new DoubleLiteral("0.0")))))
+        assertExpression(new InPredicate(new SymbolReference("z"), new InListExpression(ImmutableList.of(new GenericLiteral("DOUBLE", "-1"), new DoubleLiteral(1.0), new DoubleLiteral(0.0)))))
                 .outputRowsCount(540.0)
                 .symbolStats("z", symbolStats ->
                         symbolStats.distinctValuesCount(3.0)

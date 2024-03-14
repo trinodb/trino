@@ -85,7 +85,7 @@ public class TestScalarStatsCalculator
                 .highValue(Long.MAX_VALUE)
                 .nullsFraction(0.0);
 
-        assertCalculate(new DoubleLiteral("7.5"))
+        assertCalculate(new DoubleLiteral(7.5))
                 .distinctValuesCount(1.0)
                 .lowValue(7.5)
                 .highValue(7.5)

@@ -365,13 +365,13 @@ public class TestSpatialJoinPlanning
                                         .left(
                                                 project(
                                                         ImmutableMap.of(
-                                                                "wkt_a", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral("0.0")), new StringLiteral("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))"))), Optional.empty())),
+                                                                "wkt_a", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral(0.0)), new StringLiteral("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))"))), Optional.empty())),
                                                                 "name_a", expression(new StringLiteral("a"))),
                                                         singleRow()))
                                         .right(
                                                 any(project(
                                                         ImmutableMap.of(
-                                                                "wkt_b", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral("0.0")), new StringLiteral("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))"))), Optional.empty())),
+                                                                "wkt_b", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral(0.0)), new StringLiteral("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))"))), Optional.empty())),
                                                                 "name_b", expression(new StringLiteral("a"))),
                                                         singleRow())))))));
     }
@@ -446,7 +446,7 @@ public class TestSpatialJoinPlanning
                         "ON ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat)) AND rand() < 0.5",
                 anyTree(
                         spatialLeftJoin(
-                                new LogicalExpression(AND, ImmutableList.of(new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))), new ComparisonExpression(LESS_THAN, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral("0.5")))),
+                                new LogicalExpression(AND, ImmutableList.of(new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))), new ComparisonExpression(LESS_THAN, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral(0.5)))),
                                 project(ImmutableMap.of("st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
                                         tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))),
                                 anyTree(

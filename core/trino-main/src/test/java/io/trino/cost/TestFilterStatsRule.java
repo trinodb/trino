@@ -156,7 +156,7 @@ public class TestFilterStatsRule
                         .functionCallBuilder("sin")
                         .addArgument(DOUBLE, new SymbolReference("i1"))
                         .build(),
-                new DoubleLiteral("1"));
+                new DoubleLiteral(1));
 
         tester()
                 .assertStatsFor(pb -> pb

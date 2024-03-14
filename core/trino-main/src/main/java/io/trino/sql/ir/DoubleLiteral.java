@@ -19,19 +19,10 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static java.util.Objects.requireNonNull;
-
 public final class DoubleLiteral
         extends Literal
 {
     private final double value;
-
-    @Deprecated
-    public DoubleLiteral(String value)
-    {
-        requireNonNull(value, "value is null");
-        this.value = Double.parseDouble(value);
-    }
 
     @JsonCreator
     public DoubleLiteral(double value)
