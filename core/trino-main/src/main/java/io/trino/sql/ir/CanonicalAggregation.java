@@ -23,7 +23,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class CanonicalAggregation
+public final class CanonicalAggregation
         extends Expression
 {
     private final ResolvedFunction resolvedFunction;

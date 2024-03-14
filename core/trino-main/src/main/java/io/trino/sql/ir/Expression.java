@@ -57,7 +57,14 @@ import java.util.List;
         @JsonSubTypes.Type(value = SymbolReference.class, name = "symbol"),
         @JsonSubTypes.Type(value = WhenClause.class, name = "when"),
 })
-public abstract class Expression
+public abstract sealed class Expression
+        permits ArithmeticBinaryExpression, ArithmeticUnaryExpression, Array, BetweenPredicate,
+        CanonicalAggregation,
+        BindExpression, Cast, CoalesceExpression, ComparisonExpression, FunctionCall,
+        IfExpression, InListExpression, InPredicate, IsNotNullPredicate, IsNullPredicate,
+        LambdaArgumentDeclaration, LambdaExpression, Literal, LogicalExpression,
+        NotExpression, NullIfExpression, Row, SearchedCaseExpression, SimpleCaseExpression,
+        SubscriptExpression, SymbolReference, WhenClause
 {
     /**
      * Accessible for {@link IrVisitor}, use {@link IrVisitor#process(Expression, Object)} instead.
