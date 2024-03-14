@@ -454,12 +454,10 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            List<LambdaArgumentDeclaration> arguments = node.getArguments().stream()
-                    .map(LambdaArgumentDeclaration::getName)
+            List<String> arguments = node.getArguments().stream()
                     .map(SymbolReference::new)
                     .map(expression -> rewrite(expression, context.get()))
                     .map(SymbolReference::getName)
-                    .map(LambdaArgumentDeclaration::new)
                     .collect(toImmutableList());
 
             Expression body = rewrite(node.getBody(), context.get());

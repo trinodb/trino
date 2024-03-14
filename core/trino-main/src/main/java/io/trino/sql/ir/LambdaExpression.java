@@ -19,25 +19,24 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
 public final class LambdaExpression
         extends Expression
 {
-    private final List<LambdaArgumentDeclaration> arguments;
+    private final List<String> arguments;
     private final Expression body;
 
     @JsonCreator
-    public LambdaExpression(List<LambdaArgumentDeclaration> arguments, Expression body)
+    public LambdaExpression(List<String> arguments, Expression body)
     {
         this.arguments = requireNonNull(arguments, "arguments is null");
         this.body = requireNonNull(body, "body is null");
     }
 
     @JsonProperty
-    public List<LambdaArgumentDeclaration> getArguments()
+    public List<String> getArguments()
     {
         return arguments;
     }
@@ -84,9 +83,7 @@ public final class LambdaExpression
     public String toString()
     {
         return "(%s) -> %s".formatted(
-                arguments.stream()
-                        .map(LambdaArgumentDeclaration::toString)
-                        .collect(Collectors.joining(", ")),
+                String.join(", ", arguments),
                 body);
     }
 }

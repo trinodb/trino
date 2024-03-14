@@ -19,7 +19,6 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.BindExpression;
-import io.trino.sql.ir.LambdaArgumentDeclaration;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
@@ -27,11 +26,9 @@ import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
-import java.util.stream.Stream;
 
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter.rewrite;
-import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLambdaCaptureDesugaringRewriter
@@ -44,15 +41,13 @@ public class TestLambdaCaptureDesugaringRewriter
 
         assertThat(
                 rewrite(
-                        new LambdaExpression(ImmutableList.of(new LambdaArgumentDeclaration("x")), new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("x"))),
+                        new LambdaExpression(ImmutableList.of("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("x"))),
                         allocator.getTypes(),
                         allocator))
                 .isEqualTo(new BindExpression(
                         ImmutableList.of(new SymbolReference("a")),
                         new LambdaExpression(
-                                Stream.of("a_0", "x")
-                                        .map(LambdaArgumentDeclaration::new)
-                                        .collect(toList()),
+                                ImmutableList.of("a_0", "x"),
                                 new ArithmeticBinaryExpression(ADD, new SymbolReference("a_0"), new SymbolReference("x")))));
     }
 }

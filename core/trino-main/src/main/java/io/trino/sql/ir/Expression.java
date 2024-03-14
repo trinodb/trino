@@ -41,7 +41,6 @@ import java.util.List;
         @JsonSubTypes.Type(value = IntervalLiteral.class, name = "interval"),
         @JsonSubTypes.Type(value = IsNotNullPredicate.class, name = "isNotNull"),
         @JsonSubTypes.Type(value = IsNullPredicate.class, name = "isNull"),
-        @JsonSubTypes.Type(value = LambdaArgumentDeclaration.class, name = "lambdaArgument"),
         @JsonSubTypes.Type(value = LambdaExpression.class, name = "lambda"),
         @JsonSubTypes.Type(value = LogicalExpression.class, name = "logicalBinary"),
         @JsonSubTypes.Type(value = LongLiteral.class, name = "long"),
@@ -61,7 +60,7 @@ public abstract sealed class Expression
         CanonicalAggregation,
         BindExpression, Cast, CoalesceExpression, ComparisonExpression, FunctionCall,
         IfExpression, InPredicate, IsNotNullPredicate, IsNullPredicate,
-        LambdaArgumentDeclaration, LambdaExpression, Literal, LogicalExpression,
+        LambdaExpression, Literal, LogicalExpression,
         NotExpression, NullIfExpression, Row, SearchedCaseExpression, SimpleCaseExpression,
         SubscriptExpression, SymbolReference, WhenClause
 {

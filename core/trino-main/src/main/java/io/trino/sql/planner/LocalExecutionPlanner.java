@@ -207,7 +207,6 @@ import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.LambdaArgumentDeclaration;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.SymbolReference;
@@ -4113,19 +4112,16 @@ public class LocalExecutionPlanner
                     // TODO: Once the final aggregation function call representation is fixed,
                     // the same mechanism in project and filter expression should be used here.
                     verify(lambdaExpression.getArguments().size() == functionType.getArgumentTypes().size());
-                    Map<NodeRef<Expression>, Type> lambdaArgumentExpressionTypes = new HashMap<>();
                     Map<Symbol, Type> lambdaArgumentSymbolTypes = new HashMap<>();
                     for (int j = 0; j < lambdaExpression.getArguments().size(); j++) {
-                        LambdaArgumentDeclaration argument = lambdaExpression.getArguments().get(j);
+                        String argument = lambdaExpression.getArguments().get(j);
                         Type type = functionType.getArgumentTypes().get(j);
-                        lambdaArgumentExpressionTypes.put(NodeRef.of(argument), type);
-                        lambdaArgumentSymbolTypes.put(new Symbol(argument.getName()), type);
+                        lambdaArgumentSymbolTypes.put(new Symbol(argument), type);
                     }
                     Map<NodeRef<Expression>, Type> expressionTypes = ImmutableMap.<NodeRef<Expression>, Type>builder()
                             // the lambda expression itself
                             .put(NodeRef.of(lambdaExpression), functionType)
                             // expressions from lambda arguments
-                            .putAll(lambdaArgumentExpressionTypes)
                             // expressions from lambda body
                             .putAll(typeAnalyzer.getTypes(session, TypeProvider.copyOf(lambdaArgumentSymbolTypes), lambdaExpression.getBody()))
                             .buildOrThrow();

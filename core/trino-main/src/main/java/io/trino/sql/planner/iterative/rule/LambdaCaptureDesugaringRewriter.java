@@ -22,7 +22,6 @@ import io.trino.sql.ir.BindExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.LambdaArgumentDeclaration;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
@@ -67,7 +66,6 @@ public final class LambdaCaptureDesugaringRewriter
             Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), context.withReferencedSymbols(referencedSymbols));
 
             List<Symbol> lambdaArguments = node.getArguments().stream()
-                    .map(LambdaArgumentDeclaration::getName)
                     .map(Symbol::new)
                     .collect(toImmutableList());
 
@@ -77,11 +75,11 @@ public final class LambdaCaptureDesugaringRewriter
             // "$internal$bind"(captureSymbol, (extraSymbol, x) -> f(x, extraSymbol))
 
             ImmutableMap.Builder<Symbol, Symbol> captureSymbolToExtraSymbol = ImmutableMap.builder();
-            ImmutableList.Builder<LambdaArgumentDeclaration> newLambdaArguments = ImmutableList.builder();
+            ImmutableList.Builder<String> newLambdaArguments = ImmutableList.builder();
             for (Symbol captureSymbol : captureSymbols) {
                 Symbol extraSymbol = symbolAllocator.newSymbol(captureSymbol.getName(), symbolTypes.get(captureSymbol));
                 captureSymbolToExtraSymbol.put(captureSymbol, extraSymbol);
-                newLambdaArguments.add(new LambdaArgumentDeclaration(extraSymbol.getName()));
+                newLambdaArguments.add(extraSymbol.getName());
             }
             newLambdaArguments.addAll(node.getArguments());
 
