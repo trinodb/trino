@@ -19,7 +19,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.LambdaArgumentDeclaration;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.StringLiteral;
@@ -61,17 +60,11 @@ public class TestArraySortAfterArrayDistinct
                 new FunctionCall(DISTINCT.toQualifiedName(), ImmutableList.of(
                         new FunctionCall(SORT_WITH_LAMBDA.toQualifiedName(), ImmutableList.of(
                                 new FunctionCall(ARRAY.toQualifiedName(), ImmutableList.of(new StringLiteral("a"))),
-                                new LambdaExpression(ImmutableList.of(
-                                        new LambdaArgumentDeclaration("a"),
-                                        new LambdaArgumentDeclaration("b")),
-                                        new LongLiteral(1)))))),
+                                new LambdaExpression(ImmutableList.of("a", "b"), new LongLiteral(1)))))),
                 new FunctionCall(SORT_WITH_LAMBDA.toQualifiedName(), ImmutableList.of(
                         new FunctionCall(DISTINCT.toQualifiedName(), ImmutableList.of(
                                 new FunctionCall(ARRAY.toQualifiedName(), ImmutableList.of(new StringLiteral("a"))))),
-                        new LambdaExpression(ImmutableList.of(
-                                new LambdaArgumentDeclaration("a"),
-                                new LambdaArgumentDeclaration("b")),
-                                new LongLiteral(1)))));
+                        new LambdaExpression(ImmutableList.of("a", "b"), new LongLiteral(1)))));
     }
 
     private void test(Expression original, Expression rewritten)

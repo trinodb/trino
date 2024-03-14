@@ -51,7 +51,6 @@ import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.LambdaArgumentDeclaration;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.Literal;
 import io.trino.sql.ir.LogicalExpression;
@@ -864,9 +863,7 @@ public class IrExpressionInterpreter
             }
 
             Expression body = node.getBody();
-            List<String> argumentNames = node.getArguments().stream()
-                    .map(LambdaArgumentDeclaration::getName)
-                    .collect(toImmutableList());
+            List<String> argumentNames = node.getArguments();
             FunctionType functionType = (FunctionType) expressionTypes.get(NodeRef.<Expression>of(node));
             checkArgument(argumentNames.size() == functionType.getArgumentTypes().size());
 
