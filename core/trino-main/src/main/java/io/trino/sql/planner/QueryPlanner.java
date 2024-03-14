@@ -1641,10 +1641,10 @@ class QueryPlanner
 
         Expression offsetToBigint;
 
-        if (offsetType instanceof DecimalType && !((DecimalType) offsetType).isShort()) {
+        if (offsetType instanceof DecimalType decimalType && !decimalType.isShort()) {
             String maxBigint = Long.toString(Long.MAX_VALUE);
             int maxBigintPrecision = maxBigint.length();
-            int actualPrecision = ((DecimalType) offsetType).getPrecision();
+            int actualPrecision = decimalType.getPrecision();
 
             if (actualPrecision < maxBigintPrecision) {
                 offsetToBigint = new Cast(offsetSymbol.toSymbolReference(), BIGINT);
