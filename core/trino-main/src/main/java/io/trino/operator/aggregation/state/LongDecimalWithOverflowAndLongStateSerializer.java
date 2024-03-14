@@ -74,6 +74,8 @@ public class LongDecimalWithOverflowAndLongStateSerializer
             return;
         }
 
+        index = block.getUnderlyingValuePosition(index);
+        block = block.getUnderlyingValueBlock();
         VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
         Slice slice = variableWidthBlock.getRawSlice();
         int sliceOffset = variableWidthBlock.getRawSliceOffset(index);
