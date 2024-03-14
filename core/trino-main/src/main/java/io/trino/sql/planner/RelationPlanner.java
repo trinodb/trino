@@ -1364,7 +1364,7 @@ class RelationPlanner
         planBuilder = coerced.getSubPlan();
 
         // apply the input function to the input expression
-        BooleanLiteral failOnError = new BooleanLiteral(jsonTable.getErrorBehavior().orElse(JsonTable.ErrorBehavior.EMPTY) == JsonTable.ErrorBehavior.ERROR ? "true" : "false");
+        BooleanLiteral failOnError = new BooleanLiteral(jsonTable.getErrorBehavior().orElse(JsonTable.ErrorBehavior.EMPTY) == JsonTable.ErrorBehavior.ERROR);
         ResolvedFunction inputToJson = analysis.getJsonInputFunction(inputExpression);
         Expression inputJson = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(coerced.get(inputExpression).toSymbolReference(), failOnError));
 
@@ -1497,7 +1497,7 @@ class RelationPlanner
                 GenericLiteral errorBehavior = new GenericLiteral(
                         TINYINT,
                         String.valueOf(queryColumn.getErrorBehavior().orElse(defaultErrorOnError ? JsonQuery.EmptyOrErrorBehavior.ERROR : JsonQuery.EmptyOrErrorBehavior.NULL).ordinal()));
-                BooleanLiteral omitQuotes = new BooleanLiteral(queryColumn.getQuotesBehavior().orElse(KEEP) == OMIT ? "true" : "false");
+                BooleanLiteral omitQuotes = new BooleanLiteral(queryColumn.getQuotesBehavior().orElse(KEEP) == OMIT);
                 ResolvedFunction outputFunction = analysis.getJsonOutputFunction(queryColumn);
                 Expression result = new FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(properOutput.toSymbolReference(), errorBehavior, omitQuotes));
 

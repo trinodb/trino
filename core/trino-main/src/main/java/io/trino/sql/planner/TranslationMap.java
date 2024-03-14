@@ -950,7 +950,7 @@ public class TranslationMap
         checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
 
         //  apply the input function to the input expression
-        io.trino.sql.ir.BooleanLiteral failOnError = new io.trino.sql.ir.BooleanLiteral(node.getErrorBehavior() == JsonExists.ErrorBehavior.ERROR ? "true" : "false");
+        io.trino.sql.ir.BooleanLiteral failOnError = new io.trino.sql.ir.BooleanLiteral(node.getErrorBehavior() == JsonExists.ErrorBehavior.ERROR);
         ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
         io.trino.sql.ir.Expression input = new io.trino.sql.ir.FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(
                 translateExpression(node.getJsonPathInvocation().getInputExpression()),
@@ -984,7 +984,7 @@ public class TranslationMap
         checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
 
         //  apply the input function to the input expression
-        io.trino.sql.ir.BooleanLiteral failOnError = new io.trino.sql.ir.BooleanLiteral(node.getErrorBehavior() == JsonValue.EmptyOrErrorBehavior.ERROR ? "true" : "false");
+        io.trino.sql.ir.BooleanLiteral failOnError = new io.trino.sql.ir.BooleanLiteral(node.getErrorBehavior() == JsonValue.EmptyOrErrorBehavior.ERROR);
         ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
         io.trino.sql.ir.Expression input = new io.trino.sql.ir.FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(
                 translateExpression(node.getJsonPathInvocation().getInputExpression()),
@@ -1025,7 +1025,7 @@ public class TranslationMap
         checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
 
         //  apply the input function to the input expression
-        io.trino.sql.ir.BooleanLiteral failOnError = new io.trino.sql.ir.BooleanLiteral(node.getErrorBehavior() == JsonQuery.EmptyOrErrorBehavior.ERROR ? "true" : "false");
+        io.trino.sql.ir.BooleanLiteral failOnError = new io.trino.sql.ir.BooleanLiteral(node.getErrorBehavior() == JsonQuery.EmptyOrErrorBehavior.ERROR);
         ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
         io.trino.sql.ir.Expression input = new io.trino.sql.ir.FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(
                 translateExpression(node.getJsonPathInvocation().getInputExpression()),
@@ -1056,7 +1056,7 @@ public class TranslationMap
 
         // apply function to format output
         io.trino.sql.ir.GenericLiteral errorBehavior = new io.trino.sql.ir.GenericLiteral("tinyint", String.valueOf(node.getErrorBehavior().ordinal()));
-        io.trino.sql.ir.BooleanLiteral omitQuotes = new io.trino.sql.ir.BooleanLiteral(node.getQuotesBehavior().orElse(KEEP) == OMIT ? "true" : "false");
+        io.trino.sql.ir.BooleanLiteral omitQuotes = new io.trino.sql.ir.BooleanLiteral(node.getQuotesBehavior().orElse(KEEP) == OMIT);
         ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
         io.trino.sql.ir.Expression result = new io.trino.sql.ir.FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(function, errorBehavior, omitQuotes));
 

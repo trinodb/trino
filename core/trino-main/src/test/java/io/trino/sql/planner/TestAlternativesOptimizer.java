@@ -210,22 +210,22 @@ public class TestAlternativesOptimizer
                 optimized,
                 chooseAlternativeNode(
                         strictProject(
-                                ImmutableMap.of(symbol, expression(new BooleanLiteral("true"))),
+                                ImmutableMap.of(symbol, expression(new BooleanLiteral(true))),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName))),
                         strictProject(
-                                ImmutableMap.of(symbol, expression(new BooleanLiteral("false"))),
+                                ImmutableMap.of(symbol, expression(new BooleanLiteral(false))),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName))),
                         strictProject(
-                                ImmutableMap.of(symbol, expression(new BooleanLiteral("true"))),
+                                ImmutableMap.of(symbol, expression(new BooleanLiteral(true))),
                                 PlanMatchPattern.filter(
                                         FALSE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName))),
                         strictProject(
-                                ImmutableMap.of(symbol, expression(new BooleanLiteral("false"))),
+                                ImmutableMap.of(symbol, expression(new BooleanLiteral(false))),
                                 PlanMatchPattern.filter(
                                         FALSE_LITERAL,
                                         PlanMatchPattern.tableScan(tableName)))),

@@ -338,7 +338,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                             .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.filter(
-                                            new BooleanLiteral("true"),
+                                            new BooleanLiteral(true),
                                             p.join(
                                                     INNER,
                                                     p.tableScan(

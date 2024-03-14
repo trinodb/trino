@@ -15,7 +15,6 @@ package io.trino.sql.planner.planprinter;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.ir.BinaryLiteral;
-import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.DecimalLiteral;
 import io.trino.sql.ir.DoubleLiteral;
@@ -31,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
@@ -89,7 +89,7 @@ public class TestCounterBasedAnonymizer
         assertThat(anonymizer.anonymize(new LongLiteral(MAX_VALUE)))
                 .isEqualTo("'long_literal_8'");
 
-        assertThat(anonymizer.anonymize(new BooleanLiteral("true")))
+        assertThat(anonymizer.anonymize(TRUE_LITERAL))
                 .isEqualTo("true");
 
         assertThat(anonymizer.anonymize(new NullLiteral()))
