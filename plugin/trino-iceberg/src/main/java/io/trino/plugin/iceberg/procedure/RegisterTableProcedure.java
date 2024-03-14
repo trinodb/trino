@@ -193,7 +193,7 @@ public class RegisterTableProcedure
 
     private static String normalizeS3Uri(String tableLocation)
     {
-        // Normalize e.g. s3a to s3, so that table can be registed using s3:// location
+        // Normalize e.g. s3a to s3, so that table can be registered using s3:// location
         // even if internally it uses s3a:// paths.
         return tableLocation.replaceFirst("^s3[an]://", "s3://");
     }
