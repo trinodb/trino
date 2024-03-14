@@ -106,7 +106,7 @@ public class TestPushProjectionIntoTableScan
                     .on(p -> {
                         Symbol symbol = p.symbol(columnName, columnType);
                         return p.project(
-                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new SubscriptExpression(symbol.toSymbolReference(), new LongLiteral("1"))),
+                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new SubscriptExpression(symbol.toSymbolReference(), new LongLiteral(1))),
                                 p.tableScan(
                                         ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE),
                                         ImmutableList.of(symbol),
@@ -145,8 +145,8 @@ public class TestPushProjectionIntoTableScan
             // Prepare project node assignments
             ImmutableMap<Symbol, Expression> inputProjections = ImmutableMap.<Symbol, Expression>builder()
                     .put(identity, baseColumn.toSymbolReference())
-                    .put(dereference, new SubscriptExpression(baseColumn.toSymbolReference(), new LongLiteral("1")))
-                    .put(constant, new LongLiteral("5"))
+                    .put(dereference, new SubscriptExpression(baseColumn.toSymbolReference(), new LongLiteral(1)))
+                    .put(constant, new LongLiteral(5))
                     .put(call, new FunctionCall(
                             ruleTester.getMetadata().resolveBuiltinFunction("starts_with", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
                             ImmutableList.of(new StringLiteral("abc"), new StringLiteral("ab"))))

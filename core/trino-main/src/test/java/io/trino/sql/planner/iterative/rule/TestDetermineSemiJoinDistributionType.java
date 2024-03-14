@@ -77,8 +77,8 @@ public class TestDetermineSemiJoinDistributionType
         assertDetermineSemiJoinDistributionType()
                 .on(p ->
                         p.semiJoin(
-                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new LongLiteral("10")), ImmutableList.of(new LongLiteral("11")))),
-                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new LongLiteral("50")), ImmutableList.of(new LongLiteral("11")))),
+                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new LongLiteral(10)), ImmutableList.of(new LongLiteral(11)))),
+                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new LongLiteral(50)), ImmutableList.of(new LongLiteral(11)))),
                                 p.symbol("A1"),
                                 p.symbol("B1"),
                                 p.symbol("output"),

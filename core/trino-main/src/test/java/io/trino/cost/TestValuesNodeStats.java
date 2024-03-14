@@ -89,7 +89,7 @@ public class TestValuesNodeStats
     {
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT)),
-                                ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral("1"), new LongLiteral("0"))))))
+                                ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(1), new LongLiteral(0))))))
                 .check(outputStats -> outputStats.equalTo(unknown()));
     }
 
@@ -104,7 +104,7 @@ public class TestValuesNodeStats
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT)),
                                 ImmutableList.of(
-                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, new LongLiteral("3"), new NullLiteral())))))
+                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, new LongLiteral(3), new NullLiteral())))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
         tester().assertStatsFor(pb -> pb

@@ -166,7 +166,7 @@ public class TestAddDynamicFilterSource
                                                                     DynamicFilterSourceNode.class,
                                                                     project(
                                                                             filter(
-                                                                                    new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("Z"), new LongLiteral("4")), new LongLiteral("0")),
+                                                                                    new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("Z"), new LongLiteral(4)), new LongLiteral(0)),
                                                                                     tableScan("lineitem", ImmutableMap.of("Y", "orderkey", "Z", "linenumber")))))))))));
         }
     }

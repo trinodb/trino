@@ -166,7 +166,7 @@ public class TestFullOuterJoinWithCoalesce
                                         ImmutableMap.of(),
                                         PARTIAL,
                                         project(
-                                                ImmutableMap.of("expr", expression(new CoalesceExpression(new SymbolReference("l"), new ArithmeticBinaryExpression(ADD, new SymbolReference("m"), new LongLiteral("1")), new SymbolReference("r")))),
+                                                ImmutableMap.of("expr", expression(new CoalesceExpression(new SymbolReference("l"), new ArithmeticBinaryExpression(ADD, new SymbolReference("m"), new LongLiteral(1)), new SymbolReference("r")))),
                                                 join(FULL, builder -> builder
                                                         .equiCriteria("l", "r")
                                                         .left(

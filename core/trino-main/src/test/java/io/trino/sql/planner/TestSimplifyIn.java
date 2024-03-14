@@ -34,7 +34,7 @@ public class TestSimplifyIn
                 "SELECT * FROM (VALUES 0) t(a) WHERE a IN (5)",
                 anyTree(
                         filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference("A"), new LongLiteral("5")),
+                                new ComparisonExpression(EQUAL, new SymbolReference("A"), new LongLiteral(5)),
                                 values("A"))));
     }
 }

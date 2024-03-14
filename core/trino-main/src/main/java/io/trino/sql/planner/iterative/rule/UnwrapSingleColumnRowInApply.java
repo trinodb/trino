@@ -155,8 +155,8 @@ public class UnwrapSingleColumnRowInApply
                 Symbol valueSymbol = context.getSymbolAllocator().newSymbol("input", elementType);
                 Symbol listSymbol = context.getSymbolAllocator().newSymbol("subquery", elementType);
 
-                Assignment inputAssignment = new Assignment(valueSymbol, new SubscriptExpression(value, new LongLiteral("1")));
-                Assignment nestedPlanAssignment = new Assignment(listSymbol, new SubscriptExpression(list, new LongLiteral("1")));
+                Assignment inputAssignment = new Assignment(valueSymbol, new SubscriptExpression(value, new LongLiteral(1)));
+                Assignment nestedPlanAssignment = new Assignment(listSymbol, new SubscriptExpression(list, new LongLiteral(1)));
                 ApplyNode.SetExpression comparison = function.apply(valueSymbol, listSymbol);
 
                 return Optional.of(new Unwrapping(comparison, inputAssignment, nestedPlanAssignment));

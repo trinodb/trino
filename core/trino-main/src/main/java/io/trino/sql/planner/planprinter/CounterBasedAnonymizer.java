@@ -131,7 +131,7 @@ public class CounterBasedAnonymizer
             return anonymizeLiteral("double", literal.getValue());
         }
         if (node instanceof LongLiteral literal) {
-            return anonymizeLiteral("long", literal.getParsedValue());
+            return anonymizeLiteral("long", literal.getValue());
         }
         if (node instanceof IntervalLiteral literal) {
             return anonymizeLiteral("interval", literal.getValue());

@@ -46,7 +46,7 @@ public class TestPushProjectionThroughUnion
         tester().assertThat(new PushProjectionThroughUnion())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), new LongLiteral("3")),
+                                Assignments.of(p.symbol("x"), new LongLiteral(3)),
                                 p.values(p.symbol("a"))))
                 .doesNotFire();
     }
@@ -89,8 +89,8 @@ public class TestPushProjectionThroughUnion
                     Symbol w = p.symbol("w", ROW_TYPE);
                     return p.project(
                             Assignments.of(
-                                    cTimes3, new ArithmeticBinaryExpression(MULTIPLY, c.toSymbolReference(), new LongLiteral("3")),
-                                    dX, new SubscriptExpression(new SymbolReference("d"), new LongLiteral("1"))),
+                                    cTimes3, new ArithmeticBinaryExpression(MULTIPLY, c.toSymbolReference(), new LongLiteral(3)),
+                                    dX, new SubscriptExpression(new SymbolReference("d"), new LongLiteral(1))),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()
                                             .put(c, a)
@@ -105,10 +105,10 @@ public class TestPushProjectionThroughUnion
                 .matches(
                         union(
                                 project(
-                                        ImmutableMap.of("a_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new LongLiteral("3"))), "z_x", expression(new SubscriptExpression(new SymbolReference("z"), new LongLiteral("1")))),
+                                        ImmutableMap.of("a_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new LongLiteral(3))), "z_x", expression(new SubscriptExpression(new SymbolReference("z"), new LongLiteral(1)))),
                                         values(ImmutableList.of("a", "z"))),
                                 project(
-                                        ImmutableMap.of("b_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new LongLiteral("3"))), "w_x", expression(new SubscriptExpression(new SymbolReference("w"), new LongLiteral("1")))),
+                                        ImmutableMap.of("b_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new LongLiteral(3))), "w_x", expression(new SubscriptExpression(new SymbolReference("w"), new LongLiteral(1)))),
                                         values(ImmutableList.of("b", "w"))))
                                 .withNumberOfOutputColumns(2)
                                 .withAlias("a_times_3")

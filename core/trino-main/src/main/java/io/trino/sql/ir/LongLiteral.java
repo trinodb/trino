@@ -16,47 +16,24 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.parser.ParsingException;
 
 import java.util.List;
-
-import static java.util.Objects.requireNonNull;
 
 public final class LongLiteral
         extends Literal
 {
-    private final String value;
-    private final long parsedValue;
+    private final long value;
 
     @JsonCreator
-    public LongLiteral(long parsedValue)
+    public LongLiteral(long value)
     {
-        this.parsedValue = parsedValue;
-        this.value = Long.toString(parsedValue);
-    }
-
-    @Deprecated
-    public LongLiteral(String value)
-    {
-        requireNonNull(value, "value is null");
-        try {
-            this.value = value;
-            this.parsedValue = parse(value);
-        }
-        catch (NumberFormatException e) {
-            throw new ParsingException("Invalid numeric literal: " + value);
-        }
-    }
-
-    public String getValue()
-    {
-        return value;
+        this.value = value;
     }
 
     @JsonProperty
-    public long getParsedValue()
+    public long getValue()
     {
-        return parsedValue;
+        return value;
     }
 
     @Override
@@ -83,7 +60,7 @@ public final class LongLiteral
 
         LongLiteral that = (LongLiteral) o;
 
-        if (parsedValue != that.parsedValue) {
+        if (value != that.value) {
             return false;
         }
 
@@ -93,30 +70,12 @@ public final class LongLiteral
     @Override
     public int hashCode()
     {
-        return (int) (parsedValue ^ (parsedValue >>> 32));
-    }
-
-    private static long parse(String value)
-    {
-        value = value.replace("_", "");
-
-        if (value.startsWith("0x") || value.startsWith("0X")) {
-            return Long.parseLong(value.substring(2), 16);
-        }
-        else if (value.startsWith("0b") || value.startsWith("0B")) {
-            return Long.parseLong(value.substring(2), 2);
-        }
-        else if (value.startsWith("0o") || value.startsWith("0O")) {
-            return Long.parseLong(value.substring(2), 8);
-        }
-        else {
-            return Long.parseLong(value);
-        }
+        return (int) (value ^ (value >>> 32));
     }
 
     @Override
     public String toString()
     {
-        return value;
+        return Long.toString(value);
     }
 }

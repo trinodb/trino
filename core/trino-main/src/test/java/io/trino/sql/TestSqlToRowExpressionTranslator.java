@@ -51,11 +51,11 @@ public class TestSqlToRowExpressionTranslator
     @Timeout(10)
     public void testPossibleExponentialOptimizationTime()
     {
-        Expression expression = new LongLiteral("1");
+        Expression expression = new LongLiteral(1);
         ImmutableMap.Builder<NodeRef<Expression>, Type> types = ImmutableMap.builder();
         types.put(NodeRef.of(expression), BIGINT);
         for (int i = 0; i < 100; i++) {
-            expression = new CoalesceExpression(expression, new LongLiteral("2"));
+            expression = new CoalesceExpression(expression, new LongLiteral(2));
             types.put(NodeRef.of(expression), BIGINT);
         }
         translateAndOptimize(expression, types.buildOrThrow());
@@ -69,9 +69,9 @@ public class TestSqlToRowExpressionTranslator
                 .isEqualTo(constant(null, createDecimalType(7, 2)));
         assertThat(translateAndOptimize(new DecimalLiteral("42")))
                 .isEqualTo(constant(42L, createDecimalType(2, 0)));
-        assertThat(translateAndOptimize(new Cast(new LongLiteral("42"), createDecimalType(7, 2))))
+        assertThat(translateAndOptimize(new Cast(new LongLiteral(42), createDecimalType(7, 2))))
                 .isEqualTo(constant(4200L, createDecimalType(7, 2)));
-        assertThat(translateAndOptimize(simplifyExpression(new Cast(new LongLiteral("42"), createDecimalType(7, 2)))))
+        assertThat(translateAndOptimize(simplifyExpression(new Cast(new LongLiteral(42), createDecimalType(7, 2)))))
                 .isEqualTo(constant(4200L, createDecimalType(7, 2)));
 
         // Long decimal

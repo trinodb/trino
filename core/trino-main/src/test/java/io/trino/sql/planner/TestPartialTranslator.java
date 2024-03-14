@@ -71,8 +71,8 @@ public class TestPartialTranslator
     public void testPartialTranslator()
     {
         Expression rowSymbolReference = new SymbolReference("row_symbol_1");
-        Expression dereferenceExpression1 = new SubscriptExpression(rowSymbolReference, new LongLiteral("1"));
-        Expression dereferenceExpression2 = new SubscriptExpression(rowSymbolReference, new LongLiteral("2"));
+        Expression dereferenceExpression1 = new SubscriptExpression(rowSymbolReference, new LongLiteral(1));
+        Expression dereferenceExpression2 = new SubscriptExpression(rowSymbolReference, new LongLiteral(2));
         Expression stringLiteral = new StringLiteral("abcd");
         Expression symbolReference1 = new SymbolReference("double_symbol_1");
 

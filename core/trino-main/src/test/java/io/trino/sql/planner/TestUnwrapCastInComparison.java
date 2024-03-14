@@ -428,7 +428,7 @@ public class TestUnwrapCastInComparison
         }
 
         for (String type : asList("BIGINT", "DOUBLE")) {
-            testUnwrap("integer", format("a = %s '1'", type), new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral("1")));
+            testUnwrap("integer", format("a = %s '1'", type), new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(1)));
         }
 
         testUnwrap("real", "a = DOUBLE '1'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new GenericLiteral("REAL", "1.0")));
@@ -660,10 +660,10 @@ public class TestUnwrapCastInComparison
         testUnwrap("decimal(8)", "a = REAL '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new GenericLiteral("REAL", "1.0")));
 
         // no implicit cast between VARCHAR->INTEGER
-        testUnwrap("varchar", "CAST(a AS INTEGER) = INTEGER '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), INTEGER), new LongLiteral("1")));
+        testUnwrap("varchar", "CAST(a AS INTEGER) = INTEGER '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), INTEGER), new LongLiteral(1)));
 
         // no implicit cast between DOUBLE->INTEGER
-        testUnwrap("double", "CAST(a AS INTEGER) = INTEGER '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), INTEGER), new LongLiteral("1")));
+        testUnwrap("double", "CAST(a AS INTEGER) = INTEGER '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), INTEGER), new LongLiteral(1)));
     }
 
     @Test

@@ -110,12 +110,12 @@ public class TestMergePatternRecognitionNodes
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new ComparisonExpression(GREATER_THAN, new FunctionCall(count, ImmutableList.of(new SymbolReference("a"))), new LongLiteral("5")))
+                                new ComparisonExpression(GREATER_THAN, new FunctionCall(count, ImmutableList.of(new SymbolReference("a"))), new LongLiteral(5)))
                         .source(p.patternRecognition(childBuilder -> childBuilder
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(
                                         new IrLabel("X"),
-                                        new ComparisonExpression(GREATER_THAN, new FunctionCall(count, ImmutableList.of(new SymbolReference("b"))), new LongLiteral("5")))
+                                        new ComparisonExpression(GREATER_THAN, new FunctionCall(count, ImmutableList.of(new SymbolReference("b"))), new LongLiteral(5)))
                                 .source(p.values(p.symbol("a"), p.symbol("b")))))))
                 .doesNotFire();
     }
@@ -722,7 +722,7 @@ public class TestMergePatternRecognitionNodes
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new LongLiteral("5")),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new LongLiteral(5)),
                                 ImmutableMap.of("c", new AggregationValuePointer(
                                         count,
                                         new AggregatedSetDescriptor(ImmutableSet.of(), true),
@@ -733,7 +733,7 @@ public class TestMergePatternRecognitionNodes
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(
                                         new IrLabel("X"),
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new LongLiteral("5")),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new LongLiteral(5)),
                                         ImmutableMap.of("c", new AggregationValuePointer(
                                                 count,
                                                 new AggregatedSetDescriptor(ImmutableSet.of(), true),
@@ -746,7 +746,7 @@ public class TestMergePatternRecognitionNodes
                                         .pattern(new IrLabel("X"))
                                         .addVariableDefinition(
                                                 new IrLabel("X"),
-                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new LongLiteral("5")),
+                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new LongLiteral(5)),
                                                 ImmutableMap.of("c", new AggregationValuePointer(
                                                         count,
                                                         new AggregatedSetDescriptor(ImmutableSet.of(), true),

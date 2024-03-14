@@ -86,8 +86,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                         TRUE_LITERAL,
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new LongLiteral("1")),
-                                        p.symbol("expr_count"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count"), new LongLiteral("1"))),
+                                        p.symbol("expr_sum"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new LongLiteral(1)),
+                                        p.symbol("expr_count"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count"), new LongLiteral(1))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
@@ -98,8 +98,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of(
                                         "corr", expression(new SymbolReference("corr")),
-                                        "expr_sum", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("sum_agg"), new LongLiteral("1"))),
-                                        "expr_count", expression(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count_agg"), new LongLiteral("1")))),
+                                        "expr_sum", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("sum_agg"), new LongLiteral(1))),
+                                        "expr_count", expression(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count_agg"), new LongLiteral(1)))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "a"),
                                         ImmutableMap.of(Optional.of("sum_agg"), aggregationFunction("sum", ImmutableList.of("a")), Optional.of("count_agg"), aggregationFunction("count", ImmutableList.of())),
@@ -128,8 +128,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                         TRUE_LITERAL,
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new LongLiteral("1")),
-                                        p.symbol("expr_count"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count"), new LongLiteral("1"))),
+                                        p.symbol("expr_sum"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new LongLiteral(1)),
+                                        p.symbol("expr_count"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count"), new LongLiteral(1))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
@@ -142,8 +142,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of(
                                 "corr", expression(new SymbolReference("corr")),
-                                        "expr_sum", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("sum_agg"), new LongLiteral("1"))),
-                                        "expr_count", expression(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count_agg"), new LongLiteral("1")))),
+                                        "expr_sum", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("sum_agg"), new LongLiteral(1))),
+                                        "expr_count", expression(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count_agg"), new LongLiteral(1)))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "a"),
                                         ImmutableMap.of(Optional.of("sum_agg"), aggregationFunction("sum", ImmutableList.of("a")), Optional.of("count_agg"), aggregationFunction("count", ImmutableList.of())),
@@ -179,8 +179,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                         TRUE_LITERAL,
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new LongLiteral("1")),
-                                        p.symbol("expr_count"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count"), new LongLiteral("1"))),
+                                        p.symbol("expr_sum"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new LongLiteral(1)),
+                                        p.symbol("expr_count"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count"), new LongLiteral(1))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
@@ -193,8 +193,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of(
                                         "corr", expression(new SymbolReference("corr")),
-                                        "expr_sum", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("sum_agg"), new LongLiteral("1"))),
-                                        "expr_count", expression(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count_agg"), new LongLiteral("1")))),
+                                        "expr_sum", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("sum_agg"), new LongLiteral(1))),
+                                        "expr_count", expression(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count_agg"), new LongLiteral(1)))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "a"),
                                         ImmutableMap.of(Optional.of("sum_agg"), aggregationFunction("sum", ImmutableList.of("a")), Optional.of("count_agg"), aggregationFunction("count", ImmutableList.of())),

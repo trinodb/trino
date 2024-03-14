@@ -149,7 +149,7 @@ public class TestTableScanRedirectionWithPushdown
                     output(
                             ImmutableList.of("DEST_COL"),
                             filter(
-                                    new ComparisonExpression(GREATER_THAN, new SymbolReference("DEST_COL"), new LongLiteral("0")),
+                                    new ComparisonExpression(GREATER_THAN, new SymbolReference("DEST_COL"), new LongLiteral(0)),
                                     tableScan(
                                             new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                             TupleDomain.all(),
@@ -206,7 +206,7 @@ public class TestTableScanRedirectionWithPushdown
                             ImmutableList.of("DEST_COL_A", "DEST_COL_B"),
                             filter(
 
-                                    new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL_A"), new LongLiteral("1")),
+                                    new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL_A"), new LongLiteral(1)),
                                     tableScan(
                                             new MockConnectorTableHandle(
                                                     DESTINATION_TABLE,

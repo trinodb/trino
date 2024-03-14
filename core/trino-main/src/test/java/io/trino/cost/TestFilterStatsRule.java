@@ -56,7 +56,7 @@ public class TestFilterStatsRule
     public void testEstimatableFilter()
     {
         tester().assertStatsFor(pb -> pb
-                .filter(new ComparisonExpression(EQUAL, new SymbolReference("i1"), new LongLiteral("5")),
+                .filter(new ComparisonExpression(EQUAL, new SymbolReference("i1"), new LongLiteral(5)),
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
@@ -101,7 +101,7 @@ public class TestFilterStatsRule
                                 .nullsFraction(0.05)));
 
         defaultFilterTester.assertStatsFor(pb -> pb
-                .filter(new ComparisonExpression(EQUAL, new SymbolReference("i1"), new LongLiteral("5")),
+                .filter(new ComparisonExpression(EQUAL, new SymbolReference("i1"), new LongLiteral(5)),
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)

@@ -152,7 +152,7 @@ public class TestConnectorExpressionTranslator
         assertTranslationRoundTrips(
                 new SubscriptExpression(
                         new SymbolReference("row_symbol_1"),
-                        new LongLiteral("1")),
+                        new LongLiteral(1)),
                 new FieldDereference(
                         INTEGER,
                         new Variable("row_symbol_1", ROW_TYPE),

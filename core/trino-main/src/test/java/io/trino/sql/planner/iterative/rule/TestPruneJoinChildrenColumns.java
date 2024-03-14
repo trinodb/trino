@@ -49,7 +49,7 @@ public class TestPruneJoinChildrenColumns
                 .matches(
                         join(INNER, builder -> builder
                                 .equiCriteria("leftKey", "rightKey")
-                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference("leftValue"), new LongLiteral("5")))
+                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference("leftValue"), new LongLiteral(5)))
                                 .left(values("leftKey", "leftKeyHash", "leftValue"))
                                 .right(
                                         strictProject(
@@ -115,7 +115,7 @@ public class TestPruneJoinChildrenColumns
                 rightOutputs.stream()
                         .filter(joinOutputFilter)
                         .collect(toImmutableList()),
-                Optional.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("leftValue"), new LongLiteral("5"))),
+                Optional.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("leftValue"), new LongLiteral(5))),
                 Optional.of(leftKeyHash),
                 Optional.of(rightKeyHash));
     }

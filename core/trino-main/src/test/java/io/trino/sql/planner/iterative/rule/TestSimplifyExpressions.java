@@ -337,22 +337,22 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(new LongLiteral("12300000000"), createVarcharType(11)),
+                new Cast(new LongLiteral(12300000000L), createVarcharType(11)),
                 new StringLiteral("12300000000"));
         assertSimplifies(
-                new Cast(new LongLiteral("-12300000000"), createVarcharType(50)),
+                new Cast(new LongLiteral(-12300000000L), createVarcharType(50)),
                 new Cast(new StringLiteral("-12300000000"), createVarcharType(50)));
 
         // cast from bigint to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(new LongLiteral("12300000000"), createVarcharType(3)),
-                new Cast(new LongLiteral("12300000000"), createVarcharType(3)));
+                new Cast(new LongLiteral(12300000000L), createVarcharType(3)),
+                new Cast(new LongLiteral(12300000000L), createVarcharType(3)));
         assertSimplifies(
-                new Cast(new LongLiteral("-12300000000"), createVarcharType(3)),
-                new Cast(new LongLiteral("-12300000000"), createVarcharType(3)));
+                new Cast(new LongLiteral(-12300000000L), createVarcharType(3)),
+                new Cast(new LongLiteral(-12300000000L), createVarcharType(3)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(new LongLiteral("12300000000"), createVarcharType(3)), new StringLiteral("12300000000")),
-                new ComparisonExpression(EQUAL, new Cast(new LongLiteral("12300000000"), createVarcharType(3)), new StringLiteral("12300000000")));
+                new ComparisonExpression(EQUAL, new Cast(new LongLiteral(12300000000L), createVarcharType(3)), new StringLiteral("12300000000")),
+                new ComparisonExpression(EQUAL, new Cast(new LongLiteral(12300000000L), createVarcharType(3)), new StringLiteral("12300000000")));
     }
 
     @Test
@@ -360,22 +360,22 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(new LongLiteral("1234"), createVarcharType(4)),
+                new Cast(new LongLiteral(1234), createVarcharType(4)),
                 new StringLiteral("1234"));
         assertSimplifies(
-                new Cast(new LongLiteral("-1234"), createVarcharType(50)),
+                new Cast(new LongLiteral(-1234), createVarcharType(50)),
                 new Cast(new StringLiteral("-1234"), createVarcharType(50)));
 
         // cast from integer to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(new LongLiteral("1234"), createVarcharType(3)),
-                new Cast(new LongLiteral("1234"), createVarcharType(3)));
+                new Cast(new LongLiteral(1234), createVarcharType(3)),
+                new Cast(new LongLiteral(1234), createVarcharType(3)));
         assertSimplifies(
-                new Cast(new LongLiteral("-1234"), createVarcharType(3)),
-                new Cast(new LongLiteral("-1234"), createVarcharType(3)));
+                new Cast(new LongLiteral(-1234), createVarcharType(3)),
+                new Cast(new LongLiteral(-1234), createVarcharType(3)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(new LongLiteral("1234"), createVarcharType(3)), new StringLiteral("1234")),
-                new ComparisonExpression(EQUAL, new Cast(new LongLiteral("1234"), createVarcharType(3)), new StringLiteral("1234")));
+                new ComparisonExpression(EQUAL, new Cast(new LongLiteral(1234), createVarcharType(3)), new StringLiteral("1234")),
+                new ComparisonExpression(EQUAL, new Cast(new LongLiteral(1234), createVarcharType(3)), new StringLiteral("1234")));
     }
 
     @Test
@@ -689,17 +689,17 @@ public class TestSimplifyExpressions
 
         // Symbol of type having NaN on either side of comparison
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new LongLiteral("1"))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new LongLiteral("1"))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new LongLiteral(1))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new LongLiteral(1))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new LongLiteral("1"), new SymbolReference("D2"))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new LongLiteral("1"), new SymbolReference("D2"))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new LongLiteral(1), new SymbolReference("D2"))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new LongLiteral(1), new SymbolReference("D2"))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new LongLiteral("1"))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new LongLiteral("1"))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new LongLiteral(1))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new LongLiteral(1))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new LongLiteral("1"), new SymbolReference("R2"))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new LongLiteral("1"), new SymbolReference("R2"))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new LongLiteral(1), new SymbolReference("R2"))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new LongLiteral(1), new SymbolReference("R2"))));
     }
 
     private static void assertSimplifiesNumericTypes(Expression expression, Expression expected)

@@ -564,7 +564,7 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(LongLiteral expression)
     {
-        return new io.trino.sql.ir.LongLiteral(expression.getValue());
+        return new io.trino.sql.ir.LongLiteral(expression.getParsedValue());
     }
 
     private io.trino.sql.ir.Expression translate(FieldReference expression)
@@ -628,7 +628,7 @@ public class TranslationMap
 
         return new io.trino.sql.ir.SubscriptExpression(
                 translateExpression(expression.getBase()),
-                new io.trino.sql.ir.LongLiteral(Long.toString(index + 1)));
+                new io.trino.sql.ir.LongLiteral(index + 1));
     }
 
     private io.trino.sql.ir.Expression translate(Array expression)
@@ -917,7 +917,7 @@ public class TranslationMap
             // Do not rewrite subscript index into symbol. Row subscript index is required to be a literal.
             io.trino.sql.ir.Expression rewrittenBase = translateExpression(node.getBase());
             LongLiteral index = (LongLiteral) node.getIndex();
-            return new io.trino.sql.ir.SubscriptExpression(rewrittenBase, new io.trino.sql.ir.LongLiteral(index.getValue()));
+            return new io.trino.sql.ir.SubscriptExpression(rewrittenBase, new io.trino.sql.ir.LongLiteral(index.getParsedValue()));
         }
 
         return new io.trino.sql.ir.SubscriptExpression(

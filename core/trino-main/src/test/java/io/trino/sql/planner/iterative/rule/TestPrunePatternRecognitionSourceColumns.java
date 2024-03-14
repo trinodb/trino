@@ -125,7 +125,7 @@ public class TestPrunePatternRecognitionSourceColumns
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("pointer"), new LongLiteral("0")),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("pointer"), new LongLiteral(0)),
                                 ImmutableMap.of("pointer", new ScalarValuePointer(
                                         new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
                                         new Symbol("a"))))

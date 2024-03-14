@@ -165,7 +165,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
             Symbol c = pb.symbol("c", BIGINT);
             Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
             return pb.filter(
-                    new LogicalExpression(AND, ImmutableList.of(new SymbolReference("sjo"), new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral("8")))),
+                    new LogicalExpression(AND, ImmutableList.of(new SymbolReference("sjo"), new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(8)))),
                     pb.semiJoin(
                             pb.values(LEFT_SOURCE_ID, a, b),
                             pb.values(RIGHT_SOURCE_ID, c),
