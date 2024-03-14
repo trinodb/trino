@@ -39,6 +39,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.jmh.Benchmarks.benchmark;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -63,7 +64,7 @@ public class BenchmarkExpressionInterpreter
         public void setup()
         {
             expressions = ImmutableList.of(
-                    new InPredicate(new SymbolReference("bound_value"), IntStream.range(0, inValuesCount).mapToObj(i -> new GenericLiteral("integer", Integer.toString(i)))
+                    new InPredicate(new SymbolReference("bound_value"), IntStream.range(0, inValuesCount).mapToObj(i -> new GenericLiteral(INTEGER, Integer.toString(i)))
                             .collect(Collectors.toList())));
         }
     }

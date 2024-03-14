@@ -16,6 +16,7 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;
@@ -25,11 +26,11 @@ import static java.util.Objects.requireNonNull;
 public final class GenericLiteral
         extends Literal
 {
-    private final String type;
+    private final Type type;
     private final String value;
 
     @JsonCreator
-    public GenericLiteral(String type, String value)
+    public GenericLiteral(Type type, String value)
     {
         requireNonNull(type, "type is null");
         requireNonNull(value, "value is null");
@@ -38,7 +39,7 @@ public final class GenericLiteral
     }
 
     @JsonProperty
-    public String getType()
+    public Type getType()
     {
         return type;
     }

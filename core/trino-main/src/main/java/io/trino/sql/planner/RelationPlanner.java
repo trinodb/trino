@@ -36,6 +36,7 @@ import io.trino.operator.table.json.JsonTableValueColumn;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.function.table.TableArgument;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -172,7 +173,6 @@ import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.LAST;
@@ -194,6 +194,8 @@ import static io.trino.sql.tree.Join.Type.FULL;
 import static io.trino.sql.tree.Join.Type.IMPLICIT;
 import static io.trino.sql.tree.Join.Type.INNER;
 import static io.trino.sql.tree.Join.Type.LEFT;
+import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
+import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.NULL;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
 import static io.trino.sql.tree.JsonTablePlan.ParentChildPlanType.OUTER;
@@ -1494,9 +1496,7 @@ class RelationPlanner
             Symbol properOutput = properOutputs.get(i);
             if (orderedColumns.get(i).getNode() instanceof QueryColumn queryColumn) {
                 // apply output function
-                GenericLiteral errorBehavior = new GenericLiteral(
-                        TINYINT,
-                        String.valueOf(queryColumn.getErrorBehavior().orElse(defaultErrorOnError ? JsonQuery.EmptyOrErrorBehavior.ERROR : JsonQuery.EmptyOrErrorBehavior.NULL).ordinal()));
+                GenericLiteral errorBehavior = new GenericLiteral(TinyintType.TINYINT, String.valueOf(queryColumn.getErrorBehavior().orElse(defaultErrorOnError ? ERROR : NULL).ordinal()));
                 BooleanLiteral omitQuotes = new BooleanLiteral(queryColumn.getQuotesBehavior().orElse(KEEP) == OMIT);
                 ResolvedFunction outputFunction = analysis.getJsonOutputFunction(queryColumn);
                 Expression result = new FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(properOutput.toSymbolReference(), errorBehavior, omitQuotes));

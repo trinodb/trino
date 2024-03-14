@@ -227,7 +227,7 @@ public class TestDynamicFiltersChecker
                 builder.join(
                         INNER,
                         builder.filter(
-                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, new ArithmeticBinaryExpression(ADD, new SymbolReference("LINEITEM_OK"), new GenericLiteral("BIGINT", "1"))),
+                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, new ArithmeticBinaryExpression(ADD, new SymbolReference("LINEITEM_OK"), new GenericLiteral(BIGINT, "1"))),
                                 lineitemTableScanNode),
                         ordersTableScanNode,
                         ImmutableList.of(new JoinNode.EquiJoinClause(lineitemOrderKeySymbol, ordersOrderKeySymbol)),
@@ -239,7 +239,7 @@ public class TestDynamicFiltersChecker
                         ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(VerifyException.class)
-                .hasMessageMatching("Dynamic filter expression \\+\\(LINEITEM_OK, Literal\\[BIGINT, 1]\\) must be a SymbolReference or a CAST of SymbolReference.");
+                .hasMessageMatching("Dynamic filter expression \\+\\(LINEITEM_OK, Literal\\[bigint, 1]\\) must be a SymbolReference or a CAST of SymbolReference.");
     }
 
     @Test

@@ -25,6 +25,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.Set;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.plan.Patterns.emptyValues;
 import static io.trino.sql.planner.plan.Patterns.exchange;
 import static io.trino.sql.planner.plan.Patterns.mergeWriter;
@@ -106,7 +107,7 @@ public final class RemoveEmptyMergeWriterRuleSet
                     new ValuesNode(
                             node.getId(),
                             node.getOutputSymbols(),
-                            ImmutableList.of(new Row(ImmutableList.of(new GenericLiteral("BIGINT", "0"))))));
+                            ImmutableList.of(new Row(ImmutableList.of(new GenericLiteral(BIGINT, "0"))))));
         }
     }
 }

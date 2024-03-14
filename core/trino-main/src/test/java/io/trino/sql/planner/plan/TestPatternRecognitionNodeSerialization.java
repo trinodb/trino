@@ -149,7 +149,7 @@ public class TestPatternRecognitionNodeSerialization
                 new ExpressionAndValuePointers(
                         new IfExpression(
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("match_number"), new SymbolReference("x")),
-                                new GenericLiteral("BIGINT", "10"),
+                                new GenericLiteral(BIGINT, "10"),
                                 new ArithmeticUnaryExpression(MINUS, new SymbolReference("y"))),
                         ImmutableList.of(
                                 new ExpressionAndValuePointers.Assignment(

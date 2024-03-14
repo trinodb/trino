@@ -119,7 +119,7 @@ public class CounterBasedAnonymizer
             return anonymizeLiteral("string", literal.getValue());
         }
         if (node instanceof GenericLiteral literal) {
-            return anonymizeLiteral(literal.getType(), literal.getValue());
+            return anonymizeLiteral(literal.getType().getDisplayName(), literal.getValue());
         }
         if (node instanceof BinaryLiteral literal) {
             return anonymizeLiteral("binary", new String(literal.getValue(), UTF_8));

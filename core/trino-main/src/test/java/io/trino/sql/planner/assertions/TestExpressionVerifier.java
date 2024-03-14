@@ -68,8 +68,8 @@ public class TestExpressionVerifier
                 .build();
 
         ExpressionVerifier verifier = new ExpressionVerifier(aliases);
-        assertThat(verifier.process(new GenericLiteral("VARCHAR", "2"), new GenericLiteral("VARCHAR", "2"))).isTrue();
-        assertThat(verifier.process(new GenericLiteral("VARCHAR", "2"), new Cast(new StringLiteral("2"), BIGINT))).isFalse();
+        assertThat(verifier.process(new GenericLiteral(VARCHAR, "2"), new GenericLiteral(VARCHAR, "2"))).isTrue();
+        assertThat(verifier.process(new GenericLiteral(VARCHAR, "2"), new Cast(new StringLiteral("2"), BIGINT))).isFalse();
         assertThat(verifier.process(new Cast(new SymbolReference("orderkey"), VARCHAR), new Cast(new SymbolReference("X"), VARCHAR))).isTrue();
     }
 

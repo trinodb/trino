@@ -263,7 +263,7 @@ public class TestTableScanRedirectionWithPushdown
                             ImmutableList.of("DEST_COL_B"),
                             project(ImmutableMap.of("DEST_COL_B", expression(new SymbolReference("DEST_COL_B"))),
                                     filter(
-                                            new ComparisonExpression(EQUAL, new Cast(new SymbolReference("DEST_COL_A"), VARCHAR), new GenericLiteral("VARCHAR", "foo")),
+                                            new ComparisonExpression(EQUAL, new Cast(new SymbolReference("DEST_COL_A"), VARCHAR), new GenericLiteral(VARCHAR, "foo")),
                                             tableScan(
                                                     new MockConnectorTableHandle(
                                                             DESTINATION_TABLE,

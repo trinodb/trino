@@ -172,7 +172,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 format("SELECT col0.x FROM %s WHERE col0.x = col1 + 3 and col0.y = 2", testTable),
                 anyTree(
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("col0_y"), new GenericLiteral("BIGINT", "2")), new ComparisonExpression(EQUAL, new SymbolReference("col0_x"), new Cast(new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), new LongLiteral(3)), BIGINT)))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("col0_y"), new GenericLiteral(BIGINT, "2")), new ComparisonExpression(EQUAL, new SymbolReference("col0_x"), new Cast(new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), new LongLiteral(3)), BIGINT)))),
                                 tableScan(
                                         table -> {
                                             HiveTableHandle hiveTableHandle = (HiveTableHandle) table;
@@ -189,7 +189,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 format("SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5", testTable),
                 anyTree(
                         filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference("col0_x"), new GenericLiteral("BIGINT", "5")),
+                                new ComparisonExpression(EQUAL, new SymbolReference("col0_x"), new GenericLiteral(BIGINT, "5")),
                                 tableScan(
                                         table -> {
                                             HiveTableHandle hiveTableHandle = (HiveTableHandle) table;
@@ -215,7 +215,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                                         .left(
                                                 anyTree(
                                                         filter(
-                                                                new ComparisonExpression(EQUAL, new SymbolReference("expr_0_x"), new GenericLiteral("BIGINT", "2")),
+                                                                new ComparisonExpression(EQUAL, new SymbolReference("expr_0_x"), new GenericLiteral(BIGINT, "2")),
                                                                 tableScan(
                                                                         table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
                                                                                 .equals(ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L))),

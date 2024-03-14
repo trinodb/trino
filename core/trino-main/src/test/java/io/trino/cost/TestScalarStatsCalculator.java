@@ -40,6 +40,9 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
@@ -51,6 +54,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.Long.MAX_VALUE;
 
 public class TestScalarStatsCalculator
 {
@@ -61,25 +65,25 @@ public class TestScalarStatsCalculator
     @Test
     public void testLiteral()
     {
-        assertCalculate(new GenericLiteral("TINYINT", "7"))
+        assertCalculate(new GenericLiteral(TINYINT, "7"))
                 .distinctValuesCount(1.0)
                 .lowValue(7)
                 .highValue(7)
                 .nullsFraction(0.0);
 
-        assertCalculate(new GenericLiteral("SMALLINT", "8"))
+        assertCalculate(new GenericLiteral(SMALLINT, "8"))
                 .distinctValuesCount(1.0)
                 .lowValue(8)
                 .highValue(8)
                 .nullsFraction(0.0);
 
-        assertCalculate(new GenericLiteral("INTEGER", "9"))
+        assertCalculate(new GenericLiteral(INTEGER, "9"))
                 .distinctValuesCount(1.0)
                 .lowValue(9)
                 .highValue(9)
                 .nullsFraction(0.0);
 
-        assertCalculate(new GenericLiteral("BIGINT", Long.toString(Long.MAX_VALUE)))
+        assertCalculate(new GenericLiteral(BIGINT, Long.toString(MAX_VALUE)))
                 .distinctValuesCount(1.0)
                 .lowValue(Long.MAX_VALUE)
                 .highValue(Long.MAX_VALUE)

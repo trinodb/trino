@@ -95,7 +95,7 @@ public final class ExpressionVerifier
         }
 
         return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression)) &&
-                actual.getType().equalsIgnoreCase(((GenericLiteral) expectedExpression).getType());
+                actual.getType().equals(((GenericLiteral) expectedExpression).getType());
     }
 
     @Override

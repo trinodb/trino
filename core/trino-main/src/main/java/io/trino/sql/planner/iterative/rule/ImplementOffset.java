@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.RowNumberNode;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.planner.plan.Patterns.offset;
 
 /**
@@ -77,9 +78,9 @@ public class ImplementOffset
                 context.getIdAllocator().getNextId(),
                 rowNumberNode,
                 new ComparisonExpression(
-                        ComparisonExpression.Operator.GREATER_THAN,
+                        GREATER_THAN,
                         rowNumberSymbol.toSymbolReference(),
-                        new GenericLiteral("BIGINT", Long.toString(parent.getCount()))));
+                        new GenericLiteral(BIGINT, Long.toString(parent.getCount()))));
 
         ProjectNode projectNode = new ProjectNode(
                 context.getIdAllocator().getNextId(),

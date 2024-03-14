@@ -168,7 +168,7 @@ public class TestMongoProjectionPushdownPlans
                 "SELECT col0.x FROM " + tableName + " WHERE col0.x = col1 + 3 and col0.y = 2",
                 anyTree(
                         filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), new GenericLiteral("BIGINT", "3"))),
+                                new ComparisonExpression(EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), new GenericLiteral(BIGINT, "3"))),
                                 tableScan(
                                         table -> {
                                             MongoTableHandle actualTableHandle = (MongoTableHandle) table;

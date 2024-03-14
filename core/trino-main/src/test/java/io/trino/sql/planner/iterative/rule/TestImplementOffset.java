@@ -23,6 +23,7 @@ import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -51,7 +52,7 @@ public class TestImplementOffset
                         strictProject(
                                 ImmutableMap.of("a", expression(new SymbolReference("a")), "b", expression(new SymbolReference("b"))),
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), new GenericLiteral("BIGINT", "2")),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), new GenericLiteral(BIGINT, "2")),
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),
@@ -76,7 +77,7 @@ public class TestImplementOffset
                         strictProject(
                                 ImmutableMap.of("a", expression(new SymbolReference("a")), "b", expression(new SymbolReference("b"))),
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), new GenericLiteral("BIGINT", "2")),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), new GenericLiteral(BIGINT, "2")),
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),

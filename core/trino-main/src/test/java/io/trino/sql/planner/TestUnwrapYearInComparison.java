@@ -41,6 +41,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_PICOS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
@@ -66,204 +67,204 @@ public class TestUnwrapYearInComparison
     @Test
     public void testEquals()
     {
-        testUnwrap("date", "year(a) = -0001", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "-0001-01-01"), new GenericLiteral("DATE", "-0001-12-31")));
-        testUnwrap("date", "year(a) = 1960", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "1960-01-01"), new GenericLiteral("DATE", "1960-12-31")));
-        testUnwrap("date", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "2022-01-01"), new GenericLiteral("DATE", "2022-12-31")));
-        testUnwrap("date", "year(a) = 9999", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "9999-01-01"), new GenericLiteral("DATE", "9999-12-31")));
+        testUnwrap("date", "year(a) = -0001", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "-0001-01-01"), new GenericLiteral(DATE, "-0001-12-31")));
+        testUnwrap("date", "year(a) = 1960", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "1960-01-01"), new GenericLiteral(DATE, "1960-12-31")));
+        testUnwrap("date", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "2022-01-01"), new GenericLiteral(DATE, "2022-12-31")));
+        testUnwrap("date", "year(a) = 9999", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "9999-01-01"), new GenericLiteral(DATE, "9999-12-31")));
 
-        testUnwrap("timestamp", "year(a) = -0001", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "-0001-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "-0001-12-31 23:59:59.999")));
-        testUnwrap("timestamp", "year(a) = 1960", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "1960-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "1960-12-31 23:59:59.999")));
-        testUnwrap("timestamp", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999")));
-        testUnwrap("timestamp", "year(a) = 9999", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "9999-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "9999-12-31 23:59:59.999")));
+        testUnwrap("timestamp", "year(a) = -0001", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "-0001-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "-0001-12-31 23:59:59.999")));
+        testUnwrap("timestamp", "year(a) = 1960", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1960-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "1960-12-31 23:59:59.999")));
+        testUnwrap("timestamp", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2022-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "2022-12-31 23:59:59.999")));
+        testUnwrap("timestamp", "year(a) = 9999", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "9999-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "9999-12-31 23:59:59.999")));
 
-        testUnwrap("timestamp(0)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59")));
-        testUnwrap("timestamp(1)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9")));
-        testUnwrap("timestamp(2)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99")));
-        testUnwrap("timestamp(3)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999")));
-        testUnwrap("timestamp(4)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999")));
-        testUnwrap("timestamp(5)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999")));
-        testUnwrap("timestamp(6)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999")));
-        testUnwrap("timestamp(7)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999999")));
-        testUnwrap("timestamp(8)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999999")));
-        testUnwrap("timestamp(9)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999999")));
-        testUnwrap("timestamp(10)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999999999")));
-        testUnwrap("timestamp(11)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999999999")));
-        testUnwrap("timestamp(12)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999999999")));
+        testUnwrap("timestamp(0)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(0), "2022-01-01 00:00:00"), new GenericLiteral(createTimestampType(0), "2022-12-31 23:59:59")));
+        testUnwrap("timestamp(1)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(1), "2022-01-01 00:00:00.0"), new GenericLiteral(createTimestampType(1), "2022-12-31 23:59:59.9")));
+        testUnwrap("timestamp(2)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(2), "2022-01-01 00:00:00.00"), new GenericLiteral(createTimestampType(2), "2022-12-31 23:59:59.99")));
+        testUnwrap("timestamp(3)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2022-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "2022-12-31 23:59:59.999")));
+        testUnwrap("timestamp(4)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(4), "2022-01-01 00:00:00.0000"), new GenericLiteral(createTimestampType(4), "2022-12-31 23:59:59.9999")));
+        testUnwrap("timestamp(5)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(5), "2022-01-01 00:00:00.00000"), new GenericLiteral(createTimestampType(5), "2022-12-31 23:59:59.99999")));
+        testUnwrap("timestamp(6)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(6), "2022-01-01 00:00:00.000000"), new GenericLiteral(createTimestampType(6), "2022-12-31 23:59:59.999999")));
+        testUnwrap("timestamp(7)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(7), "2022-01-01 00:00:00.0000000"), new GenericLiteral(createTimestampType(7), "2022-12-31 23:59:59.9999999")));
+        testUnwrap("timestamp(8)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(8), "2022-01-01 00:00:00.00000000"), new GenericLiteral(createTimestampType(8), "2022-12-31 23:59:59.99999999")));
+        testUnwrap("timestamp(9)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(9), "2022-01-01 00:00:00.000000000"), new GenericLiteral(createTimestampType(9), "2022-12-31 23:59:59.999999999")));
+        testUnwrap("timestamp(10)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(10), "2022-01-01 00:00:00.0000000000"), new GenericLiteral(createTimestampType(10), "2022-12-31 23:59:59.9999999999")));
+        testUnwrap("timestamp(11)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(11), "2022-01-01 00:00:00.00000000000"), new GenericLiteral(createTimestampType(11), "2022-12-31 23:59:59.99999999999")));
+        testUnwrap("timestamp(12)", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(12), "2022-01-01 00:00:00.000000000000"), new GenericLiteral(createTimestampType(12), "2022-12-31 23:59:59.999999999999")));
     }
 
     @Test
     public void testInPredicate()
     {
-        testUnwrap("date", "year(a) IN (1000, 1400, 1800)", new LogicalExpression(OR, ImmutableList.of(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "1000-01-01"), new GenericLiteral("DATE", "1000-12-31")), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "1400-01-01"), new GenericLiteral("DATE", "1400-12-31")), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "1800-01-01"), new GenericLiteral("DATE", "1800-12-31")))));
-        testUnwrap("timestamp", "year(a) IN (1000, 1400, 1800)", new LogicalExpression(OR, ImmutableList.of(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "1000-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "1000-12-31 23:59:59.999")), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "1400-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "1400-12-31 23:59:59.999")), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "1800-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "1800-12-31 23:59:59.999")))));
+        testUnwrap("date", "year(a) IN (1000, 1400, 1800)", new LogicalExpression(OR, ImmutableList.of(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "1000-01-01"), new GenericLiteral(DATE, "1000-12-31")), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "1400-01-01"), new GenericLiteral(DATE, "1400-12-31")), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "1800-01-01"), new GenericLiteral(DATE, "1800-12-31")))));
+        testUnwrap("timestamp", "year(a) IN (1000, 1400, 1800)", new LogicalExpression(OR, ImmutableList.of(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1000-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "1000-12-31 23:59:59.999")), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1400-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "1400-12-31 23:59:59.999")), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1800-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "1800-12-31 23:59:59.999")))));
     }
 
     @Test
     public void testNotEquals()
     {
-        testUnwrap("date", "year(a) <> -0001", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "-0001-01-01"), new GenericLiteral("DATE", "-0001-12-31"))));
-        testUnwrap("date", "year(a) <> 1960", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "1960-01-01"), new GenericLiteral("DATE", "1960-12-31"))));
-        testUnwrap("date", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "2022-01-01"), new GenericLiteral("DATE", "2022-12-31"))));
-        testUnwrap("date", "year(a) <> 9999", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "9999-01-01"), new GenericLiteral("DATE", "9999-12-31"))));
+        testUnwrap("date", "year(a) <> -0001", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "-0001-01-01"), new GenericLiteral(DATE, "-0001-12-31"))));
+        testUnwrap("date", "year(a) <> 1960", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "1960-01-01"), new GenericLiteral(DATE, "1960-12-31"))));
+        testUnwrap("date", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "2022-01-01"), new GenericLiteral(DATE, "2022-12-31"))));
+        testUnwrap("date", "year(a) <> 9999", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "9999-01-01"), new GenericLiteral(DATE, "9999-12-31"))));
 
-        testUnwrap("timestamp", "year(a) <> -0001", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "-0001-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "-0001-12-31 23:59:59.999"))));
-        testUnwrap("timestamp", "year(a) <> 1960", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "1960-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "1960-12-31 23:59:59.999"))));
-        testUnwrap("timestamp", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999"))));
-        testUnwrap("timestamp", "year(a) <> 9999", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "9999-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "9999-12-31 23:59:59.999"))));
+        testUnwrap("timestamp", "year(a) <> -0001", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "-0001-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "-0001-12-31 23:59:59.999"))));
+        testUnwrap("timestamp", "year(a) <> 1960", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1960-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "1960-12-31 23:59:59.999"))));
+        testUnwrap("timestamp", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2022-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "2022-12-31 23:59:59.999"))));
+        testUnwrap("timestamp", "year(a) <> 9999", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "9999-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "9999-12-31 23:59:59.999"))));
 
-        testUnwrap("timestamp(0)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59"))));
-        testUnwrap("timestamp(1)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9"))));
-        testUnwrap("timestamp(2)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99"))));
-        testUnwrap("timestamp(3)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999"))));
-        testUnwrap("timestamp(4)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999"))));
-        testUnwrap("timestamp(5)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999"))));
-        testUnwrap("timestamp(6)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999"))));
-        testUnwrap("timestamp(7)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999999"))));
-        testUnwrap("timestamp(8)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999999"))));
-        testUnwrap("timestamp(9)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999999"))));
-        testUnwrap("timestamp(10)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999999999"))));
-        testUnwrap("timestamp(11)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999999999"))));
-        testUnwrap("timestamp(12)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999999999"))));
+        testUnwrap("timestamp(0)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(0), "2022-01-01 00:00:00"), new GenericLiteral(createTimestampType(0), "2022-12-31 23:59:59"))));
+        testUnwrap("timestamp(1)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(1), "2022-01-01 00:00:00.0"), new GenericLiteral(createTimestampType(1), "2022-12-31 23:59:59.9"))));
+        testUnwrap("timestamp(2)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(2), "2022-01-01 00:00:00.00"), new GenericLiteral(createTimestampType(2), "2022-12-31 23:59:59.99"))));
+        testUnwrap("timestamp(3)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2022-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "2022-12-31 23:59:59.999"))));
+        testUnwrap("timestamp(4)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(4), "2022-01-01 00:00:00.0000"), new GenericLiteral(createTimestampType(4), "2022-12-31 23:59:59.9999"))));
+        testUnwrap("timestamp(5)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(5), "2022-01-01 00:00:00.00000"), new GenericLiteral(createTimestampType(5), "2022-12-31 23:59:59.99999"))));
+        testUnwrap("timestamp(6)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(6), "2022-01-01 00:00:00.000000"), new GenericLiteral(createTimestampType(6), "2022-12-31 23:59:59.999999"))));
+        testUnwrap("timestamp(7)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(7), "2022-01-01 00:00:00.0000000"), new GenericLiteral(createTimestampType(7), "2022-12-31 23:59:59.9999999"))));
+        testUnwrap("timestamp(8)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(8), "2022-01-01 00:00:00.00000000"), new GenericLiteral(createTimestampType(8), "2022-12-31 23:59:59.99999999"))));
+        testUnwrap("timestamp(9)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(9), "2022-01-01 00:00:00.000000000"), new GenericLiteral(createTimestampType(9), "2022-12-31 23:59:59.999999999"))));
+        testUnwrap("timestamp(10)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(10), "2022-01-01 00:00:00.0000000000"), new GenericLiteral(createTimestampType(10), "2022-12-31 23:59:59.9999999999"))));
+        testUnwrap("timestamp(11)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(11), "2022-01-01 00:00:00.00000000000"), new GenericLiteral(createTimestampType(11), "2022-12-31 23:59:59.99999999999"))));
+        testUnwrap("timestamp(12)", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(12), "2022-01-01 00:00:00.000000000000"), new GenericLiteral(createTimestampType(12), "2022-12-31 23:59:59.999999999999"))));
     }
 
     @Test
     public void testLessThan()
     {
-        testUnwrap("date", "year(a) < -0001", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("DATE", "-0001-01-01")));
-        testUnwrap("date", "year(a) < 1960", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("DATE", "1960-01-01")));
-        testUnwrap("date", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("DATE", "2022-01-01")));
-        testUnwrap("date", "year(a) < 9999", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("DATE", "9999-01-01")));
+        testUnwrap("date", "year(a) < -0001", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "-0001-01-01")));
+        testUnwrap("date", "year(a) < 1960", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "1960-01-01")));
+        testUnwrap("date", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "2022-01-01")));
+        testUnwrap("date", "year(a) < 9999", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "9999-01-01")));
 
-        testUnwrap("timestamp", "year(a) < -0001", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "-0001-01-01 00:00:00.000")));
-        testUnwrap("timestamp", "year(a) < 1960", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "1960-01-01 00:00:00.000")));
-        testUnwrap("timestamp", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000")));
-        testUnwrap("timestamp", "year(a) < 9999", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "9999-01-01 00:00:00.000")));
+        testUnwrap("timestamp", "year(a) < -0001", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "-0001-01-01 00:00:00.000")));
+        testUnwrap("timestamp", "year(a) < 1960", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1960-01-01 00:00:00.000")));
+        testUnwrap("timestamp", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2022-01-01 00:00:00.000")));
+        testUnwrap("timestamp", "year(a) < 9999", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "9999-01-01 00:00:00.000")));
 
-        testUnwrap("timestamp(0)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00")));
-        testUnwrap("timestamp(1)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0")));
-        testUnwrap("timestamp(2)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00")));
-        testUnwrap("timestamp(3)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000")));
-        testUnwrap("timestamp(4)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000")));
-        testUnwrap("timestamp(5)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000")));
-        testUnwrap("timestamp(6)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000")));
-        testUnwrap("timestamp(7)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000000")));
-        testUnwrap("timestamp(8)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000000")));
-        testUnwrap("timestamp(9)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000000")));
-        testUnwrap("timestamp(10)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000000000")));
-        testUnwrap("timestamp(11)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000000000")));
-        testUnwrap("timestamp(12)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000000000")));
+        testUnwrap("timestamp(0)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(0), "2022-01-01 00:00:00")));
+        testUnwrap("timestamp(1)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(1), "2022-01-01 00:00:00.0")));
+        testUnwrap("timestamp(2)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(2), "2022-01-01 00:00:00.00")));
+        testUnwrap("timestamp(3)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2022-01-01 00:00:00.000")));
+        testUnwrap("timestamp(4)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(4), "2022-01-01 00:00:00.0000")));
+        testUnwrap("timestamp(5)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(5), "2022-01-01 00:00:00.00000")));
+        testUnwrap("timestamp(6)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(6), "2022-01-01 00:00:00.000000")));
+        testUnwrap("timestamp(7)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(7), "2022-01-01 00:00:00.0000000")));
+        testUnwrap("timestamp(8)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(8), "2022-01-01 00:00:00.00000000")));
+        testUnwrap("timestamp(9)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(9), "2022-01-01 00:00:00.000000000")));
+        testUnwrap("timestamp(10)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(10), "2022-01-01 00:00:00.0000000000")));
+        testUnwrap("timestamp(11)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(11), "2022-01-01 00:00:00.00000000000")));
+        testUnwrap("timestamp(12)", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(12), "2022-01-01 00:00:00.000000000000")));
     }
 
     @Test
     public void testLessThanOrEqual()
     {
-        testUnwrap("date", "year(a) <= -0001", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("DATE", "-0001-12-31")));
-        testUnwrap("date", "year(a) <= 1960", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("DATE", "1960-12-31")));
-        testUnwrap("date", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("DATE", "2022-12-31")));
-        testUnwrap("date", "year(a) <= 9999", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("DATE", "9999-12-31")));
+        testUnwrap("date", "year(a) <= -0001", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "-0001-12-31")));
+        testUnwrap("date", "year(a) <= 1960", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "1960-12-31")));
+        testUnwrap("date", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "2022-12-31")));
+        testUnwrap("date", "year(a) <= 9999", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "9999-12-31")));
 
-        testUnwrap("timestamp", "year(a) <= -0001", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "-0001-12-31 23:59:59.999")));
-        testUnwrap("timestamp", "year(a) <= 1960", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "1960-12-31 23:59:59.999")));
-        testUnwrap("timestamp", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999")));
-        testUnwrap("timestamp", "year(a) <= 9999", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "9999-12-31 23:59:59.999")));
+        testUnwrap("timestamp", "year(a) <= -0001", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "-0001-12-31 23:59:59.999")));
+        testUnwrap("timestamp", "year(a) <= 1960", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1960-12-31 23:59:59.999")));
+        testUnwrap("timestamp", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2022-12-31 23:59:59.999")));
+        testUnwrap("timestamp", "year(a) <= 9999", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "9999-12-31 23:59:59.999")));
 
-        testUnwrap("timestamp(0)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59")));
-        testUnwrap("timestamp(1)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9")));
-        testUnwrap("timestamp(2)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99")));
-        testUnwrap("timestamp(3)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999")));
-        testUnwrap("timestamp(4)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999")));
-        testUnwrap("timestamp(5)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999")));
-        testUnwrap("timestamp(6)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999")));
-        testUnwrap("timestamp(7)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999999")));
-        testUnwrap("timestamp(8)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999999")));
-        testUnwrap("timestamp(9)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999999")));
-        testUnwrap("timestamp(10)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999999999")));
-        testUnwrap("timestamp(11)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999999999")));
-        testUnwrap("timestamp(12)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999999999")));
+        testUnwrap("timestamp(0)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(0), "2022-12-31 23:59:59")));
+        testUnwrap("timestamp(1)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(1), "2022-12-31 23:59:59.9")));
+        testUnwrap("timestamp(2)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(2), "2022-12-31 23:59:59.99")));
+        testUnwrap("timestamp(3)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2022-12-31 23:59:59.999")));
+        testUnwrap("timestamp(4)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(4), "2022-12-31 23:59:59.9999")));
+        testUnwrap("timestamp(5)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(5), "2022-12-31 23:59:59.99999")));
+        testUnwrap("timestamp(6)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(6), "2022-12-31 23:59:59.999999")));
+        testUnwrap("timestamp(7)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(7), "2022-12-31 23:59:59.9999999")));
+        testUnwrap("timestamp(8)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(8), "2022-12-31 23:59:59.99999999")));
+        testUnwrap("timestamp(9)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(9), "2022-12-31 23:59:59.999999999")));
+        testUnwrap("timestamp(10)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(10), "2022-12-31 23:59:59.9999999999")));
+        testUnwrap("timestamp(11)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(11), "2022-12-31 23:59:59.99999999999")));
+        testUnwrap("timestamp(12)", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(12), "2022-12-31 23:59:59.999999999999")));
     }
 
     @Test
     public void testGreaterThan()
     {
-        testUnwrap("date", "year(a) > -0001", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("DATE", "-0001-12-31")));
-        testUnwrap("date", "year(a) > 1960", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("DATE", "1960-12-31")));
-        testUnwrap("date", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("DATE", "2022-12-31")));
-        testUnwrap("date", "year(a) > 9999", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("DATE", "9999-12-31")));
+        testUnwrap("date", "year(a) > -0001", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "-0001-12-31")));
+        testUnwrap("date", "year(a) > 1960", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "1960-12-31")));
+        testUnwrap("date", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "2022-12-31")));
+        testUnwrap("date", "year(a) > 9999", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "9999-12-31")));
 
-        testUnwrap("timestamp", "year(a) > -0001", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "-0001-12-31 23:59:59.999")));
-        testUnwrap("timestamp", "year(a) > 1960", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "1960-12-31 23:59:59.999")));
-        testUnwrap("timestamp", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999")));
-        testUnwrap("timestamp", "year(a) > 9999", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "9999-12-31 23:59:59.999")));
+        testUnwrap("timestamp", "year(a) > -0001", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "-0001-12-31 23:59:59.999")));
+        testUnwrap("timestamp", "year(a) > 1960", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1960-12-31 23:59:59.999")));
+        testUnwrap("timestamp", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2022-12-31 23:59:59.999")));
+        testUnwrap("timestamp", "year(a) > 9999", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "9999-12-31 23:59:59.999")));
 
-        testUnwrap("timestamp(0)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59")));
-        testUnwrap("timestamp(1)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9")));
-        testUnwrap("timestamp(2)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99")));
-        testUnwrap("timestamp(3)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999")));
-        testUnwrap("timestamp(4)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999")));
-        testUnwrap("timestamp(5)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999")));
-        testUnwrap("timestamp(6)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999")));
-        testUnwrap("timestamp(7)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999999")));
-        testUnwrap("timestamp(8)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999999")));
-        testUnwrap("timestamp(9)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999999")));
-        testUnwrap("timestamp(10)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999999999")));
-        testUnwrap("timestamp(11)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999999999")));
-        testUnwrap("timestamp(12)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999999999")));
+        testUnwrap("timestamp(0)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(0), "2022-12-31 23:59:59")));
+        testUnwrap("timestamp(1)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(1), "2022-12-31 23:59:59.9")));
+        testUnwrap("timestamp(2)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(2), "2022-12-31 23:59:59.99")));
+        testUnwrap("timestamp(3)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2022-12-31 23:59:59.999")));
+        testUnwrap("timestamp(4)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(4), "2022-12-31 23:59:59.9999")));
+        testUnwrap("timestamp(5)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(5), "2022-12-31 23:59:59.99999")));
+        testUnwrap("timestamp(6)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(6), "2022-12-31 23:59:59.999999")));
+        testUnwrap("timestamp(7)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(7), "2022-12-31 23:59:59.9999999")));
+        testUnwrap("timestamp(8)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(8), "2022-12-31 23:59:59.99999999")));
+        testUnwrap("timestamp(9)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(9), "2022-12-31 23:59:59.999999999")));
+        testUnwrap("timestamp(10)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(10), "2022-12-31 23:59:59.9999999999")));
+        testUnwrap("timestamp(11)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(11), "2022-12-31 23:59:59.99999999999")));
+        testUnwrap("timestamp(12)", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(12), "2022-12-31 23:59:59.999999999999")));
     }
 
     @Test
     public void testGreaterThanOrEqual()
     {
-        testUnwrap("date", "year(a) >= -0001", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("DATE", "-0001-01-01")));
-        testUnwrap("date", "year(a) >= 1960", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("DATE", "1960-01-01")));
-        testUnwrap("date", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("DATE", "2022-01-01")));
-        testUnwrap("date", "year(a) >= 9999", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("DATE", "9999-01-01")));
+        testUnwrap("date", "year(a) >= -0001", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "-0001-01-01")));
+        testUnwrap("date", "year(a) >= 1960", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "1960-01-01")));
+        testUnwrap("date", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "2022-01-01")));
+        testUnwrap("date", "year(a) >= 9999", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "9999-01-01")));
 
-        testUnwrap("timestamp", "year(a) >= -0001", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "-0001-01-01 00:00:00.000")));
-        testUnwrap("timestamp", "year(a) >= 1960", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "1960-01-01 00:00:00.000")));
-        testUnwrap("timestamp", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000")));
-        testUnwrap("timestamp", "year(a) >= 9999", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "9999-01-01 00:00:00.000")));
+        testUnwrap("timestamp", "year(a) >= -0001", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "-0001-01-01 00:00:00.000")));
+        testUnwrap("timestamp", "year(a) >= 1960", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1960-01-01 00:00:00.000")));
+        testUnwrap("timestamp", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2022-01-01 00:00:00.000")));
+        testUnwrap("timestamp", "year(a) >= 9999", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "9999-01-01 00:00:00.000")));
 
-        testUnwrap("timestamp(0)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00")));
-        testUnwrap("timestamp(1)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0")));
-        testUnwrap("timestamp(2)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00")));
-        testUnwrap("timestamp(3)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000")));
-        testUnwrap("timestamp(4)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000")));
-        testUnwrap("timestamp(5)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000")));
-        testUnwrap("timestamp(6)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000")));
-        testUnwrap("timestamp(7)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000000")));
-        testUnwrap("timestamp(8)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000000")));
-        testUnwrap("timestamp(9)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000000")));
-        testUnwrap("timestamp(10)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000000000")));
-        testUnwrap("timestamp(11)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000000000")));
-        testUnwrap("timestamp(12)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000000000")));
+        testUnwrap("timestamp(0)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(0), "2022-01-01 00:00:00")));
+        testUnwrap("timestamp(1)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(1), "2022-01-01 00:00:00.0")));
+        testUnwrap("timestamp(2)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(2), "2022-01-01 00:00:00.00")));
+        testUnwrap("timestamp(3)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2022-01-01 00:00:00.000")));
+        testUnwrap("timestamp(4)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(4), "2022-01-01 00:00:00.0000")));
+        testUnwrap("timestamp(5)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(5), "2022-01-01 00:00:00.00000")));
+        testUnwrap("timestamp(6)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(6), "2022-01-01 00:00:00.000000")));
+        testUnwrap("timestamp(7)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(7), "2022-01-01 00:00:00.0000000")));
+        testUnwrap("timestamp(8)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(8), "2022-01-01 00:00:00.00000000")));
+        testUnwrap("timestamp(9)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(9), "2022-01-01 00:00:00.000000000")));
+        testUnwrap("timestamp(10)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(10), "2022-01-01 00:00:00.0000000000")));
+        testUnwrap("timestamp(11)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(11), "2022-01-01 00:00:00.00000000000")));
+        testUnwrap("timestamp(12)", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(12), "2022-01-01 00:00:00.000000000000")));
     }
 
     @Test
     public void testDistinctFrom()
     {
-        testUnwrap("date", "year(a) IS DISTINCT FROM -0001", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "-0001-01-01"), new GenericLiteral("DATE", "-0001-12-31"))))));
-        testUnwrap("date", "year(a) IS DISTINCT FROM 1960", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "1960-01-01"), new GenericLiteral("DATE", "1960-12-31"))))));
-        testUnwrap("date", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "2022-01-01"), new GenericLiteral("DATE", "2022-12-31"))))));
-        testUnwrap("date", "year(a) IS DISTINCT FROM 9999", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "9999-01-01"), new GenericLiteral("DATE", "9999-12-31"))))));
+        testUnwrap("date", "year(a) IS DISTINCT FROM -0001", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "-0001-01-01"), new GenericLiteral(DATE, "-0001-12-31"))))));
+        testUnwrap("date", "year(a) IS DISTINCT FROM 1960", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "1960-01-01"), new GenericLiteral(DATE, "1960-12-31"))))));
+        testUnwrap("date", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "2022-01-01"), new GenericLiteral(DATE, "2022-12-31"))))));
+        testUnwrap("date", "year(a) IS DISTINCT FROM 9999", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "9999-01-01"), new GenericLiteral(DATE, "9999-12-31"))))));
 
-        testUnwrap("timestamp", "year(a) IS DISTINCT FROM -0001", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "-0001-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "-0001-12-31 23:59:59.999"))))));
-        testUnwrap("timestamp", "year(a) IS DISTINCT FROM 1960", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "1960-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "1960-12-31 23:59:59.999"))))));
-        testUnwrap("timestamp", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999"))))));
-        testUnwrap("timestamp", "year(a) IS DISTINCT FROM 9999", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "9999-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "9999-12-31 23:59:59.999"))))));
+        testUnwrap("timestamp", "year(a) IS DISTINCT FROM -0001", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "-0001-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "-0001-12-31 23:59:59.999"))))));
+        testUnwrap("timestamp", "year(a) IS DISTINCT FROM 1960", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1960-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "1960-12-31 23:59:59.999"))))));
+        testUnwrap("timestamp", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2022-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "2022-12-31 23:59:59.999"))))));
+        testUnwrap("timestamp", "year(a) IS DISTINCT FROM 9999", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "9999-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "9999-12-31 23:59:59.999"))))));
 
-        testUnwrap("timestamp(0)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59"))))));
-        testUnwrap("timestamp(1)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9"))))));
-        testUnwrap("timestamp(2)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99"))))));
-        testUnwrap("timestamp(3)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999"))))));
-        testUnwrap("timestamp(4)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999"))))));
-        testUnwrap("timestamp(5)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999"))))));
-        testUnwrap("timestamp(6)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999"))))));
-        testUnwrap("timestamp(7)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999999"))))));
-        testUnwrap("timestamp(8)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999999"))))));
-        testUnwrap("timestamp(9)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999999"))))));
-        testUnwrap("timestamp(10)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.0000000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.9999999999"))))));
-        testUnwrap("timestamp(11)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.00000000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.99999999999"))))));
-        testUnwrap("timestamp(12)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2022-01-01 00:00:00.000000000000"), new GenericLiteral("TIMESTAMP", "2022-12-31 23:59:59.999999999999"))))));
+        testUnwrap("timestamp(0)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(0), "2022-01-01 00:00:00"), new GenericLiteral(createTimestampType(0), "2022-12-31 23:59:59"))))));
+        testUnwrap("timestamp(1)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(1), "2022-01-01 00:00:00.0"), new GenericLiteral(createTimestampType(1), "2022-12-31 23:59:59.9"))))));
+        testUnwrap("timestamp(2)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(2), "2022-01-01 00:00:00.00"), new GenericLiteral(createTimestampType(2), "2022-12-31 23:59:59.99"))))));
+        testUnwrap("timestamp(3)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2022-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "2022-12-31 23:59:59.999"))))));
+        testUnwrap("timestamp(4)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(4), "2022-01-01 00:00:00.0000"), new GenericLiteral(createTimestampType(4), "2022-12-31 23:59:59.9999"))))));
+        testUnwrap("timestamp(5)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(5), "2022-01-01 00:00:00.00000"), new GenericLiteral(createTimestampType(5), "2022-12-31 23:59:59.99999"))))));
+        testUnwrap("timestamp(6)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(6), "2022-01-01 00:00:00.000000"), new GenericLiteral(createTimestampType(6), "2022-12-31 23:59:59.999999"))))));
+        testUnwrap("timestamp(7)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(7), "2022-01-01 00:00:00.0000000"), new GenericLiteral(createTimestampType(7), "2022-12-31 23:59:59.9999999"))))));
+        testUnwrap("timestamp(8)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(8), "2022-01-01 00:00:00.00000000"), new GenericLiteral(createTimestampType(8), "2022-12-31 23:59:59.99999999"))))));
+        testUnwrap("timestamp(9)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(9), "2022-01-01 00:00:00.000000000"), new GenericLiteral(createTimestampType(9), "2022-12-31 23:59:59.999999999"))))));
+        testUnwrap("timestamp(10)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(10), "2022-01-01 00:00:00.0000000000"), new GenericLiteral(createTimestampType(10), "2022-12-31 23:59:59.9999999999"))))));
+        testUnwrap("timestamp(11)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(11), "2022-01-01 00:00:00.00000000000"), new GenericLiteral(createTimestampType(11), "2022-12-31 23:59:59.99999999999"))))));
+        testUnwrap("timestamp(12)", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(12), "2022-01-01 00:00:00.000000000000"), new GenericLiteral(createTimestampType(12), "2022-12-31 23:59:59.999999999999"))))));
     }
 
     @Test
@@ -285,7 +286,7 @@ public class TestUnwrapYearInComparison
     {
         // smoke tests for various type combinations
         for (String type : asList("SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE")) {
-            testUnwrap("date", format("year(a) = %s '2022'", type), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "2022-01-01"), new GenericLiteral("DATE", "2022-12-31")));
+            testUnwrap("date", format("year(a) = %s '2022'", type), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "2022-01-01"), new GenericLiteral(DATE, "2022-12-31")));
         }
     }
 
@@ -297,15 +298,15 @@ public class TestUnwrapYearInComparison
         assertPlan("SELECT * FROM (VALUES DATE '2022-01-01') t(a) WHERE 2022 = year(a)",
                 output(
                         filter(
-                                new BetweenPredicate(new SymbolReference("A"), new GenericLiteral("DATE", "2022-01-01"), new GenericLiteral("DATE", "2022-12-31")),
+                                new BetweenPredicate(new SymbolReference("A"), new GenericLiteral(DATE, "2022-01-01"), new GenericLiteral(DATE, "2022-12-31")),
                                 values("A"))));
     }
 
     @Test
     public void testLeapYear()
     {
-        testUnwrap("date", "year(a) = 2024", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("DATE", "2024-01-01"), new GenericLiteral("DATE", "2024-12-31")));
-        testUnwrap("timestamp", "year(a) = 2024", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral("TIMESTAMP", "2024-01-01 00:00:00.000"), new GenericLiteral("TIMESTAMP", "2024-12-31 23:59:59.999")));
+        testUnwrap("date", "year(a) = 2024", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "2024-01-01"), new GenericLiteral(DATE, "2024-12-31")));
+        testUnwrap("timestamp", "year(a) = 2024", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2024-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "2024-12-31 23:59:59.999")));
     }
 
     @Test

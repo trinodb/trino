@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
@@ -89,9 +90,9 @@ public class ImplementExceptDistinctAsUnion
 
         // except predicate: the row must be present in the first source and absent in all the other sources
         ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
-        predicatesBuilder.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, result.getCountSymbols().get(0).toSymbolReference(), new GenericLiteral("BIGINT", "1")));
+        predicatesBuilder.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, result.getCountSymbols().get(0).toSymbolReference(), new GenericLiteral(BIGINT, "1")));
         for (int i = 1; i < node.getSources().size(); i++) {
-            predicatesBuilder.add(new ComparisonExpression(EQUAL, result.getCountSymbols().get(i).toSymbolReference(), new GenericLiteral("BIGINT", "0")));
+            predicatesBuilder.add(new ComparisonExpression(EQUAL, result.getCountSymbols().get(i).toSymbolReference(), new GenericLiteral(BIGINT, "0")));
         }
         return Result.ofPlanNode(
                 new ProjectNode(
