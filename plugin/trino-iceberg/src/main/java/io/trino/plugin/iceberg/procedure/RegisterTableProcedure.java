@@ -195,6 +195,8 @@ public class RegisterTableProcedure
     {
         // Normalize e.g. s3a to s3, so that table can be registered using s3:// location
         // even if internally it uses s3a:// paths.
-        return tableLocation.replaceFirst("^s3[an]://", "s3://");
+        String normalizedSchema = tableLocation.replaceFirst("^s3[an]://", "s3://");
+        // Remove trailing slashes so that test_dir is equal to test_dir/
+        return stripTrailingSlash(normalizedSchema);
     }
 }

@@ -73,6 +73,7 @@ public class TestIcebergRegisterTableProcedure
     private HiveMetastore metastore;
     private File metastoreDir;
     private TrinoFileSystem fileSystem;
+    private Path dataDir;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -91,7 +92,7 @@ public class TestIcebergRegisterTableProcedure
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
-        Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
+        dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
         queryRunner.installPlugin(new TestingIcebergPlugin(dataDir, Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore))));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of("iceberg.register-table-procedure.enabled", "true"));
         queryRunner.execute("CREATE SCHEMA iceberg.tpch");
@@ -132,6 +133,35 @@ public class TestIcebergRegisterTableProcedure
                         "ROW(INT '1', VARCHAR 'INDIA', BOOLEAN 'true'), " +
                         "ROW(INT '2', VARCHAR 'USA', BOOLEAN 'false')");
         assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
+    @Test
+    public void testRegisterTableTrailingSlash()
+    {
+        testRegisterTableTrailingSlash("test_dir", "test_dir");
+        testRegisterTableTrailingSlash("test_dir", "test_dir/");
+        testRegisterTableTrailingSlash("test_dir/", "test_dir");
+        testRegisterTableTrailingSlash("test_dir/", "test_dir/");
+    }
+
+    private void testRegisterTableTrailingSlash(String tableDir, String registeredTableDir)
+    {
+        String tableName = "test_register_table_trailing_slash_" + randomNameSuffix();
+
+        String tableLocation = format("%s/%s/%s", dataDir, tableName, tableDir);
+        String registeredTableLocation = format("%s/%s/%s", dataDir, tableName, registeredTableDir);
+
+        assertUpdate(format("CREATE TABLE %s (a int) WITH (location = '%s')", tableName, tableLocation));
+        assertUpdate(format("INSERT INTO %s VALUES 1", tableName), 1);
+
+        // Drop table from metastore and use the same table name to register again with the metadata
+        dropTableFromMetastore(tableName);
+
+        assertUpdate(format("CALL iceberg.system.register_table (CURRENT_SCHEMA, '%s', '%s')", tableName, registeredTableLocation));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES 1");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @ParameterizedTest
