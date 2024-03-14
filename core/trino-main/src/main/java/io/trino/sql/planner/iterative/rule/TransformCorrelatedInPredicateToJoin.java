@@ -19,14 +19,13 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
-import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SearchedCaseExpression;
@@ -285,7 +284,7 @@ public class TransformCorrelatedInPredicateToJoin
 
     private static Expression bigint(long value)
     {
-        return new Cast(new LongLiteral(value), BIGINT);
+        return GenericLiteral.constant(BIGINT, value);
     }
 
     private static Expression booleanConstant(@Nullable Boolean value)
@@ -293,7 +292,7 @@ public class TransformCorrelatedInPredicateToJoin
         if (value == null) {
             return new Cast(new NullLiteral(), BOOLEAN);
         }
-        return new BooleanLiteral(value);
+        return GenericLiteral.constant(BOOLEAN, value);
     }
 
     private static class DecorrelatingVisitor

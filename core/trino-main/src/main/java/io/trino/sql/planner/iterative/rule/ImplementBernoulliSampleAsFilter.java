@@ -17,12 +17,13 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.SampleNode;
 
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.plan.Patterns.Sample.sampleType;
 import static io.trino.sql.planner.plan.Patterns.sample;
 import static io.trino.sql.planner.plan.SampleNode.Type.BERNOULLI;
@@ -69,6 +70,6 @@ public class ImplementBernoulliSampleAsFilter
                         BuiltinFunctionCallBuilder.resolve(metadata)
                                 .setName("rand")
                                 .build(),
-                        new DoubleLiteral(sample.getSampleRatio()))));
+                        GenericLiteral.constant(DOUBLE, sample.getSampleRatio()))));
     }
 }

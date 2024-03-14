@@ -43,7 +43,6 @@ import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
@@ -60,6 +59,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MODULUS;
@@ -141,7 +141,7 @@ public class TestPushPredicateIntoTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "44")),
+                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), GenericLiteral.constant(BIGINT, 44L)),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -157,7 +157,7 @@ public class TestPushPredicateIntoTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "44")),
+                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), GenericLiteral.constant(BIGINT, 44L)),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -176,7 +176,7 @@ public class TestPushPredicateIntoTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "44")), new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "45")))),
+                        new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), GenericLiteral.constant(BIGINT, 44L)), new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), GenericLiteral.constant(BIGINT, 45L)))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -222,7 +222,7 @@ public class TestPushPredicateIntoTableScan
                                                 functionResolution
                                                         .functionCallBuilder("rand")
                                                         .build(),
-                                                new GenericLiteral(BIGINT, "42")),
+                                                GenericLiteral.constant(BIGINT, 42L)),
                                         // non-translatable to connector expression
                                         new CoalesceExpression(
                                                 new Cast(new NullLiteral(), BOOLEAN),
@@ -231,17 +231,17 @@ public class TestPushPredicateIntoTableScan
                                                         new ArithmeticBinaryExpression(
                                                                 MODULUS,
                                                                 new SymbolReference("nationkey"),
-                                                                new GenericLiteral(BIGINT, "17")),
-                                                        new GenericLiteral(BIGINT, "44"))),
+                                                                GenericLiteral.constant(BIGINT, 17L)),
+                                                        GenericLiteral.constant(BIGINT, 44L))),
                                         LogicalExpression.or(
                                                 new ComparisonExpression(
                                                         EQUAL,
                                                         new SymbolReference("nationkey"),
-                                                        new GenericLiteral(BIGINT, "44")),
+                                                        GenericLiteral.constant(BIGINT, 44L)),
                                                 new ComparisonExpression(
                                                         EQUAL,
                                                         new SymbolReference("nationkey"),
-                                                        new GenericLiteral(BIGINT, "45"))))),
+                                                        GenericLiteral.constant(BIGINT, 45L))))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -256,14 +256,14 @@ public class TestPushPredicateIntoTableScan
                                                 functionResolution
                                                         .functionCallBuilder("rand")
                                                         .build(),
-                                                new GenericLiteral(BIGINT, "42")),
+                                                GenericLiteral.constant(BIGINT, 42L)),
                                         new ComparisonExpression(
                                                 EQUAL,
                                                 new ArithmeticBinaryExpression(
                                                         MODULUS,
                                                         new SymbolReference("nationkey"),
-                                                        new GenericLiteral(BIGINT, "17")),
-                                                new GenericLiteral(BIGINT, "44"))),
+                                                        GenericLiteral.constant(BIGINT, 17L)),
+                                                GenericLiteral.constant(BIGINT, 44L))),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of("nationkey", singleValue(BIGINT, (long) 44)),
@@ -281,7 +281,7 @@ public class TestPushPredicateIntoTableScan
                                 functionResolution
                                         .functionCallBuilder("rand")
                                         .build(),
-                                new LongLiteral(42)),
+                                GenericLiteral.constant(INTEGER, 42L)),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -295,7 +295,7 @@ public class TestPushPredicateIntoTableScan
     {
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral(17)), new GenericLiteral(BIGINT, "44")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral(15)), new GenericLiteral(BIGINT, "43")))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), GenericLiteral.constant(INTEGER, 17L)), GenericLiteral.constant(BIGINT, 44L)), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), GenericLiteral.constant(INTEGER, 15L)), GenericLiteral.constant(BIGINT, 43L)))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -335,7 +335,7 @@ public class TestPushPredicateIntoTableScan
                                         functionResolution
                                                 .functionCallBuilder("rand")
                                                 .build(),
-                                        new LongLiteral(0))),
+                                        GenericLiteral.constant(INTEGER, 0L))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", orderStatusType)),
@@ -347,7 +347,7 @@ public class TestPushPredicateIntoTableScan
                                         functionResolution
                                                 .functionCallBuilder("rand")
                                                 .build(),
-                                        new LongLiteral(0)),
+                                        GenericLiteral.constant(INTEGER, 0L)),
                                 constrainedTableScanWithTableLayout(
                                         "orders",
                                         ImmutableMap.of("orderstatus", singleValue(orderStatusType, utf8Slice("O"))),
@@ -409,7 +409,7 @@ public class TestPushPredicateIntoTableScan
 
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "44")), new Cast(new NullLiteral(), BOOLEAN))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), GenericLiteral.constant(BIGINT, 44L)), new Cast(new NullLiteral(), BOOLEAN))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),

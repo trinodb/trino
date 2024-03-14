@@ -18,10 +18,10 @@ import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullIfExpression;
 import io.trino.sql.ir.NullLiteral;
@@ -36,6 +36,7 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
@@ -116,11 +117,11 @@ public class TestSimplifyFilterPredicate
         // both results equal
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
-                        new IfExpression(new SymbolReference("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(0)), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(0))),
+                        new IfExpression(new SymbolReference("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 0L)), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 0L))),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(0)),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 0L)),
                                 values("a", "b")));
 
         // both results are equal non-deterministic expressions
@@ -131,8 +132,8 @@ public class TestSimplifyFilterPredicate
                 .on(p -> p.filter(
                         new IfExpression(
                                 new SymbolReference("a"),
-                                new ComparisonExpression(EQUAL, randomFunction, new LongLiteral(0)),
-                                new ComparisonExpression(EQUAL, randomFunction, new LongLiteral(0))),
+                                new ComparisonExpression(EQUAL, randomFunction, GenericLiteral.constant(INTEGER, 0L)),
+                                new ComparisonExpression(EQUAL, randomFunction, GenericLiteral.constant(INTEGER, 0L))),
                         p.values(p.symbol("a"))))
                 .doesNotFire();
 
@@ -208,9 +209,9 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
-                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(0)), TRUE_LITERAL),
-                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(0)), FALSE_LITERAL),
-                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(0)), TRUE_LITERAL)),
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), TRUE_LITERAL),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), FALSE_LITERAL),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), TRUE_LITERAL)),
                                 Optional.of(FALSE_LITERAL)),
                         p.values(p.symbol("a"))))
                 .doesNotFire();
@@ -219,9 +220,9 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
-                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(0)), TRUE_LITERAL),
-                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(0)), TRUE_LITERAL),
-                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(0)), TRUE_LITERAL)),
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), TRUE_LITERAL),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), TRUE_LITERAL),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), TRUE_LITERAL)),
                                 Optional.of(TRUE_LITERAL)),
                         p.values(p.symbol("a"))))
                 .matches(
@@ -233,9 +234,9 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
-                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(0)), FALSE_LITERAL),
-                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(0)), new NullLiteral()),
-                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(0)), FALSE_LITERAL)),
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), FALSE_LITERAL),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), new NullLiteral()),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), FALSE_LITERAL)),
                                 Optional.of(FALSE_LITERAL)),
                         p.values(p.symbol("a"))))
                 .matches(
@@ -247,9 +248,9 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
-                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(0)), FALSE_LITERAL),
-                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(0)), new NullLiteral()),
-                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(0)), FALSE_LITERAL)),
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), FALSE_LITERAL),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), new NullLiteral()),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), FALSE_LITERAL)),
                                 Optional.empty()),
                         p.values(p.symbol("a"))))
                 .matches(
@@ -261,51 +262,51 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
-                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(0)), FALSE_LITERAL),
-                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(0)), new NullLiteral()),
-                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(0)), TRUE_LITERAL)),
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), FALSE_LITERAL),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), new NullLiteral()),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), TRUE_LITERAL)),
                                 Optional.of(FALSE_LITERAL)),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(0))), new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(0))))), new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(0))), new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(0))))), new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(0)))),
+                                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L))), new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L))))), new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L))), new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L))))), new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)))),
                                 values("a")));
 
         // first result true, and remaining results not true
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
-                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(0)), TRUE_LITERAL),
-                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(0)), new NullLiteral()),
-                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(0)), FALSE_LITERAL)),
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), TRUE_LITERAL),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), new NullLiteral()),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), FALSE_LITERAL)),
                                 Optional.of(FALSE_LITERAL)),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
-                                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(0)),
+                                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)),
                                 values("a")));
 
         // all results not true, and default true
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
-                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(0)), FALSE_LITERAL),
-                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(0)), new NullLiteral()),
-                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(0)), FALSE_LITERAL)),
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), FALSE_LITERAL),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), new NullLiteral()),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L)), FALSE_LITERAL)),
                                 Optional.of(TRUE_LITERAL)),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
                                 new LogicalExpression(AND, ImmutableList.of(
                                         new LogicalExpression(OR, ImmutableList.of(
-                                                new IsNullPredicate(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(0))),
-                                                new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new LongLiteral(0))))),
+                                                new IsNullPredicate(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L))),
+                                                new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L))))),
                                         new LogicalExpression(OR, ImmutableList.of(
-                                                new IsNullPredicate(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(0))),
-                                                new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference("a"), new LongLiteral(0))))),
+                                                new IsNullPredicate(new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L))),
+                                                new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L))))),
                                         new LogicalExpression(OR, ImmutableList.of(
-                                                new IsNullPredicate(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(0))),
-                                                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(0))))))),
+                                                new IsNullPredicate(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L))),
+                                                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 0L))))))),
                                 values("a")));
 
         // all conditions not true - return the default
@@ -368,8 +369,8 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
-                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new LongLiteral(0)), new SymbolReference("a")),
-                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(0)), new NotExpression(new SymbolReference("a"))),
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 0L)), new SymbolReference("a")),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 0L)), new NotExpression(new SymbolReference("a"))),
                                 new WhenClause(TRUE_LITERAL, new SymbolReference("b")),
                                 new WhenClause(TRUE_LITERAL, new NotExpression(new SymbolReference("b")))),
                                 Optional.empty()),
@@ -377,8 +378,8 @@ public class TestSimplifyFilterPredicate
                 .matches(
                         filter(
                                 new SearchedCaseExpression(ImmutableList.of(
-                                        new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new LongLiteral(0)), new SymbolReference("a")),
-                                        new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(0)), new NotExpression(new SymbolReference("a")))),
+                                        new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 0L)), new SymbolReference("a")),
+                                        new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 0L)), new NotExpression(new SymbolReference("a")))),
                                         Optional.of(new SymbolReference("b"))),
                                 values("a", "b")));
 
@@ -386,8 +387,8 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
-                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new LongLiteral(0)), new SymbolReference("a")),
-                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(0)), new NotExpression(new SymbolReference("a")))),
+                                new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 0L)), new SymbolReference("a")),
+                                new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 0L)), new NotExpression(new SymbolReference("a")))),
                                 Optional.of(new SymbolReference("b"))),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
@@ -402,7 +403,7 @@ public class TestSimplifyFilterPredicate
                                         new SymbolReference("a"),
                                         ImmutableList.of(
                                                 new WhenClause(new SymbolReference("b"), TRUE_LITERAL),
-                                                new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new LongLiteral(1)), FALSE_LITERAL)),
+                                                new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 1L)), FALSE_LITERAL)),
                                         Optional.of(TRUE_LITERAL)),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
@@ -443,8 +444,8 @@ public class TestSimplifyFilterPredicate
                         new SimpleCaseExpression(
                                 new SymbolReference("a"),
                                 ImmutableList.of(
-                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new LongLiteral(1)), TRUE_LITERAL),
-                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new LongLiteral(2)), TRUE_LITERAL)),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 1L)), TRUE_LITERAL),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 2L)), TRUE_LITERAL)),
                                 Optional.of(TRUE_LITERAL)),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -458,8 +459,8 @@ public class TestSimplifyFilterPredicate
                         new SimpleCaseExpression(
                                 new SymbolReference("a"),
                                 ImmutableList.of(
-                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new LongLiteral(1)), FALSE_LITERAL),
-                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new LongLiteral(2)), new NullLiteral())),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 1L)), FALSE_LITERAL),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 2L)), new NullLiteral())),
                                 Optional.of(FALSE_LITERAL)),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -473,8 +474,8 @@ public class TestSimplifyFilterPredicate
                         new SimpleCaseExpression(
                                 new SymbolReference("a"),
                                 ImmutableList.of(
-                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new LongLiteral(1)), FALSE_LITERAL),
-                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new LongLiteral(2)), new NullLiteral())),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 1L)), FALSE_LITERAL),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 2L)), new NullLiteral())),
                                 Optional.empty()),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(

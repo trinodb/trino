@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
@@ -37,6 +37,7 @@ import java.util.Optional;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
@@ -228,11 +229,11 @@ public class TestPrunePattenRecognitionColumns
                 .on(p -> p.project(
                         Assignments.of(),
                         p.patternRecognition(builder -> builder
-                                .addMeasure(p.symbol("measure"), new LongLiteral(1), BIGINT)
+                                .addMeasure(p.symbol("measure"), GenericLiteral.constant(INTEGER, 1L), BIGINT)
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(
                                         new IrLabel("X"),
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("pointer"), new LongLiteral(0)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("pointer"), GenericLiteral.constant(INTEGER, 0L)),
                                         ImmutableMap.of("pointer", new ScalarValuePointer(
                                                 new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
                                                 new Symbol("a"))))
@@ -244,7 +245,7 @@ public class TestPrunePattenRecognitionColumns
                                                 .pattern(new IrLabel("X"))
                                                 .addVariableDefinition(
                                                         new IrLabel("X"),
-                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("pointer"), new LongLiteral(0)),
+                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("pointer"), GenericLiteral.constant(INTEGER, 0L)),
                                                         ImmutableMap.of("pointer", new ScalarValuePointer(
                                                                 new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
                                                                 new Symbol("a")))),
@@ -258,11 +259,11 @@ public class TestPrunePattenRecognitionColumns
                 .on(p -> p.project(
                         Assignments.of(),
                         p.patternRecognition(builder -> builder
-                                .addMeasure(p.symbol("measure"), new LongLiteral(1), BIGINT)
+                                .addMeasure(p.symbol("measure"), GenericLiteral.constant(INTEGER, 1L), BIGINT)
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(
                                         new IrLabel("X"),
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("agg"), new LongLiteral(5)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("agg"), GenericLiteral.constant(INTEGER, 5L)),
                                         ImmutableMap.of("agg", new AggregationValuePointer(
                                                 maxBy,
                                                 new AggregatedSetDescriptor(ImmutableSet.of(), true),
@@ -277,7 +278,7 @@ public class TestPrunePattenRecognitionColumns
                                                 .pattern(new IrLabel("X"))
                                                 .addVariableDefinition(
                                                         new IrLabel("X"),
-                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("agg"), new LongLiteral(5)),
+                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("agg"), GenericLiteral.constant(INTEGER, 5L)),
                                                         ImmutableMap.of("agg", new AggregationValuePointer(
                                                                 maxBy,
                                                                 new AggregatedSetDescriptor(ImmutableSet.of(), true),
@@ -371,7 +372,7 @@ public class TestPrunePattenRecognitionColumns
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("measure")),
                         p.patternRecognition(builder -> builder
-                                .addMeasure(p.symbol("measure"), new LongLiteral(1), BIGINT)
+                                .addMeasure(p.symbol("measure"), GenericLiteral.constant(INTEGER, 1L), BIGINT)
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), FOLLOWING, Optional.of(p.symbol("a")), Optional.empty()))
                                 .pattern(new IrLabel("X"))
@@ -381,7 +382,7 @@ public class TestPrunePattenRecognitionColumns
                         strictProject(
                                 ImmutableMap.of("measure", expression(new SymbolReference("measure"))),
                                 patternRecognition(builder -> builder
-                                                .addMeasure("measure", new LongLiteral(1), BIGINT)
+                                                .addMeasure("measure", GenericLiteral.constant(INTEGER, 1L), BIGINT)
                                                 .rowsPerMatch(WINDOW)
                                                 .frame(new WindowNode.Frame(
                                                         ROWS,
@@ -411,7 +412,7 @@ public class TestPrunePattenRecognitionColumns
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(
                                         new IrLabel("X"),
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("value"), new LongLiteral(0)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("value"), GenericLiteral.constant(INTEGER, 0L)),
                                         ImmutableMap.of("value", new ScalarValuePointer(
                                                 new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0),
                                                 new Symbol("a"))))
@@ -428,7 +429,7 @@ public class TestPrunePattenRecognitionColumns
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("a"), p.symbol("b")),
                         p.patternRecognition(builder -> builder
-                                .addMeasure(p.symbol("measure"), new LongLiteral(1), BIGINT)
+                                .addMeasure(p.symbol("measure"), GenericLiteral.constant(INTEGER, 1L), BIGINT)
                                 .rowsPerMatch(ALL_SHOW_EMPTY)
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(new IrLabel("X"), TRUE_LITERAL)

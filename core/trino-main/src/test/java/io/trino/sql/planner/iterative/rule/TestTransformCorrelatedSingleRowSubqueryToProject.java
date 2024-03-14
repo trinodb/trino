@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.StringLiteral;
@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
@@ -63,14 +64,14 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),
                                 p.project(
-                                        Assignments.of(p.symbol("l_expr2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), new LongLiteral(1))),
+                                        Assignments.of(p.symbol("l_expr2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), GenericLiteral.constant(INTEGER, 1L))),
                                         p.values(
                                                 ImmutableList.of(),
                                                 ImmutableList.of(
                                                         ImmutableList.of())))))
                 .matches(project(
                         ImmutableMap.of(
-                                "l_expr2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), new LongLiteral(1))),
+                                "l_expr2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), GenericLiteral.constant(INTEGER, 1L))),
                                 "l_nationkey", PlanMatchPattern.expression(new SymbolReference("l_nationkey"))),
                         tableScan("nation", ImmutableMap.of("l_nationkey", "nationkey"))));
     }
@@ -114,14 +115,14 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                     return p.correlatedJoin(
                             ImmutableList.of(a),
                             p.values(3, a, b),
-                            p.values(ImmutableList.of(a, c), ImmutableList.of(ImmutableList.of(new SymbolReference("a"), new LongLiteral(1)))));
+                            p.values(ImmutableList.of(a, c), ImmutableList.of(ImmutableList.of(new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)))));
                 })
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(new SymbolReference("a")),
                                         "b", PlanMatchPattern.expression(new SymbolReference("b")),
-                                        "c", PlanMatchPattern.expression(new LongLiteral(1))),
+                                        "c", PlanMatchPattern.expression(GenericLiteral.constant(INTEGER, 1L))),
                                 values(ImmutableList.of("a", "b"), ImmutableList.of(
                                         ImmutableList.of(new NullLiteral(), new NullLiteral()),
                                         ImmutableList.of(new NullLiteral(), new NullLiteral()),

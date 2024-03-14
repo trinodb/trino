@@ -30,6 +30,7 @@ import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.sql.NodeUtils;
 import io.trino.sql.PlannerContext;
@@ -43,7 +44,6 @@ import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.DecimalLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
@@ -52,7 +52,6 @@ import io.trino.sql.ir.IntervalLiteral;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
@@ -146,11 +145,13 @@ import static io.trino.spi.connector.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
-import static io.trino.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
@@ -180,6 +181,7 @@ import static java.util.Objects.requireNonNull;
 
 class QueryPlanner
 {
+    private static final int MAX_BIGINT_PRECISION = 19;
     private final Analysis analysis;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
@@ -332,7 +334,7 @@ class QueryPlanner
                 new ComparisonExpression(
                         GREATER_THAN_OR_EQUAL,
                         countSymbol.toSymbolReference(),
-                        new GenericLiteral(BIGINT, "0")),
+                        GenericLiteral.constant(BIGINT, 0L)),
                 new Cast(
                         failFunction(plannerContext.getMetadata(), NOT_SUPPORTED, recursionLimitExceededMessage),
                         BOOLEAN),
@@ -552,10 +554,10 @@ class QueryPlanner
         }
         List<Symbol> columnSymbols = columnSymbolsBuilder.build();
         Symbol operationSymbol = symbolAllocator.newSymbol("operation", TINYINT);
-        assignmentsBuilder.put(operationSymbol, new GenericLiteral(TINYINT, String.valueOf(DELETE_OPERATION_NUMBER)));
+        assignmentsBuilder.put(operationSymbol, GenericLiteral.constant(TINYINT, (long) DELETE_OPERATION_NUMBER));
         Symbol projectedRowIdSymbol = symbolAllocator.newSymbol(rowIdSymbol.getName(), rowIdType);
         assignmentsBuilder.put(projectedRowIdSymbol, rowIdSymbol.toSymbolReference());
-        assignmentsBuilder.put(symbolAllocator.newSymbol("insert_from_update", TINYINT), new GenericLiteral(TINYINT, "0"));
+        assignmentsBuilder.put(symbolAllocator.newSymbol("insert_from_update", TINYINT), GenericLiteral.constant(TINYINT, 0L));
         Assignments assignments = assignmentsBuilder.build();
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), builder.getRoot(), assignments);
 
@@ -665,10 +667,10 @@ class QueryPlanner
         rowBuilder.add(TRUE_LITERAL);
 
         // Add the operation number
-        rowBuilder.add(new GenericLiteral(TINYINT, String.valueOf(UPDATE_OPERATION_NUMBER)));
+        rowBuilder.add(GenericLiteral.constant(TINYINT, (long) UPDATE_OPERATION_NUMBER));
 
         // Add the merge case number
-        rowBuilder.add(new GenericLiteral(INTEGER, "0"));
+        rowBuilder.add(GenericLiteral.constant(INTEGER, 0L));
 
         // Finally, the merge row is complete
         Expression mergeRow = new Row(rowBuilder.build());
@@ -706,7 +708,7 @@ class QueryPlanner
         // Add the rest of the page columns: rowId, merge row, case number and is_distinct
         projectionAssignmentsBuilder.putIdentity(rowIdSymbol);
         projectionAssignmentsBuilder.put(mergeRowSymbol, mergeRow);
-        projectionAssignmentsBuilder.put(caseNumberSymbol, new GenericLiteral(INTEGER, "0"));
+        projectionAssignmentsBuilder.put(caseNumberSymbol, GenericLiteral.constant(INTEGER, 0L));
         projectionAssignmentsBuilder.put(isDistinctSymbol, TRUE_LITERAL);
 
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), subPlanBuilder.getRoot(), projectionAssignmentsBuilder.build());
@@ -823,10 +825,10 @@ class QueryPlanner
             rowBuilder.add(new IsNotNullPredicate(presentColumn.toSymbolReference()));
 
             // Add the operation number
-            rowBuilder.add(new GenericLiteral(TINYINT, String.valueOf(getMergeCaseOperationNumber(mergeCase))));
+            rowBuilder.add(GenericLiteral.constant(TINYINT, (long) getMergeCaseOperationNumber(mergeCase)));
 
             // Add the merge case number, needed by MarkDistinct
-            rowBuilder.add(new GenericLiteral(INTEGER, String.valueOf(caseNumber)));
+            rowBuilder.add(GenericLiteral.constant(INTEGER, (long) caseNumber));
 
             Expression condition = presentColumn.toSymbolReference();
             if (mergeCase instanceof MergeInsert) {
@@ -861,9 +863,9 @@ class QueryPlanner
                 rowBuilder.add(new Cast(new NullLiteral(), columnSchema.getType())));
         rowBuilder.add(new IsNotNullPredicate(presentColumn.toSymbolReference()));
         // The operation number
-        rowBuilder.add(new GenericLiteral(TINYINT, "-1"));
+        rowBuilder.add(GenericLiteral.constant(TINYINT, -1L));
         // The case number
-        rowBuilder.add(new GenericLiteral(INTEGER, "-1"));
+        rowBuilder.add(GenericLiteral.constant(INTEGER, -1L));
 
         SearchedCaseExpression caseExpression = new SearchedCaseExpression(whenClauses.build(), Optional.of(new Row(rowBuilder.build())));
 
@@ -892,7 +894,7 @@ class QueryPlanner
                 subPlanProject,
                 Assignments.builder()
                         .putIdentities(subPlanProject.getOutputSymbols())
-                        .put(caseNumberSymbol, new SubscriptExpression(mergeRowSymbol.toSymbolReference(), new LongLiteral(mergeAnalysis.getMergeRowType().getFields().size())))
+                        .put(caseNumberSymbol, new SubscriptExpression(mergeRowSymbol.toSymbolReference(), GenericLiteral.constant(INTEGER, (long) mergeAnalysis.getMergeRowType().getFields().size())))
                         .build());
 
         // Mark distinct combinations of the unique_id value and the case_number
@@ -1642,24 +1644,22 @@ class QueryPlanner
         Expression offsetToBigint;
 
         if (offsetType instanceof DecimalType decimalType && !decimalType.isShort()) {
-            String maxBigint = Long.toString(Long.MAX_VALUE);
-            int maxBigintPrecision = maxBigint.length();
             int actualPrecision = decimalType.getPrecision();
 
-            if (actualPrecision < maxBigintPrecision) {
+            if (actualPrecision < MAX_BIGINT_PRECISION) {
                 offsetToBigint = new Cast(offsetSymbol.toSymbolReference(), BIGINT);
             }
-            else if (actualPrecision > maxBigintPrecision) {
+            else if (actualPrecision > MAX_BIGINT_PRECISION) {
                 // If the offset value exceeds max bigint, it implies that the frame bound falls beyond the partition bound.
                 // In such case, the frame bound is set to the partition bound. Passing max bigint as the offset value has
                 // the same effect. The offset value can be truncated to max bigint for the purpose of cast.
-                offsetToBigint = new GenericLiteral(BIGINT, maxBigint);
+                offsetToBigint = GenericLiteral.constant(BIGINT, Long.MAX_VALUE);
             }
             else {
                 offsetToBigint = new IfExpression(
-                        new ComparisonExpression(LESS_THAN_OR_EQUAL, offsetSymbol.toSymbolReference(), new DecimalLiteral(maxBigint)),
+                        new ComparisonExpression(LESS_THAN_OR_EQUAL, offsetSymbol.toSymbolReference(), GenericLiteral.constant(decimalType, Int128.valueOf(Long.MAX_VALUE))),
                         new Cast(offsetSymbol.toSymbolReference(), BIGINT),
-                        new GenericLiteral(BIGINT, maxBigint));
+                        GenericLiteral.constant(BIGINT, Long.MAX_VALUE));
             }
         }
         else {
@@ -1683,9 +1683,29 @@ class QueryPlanner
 
     private static Expression zeroOfType(Type type)
     {
-        if (isNumericType(type)) {
-            return new Cast(new LongLiteral(0), type);
+        if (type.equals(BIGINT) ||
+                type.equals(INTEGER) ||
+                type.equals(SMALLINT) ||
+                type.equals(TINYINT)) {
+            return GenericLiteral.constant(type, 0L);
         }
+
+        if (type.equals(DOUBLE)) {
+            return GenericLiteral.constant(DOUBLE, 0.0);
+        }
+
+        if (type instanceof DecimalType decimal) {
+            if (decimal.isShort()) {
+                return GenericLiteral.constant(type, 0L);
+            }
+
+            return GenericLiteral.constant(type, Int128.valueOf(0));
+        }
+
+        if (type.equals(REAL)) {
+            return new GenericLiteral(type, "0");
+        }
+
         if (type.equals(INTERVAL_DAY_TIME)) {
             return new IntervalLiteral("0", POSITIVE, DAY);
         }

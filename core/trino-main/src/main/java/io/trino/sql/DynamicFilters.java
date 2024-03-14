@@ -30,11 +30,11 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
@@ -179,8 +179,8 @@ public final class DynamicFilters
         String id = ((StringLiteral) idExpression).getValue();
 
         Expression nullAllowedExpression = arguments.get(3);
-        checkArgument(nullAllowedExpression instanceof BooleanLiteral, "nullAllowedExpression is expected to be an instance of BooleanLiteral: %s", nullAllowedExpression.getClass().getSimpleName());
-        boolean nullAllowed = ((BooleanLiteral) nullAllowedExpression).getValue();
+        checkArgument(nullAllowedExpression instanceof GenericLiteral literal && literal.getType().equals(BooleanType.BOOLEAN), "nullAllowedExpression is expected to be a boolean constant: %s", nullAllowedExpression.getClass().getSimpleName());
+        boolean nullAllowed = Boolean.parseBoolean(((GenericLiteral) nullAllowedExpression).getValue());
         return Optional.of(new Descriptor(new DynamicFilterId(id), probeSymbol, operator, nullAllowed));
     }
 

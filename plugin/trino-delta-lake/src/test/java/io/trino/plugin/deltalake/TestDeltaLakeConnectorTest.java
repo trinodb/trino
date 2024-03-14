@@ -2162,7 +2162,7 @@ public class TestDeltaLakeConnectorTest
                 sessionWithoutPushdown,
                 "EXPLAIN SELECT root.f2 FROM " + tableName,
                 "ScanProject\\[table = (.*)]",
-                "expr := root\\[2]",
+                "expr := root\\[integer '2']",
                 "root := root:row\\(f1 bigint, f2 bigint\\):REGULAR");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -2179,7 +2179,7 @@ public class TestDeltaLakeConnectorTest
         assertExplain(
                 "EXPLAIN SELECT id, _row.child, _array[1].child, _map[1] FROM " + tableName,
                 "ScanProject\\[table = (.*)]",
-                "expr(.*) := _array(.*)\\[bigint '1']\\[1]",
+                "expr(.*) := _array(.*)\\[bigint '1']\\[integer '1']",
                 "id(.*) := id:bigint:REGULAR",
                 // _array:array\\(row\\(child bigint\\)\\) is a symbol name, not a dereference expression.
                 "_array(.*) := _array:array\\(row\\(child bigint\\)\\):REGULAR",

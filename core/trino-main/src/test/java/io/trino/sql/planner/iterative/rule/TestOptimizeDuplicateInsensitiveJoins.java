@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -28,6 +28,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -109,7 +110,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
                                     p.values(symbolA),
                                     p.project(identity(symbolB),
                                             p.filter(
-                                                    new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(10)),
+                                                    new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 10L)),
                                                     p.join(
                                                             INNER,
                                                             p.values(symbolB),
@@ -121,7 +122,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
                                         .left(values("A"))
                                         .right(project(
                                                 filter(
-                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("B"), new LongLiteral(10)),
+                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("B"), GenericLiteral.constant(INTEGER, 10L)),
                                                         join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                                 .left(values("B"))
                                                                 .right(values("C")))

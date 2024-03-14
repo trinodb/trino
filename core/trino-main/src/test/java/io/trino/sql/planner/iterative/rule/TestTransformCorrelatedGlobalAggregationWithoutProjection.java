@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.SUBTRACT;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
@@ -101,9 +102,9 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.project(
-                                Assignments.of(p.symbol("expr_2"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("expr"), new LongLiteral(1))),
+                                Assignments.of(p.symbol("expr_2"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("expr"), GenericLiteral.constant(INTEGER, 1L))),
                                 p.project(
-                                        Assignments.of(p.symbol("expr"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new LongLiteral(1))),
+                                        Assignments.of(p.symbol("expr"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), GenericLiteral.constant(INTEGER, 1L))),
                                         p.aggregation(ab -> ab
                                                 .source(p.values(p.symbol("a"), p.symbol("b")))
                                                 .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
@@ -139,7 +140,7 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        p.project(Assignments.of(p.symbol("expr"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new LongLiteral(1))),
+                        p.project(Assignments.of(p.symbol("expr"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), GenericLiteral.constant(INTEGER, 1L))),
                                 p.aggregation(ab -> ab
                                         .source(p.values(p.symbol("a"), p.symbol("b")))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))

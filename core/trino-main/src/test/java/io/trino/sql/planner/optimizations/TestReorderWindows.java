@@ -22,7 +22,6 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
@@ -41,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -237,7 +237,7 @@ public class TestReorderWindows
                                                         .specification(windowA)
                                                         .addFunction(windowFunction("lag", ImmutableList.of(QUANTITY_ALIAS, "ONE"), DEFAULT_FRAME)),
                                                 project(ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), BIGINT))),
-                                                        project(ImmutableMap.of("expr", expression(new LongLiteral(1))),
+                                                        project(ImmutableMap.of("expr", expression(GenericLiteral.constant(INTEGER, 1L))),
                                                                 LINEITEM_TABLESCAN_DOQRST)))))));
     }
 
@@ -294,7 +294,7 @@ public class TestReorderWindows
                                                         .specification(windowA)
                                                         .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                                 filter(
-                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("SUPPKEY"), new GenericLiteral(BIGINT, "0")),
+                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("SUPPKEY"), GenericLiteral.constant(BIGINT, 0L)),
                                                         LINEITEM_TABLESCAN_DOQRST))))));
     }
 

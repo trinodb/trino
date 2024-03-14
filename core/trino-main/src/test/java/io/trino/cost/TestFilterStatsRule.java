@@ -16,8 +16,7 @@ package io.trino.cost;
 
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.DoubleLiteral;
-import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.AfterAll;
@@ -26,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -56,7 +56,7 @@ public class TestFilterStatsRule
     public void testEstimatableFilter()
     {
         tester().assertStatsFor(pb -> pb
-                .filter(new ComparisonExpression(EQUAL, new SymbolReference("i1"), new LongLiteral(5)),
+                .filter(new ComparisonExpression(EQUAL, new SymbolReference("i1"), GenericLiteral.constant(INTEGER, 5L)),
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
@@ -101,7 +101,7 @@ public class TestFilterStatsRule
                                 .nullsFraction(0.05)));
 
         defaultFilterTester.assertStatsFor(pb -> pb
-                .filter(new ComparisonExpression(EQUAL, new SymbolReference("i1"), new LongLiteral(5)),
+                .filter(new ComparisonExpression(EQUAL, new SymbolReference("i1"), GenericLiteral.constant(INTEGER, 5L)),
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
@@ -156,7 +156,7 @@ public class TestFilterStatsRule
                         .functionCallBuilder("sin")
                         .addArgument(DOUBLE, new SymbolReference("i1"))
                         .build(),
-                new DoubleLiteral(1));
+                GenericLiteral.constant(DOUBLE, 1.0));
 
         tester()
                 .assertStatsFor(pb -> pb

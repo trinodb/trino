@@ -19,14 +19,18 @@ import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.BigintType;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.DecimalParseResult;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
@@ -34,13 +38,10 @@ import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.BinaryLiteral;
 import io.trino.sql.ir.BindExpression;
-import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.ComparisonExpression.Operator;
-import io.trino.sql.ir.DecimalLiteral;
-import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
@@ -52,7 +53,6 @@ import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullIfExpression;
@@ -84,9 +84,7 @@ import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBSCRIPT;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -184,34 +182,6 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitBooleanLiteral(BooleanLiteral node, Void context)
-        {
-            return constant(node.getValue(), BOOLEAN);
-        }
-
-        @Override
-        protected RowExpression visitLongLiteral(LongLiteral node, Void context)
-        {
-            if (node.getValue() >= Integer.MIN_VALUE && node.getValue() <= Integer.MAX_VALUE) {
-                return constant(node.getValue(), INTEGER);
-            }
-            return constant(node.getValue(), BIGINT);
-        }
-
-        @Override
-        protected RowExpression visitDoubleLiteral(DoubleLiteral node, Void context)
-        {
-            return constant(node.getValue(), DOUBLE);
-        }
-
-        @Override
-        protected RowExpression visitDecimalLiteral(DecimalLiteral node, Void context)
-        {
-            DecimalParseResult parseResult = Decimals.parse(node.getValue());
-            return constant(parseResult.getObject(), parseResult.getType());
-        }
-
-        @Override
         protected RowExpression visitStringLiteral(StringLiteral node, Void context)
         {
             return constant(utf8Slice(node.getValue()), createVarcharType(node.length()));
@@ -226,7 +196,13 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitGenericLiteral(GenericLiteral node, Void context)
         {
-            return switch (getType(node)) {
+            return switch (node.getType()) {
+                case TinyintType type -> constant(node.getRawValue(), type);
+                case SmallintType type -> constant(node.getRawValue(), type);
+                case IntegerType type -> constant(node.getRawValue(), type);
+                case BigintType type -> constant(node.getRawValue(), type);
+                case DoubleType type -> constant(node.getRawValue(), type);
+                case DecimalType type -> constant(node.getRawValue(), type);
                 case CharType type -> constant(utf8Slice(node.getValue()), type);
                 case TimeType type -> constant(parseTime(node.getValue()), type);
                 case TimeWithTimeZoneType type -> constant(parseTimeWithTimeZone(type.getPrecision(), node.getValue()), type);
