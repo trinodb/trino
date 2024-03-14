@@ -189,9 +189,9 @@ public class TestWindowClause
                                                                         // sort key based on "a" in source scope
                                                                         "sortkey", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral(1))),
                                                                         // frame offset based on "a" in output scope
-                                                                        "frame_offset", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("new_a"), new DoubleLiteral("1.0")))),
+                                                                        "frame_offset", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("new_a"), new DoubleLiteral(1.0)))),
                                                                 project(// output expression
-                                                                        ImmutableMap.of("new_a", expression(new DoubleLiteral("2E0"))),
+                                                                        ImmutableMap.of("new_a", expression(new DoubleLiteral(2E0))),
                                                                         project(project(values("a")))))))))))));
 
         assertPlan(sql, CREATED, pattern);

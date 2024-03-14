@@ -356,7 +356,7 @@ public abstract class AbstractPredicatePushdownTest
                         "SELECT * FROM t WHERE x > 5000",
                 anyTree(
                         filter(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("expr"), new DoubleLiteral("5000.0")),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("expr"), new DoubleLiteral(5000.0)),
                                 project(ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(MULTIPLY, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new Cast(new SymbolReference("orderkey"), DOUBLE)))),
                                         tableScan("orders", ImmutableMap.of(
                                                 "orderkey", "orderkey"))))));
@@ -435,7 +435,7 @@ public abstract class AbstractPredicatePushdownTest
                         node(WindowNode.class,
                                 anyTree(
                                         filter(
-                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("ROUND"), new DoubleLiteral("100.0")),
+                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("ROUND"), new DoubleLiteral(100.0)),
                                                 project(ImmutableMap.of("ROUND", expression(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new ArithmeticBinaryExpression(MULTIPLY, new Cast(new SymbolReference("CUST_KEY"), DOUBLE), new FunctionCall(QualifiedName.of("random"), ImmutableList.of())))))),
                                                         tableScan(
                                                                 "orders",
@@ -452,7 +452,7 @@ public abstract class AbstractPredicatePushdownTest
                         ") WHERE custkey > 100*rand()",
                 anyTree(
                         filter(
-                                new ComparisonExpression(GREATER_THAN, new Cast(new SymbolReference("CUST_KEY"), DOUBLE), new ArithmeticBinaryExpression(MULTIPLY, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral("100.0"))),
+                                new ComparisonExpression(GREATER_THAN, new Cast(new SymbolReference("CUST_KEY"), DOUBLE), new ArithmeticBinaryExpression(MULTIPLY, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral(100.0))),
                                 anyTree(
                                         node(WindowNode.class,
                                                 anyTree(

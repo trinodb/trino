@@ -77,10 +77,10 @@ public class TestCounterBasedAnonymizer
         assertThat(anonymizer.anonymize(new DecimalLiteral("123")))
                 .isEqualTo("'decimal_literal_4'");
 
-        assertThat(anonymizer.anonymize(new DoubleLiteral(String.valueOf(6554))))
+        assertThat(anonymizer.anonymize(new DoubleLiteral(6554)))
                 .isEqualTo("'double_literal_5'");
 
-        assertThat(anonymizer.anonymize(new DoubleLiteral(String.valueOf(Double.MAX_VALUE))))
+        assertThat(anonymizer.anonymize(new DoubleLiteral(Double.MAX_VALUE)))
                 .isEqualTo("'double_literal_6'");
 
         assertThat(anonymizer.anonymize(new LongLiteral(6554)))

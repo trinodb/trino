@@ -475,40 +475,40 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(new DoubleLiteral("0.0"), createVarcharType(3)),
+                new Cast(new DoubleLiteral(0.0), createVarcharType(3)),
                 new StringLiteral("0E0"));
         assertSimplifies(
-                new Cast(new DoubleLiteral("-0.0"), createVarcharType(4)),
+                new Cast(new DoubleLiteral(-0.0), createVarcharType(4)),
                 new StringLiteral("-0E0"));
         assertSimplifies(
-                new Cast(new ArithmeticBinaryExpression(DIVIDE, new DoubleLiteral("0.0"), new DoubleLiteral("0.0")), createVarcharType(3)),
+                new Cast(new ArithmeticBinaryExpression(DIVIDE, new DoubleLiteral(0.0), new DoubleLiteral(0.0)), createVarcharType(3)),
                 new StringLiteral("NaN"));
         assertSimplifies(
                 new Cast(new GenericLiteral("DOUBLE", "Infinity"), createVarcharType(8)),
                 new StringLiteral("Infinity"));
         assertSimplifies(
-                new Cast(new DoubleLiteral("1200.0"), createVarcharType(5)),
+                new Cast(new DoubleLiteral(1200.0), createVarcharType(5)),
                 new StringLiteral("1.2E3"));
         assertSimplifies(
-                new Cast(new DoubleLiteral("-1200.0"), createVarcharType(50)),
+                new Cast(new DoubleLiteral(-1200.0), createVarcharType(50)),
                 new Cast(new StringLiteral("-1.2E3"), createVarcharType(50)));
 
         // cast from double to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(new DoubleLiteral("1200.0"), createVarcharType(3)),
-                new Cast(new DoubleLiteral("1200.0"), createVarcharType(3)));
+                new Cast(new DoubleLiteral(1200.0), createVarcharType(3)),
+                new Cast(new DoubleLiteral(1200.0), createVarcharType(3)));
         assertSimplifies(
-                new Cast(new DoubleLiteral("-1200.0"), createVarcharType(3)),
-                new Cast(new DoubleLiteral("-1200.0"), createVarcharType(3)));
+                new Cast(new DoubleLiteral(-1200.0), createVarcharType(3)),
+                new Cast(new DoubleLiteral(-1200.0), createVarcharType(3)));
         assertSimplifies(
-                new Cast(new DoubleLiteral("NaN"), createVarcharType(2)),
-                new Cast(new DoubleLiteral("NaN"), createVarcharType(2)));
+                new Cast(new DoubleLiteral(Double.NaN), createVarcharType(2)),
+                new Cast(new DoubleLiteral(Double.NaN), createVarcharType(2)));
         assertSimplifies(
                 new Cast(new GenericLiteral("DOUBLE", "Infinity"), createVarcharType(7)),
                 new Cast(new GenericLiteral("DOUBLE", "Infinity"), createVarcharType(7)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(new DoubleLiteral("1200.0"), createVarcharType(3)), new StringLiteral("1200.0")),
-                new ComparisonExpression(EQUAL, new Cast(new DoubleLiteral("1200.0"), createVarcharType(3)), new StringLiteral("1200.0")));
+                new ComparisonExpression(EQUAL, new Cast(new DoubleLiteral(1200.0), createVarcharType(3)), new StringLiteral("1200.0")),
+                new ComparisonExpression(EQUAL, new Cast(new DoubleLiteral(1200.0), createVarcharType(3)), new StringLiteral("1200.0")));
     }
 
     @Test
