@@ -13,6 +13,7 @@
  */
 package io.trino.hive.formats.line.sequence;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.line.FooterAwareLineReader;
 import io.trino.hive.formats.line.LineBuffer;
@@ -20,6 +21,7 @@ import io.trino.hive.formats.line.LineReader;
 import io.trino.hive.formats.line.LineReaderFactory;
 
 import java.io.IOException;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.hive.formats.HiveClassNames.SEQUENCEFILE_INPUT_FORMAT_CLASS;
@@ -37,9 +39,9 @@ public class SequenceFileReaderFactory
     }
 
     @Override
-    public String getHiveOutputFormatClassName()
+    public Set<String> getHiveInputFormatClassNames()
     {
-        return SEQUENCEFILE_INPUT_FORMAT_CLASS;
+        return ImmutableSet.of(SEQUENCEFILE_INPUT_FORMAT_CLASS);
     }
 
     @Override
