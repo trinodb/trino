@@ -47,6 +47,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
@@ -195,7 +196,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             return new SimpleCaseExpression(
                     countAllValue.toSymbolReference(),
                     ImmutableList.of(new WhenClause(
-                            new GenericLiteral("bigint", "0"),
+                            new GenericLiteral(BIGINT, "0"),
                             emptySetResult)),
                     Optional.of(quantifier.apply(ImmutableList.of(
                             comparisonWithExtremeValue,

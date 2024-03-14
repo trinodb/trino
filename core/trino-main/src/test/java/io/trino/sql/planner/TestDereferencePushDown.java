@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.MERGE_PROJECT_WITH_VALUES;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.LogicalExpression.Operator.OR;
@@ -84,7 +85,7 @@ public class TestDereferencePushDown
                                         values(
                                                 ImmutableList.of("b_x", "b_y", "a_y"),
                                                 ImmutableList.of(ImmutableList.of(
-                                                        new GenericLiteral("BIGINT", "1"),
+                                                        new GenericLiteral(BIGINT, "1"),
                                                         new DoubleLiteral(2e0),
                                                         new DoubleLiteral(2e0))))))));
 
@@ -110,7 +111,7 @@ public class TestDereferencePushDown
                                                 new ComparisonExpression(EQUAL, new SymbolReference("b_y"), new DoubleLiteral(2.0)),
                                                 values(
                                                         ImmutableList.of("b_x", "b_y"),
-                                                        ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral(2e0))))))))));
+                                                        ImmutableList.of(ImmutableList.of(new GenericLiteral(BIGINT, "1"), new DoubleLiteral(2e0))))))))));
     }
 
     @Test
@@ -126,14 +127,14 @@ public class TestDereferencePushDown
                                 ImmutableMap.of("a_y", expression(new SymbolReference("a_y")), "b_x", expression(new SymbolReference("b_x"))),
                                 filter(
                                         new LogicalExpression(OR, ImmutableList.of(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("a_x"), new GenericLiteral("BIGINT", "7")),
+                                                new ComparisonExpression(EQUAL, new SymbolReference("a_x"), new GenericLiteral(BIGINT, "7")),
                                                 new FunctionCall(QualifiedName.of("is_finite"), ImmutableList.of(new SymbolReference("b_y"))))),
                                         values(
                                                 ImmutableList.of("b_x", "b_y", "a_x", "a_y"),
                                                 ImmutableList.of(ImmutableList.of(
-                                                        new GenericLiteral("BIGINT", "1"),
+                                                        new GenericLiteral(BIGINT, "1"),
                                                         new DoubleLiteral(2e0),
-                                                        new GenericLiteral("BIGINT", "1"),
+                                                        new GenericLiteral(BIGINT, "1"),
                                                         new DoubleLiteral(2e0))))))));
     }
 
@@ -146,7 +147,7 @@ public class TestDereferencePushDown
                 anyTree(
                         values(
                                 ImmutableList.of("x", "y"),
-                                ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral(2e0))))));
+                                ImmutableList.of(ImmutableList.of(new GenericLiteral(BIGINT, "1"), new DoubleLiteral(2e0))))));
 
         assertPlanWithSession(
                 "WITH t(msg1, msg2, msg3, msg4, msg5) AS (VALUES " +
@@ -212,7 +213,7 @@ public class TestDereferencePushDown
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))), ROW(CAST(ROW(3, 4.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT msg.x * 3  FROM t limit 1",
                 anyTree(
-                        strictProject(ImmutableMap.of("x_into_3", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("msg_x"), new GenericLiteral("BIGINT", "3")))),
+                        strictProject(ImmutableMap.of("x_into_3", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("msg_x"), new GenericLiteral(BIGINT, "3")))),
                                 limit(1,
                                         strictProject(ImmutableMap.of("msg_x", expression(new SubscriptExpression(new SymbolReference("msg"), new LongLiteral(1)))),
                                                 values("msg"))))));
@@ -233,7 +234,7 @@ public class TestDereferencePushDown
                                                 values(
                                                         ImmutableList.of("b_x", "b_y", "a_y"),
                                                         ImmutableList.of(ImmutableList.of(
-                                                                new GenericLiteral("BIGINT", "1"),
+                                                                new GenericLiteral(BIGINT, "1"),
                                                                 new DoubleLiteral(2e0),
                                                                 new DoubleLiteral(2e0)))))))));
 
@@ -260,7 +261,7 @@ public class TestDereferencePushDown
                                                 new ComparisonExpression(EQUAL, new SymbolReference("b_y"), new DoubleLiteral(2.0)),
                                                 values(
                                                         ImmutableList.of("b_x", "b_y"),
-                                                        ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral(2e0))))))))));
+                                                        ImmutableList.of(ImmutableList.of(new GenericLiteral(BIGINT, "1"), new DoubleLiteral(2e0))))))))));
     }
 
     @Test

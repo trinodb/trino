@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
@@ -125,7 +126,7 @@ public class TestFilteredAggregations
                 "SELECT sum(totalprice) FILTER(WHERE totalprice > 0), sum(custkey) FILTER(WHERE custkey > 0) FROM orders",
                 anyTree(
                         filter(
-                                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("totalprice"), new DoubleLiteral(0.0)), new ComparisonExpression(GREATER_THAN, new SymbolReference("custkey"), new GenericLiteral("BIGINT", "0")))),
+                                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("totalprice"), new DoubleLiteral(0.0)), new ComparisonExpression(GREATER_THAN, new SymbolReference("custkey"), new GenericLiteral(BIGINT, "0")))),
                                 source)));
     }
 

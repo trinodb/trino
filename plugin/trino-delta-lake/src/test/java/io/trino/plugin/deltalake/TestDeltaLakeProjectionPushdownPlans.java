@@ -192,7 +192,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                 anyTree(
                         filter(
                                 new LogicalExpression(AND, ImmutableList.of(
-                                        new ComparisonExpression(EQUAL, new SymbolReference("y"), new GenericLiteral("BIGINT", "2")),
+                                        new ComparisonExpression(EQUAL, new SymbolReference("y"), new GenericLiteral(BIGINT, "2")),
                                         new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), new LongLiteral(3)), BIGINT)))),
                                 source2)));
 
@@ -210,7 +210,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                 format("SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5", testTable),
                 anyTree(
                         filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference("x"), new GenericLiteral("BIGINT", "5")),
+                                new ComparisonExpression(EQUAL, new SymbolReference("x"), new GenericLiteral(BIGINT, "5")),
                                 source1)));
 
         // Projection and predicate pushdown with joins
@@ -240,7 +240,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                                             .left(
                                                     anyTree(
                                                             filter(
-                                                                    new ComparisonExpression(EQUAL, new SymbolReference("x"), new GenericLiteral("BIGINT", "2")),
+                                                                    new ComparisonExpression(EQUAL, new SymbolReference("x"), new GenericLiteral(BIGINT, "2")),
                                                                     source)))
                                             .right(
                                                     anyTree(

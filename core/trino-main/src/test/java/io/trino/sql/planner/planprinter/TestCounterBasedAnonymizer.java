@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
@@ -71,7 +72,7 @@ public class TestCounterBasedAnonymizer
         assertThat(anonymizer.anonymize(new StringLiteral("abc")))
                 .isEqualTo("'string_literal_2'");
 
-        assertThat(anonymizer.anonymize(new GenericLiteral("bigint", "1")))
+        assertThat(anonymizer.anonymize(new GenericLiteral(BIGINT, "1")))
                 .isEqualTo("'bigint_literal_3'");
 
         assertThat(anonymizer.anonymize(new DecimalLiteral("123")))

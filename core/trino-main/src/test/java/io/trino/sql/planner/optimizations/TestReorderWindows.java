@@ -294,7 +294,7 @@ public class TestReorderWindows
                                                         .specification(windowA)
                                                         .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                                 filter(
-                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("SUPPKEY"), new GenericLiteral("BIGINT", "0")),
+                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("SUPPKEY"), new GenericLiteral(BIGINT, "0")),
                                                         LINEITEM_TABLESCAN_DOQRST))))));
     }
 

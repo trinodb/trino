@@ -44,6 +44,7 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -160,8 +161,8 @@ public class TestTableFunctionInvocation
                                 .addCopartitioning(ImmutableList.of("INPUT1", "INPUT2"))
                                 .properOutputs(ImmutableList.of("COLUMN")),
                         project(ImmutableMap.of("c1_coerced", expression(new Cast(new SymbolReference("c1"), INTEGER))),
-                                anyTree(values(ImmutableList.of("c1"), ImmutableList.of(ImmutableList.of(new GenericLiteral("SMALLINT", "1")))))),
-                        anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(new GenericLiteral("INTEGER", "2"))))))));
+                                anyTree(values(ImmutableList.of("c1"), ImmutableList.of(ImmutableList.of(new GenericLiteral(SMALLINT, "1")))))),
+                        anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(new GenericLiteral(INTEGER, "2"))))))));
     }
 
     @Test

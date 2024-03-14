@@ -58,6 +58,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -271,7 +272,7 @@ public class TestPushJoinIntoTableScan
                                 right,
                                 new ComparisonExpression(
                                         ComparisonExpression.Operator.GREATER_THAN,
-                                        new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new GenericLiteral("BIGINT", "44"), columnA1Symbol.toSymbolReference()),
+                                        new ArithmeticBinaryExpression(MULTIPLY, new GenericLiteral(BIGINT, "44"), columnA1Symbol.toSymbolReference()),
                                         columnB1Symbol.toSymbolReference()));
                     })
                     .matches(

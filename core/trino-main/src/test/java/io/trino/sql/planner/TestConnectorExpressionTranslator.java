@@ -80,6 +80,7 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
@@ -468,7 +469,7 @@ public class TestConnectorExpressionTranslator
         assertTranslationRoundTrips(
                 new InPredicate(
                         new SymbolReference("varchar_symbol_1"),
-                        List.of(new SymbolReference("varchar_symbol_1"), new GenericLiteral("VARCHAR", value))),
+                        List.of(new SymbolReference("varchar_symbol_1"), new GenericLiteral(VARCHAR, value))),
                 new Call(
                     BOOLEAN,
                     StandardFunctions.IN_PREDICATE_FUNCTION_NAME,

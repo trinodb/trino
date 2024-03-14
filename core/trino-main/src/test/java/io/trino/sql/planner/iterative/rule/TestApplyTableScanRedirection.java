@@ -237,7 +237,7 @@ public class TestApplyTableScanRedirection
                     })
                     .matches(
                             filter(
-                                    new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL"), new GenericLiteral("VARCHAR", "foo")),
+                                    new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL"), new GenericLiteral(VARCHAR, "foo")),
                                     tableScan(
                                             new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                             TupleDomain.all(),
@@ -257,7 +257,7 @@ public class TestApplyTableScanRedirection
                             project(
                                     ImmutableMap.of("expr", expression(new SymbolReference("DEST_COL_B"))),
                                     filter(
-                                            new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL_A"), new GenericLiteral("VARCHAR", "foo")),
+                                            new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL_A"), new GenericLiteral(VARCHAR, "foo")),
                                             tableScan(
                                                     new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                                     TupleDomain.all(),

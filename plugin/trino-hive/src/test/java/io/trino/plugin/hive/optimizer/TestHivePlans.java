@@ -52,6 +52,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MODULUS;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
@@ -243,7 +244,7 @@ public class TestHivePlans
                                 .left(
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new ComparisonExpression(NOT_EQUAL, new FunctionCall(QualifiedName.of("substring"), ImmutableList.of(new SymbolReference("L_STR_COL"), new GenericLiteral("BIGINT", "2"))), new Cast(new StringLiteral("hree"), createVarcharType(5))),
+                                                        new ComparisonExpression(NOT_EQUAL, new FunctionCall(QualifiedName.of("substring"), ImmutableList.of(new SymbolReference("L_STR_COL"), new GenericLiteral(BIGINT, "2"))), new Cast(new StringLiteral("hree"), createVarcharType(5))),
                                                         tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))))
                                 .right(
                                         exchange(LOCAL,

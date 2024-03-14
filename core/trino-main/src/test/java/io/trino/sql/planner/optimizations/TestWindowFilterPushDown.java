@@ -33,6 +33,7 @@ import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.OPTIMIZE_TOP_N_RANKING;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.ir.LogicalExpression.Operator.AND;
@@ -234,7 +235,7 @@ public class TestWindowFilterPushDown
                 output(
                         ImmutableList.of("name", "ranking"),
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("ranking"), new GenericLiteral("BIGINT", "1")), new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), new GenericLiteral("BIGINT", "3")))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("ranking"), new GenericLiteral(BIGINT, "1")), new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), new GenericLiteral(BIGINT, "3")))),
                                 topNRanking(
                                         pattern -> pattern
                                                 .rankingType(rankingType)
@@ -297,7 +298,7 @@ public class TestWindowFilterPushDown
                 output(
                         ImmutableList.of("name", "row_number"),
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new GenericLiteral("BIGINT", "1")), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), new GenericLiteral("BIGINT", "3")))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new GenericLiteral(BIGINT, "1")), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), new GenericLiteral(BIGINT, "3")))),
                                 rowNumber(
                                         pattern -> pattern
                                                 .maxRowCountPerPartition(Optional.of(2)),

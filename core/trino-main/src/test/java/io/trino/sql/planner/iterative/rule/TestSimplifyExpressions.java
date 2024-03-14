@@ -49,9 +49,12 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.DIVIDE;
@@ -383,22 +386,22 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(new GenericLiteral("SMALLINT", "1234"), createVarcharType(4)),
+                new Cast(new GenericLiteral(SMALLINT, "1234"), createVarcharType(4)),
                 new StringLiteral("1234"));
         assertSimplifies(
-                new Cast(new GenericLiteral("SMALLINT", "-1234"), createVarcharType(50)),
+                new Cast(new GenericLiteral(SMALLINT, "-1234"), createVarcharType(50)),
                 new Cast(new StringLiteral("-1234"), createVarcharType(50)));
 
         // cast from smallint to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(new GenericLiteral("SMALLINT", "1234"), createVarcharType(3)),
-                new Cast(new GenericLiteral("SMALLINT", "1234"), createVarcharType(3)));
+                new Cast(new GenericLiteral(SMALLINT, "1234"), createVarcharType(3)),
+                new Cast(new GenericLiteral(SMALLINT, "1234"), createVarcharType(3)));
         assertSimplifies(
-                new Cast(new GenericLiteral("SMALLINT", "-1234"), createVarcharType(3)),
-                new Cast(new GenericLiteral("SMALLINT", "-1234"), createVarcharType(3)));
+                new Cast(new GenericLiteral(SMALLINT, "-1234"), createVarcharType(3)),
+                new Cast(new GenericLiteral(SMALLINT, "-1234"), createVarcharType(3)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral("SMALLINT", "1234"), createVarcharType(3)), new StringLiteral("1234")),
-                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral("SMALLINT", "1234"), createVarcharType(3)), new StringLiteral("1234")));
+                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral(SMALLINT, "1234"), createVarcharType(3)), new StringLiteral("1234")),
+                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral(SMALLINT, "1234"), createVarcharType(3)), new StringLiteral("1234")));
     }
 
     @Test
@@ -406,22 +409,22 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(new GenericLiteral("TINYINT", "123"), createVarcharType(3)),
+                new Cast(new GenericLiteral(TINYINT, "123"), createVarcharType(3)),
                 new StringLiteral("123"));
         assertSimplifies(
-                new Cast(new GenericLiteral("TINYINT", "-123"), createVarcharType(50)),
+                new Cast(new GenericLiteral(TINYINT, "-123"), createVarcharType(50)),
                 new Cast(new StringLiteral("-123"), createVarcharType(50)));
 
         // cast from smallint to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(new GenericLiteral("TINYINT", "123"), createVarcharType(2)),
-                new Cast(new GenericLiteral("TINYINT", "123"), createVarcharType(2)));
+                new Cast(new GenericLiteral(TINYINT, "123"), createVarcharType(2)),
+                new Cast(new GenericLiteral(TINYINT, "123"), createVarcharType(2)));
         assertSimplifies(
-                new Cast(new GenericLiteral("TINYINT", "-123"), createVarcharType(2)),
-                new Cast(new GenericLiteral("TINYINT", "-123"), createVarcharType(2)));
+                new Cast(new GenericLiteral(TINYINT, "-123"), createVarcharType(2)),
+                new Cast(new GenericLiteral(TINYINT, "-123"), createVarcharType(2)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral("TINYINT", "123"), createVarcharType(2)), new StringLiteral("123")),
-                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral("TINYINT", "123"), createVarcharType(2)), new StringLiteral("123")));
+                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral(TINYINT, "123"), createVarcharType(2)), new StringLiteral("123")),
+                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral(TINYINT, "123"), createVarcharType(2)), new StringLiteral("123")));
     }
 
     @Test
@@ -484,7 +487,7 @@ public class TestSimplifyExpressions
                 new Cast(new ArithmeticBinaryExpression(DIVIDE, new DoubleLiteral(0.0), new DoubleLiteral(0.0)), createVarcharType(3)),
                 new StringLiteral("NaN"));
         assertSimplifies(
-                new Cast(new GenericLiteral("DOUBLE", "Infinity"), createVarcharType(8)),
+                new Cast(new GenericLiteral(DOUBLE, "Infinity"), createVarcharType(8)),
                 new StringLiteral("Infinity"));
         assertSimplifies(
                 new Cast(new DoubleLiteral(1200.0), createVarcharType(5)),
@@ -504,8 +507,8 @@ public class TestSimplifyExpressions
                 new Cast(new DoubleLiteral(Double.NaN), createVarcharType(2)),
                 new Cast(new DoubleLiteral(Double.NaN), createVarcharType(2)));
         assertSimplifies(
-                new Cast(new GenericLiteral("DOUBLE", "Infinity"), createVarcharType(7)),
-                new Cast(new GenericLiteral("DOUBLE", "Infinity"), createVarcharType(7)));
+                new Cast(new GenericLiteral(DOUBLE, "Infinity"), createVarcharType(7)),
+                new Cast(new GenericLiteral(DOUBLE, "Infinity"), createVarcharType(7)));
         assertSimplifies(
                 new ComparisonExpression(EQUAL, new Cast(new DoubleLiteral(1200.0), createVarcharType(3)), new StringLiteral("1200.0")),
                 new ComparisonExpression(EQUAL, new Cast(new DoubleLiteral(1200.0), createVarcharType(3)), new StringLiteral("1200.0")));
@@ -516,40 +519,40 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(new GenericLiteral("REAL", "0e0"), createVarcharType(3)),
+                new Cast(new GenericLiteral(REAL, "0e0"), createVarcharType(3)),
                 new StringLiteral("0E0"));
         assertSimplifies(
-                new Cast(new GenericLiteral("REAL", "-0e0"), createVarcharType(4)),
+                new Cast(new GenericLiteral(REAL, "-0e0"), createVarcharType(4)),
                 new StringLiteral("-0E0"));
         assertSimplifies(
-                new Cast(new ArithmeticBinaryExpression(DIVIDE, new GenericLiteral("REAL", "0e0"), new GenericLiteral("REAL", "0e0")), createVarcharType(3)),
+                new Cast(new ArithmeticBinaryExpression(DIVIDE, new GenericLiteral(REAL, "0e0"), new GenericLiteral(REAL, "0e0")), createVarcharType(3)),
                 new StringLiteral("NaN"));
         assertSimplifies(
-                new Cast(new GenericLiteral("REAL", "Infinity"), createVarcharType(8)),
+                new Cast(new GenericLiteral(REAL, "Infinity"), createVarcharType(8)),
                 new StringLiteral("Infinity"));
         assertSimplifies(
-                new Cast(new GenericLiteral("REAL", "12e2"), createVarcharType(5)),
+                new Cast(new GenericLiteral(REAL, "12e2"), createVarcharType(5)),
                 new StringLiteral("1.2E3"));
         assertSimplifies(
-                new Cast(new GenericLiteral("REAL", "-12e2"), createVarcharType(50)),
+                new Cast(new GenericLiteral(REAL, "-12e2"), createVarcharType(50)),
                 new Cast(new StringLiteral("-1.2E3"), createVarcharType(50)));
 
         // cast from real to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(new GenericLiteral("REAL", "12e2"), createVarcharType(3)),
-                new Cast(new GenericLiteral("REAL", "12e2"), createVarcharType(3)));
+                new Cast(new GenericLiteral(REAL, "12e2"), createVarcharType(3)),
+                new Cast(new GenericLiteral(REAL, "12e2"), createVarcharType(3)));
         assertSimplifies(
-                new Cast(new GenericLiteral("REAL", "-12e2"), createVarcharType(3)),
-                new Cast(new GenericLiteral("REAL", "-12e2"), createVarcharType(3)));
+                new Cast(new GenericLiteral(REAL, "-12e2"), createVarcharType(3)),
+                new Cast(new GenericLiteral(REAL, "-12e2"), createVarcharType(3)));
         assertSimplifies(
-                new Cast(new GenericLiteral("REAL", "NaN"), createVarcharType(2)),
-                new Cast(new GenericLiteral("REAL", "NaN"), createVarcharType(2)));
+                new Cast(new GenericLiteral(REAL, "NaN"), createVarcharType(2)),
+                new Cast(new GenericLiteral(REAL, "NaN"), createVarcharType(2)));
         assertSimplifies(
-                new Cast(new GenericLiteral("REAL", "Infinity"), createVarcharType(7)),
-                new Cast(new GenericLiteral("REAL", "Infinity"), createVarcharType(7)));
+                new Cast(new GenericLiteral(REAL, "Infinity"), createVarcharType(7)),
+                new Cast(new GenericLiteral(REAL, "Infinity"), createVarcharType(7)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral("REAL", "12e2"), createVarcharType(3)), new StringLiteral("1200.0")),
-                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral("REAL", "12e2"), createVarcharType(3)), new StringLiteral("1200.0")));
+                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral(REAL, "12e2"), createVarcharType(3)), new StringLiteral("1200.0")),
+                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral(REAL, "12e2"), createVarcharType(3)), new StringLiteral("1200.0")));
     }
 
     @Test
@@ -557,19 +560,19 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the date's representation
         assertSimplifies(
-                new Cast(new GenericLiteral("DATE", "2013-02-02"), createVarcharType(10)),
+                new Cast(new GenericLiteral(DATE, "2013-02-02"), createVarcharType(10)),
                 new StringLiteral("2013-02-02"));
         assertSimplifies(
-                new Cast(new GenericLiteral("DATE", "2013-02-02"), createVarcharType(50)),
+                new Cast(new GenericLiteral(DATE, "2013-02-02"), createVarcharType(50)),
                 new Cast(new StringLiteral("2013-02-02"), createVarcharType(50)));
 
         // cast from date to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(new GenericLiteral("DATE", "2013-02-02"), createVarcharType(3)),
-                new Cast(new GenericLiteral("DATE", "2013-02-02"), createVarcharType(3)));
+                new Cast(new GenericLiteral(DATE, "2013-02-02"), createVarcharType(3)),
+                new Cast(new GenericLiteral(DATE, "2013-02-02"), createVarcharType(3)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral("DATE", "2013-02-02"), createVarcharType(3)), new StringLiteral("2013-02-02")),
-                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral("DATE", "2013-02-02"), createVarcharType(3)), new StringLiteral("2013-02-02")));
+                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral(DATE, "2013-02-02"), createVarcharType(3)), new StringLiteral("2013-02-02")),
+                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral(DATE, "2013-02-02"), createVarcharType(3)), new StringLiteral("2013-02-02")));
     }
 
     private static void assertSimplifies(Expression expression, Expression expected)

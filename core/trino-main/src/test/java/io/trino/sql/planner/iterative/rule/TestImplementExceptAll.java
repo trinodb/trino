@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.SUBTRACT;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
@@ -90,7 +91,7 @@ public class TestImplementExceptAll
                                         "a", expression(new SymbolReference("a")),
                                         "b", expression(new SymbolReference("b"))),
                                 filter(
-                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new FunctionCall(QualifiedName.of("greatest"), ImmutableList.of(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count_1"), new SymbolReference("count_2")), new GenericLiteral("BIGINT", "0")))),
+                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new FunctionCall(QualifiedName.of("greatest"), ImmutableList.of(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count_1"), new SymbolReference("count_2")), new GenericLiteral(BIGINT, "0")))),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         "a", expression(new SymbolReference("a")),
