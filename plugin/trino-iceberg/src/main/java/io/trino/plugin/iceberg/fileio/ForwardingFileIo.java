@@ -81,6 +81,18 @@ public class ForwardingFileIo
     }
 
     @Override
+    public void deleteFile(InputFile file)
+    {
+        SupportsBulkOperations.super.deleteFile(file);
+    }
+
+    @Override
+    public void deleteFile(OutputFile file)
+    {
+        SupportsBulkOperations.super.deleteFile(file);
+    }
+
+    @Override
     public void deleteFiles(Iterable<String> pathsToDelete)
             throws BulkDeletionFailureException
     {
@@ -116,4 +128,7 @@ public class ForwardingFileIo
     {
         throw new UnsupportedOperationException("ForwardingFileIO does not support initialization by properties");
     }
+
+    @Override
+    public void close() {}
 }
