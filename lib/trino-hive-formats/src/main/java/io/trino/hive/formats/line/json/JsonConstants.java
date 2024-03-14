@@ -17,9 +17,12 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
+import static io.trino.hive.formats.HiveClassNames.JSON_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.LEGACY_JSON_SERDE_CLASS;
+
 public final class JsonConstants
 {
-    static final Set<String> HIVE_SERDE_CLASS_NAMES = ImmutableSet.of("org.apache.hive.hcatalog.data.JsonSerDe", "org.apache.hadoop.hive.serde2.JsonSerDe");
+    static final Set<String> HIVE_SERDE_CLASS_NAMES = ImmutableSet.of(JSON_SERDE_CLASS, LEGACY_JSON_SERDE_CLASS);
 
     private JsonConstants() {}
 }

@@ -22,6 +22,7 @@ import io.trino.hive.formats.line.LineReaderFactory;
 import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.hive.formats.HiveClassNames.SEQUENCEFILE_INPUT_FORMAT_CLASS;
 
 public class SequenceFileReaderFactory
         implements LineReaderFactory
@@ -38,7 +39,7 @@ public class SequenceFileReaderFactory
     @Override
     public String getHiveOutputFormatClassName()
     {
-        return "org.apache.hadoop.mapred.SequenceFileInputFormat";
+        return SEQUENCEFILE_INPUT_FORMAT_CLASS;
     }
 
     @Override

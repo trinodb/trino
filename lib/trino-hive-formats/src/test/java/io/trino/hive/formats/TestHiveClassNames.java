@@ -50,9 +50,11 @@ import static io.trino.hive.formats.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORM
 import static io.trino.hive.formats.HiveClassNames.JSON_SERDE_CLASS;
 import static io.trino.hive.formats.HiveClassNames.LAZY_BINARY_COLUMNAR_SERDE_CLASS;
 import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.LEGACY_JSON_SERDE_CLASS;
 import static io.trino.hive.formats.HiveClassNames.MAPRED_PARQUET_INPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.OPENCSV_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.OPENX_JSON_SERDE_CLASS;
 import static io.trino.hive.formats.HiveClassNames.ORC_INPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.ORC_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.ORC_SERDE_CLASS;
@@ -81,9 +83,11 @@ public class TestHiveClassNames
         assertClassName(JSON_SERDE_CLASS, JsonSerDe.class);
         assertClassName(LAZY_BINARY_COLUMNAR_SERDE_CLASS, LazyBinaryColumnarSerDe.class);
         assertClassName(LAZY_SIMPLE_SERDE_CLASS, LazySimpleSerDe.class);
+        assertClassName(LEGACY_JSON_SERDE_CLASS, org.apache.hadoop.hive.serde2.JsonSerDe.class);
         assertClassName(MAPRED_PARQUET_INPUT_FORMAT_CLASS, MapredParquetInputFormat.class);
         assertClassName(MAPRED_PARQUET_OUTPUT_FORMAT_CLASS, MapredParquetOutputFormat.class);
         assertClassName(OPENCSV_SERDE_CLASS, OpenCSVSerde.class);
+        assertClassName(OPENX_JSON_SERDE_CLASS, org.openx.data.jsonserde.JsonSerDe.class);
         assertClassName(ORC_INPUT_FORMAT_CLASS, OrcInputFormat.class);
         assertClassName(ORC_OUTPUT_FORMAT_CLASS, OrcOutputFormat.class);
         assertClassName(ORC_SERDE_CLASS, OrcSerde.class);
