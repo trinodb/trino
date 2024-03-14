@@ -18,10 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.MetadataManager;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -47,8 +44,6 @@ import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
-import io.trino.transaction.TestingTransactionManager;
-import io.trino.transaction.TransactionManager;
 import io.trino.type.LikePattern;
 import io.trino.type.LikePatternType;
 import io.trino.type.TypeCoercion;
@@ -96,7 +91,6 @@ import static io.trino.sql.ir.ComparisonExpression.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
@@ -2071,13 +2065,7 @@ public class TestDomainTranslator
 
     private ExtractionResult fromPredicate(Expression originalPredicate)
     {
-        TransactionManager transactionManager = new TestingTransactionManager();
-        Metadata metadata = MetadataManager.testMetadataManagerBuilder().withTransactionManager(transactionManager).build();
-        return transaction(transactionManager, metadata, new AllowAllAccessControl())
-                .singleStatement()
-                .execute(TEST_SESSION, transactionSession -> {
-                    return DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), transactionSession, originalPredicate, TYPES);
-                });
+        return DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), TEST_SESSION, originalPredicate, TYPES);
     }
 
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
