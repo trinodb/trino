@@ -218,7 +218,7 @@ public class DistributedQueryRunner
         this.trinoClient = closer.register(testingTrinoClientFactory.create(coordinator, defaultSession));
 
         ensureNodesGloballyVisible();
-        log.debug("Created DistributedQueryRunner in %s (unclosed instances = %s)", nanosSince(start), unclosedInstances.incrementAndGet());
+        log.info("Created DistributedQueryRunner in %s (unclosed instances = %s)", nanosSince(start), unclosedInstances.incrementAndGet());
     }
 
     private TestingTrinoServer createServer(
