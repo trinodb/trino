@@ -19,6 +19,7 @@ import io.trino.hive.formats.line.LineSerializerFactory;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static io.trino.hive.formats.line.json.JsonConstants.HIVE_SERDE_CLASS_NAMES;
 
@@ -26,7 +27,7 @@ public class JsonSerializerFactory
         implements LineSerializerFactory
 {
     @Override
-    public List<String> getHiveSerDeClassNames()
+    public Set<String> getHiveSerDeClassNames()
     {
         return HIVE_SERDE_CLASS_NAMES;
     }
