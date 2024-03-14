@@ -177,14 +177,14 @@ public class TestMergeProjectWithValues
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                 ImmutableList.of(
-                                        new Row(ImmutableList.of(new DoubleLiteral("1e0"), randomFunction)),
+                                        new Row(ImmutableList.of(new DoubleLiteral(1e0), randomFunction)),
                                         new Row(ImmutableList.of(randomFunction, new NullLiteral())),
                                         new Row(ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction), new NullLiteral()))))))
                 .matches(
                         values(
                                 ImmutableList.of("x", "y"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new ArithmeticUnaryExpression(MINUS, new DoubleLiteral("1e0")), randomFunction),
+                                        ImmutableList.of(new ArithmeticUnaryExpression(MINUS, new DoubleLiteral(1e0)), randomFunction),
                                         ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction), new NullLiteral()),
                                         ImmutableList.of(new ArithmeticUnaryExpression(MINUS, new ArithmeticUnaryExpression(MINUS, randomFunction)), new NullLiteral()))));
     }

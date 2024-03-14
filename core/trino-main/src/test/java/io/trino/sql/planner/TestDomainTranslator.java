@@ -2267,7 +2267,7 @@ public class TestDomainTranslator
 
     private static DoubleLiteral doubleLiteral(double value)
     {
-        return new DoubleLiteral(Double.toString(value));
+        return new DoubleLiteral(value);
     }
 
     private static Expression realLiteral(String value)

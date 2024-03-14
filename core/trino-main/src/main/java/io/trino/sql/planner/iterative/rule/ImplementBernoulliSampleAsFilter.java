@@ -69,6 +69,6 @@ public class ImplementBernoulliSampleAsFilter
                         BuiltinFunctionCallBuilder.resolve(metadata)
                                 .setName("rand")
                                 .build(),
-                        new DoubleLiteral(Double.toString(sample.getSampleRatio())))));
+                        new DoubleLiteral(sample.getSampleRatio()))));
     }
 }

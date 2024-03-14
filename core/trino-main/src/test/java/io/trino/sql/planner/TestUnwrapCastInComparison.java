@@ -624,14 +624,14 @@ public class TestUnwrapCastInComparison
     public void testNoEffect()
     {
         // BIGINT->DOUBLE implicit cast is not injective if the double constant is >= 2^53 and <= double(2^63 - 1)
-        testUnwrap("bigint", "a = DOUBLE '9007199254740992'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral("9.007199254740992E15")));
+        testUnwrap("bigint", "a = DOUBLE '9007199254740992'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral(9.007199254740992E15)));
 
-        testUnwrap("bigint", "a = DOUBLE '9223372036854775807'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral("9.223372036854776E18")));
+        testUnwrap("bigint", "a = DOUBLE '9223372036854775807'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral(9.223372036854776E18)));
 
         // BIGINT->DOUBLE implicit cast is not injective if the double constant is <= -2^53 and >= double(-2^63 + 1)
-        testUnwrap("bigint", "a = DOUBLE '-9007199254740992'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral("-9.007199254740992E15")));
+        testUnwrap("bigint", "a = DOUBLE '-9007199254740992'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral(-9.007199254740992E15)));
 
-        testUnwrap("bigint", "a = DOUBLE '-9223372036854775807'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral("-9.223372036854776E18")));
+        testUnwrap("bigint", "a = DOUBLE '-9223372036854775807'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral(-9.223372036854776E18)));
 
         // BIGINT->REAL implicit cast is not injective if the real constant is >= 2^23 and <= real(2^63 - 1)
         testUnwrap("bigint", "a = REAL '8388608'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new GenericLiteral("REAL", "8388608.0")));
@@ -654,7 +654,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("integer", "a = REAL '-2147483647'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new GenericLiteral("REAL", "-2.1474836E9")));
 
         // DECIMAL(p)->DOUBLE not injective for p > 15
-        testUnwrap("decimal(16)", "a = DOUBLE '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral("1.0")));
+        testUnwrap("decimal(16)", "a = DOUBLE '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new DoubleLiteral(1.0)));
 
         // DECIMAL(p)->REAL not injective for p > 7
         testUnwrap("decimal(8)", "a = REAL '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new GenericLiteral("REAL", "1.0")));
@@ -802,7 +802,7 @@ public class TestUnwrapCastInComparison
     {
         assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s AND rand() = 42", inputType, inputPredicate),
                 output(
-                        filter(new ComparisonExpression(EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral("42.0")),
+                        filter(new ComparisonExpression(EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral(42.0)),
                                 values("a"))));
     }
 
@@ -813,7 +813,7 @@ public class TestUnwrapCastInComparison
 
     private void testUnwrap(Session session, String inputType, String inputPredicate, Expression expected)
     {
-        Expression antiOptimization = new ComparisonExpression(EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral("42.0"));
+        Expression antiOptimization = new ComparisonExpression(EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new DoubleLiteral(42.0));
         if (expected instanceof LogicalExpression logical && logical.getOperator() == OR) {
             expected = new LogicalExpression(OR, ImmutableList.<Expression>builder()
                     .addAll(logical.getTerms())

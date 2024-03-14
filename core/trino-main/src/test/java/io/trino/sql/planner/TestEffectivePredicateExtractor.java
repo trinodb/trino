@@ -1118,7 +1118,7 @@ public class TestEffectivePredicateExtractor
 
     private static Expression doubleLiteral(double value)
     {
-        return new DoubleLiteral(String.valueOf(value));
+        return new DoubleLiteral(value);
     }
 
     private static ComparisonExpression equals(Expression expression1, Expression expression2)

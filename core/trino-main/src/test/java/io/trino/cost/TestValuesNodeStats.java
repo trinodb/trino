@@ -40,9 +40,9 @@ public class TestValuesNodeStats
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", DOUBLE)),
                                 ImmutableList.of(
-                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, new GenericLiteral("BIGINT", "3"), new GenericLiteral("BIGINT", "3")), new DoubleLiteral("13.5e0")),
+                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, new GenericLiteral("BIGINT", "3"), new GenericLiteral("BIGINT", "3")), new DoubleLiteral(13.5e0)),
                                         ImmutableList.of(new GenericLiteral("BIGINT", "55"), new NullLiteral()),
-                                        ImmutableList.of(new GenericLiteral("BIGINT", "6"), new DoubleLiteral("13.5e0")))))
+                                        ImmutableList.of(new GenericLiteral("BIGINT", "6"), new DoubleLiteral(13.5e0)))))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(3)
