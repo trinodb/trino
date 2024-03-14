@@ -502,29 +502,12 @@ public final class ExpressionTreeRewriter<C>
             }
 
             Expression value = rewrite(node.getValue(), context.get());
-            Expression list = rewrite(node.getValueList(), context.get());
+            List<Expression> values = node.getValueList().stream()
+                    .map(entry -> rewrite(entry, context.get()))
+                    .collect(toImmutableList());
 
-            if (node.getValue() != value || node.getValueList() != list) {
-                return new InPredicate(value, list);
-            }
-
-            return node;
-        }
-
-        @Override
-        protected Expression visitInListExpression(InListExpression node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteInListExpression(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            List<Expression> values = rewrite(node.getValues(), context);
-
-            if (!sameElements(node.getValues(), values)) {
-                return new InListExpression(values);
+            if (node.getValue() != value || !sameElements(values, node.getValueList())) {
+                return new InPredicate(value, values);
             }
 
             return node;

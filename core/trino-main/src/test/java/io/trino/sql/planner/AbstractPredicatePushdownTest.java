@@ -22,7 +22,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.DoubleLiteral;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.LongLiteral;
@@ -484,11 +483,11 @@ public abstract class AbstractPredicatePushdownTest
                 anyTree(
                         node(JoinNode.class,
                                 filter(
-                                        new InPredicate(new SymbolReference("ORDERSTATUS"), new InListExpression(ImmutableList.of(new StringLiteral("F"), new StringLiteral("O")))),
+                                        new InPredicate(new SymbolReference("ORDERSTATUS"), ImmutableList.of(new StringLiteral("F"), new StringLiteral("O"))),
                                         tableScan("orders", ImmutableMap.of("ORDERSTATUS", "orderstatus"))),
                                 anyTree(
                                         filter(
-                                                new InPredicate(new Cast(new SymbolReference("NAME"), createVarcharType(1)), new InListExpression(ImmutableList.of(new StringLiteral("F"), new StringLiteral("O")))),
+                                                new InPredicate(new Cast(new SymbolReference("NAME"), createVarcharType(1)), ImmutableList.of(new StringLiteral("F"), new StringLiteral("O"))),
                                                 tableScan(
                                                         "nation",
                                                         ImmutableMap.of("NAME", "name")))))));
@@ -501,7 +500,7 @@ public abstract class AbstractPredicatePushdownTest
                                 enableDynamicFiltering ? filter(TRUE_LITERAL, ordersTableScan) : ordersTableScan,
                                 anyTree(
                                         filter(
-                                                new InPredicate(new Cast(new SymbolReference("NAME"), createVarcharType(1)), new InListExpression(ImmutableList.of(new StringLiteral("F"), new StringLiteral("O"), new StringLiteral("P")))),
+                                                new InPredicate(new Cast(new SymbolReference("NAME"), createVarcharType(1)), ImmutableList.of(new StringLiteral("F"), new StringLiteral("O"), new StringLiteral("P"))),
                                                 tableScan(
                                                         "nation",
                                                         ImmutableMap.of("NAME", "name")))))));

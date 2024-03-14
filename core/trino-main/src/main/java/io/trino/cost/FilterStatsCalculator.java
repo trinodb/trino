@@ -25,7 +25,6 @@ import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IrVisitor;
@@ -338,11 +337,7 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitInPredicate(InPredicate node, Void context)
         {
-            if (!(node.getValueList() instanceof InListExpression inList)) {
-                return PlanNodeStatsEstimate.unknown();
-            }
-
-            ImmutableList<PlanNodeStatsEstimate> equalityEstimates = inList.getValues().stream()
+            ImmutableList<PlanNodeStatsEstimate> equalityEstimates = node.getValueList().stream()
                     .map(inValue -> process(new ComparisonExpression(EQUAL, node.getValue(), inValue)))
                     .collect(toImmutableList());
 

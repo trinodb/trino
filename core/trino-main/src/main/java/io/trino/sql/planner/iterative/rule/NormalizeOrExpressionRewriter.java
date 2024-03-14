@@ -20,7 +20,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.LogicalExpression;
 
@@ -76,7 +75,7 @@ public final class NormalizeOrExpressionRewriter
                         othersExpressionBuilder.add(expression);
                     }
                 }
-                else if (expression instanceof InPredicate inPredicate && inPredicate.getValueList() instanceof InListExpression) {
+                else if (expression instanceof InPredicate inPredicate) {
                     if (!expressionToSkip.contains(inPredicate.getValue())) {
                         othersExpressionBuilder.add(expression);
                     }
@@ -92,22 +91,22 @@ public final class NormalizeOrExpressionRewriter
                     .build());
         }
 
-        private InListExpression mergeToInListExpression(Collection<Expression> expressions)
+        private List<Expression> mergeToInListExpression(Collection<Expression> expressions)
         {
             LinkedHashSet<Expression> expressionValues = new LinkedHashSet<>();
             for (Expression expression : expressions) {
                 if (expression instanceof ComparisonExpression comparisonExpression && comparisonExpression.getOperator() == EQUAL) {
                     expressionValues.add(comparisonExpression.getRight());
                 }
-                else if (expression instanceof InPredicate inPredicate && inPredicate.getValueList() instanceof InListExpression valueList) {
-                    expressionValues.addAll(valueList.getValues());
+                else if (expression instanceof InPredicate inPredicate) {
+                    expressionValues.addAll(inPredicate.getValueList());
                 }
                 else {
                     throw new IllegalStateException("Unexpected expression: " + expression);
                 }
             }
 
-            return new InListExpression(ImmutableList.copyOf(expressionValues));
+            return ImmutableList.copyOf(expressionValues);
         }
 
         private Map<Expression, Collection<Expression>> groupComparisonAndInPredicate(List<Expression> terms)
@@ -117,7 +116,7 @@ public final class NormalizeOrExpressionRewriter
                 if (expression instanceof ComparisonExpression comparisonExpression && comparisonExpression.getOperator() == EQUAL) {
                     expressionBuilder.put(comparisonExpression.getLeft(), comparisonExpression);
                 }
-                else if (expression instanceof InPredicate inPredicate && inPredicate.getValueList() instanceof InListExpression) {
+                else if (expression instanceof InPredicate inPredicate) {
                     expressionBuilder.put(inPredicate.getValue(), inPredicate);
                 }
             }

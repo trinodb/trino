@@ -47,7 +47,6 @@ import io.trino.sql.ir.ComparisonExpression.Operator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNotNullPredicate;
@@ -128,7 +127,7 @@ public class IrExpressionInterpreter
     private final InterpretedFunctionInvoker functionInvoker;
     private final TypeCoercion typeCoercion;
 
-    private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
+    private final IdentityHashMap<List<Expression>, Set<?>> inListCache = new IdentityHashMap<>();
 
     public IrExpressionInterpreter(Expression expression, PlannerContext plannerContext, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
     {
@@ -415,7 +414,7 @@ public class IrExpressionInterpreter
         {
             Object value = processWithExceptionHandling(node.getValue(), context);
 
-            InListExpression valueList = (InListExpression) node.getValueList();
+            List<Expression> valueList = node.getValueList();
             // `NULL IN ()` would be false, but InListExpression cannot be empty by construction
             if (value == null) {
                 return null;
@@ -428,9 +427,9 @@ public class IrExpressionInterpreter
                 // the analysis below. If the value is null, it means that we can't apply the HashSet
                 // optimization
                 if (!inListCache.containsKey(valueList)) {
-                    if (valueList.getValues().stream().allMatch(Literal.class::isInstance) &&
-                            valueList.getValues().stream().noneMatch(NullLiteral.class::isInstance)) {
-                        Set<Object> objectSet = valueList.getValues().stream().map(expression -> processWithExceptionHandling(expression, context)).collect(Collectors.toSet());
+                    if (valueList.stream().allMatch(Literal.class::isInstance) &&
+                            valueList.stream().noneMatch(NullLiteral.class::isInstance)) {
+                        Set<Object> objectSet = valueList.stream().map(expression -> processWithExceptionHandling(expression, context)).collect(Collectors.toSet());
                         Type type = type(node.getValue());
                         set = FastutilSetHelper.toFastutilHashSet(
                                 objectSet,
@@ -449,11 +448,11 @@ public class IrExpressionInterpreter
             boolean hasUnresolvedValue = value instanceof Expression;
             boolean hasNullValue = false;
             boolean found = false;
-            List<Object> values = new ArrayList<>(valueList.getValues().size());
-            List<Type> types = new ArrayList<>(valueList.getValues().size());
+            List<Object> values = new ArrayList<>(valueList.size());
+            List<Type> types = new ArrayList<>(valueList.size());
 
-            ResolvedFunction equalsOperator = metadata.resolveOperator(OperatorType.EQUAL, types(node.getValue(), valueList));
-            for (Expression expression : valueList.getValues()) {
+            ResolvedFunction equalsOperator = metadata.resolveOperator(OperatorType.EQUAL, types(node.getValue(), node.getValue()));
+            for (Expression expression : valueList) {
                 if (value instanceof Expression && expression instanceof Literal) {
                     // skip interpreting of literal IN term since it cannot be compared
                     // with unresolved "value" and it cannot be simplified further
@@ -508,7 +507,7 @@ public class IrExpressionInterpreter
                     return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, toExpression(value, type), simplifiedExpressionValues.get(0));
                 }
 
-                return new InPredicate(toExpression(value, type), new InListExpression(simplifiedExpressionValues));
+                return new InPredicate(toExpression(value, type), simplifiedExpressionValues);
             }
             if (hasNullValue) {
                 return null;

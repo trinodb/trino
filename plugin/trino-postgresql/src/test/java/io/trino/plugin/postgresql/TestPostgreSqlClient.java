@@ -41,7 +41,6 @@ import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
@@ -435,10 +434,10 @@ public class TestPostgreSqlClient
                         translateToConnectorExpression(
                                 new InPredicate(
                                         new SymbolReference("c_varchar"),
-                                        new InListExpression(List.of(
+                                        List.of(
                                                 new Cast(new StringLiteral("value1"), VARCHAR_COLUMN.getColumnType()),
                                                 new Cast(new StringLiteral("value2"), VARCHAR_COLUMN.getColumnType()),
-                                                new SymbolReference("c_varchar2")))),
+                                                new SymbolReference("c_varchar2"))),
                                 Map.of("c_varchar", VARCHAR_COLUMN.getColumnType(), "c_varchar2", VARCHAR_COLUMN2.getColumnType())),
                         Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2))
                 .orElseThrow();

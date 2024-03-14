@@ -33,7 +33,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.InListExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.LambdaArgumentDeclaration;
 import io.trino.sql.ir.LambdaExpression;
@@ -106,7 +105,7 @@ public class TestPageFieldsToInputParametersRewriter
         verifyEagerlyLoadedColumns(builder.buildExpression(new ArithmeticBinaryExpression(ADD, new SymbolReference("bigint0"), new LongLiteral(5))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Cast(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("bigint0"), new LongLiteral(10)), INTEGER)), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new CoalesceExpression(new ArithmeticBinaryExpression(MODULUS, new SymbolReference("bigint0"), new LongLiteral(2)), new SymbolReference("bigint0"))), 1);
-        verifyEagerlyLoadedColumns(builder.buildExpression(new InPredicate(new SymbolReference("bigint0"), new InListExpression(ImmutableList.of(new GenericLiteral("bigint", "1"), new GenericLiteral("bigint", "2"), new GenericLiteral("bigint", "3"))))), 1);
+        verifyEagerlyLoadedColumns(builder.buildExpression(new InPredicate(new SymbolReference("bigint0"), ImmutableList.of(new GenericLiteral("bigint", "1"), new GenericLiteral("bigint", "2"), new GenericLiteral("bigint", "3")))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("bigint0"), new LongLiteral(0))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(ADD, new SymbolReference("bigint0"), new LongLiteral(1)), new LongLiteral(0))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new BetweenPredicate(new SymbolReference("bigint0"), new LongLiteral(1), new LongLiteral(10))), 1);
