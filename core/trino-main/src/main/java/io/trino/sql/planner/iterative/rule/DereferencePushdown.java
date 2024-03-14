@@ -28,9 +28,9 @@ import io.trino.sql.planner.TypeProvider;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.SymbolsExtractor.extractAll;
 
@@ -45,21 +45,21 @@ class DereferencePushdown
     {
         Set<Expression> symbolReferencesAndRowSubscripts = expressions.stream()
                 .flatMap(expression -> getSymbolReferencesAndRowSubscripts(expression, session, typeAnalyzer, types).stream())
-                .collect(Collectors.toSet());
+                .collect(toImmutableSet());
 
         // Remove overlap if required
         Set<Expression> candidateExpressions = symbolReferencesAndRowSubscripts;
         if (!allowOverlap) {
             candidateExpressions = symbolReferencesAndRowSubscripts.stream()
                     .filter(expression -> !prefixExists(expression, symbolReferencesAndRowSubscripts))
-                    .collect(Collectors.toSet());
+                    .collect(toImmutableSet());
         }
 
         // Retain row subscript expressions
         return candidateExpressions.stream()
                 .filter(SubscriptExpression.class::isInstance)
                 .map(SubscriptExpression.class::cast)
-                .collect(Collectors.toSet());
+                .collect(toImmutableSet());
     }
 
     public static boolean exclusiveDereferences(Set<Expression> projections, Session session, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
