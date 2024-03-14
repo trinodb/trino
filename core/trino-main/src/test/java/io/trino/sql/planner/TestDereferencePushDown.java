@@ -110,8 +110,8 @@ public class TestDereferencePushDown
                                         project(filter(
                                                 new ComparisonExpression(EQUAL, new SymbolReference("b_y"), new DoubleLiteral(2.0)),
                                                 values(
-                                                        ImmutableList.of("b_x", "b_y"),
-                                                        ImmutableList.of(ImmutableList.of(new GenericLiteral(BIGINT, "1"), new DoubleLiteral(2e0))))))))));
+                                                        ImmutableList.of("b_y", "b_x"),
+                                                        ImmutableList.of(ImmutableList.of(new DoubleLiteral(2e0), new GenericLiteral(BIGINT, "1"))))))))));
     }
 
     @Test
@@ -130,12 +130,12 @@ public class TestDereferencePushDown
                                                 new ComparisonExpression(EQUAL, new SymbolReference("a_x"), new GenericLiteral(BIGINT, "7")),
                                                 new FunctionCall(QualifiedName.of("is_finite"), ImmutableList.of(new SymbolReference("b_y"))))),
                                         values(
-                                                ImmutableList.of("b_x", "b_y", "a_x", "a_y"),
+                                                ImmutableList.of("b_x", "b_y", "a_y", "a_x"),
                                                 ImmutableList.of(ImmutableList.of(
                                                         new GenericLiteral(BIGINT, "1"),
                                                         new DoubleLiteral(2e0),
-                                                        new GenericLiteral(BIGINT, "1"),
-                                                        new DoubleLiteral(2e0))))))));
+                                                        new DoubleLiteral(2e0),
+                                                        new GenericLiteral(BIGINT, "1"))))))));
     }
 
     @Test
@@ -147,7 +147,7 @@ public class TestDereferencePushDown
                 anyTree(
                         values(
                                 ImmutableList.of("x", "y"),
-                                ImmutableList.of(ImmutableList.of(new GenericLiteral(BIGINT, "1"), new DoubleLiteral(2e0))))));
+                                ImmutableList.of(ImmutableList.of(new DoubleLiteral(2e0), new GenericLiteral(BIGINT, "1"))))));
 
         assertPlanWithSession(
                 "WITH t(msg1, msg2, msg3, msg4, msg5) AS (VALUES " +
@@ -260,8 +260,8 @@ public class TestDereferencePushDown
                                         project(filter(
                                                 new ComparisonExpression(EQUAL, new SymbolReference("b_y"), new DoubleLiteral(2.0)),
                                                 values(
-                                                        ImmutableList.of("b_x", "b_y"),
-                                                        ImmutableList.of(ImmutableList.of(new GenericLiteral(BIGINT, "1"), new DoubleLiteral(2e0))))))))));
+                                                        ImmutableList.of("b_y", "b_x"),
+                                                        ImmutableList.of(ImmutableList.of(new DoubleLiteral(2e0), new GenericLiteral(BIGINT, "1"))))))))));
     }
 
     @Test
@@ -280,7 +280,7 @@ public class TestDereferencePushDown
                                                         project(
                                                                 filter(
                                                                         new ComparisonExpression(EQUAL, new SymbolReference("a_y"), new DoubleLiteral(2.0)),
-                                                                        values("array", "a_x", "a_y"))))
+                                                                        values("array", "a_y", "a_x"))))
                                                 .right(
                                                         project(
                                                                 filter(
