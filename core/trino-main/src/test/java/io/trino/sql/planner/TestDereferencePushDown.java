@@ -65,7 +65,7 @@ public class TestDereferencePushDown
                                 join(INNER, builder -> builder
                                         .left(values("a_msg"))
                                         .right(
-                                                values(ImmutableList.of("b_msg_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")), ImmutableList.of(new DoubleLiteral("4e0")))))))));
+                                                values(ImmutableList.of("b_msg_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral(2e0)), ImmutableList.of(new DoubleLiteral(4e0)))))))));
     }
 
     @Test
@@ -85,8 +85,8 @@ public class TestDereferencePushDown
                                                 ImmutableList.of("b_x", "b_y", "a_y"),
                                                 ImmutableList.of(ImmutableList.of(
                                                         new GenericLiteral("BIGINT", "1"),
-                                                        new DoubleLiteral("2e0"),
-                                                        new DoubleLiteral("2e0"))))))));
+                                                        new DoubleLiteral(2e0),
+                                                        new DoubleLiteral(2e0))))))));
 
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT a.msg.y " +
@@ -103,14 +103,14 @@ public class TestDereferencePushDown
                         join(INNER, builder -> builder
                                 .left(
                                         project(filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("a_y"), new DoubleLiteral("2.0")),
-                                                values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")))))))
+                                                new ComparisonExpression(EQUAL, new SymbolReference("a_y"), new DoubleLiteral(2.0)),
+                                                values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral(2e0)))))))
                                 .right(
                                         project(filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("b_y"), new DoubleLiteral("2.0")),
+                                                new ComparisonExpression(EQUAL, new SymbolReference("b_y"), new DoubleLiteral(2.0)),
                                                 values(
                                                         ImmutableList.of("b_x", "b_y"),
-                                                        ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0"))))))))));
+                                                        ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral(2e0))))))))));
     }
 
     @Test
@@ -132,9 +132,9 @@ public class TestDereferencePushDown
                                                 ImmutableList.of("b_x", "b_y", "a_x", "a_y"),
                                                 ImmutableList.of(ImmutableList.of(
                                                         new GenericLiteral("BIGINT", "1"),
-                                                        new DoubleLiteral("2e0"),
+                                                        new DoubleLiteral(2e0),
                                                         new GenericLiteral("BIGINT", "1"),
-                                                        new DoubleLiteral("2e0"))))))));
+                                                        new DoubleLiteral(2e0))))))));
     }
 
     @Test
@@ -146,7 +146,7 @@ public class TestDereferencePushDown
                 anyTree(
                         values(
                                 ImmutableList.of("x", "y"),
-                                ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0"))))));
+                                ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral(2e0))))));
 
         assertPlanWithSession(
                 "WITH t(msg1, msg2, msg3, msg4, msg5) AS (VALUES " +
@@ -234,8 +234,8 @@ public class TestDereferencePushDown
                                                         ImmutableList.of("b_x", "b_y", "a_y"),
                                                         ImmutableList.of(ImmutableList.of(
                                                                 new GenericLiteral("BIGINT", "1"),
-                                                                new DoubleLiteral("2e0"),
-                                                                new DoubleLiteral("2e0")))))))));
+                                                                new DoubleLiteral(2e0),
+                                                                new DoubleLiteral(2e0)))))))));
 
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT a.msg.y " +
@@ -253,14 +253,14 @@ public class TestDereferencePushDown
                         join(INNER, builder -> builder
                                 .left(
                                         project(filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("a_y"), new DoubleLiteral("2.0")),
-                                                values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")))))))
+                                                new ComparisonExpression(EQUAL, new SymbolReference("a_y"), new DoubleLiteral(2.0)),
+                                                values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral(2e0)))))))
                                 .right(
                                         project(filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("b_y"), new DoubleLiteral("2.0")),
+                                                new ComparisonExpression(EQUAL, new SymbolReference("b_y"), new DoubleLiteral(2.0)),
                                                 values(
                                                         ImmutableList.of("b_x", "b_y"),
-                                                        ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0"))))))))));
+                                                        ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral(2e0))))))))));
     }
 
     @Test
@@ -278,12 +278,12 @@ public class TestDereferencePushDown
                                                 .left(
                                                         project(
                                                                 filter(
-                                                                        new ComparisonExpression(EQUAL, new SymbolReference("a_y"), new DoubleLiteral("2.0")),
+                                                                        new ComparisonExpression(EQUAL, new SymbolReference("a_y"), new DoubleLiteral(2.0)),
                                                                         values("array", "a_x", "a_y"))))
                                                 .right(
                                                         project(
                                                                 filter(
-                                                                        new ComparisonExpression(EQUAL, new SymbolReference("b_y"), new DoubleLiteral("2.0")),
-                                                                        values(ImmutableList.of("b_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0"))))))))))));
+                                                                        new ComparisonExpression(EQUAL, new SymbolReference("b_y"), new DoubleLiteral(2.0)),
+                                                                        values(ImmutableList.of("b_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral(2e0))))))))))));
     }
 }

@@ -152,7 +152,7 @@ public final class LiteralEncoder
                         .setName("infinity")
                         .build();
             }
-            return new DoubleLiteral(object.toString());
+            return new DoubleLiteral(value);
         }
 
         if (type.equals(REAL)) {

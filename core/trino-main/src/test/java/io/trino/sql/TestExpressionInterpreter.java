@@ -749,8 +749,8 @@ public class TestExpressionInterpreter
                 new CoalesceExpression(new LongLiteral(6), new SymbolReference("unbound_value")),
                 new LongLiteral(6));
         assertOptimizedMatches(
-                new CoalesceExpression(new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new DoubleLiteral("5.0")),
-                new CoalesceExpression(new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new DoubleLiteral("5.0")));
+                new CoalesceExpression(new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new DoubleLiteral(5.0)),
+                new CoalesceExpression(new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new DoubleLiteral(5.0)));
 
         assertOptimizedEquals(
                 new CoalesceExpression(new NullLiteral(), new CoalesceExpression(new NullLiteral(), new NullLiteral())),
@@ -774,8 +774,8 @@ public class TestExpressionInterpreter
                 new CoalesceExpression(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0)), new Cast(new NullLiteral(), INTEGER), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(1), new LongLiteral(0)), new Cast(new NullLiteral(), INTEGER), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0))),
                 new CoalesceExpression(new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0)), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(1), new LongLiteral(0))));
         assertOptimizedEquals(
-                new CoalesceExpression(new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new DoubleLiteral("1.0"), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of())),
-                new CoalesceExpression(new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new DoubleLiteral("1.0")));
+                new CoalesceExpression(new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new DoubleLiteral(1.0), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of())),
+                new CoalesceExpression(new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new DoubleLiteral(1.0)));
 
         assertEvaluatedEquals(
                 new CoalesceExpression(new LongLiteral(1), new ArithmeticBinaryExpression(DIVIDE, new LongLiteral(0), new LongLiteral(0))),

@@ -234,7 +234,7 @@ public class TestConnectorExpressionTranslator
                 TEST_SESSION,
                 new BetweenPredicate(
                         new SymbolReference("double_symbol_1"),
-                        new DoubleLiteral("1.2"),
+                        new DoubleLiteral(1.2),
                         new SymbolReference("double_symbol_2")),
                 new Call(
                         BOOLEAN,
