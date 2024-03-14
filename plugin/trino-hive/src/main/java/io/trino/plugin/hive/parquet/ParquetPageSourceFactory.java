@@ -219,7 +219,7 @@ public class ParquetPageSourceFactory
         ParquetDataSource dataSource = null;
         try {
             AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
-            dataSource = createDataSource(inputFile, length, estimatedFileSize, options, memoryContext, stats);
+            dataSource = createDataSource(inputFile, estimatedFileSize, options, memoryContext, stats);
 
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, parquetWriteValidation);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
@@ -307,7 +307,6 @@ public class ParquetPageSourceFactory
 
     public static ParquetDataSource createDataSource(
             TrinoInputFile inputFile,
-            long length,
             OptionalLong estimatedFileSize,
             ParquetReaderOptions options,
             AggregatedMemoryContext memoryContext,
@@ -315,7 +314,7 @@ public class ParquetPageSourceFactory
             throws IOException
     {
         if (estimatedFileSize.isEmpty() || estimatedFileSize.getAsLong() > options.getSmallFileThreshold().toBytes()) {
-            return new TrinoParquetDataSource(inputFile, length, options, stats);
+            return new TrinoParquetDataSource(inputFile, options, stats);
         }
         return new MemoryParquetDataSource(inputFile, memoryContext, stats);
     }

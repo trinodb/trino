@@ -199,7 +199,7 @@ public class HudiPageSourceProvider
         long length = hudiSplit.getLength();
         try {
             AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
-            dataSource = createDataSource(inputFile, inputFile.length(), OptionalLong.of(hudiSplit.getFileSize()), options, memoryContext, dataSourceStats);
+            dataSource = createDataSource(inputFile, OptionalLong.of(hudiSplit.getFileSize()), options, memoryContext, dataSourceStats);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();

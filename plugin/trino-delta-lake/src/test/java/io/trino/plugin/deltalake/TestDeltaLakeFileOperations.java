@@ -503,7 +503,7 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "OutputFile.createOrOverwrite"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "InputFile.newStream"))
                         .addCopies(new FileOperation(DATA, "key=domain1/", "InputFile.newInput"), 2)
-                        .addCopies(new FileOperation(DATA, "key=domain1/", "InputFile.length"), 2)
+                        .add(new FileOperation(DATA, "key=domain1/", "InputFile.length"))
                         .add(new FileOperation(DATA, "key=domain1/", "OutputFile.create"))
                         .build());
 
