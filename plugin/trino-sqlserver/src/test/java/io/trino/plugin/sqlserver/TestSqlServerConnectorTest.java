@@ -281,6 +281,14 @@ public class TestSqlServerConnectorTest
 
     @Test
     @Override
+    public void testSelectInformationSchemaTables()
+    {
+        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/10846
+        executeExclusively(super::testSelectInformationSchemaTables);
+    }
+
+    @Test
+    @Override
     public void testSelectInformationSchemaColumns()
     {
         // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/10846
