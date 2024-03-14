@@ -15,6 +15,7 @@ package io.trino.sql.ir;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.BaseEncoding;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -88,7 +89,7 @@ public final class ExpressionFormatter
         {
             return literalFormatter
                     .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> "X'" + node.toHexString() + "'");
+                    .orElseGet(() -> "X'" + BaseEncoding.base16().encode(node.getValue()) + "'");
         }
 
         @Override

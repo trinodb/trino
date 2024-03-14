@@ -15,43 +15,21 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 
 import java.util.Arrays;
 import java.util.List;
 
-import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
-
 public final class BinaryLiteral
         extends Literal
 {
-    // the grammar could possibly include whitespace in the value it passes to us
-    private static final CharMatcher WHITESPACE_MATCHER = CharMatcher.whitespace();
-
     private final byte[] value;
 
     @JsonCreator
     public BinaryLiteral(byte[] value)
     {
         this.value = value.clone();
-    }
-
-    public BinaryLiteral(String value)
-    {
-        requireNonNull(value, "value is null");
-        String hexString = WHITESPACE_MATCHER.removeFrom(value).toUpperCase(ENGLISH);
-        this.value = BaseEncoding.base16().decode(hexString);
-    }
-
-    /**
-     * Return the valued as a hex-formatted string with upper-case characters
-     */
-    public String toHexString()
-    {
-        return BaseEncoding.base16().encode(value);
     }
 
     @JsonProperty
@@ -95,6 +73,6 @@ public final class BinaryLiteral
     @Override
     public String toString()
     {
-        return "Binary[%s]".formatted(toHexString());
+        return "Binary[%s]".formatted(BaseEncoding.base16().encode(value));
     }
 }
