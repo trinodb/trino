@@ -215,7 +215,7 @@ public final class LiteralEncoder
         }
 
         if (type.equals(BOOLEAN)) {
-            return new BooleanLiteral(object.toString());
+            return new BooleanLiteral((Boolean) object);
         }
 
         if (type.equals(DATE)) {
