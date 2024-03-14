@@ -404,7 +404,7 @@ public class TestEqualityInference
 
     private static LongLiteral number(long number)
     {
-        return new LongLiteral(String.valueOf(number));
+        return new LongLiteral(number);
     }
 
     private static Set<Symbol> symbols(String... symbols)

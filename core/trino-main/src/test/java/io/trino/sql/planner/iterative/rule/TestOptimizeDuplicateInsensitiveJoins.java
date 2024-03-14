@@ -109,7 +109,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
                                     p.values(symbolA),
                                     p.project(identity(symbolB),
                                             p.filter(
-                                                    new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("10")),
+                                                    new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(10)),
                                                     p.join(
                                                             INNER,
                                                             p.values(symbolB),
@@ -121,7 +121,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
                                         .left(values("A"))
                                         .right(project(
                                                 filter(
-                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("B"), new LongLiteral("10")),
+                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("B"), new LongLiteral(10)),
                                                         join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                                 .left(values("B"))
                                                                 .right(values("C")))

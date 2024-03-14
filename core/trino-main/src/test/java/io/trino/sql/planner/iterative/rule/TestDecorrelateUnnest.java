@@ -410,7 +410,7 @@ public class TestDecorrelateUnnest
                         TRUE_LITERAL,
                         p.enforceSingleRow(
                                 p.project(
-                                        Assignments.of(p.symbol("integer_result"), new IfExpression(new SymbolReference("boolean_result"), new LongLiteral("1"), new LongLiteral("-1"))),
+                                        Assignments.of(p.symbol("integer_result"), new IfExpression(new SymbolReference("boolean_result"), new LongLiteral(1), new LongLiteral(-1))),
                                         p.limit(
                                                 5,
                                                 p.project(
@@ -434,7 +434,7 @@ public class TestDecorrelateUnnest
                                                         "unique", expression(new SymbolReference("unique")),
                                                         "ordinality", expression(new SymbolReference("ordinality")),
                                                         "row_number", expression(new SymbolReference("row_number")),
-                                                        "integer_result", expression(new IfExpression(new SymbolReference("boolean_result"), new LongLiteral("1"), new LongLiteral("-1")))),
+                                                        "integer_result", expression(new IfExpression(new SymbolReference("boolean_result"), new LongLiteral(1), new LongLiteral(-1)))),
                                                 filter(// limit
                                                         new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new GenericLiteral("BIGINT", "5")),
                                                         project(// first projection

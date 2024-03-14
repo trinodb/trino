@@ -225,7 +225,7 @@ public final class ConnectorExpressionTranslator
 
             if (expression instanceof FieldDereference dereference) {
                 return translate(dereference.getTarget())
-                        .map(base -> new SubscriptExpression(base, new LongLiteral(Long.toString(dereference.getField() + 1))));
+                        .map(base -> new SubscriptExpression(base, new LongLiteral(dereference.getField() + 1)));
             }
 
             if (expression instanceof Call) {
@@ -825,7 +825,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            return Optional.of(new FieldDereference(typeOf(node), translatedBase.get(), toIntExact(((LongLiteral) node.getIndex()).getParsedValue() - 1)));
+            return Optional.of(new FieldDereference(typeOf(node), translatedBase.get(), toIntExact(((LongLiteral) node.getIndex()).getValue() - 1)));
         }
 
         @Override

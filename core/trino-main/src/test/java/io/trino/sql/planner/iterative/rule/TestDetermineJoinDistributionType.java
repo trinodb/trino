@@ -120,8 +120,8 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 joinType,
-                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new LongLiteral("10")), ImmutableList.of(new LongLiteral("11")))),
-                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new LongLiteral("50")), ImmutableList.of(new LongLiteral("11")))),
+                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new LongLiteral(10)), ImmutableList.of(new LongLiteral(11)))),
+                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new LongLiteral(50)), ImmutableList.of(new LongLiteral(11)))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
@@ -152,8 +152,8 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 joinType,
-                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new LongLiteral("10")), ImmutableList.of(new LongLiteral("11")))),
-                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new LongLiteral("50")), ImmutableList.of(new LongLiteral("11")))),
+                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new LongLiteral(10)), ImmutableList.of(new LongLiteral(11)))),
+                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new LongLiteral(50)), ImmutableList.of(new LongLiteral(11)))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
@@ -174,9 +174,9 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new LongLiteral("10")), ImmutableList.of(new LongLiteral("11")))),
+                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new LongLiteral(10)), ImmutableList.of(new LongLiteral(11)))),
                                 p.enforceSingleRow(
-                                        p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new LongLiteral("50")), ImmutableList.of(new LongLiteral("11"))))),
+                                        p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new LongLiteral(50)), ImmutableList.of(new LongLiteral(11))))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
@@ -203,15 +203,15 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 joinType,
-                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new LongLiteral("10")), ImmutableList.of(new LongLiteral("11")))),
-                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new LongLiteral("50")), ImmutableList.of(new LongLiteral("11")))),
+                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new LongLiteral(10)), ImmutableList.of(new LongLiteral(11)))),
+                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new LongLiteral(50)), ImmutableList.of(new LongLiteral(11)))),
                                 ImmutableList.of(),
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
-                                Optional.of(new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("A1"), new SymbolReference("B1")), new LongLiteral("100")))))
+                                Optional.of(new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("A1"), new SymbolReference("B1")), new LongLiteral(100)))))
                 .matches(
                         join(joinType, builder -> builder
-                                .filter(new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("A1"), new SymbolReference("B1")), new LongLiteral("100")))
+                                .filter(new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("A1"), new SymbolReference("B1")), new LongLiteral(100)))
                                 .distributionType(REPLICATED)
                                 .left(values(ImmutableMap.of("A1", 0)))
                                 .right(values(ImmutableMap.of("B1", 0)))));
@@ -224,8 +224,8 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new LongLiteral("10")), ImmutableList.of(new LongLiteral("11")))),
-                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new LongLiteral("50")), ImmutableList.of(new LongLiteral("11")))),
+                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new LongLiteral(10)), ImmutableList.of(new LongLiteral(11)))),
+                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new LongLiteral(50)), ImmutableList.of(new LongLiteral(11)))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),

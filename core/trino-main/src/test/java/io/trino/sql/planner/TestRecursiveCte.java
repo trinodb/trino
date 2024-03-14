@@ -76,15 +76,15 @@ public class TestRecursiveCte
                         union(
                                 // base term
                                 project(project(project(
-                                        ImmutableMap.of("expr", expression(new LongLiteral("1"))),
+                                        ImmutableMap.of("expr", expression(new LongLiteral(1))),
                                         values()))),
                                 // first recursion step
                                 project(project(project(
-                                        ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), new LongLiteral("2")))),
+                                        ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), new LongLiteral(2)))),
                                         filter(
-                                                new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new LongLiteral("6")),
+                                                new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new LongLiteral(6)),
                                                 project(project(project(
-                                                        ImmutableMap.of("expr", expression(new LongLiteral("1"))),
+                                                        ImmutableMap.of("expr", expression(new LongLiteral(1))),
                                                         values()))))))),
                                 // "post-recursion" step with convergence assertion
                                 filter(
@@ -97,17 +97,17 @@ public class TestRecursiveCte
                                                                 "count",
                                                                 windowFunction("count", ImmutableList.of(), DEFAULT_FRAME)),
                                                 project(project(project(
-                                                        ImmutableMap.of("expr_1", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), new LongLiteral("2")))),
+                                                        ImmutableMap.of("expr_1", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), new LongLiteral(2)))),
                                                         filter(
-                                                                new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new LongLiteral("6")),
+                                                                new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new LongLiteral(6)),
                                                                 project(
                                                                         ImmutableMap.of("expr", expression(new SymbolReference("expr_0"))),
                                                                         project(project(project(
-                                                                                ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), new LongLiteral("2")))),
+                                                                                ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), new LongLiteral(2)))),
                                                                                 filter(
-                                                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new LongLiteral("6")),
+                                                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new LongLiteral(6)),
                                                                                         project(project(project(
-                                                                                                ImmutableMap.of("expr", expression(new LongLiteral("1"))),
+                                                                                                ImmutableMap.of("expr", expression(new LongLiteral(1))),
                                                                                                 values()))))))))))))))));
 
         assertPlan(sql, CREATED, pattern);

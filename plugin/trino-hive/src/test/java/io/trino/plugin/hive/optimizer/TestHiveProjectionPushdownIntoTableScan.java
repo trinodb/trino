@@ -127,8 +127,8 @@ public class TestHiveProjectionPushdownIntoTableScan
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "expr", expression(new SubscriptExpression(new SymbolReference("col0"), new LongLiteral("1"))),
-                                        "expr_2", expression(new SubscriptExpression(new SymbolReference("col0"), new LongLiteral("2")))),
+                                        "expr", expression(new SubscriptExpression(new SymbolReference("col0"), new LongLiteral(1))),
+                                        "expr_2", expression(new SubscriptExpression(new SymbolReference("col0"), new LongLiteral(2)))),
                                 tableScan(testTable, ImmutableMap.of("col0", "col0")))));
     }
 
@@ -172,7 +172,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 format("SELECT col0.x FROM %s WHERE col0.x = col1 + 3 and col0.y = 2", testTable),
                 anyTree(
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("col0_y"), new GenericLiteral("BIGINT", "2")), new ComparisonExpression(EQUAL, new SymbolReference("col0_x"), new Cast(new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), new LongLiteral("3")), BIGINT)))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("col0_y"), new GenericLiteral("BIGINT", "2")), new ComparisonExpression(EQUAL, new SymbolReference("col0_x"), new Cast(new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), new LongLiteral(3)), BIGINT)))),
                                 tableScan(
                                         table -> {
                                             HiveTableHandle hiveTableHandle = (HiveTableHandle) table;
@@ -207,9 +207,9 @@ public class TestHiveProjectionPushdownIntoTableScan
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference("expr_0"), new LongLiteral("1"))),
+                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference("expr_0"), new LongLiteral(1))),
                                         "expr_0", expression(new SymbolReference("expr_0")),
-                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference("expr_0"), new LongLiteral("2")))),
+                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference("expr_0"), new LongLiteral(2)))),
                                 join(INNER, builder -> builder
                                         .equiCriteria("t_expr_1", "s_expr_1")
                                         .left(

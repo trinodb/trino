@@ -180,7 +180,7 @@ public class TransformExistsApplyToCorrelatedJoin
                                         Optional.empty(),
                                         Optional.empty())),
                                 globalAggregation()),
-                        Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT)))),
+                        Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral(0), BIGINT)))),
                 applyNode.getCorrelation(),
                 INNER,
                 TRUE_LITERAL,

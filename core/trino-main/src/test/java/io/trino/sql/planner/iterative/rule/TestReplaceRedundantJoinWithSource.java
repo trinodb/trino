@@ -142,10 +142,10 @@ public class TestReplaceRedundantJoinWithSource
                                 INNER,
                                 p.values(10, p.symbol("a")),
                                 p.values(1),
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("0"))))
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(0))))
                 .matches(
                         filter(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("0")),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(0)),
                                 values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new NullLiteral())))));
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
@@ -154,10 +154,10 @@ public class TestReplaceRedundantJoinWithSource
                                 INNER,
                                 p.values(1),
                                 p.values(10, p.symbol("b")),
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0"))))
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(0))))
                 .matches(
                         filter(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0")),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(0)),
                                 values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new NullLiteral())))));
     }
 
@@ -180,7 +180,7 @@ public class TestReplaceRedundantJoinWithSource
                                 LEFT,
                                 p.values(10, p.symbol("a")),
                                 p.values(1),
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("0"))))
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(0))))
                 .matches(
                         values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new NullLiteral()))));
     }
@@ -204,7 +204,7 @@ public class TestReplaceRedundantJoinWithSource
                                 RIGHT,
                                 p.values(1),
                                 p.values(10, p.symbol("b")),
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0"))))
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(0))))
                 .matches(
                         values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new NullLiteral()))));
     }
@@ -237,7 +237,7 @@ public class TestReplaceRedundantJoinWithSource
                                 FULL,
                                 p.values(1),
                                 p.values(10, p.symbol("b")),
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral("0"))))
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new LongLiteral(0))))
                 .matches(
                         values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new NullLiteral()))));
 
@@ -249,7 +249,7 @@ public class TestReplaceRedundantJoinWithSource
                         p.join(
                                 FULL,
                                 p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("5")),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(5)),
                                         p.values(10, p.symbol("a"))),
                                 p.values(1)))
                 .doesNotFire();
@@ -263,7 +263,7 @@ public class TestReplaceRedundantJoinWithSource
                                 FULL,
                                 p.values(1),
                                 p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral("5")),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new LongLiteral(5)),
                                         p.values(10, p.symbol("a")))))
                 .doesNotFire();
     }

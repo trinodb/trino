@@ -100,7 +100,7 @@ public class TestExtractSpatialLeftJoin
                             p.values(b),
                             new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                     distanceCall(a.toSymbolReference(), b.toSymbolReference()),
-                                    new LongLiteral("5")));
+                                    new LongLiteral(5)));
                 })
                 .doesNotFire();
 
@@ -115,7 +115,7 @@ public class TestExtractSpatialLeftJoin
                             p.values(b),
                             new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                     sphericalDistanceCall(a.toSymbolReference(), b.toSymbolReference()),
-                                    new LongLiteral("5")));
+                                    new LongLiteral(5)));
                 })
                 .doesNotFire();
 
@@ -130,7 +130,7 @@ public class TestExtractSpatialLeftJoin
                             p.values(point),
                             new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                     sphericalDistanceCall(toSphericalGeographyCall(wkt), point.toSymbolReference()),
-                                    new LongLiteral("5")));
+                                    new LongLiteral(5)));
                 })
                 .doesNotFire();
     }
@@ -225,7 +225,7 @@ public class TestExtractSpatialLeftJoin
                     return p.join(LEFT,
                             p.values(wkt),
                             p.values(),
-                            containsCall(geometryFromTextCall(wkt), toPointCall(new LongLiteral("0"), new LongLiteral("0"))));
+                            containsCall(geometryFromTextCall(wkt), toPointCall(new LongLiteral(0), new LongLiteral(0))));
                 })
                 .doesNotFire();
     }

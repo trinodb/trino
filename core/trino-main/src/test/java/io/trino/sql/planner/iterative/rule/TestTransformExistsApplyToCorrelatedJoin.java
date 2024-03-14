@@ -73,7 +73,7 @@ public class TestTransformExistsApplyToCorrelatedJoin
                         ImmutableList.of(),
                         values(ImmutableMap.of()),
                         project(
-                                ImmutableMap.of("b", PlanMatchPattern.expression(new ComparisonExpression(GREATER_THAN, new SymbolReference("count_expr"), new Cast(new LongLiteral("0"), BIGINT)))),
+                                ImmutableMap.of("b", PlanMatchPattern.expression(new ComparisonExpression(GREATER_THAN, new SymbolReference("count_expr"), new Cast(new LongLiteral(0), BIGINT)))),
                                 aggregation(ImmutableMap.of("count_expr", aggregationFunction("count", ImmutableList.of())),
                                         values()))));
     }

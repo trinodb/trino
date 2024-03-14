@@ -79,7 +79,7 @@ public class TestTransformCorrelatedDistinctAggregationWithProjection
                         JoinType.LEFT,
                         TRUE_LITERAL,
                         p.project(
-                                Assignments.of(p.symbol("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral("100"))),
+                                Assignments.of(p.symbol("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral(100))),
                                 p.aggregation(innerBuilder -> innerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .source(p.filter(
@@ -88,7 +88,7 @@ public class TestTransformCorrelatedDistinctAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of(
                                         "corr", expression(new SymbolReference("corr")),
-                                        "x", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral("100")))),
+                                        "x", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new LongLiteral(100)))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "a"),
                                         ImmutableMap.of(),

@@ -44,7 +44,7 @@ public class TestExpressionVerifier
     @Test
     public void test()
     {
-        Expression actual = new NotExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("orderkey"), new LongLiteral("3")), new ComparisonExpression(EQUAL, new SymbolReference("custkey"), new LongLiteral("3")), new ComparisonExpression(LESS_THAN, new SymbolReference("orderkey"), new LongLiteral("10")))));
+        Expression actual = new NotExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("orderkey"), new LongLiteral(3)), new ComparisonExpression(EQUAL, new SymbolReference("custkey"), new LongLiteral(3)), new ComparisonExpression(LESS_THAN, new SymbolReference("orderkey"), new LongLiteral(10)))));
 
         SymbolAliases symbolAliases = SymbolAliases.builder()
                 .put("X", new SymbolReference("orderkey"))
@@ -53,11 +53,11 @@ public class TestExpressionVerifier
 
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
 
-        assertThat(verifier.process(actual, new NotExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("X"), new LongLiteral("3")), new ComparisonExpression(EQUAL, new SymbolReference("Y"), new LongLiteral("3")), new ComparisonExpression(LESS_THAN, new SymbolReference("X"), new LongLiteral("10"))))))).isTrue();
-        assertThatThrownBy(() -> verifier.process(actual, new NotExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("X"), new LongLiteral("3")), new ComparisonExpression(EQUAL, new SymbolReference("Y"), new LongLiteral("3")), new ComparisonExpression(LESS_THAN, new SymbolReference("Z"), new LongLiteral("10")))))))
+        assertThat(verifier.process(actual, new NotExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("X"), new LongLiteral(3)), new ComparisonExpression(EQUAL, new SymbolReference("Y"), new LongLiteral(3)), new ComparisonExpression(LESS_THAN, new SymbolReference("X"), new LongLiteral(10))))))).isTrue();
+        assertThatThrownBy(() -> verifier.process(actual, new NotExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("X"), new LongLiteral(3)), new ComparisonExpression(EQUAL, new SymbolReference("Y"), new LongLiteral(3)), new ComparisonExpression(LESS_THAN, new SymbolReference("Z"), new LongLiteral(10)))))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("missing expression for alias Z");
-        assertThat(verifier.process(actual, new NotExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("X"), new LongLiteral("3")), new ComparisonExpression(EQUAL, new SymbolReference("X"), new LongLiteral("3")), new ComparisonExpression(LESS_THAN, new SymbolReference("X"), new LongLiteral("10"))))))).isFalse();
+        assertThat(verifier.process(actual, new NotExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("X"), new LongLiteral(3)), new ComparisonExpression(EQUAL, new SymbolReference("X"), new LongLiteral(3)), new ComparisonExpression(LESS_THAN, new SymbolReference("X"), new LongLiteral(10))))))).isFalse();
     }
 
     @Test
@@ -83,14 +83,14 @@ public class TestExpressionVerifier
 
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
         // Complete match
-        assertThat(verifier.process(new BetweenPredicate(new SymbolReference("orderkey"), new LongLiteral("1"), new LongLiteral("2")), new BetweenPredicate(new SymbolReference("X"), new LongLiteral("1"), new LongLiteral("2")))).isTrue();
+        assertThat(verifier.process(new BetweenPredicate(new SymbolReference("orderkey"), new LongLiteral(1), new LongLiteral(2)), new BetweenPredicate(new SymbolReference("X"), new LongLiteral(1), new LongLiteral(2)))).isTrue();
         // Different value
-        assertThat(verifier.process(new BetweenPredicate(new SymbolReference("orderkey"), new LongLiteral("1"), new LongLiteral("2")), new BetweenPredicate(new SymbolReference("Y"), new LongLiteral("1"), new LongLiteral("2")))).isFalse();
-        assertThat(verifier.process(new BetweenPredicate(new SymbolReference("custkey"), new LongLiteral("1"), new LongLiteral("2")), new BetweenPredicate(new SymbolReference("X"), new LongLiteral("1"), new LongLiteral("2")))).isFalse();
+        assertThat(verifier.process(new BetweenPredicate(new SymbolReference("orderkey"), new LongLiteral(1), new LongLiteral(2)), new BetweenPredicate(new SymbolReference("Y"), new LongLiteral(1), new LongLiteral(2)))).isFalse();
+        assertThat(verifier.process(new BetweenPredicate(new SymbolReference("custkey"), new LongLiteral(1), new LongLiteral(2)), new BetweenPredicate(new SymbolReference("X"), new LongLiteral(1), new LongLiteral(2)))).isFalse();
         // Different min or max
-        assertThat(verifier.process(new BetweenPredicate(new SymbolReference("orderkey"), new LongLiteral("2"), new LongLiteral("4")), new BetweenPredicate(new SymbolReference("X"), new LongLiteral("1"), new LongLiteral("2")))).isFalse();
-        assertThat(verifier.process(new BetweenPredicate(new SymbolReference("orderkey"), new LongLiteral("1"), new LongLiteral("2")), new BetweenPredicate(new SymbolReference("X"), new StringLiteral("1"), new StringLiteral("2")))).isFalse();
-        assertThat(verifier.process(new BetweenPredicate(new SymbolReference("orderkey"), new LongLiteral("1"), new LongLiteral("2")), new BetweenPredicate(new SymbolReference("X"), new LongLiteral("4"), new LongLiteral("7")))).isFalse();
+        assertThat(verifier.process(new BetweenPredicate(new SymbolReference("orderkey"), new LongLiteral(2), new LongLiteral(4)), new BetweenPredicate(new SymbolReference("X"), new LongLiteral(1), new LongLiteral(2)))).isFalse();
+        assertThat(verifier.process(new BetweenPredicate(new SymbolReference("orderkey"), new LongLiteral(1), new LongLiteral(2)), new BetweenPredicate(new SymbolReference("X"), new StringLiteral("1"), new StringLiteral("2")))).isFalse();
+        assertThat(verifier.process(new BetweenPredicate(new SymbolReference("orderkey"), new LongLiteral(1), new LongLiteral(2)), new BetweenPredicate(new SymbolReference("X"), new LongLiteral(4), new LongLiteral(7)))).isFalse();
     }
 
     @Test

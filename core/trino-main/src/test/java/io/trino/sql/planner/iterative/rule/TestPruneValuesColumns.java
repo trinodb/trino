@@ -44,16 +44,16 @@ public class TestPruneValuesColumns
                                 p.values(
                                         ImmutableList.of(p.symbol("unused"), p.symbol("x")),
                                         ImmutableList.of(
-                                                ImmutableList.of(new LongLiteral("1"), new LongLiteral("2")),
-                                                ImmutableList.of(new LongLiteral("3"), new LongLiteral("4"))))))
+                                                ImmutableList.of(new LongLiteral(1), new LongLiteral(2)),
+                                                ImmutableList.of(new LongLiteral(3), new LongLiteral(4))))))
                 .matches(
                         project(
                                 ImmutableMap.of("y", PlanMatchPattern.expression(new SymbolReference("x"))),
                                 values(
                                         ImmutableList.of("x"),
                                         ImmutableList.of(
-                                                ImmutableList.of(new LongLiteral("2")),
-                                                ImmutableList.of(new LongLiteral("4"))))));
+                                                ImmutableList.of(new LongLiteral(2)),
+                                                ImmutableList.of(new LongLiteral(4))))));
     }
 
     @Test
@@ -90,7 +90,7 @@ public class TestPruneValuesColumns
                                 Assignments.of(),
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("x")),
-                                        ImmutableList.of(new Cast(new Row(ImmutableList.of(new LongLiteral("1"))), anonymousRow(BIGINT))))))
+                                        ImmutableList.of(new Cast(new Row(ImmutableList.of(new LongLiteral(1))), anonymousRow(BIGINT))))))
                 .matches(
                         project(
                                 ImmutableMap.of(),
@@ -106,7 +106,7 @@ public class TestPruneValuesColumns
                                 Assignments.of(p.symbol("x"), new SymbolReference("x")),
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("x"), p.symbol("y")),
-                                        ImmutableList.of(new Cast(new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"))), anonymousRow(BIGINT, createCharType(2)))))))
+                                        ImmutableList.of(new Cast(new Row(ImmutableList.of(new LongLiteral(1), new StringLiteral("a"))), anonymousRow(BIGINT, createCharType(2)))))))
                 .doesNotFire();
     }
 }

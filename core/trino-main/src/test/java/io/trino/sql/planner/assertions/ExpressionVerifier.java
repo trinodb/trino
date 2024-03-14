@@ -159,7 +159,7 @@ public final class ExpressionVerifier
     private static String getValueFromLiteral(Expression expression)
     {
         if (expression instanceof LongLiteral) {
-            return String.valueOf(((LongLiteral) expression).getParsedValue());
+            return String.valueOf(((LongLiteral) expression).getValue());
         }
 
         if (expression instanceof BooleanLiteral) {

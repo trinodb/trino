@@ -87,7 +87,7 @@ public class TestPruneCountAggregationOverScalar
                                         ImmutableList.of())
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
-                                .source(p.values(ImmutableList.of(p.symbol("orderkey")), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))))))
+                                .source(p.values(ImmutableList.of(p.symbol("orderkey")), ImmutableList.of(ImmutableList.of(new LongLiteral(1)))))))
                 .matches(values(ImmutableMap.of("count_1", 0)));
     }
 

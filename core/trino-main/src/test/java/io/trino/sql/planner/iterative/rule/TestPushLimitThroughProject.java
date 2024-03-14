@@ -152,8 +152,8 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")),
-                                            p.symbol("c"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("2"))),
+                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral(1)),
+                                            p.symbol("c"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral(2))),
                                     p.values(a)));
                 })
                 .doesNotFire();
@@ -215,13 +215,13 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")),
+                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral(1)),
                                             p.symbol("c", rowType), a.toSymbolReference()),
                                     p.values(a)));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("a"), new LongLiteral("1"))), "c", expression(new SymbolReference("a"))),
+                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("a"), new LongLiteral(1))), "c", expression(new SymbolReference("a"))),
                                 limit(1,
                                         values("a"))));
     }
