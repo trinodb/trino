@@ -238,7 +238,7 @@
         <dep.tcnative.version>2.0.65.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>4.8.1</dep.wire.version>
-        <dep.zookeeper.version>3.9.1</dep.zookeeper.version>
+        <dep.zookeeper.version>3.9.2</dep.zookeeper.version>
     </properties>
 
     <dependencyManagement>
