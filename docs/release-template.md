@@ -60,6 +60,8 @@
 
 ## MySQL connector
 
+## OpenSearch connector
+
 ## Oracle connector
 
 ## Phoenix connector
