@@ -136,6 +136,7 @@ public class IcebergSplitSource
     private long targetSplitSize;
     private CloseableIterator<FileScanTask> fileScanIterator;
     private Iterator<FileScanTask> fileTasksIterator = emptyIterator();
+    private TupleDomain<IcebergColumnHandle> fileStatisticsDomain;
 
     private final boolean recordScannedFiles;
     private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
@@ -247,7 +248,6 @@ public class IcebergSplitSource
         }
 
         List<ConnectorSplit> splits = new ArrayList<>(maxSize);
-        TupleDomain<IcebergColumnHandle> fileStatisticsDomain = null;
         while (splits.size() < maxSize && (fileTasksIterator.hasNext() || fileScanIterator.hasNext())) {
             if (!fileTasksIterator.hasNext()) {
                 if (limit.isPresent() && limit.getAsLong() <= outputRowsLowerBound) {
