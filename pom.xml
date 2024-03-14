@@ -189,7 +189,7 @@
         <dep.docker.images.version>91</dep.docker.images.version>
         <dep.drift.version>1.21</dep.drift.version>
         <dep.errorprone.version>2.25.0</dep.errorprone.version>
-        <dep.flyway.version>10.9.0</dep.flyway.version>
+        <dep.flyway.version>10.10.0</dep.flyway.version>
         <dep.google.http.client.version>1.44.1</dep.google.http.client.version>
         <dep.iceberg.version>1.4.3</dep.iceberg.version>
         <dep.jna.version>5.14.0</dep.jna.version>
