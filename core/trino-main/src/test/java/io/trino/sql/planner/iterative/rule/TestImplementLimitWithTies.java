@@ -23,6 +23,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -52,7 +53,7 @@ public class TestImplementLimitWithTies
                         strictProject(
                                 ImmutableMap.of("a", expression(new SymbolReference("a")), "b", expression(new SymbolReference("b"))),
                                 filter(
-                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("rank_num"), new GenericLiteral("BIGINT", "2")),
+                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("rank_num"), new GenericLiteral(BIGINT, "2")),
                                         window(
                                                 windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(specification(

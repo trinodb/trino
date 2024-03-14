@@ -1030,7 +1030,7 @@ public class TestDomainTranslator
     {
         // =
         assertPredicateDerives(
-                equal(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", " +2005-9-10  \t")),
+                equal(cast(C_VARCHAR, DATE), new GenericLiteral(DATE, " +2005-9-10  \t")),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
                                 Range.range(VARCHAR, utf8Slice("2005-09-10"), true, utf8Slice("2005-09-11"), false),
@@ -1039,7 +1039,7 @@ public class TestDomainTranslator
                         false)));
         // = with day ending with 9
         assertPredicateDerives(
-                equal(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2005-09-09")),
+                equal(cast(C_VARCHAR, DATE), new GenericLiteral(DATE, "2005-09-09")),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
                                 Range.range(VARCHAR, utf8Slice("2005-09-09"), true, utf8Slice("2005-09-0:"), false),
@@ -1049,7 +1049,7 @@ public class TestDomainTranslator
                                 Range.greaterThan(VARCHAR, utf8Slice("9"))),
                         false)));
         assertPredicateDerives(
-                equal(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2005-09-19")),
+                equal(cast(C_VARCHAR, DATE), new GenericLiteral(DATE, "2005-09-19")),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
                                 Range.range(VARCHAR, utf8Slice("2005-09-19"), true, utf8Slice("2005-09-1:"), false),
@@ -1059,7 +1059,7 @@ public class TestDomainTranslator
 
         // !=
         assertPredicateDerives(
-                notEqual(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", " +2005-9-10  \t")),
+                notEqual(cast(C_VARCHAR, DATE), new GenericLiteral(DATE, " +2005-9-10  \t")),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("2005-09-10")),
                                 Range.range(VARCHAR, utf8Slice("2005-09-11"), true, utf8Slice("2005-9-10"), false),
@@ -1068,12 +1068,12 @@ public class TestDomainTranslator
 
         // != with single-digit day
         assertUnsupportedPredicate(
-                notEqual(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", " +2005-9-2  \t")));
+                notEqual(cast(C_VARCHAR, DATE), new GenericLiteral(DATE, " +2005-9-2  \t")));
         // != with day ending with 9
         assertUnsupportedPredicate(
-                notEqual(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2005-09-09")));
+                notEqual(cast(C_VARCHAR, DATE), new GenericLiteral(DATE, "2005-09-09")));
         assertPredicateDerives(
-                notEqual(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2005-09-19")),
+                notEqual(cast(C_VARCHAR, DATE), new GenericLiteral(DATE, "2005-09-19")),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("2005-09-19")),
                                 Range.range(VARCHAR, utf8Slice("2005-09-1:"), true, utf8Slice("2005-9-19"), false),
@@ -1082,7 +1082,7 @@ public class TestDomainTranslator
 
         // <
         assertPredicateDerives(
-                lessThan(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", " +2005-9-10  \t")),
+                lessThan(cast(C_VARCHAR, DATE), new GenericLiteral(DATE, " +2005-9-10  \t")),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("2006")),
                                 Range.greaterThan(VARCHAR, utf8Slice("9"))),
@@ -1090,7 +1090,7 @@ public class TestDomainTranslator
 
         // >
         assertPredicateDerives(
-                greaterThan(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", " +2005-9-10  \t")),
+                greaterThan(cast(C_VARCHAR, DATE), new GenericLiteral(DATE, " +2005-9-10  \t")),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
                                 Range.greaterThan(VARCHAR, utf8Slice("2004"))),
@@ -1098,30 +1098,30 @@ public class TestDomainTranslator
 
         // Regression test for https://github.com/trinodb/trino/issues/14954
         assertPredicateTranslates(
-                greaterThan(new GenericLiteral("DATE", "2001-01-31"), cast(C_VARCHAR, DATE)),
+                greaterThan(new GenericLiteral(DATE, "2001-01-31"), cast(C_VARCHAR, DATE)),
                 tupleDomain(
                         C_VARCHAR,
                         Domain.create(ValueSet.ofRanges(
                                         Range.lessThan(VARCHAR, utf8Slice("2002")),
                                         Range.greaterThan(VARCHAR, utf8Slice("9"))),
                                 false)),
-                greaterThan(new GenericLiteral("DATE", "2001-01-31"), cast(C_VARCHAR, DATE)));
+                greaterThan(new GenericLiteral(DATE, "2001-01-31"), cast(C_VARCHAR, DATE)));
 
         // BETWEEN
         assertPredicateTranslates(
-                between(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2001-01-31"), new GenericLiteral("DATE", "2005-09-10")),
+                between(cast(C_VARCHAR, DATE), new GenericLiteral(DATE, "2001-01-31"), new GenericLiteral(DATE, "2005-09-10")),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
                                 Range.range(VARCHAR, utf8Slice("2000"), false, utf8Slice("2006"), false),
                                 Range.greaterThan(VARCHAR, utf8Slice("9"))),
                         false)),
                 and(
-                        greaterThanOrEqual(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2001-01-31")),
-                        lessThanOrEqual(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2005-09-10"))));
+                        greaterThanOrEqual(cast(C_VARCHAR, DATE), new GenericLiteral(DATE, "2001-01-31")),
+                        lessThanOrEqual(cast(C_VARCHAR, DATE), new GenericLiteral(DATE, "2005-09-10"))));
 
         // Regression test for https://github.com/trinodb/trino/issues/14954
         assertPredicateTranslates(
-                between(new GenericLiteral("DATE", "2001-01-31"), cast(C_VARCHAR, DATE), cast(C_VARCHAR_1, DATE)),
+                between(new GenericLiteral(DATE, "2001-01-31"), cast(C_VARCHAR, DATE), cast(C_VARCHAR_1, DATE)),
                 tupleDomain(
                         C_VARCHAR,
                         Domain.create(ValueSet.ofRanges(
@@ -1134,8 +1134,8 @@ public class TestDomainTranslator
                                         Range.greaterThan(VARCHAR, utf8Slice("2000"))),
                                 false)),
                 and(
-                        greaterThanOrEqual(new GenericLiteral("DATE", "2001-01-31"), cast(C_VARCHAR, DATE)),
-                        lessThanOrEqual(new GenericLiteral("DATE", "2001-01-31"), cast(C_VARCHAR_1, DATE))));
+                        greaterThanOrEqual(new GenericLiteral(DATE, "2001-01-31"), cast(C_VARCHAR, DATE)),
+                        lessThanOrEqual(new GenericLiteral(DATE, "2001-01-31"), cast(C_VARCHAR_1, DATE))));
     }
 
     @Test
@@ -2259,7 +2259,7 @@ public class TestDomainTranslator
     private static Literal bigintLiteral(long value)
     {
         if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
-            return new GenericLiteral("BIGINT", Long.toString(value));
+            return new GenericLiteral(BIGINT, Long.toString(value));
         }
         return new LongLiteral(value);
     }
@@ -2271,7 +2271,7 @@ public class TestDomainTranslator
 
     private static Expression realLiteral(String value)
     {
-        return new GenericLiteral("REAL", value);
+        return new GenericLiteral(REAL, value);
     }
 
     private static StringLiteral stringLiteral(String value)

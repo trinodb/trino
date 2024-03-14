@@ -41,6 +41,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.plan.Patterns.Limit.requiresPreSortedInputs;
 import static io.trino.sql.planner.plan.Patterns.limit;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -138,8 +139,8 @@ public class ImplementLimitWithTies
                 idAllocator.getNextId(),
                 windowNode,
                 new ComparisonExpression(
-                        ComparisonExpression.Operator.LESS_THAN_OR_EQUAL,
+                        LESS_THAN_OR_EQUAL,
                         rankSymbol.toSymbolReference(),
-                        new GenericLiteral("BIGINT", Long.toString(limitNode.getCount()))));
+                        new GenericLiteral(BIGINT, Long.toString(limitNode.getCount()))));
     }
 }

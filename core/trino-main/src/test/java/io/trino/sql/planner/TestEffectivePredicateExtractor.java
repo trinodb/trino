@@ -1110,7 +1110,7 @@ public class TestEffectivePredicateExtractor
     private static Expression bigintLiteral(long number)
     {
         if (number < Integer.MAX_VALUE && number > Integer.MIN_VALUE) {
-            return new GenericLiteral("BIGINT", String.valueOf(number));
+            return new GenericLiteral(BIGINT, String.valueOf(number));
         }
         return new LongLiteral(number);
     }

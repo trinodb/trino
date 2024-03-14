@@ -39,6 +39,7 @@ import java.util.Optional;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
@@ -214,7 +215,7 @@ public class TestDecorrelateUnnest
                                         "corr", expression(new SymbolReference("corr")),
                                         "unnested_corr", expression(new IfExpression(new IsNullPredicate(new SymbolReference("ordinality")), new Cast(new NullLiteral(), BIGINT), new SymbolReference("unnested_corr")))),
                                 filter(
-                                        new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new GenericLiteral("BIGINT", "1")), new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new GenericLiteral("INTEGER", "28"), new GenericLiteral("VARCHAR", "Scalar sub-query has returned multiple rows"))), BOOLEAN), TRUE_LITERAL),
+                                        new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new GenericLiteral(BIGINT, "1")), new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new GenericLiteral(INTEGER, "28"), new GenericLiteral(VARCHAR, "Scalar sub-query has returned multiple rows"))), BOOLEAN), TRUE_LITERAL),
                                         rowNumber(
                                                 builder -> builder
                                                         .partitionBy(ImmutableList.of("unique"))
@@ -248,7 +249,7 @@ public class TestDecorrelateUnnest
                 .matches(
                         project(
                                 filter(
-                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new GenericLiteral("BIGINT", "5")),
+                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new GenericLiteral(BIGINT, "5")),
                                         rowNumber(
                                                 builder -> builder
                                                         .partitionBy(ImmutableList.of("unique"))
@@ -283,7 +284,7 @@ public class TestDecorrelateUnnest
                 .matches(
                         project(
                                 filter(
-                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("rank_number"), new GenericLiteral("BIGINT", "5")),
+                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("rank_number"), new GenericLiteral(BIGINT, "5")),
                                         window(builder -> builder
                                                         .specification(specification(
                                                                 ImmutableList.of("unique"),
@@ -319,7 +320,7 @@ public class TestDecorrelateUnnest
                 .matches(
                         project(
                                 filter(
-                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new GenericLiteral("BIGINT", "5")),
+                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new GenericLiteral(BIGINT, "5")),
                                         window(builder -> builder
                                                         .specification(specification(
                                                                 ImmutableList.of("unique"),
@@ -427,7 +428,7 @@ public class TestDecorrelateUnnest
                 .matches(
                         project(
                                 filter(// enforce single row
-                                        new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new GenericLiteral("BIGINT", "1")), new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new GenericLiteral("INTEGER", "28"), new GenericLiteral("VARCHAR", "Scalar sub-query has returned multiple rows"))), BOOLEAN), TRUE_LITERAL),
+                                        new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new GenericLiteral(BIGINT, "1")), new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new GenericLiteral(INTEGER, "28"), new GenericLiteral(VARCHAR, "Scalar sub-query has returned multiple rows"))), BOOLEAN), TRUE_LITERAL),
                                         project(// second projection
                                                 ImmutableMap.of(
                                                         "corr", expression(new SymbolReference("corr")),
@@ -436,7 +437,7 @@ public class TestDecorrelateUnnest
                                                         "row_number", expression(new SymbolReference("row_number")),
                                                         "integer_result", expression(new IfExpression(new SymbolReference("boolean_result"), new LongLiteral(1), new LongLiteral(-1)))),
                                                 filter(// limit
-                                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new GenericLiteral("BIGINT", "5")),
+                                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new GenericLiteral(BIGINT, "5")),
                                                         project(// first projection
                                                                 ImmutableMap.of(
                                                                         "corr", expression(new SymbolReference("corr")),
@@ -445,7 +446,7 @@ public class TestDecorrelateUnnest
                                                                         "row_number", expression(new SymbolReference("row_number")),
                                                                         "boolean_result", expression(new IsNullPredicate(new SymbolReference("unnested_corr")))),
                                                                 filter(// topN
-                                                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new GenericLiteral("BIGINT", "10")),
+                                                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new GenericLiteral(BIGINT, "10")),
                                                                         window(builder -> builder
                                                                                         .specification(specification(
                                                                                                 ImmutableList.of("unique"),

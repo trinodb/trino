@@ -160,7 +160,7 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("count"), new GenericLiteral("BIGINT", "0")), new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral("BIGINT", "0")))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("count"), new GenericLiteral(BIGINT, "0")), new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral(BIGINT, "0")))),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
@@ -197,7 +197,7 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("count"), new GenericLiteral("BIGINT", "0")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("count"), new GenericLiteral("BIGINT", "0")))), new ComparisonExpression(EQUAL, new SymbolReference("g"), new GenericLiteral("BIGINT", "5")))),
+                            new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("count"), new GenericLiteral(BIGINT, "0")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("count"), new GenericLiteral(BIGINT, "0")))), new ComparisonExpression(EQUAL, new SymbolReference("g"), new GenericLiteral(BIGINT, "5")))),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
@@ -215,7 +215,7 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral("BIGINT", "0")),
+                            new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral(BIGINT, "0")),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
@@ -238,7 +238,7 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral("BIGINT", "0")), new ComparisonExpression(GREATER_THAN, new SymbolReference("g"), new GenericLiteral("BIGINT", "5")))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral(BIGINT, "0")), new ComparisonExpression(GREATER_THAN, new SymbolReference("g"), new GenericLiteral(BIGINT, "5")))),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
@@ -246,7 +246,7 @@ public class TestPushFilterThroughCountAggregation
                 })
                 .matches(
                         filter(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("g"), new GenericLiteral("BIGINT", "5")),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("g"), new GenericLiteral(BIGINT, "5")),
                                 aggregation(
                                         ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                         filter(
@@ -259,7 +259,7 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral("BIGINT", "0")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("count"), new LongLiteral(2)), new GenericLiteral("BIGINT", "0")))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral(BIGINT, "0")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("count"), new LongLiteral(2)), new GenericLiteral(BIGINT, "0")))),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
@@ -267,7 +267,7 @@ public class TestPushFilterThroughCountAggregation
                 })
                 .matches(
                         filter(
-                                new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("count"), new LongLiteral(2)), new GenericLiteral("BIGINT", "0")),
+                                new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("count"), new LongLiteral(2)), new GenericLiteral(BIGINT, "0")),
                                 aggregation(
                                         ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                         filter(
@@ -284,7 +284,7 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral("BIGINT", "5")),
+                            new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral(BIGINT, "5")),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
@@ -292,7 +292,7 @@ public class TestPushFilterThroughCountAggregation
                 })
                 .matches(
                         filter(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral("BIGINT", "5")),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral(BIGINT, "5")),
                                 aggregation(
                                         ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                         filter(
@@ -309,7 +309,7 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral("BIGINT", "0")),
+                            new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral(BIGINT, "0")),
                             p.project(
                                     Assignments.identity(count),
                                     p.aggregation(builder -> builder
@@ -332,7 +332,7 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral("BIGINT", "0")), new ComparisonExpression(GREATER_THAN, new SymbolReference("g"), new GenericLiteral("BIGINT", "5")))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral(BIGINT, "0")), new ComparisonExpression(GREATER_THAN, new SymbolReference("g"), new GenericLiteral(BIGINT, "5")))),
                             p.project(
                                     Assignments.identity(count, g),
                                     p.aggregation(builder -> builder
@@ -342,7 +342,7 @@ public class TestPushFilterThroughCountAggregation
                 })
                 .matches(
                         filter(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("g"), new GenericLiteral("BIGINT", "5")),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("g"), new GenericLiteral(BIGINT, "5")),
                                 project(
                                         ImmutableMap.of("count", expression(new SymbolReference("count")), "g", expression(new SymbolReference("g"))),
                                         aggregation(
@@ -357,7 +357,7 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral("BIGINT", "5")),
+                            new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral(BIGINT, "5")),
                             p.project(
                                     Assignments.identity(count),
                                     p.aggregation(builder -> builder
@@ -367,7 +367,7 @@ public class TestPushFilterThroughCountAggregation
                 })
                 .matches(
                         filter(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral("BIGINT", "5")),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("count"), new GenericLiteral(BIGINT, "5")),
                                 project(
                                         ImmutableMap.of("count", expression(new SymbolReference("count"))),
                                         aggregation(

@@ -60,6 +60,7 @@ import static io.trino.geospatial.KdbTree.Node.newLeaf;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
@@ -535,7 +536,7 @@ public class TestSpatialJoinPlanning
     private PlanMatchPattern singleRow()
     {
         return filter(
-                new ComparisonExpression(EQUAL, new SymbolReference("regionkey"), new GenericLiteral("BIGINT", "1")),
+                new ComparisonExpression(EQUAL, new SymbolReference("regionkey"), new GenericLiteral(BIGINT, "1")),
                 tableScan("region", ImmutableMap.of("regionkey", "regionkey")));
     }
 

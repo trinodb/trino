@@ -141,7 +141,7 @@ public class TestPushPredicateIntoTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "44")),
+                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "44")),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -157,7 +157,7 @@ public class TestPushPredicateIntoTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "44")),
+                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "44")),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -176,7 +176,7 @@ public class TestPushPredicateIntoTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "44")), new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "45")))),
+                        new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "44")), new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "45")))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -222,7 +222,7 @@ public class TestPushPredicateIntoTableScan
                                                 functionResolution
                                                         .functionCallBuilder("rand")
                                                         .build(),
-                                                new GenericLiteral("BIGINT", "42")),
+                                                new GenericLiteral(BIGINT, "42")),
                                         // non-translatable to connector expression
                                         new CoalesceExpression(
                                                 new Cast(new NullLiteral(), BOOLEAN),
@@ -231,17 +231,17 @@ public class TestPushPredicateIntoTableScan
                                                         new ArithmeticBinaryExpression(
                                                                 MODULUS,
                                                                 new SymbolReference("nationkey"),
-                                                                new GenericLiteral("BIGINT", "17")),
-                                                        new GenericLiteral("BIGINT", "44"))),
+                                                                new GenericLiteral(BIGINT, "17")),
+                                                        new GenericLiteral(BIGINT, "44"))),
                                         LogicalExpression.or(
                                                 new ComparisonExpression(
                                                         EQUAL,
                                                         new SymbolReference("nationkey"),
-                                                        new GenericLiteral("BIGINT", "44")),
+                                                        new GenericLiteral(BIGINT, "44")),
                                                 new ComparisonExpression(
                                                         EQUAL,
                                                         new SymbolReference("nationkey"),
-                                                        new GenericLiteral("BIGINT", "45"))))),
+                                                        new GenericLiteral(BIGINT, "45"))))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -256,14 +256,14 @@ public class TestPushPredicateIntoTableScan
                                                 functionResolution
                                                         .functionCallBuilder("rand")
                                                         .build(),
-                                                new GenericLiteral("BIGINT", "42")),
+                                                new GenericLiteral(BIGINT, "42")),
                                         new ComparisonExpression(
                                                 EQUAL,
                                                 new ArithmeticBinaryExpression(
                                                         MODULUS,
                                                         new SymbolReference("nationkey"),
-                                                        new GenericLiteral("BIGINT", "17")),
-                                                new GenericLiteral("BIGINT", "44"))),
+                                                        new GenericLiteral(BIGINT, "17")),
+                                                new GenericLiteral(BIGINT, "44"))),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of("nationkey", singleValue(BIGINT, (long) 44)),
@@ -295,7 +295,7 @@ public class TestPushPredicateIntoTableScan
     {
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral(17)), new GenericLiteral("BIGINT", "44")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral(15)), new GenericLiteral("BIGINT", "43")))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral(17)), new GenericLiteral(BIGINT, "44")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral(15)), new GenericLiteral(BIGINT, "43")))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -363,7 +363,7 @@ public class TestPushPredicateIntoTableScan
         assertThatThrownBy(() -> tester().assertThat(pushPredicateIntoTableScan)
                 .withSession(session)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("col"), new GenericLiteral("VARCHAR", "G")),
+                        new ComparisonExpression(EQUAL, new SymbolReference("col"), new GenericLiteral(VARCHAR, "G")),
                         p.tableScan(
                                 mockTableHandle(CONNECTOR_PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED),
                                 ImmutableList.of(p.symbol("col", VARCHAR)),
@@ -375,7 +375,7 @@ public class TestPushPredicateIntoTableScan
         tester().assertThat(pushPredicateIntoTableScan)
                 .withSession(session)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("col"), new GenericLiteral("VARCHAR", "G")),
+                        new ComparisonExpression(EQUAL, new SymbolReference("col"), new GenericLiteral(VARCHAR, "G")),
                         p.tableScan(
                                 mockTableHandle(CONNECTOR_PARTITIONED_TABLE_HANDLE),
                                 ImmutableList.of(p.symbol("col", VARCHAR)),
@@ -409,7 +409,7 @@ public class TestPushPredicateIntoTableScan
 
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "44")), new Cast(new NullLiteral(), BOOLEAN))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "44")), new Cast(new NullLiteral(), BOOLEAN))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),

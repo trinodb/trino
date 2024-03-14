@@ -402,10 +402,10 @@ public class ImplementTableFunctionSource
                                 new ComparisonExpression(EQUAL, leftRowNumber, rightRowNumber),
                                 new LogicalExpression(AND, ImmutableList.of(
                                         new ComparisonExpression(GREATER_THAN, leftRowNumber, rightPartitionSize),
-                                        new ComparisonExpression(EQUAL, rightRowNumber, new GenericLiteral("BIGINT", "1")))),
+                                        new ComparisonExpression(EQUAL, rightRowNumber, new GenericLiteral(BIGINT, "1")))),
                                 new LogicalExpression(AND, ImmutableList.of(
                                         new ComparisonExpression(GREATER_THAN, rightRowNumber, leftPartitionSize),
-                                        new ComparisonExpression(EQUAL, leftRowNumber, new GenericLiteral("BIGINT", "1")))))))
+                                        new ComparisonExpression(EQUAL, leftRowNumber, new GenericLiteral(BIGINT, "1")))))))
                         .build());
 
         // The join type depends on the prune when empty property of the sources.
@@ -502,8 +502,8 @@ public class ImplementTableFunctionSource
         Expression rowNumberExpression = new IfExpression(
                 new ComparisonExpression(
                         GREATER_THAN,
-                        new CoalesceExpression(leftRowNumber, new GenericLiteral("BIGINT", "-1")),
-                        new CoalesceExpression(rightRowNumber, new GenericLiteral("BIGINT", "-1"))),
+                        new CoalesceExpression(leftRowNumber, new GenericLiteral(BIGINT, "-1")),
+                        new CoalesceExpression(rightRowNumber, new GenericLiteral(BIGINT, "-1"))),
                 leftRowNumber,
                 rightRowNumber);
 
@@ -512,8 +512,8 @@ public class ImplementTableFunctionSource
         Expression partitionSizeExpression = new IfExpression(
                 new ComparisonExpression(
                         GREATER_THAN,
-                        new CoalesceExpression(leftPartitionSize, new GenericLiteral("BIGINT", "-1")),
-                        new CoalesceExpression(rightPartitionSize, new GenericLiteral("BIGINT", "-1"))),
+                        new CoalesceExpression(leftPartitionSize, new GenericLiteral(BIGINT, "-1")),
+                        new CoalesceExpression(rightPartitionSize, new GenericLiteral(BIGINT, "-1"))),
                 leftPartitionSize,
                 rightPartitionSize);
 
@@ -573,10 +573,10 @@ public class ImplementTableFunctionSource
                 new ComparisonExpression(EQUAL, leftRowNumber, rightRowNumber),
                 new LogicalExpression(AND, ImmutableList.of(
                         new ComparisonExpression(GREATER_THAN, leftRowNumber, rightPartitionSize),
-                        new ComparisonExpression(EQUAL, rightRowNumber, new GenericLiteral("BIGINT", "1")))),
+                        new ComparisonExpression(EQUAL, rightRowNumber, new GenericLiteral(BIGINT, "1")))),
                 new LogicalExpression(AND, ImmutableList.of(
                         new ComparisonExpression(GREATER_THAN, rightRowNumber, leftPartitionSize),
-                        new ComparisonExpression(EQUAL, leftRowNumber, new GenericLiteral("BIGINT", "1"))))));
+                        new ComparisonExpression(EQUAL, leftRowNumber, new GenericLiteral(BIGINT, "1"))))));
 
         JoinType joinType;
         if (left.pruneWhenEmpty() && right.pruneWhenEmpty()) {
@@ -633,8 +633,8 @@ public class ImplementTableFunctionSource
         Expression rowNumberExpression = new IfExpression(
                 new ComparisonExpression(
                         GREATER_THAN,
-                        new CoalesceExpression(leftRowNumber, new GenericLiteral("BIGINT", "-1")),
-                        new CoalesceExpression(rightRowNumber, new GenericLiteral("BIGINT", "-1"))),
+                        new CoalesceExpression(leftRowNumber, new GenericLiteral(BIGINT, "-1")),
+                        new CoalesceExpression(rightRowNumber, new GenericLiteral(BIGINT, "-1"))),
                 leftRowNumber,
                 rightRowNumber);
 
@@ -643,8 +643,8 @@ public class ImplementTableFunctionSource
         Expression partitionSizeExpression = new IfExpression(
                 new ComparisonExpression(
                         GREATER_THAN,
-                        new CoalesceExpression(leftPartitionSize, new GenericLiteral("BIGINT", "-1")),
-                        new CoalesceExpression(rightPartitionSize, new GenericLiteral("BIGINT", "-1"))),
+                        new CoalesceExpression(leftPartitionSize, new GenericLiteral(BIGINT, "-1")),
+                        new CoalesceExpression(rightPartitionSize, new GenericLiteral(BIGINT, "-1"))),
                 leftPartitionSize,
                 rightPartitionSize);
 

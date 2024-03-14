@@ -34,7 +34,6 @@ import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -51,6 +50,7 @@ import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static io.trino.sql.ir.LogicalExpression.Operator.OR;
+import static io.trino.sql.planner.BuiltinFunctionCallBuilder.resolve;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 
@@ -93,7 +93,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "44")),
+                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "44")),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -113,8 +113,8 @@ public class TestRemoveRedundantPredicateAboveTableScan
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
                         new LogicalExpression(OR, ImmutableList.of(
-                                new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "44")),
-                                new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "45")))),
+                                new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "44")),
+                                new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "45")))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -133,7 +133,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "44")), new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "45")), new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "47")))),
+                        new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "44")), new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "45")), new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "47")))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -141,7 +141,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                 TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(44L, 45L, 46L)))))))
                 .matches(
                         filter(
-                                new InPredicate(new SymbolReference("nationkey"), ImmutableList.of(new GenericLiteral("BIGINT", "44"), new GenericLiteral("BIGINT", "45"))),
+                                new InPredicate(new SymbolReference("nationkey"), ImmutableList.of(new GenericLiteral(BIGINT, "44"), new GenericLiteral(BIGINT, "45"))),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of("nationkey", Domain.multipleValues(BIGINT, ImmutableList.of(44L, 45L, 46L))),
@@ -159,26 +159,26 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                 ImmutableList.of(
                                         new ComparisonExpression(
                                                 EQUAL,
-                                                BuiltinFunctionCallBuilder.resolve(tester().getMetadata())
+                                                resolve(tester().getMetadata())
                                                         .setName("rand")
                                                         .build(),
-                                                new GenericLiteral("BIGINT", "42")),
+                                                new GenericLiteral(BIGINT, "42")),
                                         new ComparisonExpression(
                                                 EQUAL,
                                                 new ArithmeticBinaryExpression(
                                                         MODULUS,
                                                         new SymbolReference("nationkey"),
-                                                        new GenericLiteral("BIGINT", "17")),
-                                                new GenericLiteral("BIGINT", "44")),
+                                                        new GenericLiteral(BIGINT, "17")),
+                                                new GenericLiteral(BIGINT, "44")),
                                         LogicalExpression.or(
                                                 new ComparisonExpression(
                                                         EQUAL,
                                                         new SymbolReference("nationkey"),
-                                                        new GenericLiteral("BIGINT", "44")),
+                                                        new GenericLiteral(BIGINT, "44")),
                                                 new ComparisonExpression(
                                                         EQUAL,
                                                         new SymbolReference("nationkey"),
-                                                        new GenericLiteral("BIGINT", "45"))))),
+                                                        new GenericLiteral(BIGINT, "45"))))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -190,17 +190,17 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                 LogicalExpression.and(
                                         new ComparisonExpression(
                                                 EQUAL,
-                                                BuiltinFunctionCallBuilder.resolve(tester().getMetadata())
+                                                resolve(tester().getMetadata())
                                                         .setName("rand")
                                                         .build(),
-                                                new GenericLiteral("BIGINT", "42")),
+                                                new GenericLiteral(BIGINT, "42")),
                                         new ComparisonExpression(
                                                 EQUAL,
                                                 new ArithmeticBinaryExpression(
                                                         MODULUS,
                                                         new SymbolReference("nationkey"),
-                                                        new GenericLiteral("BIGINT", "17")),
-                                                new GenericLiteral("BIGINT", "44"))),
+                                                        new GenericLiteral(BIGINT, "17")),
+                                                new GenericLiteral(BIGINT, "44"))),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of("nationkey", singleValue(BIGINT, (long) 44)),
@@ -215,10 +215,10 @@ public class TestRemoveRedundantPredicateAboveTableScan
                 .on(p -> p.filter(
                         new ComparisonExpression(
                                 EQUAL,
-                                BuiltinFunctionCallBuilder.resolve(tester().getMetadata())
+                                resolve(tester().getMetadata())
                                         .setName("rand")
                                         .build(),
-                                new GenericLiteral("BIGINT", "42")),
+                                new GenericLiteral(BIGINT, "42")),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -232,7 +232,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
     {
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral(17)), new GenericLiteral("BIGINT", "44")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral(15)), new GenericLiteral("BIGINT", "43")))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral(17)), new GenericLiteral(BIGINT, "44")), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new LongLiteral(15)), new GenericLiteral(BIGINT, "43")))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -278,7 +278,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                 .on(p -> p.filter(
                         new LogicalExpression(AND, ImmutableList.of(
                                 new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("name"), new StringLiteral("x")), TRUE_LITERAL, FALSE_LITERAL),
-                                new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral("BIGINT", "44")))),
+                                new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new GenericLiteral(BIGINT, "44")))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(
