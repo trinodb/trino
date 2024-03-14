@@ -13,13 +13,13 @@
  */
 package io.trino.hive.formats.line.json;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
-import java.util.List;
+import java.util.Set;
 
 public final class JsonConstants
 {
-    static final List<String> HIVE_SERDE_CLASS_NAMES = ImmutableList.of("org.apache.hive.hcatalog.data.JsonSerDe", "org.apache.hadoop.hive.serde2.JsonSerDe");
+    static final Set<String> HIVE_SERDE_CLASS_NAMES = ImmutableSet.of("org.apache.hive.hcatalog.data.JsonSerDe", "org.apache.hadoop.hive.serde2.JsonSerDe");
 
     private JsonConstants() {}
 }
