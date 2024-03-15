@@ -46,10 +46,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Verify.verify;
-import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
@@ -60,6 +58,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Isolated
@@ -127,14 +126,20 @@ public class TestDeltaLakeDynamicFiltering
         QualifiedObjectName tableName = new QualifiedObjectName(DELTA_CATALOG, "default", "orders");
         Optional<TableHandle> tableHandle = runner.getPlannerContext().getMetadata().getTableHandle(session, tableName);
         assertThat(tableHandle.isPresent()).isTrue();
-        SplitSource splitSource = runner.getSplitManager()
-                .getSplits(session, Span.getInvalid(), tableHandle.get(), new IncompleteDynamicFilter(), alwaysTrue());
-        List<Split> splits = new ArrayList<>();
-        while (!splitSource.isFinished()) {
-            splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
+        CompletableFuture<Void> dynamicFilterBlocked = new CompletableFuture<>();
+        try {
+            SplitSource splitSource = runner.getSplitManager()
+                    .getSplits(session, Span.getInvalid(), tableHandle.get(), new BlockedDynamicFilter(dynamicFilterBlocked), alwaysTrue());
+            List<Split> splits = new ArrayList<>();
+            while (!splitSource.isFinished()) {
+                splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
+            }
+            splitSource.close();
+            assertThat(splits.isEmpty()).isFalse();
         }
-        splitSource.close();
-        assertThat(splits.isEmpty()).isFalse();
+        finally {
+            dynamicFilterBlocked.complete(null);
+        }
     }
 
     private Session sessionWithDynamicFiltering(boolean enabled, JoinDistributionType joinDistributionType)
@@ -150,9 +155,16 @@ public class TestDeltaLakeDynamicFiltering
         return getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
     }
 
-    private static class IncompleteDynamicFilter
+    private static class BlockedDynamicFilter
             implements DynamicFilter
     {
+        private final CompletableFuture<?> isBlocked;
+
+        public BlockedDynamicFilter(CompletableFuture<?> isBlocked)
+        {
+            this.isBlocked = requireNonNull(isBlocked, "isBlocked is null");
+        }
+
         @Override
         public Set<ColumnHandle> getColumnsCovered()
         {
@@ -162,14 +174,7 @@ public class TestDeltaLakeDynamicFiltering
         @Override
         public CompletableFuture<?> isBlocked()
         {
-            return unmodifiableFuture(CompletableFuture.runAsync(() -> {
-                try {
-                    TimeUnit.HOURS.sleep(1);
-                }
-                catch (InterruptedException e) {
-                    throw new IllegalStateException(e);
-                }
-            }));
+            return isBlocked;
         }
 
         @Override
