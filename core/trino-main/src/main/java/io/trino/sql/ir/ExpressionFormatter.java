@@ -17,9 +17,12 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
+import io.trino.operator.scalar.timestamp.TimestampToVarcharCast;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.IntervalDayTimeType;
@@ -110,6 +113,8 @@ public final class ExpressionFormatter
                         case IntervalDayTimeType type -> node.getRawValue().toString();
                         case IntervalYearMonthType type -> node.getRawValue().toString();
                         case DateType type -> DateTimeUtils.printDate((int) (long) node.getRawValue());
+                        case TimestampType type when type.isShort() -> TimestampToVarcharCast.cast(type.getPrecision(), (long) node.getRawValue()).toStringUtf8();
+                        case TimestampType type -> TimestampToVarcharCast.cast(type.getPrecision(), (LongTimestamp) node.getRawValue()).toStringUtf8();
                         default -> node.getValue();
                     }));
         }

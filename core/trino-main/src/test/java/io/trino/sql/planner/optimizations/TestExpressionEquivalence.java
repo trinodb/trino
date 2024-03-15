@@ -38,6 +38,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.DateTimes;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -131,8 +132,8 @@ public class TestExpressionEquivalence
                 new ComparisonExpression(LESS_THAN_OR_EQUAL, GenericLiteral.constant(INTEGER, 4L), GenericLiteral.constant(INTEGER, 5L)),
                 new ComparisonExpression(GREATER_THAN_OR_EQUAL, GenericLiteral.constant(INTEGER, 5L), GenericLiteral.constant(INTEGER, 4L)));
         assertEquivalent(
-                new ComparisonExpression(EQUAL, new GenericLiteral(createTimestampType(9), "2020-05-10 12:34:56.123456789"), new GenericLiteral(createTimestampType(9), "2021-05-10 12:34:56.123456789")),
-                new ComparisonExpression(EQUAL, new GenericLiteral(createTimestampType(9), "2021-05-10 12:34:56.123456789"), new GenericLiteral(createTimestampType(9), "2020-05-10 12:34:56.123456789")));
+                new ComparisonExpression(EQUAL, GenericLiteral.constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-05-10 12:34:56.123456789")), GenericLiteral.constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2021-05-10 12:34:56.123456789"))),
+                new ComparisonExpression(EQUAL, GenericLiteral.constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2021-05-10 12:34:56.123456789")), GenericLiteral.constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-05-10 12:34:56.123456789"))));
         assertEquivalent(
                 new ComparisonExpression(EQUAL, new GenericLiteral(createTimestampWithTimeZoneType(9), "2020-05-10 12:34:56.123456789 +8"), new GenericLiteral(createTimestampWithTimeZoneType(9), "2021-05-10 12:34:56.123456789 +8")),
                 new ComparisonExpression(EQUAL, new GenericLiteral(createTimestampWithTimeZoneType(9), "2021-05-10 12:34:56.123456789 +8"), new GenericLiteral(createTimestampWithTimeZoneType(9), "2020-05-10 12:34:56.123456789 +8")));
