@@ -32,6 +32,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -82,6 +83,7 @@ public final class GenericLiteral
                 type.equals(BIGINT) ||
                 type.equals(BOOLEAN) ||
                 type.equals(DOUBLE) ||
+                type.equals(DATE) ||
                 type instanceof VarcharType ||
                 type instanceof CharType ||
                 type instanceof DecimalType ||
