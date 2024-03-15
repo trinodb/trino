@@ -24,6 +24,7 @@ import io.trino.operator.scalar.VarbinaryFunctions;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
@@ -116,6 +117,7 @@ public final class LiteralEncoder
                 type instanceof CharType ||
                 type instanceof TimestampType ||
                 type instanceof TimestampWithTimeZoneType ||
+                type instanceof TimeWithTimeZoneType ||
                 type instanceof VarbinaryType) {
             return GenericLiteral.constant(type, object);
         }
