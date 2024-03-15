@@ -19,6 +19,7 @@ import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
+import io.trino.spi.type.RealType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.IntervalDayTimeType;
@@ -105,6 +106,7 @@ public final class ExpressionFormatter
                         case VarbinaryType type -> BaseEncoding.base16().encode(((Slice) node.getRawValue()).getBytes());
                         case VarcharType type -> ((Slice) node.getRawValue()).toStringUtf8();
                         case CharType type -> ((Slice) node.getRawValue()).toStringUtf8();
+                        case RealType type -> Float.toString(Float.intBitsToFloat((int) ((long) node.getRawValue())));
                         case IntervalDayTimeType type -> node.getRawValue().toString();
                         case IntervalYearMonthType type -> node.getRawValue().toString();
                         case DateType type -> DateTimeUtils.printDate((int) (long) node.getRawValue());

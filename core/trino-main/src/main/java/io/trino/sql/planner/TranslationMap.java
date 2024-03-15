@@ -107,6 +107,7 @@ import io.trino.type.FunctionType;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.Reals;
 import io.trino.util.DateTimeUtils;
 
 import java.util.Arrays;
@@ -126,6 +127,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
@@ -479,6 +481,10 @@ public class TranslationMap
 
         if (type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER) || type.equals(BIGINT)) {
             return constant(type, Long.parseLong(expression.getValue()));
+        }
+
+        if (type.equals(REAL)) {
+            return constant(type, Reals.toReal(Float.parseFloat(expression.getValue())));
         }
 
         if (type.equals(DOUBLE)) {
