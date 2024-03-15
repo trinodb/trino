@@ -21,7 +21,7 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
-import io.trino.plugin.jdbc.RemoteDatabaseEvent;
+import io.trino.plugin.jdbc.RemoteLogTracingEvent;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.predicate.Range;
@@ -1061,9 +1061,15 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Override
-    protected List<RemoteDatabaseEvent> getRemoteDatabaseEvents()
+    protected void startTracingDatabaseEvent(RemoteLogTracingEvent event)
     {
-        return postgreSqlServer.getRemoteDatabaseEvents();
+        postgreSqlServer.startTracingDatabaseEvent(event);
+    }
+
+    @Override
+    protected void stopTracingDatabaseEvent(RemoteLogTracingEvent event)
+    {
+        postgreSqlServer.stopTracingDatabaseEvent(event);
     }
 
     @Override
