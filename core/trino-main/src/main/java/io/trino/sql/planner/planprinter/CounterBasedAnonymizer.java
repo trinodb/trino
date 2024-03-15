@@ -29,7 +29,6 @@ import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IntervalLiteral;
 import io.trino.sql.ir.Literal;
 import io.trino.sql.ir.NullLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
@@ -112,9 +111,6 @@ public class CounterBasedAnonymizer
 
     private String anonymizeLiteral(Literal node)
     {
-        if (node instanceof StringLiteral literal) {
-            return anonymizeLiteral("string", literal.getValue());
-        }
         if (node instanceof GenericLiteral literal) {
             if (literal.getType().equals(BOOLEAN)) {
                 return literal.getValue();

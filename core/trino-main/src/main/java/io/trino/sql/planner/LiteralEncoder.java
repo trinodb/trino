@@ -18,13 +18,11 @@ import com.google.common.primitives.Primitives;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.SliceUtf8;
 import io.trino.block.BlockSerdeUtil;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.VarbinaryFunctions;
 import io.trino.operator.scalar.timestamp.TimestampToVarcharCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -41,7 +39,6 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NullLiteral;
-import io.trino.sql.ir.StringLiteral;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
@@ -50,7 +47,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.metadata.LiteralFunction.typeForMagicLiteral;
-import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -65,7 +61,6 @@ import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class LiteralEncoder
@@ -115,7 +110,9 @@ public final class LiteralEncoder
                 type.equals(INTEGER) ||
                 type.equals(BIGINT) ||
                 type.equals(DOUBLE) ||
-                type instanceof DecimalType) {
+                type instanceof DecimalType ||
+                type instanceof VarcharType ||
+                type instanceof CharType) {
             return GenericLiteral.constant(type, object);
         }
 
@@ -143,28 +140,6 @@ public final class LiteralEncoder
                         REAL);
             }
             return new GenericLiteral(REAL, value.toString());
-        }
-
-        if (type instanceof VarcharType varcharType) {
-            Slice value = (Slice) object;
-            if (varcharType.isUnbounded()) {
-                return new GenericLiteral(VARCHAR, value.toStringUtf8());
-            }
-            StringLiteral stringLiteral = new StringLiteral(value.toStringUtf8());
-            int boundedLength = varcharType.getBoundedLength();
-            int valueLength = SliceUtf8.countCodePoints(value);
-            if (boundedLength == valueLength) {
-                return stringLiteral;
-            }
-            if (boundedLength > valueLength) {
-                return new Cast(stringLiteral, type, false);
-            }
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value [%s] does not fit in type %s", value.toStringUtf8(), varcharType));
-        }
-
-        if (type instanceof CharType) {
-            StringLiteral stringLiteral = new StringLiteral(((Slice) object).toStringUtf8());
-            return new Cast(stringLiteral, type, false);
         }
 
         if (type.equals(DATE)) {
@@ -222,10 +197,9 @@ public final class LiteralEncoder
             // HACK: we need to serialize VARBINARY in a format that can be embedded in an expression to be
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
-            Slice encoded = VarbinaryFunctions.toBase64(slice);
             argument = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName("from_base64")
-                    .addArgument(VARCHAR, new StringLiteral(encoded.toStringUtf8()))
+                    .addArgument(GenericLiteral.constant(VARCHAR, VarbinaryFunctions.toBase64(slice)))
                     .build();
         }
         else {

@@ -14,12 +14,12 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -50,19 +50,19 @@ public class TestPushCastIntoRow
                 new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L))), anonymousRow(BIGINT)),
                 new Row(ImmutableList.of(new Cast(GenericLiteral.constant(INTEGER, 1L), BIGINT))));
         test(
-                new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("a"))), anonymousRow(BIGINT, VARCHAR)),
-                new Row(ImmutableList.of(new Cast(GenericLiteral.constant(INTEGER, 1L), BIGINT), new Cast(new StringLiteral("a"), VARCHAR))));
+                new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("a")))), anonymousRow(BIGINT, VARCHAR)),
+                new Row(ImmutableList.of(new Cast(GenericLiteral.constant(INTEGER, 1L), BIGINT), new Cast(GenericLiteral.constant(VARCHAR, Slices.utf8Slice("a")), VARCHAR))));
         test(
-                new Cast(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("a"))), anonymousRow(SMALLINT, VARCHAR)), anonymousRow(BIGINT, VARCHAR)),
-                new Row(ImmutableList.of(new Cast(new Cast(GenericLiteral.constant(INTEGER, 1L), SMALLINT), BIGINT), new Cast(new Cast(new StringLiteral("a"), VARCHAR), VARCHAR))));
+                new Cast(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("a")))), anonymousRow(SMALLINT, VARCHAR)), anonymousRow(BIGINT, VARCHAR)),
+                new Row(ImmutableList.of(new Cast(new Cast(GenericLiteral.constant(INTEGER, 1L), SMALLINT), BIGINT), new Cast(new Cast(GenericLiteral.constant(VARCHAR, Slices.utf8Slice("a")), VARCHAR), VARCHAR))));
 
         // named fields in top-level cast preserved
         test(
-                new Cast(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("a"))), anonymousRow(SMALLINT, VARCHAR)), rowType(field("x", BIGINT), field(VARCHAR))),
-                new Cast(new Row(ImmutableList.of(new Cast(GenericLiteral.constant(INTEGER, 1L), SMALLINT), new Cast(new StringLiteral("a"), VARCHAR))), rowType(field("x", BIGINT), field(VARCHAR))));
+                new Cast(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("a")))), anonymousRow(SMALLINT, VARCHAR)), rowType(field("x", BIGINT), field(VARCHAR))),
+                new Cast(new Row(ImmutableList.of(new Cast(GenericLiteral.constant(INTEGER, 1L), SMALLINT), new Cast(GenericLiteral.constant(VARCHAR, Slices.utf8Slice("a")), VARCHAR))), rowType(field("x", BIGINT), field(VARCHAR))));
         test(
-                new Cast(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("a"))), rowType(field("a", SMALLINT), field("b", VARCHAR))), rowType(field("x", BIGINT), field(VARCHAR))),
-                new Cast(new Row(ImmutableList.of(new Cast(GenericLiteral.constant(INTEGER, 1L), SMALLINT), new Cast(new StringLiteral("a"), VARCHAR))), rowType(field("x", BIGINT), field(VARCHAR))));
+                new Cast(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("a")))), rowType(field("a", SMALLINT), field("b", VARCHAR))), rowType(field("x", BIGINT), field(VARCHAR))),
+                new Cast(new Row(ImmutableList.of(new Cast(GenericLiteral.constant(INTEGER, 1L), SMALLINT), new Cast(GenericLiteral.constant(VARCHAR, Slices.utf8Slice("a")), VARCHAR))), rowType(field("x", BIGINT), field(VARCHAR))));
 
         // expression nested in another unrelated expression
         test(

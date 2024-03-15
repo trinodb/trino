@@ -20,6 +20,7 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +49,12 @@ public class BuiltinFunctionCallBuilder
     {
         this.name = requireNonNull(name, "name is null");
         return this;
+    }
+
+    public BuiltinFunctionCallBuilder addArgument(GenericLiteral value)
+    {
+        requireNonNull(value, "value is null");
+        return addArgument(value.getType().getTypeSignature(), value);
     }
 
     public BuiltinFunctionCallBuilder addArgument(Type type, Expression value)

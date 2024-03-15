@@ -14,6 +14,7 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
@@ -22,7 +23,6 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
@@ -292,7 +292,7 @@ public class TestComparisonStatsCalculator
                 .symbolStats("emptyRange", equalTo(emptyRangeStats));
 
         // Column with values not representable as double (unknown range)
-        assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("varchar"), new StringLiteral("blah")))
+        assertCalculate(new ComparisonExpression(EQUAL, new SymbolReference("varchar"), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("blah"))))
                 .outputRowsCount(18.0) // all rows minus nulls divided by distinct values count
                 .symbolStats("varchar", symbolAssert -> {
                     symbolAssert.averageRowSize(4.0)
@@ -378,7 +378,7 @@ public class TestComparisonStatsCalculator
                 .symbolStats("emptyRange", equalTo(emptyRangeStats));
 
         // Column with values not representable as double (unknown range)
-        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("varchar"), new StringLiteral("blah")))
+        assertCalculate(new ComparisonExpression(NOT_EQUAL, new SymbolReference("varchar"), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("blah"))))
                 .outputRowsCount(882.0) // all rows minus nulls divided by distinct values count
                 .symbolStats("varchar", symbolAssert -> {
                     symbolAssert.averageRowSize(4.0)

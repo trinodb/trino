@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.ir.Cast;
@@ -25,7 +26,6 @@ import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.tree.QualifiedName;
@@ -42,6 +42,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -103,13 +104,13 @@ public class TestUnwrapCastInComparison
         testUnwrap("bigint", "a = DOUBLE '-18446744073709551616'", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new Cast(new NullLiteral(), BOOLEAN))));
 
         // varchar and char, same length
-        testUnwrap("varchar(3)", "a = CAST('abc' AS char(3))", new ComparisonExpression(EQUAL, new SymbolReference("a"), new StringLiteral("abc")));
+        testUnwrap("varchar(3)", "a = CAST('abc' AS char(3))", new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(createVarcharType(3), Slices.utf8Slice("abc"))));
         // longer varchar and char
         // actually unwrapping didn't happen
-        testUnwrap("varchar(10)", "a = CAST('abc' AS char(3))", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), createCharType(10)), new Cast(new StringLiteral("abc"), createCharType(10))));
+        testUnwrap("varchar(10)", "a = CAST('abc' AS char(3))", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), createCharType(10)), GenericLiteral.constant(createCharType(10), Slices.utf8Slice("abc"))));
         // unbounded varchar and char
         // actually unwrapping didn't happen
-        testUnwrap("varchar", "a = CAST('abc' AS char(3))", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), createCharType(65536)), new Cast(new StringLiteral("abc"), createCharType(65536))));
+        testUnwrap("varchar", "a = CAST('abc' AS char(3))", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), createCharType(65536)), GenericLiteral.constant(createCharType(65536), Slices.utf8Slice("abc"))));
     }
 
     @Test

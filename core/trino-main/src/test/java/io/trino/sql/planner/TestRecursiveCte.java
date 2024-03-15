@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
@@ -92,7 +93,7 @@ public class TestRecursiveCte
                                 filter(
                                         new IfExpression(
                                                 new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("count"), GenericLiteral.constant(BIGINT, 0L)),
-                                                new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) NOT_SUPPORTED.toErrorCode().getCode()), new GenericLiteral(VARCHAR, "Recursion depth limit exceeded (1). Use 'max_recursion_depth' session property to modify the limit."))), BOOLEAN),
+                                                new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) NOT_SUPPORTED.toErrorCode().getCode()), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("Recursion depth limit exceeded (1). Use 'max_recursion_depth' session property to modify the limit.")))), BOOLEAN),
                                                 TRUE_LITERAL),
                                         window(windowBuilder -> windowBuilder
                                                         .addFunction(

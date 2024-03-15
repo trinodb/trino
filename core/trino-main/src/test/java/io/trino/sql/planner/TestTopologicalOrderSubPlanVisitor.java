@@ -15,11 +15,12 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.cost.StatsAndCosts;
 import io.trino.operator.RetryPolicy;
 import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -179,7 +180,7 @@ public class TestTopologicalOrderSubPlanVisitor
         Symbol symbol = new Symbol("column");
         return createSubPlan(fragmentId, new ValuesNode(new PlanNodeId(fragmentId + "Values"),
                         ImmutableList.of(symbol),
-                        ImmutableList.of(new Row(ImmutableList.of(new StringLiteral("foo"))))),
+                        ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(VARCHAR, Slices.utf8Slice("foo")))))),
                 ImmutableList.of());
     }
 

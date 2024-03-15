@@ -53,7 +53,6 @@ import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.type.LikeFunctions;
 import io.trino.type.LikePattern;
@@ -1120,7 +1119,7 @@ public final class DomainTranslator
             }
 
             Expression prefix = args.get(1);
-            if (!(prefix instanceof StringLiteral)) {
+            if (!(prefix instanceof GenericLiteral literal && literal.getType().equals(VarcharType.VARCHAR))) {
                 // dynamic pattern
                 return Optional.empty();
             }
@@ -1135,7 +1134,7 @@ public final class DomainTranslator
             }
 
             Symbol symbol = Symbol.from(target);
-            Slice constantPrefix = utf8Slice(((StringLiteral) prefix).getValue());
+            Slice constantPrefix = (Slice) ((GenericLiteral) prefix).getRawValue();
 
             return createRangeDomain(type, constantPrefix).map(domain -> new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), node));
         }

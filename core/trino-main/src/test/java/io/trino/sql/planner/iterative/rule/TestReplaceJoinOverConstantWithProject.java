@@ -15,12 +15,13 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -118,7 +119,7 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a")), ImmutableList.of(new Cast(new Row(ImmutableList.of(new StringLiteral("true"))), rowType(field("b", BOOLEAN))))),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a")), ImmutableList.of(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("true")))), rowType(field("b", BOOLEAN))))),
                                 p.values(5, p.symbol("b"))))
                 .doesNotFire();
     }
@@ -174,13 +175,13 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("x"))))),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x")))))),
                                 p.values(5, p.symbol("c"))))
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(GenericLiteral.constant(INTEGER, 1L)),
-                                        "b", PlanMatchPattern.expression(new StringLiteral("x")),
+                                        "b", PlanMatchPattern.expression(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
                                         "c", PlanMatchPattern.expression(new SymbolReference("c"))),
                                 values("c")));
 
@@ -189,12 +190,12 @@ public class TestReplaceJoinOverConstantWithProject
                         p.join(
                                 INNER,
                                 p.values(5, p.symbol("c")),
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("x")))))))
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))))))))
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(GenericLiteral.constant(INTEGER, 1L)),
-                                        "b", PlanMatchPattern.expression(new StringLiteral("x")),
+                                        "b", PlanMatchPattern.expression(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
                                         "c", PlanMatchPattern.expression(new SymbolReference("c"))),
                                 values("c")));
     }
@@ -206,13 +207,13 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(
                                 LEFT,
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("x"))))),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x")))))),
                                 p.values(5, p.symbol("c"))))
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(GenericLiteral.constant(INTEGER, 1L)),
-                                        "b", PlanMatchPattern.expression(new StringLiteral("x")),
+                                        "b", PlanMatchPattern.expression(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
                                         "c", PlanMatchPattern.expression(new SymbolReference("c"))),
                                 values("c")));
 
@@ -221,12 +222,12 @@ public class TestReplaceJoinOverConstantWithProject
                         p.join(
                                 LEFT,
                                 p.values(5, p.symbol("c")),
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("x")))))))
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))))))))
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(GenericLiteral.constant(INTEGER, 1L)),
-                                        "b", PlanMatchPattern.expression(new StringLiteral("x")),
+                                        "b", PlanMatchPattern.expression(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
                                         "c", PlanMatchPattern.expression(new SymbolReference("c"))),
                                 values("c")));
     }
@@ -238,13 +239,13 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(
                                 RIGHT,
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("x"))))),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x")))))),
                                 p.values(5, p.symbol("c"))))
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(GenericLiteral.constant(INTEGER, 1L)),
-                                        "b", PlanMatchPattern.expression(new StringLiteral("x")),
+                                        "b", PlanMatchPattern.expression(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
                                         "c", PlanMatchPattern.expression(new SymbolReference("c"))),
                                 values("c")));
 
@@ -253,12 +254,12 @@ public class TestReplaceJoinOverConstantWithProject
                         p.join(
                                 RIGHT,
                                 p.values(5, p.symbol("c")),
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("x")))))))
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))))))))
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(GenericLiteral.constant(INTEGER, 1L)),
-                                        "b", PlanMatchPattern.expression(new StringLiteral("x")),
+                                        "b", PlanMatchPattern.expression(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
                                         "c", PlanMatchPattern.expression(new SymbolReference("c"))),
                                 values("c")));
     }
@@ -270,13 +271,13 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(
                                 FULL,
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("x"))))),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x")))))),
                                 p.values(5, p.symbol("c"))))
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(GenericLiteral.constant(INTEGER, 1L)),
-                                        "b", PlanMatchPattern.expression(new StringLiteral("x")),
+                                        "b", PlanMatchPattern.expression(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
                                         "c", PlanMatchPattern.expression(new SymbolReference("c"))),
                                 values("c")));
 
@@ -285,12 +286,12 @@ public class TestReplaceJoinOverConstantWithProject
                         p.join(
                                 FULL,
                                 p.values(5, p.symbol("c")),
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("x")))))))
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))))))))
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(GenericLiteral.constant(INTEGER, 1L)),
-                                        "b", PlanMatchPattern.expression(new StringLiteral("x")),
+                                        "b", PlanMatchPattern.expression(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
                                         "c", PlanMatchPattern.expression(new SymbolReference("c"))),
                                 values("c")));
     }
@@ -302,7 +303,7 @@ public class TestReplaceJoinOverConstantWithProject
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("x"))))),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a"), p.symbol("b")), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x")))))),
                                 p.values(5, p.symbol("c")),
                                 ImmutableList.of(),
                                 ImmutableList.of(p.symbol("a"), p.symbol("b"), p.symbol("a"), p.symbol("b")),
@@ -312,7 +313,7 @@ public class TestReplaceJoinOverConstantWithProject
                         strictProject(
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(GenericLiteral.constant(INTEGER, 1L)),
-                                        "b", PlanMatchPattern.expression(new StringLiteral("x")),
+                                        "b", PlanMatchPattern.expression(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
                                         "c", PlanMatchPattern.expression(new SymbolReference("c"))),
                                 values("c")));
     }

@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slices;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
@@ -32,7 +33,6 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
@@ -54,6 +54,7 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
@@ -125,12 +126,12 @@ public class TestJsonTable
                                                                         "int_col_coerced", expression(new Cast(new SymbolReference("int_col"), BIGINT))), // cast default value to BIGINT to match declared return type for the column
                                                                 project(// pre-project context item, path parameters and default expressions
                                                                         ImmutableMap.of(
-                                                                                "name", expression(new StringLiteral("[ala]")),
+                                                                                "name", expression(GenericLiteral.constant(createVarcharType(5), Slices.utf8Slice("[ala]"))),
                                                                                 "default_value", expression(GenericLiteral.constant(INTEGER, 5L))),
                                                                         anyTree(
                                                                                 project(
                                                                                         ImmutableMap.of(
-                                                                                                "json_col", expression(new StringLiteral("[1, 2, 3]")),
+                                                                                                "json_col", expression(GenericLiteral.constant(createVarcharType(9), Slices.utf8Slice("[1, 2, 3]"))),
                                                                                                 "int_col", expression(GenericLiteral.constant(INTEGER, 4L))),
                                                                                         values(1)))))))))));
     }
