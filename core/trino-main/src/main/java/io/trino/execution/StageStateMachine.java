@@ -284,8 +284,8 @@ public class StageStateMachine
 
         long physicalInputDataSize = 0;
         long physicalInputPositions = 0;
-        long physicalWrittenBytes = 0;
         long physicalInputReadTime = 0;
+        long physicalWrittenBytes = 0;
 
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
