@@ -110,6 +110,7 @@ import io.trino.sql.tree.Update;
 import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
+import io.trino.type.Reals;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1701,7 +1702,7 @@ class QueryPlanner
         }
 
         if (type.equals(REAL)) {
-            return new GenericLiteral(type, "0");
+            return GenericLiteral.constant(type, Reals.toReal(0));
         }
 
         throw new IllegalArgumentException("unexpected type: " + type);

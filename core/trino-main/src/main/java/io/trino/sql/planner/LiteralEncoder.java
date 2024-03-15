@@ -34,7 +34,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
@@ -61,7 +60,6 @@ import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -111,6 +109,7 @@ public final class LiteralEncoder
                 type.equals(SMALLINT) ||
                 type.equals(INTEGER) ||
                 type.equals(BIGINT) ||
+                type.equals(REAL) ||
                 type.equals(DOUBLE) ||
                 type.equals(DATE) ||
                 type.equals(INTERVAL_YEAR_MONTH) ||
@@ -120,32 +119,6 @@ public final class LiteralEncoder
                 type instanceof CharType ||
                 type instanceof VarbinaryType) {
             return GenericLiteral.constant(type, object);
-        }
-
-        if (type.equals(REAL)) {
-            Float value = intBitsToFloat(((Long) object).intValue());
-            if (value.isNaN()) {
-                return new Cast(
-                        BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                                .setName("nan")
-                                .build(),
-                        REAL);
-            }
-            if (value.equals(Float.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(new Cast(
-                        BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                                .setName("infinity")
-                                .build(),
-                        REAL));
-            }
-            if (value.equals(Float.POSITIVE_INFINITY)) {
-                return new Cast(
-                        BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                                .setName("infinity")
-                                .build(),
-                        REAL);
-            }
-            return new GenericLiteral(REAL, value.toString());
         }
 
         if (type instanceof TimestampType timestampType) {
