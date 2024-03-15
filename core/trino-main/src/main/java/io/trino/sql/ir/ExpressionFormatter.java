@@ -19,11 +19,14 @@ import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.timestamp.TimestampToVarcharCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
+import io.trino.operator.scalar.timetz.TimeWithTimeZoneToVarcharCast;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
+import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.VarbinaryType;
@@ -109,6 +112,8 @@ public final class ExpressionFormatter
                         case TimestampType type -> TimestampToVarcharCast.cast(type.getPrecision(), (LongTimestamp) node.getRawValue()).toStringUtf8();
                         case TimestampWithTimeZoneType type when type.isShort() -> TimestampWithTimeZoneToVarcharCast.cast(type.getPrecision(), (long) node.getRawValue()).toStringUtf8();
                         case TimestampWithTimeZoneType type -> TimestampWithTimeZoneToVarcharCast.cast(type.getPrecision(), (LongTimestampWithTimeZone) node.getRawValue()).toStringUtf8();
+                        case TimeWithTimeZoneType type when type.isShort() -> TimeWithTimeZoneToVarcharCast.cast(type.getPrecision(), (long) node.getRawValue()).toStringUtf8();
+                        case TimeWithTimeZoneType type -> TimeWithTimeZoneToVarcharCast.cast(type.getPrecision(), (LongTimeWithTimeZone) node.getRawValue()).toStringUtf8();
                         default -> node.getValue();
                     }));
         }

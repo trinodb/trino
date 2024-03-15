@@ -514,6 +514,10 @@ public class TranslationMap
             return constant(type, DateTimes.parseTimestampWithTimeZone(timestamp.getPrecision(), expression.getValue()));
         }
 
+        if (type instanceof TimeWithTimeZoneType time) {
+            return constant(type, DateTimes.parseTimeWithTimeZone(time.getPrecision(), expression.getValue()));
+        }
+
         if (type instanceof VarcharType || type.equals(VARBINARY)) {
             return constant(type, Slices.utf8Slice(expression.getValue()));
         }
