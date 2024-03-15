@@ -91,15 +91,15 @@ public class LongDecimalWithOverflowAndLongStateSerializer
         long count = 1;
         switch (sliceLength) {
             case 4 * Long.BYTES:
-                overflow = slice.getLong(sliceOffset + 24);
-                count = slice.getLong(sliceOffset + 16);
+                overflow = slice.getLong(sliceOffset + Long.BYTES * 3);
+                count = slice.getLong(sliceOffset + Long.BYTES * 2);
                 // fall through
             case 2 * Long.BYTES:
-                high = slice.getLong(sliceOffset + 8);
+                high = slice.getLong(sliceOffset + Long.BYTES);
                 break;
             case 3 * Long.BYTES:
-                overflow = slice.getLong(sliceOffset + 16);
-                count = slice.getLong(sliceOffset + 8);
+                overflow = slice.getLong(sliceOffset + Long.BYTES * 2);
+                count = slice.getLong(sliceOffset + Long.BYTES);
         }
 
         decimal[offset + 1] = low;
