@@ -85,6 +85,7 @@ public class StaticDynamicFilter
     private static ListenableFuture<?> whenAnyUpdates(List<DynamicFilter> disjunctiveDynamicFilters)
     {
         return toListenableFuture(anyOf(disjunctiveDynamicFilters.stream()
+                .filter(DynamicFilter::isAwaitable)
                 .map(DynamicFilter::isBlocked)
                 .toArray(CompletableFuture[]::new)));
     }
