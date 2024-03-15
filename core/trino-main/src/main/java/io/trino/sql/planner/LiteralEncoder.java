@@ -59,6 +59,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -114,6 +115,7 @@ public final class LiteralEncoder
                 type.equals(DATE) ||
                 type.equals(INTERVAL_YEAR_MONTH) ||
                 type.equals(INTERVAL_DAY_TIME) ||
+                type.equals(JSON) ||
                 type instanceof DecimalType ||
                 type instanceof VarcharType ||
                 type instanceof CharType ||

@@ -22,6 +22,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.operator.scalar.TryFunction;
+import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Chars;
 import io.trino.spi.type.DecimalParseResult;
@@ -142,6 +143,7 @@ import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
+import static io.trino.type.JsonType.JSON;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
@@ -505,6 +507,10 @@ public class TranslationMap
 
         if (type instanceof VarcharType || type.equals(VARBINARY)) {
             return constant(type, Slices.utf8Slice(expression.getValue()));
+        }
+
+        if (type.equals(JSON)) {
+            return constant(type, JsonTypeUtil.jsonParse(Slices.utf8Slice(expression.getValue())));
         }
 
         return new io.trino.sql.ir.GenericLiteral(type, expression.getValue());
