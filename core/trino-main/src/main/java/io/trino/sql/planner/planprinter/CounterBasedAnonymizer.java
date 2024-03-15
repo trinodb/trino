@@ -110,9 +110,9 @@ public class CounterBasedAnonymizer
     {
         if (node instanceof GenericLiteral literal) {
             if (literal.getType().equals(BOOLEAN)) {
-                return literal.getValue();
+                return literal.getRawValue().toString();
             }
-            return anonymizeLiteral(literal.getType().getDisplayName(), literal.getValue());
+            return anonymizeLiteral(literal.getType().getDisplayName(), literal.getRawValue());
         }
         if (node instanceof NullLiteral) {
             return "null";

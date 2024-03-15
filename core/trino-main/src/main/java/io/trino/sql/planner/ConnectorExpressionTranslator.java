@@ -824,7 +824,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            return Optional.of(new FieldDereference(typeOf(node), translatedBase.get(), Integer.parseInt(((GenericLiteral) node.getIndex()).getValue()) - 1));
+            return Optional.of(new FieldDereference(typeOf(node), translatedBase.get(), (int) ((long) ((GenericLiteral) node.getIndex()).getRawValue() - 1)));
         }
 
         @Override
