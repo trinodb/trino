@@ -94,6 +94,9 @@ public class SnowflakeClientModule
             }
         }
 
-        return new DriverConnectionFactory(new SnowflakeDriver(), baseJdbcConfig.getConnectionUrl(), properties, credentialProvider, openTelemetry);
+        return DriverConnectionFactory.builder(new SnowflakeDriver(), baseJdbcConfig.getConnectionUrl(), credentialProvider)
+                .setConnectionProperties(properties)
+                .setOpenTelemetry(openTelemetry)
+                .build();
     }
 }
