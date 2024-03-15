@@ -28,7 +28,6 @@ import java.io.OutputStream;
 import java.nio.file.FileAlreadyExistsException;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.filesystem.gcs.GcsUtils.getBlob;
 import static io.trino.filesystem.gcs.GcsUtils.handleGcsException;
 import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
 import static java.util.Objects.requireNonNull;
@@ -65,9 +64,6 @@ public class GcsOutputFile
             throws IOException
     {
         try {
-            if (getBlob(storage, location).isPresent()) {
-                throw new FileAlreadyExistsException("File %s already exists".formatted(location));
-            }
             storage.create(blobInfo(), data, BlobTargetOption.doesNotExist());
         }
         catch (RuntimeException e) {
@@ -81,9 +77,6 @@ public class GcsOutputFile
             throws IOException
     {
         try {
-            if (getBlob(storage, location).isPresent()) {
-                throw new FileAlreadyExistsException("File %s already exists".formatted(location));
-            }
             WriteChannel writeChannel = storage.writer(blobInfo(), BlobWriteOption.doesNotExist());
             return new GcsOutputStream(location, writeChannel, memoryContext, writeBlockSizeBytes);
         }

@@ -510,7 +510,7 @@ public abstract class AbstractTestTrinoFileSystem
 
             if (isCreateExclusive()) {
                 // re-create without overwrite is an error
-                assertThatThrownBy(outputFile::create)
+                assertThatThrownBy(() -> outputFile.create().close())
                         .isInstanceOf(FileAlreadyExistsException.class)
                         .hasMessageContaining(tempBlob.location().toString());
 
