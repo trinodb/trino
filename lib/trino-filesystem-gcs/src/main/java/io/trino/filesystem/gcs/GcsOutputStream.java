@@ -14,6 +14,7 @@
 package io.trino.filesystem.gcs;
 
 import com.google.cloud.WriteChannel;
+import com.google.cloud.storage.StorageException;
 import com.google.common.primitives.Ints;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
@@ -21,9 +22,11 @@ import io.trino.memory.context.LocalMemoryContext;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.file.FileAlreadyExistsException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
+import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
 import static java.util.Objects.requireNonNull;
 
 public class GcsOutputStream
@@ -133,6 +136,11 @@ public class GcsOutputStream
             closed = true;
             try {
                 writeChannel.close();
+            }
+            catch (StorageException e) {
+                if (e.getCode() == HTTP_PRECON_FAILED) {
+                    throw new FileAlreadyExistsException(location.toString());
+                }
             }
             catch (IOException e) {
                 throw new IOException("Error closing file: " + location, e);
