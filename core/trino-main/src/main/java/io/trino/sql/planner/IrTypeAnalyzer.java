@@ -28,7 +28,6 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
@@ -57,7 +56,6 @@ import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.type.FunctionType;
@@ -352,12 +350,6 @@ public class IrTypeAnalyzer
 
             checkArgument(types.size() == 1, "All entries must have the same type: %s", types);
             return setExpressionType(node, new ArrayType(types.iterator().next()));
-        }
-
-        @Override
-        protected Type visitStringLiteral(StringLiteral node, Context context)
-        {
-            return setExpressionType(node, VarcharType.createVarcharType(node.length()));
         }
 
         @Override

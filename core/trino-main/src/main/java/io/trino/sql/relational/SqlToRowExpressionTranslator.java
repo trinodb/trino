@@ -33,6 +33,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.BetweenPredicate;
@@ -60,7 +61,6 @@ import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
@@ -88,7 +88,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.relational.Expressions.call;
 import static io.trino.sql.relational.Expressions.constant;
@@ -182,12 +181,6 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitStringLiteral(StringLiteral node, Void context)
-        {
-            return constant(utf8Slice(node.getValue()), createVarcharType(node.length()));
-        }
-
-        @Override
         protected RowExpression visitBinaryLiteral(BinaryLiteral node, Void context)
         {
             return constant(wrappedBuffer(node.getValue()), VARBINARY);
@@ -203,7 +196,8 @@ public final class SqlToRowExpressionTranslator
                 case BigintType type -> constant(node.getRawValue(), type);
                 case DoubleType type -> constant(node.getRawValue(), type);
                 case DecimalType type -> constant(node.getRawValue(), type);
-                case CharType type -> constant(utf8Slice(node.getValue()), type);
+                case VarcharType type -> constant(node.getRawValue(), type);
+                case CharType type -> constant(node.getRawValue(), type);
                 case TimeType type -> constant(parseTime(node.getValue()), type);
                 case TimeWithTimeZoneType type -> constant(parseTimeWithTimeZone(type.getPrecision(), node.getValue()), type);
                 case TimestampType type -> constant(parseTimestamp(type.getPrecision(), node.getValue()), type);

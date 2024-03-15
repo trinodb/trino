@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slices;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.TestingTableFunctions.DescriptorArgumentFunction;
@@ -29,7 +30,6 @@ import io.trino.spi.function.table.Descriptor;
 import io.trino.spi.function.table.Descriptor.Field;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
@@ -44,6 +44,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -129,9 +130,9 @@ public class TestTableFunctionInvocation
                                                 new Field("Y", Optional.of(BIGINT))))))
                                 .addCopartitioning(ImmutableList.of("INPUT_1", "INPUT_3"))
                                 .properOutputs(ImmutableList.of("OUTPUT")),
-                        anyTree(project(ImmutableMap.of("c1", expression(new StringLiteral("a"))), values(1))),
+                        anyTree(project(ImmutableMap.of("c1", expression(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("a")))), values(1))),
                         anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L))))),
-                        anyTree(project(ImmutableMap.of("c3", expression(new StringLiteral("b"))), values(1))))));
+                        anyTree(project(ImmutableMap.of("c3", expression(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("b")))), values(1))))));
     }
 
     @Test
@@ -220,7 +221,7 @@ public class TestTableFunctionInvocation
                 strictOutput(
                         ImmutableList.of("c"),
                         strictProject(
-                                ImmutableMap.of("c", expression(new StringLiteral("constant"))),
+                                ImmutableMap.of("c", expression(GenericLiteral.constant(createVarcharType(8), Slices.utf8Slice("constant")))),
                                 tableFunctionProcessor(
                                         builder -> builder
                                                 .name("pass_through_function")

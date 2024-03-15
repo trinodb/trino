@@ -24,6 +24,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
@@ -34,6 +35,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.BinaryLiteral;
@@ -43,7 +45,6 @@ import io.trino.sql.ir.IntervalLiteral;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Literal;
 import io.trino.sql.ir.NullLiteral;
-import io.trino.sql.ir.StringLiteral;
 
 import java.util.function.Function;
 
@@ -100,12 +101,6 @@ public final class IrLiteralInterpreter
         }
 
         @Override
-        protected Slice visitStringLiteral(StringLiteral node, Void context)
-        {
-            return Slices.utf8Slice(node.getValue());
-        }
-
-        @Override
         protected Slice visitBinaryLiteral(BinaryLiteral node, Void context)
         {
             return Slices.wrappedBuffer(node.getValue());
@@ -122,6 +117,8 @@ public final class IrLiteralInterpreter
                 case BigintType type -> node.getRawValue();
                 case DoubleType type -> node.getRawValue();
                 case DecimalType type -> node.getRawValue();
+                case VarcharType type -> node.getRawValue();
+                case CharType type -> node.getRawValue();
                 case TimeType unused -> parseTime(node.getValue());
                 case TimeWithTimeZoneType value -> parseTimeWithTimeZone(value.getPrecision(), node.getValue());
                 case TimestampType value -> parseTimestamp(value.getPrecision(), node.getValue());

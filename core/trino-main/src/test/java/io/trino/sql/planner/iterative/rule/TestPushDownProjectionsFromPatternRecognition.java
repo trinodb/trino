@@ -16,12 +16,13 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -72,7 +73,7 @@ public class TestPushDownProjectionsFromPatternRecognition
                                 new IrLabel("X"),
                                 new ComparisonExpression(GREATER_THAN, new FunctionCall(MAX_BY, ImmutableList.of(
                                         new ArithmeticBinaryExpression(ADD, GenericLiteral.constant(INTEGER, 1L), new FunctionCall(QualifiedName.of("match_number"), ImmutableList.of())),
-                                        new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new StringLiteral("x"), new FunctionCall(QualifiedName.of("classifier"), ImmutableList.of()))))),
+                                        new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x")), new FunctionCall(QualifiedName.of("classifier"), ImmutableList.of()))))),
                                         GenericLiteral.constant(INTEGER, 5L)))
                         .source(p.values(p.symbol("a")))))
                 .doesNotFire();

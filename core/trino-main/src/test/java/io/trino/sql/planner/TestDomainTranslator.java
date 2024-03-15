@@ -40,7 +40,6 @@ import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.Literal;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.type.LikePattern;
 import io.trino.type.LikePatternType;
@@ -2257,9 +2256,9 @@ public class TestDomainTranslator
         return new GenericLiteral(REAL, value);
     }
 
-    private static StringLiteral stringLiteral(String value)
+    private static GenericLiteral stringLiteral(String value)
     {
-        return new StringLiteral(value);
+        return GenericLiteral.constant(VARCHAR, utf8Slice(value));
     }
 
     private static Expression stringLiteral(String value, Type type)

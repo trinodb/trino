@@ -21,13 +21,13 @@ import io.trino.metadata.MetadataManager;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NullLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
@@ -103,7 +103,7 @@ public class TestScalarStatsCalculator
                 .highValue(75.5)
                 .nullsFraction(0.0);
 
-        assertCalculate(new StringLiteral("blah"))
+        assertCalculate(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("blah")))
                 .distinctValuesCount(1.0)
                 .lowValueUnknown()
                 .highValueUnknown()

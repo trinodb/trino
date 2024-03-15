@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
@@ -160,7 +161,7 @@ public class TestPreAggregateCaseAggregations
                                                         SINGLE,
                                                         exchange(
                                                                 project(ImmutableMap.of(
-                                                                                "KEY", expression(new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new SymbolReference("COL_VARCHAR"), new GenericLiteral(VARCHAR, "a")))),
+                                                                                "KEY", expression(new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new SymbolReference("COL_VARCHAR"), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("a"))))),
                                                                                 "VALUE_BIGINT", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new InPredicate(new SymbolReference("COL_BIGINT"), ImmutableList.of(GenericLiteral.constant(BIGINT, 1L), GenericLiteral.constant(BIGINT, 2L))), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("COL_BIGINT"), GenericLiteral.constant(BIGINT, 2L)))), Optional.empty())),
                                                                                 "VALUE_INT_CAST", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("COL_BIGINT"), GenericLiteral.constant(BIGINT, 1L)), new Cast(new Cast(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("COL_BIGINT"), GenericLiteral.constant(BIGINT, 2L)), INTEGER), BIGINT))), Optional.empty())),
                                                                                 "VALUE_2_BIGINT", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("COL_BIGINT"), GenericLiteral.constant(BIGINT, 2L)), GenericLiteral.constant(BIGINT, 1L)), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("COL_BIGINT"), GenericLiteral.constant(BIGINT, 2L)))), Optional.empty())),

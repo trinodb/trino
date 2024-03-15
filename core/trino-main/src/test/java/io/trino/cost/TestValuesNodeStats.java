@@ -14,10 +14,11 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NullLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
@@ -66,9 +67,9 @@ public class TestValuesNodeStats
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("v", createVarcharType(30))),
                                 ImmutableList.of(
-                                        ImmutableList.of(new StringLiteral("Alice")),
-                                        ImmutableList.of(new StringLiteral("'has'")),
-                                        ImmutableList.of(new StringLiteral("'a cat'")),
+                                        ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("Alice"))),
+                                        ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("'has'"))),
+                                        ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("'a cat'"))),
                                         ImmutableList.of(new NullLiteral()))))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
