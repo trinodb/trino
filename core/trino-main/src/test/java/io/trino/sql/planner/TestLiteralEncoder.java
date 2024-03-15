@@ -28,7 +28,6 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
-import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
@@ -61,7 +60,6 @@ import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -153,41 +151,6 @@ public class TestLiteralEncoder
     {
         assertEncodeCaseInsensitively(utf8Slice("hello"), VARBINARY);
         assertEncodeCaseInsensitively(utf8Slice("hello"), VARBINARY);
-    }
-
-    @Test
-    public void testEncodeTimestamp()
-    {
-        for (int precision = 0; precision <= 12; precision++) {
-            assertEncode(null, createTimestampType(precision));
-        }
-
-        assertEncode(1603710138_000000L, createTimestampType(0));
-        assertEncode(1603710138_100000L, createTimestampType(1));
-        assertEncode(1603710138_120000L, createTimestampType(2));
-        assertEncode(1603710138_123000L, createTimestampType(3));
-        assertEncode(1603710138_123400L, createTimestampType(4));
-        assertEncode(1603710138_123450L, createTimestampType(5));
-        assertEncode(1603710138_123456L, createTimestampType(6));
-        assertEncode(new LongTimestamp(1603710138_123456L, 100000), createTimestampType(7));
-        assertEncode(new LongTimestamp(1603710138_123456L, 120000), createTimestampType(8));
-        assertEncode(new LongTimestamp(1603710138_123456L, 123000), createTimestampType(9));
-        assertEncode(new LongTimestamp(1603710138_123456L, 123400), createTimestampType(10));
-        assertEncode(new LongTimestamp(1603710138_123456L, 123450), createTimestampType(11));
-        assertEncode(new LongTimestamp(1603710138_123456L, 123456), createTimestampType(12));
-
-        assertEncode(1603710138_000000L, createTimestampType(1));
-        assertEncode(1603710138_000000L, createTimestampType(2));
-        assertEncode(1603710138_000000L, createTimestampType(3));
-        assertEncode(1603710138_000000L, createTimestampType(4));
-        assertEncode(1603710138_000000L, createTimestampType(5));
-        assertEncode(1603710138_000000L, createTimestampType(6));
-        assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(7));
-        assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(8));
-        assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(9));
-        assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(10));
-        assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(11));
-        assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(12));
     }
 
     @Test

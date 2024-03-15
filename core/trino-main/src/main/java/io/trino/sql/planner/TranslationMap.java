@@ -104,6 +104,7 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.WhenClause;
+import io.trino.type.DateTimes;
 import io.trino.type.FunctionType;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
@@ -503,6 +504,10 @@ public class TranslationMap
 
         if (type instanceof CharType) {
             return constant(type, Chars.trimTrailingSpaces(Slices.utf8Slice(expression.getValue())));
+        }
+
+        if (type instanceof TimestampType timestamp) {
+            return constant(type, DateTimes.parseTimestamp(timestamp.getPrecision(), expression.getValue()));
         }
 
         if (type instanceof VarcharType || type.equals(VARBINARY)) {

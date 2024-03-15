@@ -21,12 +21,10 @@ import io.airlift.slice.SliceOutput;
 import io.trino.block.BlockSerdeUtil;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.VarbinaryFunctions;
-import io.trino.operator.scalar.timestamp.TimestampToVarcharCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -119,19 +117,9 @@ public final class LiteralEncoder
                 type instanceof DecimalType ||
                 type instanceof VarcharType ||
                 type instanceof CharType ||
+                type instanceof TimestampType ||
                 type instanceof VarbinaryType) {
             return GenericLiteral.constant(type, object);
-        }
-
-        if (type instanceof TimestampType timestampType) {
-            String representation;
-            if (timestampType.isShort()) {
-                representation = TimestampToVarcharCast.cast(timestampType.getPrecision(), (Long) object).toStringUtf8();
-            }
-            else {
-                representation = TimestampToVarcharCast.cast(timestampType.getPrecision(), (LongTimestamp) object).toStringUtf8();
-            }
-            return new GenericLiteral(timestampType, representation);
         }
 
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
