@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -38,7 +39,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NullLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
@@ -112,8 +112,8 @@ public final class DynamicFilters
         return BuiltinFunctionCallBuilder.resolve(metadata)
                 .setName(nullAllowed ? NullableFunction.NAME : Function.NAME)
                 .addArgument(inputType, input)
-                .addArgument(VarcharType.VARCHAR, new StringLiteral(operator.toString()))
-                .addArgument(VarcharType.VARCHAR, new StringLiteral(id.toString()))
+                .addArgument(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice(operator.toString())))
+                .addArgument(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice(id.toString())))
                 .addArgument(BooleanType.BOOLEAN, nullAllowed ? TRUE_LITERAL : FALSE_LITERAL)
                 .addArgument(IntegerType.INTEGER, timeoutExpression)
                 .build();
@@ -176,7 +176,7 @@ public final class DynamicFilters
                 ImmutableList.of(
                         dynamicFilterFunctionCall.getArguments().get(0),
                         dynamicFilterFunctionCall.getArguments().get(1),
-                        new StringLiteral(newId.toString()), // dynamic filter id is the 3rd argument
+                        GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice(newId.toString())), // dynamic filter id is the 3rd argument
                         dynamicFilterFunctionCall.getArguments().get(3),
                         dynamicFilterFunctionCall.getArguments().get(4)));
     }
@@ -216,13 +216,13 @@ public final class DynamicFilters
         Expression probeSymbol = arguments.get(0);
 
         Expression operatorExpression = arguments.get(1);
-        checkArgument(operatorExpression instanceof StringLiteral, "operatorExpression is expected to be an instance of StringLiteral: %s", operatorExpression.getClass().getSimpleName());
-        String operatorExpressionString = ((StringLiteral) operatorExpression).getValue();
+        checkArgument(operatorExpression instanceof GenericLiteral literal && literal.getType().equals(VarcharType.VARCHAR), "operatorExpression is expected to be a varchar: %s", operatorExpression.getClass().getSimpleName());
+        String operatorExpressionString = ((Slice) ((GenericLiteral) operatorExpression).getRawValue()).toStringUtf8();
         ComparisonExpression.Operator operator = ComparisonExpression.Operator.valueOf(operatorExpressionString);
 
         Expression idExpression = arguments.get(2);
-        checkArgument(idExpression instanceof StringLiteral, "id is expected to be an instance of StringLiteral: %s", idExpression.getClass().getSimpleName());
-        String id = ((StringLiteral) idExpression).getValue();
+        checkArgument(idExpression instanceof GenericLiteral literal && literal.getType().equals(VarcharType.VARCHAR), "id is expected to be a varchar: %s", idExpression.getClass().getSimpleName());
+        String id = ((Slice) ((GenericLiteral) idExpression).getRawValue()).toStringUtf8();
 
         Expression nullAllowedExpression = arguments.get(3);
         checkArgument(nullAllowedExpression instanceof GenericLiteral literal && literal.getType().equals(BooleanType.BOOLEAN), "nullAllowedExpression is expected to be a boolean constant: %s", nullAllowedExpression.getClass().getSimpleName());

@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
@@ -262,7 +263,7 @@ public class TestTableScanRedirectionWithPushdown
                             ImmutableList.of("DEST_COL_B"),
                             project(ImmutableMap.of("DEST_COL_B", expression(new SymbolReference("DEST_COL_B"))),
                                     filter(
-                                            new ComparisonExpression(EQUAL, new Cast(new SymbolReference("DEST_COL_A"), VARCHAR), new GenericLiteral(VARCHAR, "foo")),
+                                            new ComparisonExpression(EQUAL, new Cast(new SymbolReference("DEST_COL_A"), VARCHAR), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("foo"))),
                                             tableScan(
                                                     new MockConnectorTableHandle(
                                                             DESTINATION_TABLE,

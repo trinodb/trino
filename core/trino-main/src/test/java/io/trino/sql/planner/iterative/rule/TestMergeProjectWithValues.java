@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
@@ -70,8 +71,8 @@ public class TestMergeProjectWithValues
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of(
-                                                new Row(ImmutableList.of(new GenericLiteral(createCharType(1), "x"), TRUE_LITERAL)),
-                                                new Row(ImmutableList.of(new GenericLiteral(createCharType(1), "y"), FALSE_LITERAL))))))
+                                                new Row(ImmutableList.of(GenericLiteral.constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL)),
+                                                new Row(ImmutableList.of(GenericLiteral.constant(createCharType(1), Slices.utf8Slice("y")), FALSE_LITERAL))))))
                 .matches(values(2));
 
         // ValuesNode has no output symbols and two rows
@@ -112,21 +113,21 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("a"), new GenericLiteral(createCharType(1), "x"), p.symbol("b"), TRUE_LITERAL),
+                                Assignments.of(p.symbol("a"), GenericLiteral.constant(createCharType(1), Slices.utf8Slice("x")), p.symbol("b"), TRUE_LITERAL),
                                 p.values(
                                         ImmutableList.of(),
                                         ImmutableList.of(ImmutableList.of(), ImmutableList.of()))))
                 .matches(values(
                         ImmutableList.of("a", "b"),
                         ImmutableList.of(
-                                ImmutableList.of(new GenericLiteral(createCharType(1), "x"), TRUE_LITERAL),
-                                ImmutableList.of(new GenericLiteral(createCharType(1), "x"), TRUE_LITERAL))));
+                                ImmutableList.of(GenericLiteral.constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL),
+                                ImmutableList.of(GenericLiteral.constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL))));
 
         // ValuesNode has no rows
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("a"), new GenericLiteral(createCharType(1), "x"), p.symbol("b"), TRUE_LITERAL),
+                                Assignments.of(p.symbol("a"), GenericLiteral.constant(createCharType(1), Slices.utf8Slice("x")), p.symbol("b"), TRUE_LITERAL),
                                 p.values(
                                         ImmutableList.of(),
                                         ImmutableList.of())))
@@ -282,16 +283,16 @@ public class TestMergeProjectWithValues
                             p.valuesOfExpressions(
                                     ImmutableList.of(a, b, c),
                                     ImmutableList.of(
-                                            new Row(ImmutableList.of(new GenericLiteral(createCharType(1), "x"), TRUE_LITERAL, GenericLiteral.constant(INTEGER, 1L))),
-                                            new Row(ImmutableList.of(new GenericLiteral(createCharType(1), "y"), FALSE_LITERAL, GenericLiteral.constant(INTEGER, 2L))),
-                                            new Row(ImmutableList.of(new GenericLiteral(createCharType(1), "z"), TRUE_LITERAL, GenericLiteral.constant(INTEGER, 3L))))));
+                                            new Row(ImmutableList.of(GenericLiteral.constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL, GenericLiteral.constant(INTEGER, 1L))),
+                                            new Row(ImmutableList.of(GenericLiteral.constant(createCharType(1), Slices.utf8Slice("y")), FALSE_LITERAL, GenericLiteral.constant(INTEGER, 2L))),
+                                            new Row(ImmutableList.of(GenericLiteral.constant(createCharType(1), Slices.utf8Slice("z")), TRUE_LITERAL, GenericLiteral.constant(INTEGER, 3L))))));
                 })
                 .matches(values(
                         ImmutableList.of("a", "d", "e", "f"),
                         ImmutableList.of(
-                                ImmutableList.of(new GenericLiteral(createCharType(1), "x"), TRUE_LITERAL, new IsNullPredicate(new GenericLiteral(createCharType(1), "x")), GenericLiteral.constant(INTEGER, 1L)),
-                                ImmutableList.of(new GenericLiteral(createCharType(1), "y"), FALSE_LITERAL, new IsNullPredicate(new GenericLiteral(createCharType(1), "y")), GenericLiteral.constant(INTEGER, 1L)),
-                                ImmutableList.of(new GenericLiteral(createCharType(1), "z"), TRUE_LITERAL, new IsNullPredicate(new GenericLiteral(createCharType(1), "z")), GenericLiteral.constant(INTEGER, 1L)))));
+                                ImmutableList.of(GenericLiteral.constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL, new IsNullPredicate(GenericLiteral.constant(createCharType(1), Slices.utf8Slice("x"))), GenericLiteral.constant(INTEGER, 1L)),
+                                ImmutableList.of(GenericLiteral.constant(createCharType(1), Slices.utf8Slice("y")), FALSE_LITERAL, new IsNullPredicate(GenericLiteral.constant(createCharType(1), Slices.utf8Slice("y"))), GenericLiteral.constant(INTEGER, 1L)),
+                                ImmutableList.of(GenericLiteral.constant(createCharType(1), Slices.utf8Slice("z")), TRUE_LITERAL, new IsNullPredicate(GenericLiteral.constant(createCharType(1), Slices.utf8Slice("z"))), GenericLiteral.constant(INTEGER, 1L)))));
 
         // ValuesNode has no rows
         tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))

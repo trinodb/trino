@@ -37,6 +37,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
@@ -44,7 +45,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NullLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -127,7 +127,7 @@ public class TestPushPredicateIntoTableScan
     {
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), new StringLiteral("G")),
+                        new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), GenericLiteral.constant(createVarcharType(1), utf8Slice("G"))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
@@ -197,7 +197,7 @@ public class TestPushPredicateIntoTableScan
         Map<String, Domain> filterConstraint = ImmutableMap.of("orderstatus", singleValue(orderStatusType, utf8Slice("O")));
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), new StringLiteral("O")), new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), new StringLiteral("F")))),
+                        new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), GenericLiteral.constant(createVarcharType(1), utf8Slice("O"))), new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), GenericLiteral.constant(createVarcharType(1), utf8Slice("F"))))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", orderStatusType)),
@@ -310,7 +310,7 @@ public class TestPushPredicateIntoTableScan
         Map<String, Domain> filterConstraint = ImmutableMap.of("orderstatus", singleValue(createVarcharType(1), utf8Slice("F")));
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), new StringLiteral("F")),
+                        new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), GenericLiteral.constant(createVarcharType(1), utf8Slice("F"))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
@@ -329,7 +329,7 @@ public class TestPushPredicateIntoTableScan
                                 new ComparisonExpression(
                                         EQUAL,
                                         new SymbolReference("orderstatus"),
-                                        new StringLiteral("O")),
+                                        GenericLiteral.constant(createVarcharType(1), utf8Slice("O"))),
                                 new ComparisonExpression(
                                         EQUAL,
                                         functionResolution
@@ -363,7 +363,7 @@ public class TestPushPredicateIntoTableScan
         assertThatThrownBy(() -> tester().assertThat(pushPredicateIntoTableScan)
                 .withSession(session)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("col"), new GenericLiteral(VARCHAR, "G")),
+                        new ComparisonExpression(EQUAL, new SymbolReference("col"), GenericLiteral.constant(VarcharType.VARCHAR, utf8Slice("G"))),
                         p.tableScan(
                                 mockTableHandle(CONNECTOR_PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED),
                                 ImmutableList.of(p.symbol("col", VARCHAR)),
@@ -375,7 +375,7 @@ public class TestPushPredicateIntoTableScan
         tester().assertThat(pushPredicateIntoTableScan)
                 .withSession(session)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("col"), new GenericLiteral(VARCHAR, "G")),
+                        new ComparisonExpression(EQUAL, new SymbolReference("col"), GenericLiteral.constant(VarcharType.VARCHAR, utf8Slice("G"))),
                         p.tableScan(
                                 mockTableHandle(CONNECTOR_PARTITIONED_TABLE_HANDLE),
                                 ImmutableList.of(p.symbol("col", VARCHAR)),

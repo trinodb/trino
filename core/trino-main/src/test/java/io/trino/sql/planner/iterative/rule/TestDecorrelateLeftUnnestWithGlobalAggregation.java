@@ -15,11 +15,11 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -295,7 +295,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                     Symbol corr = p.symbol("corr", VARCHAR);
                     FunctionCall regexpExtractAll = new FunctionCall(
                             tester().getMetadata().resolveBuiltinFunction("regexp_extract_all", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
-                            ImmutableList.of(corr.toSymbolReference(), new StringLiteral(".")));
+                            ImmutableList.of(corr.toSymbolReference(), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("."))));
 
                     return p.correlatedJoin(
                             ImmutableList.of(corr),
@@ -326,7 +326,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                                                 Optional.empty(),
                                                 LEFT,
                                                 project(
-                                                        ImmutableMap.of("char_array", expression(new FunctionCall(QualifiedName.of("regexp_extract_all"), ImmutableList.of(new SymbolReference("corr"), new StringLiteral("."))))),
+                                                        ImmutableMap.of("char_array", expression(new FunctionCall(QualifiedName.of("regexp_extract_all"), ImmutableList.of(new SymbolReference("corr"), GenericLiteral.constant(VARCHAR, Slices.utf8Slice(".")))))),
                                                         assignUniqueId("unique", values("corr")))))));
     }
 

@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Decimals;
 import io.trino.sql.ir.Cast;
@@ -94,7 +95,7 @@ public class TestWindowFrameRange
                                                                 new IfExpression(
                                                                         new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), GenericLiteral.constant(createDecimalType(2, 1), 0L)),
                                                                         TRUE_LITERAL,
-                                                                        new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new GenericLiteral(VARCHAR, "Window frame offset value must not be negative or null"))), BOOLEAN)),
+                                                                        new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                                 anyTree(
                                                                         values(
                                                                                 ImmutableList.of("key", "x"),
@@ -140,7 +141,7 @@ public class TestWindowFrameRange
                                                         new IfExpression(
                                                                 new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("offset"), GenericLiteral.constant(createDecimalType(10, 0), 0L)),
                                                                 TRUE_LITERAL,
-                                                                new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new GenericLiteral(VARCHAR, "Window frame offset value must not be negative or null"))), BOOLEAN)),
+                                                                new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                         project(// coerce offset value to calculate frame end values
                                                                 ImmutableMap.of("offset", expression(new Cast(new SymbolReference("x"), createDecimalType(10, 0)))),
                                                                 anyTree(
@@ -186,14 +187,14 @@ public class TestWindowFrameRange
                                                 new IfExpression(
                                                         new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("y"), GenericLiteral.constant(INTEGER, 0L)),
                                                         TRUE_LITERAL,
-                                                        new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new GenericLiteral(VARCHAR, "Window frame offset value must not be negative or null"))), BOOLEAN)),
+                                                        new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                 project(// calculate frame start value (sort key - frame start offset)
                                                         ImmutableMap.of("frame_start_value", expression(new FunctionCall(QualifiedName.of("$operator$subtract"), ImmutableList.of(new SymbolReference("key"), new SymbolReference("x"))))),
                                                         filter(// validate frame start offset values
                                                                 new IfExpression(
                                                                         new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), GenericLiteral.constant(INTEGER, 0L)),
                                                                         TRUE_LITERAL,
-                                                                        new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new GenericLiteral(VARCHAR, "Window frame offset value must not be negative or null"))), BOOLEAN)),
+                                                                        new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                                 anyTree(
                                                                         values(
                                                                                 ImmutableList.of("key", "x", "y"),

@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
@@ -22,7 +23,6 @@ import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.tree.QualifiedName;
@@ -73,13 +73,13 @@ public class TestPredicatePushdown
                                 .left(
                                         project(
                                                 filter(
-                                                        new ComparisonExpression(EQUAL, new Cast(new StringLiteral("x"), createVarcharType(4)), new Cast(new SymbolReference("t_v"), createVarcharType(4))),
+                                                        new ComparisonExpression(EQUAL, GenericLiteral.constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference("t_v"), createVarcharType(4))),
                                                         tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
                                                 project(
                                                         filter(
-                                                                new ComparisonExpression(EQUAL, new Cast(new StringLiteral("x"), createVarcharType(4)), new Cast(new SymbolReference("u_v"), createVarcharType(4))),
+                                                                new ComparisonExpression(EQUAL, GenericLiteral.constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference("u_v"), createVarcharType(4))),
                                                                 tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))))));
 
         // values have different types (varchar(4) vs varchar(5)) in each table
@@ -97,13 +97,13 @@ public class TestPredicatePushdown
                                 .left(
                                         project(
                                                 filter(
-                                                        new ComparisonExpression(EQUAL, new Cast(new StringLiteral("x"), createVarcharType(4)), new Cast(new SymbolReference("t_v"), createVarcharType(4))),
+                                                        new ComparisonExpression(EQUAL, GenericLiteral.constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference("t_v"), createVarcharType(4))),
                                                         tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
                                                 project(
                                                         filter(
-                                                                new ComparisonExpression(EQUAL, new Cast(new StringLiteral("x"), createVarcharType(5)), new Cast(new SymbolReference("u_v"), createVarcharType(5))),
+                                                                new ComparisonExpression(EQUAL, GenericLiteral.constant(createVarcharType(5), Slices.utf8Slice("x")), new Cast(new SymbolReference("u_v"), createVarcharType(5))),
                                                                 tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))))));
     }
 
@@ -187,7 +187,7 @@ public class TestPredicatePushdown
                                 .equiCriteria("LINEITEM_OK", "ORDERS_OK")
                                 .left(
                                         filter(
-                                                new ComparisonExpression(EQUAL, new Cast(new SymbolReference("LINEITEM_LINENUMBER"), VARCHAR), new GenericLiteral(VARCHAR, "2")),
+                                                new ComparisonExpression(EQUAL, new Cast(new SymbolReference("LINEITEM_LINENUMBER"), VARCHAR), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("2"))),
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINEITEM_OK", "orderkey",
                                                         "LINEITEM_LINENUMBER", "linenumber"))))

@@ -48,7 +48,6 @@ import java.util.List;
         @JsonSubTypes.Type(value = SearchedCaseExpression.class, name = "searchedCase"),
         @JsonSubTypes.Type(value = SimpleCaseExpression.class, name = "simpleCase"),
         @JsonSubTypes.Type(value = SubscriptExpression.class, name = "subscript"),
-        @JsonSubTypes.Type(value = StringLiteral.class, name = "string"),
         @JsonSubTypes.Type(value = SymbolReference.class, name = "symbol"),
         @JsonSubTypes.Type(value = WhenClause.class, name = "when"),
 })

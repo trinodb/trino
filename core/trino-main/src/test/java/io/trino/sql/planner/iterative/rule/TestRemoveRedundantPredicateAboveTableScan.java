@@ -31,7 +31,6 @@ import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.BeforeAll;
@@ -246,7 +245,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
     {
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), new StringLiteral("F")),
+                        new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("F"))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
@@ -277,7 +276,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
                         new LogicalExpression(AND, ImmutableList.of(
-                                new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("name"), new StringLiteral("x")), TRUE_LITERAL, FALSE_LITERAL),
+                                new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("name"), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("x"))), TRUE_LITERAL, FALSE_LITERAL),
                                 new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), GenericLiteral.constant(BIGINT, 44L)))),
                         p.tableScan(
                                 nationTableHandle,
@@ -292,7 +291,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                         nationKeyColumnHandle, NullableValue.of(BIGINT, (long) 44))))))
                 .matches(
                         filter(
-                                new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("name"), new StringLiteral("x")), TRUE_LITERAL, FALSE_LITERAL),
+                                new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("name"), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("x"))), TRUE_LITERAL, FALSE_LITERAL),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of(

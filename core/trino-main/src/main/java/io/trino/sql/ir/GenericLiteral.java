@@ -20,8 +20,10 @@ import com.google.common.primitives.Primitives;
 import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 import java.util.Objects;
@@ -79,6 +81,8 @@ public final class GenericLiteral
                 type.equals(BIGINT) ||
                 type.equals(BOOLEAN) ||
                 type.equals(DOUBLE) ||
+                type instanceof VarcharType ||
+                type instanceof CharType ||
                 type instanceof DecimalType) {
             throw new IllegalArgumentException("Call constant(%s, ...)".formatted(type));
         }

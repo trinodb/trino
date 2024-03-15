@@ -35,7 +35,6 @@ import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
@@ -86,22 +85,12 @@ public final class ExpressionVerifier
     @Override
     protected Boolean visitGenericLiteral(GenericLiteral actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof GenericLiteral)) {
+        if (!(expectedExpression instanceof GenericLiteral expected)) {
             return false;
         }
 
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression)) &&
-                actual.getType().equals(((GenericLiteral) expectedExpression).getType());
-    }
-
-    @Override
-    protected Boolean visitStringLiteral(StringLiteral actual, Expression expectedExpression)
-    {
-        if (!(expectedExpression instanceof StringLiteral)) {
-            return false;
-        }
-
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression));
+        return getValueFromLiteral(actual).equals(getValueFromLiteral(expected)) &&
+                actual.getType().equals(expected.getType());
     }
 
     @Override
@@ -110,17 +99,15 @@ public final class ExpressionVerifier
         return expectedExpression instanceof NullLiteral;
     }
 
-    private static String getValueFromLiteral(Expression expression)
+    private static Object getValueFromLiteral(GenericLiteral expression)
     {
-        if (expression instanceof GenericLiteral) {
-            return ((GenericLiteral) expression).getValue();
+        Object result = expression.getRawValue();
+
+        if (result != null) {
+            return result;
         }
 
-        if (expression instanceof StringLiteral) {
-            return ((StringLiteral) expression).getValue();
-        }
-
-        throw new IllegalArgumentException("Unsupported literal expression type: " + expression.getClass().getName());
+        return expression.getValue();
     }
 
     @Override

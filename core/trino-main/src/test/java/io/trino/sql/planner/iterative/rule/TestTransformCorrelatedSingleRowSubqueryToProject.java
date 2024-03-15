@@ -15,13 +15,14 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.plugin.tpch.TpchColumnHandle;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -176,7 +177,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                     return p.correlatedJoin(
                             ImmutableList.of(a),
                             p.values(3, a),
-                            p.valuesOfExpressions(ImmutableList.of(p.symbol("b")), ImmutableList.of(new Cast(new Row(ImmutableList.of(new StringLiteral("true"))), rowType(field("col", BOOLEAN))))));
+                            p.valuesOfExpressions(ImmutableList.of(p.symbol("b")), ImmutableList.of(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("true")))), rowType(field("col", BOOLEAN))))));
                 })
                 .doesNotFire();
     }

@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.metadata.AbstractMockMetadata;
@@ -29,7 +30,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
@@ -146,7 +146,7 @@ public class TestPushMergeWriterUpdateIntoConnector
                         // set function call, which represents update all columns statement
                         Expression updateMergeRowExpression = new Row(ImmutableList.of(new FunctionCall(
                                 ruleTester.getMetadata().resolveBuiltinFunction("from_base64", fromTypes(VARCHAR)).toQualifiedName(),
-                                ImmutableList.of(new StringLiteral("")))));
+                                ImmutableList.of(GenericLiteral.constant(VARCHAR, Slices.utf8Slice(""))))));
 
                         return p.tableFinish(
                                 p.merge(

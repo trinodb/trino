@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
 import io.trino.Session;
@@ -42,7 +43,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
@@ -243,7 +243,7 @@ public class BenchmarkScanFilterAndProjectOperator
                 for (int i = 0; i < columnCount; i++) {
                     // alternatively use identity expression rowExpression("varchar" + i, type) or
                     // rowExpression("substr(varchar" + i + ", 1, 1)", type)
-                    builder.add(rowExpression(new FunctionCall(CONCAT.toQualifiedName(), ImmutableList.of(new SymbolReference("varchar" + i), new StringLiteral("foo")))));
+                    builder.add(rowExpression(new FunctionCall(CONCAT.toQualifiedName(), ImmutableList.of(new SymbolReference("varchar" + i), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("foo"))))));
                 }
             }
             return builder.build();

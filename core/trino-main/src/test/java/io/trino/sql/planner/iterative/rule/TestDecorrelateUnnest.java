@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.FunctionCall;
@@ -22,7 +23,6 @@ import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NullLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
@@ -214,7 +214,7 @@ public class TestDecorrelateUnnest
                                         "corr", expression(new SymbolReference("corr")),
                                         "unnested_corr", expression(new IfExpression(new IsNullPredicate(new SymbolReference("ordinality")), new Cast(new NullLiteral(), BIGINT), new SymbolReference("unnested_corr")))),
                                 filter(
-                                        new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), GenericLiteral.constant(BIGINT, 1L)), new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, 28L), new GenericLiteral(VARCHAR, "Scalar sub-query has returned multiple rows"))), BOOLEAN), TRUE_LITERAL),
+                                        new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), GenericLiteral.constant(BIGINT, 1L)), new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, 28L), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN), TRUE_LITERAL),
                                         rowNumber(
                                                 builder -> builder
                                                         .partitionBy(ImmutableList.of("unique"))
@@ -427,7 +427,7 @@ public class TestDecorrelateUnnest
                 .matches(
                         project(
                                 filter(// enforce single row
-                                        new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), GenericLiteral.constant(BIGINT, 1L)), new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, 28L), new GenericLiteral(VARCHAR, "Scalar sub-query has returned multiple rows"))), BOOLEAN), TRUE_LITERAL),
+                                        new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), GenericLiteral.constant(BIGINT, 1L)), new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, 28L), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN), TRUE_LITERAL),
                                         project(// second projection
                                                 ImmutableMap.of(
                                                         "corr", expression(new SymbolReference("corr")),
@@ -496,7 +496,7 @@ public class TestDecorrelateUnnest
                     Symbol corr = p.symbol("corr", VARCHAR);
                     FunctionCall regexpExtractAll = new FunctionCall(
                             tester().getMetadata().resolveBuiltinFunction("regexp_extract_all", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
-                            ImmutableList.of(corr.toSymbolReference(), new StringLiteral(".")));
+                            ImmutableList.of(corr.toSymbolReference(), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("."))));
 
                     return p.correlatedJoin(
                             ImmutableList.of(corr),
@@ -520,7 +520,7 @@ public class TestDecorrelateUnnest
                                         Optional.of("ordinality"),
                                         LEFT,
                                         project(
-                                                ImmutableMap.of("char_array", expression(new FunctionCall(QualifiedName.of("regexp_extract_all"), ImmutableList.of(new SymbolReference("corr"), new StringLiteral("."))))),
+                                                ImmutableMap.of("char_array", expression(new FunctionCall(QualifiedName.of("regexp_extract_all"), ImmutableList.of(new SymbolReference("corr"), GenericLiteral.constant(VARCHAR, Slices.utf8Slice(".")))))),
                                                 assignUniqueId("unique", values("corr"))))));
     }
 }

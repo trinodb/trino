@@ -15,10 +15,11 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -107,7 +108,7 @@ public class TestPruneValuesColumns
                                 Assignments.of(p.symbol("x"), new SymbolReference("x")),
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("x"), p.symbol("y")),
-                                        ImmutableList.of(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), new StringLiteral("a"))), anonymousRow(BIGINT, createCharType(2)))))))
+                                        ImmutableList.of(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("a")))), anonymousRow(BIGINT, createCharType(2)))))))
                 .doesNotFire();
     }
 }

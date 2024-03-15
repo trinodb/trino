@@ -45,7 +45,6 @@ import io.trino.sql.ir.CanonicalAggregation;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -73,6 +72,7 @@ import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.cache.CanonicalSubplanExtractor.canonicalExpressionToColumnId;
 import static io.trino.cache.CanonicalSubplanExtractor.columnIdToSymbol;
@@ -143,7 +143,7 @@ public class TestCanonicalSubplanExtractor
 
         CacheTableId tableId = new CacheTableId(tpchCatalogId + ":tiny:nation:0.01");
         Expression nonPullableConjunct = new ComparisonExpression(GREATER_THAN, new SymbolReference("[regionkey:bigint]"), GenericLiteral.constant(BIGINT, 10L));
-        Expression pullableConjunct = new ComparisonExpression(EQUAL, new SymbolReference("[name:varchar(25)]"), new StringLiteral("0123456789012345689012345"));
+        Expression pullableConjunct = new ComparisonExpression(EQUAL, new SymbolReference("[name:varchar(25)]"), GenericLiteral.constant(createVarcharType(25), utf8Slice("0123456789012345689012345")));
         CanonicalSubplan nonAggregatedSubplan = subplans.get(0);
         assertThat(nonAggregatedSubplan.getKeyChain()).containsExactly(new ScanFilterProjectKey(tableId));
         assertThat(nonAggregatedSubplan.getGroupByColumns()).isEmpty();

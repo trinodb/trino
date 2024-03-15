@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.BetweenPredicate;
@@ -24,7 +25,6 @@ import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -489,11 +490,11 @@ public abstract class AbstractPredicatePushdownTest
                 anyTree(
                         node(JoinNode.class,
                                 filter(
-                                        new InPredicate(new SymbolReference("ORDERSTATUS"), ImmutableList.of(new StringLiteral("F"), new StringLiteral("O"))),
+                                        new InPredicate(new SymbolReference("ORDERSTATUS"), ImmutableList.of(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("F")), GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("O")))),
                                         tableScan("orders", ImmutableMap.of("ORDERSTATUS", "orderstatus"))),
                                 anyTree(
                                         filter(
-                                                new InPredicate(new Cast(new SymbolReference("NAME"), createVarcharType(1)), ImmutableList.of(new StringLiteral("F"), new StringLiteral("O"))),
+                                                new InPredicate(new Cast(new SymbolReference("NAME"), createVarcharType(1)), ImmutableList.of(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("F")), GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("O")))),
                                                 tableScan(
                                                         "nation",
                                                         ImmutableMap.of("NAME", "name")))))));
@@ -506,7 +507,7 @@ public abstract class AbstractPredicatePushdownTest
                                 enableDynamicFiltering ? filter(TRUE_LITERAL, ordersTableScan) : ordersTableScan,
                                 anyTree(
                                         filter(
-                                                new InPredicate(new Cast(new SymbolReference("NAME"), createVarcharType(1)), ImmutableList.of(new StringLiteral("F"), new StringLiteral("O"), new StringLiteral("P"))),
+                                                new InPredicate(new Cast(new SymbolReference("NAME"), createVarcharType(1)), ImmutableList.of(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("F")), GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("O")), GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("P")))),
                                                 tableScan(
                                                         "nation",
                                                         ImmutableMap.of("NAME", "name")))))));
@@ -544,7 +545,7 @@ public abstract class AbstractPredicatePushdownTest
                                         ImmutableMap.of("l_partkey", "partkey", "comment", "comment"))))
                                 .right(anyTree(
                                         filter(
-                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("name"), new Cast(new StringLiteral("f"), createVarcharType(55))),
+                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("name"), GenericLiteral.constant(createVarcharType(55), utf8Slice("f"))),
                                                 tableScan(
                                                         "part",
                                                         ImmutableMap.of("p_partkey", "partkey", "name", "name"))))))));
@@ -557,8 +558,8 @@ public abstract class AbstractPredicatePushdownTest
                         join(INNER, builder -> builder
                                 .equiCriteria("l_partkey", "p_partkey")
                                 .filter(new BetweenPredicate(
-                                        new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new Cast(new SymbolReference("name"), VARCHAR), new GenericLiteral(VARCHAR, "X"))),
-                                        new GenericLiteral(VARCHAR, "f"),
+                                        new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new Cast(new SymbolReference("name"), VARCHAR), GenericLiteral.constant(VARCHAR, utf8Slice("X")))),
+                                        GenericLiteral.constant(VARCHAR, utf8Slice("f")),
                                         new Cast(new SymbolReference("comment"), VARCHAR)))
                                 .left(anyIfDynamicFilteringEnabled(
                                         tableScan(
@@ -581,7 +582,7 @@ public abstract class AbstractPredicatePushdownTest
                                         ImmutableMap.of("l_partkey", "partkey", "comment", "comment"))))
                                 .right(anyTree(
                                         filter(
-                                                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("name"), new Cast(new StringLiteral("f"), createVarcharType(55))),
+                                                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("name"), GenericLiteral.constant(createVarcharType(55), utf8Slice("f"))),
                                                 tableScan(
                                                         "part",
                                                         ImmutableMap.of("p_partkey", "partkey", "name", "name"))))))));
@@ -595,7 +596,7 @@ public abstract class AbstractPredicatePushdownTest
                                 .equiCriteria("l_partkey", "p_partkey")
                                 .filter(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Cast(new SymbolReference("comment"), createVarcharType(55)), new SymbolReference("name")))
                                 .left(filter(
-                                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("comment"), new Cast(new StringLiteral("f"), createVarcharType(44))),
+                                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("comment"), GenericLiteral.constant(createVarcharType(44), utf8Slice("f"))),
                                         tableScan(
                                                 "lineitem",
                                                 ImmutableMap.of("l_partkey", "partkey", "comment", "comment"))))
@@ -613,7 +614,7 @@ public abstract class AbstractPredicatePushdownTest
                                 .equiCriteria("l_partkey", "p_partkey")
                                 .filter(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Cast(new SymbolReference("comment"), createVarcharType(55)), new SymbolReference("name")))
                                 .left(filter(
-                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("comment"), new Cast(new StringLiteral("f"), createVarcharType(44))),
+                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("comment"), GenericLiteral.constant(createVarcharType(44), utf8Slice("f"))),
                                         tableScan(
                                                 "lineitem",
                                                 ImmutableMap.of("l_partkey", "partkey", "comment", "comment"))))

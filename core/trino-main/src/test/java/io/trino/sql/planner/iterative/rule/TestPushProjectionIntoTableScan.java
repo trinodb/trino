@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
@@ -44,7 +45,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
@@ -150,7 +150,7 @@ public class TestPushProjectionIntoTableScan
                     .put(constant, GenericLiteral.constant(INTEGER, 5L))
                     .put(call, new FunctionCall(
                             ruleTester.getMetadata().resolveBuiltinFunction("starts_with", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
-                            ImmutableList.of(new StringLiteral("abc"), new StringLiteral("ab"))))
+                            ImmutableList.of(GenericLiteral.constant(VARCHAR, Slices.utf8Slice("abc")), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("ab")))))
                     .buildOrThrow();
 
             // Compute expected symbols after applyProjection
