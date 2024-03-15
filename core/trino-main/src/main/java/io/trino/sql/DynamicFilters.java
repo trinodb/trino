@@ -180,7 +180,7 @@ public final class DynamicFilters
 
         Expression nullAllowedExpression = arguments.get(3);
         checkArgument(nullAllowedExpression instanceof GenericLiteral literal && literal.getType().equals(BooleanType.BOOLEAN), "nullAllowedExpression is expected to be a boolean constant: %s", nullAllowedExpression.getClass().getSimpleName());
-        boolean nullAllowed = Boolean.parseBoolean(((GenericLiteral) nullAllowedExpression).getValue());
+        boolean nullAllowed = (boolean) ((GenericLiteral) nullAllowedExpression).getRawValue();
         return Optional.of(new Descriptor(new DynamicFilterId(id), probeSymbol, operator, nullAllowed));
     }
 
