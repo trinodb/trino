@@ -28,6 +28,7 @@ import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -67,10 +68,10 @@ public class TestUnwrapYearInComparison
     @Test
     public void testEquals()
     {
-        testUnwrap("date", "year(a) = -0001", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "-0001-01-01"), new GenericLiteral(DATE, "-0001-12-31")));
-        testUnwrap("date", "year(a) = 1960", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "1960-01-01"), new GenericLiteral(DATE, "1960-12-31")));
-        testUnwrap("date", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "2022-01-01"), new GenericLiteral(DATE, "2022-12-31")));
-        testUnwrap("date", "year(a) = 9999", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "9999-01-01"), new GenericLiteral(DATE, "9999-12-31")));
+        testUnwrap("date", "year(a) = -0001", new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("-0001-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("-0001-12-31"))));
+        testUnwrap("date", "year(a) = 1960", new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1960-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1960-12-31"))));
+        testUnwrap("date", "year(a) = 2022", new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))));
+        testUnwrap("date", "year(a) = 9999", new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("9999-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("9999-12-31"))));
 
         testUnwrap("timestamp", "year(a) = -0001", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "-0001-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "-0001-12-31 23:59:59.999")));
         testUnwrap("timestamp", "year(a) = 1960", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1960-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "1960-12-31 23:59:59.999")));
@@ -95,17 +96,17 @@ public class TestUnwrapYearInComparison
     @Test
     public void testInPredicate()
     {
-        testUnwrap("date", "year(a) IN (1000, 1400, 1800)", new LogicalExpression(OR, ImmutableList.of(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "1000-01-01"), new GenericLiteral(DATE, "1000-12-31")), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "1400-01-01"), new GenericLiteral(DATE, "1400-12-31")), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "1800-01-01"), new GenericLiteral(DATE, "1800-12-31")))));
+        testUnwrap("date", "year(a) IN (1000, 1400, 1800)", new LogicalExpression(OR, ImmutableList.of(new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1000-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1000-12-31"))), new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1400-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1400-12-31"))), new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1800-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1800-12-31"))))));
         testUnwrap("timestamp", "year(a) IN (1000, 1400, 1800)", new LogicalExpression(OR, ImmutableList.of(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1000-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "1000-12-31 23:59:59.999")), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1400-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "1400-12-31 23:59:59.999")), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1800-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "1800-12-31 23:59:59.999")))));
     }
 
     @Test
     public void testNotEquals()
     {
-        testUnwrap("date", "year(a) <> -0001", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "-0001-01-01"), new GenericLiteral(DATE, "-0001-12-31"))));
-        testUnwrap("date", "year(a) <> 1960", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "1960-01-01"), new GenericLiteral(DATE, "1960-12-31"))));
-        testUnwrap("date", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "2022-01-01"), new GenericLiteral(DATE, "2022-12-31"))));
-        testUnwrap("date", "year(a) <> 9999", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "9999-01-01"), new GenericLiteral(DATE, "9999-12-31"))));
+        testUnwrap("date", "year(a) <> -0001", new NotExpression(new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("-0001-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("-0001-12-31")))));
+        testUnwrap("date", "year(a) <> 1960", new NotExpression(new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1960-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1960-12-31")))));
+        testUnwrap("date", "year(a) <> 2022", new NotExpression(new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31")))));
+        testUnwrap("date", "year(a) <> 9999", new NotExpression(new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("9999-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("9999-12-31")))));
 
         testUnwrap("timestamp", "year(a) <> -0001", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "-0001-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "-0001-12-31 23:59:59.999"))));
         testUnwrap("timestamp", "year(a) <> 1960", new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1960-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "1960-12-31 23:59:59.999"))));
@@ -130,10 +131,10 @@ public class TestUnwrapYearInComparison
     @Test
     public void testLessThan()
     {
-        testUnwrap("date", "year(a) < -0001", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "-0001-01-01")));
-        testUnwrap("date", "year(a) < 1960", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "1960-01-01")));
-        testUnwrap("date", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "2022-01-01")));
-        testUnwrap("date", "year(a) < 9999", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "9999-01-01")));
+        testUnwrap("date", "year(a) < -0001", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("-0001-01-01"))));
+        testUnwrap("date", "year(a) < 1960", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1960-01-01"))));
+        testUnwrap("date", "year(a) < 2022", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01"))));
+        testUnwrap("date", "year(a) < 9999", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("9999-01-01"))));
 
         testUnwrap("timestamp", "year(a) < -0001", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "-0001-01-01 00:00:00.000")));
         testUnwrap("timestamp", "year(a) < 1960", new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1960-01-01 00:00:00.000")));
@@ -158,10 +159,10 @@ public class TestUnwrapYearInComparison
     @Test
     public void testLessThanOrEqual()
     {
-        testUnwrap("date", "year(a) <= -0001", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "-0001-12-31")));
-        testUnwrap("date", "year(a) <= 1960", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "1960-12-31")));
-        testUnwrap("date", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "2022-12-31")));
-        testUnwrap("date", "year(a) <= 9999", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "9999-12-31")));
+        testUnwrap("date", "year(a) <= -0001", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("-0001-12-31"))));
+        testUnwrap("date", "year(a) <= 1960", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1960-12-31"))));
+        testUnwrap("date", "year(a) <= 2022", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))));
+        testUnwrap("date", "year(a) <= 9999", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("9999-12-31"))));
 
         testUnwrap("timestamp", "year(a) <= -0001", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "-0001-12-31 23:59:59.999")));
         testUnwrap("timestamp", "year(a) <= 1960", new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1960-12-31 23:59:59.999")));
@@ -186,10 +187,10 @@ public class TestUnwrapYearInComparison
     @Test
     public void testGreaterThan()
     {
-        testUnwrap("date", "year(a) > -0001", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "-0001-12-31")));
-        testUnwrap("date", "year(a) > 1960", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "1960-12-31")));
-        testUnwrap("date", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "2022-12-31")));
-        testUnwrap("date", "year(a) > 9999", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(DATE, "9999-12-31")));
+        testUnwrap("date", "year(a) > -0001", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("-0001-12-31"))));
+        testUnwrap("date", "year(a) > 1960", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1960-12-31"))));
+        testUnwrap("date", "year(a) > 2022", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))));
+        testUnwrap("date", "year(a) > 9999", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("9999-12-31"))));
 
         testUnwrap("timestamp", "year(a) > -0001", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "-0001-12-31 23:59:59.999")));
         testUnwrap("timestamp", "year(a) > 1960", new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1960-12-31 23:59:59.999")));
@@ -214,10 +215,10 @@ public class TestUnwrapYearInComparison
     @Test
     public void testGreaterThanOrEqual()
     {
-        testUnwrap("date", "year(a) >= -0001", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "-0001-01-01")));
-        testUnwrap("date", "year(a) >= 1960", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "1960-01-01")));
-        testUnwrap("date", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "2022-01-01")));
-        testUnwrap("date", "year(a) >= 9999", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(DATE, "9999-01-01")));
+        testUnwrap("date", "year(a) >= -0001", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("-0001-01-01"))));
+        testUnwrap("date", "year(a) >= 1960", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1960-01-01"))));
+        testUnwrap("date", "year(a) >= 2022", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01"))));
+        testUnwrap("date", "year(a) >= 9999", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("9999-01-01"))));
 
         testUnwrap("timestamp", "year(a) >= -0001", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "-0001-01-01 00:00:00.000")));
         testUnwrap("timestamp", "year(a) >= 1960", new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1960-01-01 00:00:00.000")));
@@ -242,10 +243,10 @@ public class TestUnwrapYearInComparison
     @Test
     public void testDistinctFrom()
     {
-        testUnwrap("date", "year(a) IS DISTINCT FROM -0001", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "-0001-01-01"), new GenericLiteral(DATE, "-0001-12-31"))))));
-        testUnwrap("date", "year(a) IS DISTINCT FROM 1960", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "1960-01-01"), new GenericLiteral(DATE, "1960-12-31"))))));
-        testUnwrap("date", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "2022-01-01"), new GenericLiteral(DATE, "2022-12-31"))))));
-        testUnwrap("date", "year(a) IS DISTINCT FROM 9999", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "9999-01-01"), new GenericLiteral(DATE, "9999-12-31"))))));
+        testUnwrap("date", "year(a) IS DISTINCT FROM -0001", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("-0001-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("-0001-12-31")))))));
+        testUnwrap("date", "year(a) IS DISTINCT FROM 1960", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1960-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("1960-12-31")))))));
+        testUnwrap("date", "year(a) IS DISTINCT FROM 2022", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31")))))));
+        testUnwrap("date", "year(a) IS DISTINCT FROM 9999", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("9999-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("9999-12-31")))))));
 
         testUnwrap("timestamp", "year(a) IS DISTINCT FROM -0001", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "-0001-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "-0001-12-31 23:59:59.999"))))));
         testUnwrap("timestamp", "year(a) IS DISTINCT FROM 1960", new LogicalExpression(OR, ImmutableList.of(new IsNullPredicate(new SymbolReference("a")), new NotExpression(new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "1960-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "1960-12-31 23:59:59.999"))))));
@@ -286,7 +287,7 @@ public class TestUnwrapYearInComparison
     {
         // smoke tests for various type combinations
         for (String type : asList("SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE")) {
-            testUnwrap("date", format("year(a) = %s '2022'", type), new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "2022-01-01"), new GenericLiteral(DATE, "2022-12-31")));
+            testUnwrap("date", format("year(a) = %s '2022'", type), new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))));
         }
     }
 
@@ -298,14 +299,14 @@ public class TestUnwrapYearInComparison
         assertPlan("SELECT * FROM (VALUES DATE '2022-01-01') t(a) WHERE 2022 = year(a)",
                 output(
                         filter(
-                                new BetweenPredicate(new SymbolReference("A"), new GenericLiteral(DATE, "2022-01-01"), new GenericLiteral(DATE, "2022-12-31")),
+                                new BetweenPredicate(new SymbolReference("A"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2022-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2022-12-31"))),
                                 values("A"))));
     }
 
     @Test
     public void testLeapYear()
     {
-        testUnwrap("date", "year(a) = 2024", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(DATE, "2024-01-01"), new GenericLiteral(DATE, "2024-12-31")));
+        testUnwrap("date", "year(a) = 2024", new BetweenPredicate(new SymbolReference("a"), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2024-01-01")), GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2024-12-31"))));
         testUnwrap("timestamp", "year(a) = 2024", new BetweenPredicate(new SymbolReference("a"), new GenericLiteral(createTimestampType(3), "2024-01-01 00:00:00.000"), new GenericLiteral(createTimestampType(3), "2024-12-31 23:59:59.999")));
     }
 
