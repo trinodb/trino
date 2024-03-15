@@ -117,7 +117,7 @@ public final class ExpressionFormatter
                         case TimeWithTimeZoneType type when type.isShort() -> TimeWithTimeZoneToVarcharCast.cast(type.getPrecision(), (long) node.getRawValue()).toStringUtf8();
                         case TimeWithTimeZoneType type -> TimeWithTimeZoneToVarcharCast.cast(type.getPrecision(), (LongTimeWithTimeZone) node.getRawValue()).toStringUtf8();
                         case TimeType type -> TimeOperators.castToVarchar(type.getPrecision(), (long) node.getRawValue()).toStringUtf8();
-                        default -> node.getValue();
+                        default -> node.getRawValue().toString(); // TODO: ir
                     }));
         }
 

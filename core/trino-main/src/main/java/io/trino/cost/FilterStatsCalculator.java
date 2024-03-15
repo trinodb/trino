@@ -264,7 +264,7 @@ public class FilterStatsCalculator
         protected PlanNodeStatsEstimate visitGenericLiteral(GenericLiteral node, Void context)
         {
             if (node.getType().equals(BOOLEAN)) {
-                if (Boolean.parseBoolean(node.getValue())) {
+                if ((boolean) node.getRawValue()) {
                     return input;
                 }
 

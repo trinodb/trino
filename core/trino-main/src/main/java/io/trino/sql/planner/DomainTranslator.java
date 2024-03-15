@@ -1198,7 +1198,7 @@ public final class DomainTranslator
         protected ExtractionResult visitGenericLiteral(GenericLiteral node, Boolean complement)
         {
             if (node.getType().equals(BOOLEAN)) {
-                boolean value = Boolean.parseBoolean(node.getValue());
+                boolean value = (boolean) node.getRawValue();
                 value = complement != value;
                 return new ExtractionResult(value ? TupleDomain.all() : TupleDomain.none(), TRUE_LITERAL);
             }
