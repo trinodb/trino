@@ -325,7 +325,7 @@ public class IrTypeAnalyzer
             return setExpressionType(
                     node,
                     switch (baseType) {
-                        case RowType rowType -> rowType.getFields().get(Integer.parseInt(((GenericLiteral) node.getIndex()).getValue()) - 1).getType();
+                        case RowType rowType -> rowType.getFields().get((int) (long) ((GenericLiteral) node.getIndex()).getRawValue() - 1).getType();
                         case ArrayType arrayType -> arrayType.getElementType();
                         case MapType mapType -> mapType.getValueType();
                         default -> throw new IllegalStateException("Unexpected type: " + baseType);

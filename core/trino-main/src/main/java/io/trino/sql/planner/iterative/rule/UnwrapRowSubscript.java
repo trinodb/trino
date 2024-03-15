@@ -58,7 +58,7 @@ public class UnwrapRowSubscript
                     break;
                 }
 
-                int index = Integer.parseInt(((GenericLiteral) node.getIndex()).getValue());
+                int index = (int) (long) ((GenericLiteral) node.getIndex()).getRawValue();
                 Type type = rowType.getFields().get(index - 1).getType();
                 if (!(type instanceof UnknownType)) {
                     coercions.push(new Coercion(type, cast.isSafe()));
@@ -68,7 +68,7 @@ public class UnwrapRowSubscript
             }
 
             if (base instanceof Row row) {
-                int index = Integer.parseInt(((GenericLiteral) node.getIndex()).getValue());
+                int index = (int) (long) ((GenericLiteral) node.getIndex()).getRawValue();
                 Expression result = row.getItems().get(index - 1);
 
                 while (!coercions.isEmpty()) {
