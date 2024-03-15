@@ -82,6 +82,7 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrQuantified;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.tests.QueryTemplate;
+import io.trino.type.Reals;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -2177,7 +2178,7 @@ public class TestLogicalPlanner
                                 ImmutableList.of("field"),
                                 ImmutableList.of(
                                         ImmutableList.of(new Cast(GenericLiteral.constant(TINYINT, 1L), REAL)),
-                                        ImmutableList.of(new GenericLiteral(REAL, "1"))))));
+                                        ImmutableList.of(GenericLiteral.constant(REAL, Reals.toReal(1f)))))));
 
         // rows coerced by field
         assertPlan("VALUES (TINYINT '1', REAL '1'), (DOUBLE '2', SMALLINT '2')",
@@ -2186,7 +2187,7 @@ public class TestLogicalPlanner
                         values(
                                 ImmutableList.of("field", "field0"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new Cast(GenericLiteral.constant(TINYINT, 1L), DOUBLE), new GenericLiteral(REAL, "1")),
+                                        ImmutableList.of(new Cast(GenericLiteral.constant(TINYINT, 1L), DOUBLE), GenericLiteral.constant(REAL, Reals.toReal(1f))),
                                         ImmutableList.of(GenericLiteral.constant(DOUBLE, 2.0), new Cast(GenericLiteral.constant(SMALLINT, 2L), REAL))))));
 
         // entry of type other than Row coerced as a whole

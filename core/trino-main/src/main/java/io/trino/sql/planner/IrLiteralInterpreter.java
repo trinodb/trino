@@ -27,6 +27,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -107,6 +108,7 @@ public final class IrLiteralInterpreter
                 case SmallintType type -> node.getRawValue();
                 case IntegerType type -> node.getRawValue();
                 case BigintType type -> node.getRawValue();
+                case RealType type -> node.getRawValue();
                 case DoubleType type -> node.getRawValue();
                 case DecimalType type -> node.getRawValue();
                 case VarcharType type -> node.getRawValue();

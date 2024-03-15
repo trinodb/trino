@@ -34,6 +34,7 @@ import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.type.Reals;
 import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
 
@@ -520,40 +521,40 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(new GenericLiteral(REAL, "0e0"), createVarcharType(3)),
+                new Cast(GenericLiteral.constant(REAL, Reals.toReal(0.0f)), createVarcharType(3)),
                 GenericLiteral.constant(createVarcharType(3), Slices.utf8Slice("0E0")));
         assertSimplifies(
-                new Cast(new GenericLiteral(REAL, "-0e0"), createVarcharType(4)),
+                new Cast(GenericLiteral.constant(REAL, Reals.toReal(-0.0f)), createVarcharType(4)),
                 GenericLiteral.constant(createVarcharType(4), Slices.utf8Slice("-0E0")));
         assertSimplifies(
-                new Cast(new ArithmeticBinaryExpression(DIVIDE, new GenericLiteral(REAL, "0e0"), new GenericLiteral(REAL, "0e0")), createVarcharType(3)),
+                new Cast(new ArithmeticBinaryExpression(DIVIDE, GenericLiteral.constant(REAL, Reals.toReal(0.0f)), GenericLiteral.constant(REAL, Reals.toReal(0.0f))), createVarcharType(3)),
                 GenericLiteral.constant(createVarcharType(3), Slices.utf8Slice("NaN")));
         assertSimplifies(
-                new Cast(new GenericLiteral(REAL, "Infinity"), createVarcharType(8)),
+                new Cast(GenericLiteral.constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(8)),
                 GenericLiteral.constant(createVarcharType(8), Slices.utf8Slice("Infinity")));
         assertSimplifies(
-                new Cast(new GenericLiteral(REAL, "12e2"), createVarcharType(5)),
+                new Cast(GenericLiteral.constant(REAL, Reals.toReal(12e2f)), createVarcharType(5)),
                 GenericLiteral.constant(createVarcharType(5), Slices.utf8Slice("1.2E3")));
         assertSimplifies(
-                new Cast(new GenericLiteral(REAL, "-12e2"), createVarcharType(50)),
+                new Cast(GenericLiteral.constant(REAL, Reals.toReal(-12e2f)), createVarcharType(50)),
                 GenericLiteral.constant(createVarcharType(50), Slices.utf8Slice("-1.2E3")));
 
         // cast from real to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(new GenericLiteral(REAL, "12e2"), createVarcharType(3)),
-                new Cast(new GenericLiteral(REAL, "12e2"), createVarcharType(3)));
+                new Cast(GenericLiteral.constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)),
+                new Cast(GenericLiteral.constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)));
         assertSimplifies(
-                new Cast(new GenericLiteral(REAL, "-12e2"), createVarcharType(3)),
-                new Cast(new GenericLiteral(REAL, "-12e2"), createVarcharType(3)));
+                new Cast(GenericLiteral.constant(REAL, Reals.toReal(-12e2f)), createVarcharType(3)),
+                new Cast(GenericLiteral.constant(REAL, Reals.toReal(-12e2f)), createVarcharType(3)));
         assertSimplifies(
-                new Cast(new GenericLiteral(REAL, "NaN"), createVarcharType(2)),
-                new Cast(new GenericLiteral(REAL, "NaN"), createVarcharType(2)));
+                new Cast(GenericLiteral.constant(REAL, Reals.toReal(Float.NaN)), createVarcharType(2)),
+                new Cast(GenericLiteral.constant(REAL, Reals.toReal(Float.NaN)), createVarcharType(2)));
         assertSimplifies(
-                new Cast(new GenericLiteral(REAL, "Infinity"), createVarcharType(7)),
-                new Cast(new GenericLiteral(REAL, "Infinity"), createVarcharType(7)));
+                new Cast(GenericLiteral.constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(7)),
+                new Cast(GenericLiteral.constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(7)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral(REAL, "12e2"), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("1200.0"))),
-                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral(REAL, "12e2"), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("1200.0"))));
+                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("1200.0"))),
+                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("1200.0"))));
     }
 
     @Test

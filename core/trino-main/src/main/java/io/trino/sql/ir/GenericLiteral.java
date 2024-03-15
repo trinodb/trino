@@ -35,6 +35,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
@@ -82,6 +83,7 @@ public final class GenericLiteral
                 type.equals(INTEGER) ||
                 type.equals(BIGINT) ||
                 type.equals(BOOLEAN) ||
+                type.equals(REAL) ||
                 type.equals(DOUBLE) ||
                 type.equals(DATE) ||
                 type instanceof VarcharType ||
