@@ -147,7 +147,7 @@ public class DistributedQueryRunner
             long discoveryStart = System.nanoTime();
             discoveryServer = new TestingDiscoveryServer(environment);
             closer.register(() -> closeUnchecked(discoveryServer));
-            closer.register(() -> extraCloseables.forEach(DistributedQueryRunner::closeUnchecked));
+            extraCloseables.forEach(closeable -> closer.register(() -> closeUnchecked(closeable)));
             log.debug("Created TestingDiscoveryServer in %s", nanosSince(discoveryStart));
 
             registerNewWorker = () -> createServer(
