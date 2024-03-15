@@ -21,6 +21,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
@@ -192,6 +193,7 @@ public final class SqlToRowExpressionTranslator
                 case VarbinaryType type -> constant(node.getRawValue(), type);
                 case IntervalYearMonthType type -> constant(node.getRawValue(), type);
                 case IntervalDayTimeType type -> constant(node.getRawValue(), type);
+                case DateType type -> constant(node.getRawValue(), type);
                 case TimeType type -> constant(parseTime(node.getValue()), type);
                 case TimeWithTimeZoneType type -> constant(parseTimeWithTimeZone(type.getPrecision(), node.getValue()), type);
                 case TimestampType type -> constant(parseTimestamp(type.getPrecision(), node.getValue()), type);
