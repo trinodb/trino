@@ -211,6 +211,11 @@ public class BasicStageStats
         return physicalInputPositions;
     }
 
+    public Duration getPhysicalInputReadTime()
+    {
+        return physicalInputReadTime;
+    }
+
     public DataSize getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize;
@@ -239,11 +244,6 @@ public class BasicStageStats
     public DataSize getSpilledDataSize()
     {
         return spilledDataSize;
-    }
-
-    public Duration getPhysicalInputReadTime()
-    {
-        return physicalInputReadTime;
     }
 
     public double getCumulativeUserMemory()
