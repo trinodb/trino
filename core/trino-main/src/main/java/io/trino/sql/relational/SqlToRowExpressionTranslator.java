@@ -109,7 +109,6 @@ import static io.trino.sql.relational.SpecialForm.Form.SWITCH;
 import static io.trino.sql.relational.SpecialForm.Form.WHEN;
 import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.parseTimeWithTimeZone;
-import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlToRowExpressionTranslator
@@ -199,7 +198,7 @@ public final class SqlToRowExpressionTranslator
                 case TimeType type -> constant(parseTime(node.getValue()), type);
                 case TimeWithTimeZoneType type -> constant(parseTimeWithTimeZone(type.getPrecision(), node.getValue()), type);
                 case TimestampType type -> constant(node.getRawValue(), type);
-                case TimestampWithTimeZoneType type -> constant(parseTimestampWithTimeZone(type.getPrecision(), node.getValue()), type);
+                case TimestampWithTimeZoneType type -> constant(node.getRawValue(), type);
                 case Type type -> call(
                         metadata.getCoercion(VARCHAR, type),
                         constant(utf8Slice(node.getValue()), VARCHAR));

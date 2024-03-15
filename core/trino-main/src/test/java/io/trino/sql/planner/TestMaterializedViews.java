@@ -46,6 +46,7 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.testing.PlanTester;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
+import io.trino.type.DateTimes;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -344,7 +345,7 @@ public class TestMaterializedViews
                 anyTree(
                         project(ImmutableMap.of("ts_0", expression(new Cast(new SymbolReference("ts"), TIMESTAMP_TZ_MILLIS))),
                                 filter(
-                                        new ComparisonExpression(LESS_THAN, new Cast(new SymbolReference("ts"), TIMESTAMP_TZ_MILLIS), new GenericLiteral(createTimestampWithTimeZoneType(3), "2024-01-01 00:00:00.000 America/New_York")),
+                                        new ComparisonExpression(LESS_THAN, new Cast(new SymbolReference("ts"), TIMESTAMP_TZ_MILLIS), GenericLiteral.constant(createTimestampWithTimeZoneType(3), DateTimes.parseTimestampWithTimeZone(3, "2024-01-01 00:00:00.000 America/New_York"))),
                                         tableScan("timestamp_test_storage", ImmutableMap.of("ts", "ts", "id", "id"))))));
     }
 

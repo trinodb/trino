@@ -21,11 +21,9 @@ import io.airlift.slice.SliceOutput;
 import io.trino.block.BlockSerdeUtil;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.VarbinaryFunctions;
-import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
@@ -54,7 +52,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.JsonType.JSON;
@@ -118,27 +115,9 @@ public final class LiteralEncoder
                 type instanceof VarcharType ||
                 type instanceof CharType ||
                 type instanceof TimestampType ||
+                type instanceof TimestampWithTimeZoneType ||
                 type instanceof VarbinaryType) {
             return GenericLiteral.constant(type, object);
-        }
-
-        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
-            String representation;
-            if (timestampWithTimeZoneType.isShort()) {
-                representation = TimestampWithTimeZoneToVarcharCast.cast(timestampWithTimeZoneType.getPrecision(), (long) object).toStringUtf8();
-            }
-            else {
-                representation = TimestampWithTimeZoneToVarcharCast.cast(timestampWithTimeZoneType.getPrecision(), (LongTimestampWithTimeZone) object).toStringUtf8();
-            }
-            if (!object.equals(parseTimestampWithTimeZone(timestampWithTimeZoneType.getPrecision(), representation))) {
-                // Certain (point in time, time zone) pairs cannot be represented as a TIMESTAMP literal, as the literal uses local date/time in given time zone.
-                // Thus, during DST backwards change by e.g. 1 hour, the local time is "repeated" twice and thus one local date/time logically corresponds to two
-                // points in time, leaving one of them non-referencable.
-                // TODO (https://github.com/trinodb/trino/issues/5781) consider treating such values as illegal
-            }
-            else {
-                return new GenericLiteral(timestampWithTimeZoneType, representation);
-            }
         }
 
         // There is no automatic built in encoding for this Trino type,
