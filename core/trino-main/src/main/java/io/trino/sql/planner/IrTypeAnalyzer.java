@@ -33,7 +33,6 @@ import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.Array;
 import io.trino.sql.ir.BetweenPredicate;
-import io.trino.sql.ir.BinaryLiteral;
 import io.trino.sql.ir.BindExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
@@ -70,7 +69,6 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -350,12 +348,6 @@ public class IrTypeAnalyzer
 
             checkArgument(types.size() == 1, "All entries must have the same type: %s", types);
             return setExpressionType(node, new ArrayType(types.iterator().next()));
-        }
-
-        @Override
-        protected Type visitBinaryLiteral(BinaryLiteral node, Context context)
-        {
-            return setExpressionType(node, VARBINARY);
         }
 
         @Override
