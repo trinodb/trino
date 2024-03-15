@@ -39,10 +39,11 @@ import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.IntervalLiteral;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Literal;
 import io.trino.sql.ir.NullLiteral;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 
 import java.util.function.Function;
 
@@ -55,8 +56,6 @@ import static io.trino.type.DateTimes.parseTimeWithTimeZone;
 import static io.trino.type.DateTimes.parseTimestamp;
 import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static io.trino.type.JsonType.JSON;
-import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
-import static io.trino.util.DateTimeUtils.parseYearMonthInterval;
 import static java.util.Objects.requireNonNull;
 
 public final class IrLiteralInterpreter
@@ -112,6 +111,8 @@ public final class IrLiteralInterpreter
                 case VarcharType type -> node.getRawValue();
                 case CharType type -> node.getRawValue();
                 case VarbinaryType type -> node.getRawValue();
+                case IntervalYearMonthType type -> node.getRawValue();
+                case IntervalDayTimeType type -> node.getRawValue();
                 case TimeType unused -> parseTime(node.getValue());
                 case TimeWithTimeZoneType value -> parseTimeWithTimeZone(value.getPrecision(), node.getValue());
                 case TimestampType value -> parseTimestamp(value.getPrecision(), node.getValue());
@@ -131,15 +132,6 @@ public final class IrLiteralInterpreter
                     yield evaluator.apply(node);
                 }
             };
-        }
-
-        @Override
-        protected Long visitIntervalLiteral(IntervalLiteral node, Void context)
-        {
-            if (node.isYearToMonth()) {
-                return node.getSign().multiplier() * parseYearMonthInterval(node.getValue(), node.getStartField(), node.getEndField());
-            }
-            return node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), node.getStartField(), node.getEndField());
         }
 
         @Override

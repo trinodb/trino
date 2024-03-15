@@ -35,7 +35,6 @@ import java.util.List;
         @JsonSubTypes.Type(value = GenericLiteral.class, name = "constant"),
         @JsonSubTypes.Type(value = IfExpression.class, name = "if"),
         @JsonSubTypes.Type(value = InPredicate.class, name = "in"),
-        @JsonSubTypes.Type(value = IntervalLiteral.class, name = "interval"),
         @JsonSubTypes.Type(value = IsNotNullPredicate.class, name = "isNotNull"),
         @JsonSubTypes.Type(value = IsNullPredicate.class, name = "isNull"),
         @JsonSubTypes.Type(value = LambdaExpression.class, name = "lambda"),

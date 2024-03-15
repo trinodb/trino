@@ -17,7 +17,6 @@ import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.sql.ir.IntervalLiteral.IntervalField;
 import org.assertj.core.util.VisibleForTesting;
 import org.joda.time.DateTime;
 import org.joda.time.DurationFieldType;
@@ -46,6 +45,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.sql.tree.IntervalLiteral.IntervalField;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;

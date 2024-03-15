@@ -72,11 +72,6 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitIntervalLiteral(IntervalLiteral node, C context)
-    {
-        return visitLiteral(node, context);
-    }
-
     protected R visitInPredicate(InPredicate node, C context)
     {
         return visitExpression(node, context);

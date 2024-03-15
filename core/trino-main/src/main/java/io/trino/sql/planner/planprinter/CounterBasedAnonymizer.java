@@ -25,7 +25,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionFormatter;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.IntervalLiteral;
 import io.trino.sql.ir.Literal;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
@@ -114,9 +113,6 @@ public class CounterBasedAnonymizer
                 return literal.getValue();
             }
             return anonymizeLiteral(literal.getType().getDisplayName(), literal.getValue());
-        }
-        if (node instanceof IntervalLiteral literal) {
-            return anonymizeLiteral("interval", literal.getValue());
         }
         if (node instanceof NullLiteral) {
             return "null";
