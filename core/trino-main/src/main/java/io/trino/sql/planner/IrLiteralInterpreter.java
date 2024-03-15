@@ -55,7 +55,6 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.parseTimeWithTimeZone;
-import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static java.util.Objects.requireNonNull;
 
 public final class IrLiteralInterpreter
@@ -119,7 +118,7 @@ public final class IrLiteralInterpreter
                 case TimeType unused -> parseTime(node.getValue());
                 case TimeWithTimeZoneType value -> parseTimeWithTimeZone(value.getPrecision(), node.getValue());
                 case TimestampType value -> node.getRawValue();
-                case TimestampWithTimeZoneType value -> parseTimestampWithTimeZone(value.getPrecision(), node.getValue());
+                case TimestampWithTimeZoneType value -> node.getRawValue();
                 default -> {
                     Function<GenericLiteral, Object> evaluator = CacheUtils.uncheckedCacheGet(genericLiteralEvaluatorCache, type, () -> {
                         ResolvedFunction resolvedFunction = plannerContext.getMetadata().getCoercion(VARCHAR, type);
