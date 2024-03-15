@@ -81,6 +81,7 @@ import static io.trino.plugin.base.util.Functions.checkFunctionArgument;
 import static io.trino.plugin.hive.HiveCompressionCodecs.selectCompressionCodec;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.CSV_SEPARATOR_KEY;
+import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.TEXT_FIELD_SEPARATOR_KEY;
 import static io.trino.plugin.hive.HiveMetadata.verifyHiveColumnName;
 import static io.trino.plugin.hive.HiveType.toHiveType;
@@ -96,6 +97,7 @@ import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.F
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.usedInput;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.usedInputAndProduced;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
@@ -135,6 +137,7 @@ public class Unload
         private static final String FORMAT_ARGUMENT_NAME = "FORMAT";
         private static final String COMPRESSION_ARGUMENT_NAME = "COMPRESSION";
         private static final String SEPARATOR_ARGUMENT_NAME = "SEPARATOR";
+        private static final String HEADER_ARGUMENT_NAME = "HEADER";
 
         private final LocationAccessControl locationAccessControl;
         private final TrinoFileSystemFactory fileSystemFactory;
@@ -165,6 +168,11 @@ public class Unload
                             ScalarArgumentSpecification.builder()
                                     .name(SEPARATOR_ARGUMENT_NAME)
                                     .type(VARCHAR)
+                                    .defaultValue(null)
+                                    .build(),
+                            ScalarArgumentSpecification.builder()
+                                    .name(HEADER_ARGUMENT_NAME)
+                                    .type(BOOLEAN)
                                     .defaultValue(null)
                                     .build()),
                     new ReturnTypeSpecification.DescribedTable(descriptor(ImmutableList.of("path", "count"), ImmutableList.of(VARCHAR, BIGINT))));
@@ -219,6 +227,9 @@ public class Unload
 
             ScalarArgument separatorArgument = (ScalarArgument) arguments.get(SEPARATOR_ARGUMENT_NAME);
             Slice separator = (Slice) separatorArgument.getValue();
+
+            ScalarArgument headerArgument = (ScalarArgument) arguments.get(HEADER_ARGUMENT_NAME);
+            Boolean header = (Boolean) headerArgument.getValue();
 
             List<RowType.Field> inputSchema = tableArgument.getRowType().getFields();
             List<String> partitionColumns = tableArgument.getPartitionBy();
@@ -278,6 +289,12 @@ public class Unload
                     case TEXTFILE -> schemaBuilder.put(TEXT_FIELD_SEPARATOR_KEY, separator.toStringUtf8());
                     case CSV -> schemaBuilder.put(CSV_SEPARATOR_KEY, separator.toStringUtf8());
                     default -> throw new TrinoException(INVALID_TABLE_PROPERTY, "Cannot specify separator for storage format: " + format);
+                }
+            }
+            if (header != null) {
+                switch (format) {
+                    case TEXTFILE, CSV -> schemaBuilder.put(SKIP_HEADER_COUNT_KEY, header ? "1" : "0");
+                    default -> throw new TrinoException(INVALID_TABLE_PROPERTY, "Cannot specify header for storage format: " + format);
                 }
             }
             Map<String, String> schema = schemaBuilder.buildOrThrow();

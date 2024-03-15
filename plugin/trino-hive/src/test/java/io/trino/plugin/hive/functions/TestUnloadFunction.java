@@ -27,8 +27,10 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.stream.Stream;
 
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
@@ -167,6 +169,61 @@ class TestUnloadFunction
     }
 
     @Test
+    void testUnloadTextfileHeader()
+            throws Exception
+    {
+        String tableName = "test_unload_textfile_header_" + randomNameSuffix();
+        String location = directory.resolve(tableName).toUri().toString();
+        Files.createDirectory(directory.resolve(tableName));
+
+        MaterializedResult result = computeActual("SELECT * FROM TABLE(hive.system.unload(" +
+                "input => TABLE(VALUES (1, 'a'), (2, 'b')) t(id, data)," +
+                "location => '" + location + "'," +
+                "format => 'TEXTFILE'," +
+                "header => true))");
+        assertThat(result.getColumnNames()).containsExactly("path", "count");
+        assertThat(result.getRowCount()).isEqualTo(1);
+
+        assertThat(Files.readString(Paths.get(URI.create((String) result.getMaterializedRows().getFirst().getField(0)))))
+                .isEqualTo("""
+                        iddata
+                        1a
+                        2b
+                        """);
+
+        assertUpdate("CREATE TABLE " + tableName + "(id integer, data varchar) WITH (external_location = '" + location + "', format = 'TEXTFILE', skip_header_line_count = 1)");
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('1', 'a'), ('2', 'b')");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testUnloadTextfileHeaderFalse()
+            throws Exception
+    {
+        String tableName = "test_unload_textfile_header_" + randomNameSuffix();
+        String location = directory.resolve(tableName).toUri().toString();
+        Files.createDirectory(directory.resolve(tableName));
+
+        MaterializedResult result = computeActual("SELECT * FROM TABLE(hive.system.unload(" +
+                "input => TABLE(VALUES (1, 'a'), (2, 'b')) t(id, data)," +
+                "location => '" + location + "'," +
+                "format => 'TEXTFILE'," +
+                "header => false))");
+        assertThat(result.getColumnNames()).containsExactly("path", "count");
+        assertThat(result.getRowCount()).isEqualTo(1);
+
+        assertThat(Files.readString(Paths.get(URI.create((String) result.getMaterializedRows().getFirst().getField(0)))))
+                .isEqualTo("""
+                        1a
+                        2b
+                        """);
+
+        assertUpdate("CREATE TABLE " + tableName + "(id integer, data varchar) WITH (external_location = '" + location + "', format = 'TEXTFILE')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('1', 'a'), ('2', 'b')");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     void testUnloadCsvSeparator()
             throws Exception
     {
@@ -208,6 +265,61 @@ class TestUnloadFunction
         assertUpdate("CREATE TABLE " + tableName + "(id varchar, data varchar) WITH (external_location = '" + location + "', format = 'CSV', csv_separator = '|')");
         assertQuery("SELECT * FROM " + tableName, "VALUES ('1', 'a'), ('2', 'b')");
 
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testUnloadCsvHeader()
+            throws Exception
+    {
+        String tableName = "test_unload_csv_header_" + randomNameSuffix();
+        String location = directory.resolve(tableName).toUri().toString();
+        Files.createDirectory(directory.resolve(tableName));
+
+        MaterializedResult result = computeActual("SELECT * FROM TABLE(hive.system.unload(" +
+                "input => TABLE(VALUES (CAST('1' AS varchar), CAST('a' AS varchar)), (CAST('2' AS varchar), CAST('b' AS varchar))) t(id, data)," +
+                "location => '" + location + "'," +
+                "format => 'CSV'," +
+                "header => true))");
+        assertThat(result.getColumnNames()).containsExactly("path", "count");
+        assertThat(result.getRowCount()).isEqualTo(1);
+
+        assertThat(Files.readString(Paths.get(URI.create((String) result.getMaterializedRows().getFirst().getField(0)))))
+                .isEqualTo("""
+                        "id","data"
+                        "1","a"
+                        "2","b"
+                        """);
+
+        assertUpdate("CREATE TABLE " + tableName + "(id varchar, data varchar) WITH (external_location = '" + location + "', format = 'CSV', skip_header_line_count = 1)");
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('1', 'a'), ('2', 'b')");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testUnloadCsvHeaderFalse()
+            throws Exception
+    {
+        String tableName = "test_unload_csv_header_" + randomNameSuffix();
+        String location = directory.resolve(tableName).toUri().toString();
+        Files.createDirectory(directory.resolve(tableName));
+
+        MaterializedResult result = computeActual("SELECT * FROM TABLE(hive.system.unload(" +
+                "input => TABLE(VALUES (CAST('1' AS varchar), CAST('a' AS varchar)), (CAST('2' AS varchar), CAST('b' AS varchar))) t(id, data)," +
+                "location => '" + location + "'," +
+                "format => 'CSV'," +
+                "header => false))");
+        assertThat(result.getColumnNames()).containsExactly("path", "count");
+        assertThat(result.getRowCount()).isEqualTo(1);
+
+        assertThat(Files.readString(Paths.get(URI.create((String) result.getMaterializedRows().getFirst().getField(0)))))
+                .isEqualTo("""
+                        "1","a"
+                        "2","b"
+                        """);
+
+        assertUpdate("CREATE TABLE " + tableName + "(id varchar, data varchar) WITH (external_location = '" + location + "', format = 'CSV')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('1', 'a'), ('2', 'b')");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -939,5 +1051,18 @@ class TestUnloadFunction
         assertQueryFails(
                 "SELECT * FROM TABLE(hive.system.unload(input => TABLE(SELECT 1 x), location => '" + location + "', format => '" + format + "', separator => '\t'))",
                 "Cannot specify separator for storage format: " + format);
+    }
+
+    @ParameterizedTest
+    @EnumSource(mode = Mode.EXCLUDE, names = {"TEXTFILE", "CSV", "REGEX"})
+    void testUnloadInvalidHeaderArgument(HiveStorageFormat format)
+    {
+        String location = directory.resolve("test_invalid_header_argument").toUri().toString();
+        assertQueryFails(
+                "SELECT * FROM TABLE(hive.system.unload(input => TABLE(SELECT 1 x), location => '" + location + "', format => '" + format + "', header => true))",
+                "Cannot specify header for storage format: " + format);
+        assertQueryFails(
+                "SELECT * FROM TABLE(hive.system.unload(input => TABLE(SELECT 1 x), location => '" + location + "', format => '" + format + "', header => false))",
+                "Cannot specify header for storage format: " + format);
     }
 }
