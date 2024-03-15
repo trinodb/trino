@@ -32,6 +32,7 @@ import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
@@ -112,7 +113,8 @@ public final class LiteralEncoder
                 type.equals(DOUBLE) ||
                 type instanceof DecimalType ||
                 type instanceof VarcharType ||
-                type instanceof CharType) {
+                type instanceof CharType ||
+                type instanceof VarbinaryType) {
             return GenericLiteral.constant(type, object);
         }
 

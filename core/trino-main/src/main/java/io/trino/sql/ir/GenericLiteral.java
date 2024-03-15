@@ -23,6 +23,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import java.util.List;
@@ -83,7 +84,8 @@ public final class GenericLiteral
                 type.equals(DOUBLE) ||
                 type instanceof VarcharType ||
                 type instanceof CharType ||
-                type instanceof DecimalType) {
+                type instanceof DecimalType ||
+                type instanceof VarbinaryType) {
             throw new IllegalArgumentException("Call constant(%s, ...)".formatted(type));
         }
 
