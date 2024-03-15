@@ -15,12 +15,15 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.operator.scalar.TryFunction;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.Chars;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -31,6 +34,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.ResolvedField;
@@ -489,6 +493,14 @@ public class TranslationMap
             return constant(type, Boolean.valueOf(expression.getValue()));
         }
 
+        if (type instanceof CharType) {
+            return constant(type, Chars.trimTrailingSpaces(Slices.utf8Slice(expression.getValue())));
+        }
+
+        if (type instanceof VarcharType) {
+            return constant(type, Slices.utf8Slice(expression.getValue()));
+        }
+
         return new io.trino.sql.ir.GenericLiteral(type, expression.getValue());
     }
 
@@ -585,7 +597,7 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(StringLiteral expression)
     {
-        return new io.trino.sql.ir.StringLiteral(expression.getValue());
+        return io.trino.sql.ir.GenericLiteral.constant(analysis.getType(expression), Slices.utf8Slice(expression.getValue()));
     }
 
     private io.trino.sql.ir.Expression translate(LongLiteral expression)

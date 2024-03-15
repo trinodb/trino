@@ -16,6 +16,9 @@ package io.trino.sql.ir;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
+import io.airlift.slice.Slice;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 import java.util.Optional;
@@ -63,14 +66,6 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitStringLiteral(StringLiteral node, Void context)
-        {
-            return literalFormatter
-                    .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> formatStringLiteral(node.getValue()));
-        }
-
-        @Override
         protected String visitBinaryLiteral(BinaryLiteral node, Void context)
         {
             return literalFormatter
@@ -95,9 +90,14 @@ public final class ExpressionFormatter
         @Override
         protected String visitGenericLiteral(GenericLiteral node, Void context)
         {
+            // TODO: ir - handle formatting of carrier types generically (add support to Type to render values?)
             return literalFormatter
                     .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> node.getType() + " " + formatStringLiteral(node.getValue()));
+                    .orElseGet(() -> node.getType() + " " + formatStringLiteral(switch (node.getType()) {
+                        case VarcharType type -> ((Slice) node.getRawValue()).toStringUtf8();
+                        case CharType type -> ((Slice) node.getRawValue()).toStringUtf8();
+                        default -> node.getValue();
+                    }));
         }
 
         @Override

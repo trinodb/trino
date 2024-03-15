@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
@@ -30,7 +31,6 @@ import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
@@ -53,6 +53,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
@@ -364,7 +365,7 @@ public class TestPushDownDereferencesRules
                                         p.symbol("expr", BIGINT), new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 1L)),
                                         p.symbol("expr_2", BIGINT), new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L))),
                                 p.filter(
-                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 1L)), new StringLiteral("foo")), new IsNotNullPredicate(new SymbolReference("msg2")))),
+                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 1L)), GenericLiteral.constant(createVarcharType(3), Slices.utf8Slice("foo"))), new IsNotNullPredicate(new SymbolReference("msg2")))),
                                         p.values(p.symbol("msg", ROW_TYPE), p.symbol("msg2", ROW_TYPE)))))
                 .matches(
                         strictProject(
@@ -372,7 +373,7 @@ public class TestPushDownDereferencesRules
                                         "expr", expression(new SymbolReference("msg_x")),
                                         "expr_2", expression(new SubscriptExpression(new SymbolReference("msg2"), GenericLiteral.constant(INTEGER, 1L)))), // not pushed down since predicate contains msg2 reference
                                 filter(
-                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("msg_x"), new StringLiteral("foo")), new IsNotNullPredicate(new SymbolReference("msg2")))),
+                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("msg_x"), GenericLiteral.constant(createVarcharType(3), Slices.utf8Slice("foo"))), new IsNotNullPredicate(new SymbolReference("msg2")))),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         "msg_x", expression(new SubscriptExpression(new SymbolReference("msg"), GenericLiteral.constant(INTEGER, 1L))),

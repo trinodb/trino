@@ -92,11 +92,6 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitStringLiteral(StringLiteral node, C context)
-    {
-        return visitLiteral(node, context);
-    }
-
     protected R visitBinaryLiteral(BinaryLiteral node, C context)
     {
         return visitLiteral(node, context);

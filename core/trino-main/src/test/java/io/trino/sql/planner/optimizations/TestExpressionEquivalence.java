@@ -15,6 +15,7 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ResolvedFunction;
@@ -31,7 +32,6 @@ import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NullLiteral;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
@@ -106,8 +106,8 @@ public class TestExpressionEquivalence
                 GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("4.4"))),
                 GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("4.4"))));
         assertEquivalent(
-                new StringLiteral("foo"),
-                new StringLiteral("foo"));
+                GenericLiteral.constant(VARCHAR, Slices.utf8Slice("foo")),
+                GenericLiteral.constant(VARCHAR, Slices.utf8Slice("foo")));
 
         assertEquivalent(
                 new ComparisonExpression(EQUAL, GenericLiteral.constant(INTEGER, 4L), GenericLiteral.constant(INTEGER, 5L)),
@@ -116,8 +116,8 @@ public class TestExpressionEquivalence
                 new ComparisonExpression(EQUAL, GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("4.4"))), GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("5.5")))),
                 new ComparisonExpression(EQUAL, GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("5.5"))), GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("4.4")))));
         assertEquivalent(
-                new ComparisonExpression(EQUAL, new StringLiteral("foo"), new StringLiteral("bar")),
-                new ComparisonExpression(EQUAL, new StringLiteral("bar"), new StringLiteral("foo")));
+                new ComparisonExpression(EQUAL, GenericLiteral.constant(VARCHAR, Slices.utf8Slice("foo")), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("bar"))),
+                new ComparisonExpression(EQUAL, GenericLiteral.constant(VARCHAR, Slices.utf8Slice("bar")), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("foo"))));
         assertEquivalent(
                 new ComparisonExpression(NOT_EQUAL, GenericLiteral.constant(INTEGER, 4L), GenericLiteral.constant(INTEGER, 5L)),
                 new ComparisonExpression(NOT_EQUAL, GenericLiteral.constant(INTEGER, 5L), GenericLiteral.constant(INTEGER, 4L)));
@@ -243,8 +243,8 @@ public class TestExpressionEquivalence
                 GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("4.4"))),
                 GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("5.5"))));
         assertNotEquivalent(
-                new StringLiteral("'foo'"),
-                new StringLiteral("'bar'"));
+                GenericLiteral.constant(VARCHAR, Slices.utf8Slice("'foo'")),
+                GenericLiteral.constant(VARCHAR, Slices.utf8Slice("'bar'")));
 
         assertNotEquivalent(
                 new ComparisonExpression(EQUAL, GenericLiteral.constant(INTEGER, 4L), GenericLiteral.constant(INTEGER, 5L)),

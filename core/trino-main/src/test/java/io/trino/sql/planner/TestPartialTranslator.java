@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.type.Type;
@@ -23,7 +24,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NodeRef;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.transaction.TransactionId;
@@ -73,7 +73,7 @@ public class TestPartialTranslator
         Expression rowSymbolReference = new SymbolReference("row_symbol_1");
         Expression dereferenceExpression1 = new SubscriptExpression(rowSymbolReference, GenericLiteral.constant(INTEGER, 1L));
         Expression dereferenceExpression2 = new SubscriptExpression(rowSymbolReference, GenericLiteral.constant(INTEGER, 2L));
-        Expression stringLiteral = new StringLiteral("abcd");
+        Expression stringLiteral = GenericLiteral.constant(VARCHAR, Slices.utf8Slice("abcd"));
         Expression symbolReference1 = new SymbolReference("double_symbol_1");
 
         assertFullTranslation(symbolReference1);

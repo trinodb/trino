@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.MustBeClosed;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slices;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.context.Context;
@@ -647,7 +648,7 @@ public class LogicalPlanner
         return BuiltinFunctionCallBuilder.resolve(metadata)
                 .setName("fail")
                 .addArgument(INTEGER, GenericLiteral.constant(INTEGER, (long) errorCode.toErrorCode().getCode()))
-                .addArgument(VARCHAR, new GenericLiteral(VARCHAR, errorMessage))
+                .addArgument(GenericLiteral.constant(VARCHAR, Slices.utf8Slice(errorMessage)))
                 .build();
     }
 

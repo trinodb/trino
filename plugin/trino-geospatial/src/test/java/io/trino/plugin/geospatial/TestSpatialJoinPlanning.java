@@ -16,6 +16,7 @@ package io.trino.plugin.geospatial;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.block.BlockSerdeUtil;
 import io.trino.geospatial.KdbTree;
@@ -36,7 +37,6 @@ import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SearchedCaseExpression;
-import io.trino.sql.ir.StringLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -62,6 +62,7 @@ import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -117,7 +118,7 @@ public class TestSpatialJoinPlanning
         BlockSerdeUtil.writeBlock(new TestingBlockEncodingSerde(), output, block);
         kdbTreeLiteral = new FunctionCall(QualifiedName.of("$literal$"), ImmutableList.of(
                 new FunctionCall(QualifiedName.of("from_base64"), ImmutableList.of(
-                        new StringLiteral(Base64.getEncoder().encodeToString(output.slice().getBytes()))))));
+                        GenericLiteral.constant(VARCHAR, Slices.utf8Slice(Base64.getEncoder().encodeToString(output.slice().getBytes())))))));
     }
 
     @Test
@@ -366,14 +367,14 @@ public class TestSpatialJoinPlanning
                                         .left(
                                                 project(
                                                         ImmutableMap.of(
-                                                                "wkt_a", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), GenericLiteral.constant(DOUBLE, 0.0)), new StringLiteral("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))"))), Optional.empty())),
-                                                                "name_a", expression(new StringLiteral("a"))),
+                                                                "wkt_a", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), GenericLiteral.constant(DOUBLE, 0.0)), GenericLiteral.constant(createVarcharType(45), Slices.utf8Slice("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))")))), Optional.empty())),
+                                                                "name_a", expression(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("a")))),
                                                         singleRow()))
                                         .right(
                                                 any(project(
                                                         ImmutableMap.of(
-                                                                "wkt_b", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), GenericLiteral.constant(DOUBLE, 0.0)), new StringLiteral("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))"))), Optional.empty())),
-                                                                "name_b", expression(new StringLiteral("a"))),
+                                                                "wkt_b", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), GenericLiteral.constant(DOUBLE, 0.0)), GenericLiteral.constant(createVarcharType(45), Slices.utf8Slice("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))")))), Optional.empty())),
+                                                                "name_b", expression(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("a")))),
                                                         singleRow())))))));
     }
 
