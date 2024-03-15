@@ -15,7 +15,7 @@ package io.trino.sql.ir;
 
 public abstract sealed class Literal
         extends Expression
-        permits BinaryLiteral, GenericLiteral, IntervalLiteral, NullLiteral
+        permits GenericLiteral, IntervalLiteral, NullLiteral
 {
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
