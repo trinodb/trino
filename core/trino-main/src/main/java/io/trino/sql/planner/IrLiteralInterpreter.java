@@ -46,18 +46,17 @@ import io.trino.sql.ir.Literal;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
+import io.trino.type.JsonType;
 
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.parseTimeWithTimeZone;
 import static io.trino.type.DateTimes.parseTimestamp;
 import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
-import static io.trino.type.JsonType.JSON;
 import static java.util.Objects.requireNonNull;
 
 public final class IrLiteralInterpreter
@@ -117,20 +116,14 @@ public final class IrLiteralInterpreter
                 case VarbinaryType type -> node.getRawValue();
                 case IntervalYearMonthType type -> node.getRawValue();
                 case IntervalDayTimeType type -> node.getRawValue();
+                case JsonType type -> node.getRawValue();
                 case TimeType unused -> parseTime(node.getValue());
                 case TimeWithTimeZoneType value -> parseTimeWithTimeZone(value.getPrecision(), node.getValue());
                 case TimestampType value -> parseTimestamp(value.getPrecision(), node.getValue());
                 case TimestampWithTimeZoneType value -> parseTimestampWithTimeZone(value.getPrecision(), node.getValue());
                 default -> {
                     Function<GenericLiteral, Object> evaluator = CacheUtils.uncheckedCacheGet(genericLiteralEvaluatorCache, type, () -> {
-                        boolean isJson = JSON.equals(type);
-                        ResolvedFunction resolvedFunction;
-                        if (isJson) {
-                            resolvedFunction = plannerContext.getMetadata().resolveBuiltinFunction("json_parse", fromTypes(VARCHAR));
-                        }
-                        else {
-                            resolvedFunction = plannerContext.getMetadata().getCoercion(VARCHAR, type);
-                        }
+                        ResolvedFunction resolvedFunction = plannerContext.getMetadata().getCoercion(VARCHAR, type);
                         return evaluatedNode -> functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(evaluatedNode.getValue())));
                     });
                     yield evaluator.apply(node);

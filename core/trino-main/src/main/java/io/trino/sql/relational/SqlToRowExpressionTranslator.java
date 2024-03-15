@@ -196,13 +196,11 @@ public final class SqlToRowExpressionTranslator
                 case IntervalYearMonthType type -> constant(node.getRawValue(), type);
                 case IntervalDayTimeType type -> constant(node.getRawValue(), type);
                 case DateType type -> constant(node.getRawValue(), type);
+                case JsonType type -> constant(node.getRawValue(), type);
                 case TimeType type -> constant(parseTime(node.getValue()), type);
                 case TimeWithTimeZoneType type -> constant(parseTimeWithTimeZone(type.getPrecision(), node.getValue()), type);
                 case TimestampType type -> constant(parseTimestamp(type.getPrecision(), node.getValue()), type);
                 case TimestampWithTimeZoneType type -> constant(parseTimestampWithTimeZone(type.getPrecision(), node.getValue()), type);
-                case JsonType unused -> call(
-                        metadata.resolveBuiltinFunction("json_parse", fromTypes(VARCHAR)),
-                        constant(utf8Slice(node.getValue()), VARCHAR));
                 case Type type -> call(
                         metadata.getCoercion(VARCHAR, type),
                         constant(utf8Slice(node.getValue()), VARCHAR));

@@ -40,6 +40,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.type.JsonType.JSON;
 import static java.util.Objects.requireNonNull;
 
 public final class GenericLiteral
@@ -86,6 +87,7 @@ public final class GenericLiteral
                 type.equals(REAL) ||
                 type.equals(DOUBLE) ||
                 type.equals(DATE) ||
+                type.equals(JSON) ||
                 type instanceof VarcharType ||
                 type instanceof CharType ||
                 type instanceof DecimalType ||
