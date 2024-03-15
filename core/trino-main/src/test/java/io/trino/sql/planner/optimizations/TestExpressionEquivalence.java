@@ -295,17 +295,17 @@ public class TestExpressionEquivalence
                 new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("d_bigint"), new SymbolReference("c_bigint")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("b_bigint"), new SymbolReference("c_bigint")))));
 
         assertNotEquivalent(
-                new Cast(new GenericLiteral(createTimeWithTimeZoneType(3), "12:34:56.123 +00:00"), VARCHAR),
-                new Cast(new GenericLiteral(createTimeWithTimeZoneType(3), "14:34:56.123 +02:00"), VARCHAR));
+                new Cast(GenericLiteral.constant(createTimeWithTimeZoneType(3), DateTimes.parseTimeWithTimeZone(3, "12:34:56.123 +00:00")), VARCHAR),
+                new Cast(GenericLiteral.constant(createTimeWithTimeZoneType(3), DateTimes.parseTimeWithTimeZone(3, "14:34:56.123 +02:00")), VARCHAR));
         assertNotEquivalent(
-                new Cast(new GenericLiteral(createTimeWithTimeZoneType(6), "12:34:56.123456 +00:00"), VARCHAR),
-                new Cast(new GenericLiteral(createTimeWithTimeZoneType(6), "14:34:56.123456 +02:00"), VARCHAR));
+                new Cast(GenericLiteral.constant(createTimeWithTimeZoneType(6), DateTimes.parseTimeWithTimeZone(6, "12:34:56.123456 +00:00")), VARCHAR),
+                new Cast(GenericLiteral.constant(createTimeWithTimeZoneType(6), DateTimes.parseTimeWithTimeZone(6, "14:34:56.123456 +02:00")), VARCHAR));
         assertNotEquivalent(
-                new Cast(new GenericLiteral(createTimeWithTimeZoneType(9), "12:34:56.123456789 +00:00"), VARCHAR),
-                new Cast(new GenericLiteral(createTimeWithTimeZoneType(9), "14:34:56.123456789 +02:00"), VARCHAR));
+                new Cast(GenericLiteral.constant(createTimeWithTimeZoneType(9), DateTimes.parseTimeWithTimeZone(9, "12:34:56.123456789 +00:00")), VARCHAR),
+                new Cast(GenericLiteral.constant(createTimeWithTimeZoneType(9), DateTimes.parseTimeWithTimeZone(9, "14:34:56.123456789 +02:00")), VARCHAR));
         assertNotEquivalent(
-                new Cast(new GenericLiteral(createTimeWithTimeZoneType(12), "12:34:56.123456789012 +00:00"), VARCHAR),
-                new Cast(new GenericLiteral(createTimeWithTimeZoneType(12), "14:34:56.123456789012 +02:00"), VARCHAR));
+                new Cast(GenericLiteral.constant(createTimeWithTimeZoneType(12), DateTimes.parseTimeWithTimeZone(12, "12:34:56.123456789012 +00:00")), VARCHAR),
+                new Cast(GenericLiteral.constant(createTimeWithTimeZoneType(12), DateTimes.parseTimeWithTimeZone(12, "14:34:56.123456789012 +02:00")), VARCHAR));
 
         assertNotEquivalent(
                 new Cast(GenericLiteral.constant(createTimestampWithTimeZoneType(3), DateTimes.parseTimestampWithTimeZone(3, "2020-05-10 12:34:56.123 Europe/Warsaw")), VARCHAR),

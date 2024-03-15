@@ -22,6 +22,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
@@ -92,6 +93,7 @@ public final class GenericLiteral
                 type.equals(JSON) ||
                 type instanceof TimestampType ||
                 type instanceof TimestampWithTimeZoneType ||
+                type instanceof TimeWithTimeZoneType ||
                 type instanceof VarcharType ||
                 type instanceof CharType ||
                 type instanceof DecimalType ||
