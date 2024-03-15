@@ -26,7 +26,6 @@ import java.util.List;
         @JsonSubTypes.Type(value = ArithmeticUnaryExpression.class, name = "arithmeticUnary"),
         @JsonSubTypes.Type(value = Array.class, name = "array"),
         @JsonSubTypes.Type(value = BetweenPredicate.class, name = "between"),
-        @JsonSubTypes.Type(value = BinaryLiteral.class, name = "binary"),
         @JsonSubTypes.Type(value = BindExpression.class, name = "bind"),
         @JsonSubTypes.Type(value = BooleanLiteral.class, name = "boolean"),
         @JsonSubTypes.Type(value = Cast.class, name = "cast"),

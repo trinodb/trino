@@ -33,11 +33,11 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.BetweenPredicate;
-import io.trino.sql.ir.BinaryLiteral;
 import io.trino.sql.ir.BindExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
@@ -76,7 +76,6 @@ import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
@@ -86,7 +85,6 @@ import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.relational.Expressions.call;
@@ -181,12 +179,6 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitBinaryLiteral(BinaryLiteral node, Void context)
-        {
-            return constant(wrappedBuffer(node.getValue()), VARBINARY);
-        }
-
-        @Override
         protected RowExpression visitGenericLiteral(GenericLiteral node, Void context)
         {
             return switch (node.getType()) {
@@ -198,6 +190,7 @@ public final class SqlToRowExpressionTranslator
                 case DecimalType type -> constant(node.getRawValue(), type);
                 case VarcharType type -> constant(node.getRawValue(), type);
                 case CharType type -> constant(node.getRawValue(), type);
+                case VarbinaryType type -> constant(node.getRawValue(), type);
                 case TimeType type -> constant(parseTime(node.getValue()), type);
                 case TimeWithTimeZoneType type -> constant(parseTimeWithTimeZone(type.getPrecision(), node.getValue()), type);
                 case TimestampType type -> constant(parseTimestamp(type.getPrecision(), node.getValue()), type);

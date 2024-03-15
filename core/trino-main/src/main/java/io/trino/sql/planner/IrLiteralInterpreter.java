@@ -16,8 +16,6 @@ package io.trino.sql.planner;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.cache.CacheUtils;
 import io.trino.metadata.ResolvedFunction;
@@ -35,10 +33,10 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.BinaryLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IntervalLiteral;
@@ -101,12 +99,6 @@ public final class IrLiteralInterpreter
         }
 
         @Override
-        protected Slice visitBinaryLiteral(BinaryLiteral node, Void context)
-        {
-            return Slices.wrappedBuffer(node.getValue());
-        }
-
-        @Override
         protected Object visitGenericLiteral(GenericLiteral node, Void context)
         {
             return switch (type) {
@@ -119,6 +111,7 @@ public final class IrLiteralInterpreter
                 case DecimalType type -> node.getRawValue();
                 case VarcharType type -> node.getRawValue();
                 case CharType type -> node.getRawValue();
+                case VarbinaryType type -> node.getRawValue();
                 case TimeType unused -> parseTime(node.getValue());
                 case TimeWithTimeZoneType value -> parseTimeWithTimeZone(value.getPrecision(), node.getValue());
                 case TimestampType value -> parseTimestamp(value.getPrecision(), node.getValue());

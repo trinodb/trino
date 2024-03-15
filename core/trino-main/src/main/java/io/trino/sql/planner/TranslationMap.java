@@ -126,6 +126,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
@@ -448,7 +449,7 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(BinaryLiteral expression)
     {
-        return new io.trino.sql.ir.BinaryLiteral(expression.getValue());
+        return io.trino.sql.ir.GenericLiteral.constant(analysis.getType(expression), Slices.wrappedBuffer(expression.getValue()));
     }
 
     private io.trino.sql.ir.Expression translate(BetweenPredicate expression)
@@ -497,7 +498,7 @@ public class TranslationMap
             return constant(type, Chars.trimTrailingSpaces(Slices.utf8Slice(expression.getValue())));
         }
 
-        if (type instanceof VarcharType) {
+        if (type instanceof VarcharType || type.equals(VARBINARY)) {
             return constant(type, Slices.utf8Slice(expression.getValue()));
         }
 

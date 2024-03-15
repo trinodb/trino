@@ -22,7 +22,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.BinaryLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionFormatter;
 import io.trino.sql.ir.GenericLiteral;
@@ -49,7 +48,6 @@ import static io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.RefreshMaterializedViewTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
@@ -116,9 +114,6 @@ public class CounterBasedAnonymizer
                 return literal.getValue();
             }
             return anonymizeLiteral(literal.getType().getDisplayName(), literal.getValue());
-        }
-        if (node instanceof BinaryLiteral literal) {
-            return anonymizeLiteral("binary", new String(literal.getValue(), UTF_8));
         }
         if (node instanceof IntervalLiteral literal) {
             return anonymizeLiteral("interval", literal.getValue());

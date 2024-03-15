@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import java.util.List;
@@ -77,14 +78,6 @@ public final class ExpressionFormatter
             return builder.toString();
         }
 
-        protected String visitBinaryLiteral(BinaryLiteral node, Void context)
-        {
-            return literalFormatter
-                    .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> "X'" + BaseEncoding.base16().encode(node.getValue()) + "'");
-        }
-
-        @Override
         protected String visitArray(Array node, Void context)
         {
             return node.getValues().stream()
@@ -105,6 +98,7 @@ public final class ExpressionFormatter
             return literalFormatter
                     .map(formatter -> formatter.apply(node))
                     .orElseGet(() -> node.getType() + " " + formatStringLiteral(switch (node.getType()) {
+                        case VarbinaryType type -> BaseEncoding.base16().encode(((Slice) node.getRawValue()).getBytes());
                         case VarcharType type -> ((Slice) node.getRawValue()).toStringUtf8();
                         case CharType type -> ((Slice) node.getRawValue()).toStringUtf8();
                         default -> node.getValue();
