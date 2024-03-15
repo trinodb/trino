@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
@@ -110,6 +111,7 @@ public final class IrLiteralInterpreter
                 case DecimalType type -> node.getRawValue();
                 case VarcharType type -> node.getRawValue();
                 case CharType type -> node.getRawValue();
+                case DateType type -> node.getRawValue();
                 case VarbinaryType type -> node.getRawValue();
                 case IntervalYearMonthType type -> node.getRawValue();
                 case IntervalDayTimeType type -> node.getRawValue();

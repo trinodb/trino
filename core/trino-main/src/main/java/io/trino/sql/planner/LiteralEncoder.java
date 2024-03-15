@@ -28,7 +28,6 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
-import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
@@ -113,6 +112,7 @@ public final class LiteralEncoder
                 type.equals(INTEGER) ||
                 type.equals(BIGINT) ||
                 type.equals(DOUBLE) ||
+                type.equals(DATE) ||
                 type.equals(INTERVAL_YEAR_MONTH) ||
                 type.equals(INTERVAL_DAY_TIME) ||
                 type instanceof DecimalType ||
@@ -146,10 +146,6 @@ public final class LiteralEncoder
                         REAL);
             }
             return new GenericLiteral(REAL, value.toString());
-        }
-
-        if (type.equals(DATE)) {
-            return new GenericLiteral(DATE, new SqlDate(toIntExact((Long) object)).toString());
         }
 
         if (type instanceof TimestampType timestampType) {

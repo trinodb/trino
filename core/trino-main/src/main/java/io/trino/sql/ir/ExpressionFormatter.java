@@ -18,10 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
+import io.trino.util.DateTimeUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -94,6 +96,7 @@ public final class ExpressionFormatter
                         case CharType type -> ((Slice) node.getRawValue()).toStringUtf8();
                         case IntervalDayTimeType type -> node.getRawValue().toString();
                         case IntervalYearMonthType type -> node.getRawValue().toString();
+                        case DateType type -> DateTimeUtils.printDate((int) (long) node.getRawValue());
                         default -> node.getValue();
                     }));
         }

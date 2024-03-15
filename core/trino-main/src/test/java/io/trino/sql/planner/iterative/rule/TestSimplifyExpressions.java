@@ -34,6 +34,7 @@ import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -560,19 +561,19 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the date's representation
         assertSimplifies(
-                new Cast(new GenericLiteral(DATE, "2013-02-02"), createVarcharType(10)),
+                new Cast(GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(10)),
                 GenericLiteral.constant(createVarcharType(10), Slices.utf8Slice("2013-02-02")));
         assertSimplifies(
-                new Cast(new GenericLiteral(DATE, "2013-02-02"), createVarcharType(50)),
+                new Cast(GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(50)),
                 GenericLiteral.constant(createVarcharType(50), Slices.utf8Slice("2013-02-02")));
 
         // cast from date to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(new GenericLiteral(DATE, "2013-02-02"), createVarcharType(3)),
-                new Cast(new GenericLiteral(DATE, "2013-02-02"), createVarcharType(3)));
+                new Cast(GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)),
+                new Cast(GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral(DATE, "2013-02-02"), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("2013-02-02"))),
-                new ComparisonExpression(EQUAL, new Cast(new GenericLiteral(DATE, "2013-02-02"), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("2013-02-02"))));
+                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("2013-02-02"))),
+                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("2013-02-02"))));
     }
 
     private static void assertSimplifies(Expression expression, Expression expected)

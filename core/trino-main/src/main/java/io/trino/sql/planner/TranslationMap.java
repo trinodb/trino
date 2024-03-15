@@ -107,6 +107,7 @@ import io.trino.type.FunctionType;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
 import io.trino.type.JsonPath2016Type;
+import io.trino.util.DateTimeUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -122,6 +123,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -485,6 +487,10 @@ public class TranslationMap
 
         if (type.equals(BOOLEAN)) {
             return constant(type, Boolean.valueOf(expression.getValue()));
+        }
+
+        if (type.equals(DATE)) {
+            return constant(type, (long) DateTimeUtils.parseDate(expression.getValue().trim()));
         }
 
         if (type instanceof CharType) {
