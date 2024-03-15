@@ -53,7 +53,6 @@ import java.util.function.Function;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.type.DateTimes.parseTime;
 import static java.util.Objects.requireNonNull;
 
 public final class IrLiteralInterpreter
@@ -114,7 +113,7 @@ public final class IrLiteralInterpreter
                 case IntervalYearMonthType type -> node.getRawValue();
                 case IntervalDayTimeType type -> node.getRawValue();
                 case JsonType type -> node.getRawValue();
-                case TimeType unused -> parseTime(node.getValue());
+                case TimeType unused -> node.getRawValue();
                 case TimeWithTimeZoneType value -> node.getRawValue();
                 case TimestampType value -> node.getRawValue();
                 case TimestampWithTimeZoneType value -> node.getRawValue();

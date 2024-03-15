@@ -22,6 +22,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -94,6 +95,7 @@ public final class GenericLiteral
                 type instanceof TimestampType ||
                 type instanceof TimestampWithTimeZoneType ||
                 type instanceof TimeWithTimeZoneType ||
+                type instanceof TimeType ||
                 type instanceof VarcharType ||
                 type instanceof CharType ||
                 type instanceof DecimalType ||
