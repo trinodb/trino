@@ -104,6 +104,8 @@ import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.WhenClause;
 import io.trino.type.FunctionType;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 import io.trino.type.JsonPath2016Type;
 
 import java.util.Arrays;
@@ -139,6 +141,8 @@ import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
+import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
+import static io.trino.util.DateTimeUtils.parseYearMonthInterval;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -382,26 +386,15 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(IntervalLiteral expression)
     {
-        return new io.trino.sql.ir.IntervalLiteral(
-                expression.getValue(),
-                switch (expression.getSign()) {
-                    case POSITIVE -> io.trino.sql.ir.IntervalLiteral.Sign.POSITIVE;
-                    case NEGATIVE -> io.trino.sql.ir.IntervalLiteral.Sign.NEGATIVE;
-                },
-                translate(expression.getStartField()),
-                expression.getEndField().map(this::translate));
-    }
+        Type type = analysis.getType(expression);
 
-    private io.trino.sql.ir.IntervalLiteral.IntervalField translate(IntervalLiteral.IntervalField field)
-    {
-        return switch (field) {
-            case YEAR -> io.trino.sql.ir.IntervalLiteral.IntervalField.YEAR;
-            case MONTH -> io.trino.sql.ir.IntervalLiteral.IntervalField.MONTH;
-            case DAY -> io.trino.sql.ir.IntervalLiteral.IntervalField.DAY;
-            case HOUR -> io.trino.sql.ir.IntervalLiteral.IntervalField.HOUR;
-            case MINUTE -> io.trino.sql.ir.IntervalLiteral.IntervalField.MINUTE;
-            case SECOND -> io.trino.sql.ir.IntervalLiteral.IntervalField.SECOND;
-        };
+        return io.trino.sql.ir.GenericLiteral.constant(
+                type,
+                switch (type) {
+                    case IntervalYearMonthType t -> expression.getSign().multiplier() * parseYearMonthInterval(expression.getValue(), expression.getStartField(), expression.getEndField());
+                    case IntervalDayTimeType t -> expression.getSign().multiplier() * parseDayTimeInterval(expression.getValue(), expression.getStartField(), expression.getEndField());
+                    default -> throw new IllegalArgumentException("Unexpected type for IntervalLiteral: %s" + type);
+                });
     }
 
     private io.trino.sql.ir.WhenClause translate(WhenClause expression)
