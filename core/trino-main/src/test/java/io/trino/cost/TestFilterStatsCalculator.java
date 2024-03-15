@@ -21,6 +21,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
@@ -381,7 +382,7 @@ public class TestFilterStatsCalculator
                 .symbolStats(new Symbol("y"), SymbolStatsAssertion::emptyRange);
 
         // first argument unknown
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(new GenericLiteral(JSON, "[]"), new SymbolReference("x"))), new ComparisonExpression(LESS_THAN, new SymbolReference("x"), GenericLiteral.constant(DOUBLE, 0.0)))))
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(GenericLiteral.constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[]"))), new SymbolReference("x"))), new ComparisonExpression(LESS_THAN, new SymbolReference("x"), GenericLiteral.constant(DOUBLE, 0.0)))))
                 .outputRowsCount(337.5)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
@@ -390,7 +391,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0));
 
         // second argument unknown
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), GenericLiteral.constant(DOUBLE, 0.0)), new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(new GenericLiteral(JSON, "[]"), new SymbolReference("x"))))))
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), GenericLiteral.constant(DOUBLE, 0.0)), new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(GenericLiteral.constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[]"))), new SymbolReference("x"))))))
                 .outputRowsCount(337.5)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
@@ -400,8 +401,8 @@ public class TestFilterStatsCalculator
 
         // both arguments unknown
         assertExpression(new LogicalExpression(AND, ImmutableList.of(
-                new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(new GenericLiteral(JSON, "[11]"), new SymbolReference("x"))),
-                new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(new GenericLiteral(JSON, "[13]"), new SymbolReference("x"))))))
+                new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(GenericLiteral.constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[11]"))), new SymbolReference("x"))),
+                new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(GenericLiteral.constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[13]"))), new SymbolReference("x"))))))
                 .outputRowsCountUnknown();
 
         assertExpression(new LogicalExpression(AND, ImmutableList.of(new InPredicate(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("c")))), new ComparisonExpression(EQUAL, new SymbolReference("unknownRange"), GenericLiteral.constant(DOUBLE, 3.0)))))
@@ -592,7 +593,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0))
                 .symbolStats(new Symbol("y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
 
-        assertExpression(new NotExpression(new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(new GenericLiteral(JSON, "[]"), new SymbolReference("x")))))
+        assertExpression(new NotExpression(new FunctionCall(JSON_ARRAY_CONTAINS.toQualifiedName(), ImmutableList.of(GenericLiteral.constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[]"))), new SymbolReference("x")))))
                 .outputRowsCountUnknown();
     }
 
