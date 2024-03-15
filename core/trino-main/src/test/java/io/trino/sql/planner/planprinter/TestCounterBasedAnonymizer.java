@@ -18,13 +18,10 @@ import io.airlift.slice.Slices;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.IntervalLiteral;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import org.junit.jupiter.api.Test;
-
-import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -74,8 +71,5 @@ public class TestCounterBasedAnonymizer
 
         assertThat(anonymizer.anonymize(new NullLiteral()))
                 .isEqualTo("null");
-
-        assertThat(anonymizer.anonymize(new IntervalLiteral("33", IntervalLiteral.Sign.POSITIVE, IntervalLiteral.IntervalField.DAY, Optional.empty())))
-                .isEqualTo("'interval_literal_3'");
     }
 }

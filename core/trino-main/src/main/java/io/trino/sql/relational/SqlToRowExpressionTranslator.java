@@ -48,7 +48,6 @@ import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
-import io.trino.sql.ir.IntervalLiteral;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
@@ -67,6 +66,8 @@ import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.SpecialForm.Form;
 import io.trino.sql.relational.optimizer.ExpressionOptimizer;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 import io.trino.type.JsonType;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
@@ -108,8 +109,6 @@ import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.parseTimeWithTimeZone;
 import static io.trino.type.DateTimes.parseTimestamp;
 import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
-import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
-import static io.trino.util.DateTimeUtils.parseYearMonthInterval;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlToRowExpressionTranslator
@@ -191,6 +190,8 @@ public final class SqlToRowExpressionTranslator
                 case VarcharType type -> constant(node.getRawValue(), type);
                 case CharType type -> constant(node.getRawValue(), type);
                 case VarbinaryType type -> constant(node.getRawValue(), type);
+                case IntervalYearMonthType type -> constant(node.getRawValue(), type);
+                case IntervalDayTimeType type -> constant(node.getRawValue(), type);
                 case TimeType type -> constant(parseTime(node.getValue()), type);
                 case TimeWithTimeZoneType type -> constant(parseTimeWithTimeZone(type.getPrecision(), node.getValue()), type);
                 case TimestampType type -> constant(parseTimestamp(type.getPrecision(), node.getValue()), type);
@@ -202,19 +203,6 @@ public final class SqlToRowExpressionTranslator
                         metadata.getCoercion(VARCHAR, type),
                         constant(utf8Slice(node.getValue()), VARCHAR));
             };
-        }
-
-        @Override
-        protected RowExpression visitIntervalLiteral(IntervalLiteral node, Void context)
-        {
-            long value;
-            if (node.isYearToMonth()) {
-                value = node.getSign().multiplier() * parseYearMonthInterval(node.getValue(), node.getStartField(), node.getEndField());
-            }
-            else {
-                value = node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), node.getStartField(), node.getEndField());
-            }
-            return constant(value, getType(node));
         }
 
         @Override

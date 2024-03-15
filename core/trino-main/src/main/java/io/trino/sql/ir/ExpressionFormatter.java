@@ -20,6 +20,8 @@ import io.airlift.slice.Slice;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 
 import java.util.List;
 import java.util.Optional;
@@ -90,6 +92,8 @@ public final class ExpressionFormatter
                         case VarbinaryType type -> BaseEncoding.base16().encode(((Slice) node.getRawValue()).getBytes());
                         case VarcharType type -> ((Slice) node.getRawValue()).toStringUtf8();
                         case CharType type -> ((Slice) node.getRawValue()).toStringUtf8();
+                        case IntervalDayTimeType type -> node.getRawValue().toString();
+                        case IntervalYearMonthType type -> node.getRawValue().toString();
                         default -> node.getValue();
                     }));
         }
@@ -100,25 +104,6 @@ public final class ExpressionFormatter
             return literalFormatter
                     .map(formatter -> formatter.apply(node))
                     .orElse("null");
-        }
-
-        @Override
-        protected String visitIntervalLiteral(IntervalLiteral node, Void context)
-        {
-            if (literalFormatter.isPresent()) {
-                return literalFormatter.get().apply(node);
-            }
-            String sign = (node.getSign() == IntervalLiteral.Sign.NEGATIVE) ? "-" : "";
-            StringBuilder builder = new StringBuilder()
-                    .append("INTERVAL ")
-                    .append(sign)
-                    .append("'").append(node.getValue()).append("' ")
-                    .append(node.getStartField());
-
-            if (node.getEndField().isPresent()) {
-                builder.append(" TO ").append(node.getEndField().get());
-            }
-            return builder.toString();
         }
 
         @Override

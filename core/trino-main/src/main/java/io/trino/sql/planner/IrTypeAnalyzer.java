@@ -42,7 +42,6 @@ import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
-import io.trino.sql.ir.IntervalLiteral;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
@@ -69,8 +68,6 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
@@ -354,19 +351,6 @@ public class IrTypeAnalyzer
         protected Type visitGenericLiteral(GenericLiteral node, Context context)
         {
             return setExpressionType(node, node.getType());
-        }
-
-        @Override
-        protected Type visitIntervalLiteral(IntervalLiteral node, Context context)
-        {
-            Type type;
-            if (node.isYearToMonth()) {
-                type = INTERVAL_YEAR_MONTH;
-            }
-            else {
-                type = INTERVAL_DAY_TIME;
-            }
-            return setExpressionType(node, type);
         }
 
         @Override

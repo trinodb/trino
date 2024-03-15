@@ -162,27 +162,15 @@ public final class LiteralInterpreter
         protected Long visitIntervalLiteral(IntervalLiteral node, Void context)
         {
             if (node.isYearToMonth()) {
-                return node.getSign().multiplier() * parseYearMonthInterval(node.getValue(), mapIntervalField(node.getStartField()), node.getEndField().map(LiteralVisitor::mapIntervalField));
+                return node.getSign().multiplier() * parseYearMonthInterval(node.getValue(), node.getStartField(), node.getEndField());
             }
-            return node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), mapIntervalField(node.getStartField()), node.getEndField().map(LiteralVisitor::mapIntervalField));
+            return node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), node.getStartField(), node.getEndField());
         }
 
         @Override
         protected Object visitNullLiteral(NullLiteral node, Void context)
         {
             return null;
-        }
-
-        private static io.trino.sql.ir.IntervalLiteral.IntervalField mapIntervalField(IntervalLiteral.IntervalField field)
-        {
-            return switch (field) {
-                case YEAR -> io.trino.sql.ir.IntervalLiteral.IntervalField.YEAR;
-                case MONTH -> io.trino.sql.ir.IntervalLiteral.IntervalField.MONTH;
-                case DAY -> io.trino.sql.ir.IntervalLiteral.IntervalField.DAY;
-                case HOUR -> io.trino.sql.ir.IntervalLiteral.IntervalField.HOUR;
-                case MINUTE -> io.trino.sql.ir.IntervalLiteral.IntervalField.MINUTE;
-                case SECOND -> io.trino.sql.ir.IntervalLiteral.IntervalField.SECOND;
-            };
         }
     }
 }
