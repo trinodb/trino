@@ -77,12 +77,13 @@ public class LongDecimalWithOverflowStateSerializer
         long low = slice.getLong(sliceOffset);
         long high = 0;
         long overflow = 0;
-        if (sliceLength == 3 * Long.BYTES) {
-            overflow = slice.getLong(sliceOffset + 16);
-            high = slice.getLong(sliceOffset + 8);
-        }
-        else if (sliceLength == 2 * Long.BYTES) {
-            high = slice.getLong(sliceOffset + 8);
+
+        switch (sliceLength) {
+            case Long.BYTES * 3:
+                overflow = slice.getLong(sliceOffset + Long.BYTES * 2);
+                // fall through
+            case Long.BYTES * 2:
+                high = slice.getLong(sliceOffset + Long.BYTES);
         }
 
         decimal[offset + 1] = low;
