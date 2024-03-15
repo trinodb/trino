@@ -14,10 +14,13 @@
 package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
+import io.trino.plugin.jdbc.RemoteLogTracingEvent;
 import io.trino.testing.ResourcePresence;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.containers.output.OutputFrame;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -28,7 +31,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -59,6 +65,7 @@ public class TestingPostgreSqlServer
     private static final String LOG_CANCELLED_STATEMENT_PREFIX = "STATEMENT:  ";
 
     private final PostgreSQLContainer<?> dockerContainer;
+    private final Set<RemoteLogTracingEvent> tracingEvents = Sets.newConcurrentHashSet();
 
     private final Closeable cleanup;
 
@@ -75,6 +82,7 @@ public class TestingPostgreSqlServer
                 .withDatabaseName(DATABASE)
                 .withUsername(USER)
                 .withPassword(PASSWORD)
+                .withLogConsumer(new RemoteDatabaseEventLogConsumer())
                 .withCommand("postgres", "-c", "log_destination=stderr", "-c", "log_statement=all");
         if (shouldExposeFixedPorts) {
             exposeFixedPorts(dockerContainer);
@@ -82,6 +90,59 @@ public class TestingPostgreSqlServer
         cleanup = startOrReuse(dockerContainer);
 
         execute("CREATE SCHEMA IF NOT EXISTS tpch");
+    }
+
+    private class RemoteDatabaseEventLogConsumer
+            implements Consumer<OutputFrame>
+    {
+        private boolean cancellationHit;
+
+        @Override
+        public void accept(OutputFrame outputFrame)
+        {
+            if (tracingEvents.isEmpty()) {
+                return;
+            }
+
+            buildEvent(outputFrame)
+                    .ifPresent(remoteDatabaseEvent -> tracingEvents.forEach(tracingEvent -> tracingEvent.accept(remoteDatabaseEvent)));
+        }
+
+        private Optional<RemoteDatabaseEvent> buildEvent(OutputFrame outputFrame)
+        {
+            String logLine = outputFrame.getUtf8StringWithoutLineEnding().replaceAll(LOG_PREFIX_REGEXP, "");
+
+            if (cancellationHit) {
+                cancellationHit = false;
+                if (logLine.startsWith(LOG_CANCELLED_STATEMENT_PREFIX)) {
+                    return Optional.of(new RemoteDatabaseEvent(logLine.substring(LOG_CANCELLED_STATEMENT_PREFIX.length()), CANCELLED));
+                }
+            }
+
+            if (logLine.equals(LOG_CANCELLATION_EVENT)) {
+                cancellationHit = true;
+            }
+
+            if (logLine.startsWith(LOG_RUNNING_STATEMENT_PREFIX)) {
+                Matcher matcher = SQL_QUERY_FIND_PATTERN.matcher(logLine.substring(LOG_RUNNING_STATEMENT_PREFIX.length()));
+                if (matcher.find()) {
+                    String sqlStatement = matcher.group(2);
+                    return Optional.of(new RemoteDatabaseEvent(sqlStatement, RUNNING));
+                }
+            }
+
+            return Optional.empty();
+        }
+    }
+
+    protected void startTracingDatabaseEvent(RemoteLogTracingEvent event)
+    {
+        tracingEvents.add(event);
+    }
+
+    protected void stopTracingDatabaseEvent(RemoteLogTracingEvent event)
+    {
+        tracingEvents.remove(event);
     }
 
     public void execute(@Language("SQL") String sql)
