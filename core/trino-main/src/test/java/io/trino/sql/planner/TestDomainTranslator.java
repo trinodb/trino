@@ -43,6 +43,7 @@ import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.type.LikePattern;
 import io.trino.type.LikePatternType;
+import io.trino.type.Reals;
 import io.trino.type.TypeCoercion;
 import io.trino.util.DateTimeUtils;
 import org.joda.time.DateTime;
@@ -396,7 +397,7 @@ public class TestDomainTranslator
 
         // floating point types: do not coalesce ranges when range "all" would be introduced
         tupleDomain = tupleDomain(C_REAL, Domain.create(ValueSet.ofRanges(Range.greaterThan(REAL, 0L), Range.lessThan(REAL, 0L)), false));
-        assertThat(toPredicate(tupleDomain)).isEqualTo(or(lessThan(C_REAL, realLiteral("0.0")), greaterThan(C_REAL, realLiteral("0.0"))));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(lessThan(C_REAL, realLiteral(0.0f)), greaterThan(C_REAL, realLiteral(0.0f))));
 
         tupleDomain = tupleDomain(C_REAL, Domain.create(
                 ValueSet.ofRanges(
@@ -405,9 +406,9 @@ public class TestDomainTranslator
                         Range.greaterThan(REAL, (long) Float.floatToIntBits(1F))),
                 false));
         assertThat(toPredicate(tupleDomain)).isEqualTo(or(
-                lessThan(C_REAL, realLiteral("0.0")),
-                and(greaterThan(C_REAL, realLiteral("0.0")), lessThan(C_REAL, realLiteral("1.0"))),
-                greaterThan(C_REAL, realLiteral("1.0"))));
+                lessThan(C_REAL, realLiteral(0.0f)),
+                and(greaterThan(C_REAL, realLiteral(0.0f)), lessThan(C_REAL, realLiteral(1.0f))),
+                greaterThan(C_REAL, realLiteral(1.0f))));
 
         tupleDomain = tupleDomain(C_REAL, Domain.create(
                 ValueSet.ofRanges(
@@ -415,7 +416,7 @@ public class TestDomainTranslator
                         Range.range(REAL, 0L, false, (long) Float.floatToIntBits(1F), false),
                         Range.greaterThan(REAL, (long) Float.floatToIntBits(2F))),
                 false));
-        assertThat(toPredicate(tupleDomain)).isEqualTo(or(and(lessThan(C_REAL, realLiteral("1.0")), notEqual(C_REAL, realLiteral("0.0"))), greaterThan(C_REAL, realLiteral("2.0"))));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(and(lessThan(C_REAL, realLiteral(1.0f)), notEqual(C_REAL, realLiteral(0.0f))), greaterThan(C_REAL, realLiteral(2.0f))));
 
         tupleDomain = tupleDomain(C_DOUBLE, Domain.create(
                 ValueSet.ofRanges(
@@ -508,8 +509,8 @@ public class TestDomainTranslator
         assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
 
         originalPredicate = or(
-                greaterThan(C_REAL, realLiteral("2.0")),
-                lessThan(C_REAL, realLiteral("5.0")),
+                greaterThan(C_REAL, realLiteral(2.0f)),
+                lessThan(C_REAL, realLiteral(5.0f)),
                 isNull(C_REAL));
         result = fromPredicate(originalPredicate);
         assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
@@ -523,8 +524,8 @@ public class TestDomainTranslator
         assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
 
         originalPredicate = or(
-                and(greaterThan(C_REAL, realLiteral("2.0")), unprocessableExpression1(C_REAL)),
-                and(lessThan(C_REAL, realLiteral("5.0")), unprocessableExpression1(C_REAL)));
+                and(greaterThan(C_REAL, realLiteral(2.0f)), unprocessableExpression1(C_REAL)),
+                and(lessThan(C_REAL, realLiteral(5.0f)), unprocessableExpression1(C_REAL)));
         result = fromPredicate(originalPredicate);
         assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
         assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_REAL, Domain.notNull(REAL)));
@@ -2252,9 +2253,9 @@ public class TestDomainTranslator
         return GenericLiteral.constant(DOUBLE, value);
     }
 
-    private static Expression realLiteral(String value)
+    private static Expression realLiteral(float value)
     {
-        return new GenericLiteral(REAL, value);
+        return GenericLiteral.constant(REAL, Reals.toReal(value));
     }
 
     private static GenericLiteral stringLiteral(String value)

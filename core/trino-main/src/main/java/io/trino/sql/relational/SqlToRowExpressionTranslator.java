@@ -25,6 +25,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimeType;
@@ -186,6 +187,7 @@ public final class SqlToRowExpressionTranslator
                 case SmallintType type -> constant(node.getRawValue(), type);
                 case IntegerType type -> constant(node.getRawValue(), type);
                 case BigintType type -> constant(node.getRawValue(), type);
+                case RealType type -> constant(node.getRawValue(), type);
                 case DoubleType type -> constant(node.getRawValue(), type);
                 case DecimalType type -> constant(node.getRawValue(), type);
                 case VarcharType type -> constant(node.getRawValue(), type);
