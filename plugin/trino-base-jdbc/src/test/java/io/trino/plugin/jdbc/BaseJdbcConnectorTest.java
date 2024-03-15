@@ -1466,24 +1466,34 @@ public abstract class BaseJdbcConnectorTest
         }
 
         try (TestView sleepingView = createSleepingView(new Duration(1, MINUTES))) {
+            String tableNameToScan = sleepingView.getName().toLowerCase(ENGLISH);
+
+            RemoteLogTracingEvent runningTracingEvent = new RemoteLogTracingEvent(event -> event.getQuery().toLowerCase(ENGLISH).contains(tableNameToScan) && event.getStatus() == RUNNING);
+            startTracingDatabaseEvent(runningTracingEvent);
+
             String query = "SELECT * FROM " + sleepingView.getName();
             Future<?> future = executor.submit(() -> assertQueryFails(query, "Query killed. Message: Killed by test"));
             QueryId queryId = getQueryId(query);
+            assertEventually(() -> assertThat(runningTracingEvent.hasHappened()).isTrue());
+            stopTracingDatabaseEvent(runningTracingEvent);
 
-            assertEventually(() -> assertRemoteQueryStatus(sleepingView.getName(), RUNNING));
+            RemoteLogTracingEvent cancelledTracingEvent = new RemoteLogTracingEvent(event -> event.getQuery().toLowerCase(ENGLISH).contains(tableNameToScan) && event.getStatus() == CANCELLED);
+            startTracingDatabaseEvent(cancelledTracingEvent);
             assertUpdate(format("CALL system.runtime.kill_query(query_id => '%s', message => '%s')", queryId, "Killed by test"));
             future.get();
-            assertEventually(() -> assertRemoteQueryStatus(sleepingView.getName(), CANCELLED));
+            assertEventually(() -> assertThat(cancelledTracingEvent.hasHappened()).isTrue());
+            stopTracingDatabaseEvent(cancelledTracingEvent);
         }
     }
 
-    private void assertRemoteQueryStatus(String tableNameToScan, RemoteDatabaseEvent.Status status)
+    protected void startTracingDatabaseEvent(RemoteLogTracingEvent event)
     {
-        String lowerCasedTableName = tableNameToScan.toLowerCase(ENGLISH);
-        assertThat(getRemoteDatabaseEvents())
-                .filteredOn(event -> event.getQuery().toLowerCase(ENGLISH).contains(lowerCasedTableName))
-                .map(RemoteDatabaseEvent::getStatus)
-                .contains(status);
+        throw new UnsupportedOperationException();
+    }
+
+    protected void stopTracingDatabaseEvent(RemoteLogTracingEvent event)
+    {
+        throw new UnsupportedOperationException();
     }
 
     private QueryId getQueryId(String query)
@@ -1502,11 +1512,6 @@ public abstract class BaseJdbcConnectorTest
             return new QueryId((String) queriesResult.getOnlyValue());
         }
         throw new IllegalStateException("Query id not found for: " + query);
-    }
-
-    protected List<RemoteDatabaseEvent> getRemoteDatabaseEvents()
-    {
-        throw new UnsupportedOperationException();
     }
 
     protected TestView createSleepingView(Duration minimalSleepDuration)
