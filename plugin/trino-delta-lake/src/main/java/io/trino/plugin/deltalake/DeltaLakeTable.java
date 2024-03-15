@@ -14,6 +14,8 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import io.delta.kernel.types.StructField;
+import io.delta.kernel.types.StructType;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import jakarta.annotation.Nullable;
@@ -65,6 +67,11 @@ public record DeltaLakeTable(List<DeltaLakeColumn> columns, List<String> constra
         return new Builder(metadataEntry, protocolEntry);
     }
 
+    public static Builder builder(StructType tableSchema)
+    {
+        return new Builder(tableSchema);
+    }
+
     public static class Builder
     {
         private final List<DeltaLakeColumn> columns = new ArrayList<>();
@@ -95,6 +102,27 @@ public record DeltaLakeTable(List<DeltaLakeColumn> columns, List<String> constra
                     .addAll(getCheckConstraints(metadataEntry, protocolEntry).values())
                     .addAll(getColumnInvariants(metadataEntry, protocolEntry).values()) // The internal logic for column invariants in Delta Lake is same as check constraints
                     .build());
+        }
+
+        /**
+         * Construct builder for Kernel schema object
+         *
+         * @param tableSchema Table schema in Delta format.
+         */
+        public Builder(StructType tableSchema)
+        {
+            requireNonNull(tableSchema, "tableSchema is null");
+
+            for (StructField structField : tableSchema.fields()) {
+                columns.add(new DeltaLakeColumn(structField.getName(),
+                        structField.getDataType().toJson(),
+                        structField.isNullable(),
+                        null /* comment */,
+                        null /* metadata */,
+                        Optional.empty() /* generationExpression */));
+            }
+
+            // TODO: Add constraints
         }
 
         public Builder addColumn(String name, Object type, boolean nullable, @Nullable String comment, @Nullable Map<String, Object> metadata)
@@ -153,7 +181,8 @@ public record DeltaLakeTable(List<DeltaLakeColumn> columns, List<String> constra
         }
     }
 
-    public record DeltaLakeColumn(String name, Object type, boolean nullable, @Nullable String comment, @Nullable Map<String, Object> metadata, Optional<String> generationExpression)
+    public record DeltaLakeColumn(String name, Object type, boolean nullable, @Nullable String comment, @Nullable Map<String, Object> metadata,
+                                  Optional<String> generationExpression)
     {
         public DeltaLakeColumn
         {

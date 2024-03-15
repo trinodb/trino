@@ -72,6 +72,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.DELTA_STORAGE_FORMAT;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isDeltaKernelEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
@@ -199,7 +200,7 @@ public class TestDeltaLakeGlueMetastore
         createTable(nonDeltaLakeTable2, tableLocation(nonDeltaLakeTable2), tableBuilder -> tableBuilder.setParameter(TABLE_PROVIDER_PROPERTY, "foo"));
         createView(nonDeltaLakeView1, tableLocation(nonDeltaLakeTable1), tableBuilder -> {});
 
-        DeltaLakeMetadata metadata = metadataFactory.create(SESSION.getIdentity());
+        DeltaLakeMetadata metadata = metadataFactory.create(SESSION.getIdentity(), isDeltaKernelEnabled(SESSION));
 
         // Verify the tables were created as non Delta Lake tables
         assertThatThrownBy(() -> metadata.getTableHandle(session, nonDeltaLakeTable1, Optional.empty(), Optional.empty()))

@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.deltalake.kernel.KernelDeltaLakeMetadata;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
@@ -104,7 +105,7 @@ public class DeltaLakeMetadataFactory
         this.metadataScheduler = requireNonNull(metadataScheduler, "metadataScheduler is null");
     }
 
-    public DeltaLakeMetadata create(ConnectorIdentity identity)
+    public DeltaLakeMetadata create(ConnectorIdentity identity, boolean isKernelEnabled)
     {
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(
                 hiveMetastoreFactory.createMetastore(Optional.of(identity)),
@@ -120,27 +121,54 @@ public class DeltaLakeMetadataFactory
                 accessControlMetadata.isUsingSystemSecurity(),
                 trinoVersion,
                 "Trino Delta Lake connector");
-        return new DeltaLakeMetadata(
-                deltaLakeMetastore,
-                transactionLogAccess,
-                tableStatisticsProvider,
-                fileSystemFactory,
-                typeManager,
-                accessControlMetadata,
-                trinoViewHiveMetastore,
-                domainCompactionThreshold,
-                unsafeWritesEnabled,
-                dataFileInfoCodec,
-                mergeResultJsonCodec,
-                transactionLogWriterFactory,
-                nodeManager,
-                checkpointWriterManager,
-                checkpointWritingInterval,
-                deleteSchemaLocationsFallback,
-                deltaLakeRedirectionsProvider,
-                statisticsAccess,
-                metadataScheduler,
-                useUniqueTableLocation,
-                allowManagedTableRename);
+
+        if (isKernelEnabled) {
+            return new KernelDeltaLakeMetadata(
+                    deltaLakeMetastore,
+                    transactionLogAccess,
+                    tableStatisticsProvider,
+                    fileSystemFactory,
+                    typeManager,
+                    accessControlMetadata,
+                    trinoViewHiveMetastore,
+                    domainCompactionThreshold,
+                    unsafeWritesEnabled,
+                    dataFileInfoCodec,
+                    mergeResultJsonCodec,
+                    transactionLogWriterFactory,
+                    nodeManager,
+                    checkpointWriterManager,
+                    checkpointWritingInterval,
+                    deleteSchemaLocationsFallback,
+                    deltaLakeRedirectionsProvider,
+                    statisticsAccess,
+                    metadataScheduler,
+                    useUniqueTableLocation,
+                    allowManagedTableRename);
+        }
+        else {
+            return new DeltaLakeMetadata(
+                    deltaLakeMetastore,
+                    transactionLogAccess,
+                    tableStatisticsProvider,
+                    fileSystemFactory,
+                    typeManager,
+                    accessControlMetadata,
+                    trinoViewHiveMetastore,
+                    domainCompactionThreshold,
+                    unsafeWritesEnabled,
+                    dataFileInfoCodec,
+                    mergeResultJsonCodec,
+                    transactionLogWriterFactory,
+                    nodeManager,
+                    checkpointWriterManager,
+                    checkpointWritingInterval,
+                    deleteSchemaLocationsFallback,
+                    deltaLakeRedirectionsProvider,
+                    statisticsAccess,
+                    metadataScheduler,
+                    useUniqueTableLocation,
+                    allowManagedTableRename);
+        }
     }
 }

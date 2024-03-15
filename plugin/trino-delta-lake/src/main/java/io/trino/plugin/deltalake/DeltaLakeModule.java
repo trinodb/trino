@@ -26,8 +26,12 @@ import io.trino.plugin.base.connector.SystemTableProvider;
 import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.cache.DeltaLakeCacheKeyProvider;
+import io.trino.plugin.deltalake.delegating.DelegatingPageSourceProvider;
+import io.trino.plugin.deltalake.delegating.DelegatingSplitManager;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesFunctionProvider;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesProcessorProvider;
+import io.trino.plugin.deltalake.kernel.KernelDeltaLakePageSourceProvider;
+import io.trino.plugin.deltalake.kernel.KernelDeltaLakeSplitManager;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
 import io.trino.plugin.deltalake.procedure.DropExtendedStatsProcedure;
 import io.trino.plugin.deltalake.procedure.FlushMetadataCacheProcedure;
@@ -101,9 +105,13 @@ public class DeltaLakeModule
         binder.bind(DeltaLakeAnalyzeProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(DeltaLakeTransactionManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorSplitManager.class).to(DeltaLakeSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(DeltaLakeSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(KernelDeltaLakeSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).to(DelegatingSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(DeltaLakePageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(KernelDeltaLakePageSourceProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorPageSourceProvider.class)
-                .setDefault().to(DeltaLakePageSourceProvider.class).in(Scopes.SINGLETON);
+                .setDefault().to(DelegatingPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(DeltaLakePageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(DeltaLakeNodePartitioningProvider.class).in(Scopes.SINGLETON);
 

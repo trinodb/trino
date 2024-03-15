@@ -43,6 +43,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.util.Functions.checkFunctionArgument;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isDeltaKernelEnabled;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -104,7 +105,7 @@ public class TableChangesFunction
         }
         long firstReadVersion = sinceVersion + 1; // +1 to ensure that the since_version is exclusive; may overflow
 
-        DeltaLakeMetadata deltaLakeMetadata = deltaLakeMetadataFactory.create(session.getIdentity());
+        DeltaLakeMetadata deltaLakeMetadata = deltaLakeMetadataFactory.create(session.getIdentity(), isDeltaKernelEnabled(session));
         deltaLakeMetadata.beginQuery(session);
         try (UncheckedCloseable ignore = () -> deltaLakeMetadata.cleanupQuery(session)) {
             SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);

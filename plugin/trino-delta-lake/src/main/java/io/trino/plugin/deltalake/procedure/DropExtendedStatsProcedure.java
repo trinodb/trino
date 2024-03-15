@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isDeltaKernelEnabled;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -80,7 +81,7 @@ public class DropExtendedStatsProcedure
         checkProcedureArgument(table != null, "table_name cannot be null");
 
         SchemaTableName name = new SchemaTableName(schema, table);
-        DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
+        DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity(), isDeltaKernelEnabled(session));
         metadata.beginQuery(session);
         try (UncheckedCloseable ignore = () -> metadata.cleanupQuery(session)) {
             LocatedTableHandle tableHandle = metadata.getTableHandle(session, name, Optional.empty(), Optional.empty());

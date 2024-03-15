@@ -34,6 +34,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isDeltaKernelEnabled;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
@@ -96,7 +97,7 @@ public class UnregisterTableProcedure
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
         accessControl.checkCanDropTable(null, schemaTableName);
-        DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
+        DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity(), isDeltaKernelEnabled(session));
         metadata.beginQuery(session);
         try (UncheckedCloseable ignore = () -> metadata.cleanupQuery(session)) {
             LocatedTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());

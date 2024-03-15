@@ -45,6 +45,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_TABLE;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isDeltaKernelEnabled;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -138,7 +139,7 @@ public class RegisterTableProcedure
         checkProcedureArgument(!isNullOrEmpty(tableLocation), "table_location cannot be null or empty");
 
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
-        DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
+        DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity(), isDeltaKernelEnabled(session));
         metadata.beginQuery(session);
         try (UncheckedCloseable ignore = () -> metadata.cleanupQuery(session)) {
             DeltaLakeMetastore metastore = metadata.getMetastore();

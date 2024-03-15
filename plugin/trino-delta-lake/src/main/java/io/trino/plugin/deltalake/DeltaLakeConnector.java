@@ -46,6 +46,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.immutableEnumSet;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isDeltaKernelEnabled;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -118,7 +119,7 @@ public class DeltaLakeConnector
     @Override
     public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
-        ConnectorMetadata metadata = transactionManager.get(transaction, session.getIdentity());
+        ConnectorMetadata metadata = transactionManager.get(transaction, session.getIdentity(), isDeltaKernelEnabled(session));
         return new ClassLoaderSafeConnectorMetadata(metadata, getClass().getClassLoader());
     }
 

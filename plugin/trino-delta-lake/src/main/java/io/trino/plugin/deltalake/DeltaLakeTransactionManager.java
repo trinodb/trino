@@ -44,9 +44,9 @@ public class DeltaLakeTransactionManager
         checkState(previousValue == null);
     }
 
-    public DeltaLakeMetadata get(ConnectorTransactionHandle transaction, ConnectorIdentity identity)
+    public DeltaLakeMetadata get(ConnectorTransactionHandle transaction, ConnectorIdentity identity, boolean isKernelEnabled)
     {
-        return transactions.get(transaction).get(identity);
+        return transactions.get(transaction).get(identity, isKernelEnabled);
     }
 
     public void commit(ConnectorTransactionHandle transaction)
@@ -81,11 +81,11 @@ public class DeltaLakeTransactionManager
             return Optional.ofNullable(metadata);
         }
 
-        public synchronized DeltaLakeMetadata get(ConnectorIdentity identity)
+        public synchronized DeltaLakeMetadata get(ConnectorIdentity identity, boolean isKernelEnabled)
         {
             if (metadata == null) {
                 try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
-                    metadata = metadataFactory.create(identity);
+                    metadata = metadataFactory.create(identity, isKernelEnabled);
                 }
             }
             return metadata;

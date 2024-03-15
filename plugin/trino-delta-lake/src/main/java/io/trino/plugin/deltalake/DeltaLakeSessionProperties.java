@@ -76,6 +76,7 @@ public final class DeltaLakeSessionProperties
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String CHECKPOINT_FILTERING_ENABLED = "checkpoint_filtering_enabled";
     private static final String STORE_TABLE_METADATA = "store_table_metadata";
+    private static final String DELTA_KERNEL_ENABLED = "delta_kernel_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -236,7 +237,12 @@ public final class DeltaLakeSessionProperties
                         STORE_TABLE_METADATA,
                         "Store table metadata in metastore",
                         deltaLakeConfig.isStoreTableMetadataEnabled(),
-                        true));
+                        true),
+                booleanProperty(
+                        DELTA_KERNEL_ENABLED,
+                        "Use Delta Kernel to read and write Delta tables",
+                        deltaLakeConfig.isDeltaKernelEnabled(),
+                        false));
     }
 
     @Override
@@ -358,5 +364,10 @@ public final class DeltaLakeSessionProperties
     public static boolean isStoreTableMetadataInMetastoreEnabled(ConnectorSession session)
     {
         return session.getProperty(STORE_TABLE_METADATA, Boolean.class);
+    }
+
+    public static boolean isDeltaKernelEnabled(ConnectorSession session)
+    {
+        return session.getProperty(DELTA_KERNEL_ENABLED, Boolean.class);
     }
 }

@@ -184,6 +184,32 @@ public final class Page
         return wrapBlocksWithoutCopy(positionCount, newBlocks);
     }
 
+    public Page insertColumnAt(int ordinal, Block block)
+    {
+        requireNonNull(block, "block is null");
+        if (ordinal < 0 || ordinal > blocks.length) {
+            throw new IllegalArgumentException("Invalid ordinal: " + ordinal);
+        }
+        if (positionCount != block.getPositionCount()) {
+            throw new IllegalArgumentException("Block does not have same position count");
+        }
+        Block[] newBlocks = Arrays.copyOf(blocks, blocks.length + 1);
+        System.arraycopy(blocks, ordinal, newBlocks, ordinal + 1, blocks.length - ordinal);
+        newBlocks[ordinal] = block;
+        return wrapBlocksWithoutCopy(positionCount, newBlocks);
+    }
+
+    public Page deleteColumnAt(int ordinal)
+    {
+        if (ordinal < 0 || ordinal >= blocks.length) {
+            throw new IllegalArgumentException("Invalid ordinal: " + ordinal);
+        }
+        Block[] newBlocks = new Block[blocks.length - 1];
+        System.arraycopy(blocks, 0, newBlocks, 0, ordinal);
+        System.arraycopy(blocks, ordinal + 1, newBlocks, ordinal, blocks.length - ordinal - 1);
+        return wrapBlocksWithoutCopy(positionCount, newBlocks);
+    }
+
     public void compact()
     {
         if (getRetainedSizeInBytes() <= getSizeInBytes()) {

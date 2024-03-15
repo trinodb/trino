@@ -136,6 +136,7 @@ public class TestDeltaLakeBasic
                 .addDeltaProperty("hive.metastore.catalog.dir", catalogDir.toUri().toString())
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .addDeltaProperty("delta.kernel-enabled", "true")
                 .build();
     }
 
@@ -152,6 +153,14 @@ public class TestDeltaLakeBasic
     private URL getResourceLocation(String resourcePath)
     {
         return getClass().getClassLoader().getResource(resourcePath);
+    }
+
+    @Test
+    public void testKernelBasic()
+            throws Exception
+    {
+        assertQuery(format("SELECT income FROM %s",
+                PERSON_TABLES.getFirst().tableName()), "VALUES 99000.00");
     }
 
     @Test
@@ -1723,7 +1732,7 @@ public class TestDeltaLakeBasic
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
                 .build();
-        assertThat(query(session,"SELECT * FROM " + tableName))
+        assertThat(query(session, "SELECT * FROM " + tableName))
                 .skippingTypesCheck()
                 .matches("""
                         VALUES
