@@ -108,7 +108,6 @@ import static io.trino.sql.relational.SpecialForm.Form.ROW_CONSTRUCTOR;
 import static io.trino.sql.relational.SpecialForm.Form.SWITCH;
 import static io.trino.sql.relational.SpecialForm.Form.WHEN;
 import static io.trino.type.DateTimes.parseTime;
-import static io.trino.type.DateTimes.parseTimeWithTimeZone;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlToRowExpressionTranslator
@@ -196,7 +195,7 @@ public final class SqlToRowExpressionTranslator
                 case DateType type -> constant(node.getRawValue(), type);
                 case JsonType type -> constant(node.getRawValue(), type);
                 case TimeType type -> constant(parseTime(node.getValue()), type);
-                case TimeWithTimeZoneType type -> constant(parseTimeWithTimeZone(type.getPrecision(), node.getValue()), type);
+                case TimeWithTimeZoneType type -> constant(node.getRawValue(), type);
                 case TimestampType type -> constant(node.getRawValue(), type);
                 case TimestampWithTimeZoneType type -> constant(node.getRawValue(), type);
                 case Type type -> call(
