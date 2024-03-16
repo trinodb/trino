@@ -30,7 +30,6 @@ import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.type.DateTimes;
-import io.trino.type.Reals;
 import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
 
@@ -59,6 +58,7 @@ import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.type.Reals.toReal;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -422,7 +422,7 @@ public class TestUnwrapCastInComparison
 
         testUnwrap("real", "a <> nan()", new LogicalExpression(OR, ImmutableList.of(new NotExpression(new IsNullPredicate(new SymbolReference("a"))), new Constant(BOOLEAN, null))));
 
-        testUnwrap("real", "a IS DISTINCT FROM nan()", new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("a"), new Constant(REAL, Reals.toReal(Float.NaN))));
+        testUnwrap("real", "a IS DISTINCT FROM nan()", new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("a"), new Constant(REAL, toReal(Float.NaN))));
     }
 
     @Test
@@ -441,7 +441,7 @@ public class TestUnwrapCastInComparison
             testUnwrap("integer", format("a = %s '1'", type), new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
         }
 
-        testUnwrap("real", "a = DOUBLE '1'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(REAL, Reals.toReal(1.0f))));
+        testUnwrap("real", "a = DOUBLE '1'", new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(REAL, toReal(1.0f))));
     }
 
     @Test
@@ -452,7 +452,7 @@ public class TestUnwrapCastInComparison
         assertPlan("SELECT * FROM (VALUES REAL '1') t(a) WHERE DOUBLE '1' = a",
                 output(
                         filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference("A"), new Constant(REAL, Reals.toReal(1.0f))),
+                                new ComparisonExpression(EQUAL, new SymbolReference("A"), new Constant(REAL, toReal(1.0f))),
                                 values("A"))));
     }
 
@@ -644,30 +644,30 @@ public class TestUnwrapCastInComparison
         testUnwrap("bigint", "a = DOUBLE '-9223372036854775807'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new Constant(DOUBLE, -9.223372036854776E18)));
 
         // BIGINT->REAL implicit cast is not injective if the real constant is >= 2^23 and <= real(2^63 - 1)
-        testUnwrap("bigint", "a = REAL '8388608'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, Reals.toReal(8388608.0f))));
+        testUnwrap("bigint", "a = REAL '8388608'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, toReal(8388608.0f))));
 
-        testUnwrap("bigint", "a = REAL '9223372036854775807'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, Reals.toReal(9.223372E18f))));
+        testUnwrap("bigint", "a = REAL '9223372036854775807'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, toReal(9.223372E18f))));
 
         // BIGINT->REAL implicit cast is not injective if the real constant is <= -2^23 and >= real(-2^63 + 1)
-        testUnwrap("bigint", "a = REAL '-8388608'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, Reals.toReal(-8388608.0f))));
+        testUnwrap("bigint", "a = REAL '-8388608'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, toReal(-8388608.0f))));
 
-        testUnwrap("bigint", "a = REAL '-9223372036854775807'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, Reals.toReal(-9.223372E18f))));
+        testUnwrap("bigint", "a = REAL '-9223372036854775807'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, toReal(-9.223372E18f))));
 
         // INTEGER->REAL implicit cast is not injective if the real constant is >= 2^23 and <= 2^31 - 1
-        testUnwrap("integer", "a = REAL '8388608'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, Reals.toReal(8388608.0f))));
+        testUnwrap("integer", "a = REAL '8388608'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, toReal(8388608.0f))));
 
-        testUnwrap("integer", "a = REAL '2147483647'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, Reals.toReal(2.1474836E9f))));
+        testUnwrap("integer", "a = REAL '2147483647'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, toReal(2.1474836E9f))));
 
         // INTEGER->REAL implicit cast is not injective if the real constant is <= -2^23 and >= -2^31 + 1
-        testUnwrap("integer", "a = REAL '-8388608'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, Reals.toReal(-8388608.0f))));
+        testUnwrap("integer", "a = REAL '-8388608'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, toReal(-8388608.0f))));
 
-        testUnwrap("integer", "a = REAL '-2147483647'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, Reals.toReal(-2.1474836E9f))));
+        testUnwrap("integer", "a = REAL '-2147483647'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, toReal(-2.1474836E9f))));
 
         // DECIMAL(p)->DOUBLE not injective for p > 15
         testUnwrap("decimal(16)", "a = DOUBLE '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), DOUBLE), new Constant(DOUBLE, 1.0)));
 
         // DECIMAL(p)->REAL not injective for p > 7
-        testUnwrap("decimal(8)", "a = REAL '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, Reals.toReal(1.0f))));
+        testUnwrap("decimal(8)", "a = REAL '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), REAL), new Constant(REAL, toReal(1.0f))));
 
         // no implicit cast between VARCHAR->INTEGER
         testUnwrap("varchar", "CAST(a AS INTEGER) = INTEGER '1'", new ComparisonExpression(EQUAL, new Cast(new SymbolReference("a"), INTEGER), new Constant(INTEGER, 1L)));
