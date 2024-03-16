@@ -38,7 +38,13 @@ public class JoniRegexpType
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        throw new UnsupportedOperationException();
+        if (block.isNull(position)) {
+            return null;
+        }
+
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        return valueBlock.getSlice(valuePosition).toStringUtf8();
     }
 
     @Override

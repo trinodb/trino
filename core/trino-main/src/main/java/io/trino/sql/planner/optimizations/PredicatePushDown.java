@@ -164,7 +164,6 @@ public class PredicatePushDown
         private final TypeProvider types;
         private final ExpressionEquivalence expressionEquivalence;
         private final boolean dynamicFiltering;
-        private final LiteralEncoder literalEncoder;
         private final EffectivePredicateExtractor effectivePredicateExtractor;
 
         private Rewriter(
@@ -191,7 +190,6 @@ public class PredicatePushDown
                     new DomainTranslator(plannerContext),
                     plannerContext,
                     useTableProperties && isPredicatePushdownUseTableProperties(session));
-            this.literalEncoder = new LiteralEncoder(plannerContext);
         }
 
         @Override
@@ -1255,7 +1253,7 @@ public class PredicatePushDown
         {
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
             IrExpressionInterpreter optimizer = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes);
-            return literalEncoder.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
+            return LiteralEncoder.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
         }
 
         private boolean areExpressionsEquivalent(Expression leftExpression, Expression rightExpression)

@@ -52,7 +52,7 @@ public class SimplifyExpressions
         expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes);
         Object optimized = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-        return new LiteralEncoder(plannerContext).toExpression(optimized, expressionTypes.get(NodeRef.of(expression)));
+        return LiteralEncoder.toExpression(optimized, expressionTypes.get(NodeRef.of(expression)));
     }
 
     public SimplifyExpressions(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)

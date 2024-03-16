@@ -15,27 +15,6 @@ package io.trino.sql.ir;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.BaseEncoding;
-import io.airlift.slice.Slice;
-import io.trino.operator.scalar.time.TimeOperators;
-import io.trino.operator.scalar.timestamp.TimestampToVarcharCast;
-import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
-import io.trino.operator.scalar.timetz.TimeWithTimeZoneToVarcharCast;
-import io.trino.spi.type.CharType;
-import io.trino.spi.type.DateType;
-import io.trino.spi.type.LongTimeWithTimeZone;
-import io.trino.spi.type.LongTimestamp;
-import io.trino.spi.type.LongTimestampWithTimeZone;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimeWithTimeZoneType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TimestampWithTimeZoneType;
-import io.trino.spi.type.VarbinaryType;
-import io.trino.spi.type.VarcharType;
-import io.trino.type.IntervalDayTimeType;
-import io.trino.type.IntervalYearMonthType;
-import io.trino.util.DateTimeUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -110,26 +89,9 @@ public final class ExpressionFormatter
         @Override
         protected String visitGenericLiteral(GenericLiteral node, Void context)
         {
-            // TODO: ir - handle formatting of carrier types generically (add support to Type to render values?)
             return literalFormatter
                     .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> node.getType() + " " + formatStringLiteral(switch (node.getType()) {
-                        case VarbinaryType type -> BaseEncoding.base16().encode(((Slice) node.getRawValue()).getBytes());
-                        case VarcharType type -> ((Slice) node.getRawValue()).toStringUtf8();
-                        case CharType type -> ((Slice) node.getRawValue()).toStringUtf8();
-                        case RealType type -> Float.toString(Float.intBitsToFloat((int) ((long) node.getRawValue())));
-                        case IntervalDayTimeType type -> node.getRawValue().toString();
-                        case IntervalYearMonthType type -> node.getRawValue().toString();
-                        case DateType type -> DateTimeUtils.printDate((int) (long) node.getRawValue());
-                        case TimestampType type when type.isShort() -> TimestampToVarcharCast.cast(type.getPrecision(), (long) node.getRawValue()).toStringUtf8();
-                        case TimestampType type -> TimestampToVarcharCast.cast(type.getPrecision(), (LongTimestamp) node.getRawValue()).toStringUtf8();
-                        case TimestampWithTimeZoneType type when type.isShort() -> TimestampWithTimeZoneToVarcharCast.cast(type.getPrecision(), (long) node.getRawValue()).toStringUtf8();
-                        case TimestampWithTimeZoneType type -> TimestampWithTimeZoneToVarcharCast.cast(type.getPrecision(), (LongTimestampWithTimeZone) node.getRawValue()).toStringUtf8();
-                        case TimeWithTimeZoneType type when type.isShort() -> TimeWithTimeZoneToVarcharCast.cast(type.getPrecision(), (long) node.getRawValue()).toStringUtf8();
-                        case TimeWithTimeZoneType type -> TimeWithTimeZoneToVarcharCast.cast(type.getPrecision(), (LongTimeWithTimeZone) node.getRawValue()).toStringUtf8();
-                        case TimeType type -> TimeOperators.castToVarchar(type.getPrecision(), (long) node.getRawValue()).toStringUtf8();
-                        default -> node.getRawValue().toString(); // TODO: ir
-                    }));
+                    .orElseGet(() -> node.getType() + " '" + node.getType().getObjectValue(null, node.getRawValueAsBlock(), 0) + "'");
         }
 
         @Override

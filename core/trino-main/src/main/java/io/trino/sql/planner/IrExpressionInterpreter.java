@@ -30,6 +30,7 @@ import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
@@ -45,6 +46,7 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.ComparisonExpression.Operator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
@@ -96,7 +98,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -117,8 +118,6 @@ public class IrExpressionInterpreter
     private final Expression expression;
     private final PlannerContext plannerContext;
     private final Metadata metadata;
-    private final IrLiteralInterpreter literalInterpreter;
-    private final LiteralEncoder literalEncoder;
     private final Session session;
     private final ConnectorSession connectorSession;
     private final Map<NodeRef<Expression>, Type> expressionTypes;
@@ -132,8 +131,6 @@ public class IrExpressionInterpreter
         this.expression = requireNonNull(expression, "expression is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
-        this.literalInterpreter = new IrLiteralInterpreter(plannerContext, session);
-        this.literalEncoder = new LiteralEncoder(plannerContext);
         this.session = requireNonNull(session, "session is null");
         this.connectorSession = session.toConnectorSession();
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
@@ -208,7 +205,10 @@ public class IrExpressionInterpreter
         @Override
         protected Object visitLiteral(Literal node, Object context)
         {
-            return literalInterpreter.evaluate(node, type(node));
+            return switch (node) {
+                case GenericLiteral value -> value.getRawValue();
+                case NullLiteral value -> null;
+            };
         }
 
         @Override
@@ -418,7 +418,11 @@ public class IrExpressionInterpreter
                 return null;
             }
 
-            if (!(value instanceof Expression)) {
+            Type type = type(node.getValue());
+            if (!(value instanceof Expression) &&
+                    !(type instanceof ArrayType) && // equals/hashcode doesn't work for complex types that may contain nulls
+                    !(type instanceof MapType) &&
+                    !(type instanceof RowType)) {
                 Set<?> set = inListCache.get(valueList);
 
                 // We use the presence of the node in the map to indicate that we've already done
@@ -428,12 +432,11 @@ public class IrExpressionInterpreter
                     if (valueList.stream().allMatch(Literal.class::isInstance) &&
                             valueList.stream().noneMatch(NullLiteral.class::isInstance)) {
                         Set<Object> objectSet = valueList.stream().map(expression -> processWithExceptionHandling(expression, context)).collect(Collectors.toSet());
-                        Type type = type(node.getValue());
                         set = FastutilSetHelper.toFastutilHashSet(
                                 objectSet,
                                 type,
                                 plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle(),
-                                plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
+                                plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
                     }
                     inListCache.put(valueList, set);
                 }
@@ -491,7 +494,6 @@ public class IrExpressionInterpreter
             }
 
             if (hasUnresolvedValue) {
-                Type type = type(node.getValue());
                 List<Expression> expressionValues = toExpressions(values, types);
                 List<Expression> simplifiedExpressionValues = Stream.concat(
                                 expressionValues.stream()
@@ -502,7 +504,7 @@ public class IrExpressionInterpreter
                         .collect(toImmutableList());
 
                 if (simplifiedExpressionValues.size() == 1) {
-                    return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, toExpression(value, type), simplifiedExpressionValues.get(0));
+                    return new ComparisonExpression(Operator.EQUAL, toExpression(value, type), simplifiedExpressionValues.get(0));
                 }
 
                 return new InPredicate(toExpression(value, type), simplifiedExpressionValues);
@@ -577,7 +579,7 @@ public class IrExpressionInterpreter
         @Override
         protected Object visitComparisonExpression(ComparisonExpression node, Object context)
         {
-            ComparisonExpression.Operator operator = node.getOperator();
+            Operator operator = node.getOperator();
             Expression left = node.getLeft();
             Expression right = node.getRight();
 
@@ -1041,12 +1043,12 @@ public class IrExpressionInterpreter
 
         private Expression toExpression(Object base, Type type)
         {
-            return literalEncoder.toExpression(base, type);
+            return LiteralEncoder.toExpression(base, type);
         }
 
         private List<Expression> toExpressions(List<Object> values, List<Type> types)
         {
-            return literalEncoder.toExpressions(values, types);
+            return LiteralEncoder.toExpressions(values, types);
         }
     }
 

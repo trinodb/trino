@@ -76,14 +76,12 @@ public class PushProjectionIntoTableScan
 
     private final PlannerContext plannerContext;
     private final IrTypeAnalyzer typeAnalyzer;
-    private final LiteralEncoder literalEncoder;
     private final ScalarStatsCalculator scalarStatsCalculator;
 
     public PushProjectionIntoTableScan(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, ScalarStatsCalculator scalarStatsCalculator)
     {
         this.plannerContext = plannerContext;
         this.typeAnalyzer = typeAnalyzer;
-        this.literalEncoder = new LiteralEncoder(plannerContext);
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
     }
 
@@ -155,11 +153,11 @@ public class PushProjectionIntoTableScan
         // Translate partial connector projections back to new partial projections
         List<Expression> newPartialProjections = newConnectorPartialProjections.stream()
                 .map(expression -> {
-                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings, literalEncoder);
+                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
                     Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, context.getSymbolAllocator().getTypes(), translated);
-                    translated = literalEncoder.toExpression(
+                    translated = LiteralEncoder.toExpression(
                             new IrExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
                                     .optimize(NoOpSymbolResolver.INSTANCE),
                             translatedExpressionTypes.get(NodeRef.of(translated)));
@@ -191,7 +189,7 @@ public class PushProjectionIntoTableScan
                     continue;
                 }
                 String resultVariableName = ((Variable) resultConnectorExpression).getName();
-                Expression inputExpression = ConnectorExpressionTranslator.translate(session, inputConnectorExpression, plannerContext, inputVariableMappings, literalEncoder);
+                Expression inputExpression = ConnectorExpressionTranslator.translate(session, inputConnectorExpression, plannerContext, inputVariableMappings);
                 SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, session, context.getSymbolAllocator().getTypes());
                 builder.addSymbolStatistics(variableMappings.get(resultVariableName), symbolStatistics);
             }

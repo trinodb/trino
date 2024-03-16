@@ -130,7 +130,6 @@ public class UnwrapDateTruncInComparison
         private final Session session;
         private final TypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
-        private final LiteralEncoder literalEncoder;
 
         public Visitor(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
         {
@@ -139,7 +138,6 @@ public class UnwrapDateTruncInComparison
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
-            this.literalEncoder = new LiteralEncoder(plannerContext);
         }
 
         @Override
@@ -298,7 +296,7 @@ public class UnwrapDateTruncInComparison
 
         private Expression toExpression(Object value, Type type)
         {
-            return literalEncoder.toExpression(value, type);
+            return LiteralEncoder.toExpression(value, type);
         }
 
         private int compare(Type type, Object first, Object second)

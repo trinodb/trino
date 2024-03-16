@@ -226,7 +226,7 @@ public final class DynamicFilters
 
         Expression nullAllowedExpression = arguments.get(3);
         checkArgument(nullAllowedExpression instanceof GenericLiteral literal && literal.getType().equals(BooleanType.BOOLEAN), "nullAllowedExpression is expected to be a boolean constant: %s", nullAllowedExpression.getClass().getSimpleName());
-        boolean nullAllowed = Boolean.parseBoolean(((GenericLiteral) nullAllowedExpression).getValue());
+        boolean nullAllowed = (boolean) ((GenericLiteral) nullAllowedExpression).getRawValue();
 
         Expression timeoutExpression = arguments.get(4);
         OptionalLong timeout;
@@ -234,7 +234,7 @@ public final class DynamicFilters
             timeout = OptionalLong.empty();
         }
         else if (timeoutExpression instanceof GenericLiteral longTimeoutLiteral && isInteger(longTimeoutLiteral.getType())) {
-            timeout = OptionalLong.of(Long.parseLong(longTimeoutLiteral.getValue()));
+            timeout = OptionalLong.of((long) longTimeoutLiteral.getRawValue());
         }
         else {
             throw new IllegalArgumentException(format("timeout is expected to be an instance of LongLiteral or NullLiteral: %s", timeoutExpression.getClass().getSimpleName()));
