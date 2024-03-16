@@ -115,10 +115,6 @@ public class ThriftHiveMetastoreClient
             String hostname,
             MetastoreSupportsDateStatistics metastoreSupportsDateStatistics,
             AtomicInteger chosenGetTableAlternative,
-            AtomicInteger chosenTableParamAlternative,
-            AtomicInteger chosenGetAllTablesAlternative,
-            AtomicInteger chosenGetAllViewsPerDatabaseAlternative,
-            AtomicInteger chosenGetAllViewsAlternative,
             AtomicInteger chosenAlterTransactionalTableAlternative,
             AtomicInteger chosenAlterPartitionsAlternative)
             throws TTransportException
