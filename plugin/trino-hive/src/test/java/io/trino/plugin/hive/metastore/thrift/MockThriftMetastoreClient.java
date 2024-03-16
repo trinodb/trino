@@ -49,7 +49,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -153,14 +152,13 @@ public class MockThriftMetastoreClient
     }
 
     @Override
-    public List<TableMeta> getTableMeta(Optional<String> databaseName)
-            throws TException
+    public List<TableMeta> getTableMeta(String databaseName)
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!databaseName.orElse(TEST_DATABASE).equals(TEST_DATABASE)) {
+        if (!databaseName.equals(TEST_DATABASE)) {
             return ImmutableList.of(); // As specified by Hive specification
         }
         return ImmutableList.of(new TableMeta(TEST_DATABASE, TEST_TABLE, MANAGED_TABLE.name()));

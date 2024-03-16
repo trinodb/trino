@@ -74,7 +74,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
@@ -171,19 +170,16 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public List<TableMeta> getTableMeta(Optional<String> databaseName)
+    public List<TableMeta> getTableMeta(String databaseName)
             throws TException
     {
-        if (databaseName.isPresent()) {
-            String name = databaseName.get();
-            if (name.indexOf('*') >= 0 || name.indexOf('|') >= 0) {
-                // in this case we replace any pipes with a glob and then filter the output
-                return client.getTableMeta(name.replace('|', '*'), "*", ImmutableList.of()).stream()
-                        .filter(tableMeta -> tableMeta.getDbName().equals(name))
-                        .collect(toImmutableList());
-            }
+        if (databaseName.indexOf('*') >= 0 || databaseName.indexOf('|') >= 0) {
+            // in this case we replace any pipes with a glob and then filter the output
+            return client.getTableMeta(databaseName.replace('|', '*'), "*", ImmutableList.of()).stream()
+                    .filter(tableMeta -> tableMeta.getDbName().equals(databaseName))
+                    .collect(toImmutableList());
         }
-        return client.getTableMeta(databaseName.orElse("*"), "*", ImmutableList.of());
+        return client.getTableMeta(databaseName, "*", ImmutableList.of());
     }
 
     @Override
