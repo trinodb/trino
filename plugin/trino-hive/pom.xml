@@ -585,6 +585,7 @@
                                 <exclude>**/TestUnloadGcs.java</exclude>
                                 <exclude>**/TestUnloadAbfs.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
+                                <exclude>**/TestUnityMetastore.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -642,6 +643,23 @@
                                 <include>**/TestUnloadNativeS3.java</include>
                                 <include>**/TestUnloadGcs.java</include>
                                 <include>**/TestUnloadAbfs.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>unity-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestUnityMetastore.java</include>
                             </includes>
                         </configuration>
                     </plugin>
