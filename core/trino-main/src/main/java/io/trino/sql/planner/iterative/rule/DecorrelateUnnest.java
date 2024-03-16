@@ -26,7 +26,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -262,7 +261,7 @@ public class DecorrelateUnnest
                         subquerySymbol,
                         new IfExpression(
                                 new IsNullPredicate(ordinalitySymbol.toSymbolReference()),
-                                new Cast(new NullLiteral(), context.getSymbolAllocator().getTypes().get(subquerySymbol)),
+                                GenericLiteral.constant(context.getSymbolAllocator().getTypes().get(subquerySymbol), null),
                                 subquerySymbol.toSymbolReference()));
             }
             rewrittenPlan = new ProjectNode(

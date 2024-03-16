@@ -27,13 +27,13 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -108,7 +108,7 @@ public class TestScalarStatsCalculator
                 .highValueUnknown()
                 .nullsFraction(0.0);
 
-        assertCalculate(new NullLiteral())
+        assertCalculate(GenericLiteral.constant(UnknownType.UNKNOWN, null))
                 .distinctValuesCount(0.0)
                 .lowValueUnknown()
                 .highValueUnknown()
@@ -121,7 +121,7 @@ public class TestScalarStatsCalculator
         assertCalculate(
                 functionResolution
                         .functionCallBuilder("length")
-                        .addArgument(createVarcharType(10), new Cast(new NullLiteral(), createVarcharType(10)))
+                        .addArgument(createVarcharType(10), GenericLiteral.constant(createVarcharType(10), null))
                         .build())
                 .distinctValuesCount(0.0)
                 .lowValueUnknown()

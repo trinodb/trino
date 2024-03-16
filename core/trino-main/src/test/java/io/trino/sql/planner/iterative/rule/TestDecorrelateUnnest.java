@@ -22,7 +22,6 @@ import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
@@ -183,7 +182,7 @@ public class TestDecorrelateUnnest
                         project(
                                 ImmutableMap.of(
                                         "corr", expression(new SymbolReference("corr")),
-                                        "unnested_corr", expression(new IfExpression(new IsNullPredicate(new SymbolReference("ordinality")), new Cast(new NullLiteral(), BIGINT), new SymbolReference("unnested_corr")))),
+                                        "unnested_corr", expression(new IfExpression(new IsNullPredicate(new SymbolReference("ordinality")), GenericLiteral.constant(BIGINT, null), new SymbolReference("unnested_corr")))),
                                 unnest(
                                         ImmutableList.of("corr", "unique"),
                                         ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
@@ -212,7 +211,7 @@ public class TestDecorrelateUnnest
                         project(// restore semantics of INNER unnest after it was rewritten to LEFT
                                 ImmutableMap.of(
                                         "corr", expression(new SymbolReference("corr")),
-                                        "unnested_corr", expression(new IfExpression(new IsNullPredicate(new SymbolReference("ordinality")), new Cast(new NullLiteral(), BIGINT), new SymbolReference("unnested_corr")))),
+                                        "unnested_corr", expression(new IfExpression(new IsNullPredicate(new SymbolReference("ordinality")), GenericLiteral.constant(BIGINT, null), new SymbolReference("unnested_corr")))),
                                 filter(
                                         new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), GenericLiteral.constant(BIGINT, 1L)), new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, 28L), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN), TRUE_LITERAL),
                                         rowNumber(
@@ -384,7 +383,7 @@ public class TestDecorrelateUnnest
                         project(// restore semantics of INNER unnest after it was rewritten to LEFT
                                 ImmutableMap.of(
                                         "corr", expression(new SymbolReference("corr")),
-                                        "boolean_result", expression(new IfExpression(new IsNullPredicate(new SymbolReference("ordinality")), new Cast(new NullLiteral(), BIGINT), new SymbolReference("boolean_result")))),
+                                        "boolean_result", expression(new IfExpression(new IsNullPredicate(new SymbolReference("ordinality")), GenericLiteral.constant(BIGINT, null), new SymbolReference("boolean_result")))),
                                 project(// append projection from the subquery
                                         ImmutableMap.of(
                                                 "corr", expression(new SymbolReference("corr")),
@@ -479,7 +478,7 @@ public class TestDecorrelateUnnest
                         project(
                                 ImmutableMap.of(
                                         "corr", expression(new SymbolReference("corr")),
-                                        "unnested_corr", expression(new IfExpression(new IsNullPredicate(new SymbolReference("ordinality")), new Cast(new NullLiteral(), BIGINT), new SymbolReference("unnested_corr")))),
+                                        "unnested_corr", expression(new IfExpression(new IsNullPredicate(new SymbolReference("ordinality")), GenericLiteral.constant(BIGINT, null), new SymbolReference("unnested_corr")))),
                                 unnest(
                                         ImmutableList.of("corr", "unique"),
                                         ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),

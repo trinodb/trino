@@ -21,9 +21,8 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -145,7 +144,7 @@ public class SetOperationNodeTranslator
 
         // add extra marker fields to the projection
         for (int i = 0; i < markers.size(); ++i) {
-            Expression expression = (i == markerIndex) ? TRUE_LITERAL : new Cast(new NullLiteral(), BOOLEAN);
+            Expression expression = (i == markerIndex) ? TRUE_LITERAL : GenericLiteral.constant(BOOLEAN, null);
             assignments.put(symbolAllocator.newSymbol(markers.get(i).getName(), BOOLEAN), expression);
         }
 

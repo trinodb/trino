@@ -102,11 +102,6 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitNullLiteral(NullLiteral node, C context)
-    {
-        return visitLiteral(node, context);
-    }
-
     protected R visitArithmeticUnary(ArithmeticUnaryExpression node, C context)
     {
         return visitExpression(node, context);

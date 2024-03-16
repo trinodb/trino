@@ -16,7 +16,6 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.sql.ir.BetweenPredicate;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
@@ -24,7 +23,6 @@ import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.tree.QualifiedName;
@@ -272,15 +270,15 @@ public class TestUnwrapYearInComparison
     @Test
     public void testNull()
     {
-        testUnwrap("date", "year(a) = CAST(NULL AS BIGINT)", new Cast(new NullLiteral(), BOOLEAN));
-        testUnwrap("timestamp", "year(a) = CAST(NULL AS BIGINT)", new Cast(new NullLiteral(), BOOLEAN));
+        testUnwrap("date", "year(a) = CAST(NULL AS BIGINT)", GenericLiteral.constant(BOOLEAN, null));
+        testUnwrap("timestamp", "year(a) = CAST(NULL AS BIGINT)", GenericLiteral.constant(BOOLEAN, null));
     }
 
     @Test
     public void testNaN()
     {
-        testUnwrap("date", "year(a) = nan()", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new FunctionCall(QualifiedName.of("year"), ImmutableList.of(new SymbolReference("a")))), new Cast(new NullLiteral(), BOOLEAN))));
-        testUnwrap("timestamp", "year(a) = nan()", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new FunctionCall(QualifiedName.of("year"), ImmutableList.of(new SymbolReference("a")))), new Cast(new NullLiteral(), BOOLEAN))));
+        testUnwrap("date", "year(a) = nan()", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new FunctionCall(QualifiedName.of("year"), ImmutableList.of(new SymbolReference("a")))), GenericLiteral.constant(BOOLEAN, null))));
+        testUnwrap("timestamp", "year(a) = nan()", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new FunctionCall(QualifiedName.of("year"), ImmutableList.of(new SymbolReference("a")))), GenericLiteral.constant(BOOLEAN, null))));
     }
 
     @Test

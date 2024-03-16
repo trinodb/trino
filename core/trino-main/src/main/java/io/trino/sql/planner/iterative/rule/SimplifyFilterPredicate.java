@@ -19,12 +19,12 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullIfExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
 import io.trino.sql.ir.WhenClause;
@@ -199,7 +199,7 @@ public class SimplifyFilterPredicate
         if (expression instanceof SimpleCaseExpression caseExpression) {
             Optional<Expression> defaultValue = caseExpression.getDefaultValue();
 
-            if (caseExpression.getOperand() instanceof NullLiteral) {
+            if (caseExpression.getOperand() instanceof GenericLiteral literal && literal.getRawValue() == null) {
                 return Optional.of(defaultValue.orElse(FALSE_LITERAL));
             }
 
@@ -221,7 +221,7 @@ public class SimplifyFilterPredicate
     private static boolean isNotTrue(Expression expression)
     {
         return expression.equals(FALSE_LITERAL) ||
-                expression instanceof NullLiteral ||
+                expression instanceof GenericLiteral literal && literal.getRawValue() == null ||
                 expression instanceof Cast && isNotTrue(((Cast) expression).getExpression());
     }
 

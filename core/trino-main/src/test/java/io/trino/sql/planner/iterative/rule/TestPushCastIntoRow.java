@@ -18,7 +18,6 @@ import io.airlift.slice.Slices;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -71,8 +70,8 @@ public class TestPushCastIntoRow
 
         // don't insert CAST(x AS unknown)
         test(
-                new Cast(new Row(ImmutableList.of(new NullLiteral())), anonymousRow(UNKNOWN)),
-                new Row(ImmutableList.of(new NullLiteral())));
+                new Cast(new Row(ImmutableList.of(GenericLiteral.constant(UNKNOWN, null))), anonymousRow(UNKNOWN)),
+                new Row(ImmutableList.of(GenericLiteral.constant(UNKNOWN, null))));
     }
 
     private void test(Expression original, Expression unwrapped)

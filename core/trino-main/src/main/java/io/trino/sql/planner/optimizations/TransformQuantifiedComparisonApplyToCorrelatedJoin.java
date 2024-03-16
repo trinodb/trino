@@ -18,11 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
 import io.trino.sql.ir.WhenClause;
@@ -203,7 +201,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                                     ImmutableList.of(
                                             new WhenClause(
                                                     new ComparisonExpression(NOT_EQUAL, countAllValue.toSymbolReference(), countNonNullValue.toSymbolReference()),
-                                                    new Cast(new NullLiteral(), BOOLEAN))),
+                                                    GenericLiteral.constant(BOOLEAN, null))),
                                     Optional.of(emptySetResult))))));
         }
 

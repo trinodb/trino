@@ -41,7 +41,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Partitioning;
@@ -118,6 +118,7 @@ import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.TestingTableExecuteHandle;
 import io.trino.testing.TestingTransactionHandle;
+import io.trino.type.UnknownType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -244,7 +245,7 @@ public class PlanBuilder
         return values(
                 id,
                 ImmutableList.copyOf(columns),
-                nElements(rows, row -> nElements(columns.length, cell -> new NullLiteral())));
+                nElements(rows, row -> nElements(columns.length, cell -> GenericLiteral.constant(UnknownType.UNKNOWN, null))));
     }
 
     public ValuesNode values(List<Symbol> columns, List<List<Expression>> rows)

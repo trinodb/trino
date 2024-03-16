@@ -17,10 +17,10 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.NullIfExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
 import io.trino.sql.ir.SubscriptExpression;
@@ -120,9 +120,11 @@ public final class NullabilityAnalyzer
         }
 
         @Override
-        protected Void visitNullLiteral(NullLiteral node, AtomicBoolean result)
+        protected Void visitGenericLiteral(GenericLiteral node, AtomicBoolean result)
         {
-            result.set(true);
+            if (node.getRawValue() == null) {
+                result.set(true);
+            }
             return null;
         }
     }

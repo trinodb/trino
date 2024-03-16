@@ -22,17 +22,16 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.BetweenPredicate;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
@@ -54,7 +53,6 @@ import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUA
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.or;
-import static io.trino.sql.planner.LiteralEncoder.toExpression;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.type.DateTimes.scaleFactor;
 import static java.lang.Math.multiplyExact;
@@ -171,9 +169,9 @@ public class UnwrapYearInComparison
             Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session, expressionTypes)
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
-            if (right == null || right instanceof NullLiteral) {
+            if (right == null) {
                 return switch (expression.getOperator()) {
-                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Cast(new NullLiteral(), BOOLEAN);
+                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> GenericLiteral.constant(BOOLEAN, null);
                     case IS_DISTINCT_FROM -> new IsNotNullPredicate(argument);
                 };
             }
@@ -200,19 +198,19 @@ public class UnwrapYearInComparison
                         new NotExpression(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType))));
                 case LESS_THAN -> {
                     Object value = calculateRangeStartInclusive(year, argumentType);
-                    yield new ComparisonExpression(LESS_THAN, argument, toExpression(value, argumentType));
+                    yield new ComparisonExpression(LESS_THAN, argument, GenericLiteral.constant(argumentType, value));
                 }
                 case LESS_THAN_OR_EQUAL -> {
                     Object value = calculateRangeEndInclusive(year, argumentType);
-                    yield new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, toExpression(value, argumentType));
+                    yield new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, GenericLiteral.constant(argumentType, value));
                 }
                 case GREATER_THAN -> {
                     Object value = calculateRangeEndInclusive(year, argumentType);
-                    yield new ComparisonExpression(GREATER_THAN, argument, toExpression(value, argumentType));
+                    yield new ComparisonExpression(GREATER_THAN, argument, GenericLiteral.constant(argumentType, value));
                 }
                 case GREATER_THAN_OR_EQUAL -> {
                     Object value = calculateRangeStartInclusive(year, argumentType);
-                    yield new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, toExpression(value, argumentType));
+                    yield new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, GenericLiteral.constant(argumentType, value));
                 }
             };
         }
@@ -221,8 +219,8 @@ public class UnwrapYearInComparison
         {
             return new BetweenPredicate(
                     argument,
-                    toExpression(minInclusive, type),
-                    toExpression(maxInclusive, type));
+                    GenericLiteral.constant(type, minInclusive),
+                    GenericLiteral.constant(type, maxInclusive));
         }
     }
 

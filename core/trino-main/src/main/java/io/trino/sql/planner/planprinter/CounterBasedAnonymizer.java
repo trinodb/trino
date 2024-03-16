@@ -26,7 +26,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionFormatter;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Literal;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
@@ -109,13 +108,13 @@ public class CounterBasedAnonymizer
     private String anonymizeLiteral(Literal node)
     {
         if (node instanceof GenericLiteral literal) {
+            if (literal.getRawValue() == null) {
+                return "null";
+            }
             if (literal.getType().equals(BOOLEAN)) {
                 return literal.getRawValue().toString();
             }
             return anonymizeLiteral(literal.getType().getDisplayName(), literal.getRawValue());
-        }
-        if (node instanceof NullLiteral) {
-            return "null";
         }
         throw new UnsupportedOperationException("Anonymization is not supported for literal " + node);
     }

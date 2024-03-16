@@ -29,16 +29,15 @@ import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.EffectivePredicateExtractor;
 import io.trino.sql.planner.EqualityInference;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -1237,7 +1236,7 @@ public class PredicatePushDown
                 if (isDeterministic(conjunct, metadata)) {
                     // Ignore a conjunct for this test if we cannot deterministically get responses from it
                     Object response = nullInputEvaluator(innerSymbols, conjunct);
-                    if (response == null || response instanceof NullLiteral || Boolean.FALSE.equals(response)) {
+                    if (response == null || Boolean.FALSE.equals(response)) {
                         // If there is a single conjunct that returns FALSE or NULL given all NULL inputs for the inner side symbols of an outer join
                         // then this conjunct removes all effects of the outer join, and effectively turns this into an equivalent of an inner join.
                         // So, let's just rewrite this join as an INNER join
@@ -1253,7 +1252,11 @@ public class PredicatePushDown
         {
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
             IrExpressionInterpreter optimizer = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes);
-            return LiteralEncoder.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
+            Object object = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
+
+            return object instanceof Expression optimized ?
+                    optimized :
+                    GenericLiteral.constant(expressionTypes.get(NodeRef.of(expression)), object);
         }
 
         private boolean areExpressionsEquivalent(Expression leftExpression, Expression rightExpression)

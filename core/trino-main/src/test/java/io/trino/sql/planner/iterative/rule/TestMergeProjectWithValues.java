@@ -22,12 +22,12 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -55,7 +55,7 @@ public class TestMergeProjectWithValues
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of(new Cast(
-                                                new Row(ImmutableList.of(new NullLiteral(), new NullLiteral())),
+                                                new Row(ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null))),
                                                 RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)))))))
                 .doesNotFire();
     }
@@ -159,14 +159,14 @@ public class TestMergeProjectWithValues
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("value")),
                                 ImmutableList.of(
-                                        new Row(ImmutableList.of(new NullLiteral())),
+                                        new Row(ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))),
                                         new Row(ImmutableList.of(randomFunction)),
                                         new Row(ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction)))))))
                 .matches(
                         values(
                                 ImmutableList.of("output"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new NullLiteral()),
+                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null)),
                                         ImmutableList.of(randomFunction),
                                         ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction)))));
 
@@ -180,15 +180,15 @@ public class TestMergeProjectWithValues
                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                 ImmutableList.of(
                                         new Row(ImmutableList.of(GenericLiteral.constant(DOUBLE, 1e0), randomFunction)),
-                                        new Row(ImmutableList.of(randomFunction, new NullLiteral())),
-                                        new Row(ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction), new NullLiteral()))))))
+                                        new Row(ImmutableList.of(randomFunction, GenericLiteral.constant(UnknownType.UNKNOWN, null))),
+                                        new Row(ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction), GenericLiteral.constant(UnknownType.UNKNOWN, null)))))))
                 .matches(
                         values(
                                 ImmutableList.of("x", "y"),
                                 ImmutableList.of(
                                         ImmutableList.of(new ArithmeticUnaryExpression(MINUS, GenericLiteral.constant(DOUBLE, 1e0)), randomFunction),
-                                        ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction), new NullLiteral()),
-                                        ImmutableList.of(new ArithmeticUnaryExpression(MINUS, new ArithmeticUnaryExpression(MINUS, randomFunction)), new NullLiteral()))));
+                                        ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction), GenericLiteral.constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(new ArithmeticUnaryExpression(MINUS, new ArithmeticUnaryExpression(MINUS, randomFunction)), GenericLiteral.constant(UnknownType.UNKNOWN, null)))));
     }
 
     @Test

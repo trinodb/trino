@@ -41,7 +41,6 @@ import java.util.List;
         @JsonSubTypes.Type(value = LogicalExpression.class, name = "logicalBinary"),
         @JsonSubTypes.Type(value = NotExpression.class, name = "not"),
         @JsonSubTypes.Type(value = NullIfExpression.class, name = "nullif"),
-        @JsonSubTypes.Type(value = NullLiteral.class, name = "null"),
         @JsonSubTypes.Type(value = Row.class, name = "row"),
         @JsonSubTypes.Type(value = SearchedCaseExpression.class, name = "searchedCase"),
         @JsonSubTypes.Type(value = SimpleCaseExpression.class, name = "simpleCase"),

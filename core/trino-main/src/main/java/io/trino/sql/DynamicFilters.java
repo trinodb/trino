@@ -38,7 +38,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
@@ -102,13 +101,7 @@ public final class DynamicFilters
             boolean nullAllowed,
             Optional<Long> minDynamicFilterTimeout)
     {
-        Expression timeoutExpression;
-        if (minDynamicFilterTimeout.isEmpty()) {
-            timeoutExpression = new NullLiteral();
-        }
-        else {
-            timeoutExpression = GenericLiteral.constant(IntegerType.INTEGER, minDynamicFilterTimeout.get());
-        }
+        Expression timeoutExpression = GenericLiteral.constant(IntegerType.INTEGER, minDynamicFilterTimeout.orElse(null));
         return BuiltinFunctionCallBuilder.resolve(metadata)
                 .setName(nullAllowed ? NullableFunction.NAME : Function.NAME)
                 .addArgument(inputType, input)
@@ -230,14 +223,17 @@ public final class DynamicFilters
 
         Expression timeoutExpression = arguments.get(4);
         OptionalLong timeout;
-        if (timeoutExpression instanceof NullLiteral) {
-            timeout = OptionalLong.empty();
-        }
-        else if (timeoutExpression instanceof GenericLiteral longTimeoutLiteral && isInteger(longTimeoutLiteral.getType())) {
-            timeout = OptionalLong.of((long) longTimeoutLiteral.getRawValue());
+        if (timeoutExpression instanceof GenericLiteral timeoutLiteral && isInteger(timeoutLiteral.getType())) {
+            Long value = (Long) timeoutLiteral.getRawValue();
+            if (value == null) {
+                timeout = OptionalLong.empty();
+            }
+            else {
+                timeout = OptionalLong.of(value);
+            }
         }
         else {
-            throw new IllegalArgumentException(format("timeout is expected to be an instance of LongLiteral or NullLiteral: %s", timeoutExpression.getClass().getSimpleName()));
+            throw new IllegalArgumentException(format("timeout is expected to be integer constant: %s", timeoutExpression.getClass().getSimpleName()));
         }
 
         return Optional.of(new Descriptor(new DynamicFilterId(id), probeSymbol, operator, nullAllowed, timeout));
