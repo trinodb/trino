@@ -176,14 +176,12 @@ public class TestDomainTranslator
     private static final long COLOR_VALUE_2 = 2;
 
     private TestingFunctionResolution functionResolution;
-    private LiteralEncoder literalEncoder;
     private DomainTranslator domainTranslator;
 
     @BeforeAll
     public void setup()
     {
         functionResolution = new TestingFunctionResolution();
-        literalEncoder = new LiteralEncoder(functionResolution.getPlannerContext());
         domainTranslator = new DomainTranslator(functionResolution.getPlannerContext());
     }
 
@@ -191,7 +189,6 @@ public class TestDomainTranslator
     public void tearDown()
     {
         functionResolution = null;
-        literalEncoder = null;
         domainTranslator = null;
     }
 
@@ -802,7 +799,7 @@ public class TestDomainTranslator
     @Test
     public void testFromBasicComparisonsWithNaN()
     {
-        Expression nanDouble = literalEncoder.toExpression(Double.NaN, DOUBLE);
+        Expression nanDouble = GenericLiteral.constant(DOUBLE, Double.NaN);
 
         assertPredicateIsAlwaysFalse(equal(C_DOUBLE, nanDouble));
         assertPredicateIsAlwaysFalse(greaterThan(C_DOUBLE, nanDouble));
@@ -820,7 +817,7 @@ public class TestDomainTranslator
         assertPredicateIsAlwaysFalse(not(notEqual(C_DOUBLE, nanDouble)));
         assertUnsupportedPredicate(not(isDistinctFrom(C_DOUBLE, nanDouble)));
 
-        Expression nanReal = literalEncoder.toExpression((long) Float.floatToIntBits(Float.NaN), REAL);
+        Expression nanReal = GenericLiteral.constant(REAL, Reals.toReal(Float.NaN));
 
         assertPredicateIsAlwaysFalse(equal(C_REAL, nanReal));
         assertPredicateIsAlwaysFalse(greaterThan(C_REAL, nanReal));
@@ -842,7 +839,7 @@ public class TestDomainTranslator
     @Test
     public void testFromCoercionComparisonsWithNaN()
     {
-        Expression nanDouble = literalEncoder.toExpression(Double.NaN, DOUBLE);
+        Expression nanDouble = GenericLiteral.constant(DOUBLE, Double.NaN);
 
         assertPredicateIsAlwaysFalse(equal(cast(C_TINYINT, DOUBLE), nanDouble));
         assertPredicateIsAlwaysFalse(equal(cast(C_SMALLINT, DOUBLE), nanDouble));
@@ -856,7 +853,7 @@ public class TestDomainTranslator
         // see comment in DomainTranslator.Visitor.visitComparisonExpression()
         assertUnsupportedPredicate(equal(
                 cast(C_TIMESTAMP, DATE),
-                toExpression(DATE_VALUE, DATE)));
+                GenericLiteral.constant(DATE, DATE_VALUE)));
         assertUnsupportedPredicate(equal(
                 cast(C_DECIMAL_12_2, BIGINT),
                 bigintLiteral(135L)));
@@ -867,19 +864,19 @@ public class TestDomainTranslator
     {
         assertUnsupportedPredicate(equal(
                 cast(C_DECIMAL_12_2, DOUBLE),
-                toExpression(12345.56, DOUBLE)));
+                GenericLiteral.constant(DOUBLE, 12345.56)));
 
         assertUnsupportedPredicate(equal(
                 cast(C_BIGINT, DOUBLE),
-                toExpression(12345.56, DOUBLE)));
+                GenericLiteral.constant(DOUBLE, 12345.56)));
 
         assertUnsupportedPredicate(equal(
                 cast(C_BIGINT, REAL),
-                toExpression(realValue(12345.56f), REAL)));
+                GenericLiteral.constant(REAL, realValue(12345.56f))));
 
         assertUnsupportedPredicate(equal(
                 cast(C_INTEGER, REAL),
-                toExpression(realValue(12345.56f), REAL)));
+                GenericLiteral.constant(REAL, realValue(12345.56f))));
     }
 
     @Test
@@ -1204,9 +1201,9 @@ public class TestDomainTranslator
 
     private void testInPredicate(Symbol symbol, Symbol symbol2, Type type, Object one, Object two)
     {
-        Expression oneExpression = literalEncoder.toExpression(one, type);
-        Expression twoExpression = literalEncoder.toExpression(two, type);
-        Expression nullExpression = literalEncoder.toExpression(null, type);
+        Expression oneExpression = GenericLiteral.constant(type, one);
+        Expression twoExpression = GenericLiteral.constant(type, two);
+        Expression nullExpression = LiteralEncoder.toExpression(null, type);
         Expression otherSymbol = symbol2.toSymbolReference();
 
         // IN, single value
@@ -1277,10 +1274,10 @@ public class TestDomainTranslator
 
     private void testInPredicateWithFloatingPoint(Symbol symbol, Symbol symbol2, Type type, Object one, Object two, Object nan)
     {
-        Expression oneExpression = literalEncoder.toExpression(one, type);
-        Expression twoExpression = literalEncoder.toExpression(two, type);
-        Expression nanExpression = literalEncoder.toExpression(nan, type);
-        Expression nullExpression = literalEncoder.toExpression(null, type);
+        Expression oneExpression = GenericLiteral.constant(type, one);
+        Expression twoExpression = GenericLiteral.constant(type, two);
+        Expression nanExpression = GenericLiteral.constant(type, nan);
+        Expression nullExpression = LiteralEncoder.toExpression(null, type);
         Expression otherSymbol = symbol2.toSymbolReference();
 
         // IN, single value
@@ -1400,18 +1397,18 @@ public class TestDomainTranslator
         assertPredicateTranslates(
                 new InPredicate(
                         C_BIGINT.toSymbolReference(),
-                        ImmutableList.of(cast(toExpression(1L, SMALLINT), BIGINT))),
+                        ImmutableList.of(cast(GenericLiteral.constant(SMALLINT, 1L), BIGINT))),
                 tupleDomain(C_BIGINT, Domain.singleValue(BIGINT, 1L)));
 
         assertPredicateTranslates(
                 new InPredicate(
                         cast(C_SMALLINT, BIGINT),
-                        ImmutableList.of(toExpression(1L, BIGINT))),
+                        ImmutableList.of(GenericLiteral.constant(BIGINT, 1L))),
                 tupleDomain(C_SMALLINT, Domain.singleValue(SMALLINT, 1L)));
 
         assertUnsupportedPredicate(new InPredicate(
                 cast(C_BIGINT, INTEGER),
-                ImmutableList.of(toExpression(1L, INTEGER))));
+                ImmutableList.of(GenericLiteral.constant(INTEGER, 1L))));
     }
 
     @Test
@@ -1419,21 +1416,21 @@ public class TestDomainTranslator
     {
         assertPredicateIsAlwaysFalse(new InPredicate(
                 C_BIGINT.toSymbolReference(),
-                ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT))));
+                ImmutableList.of(cast(LiteralEncoder.toExpression(null, SMALLINT), BIGINT))));
 
         assertUnsupportedPredicate(not(new InPredicate(
                 cast(C_SMALLINT, BIGINT),
-                ImmutableList.of(toExpression(null, BIGINT)))));
+                ImmutableList.of(LiteralEncoder.toExpression(null, BIGINT)))));
 
         assertPredicateTranslates(
                 new InPredicate(
                         C_BIGINT.toSymbolReference(),
-                        ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT))),
+                        ImmutableList.of(cast(LiteralEncoder.toExpression(null, SMALLINT), BIGINT), GenericLiteral.constant(BIGINT, 1L))),
                 tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), false)));
 
         assertPredicateIsAlwaysFalse(not(new InPredicate(
                 C_BIGINT.toSymbolReference(),
-                ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT)))));
+                ImmutableList.of(cast(LiteralEncoder.toExpression(null, SMALLINT), BIGINT), GenericLiteral.constant(BIGINT, 1L)))));
     }
 
     @Test
@@ -1599,12 +1596,12 @@ public class TestDomainTranslator
         Type literalType = literalValues.getType();
         Type superType = new TypeCoercion(functionResolution.getPlannerContext().getTypeManager()::getType).getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
 
-        Expression max = toExpression(literalValues.getMax(), literalType);
-        Expression min = toExpression(literalValues.getMin(), literalType);
-        Expression integerPositive = toExpression(literalValues.getIntegerPositive(), literalType);
-        Expression integerNegative = toExpression(literalValues.getIntegerNegative(), literalType);
-        Expression fractionalPositive = toExpression(literalValues.getFractionalPositive(), literalType);
-        Expression fractionalNegative = toExpression(literalValues.getFractionalNegative(), literalType);
+        Expression max = GenericLiteral.constant(literalType, literalValues.getMax());
+        Expression min = GenericLiteral.constant(literalType, literalValues.getMin());
+        Expression integerPositive = GenericLiteral.constant(literalType, literalValues.getIntegerPositive());
+        Expression integerNegative = GenericLiteral.constant(literalType, literalValues.getIntegerNegative());
+        Expression fractionalPositive = GenericLiteral.constant(literalType, literalValues.getFractionalPositive());
+        Expression fractionalNegative = GenericLiteral.constant(literalType, literalValues.getFractionalNegative());
 
         if (!literalType.equals(superType)) {
             max = cast(max, superType);
@@ -2129,7 +2126,7 @@ public class TestDomainTranslator
     {
         return new FunctionCall(
                 functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)).toQualifiedName(),
-                ImmutableList.of(symbol.toSymbolReference(), literalEncoder.toExpression(LikePattern.compile(pattern, Optional.empty()), LikePatternType.LIKE_PATTERN)));
+                ImmutableList.of(symbol.toSymbolReference(), GenericLiteral.constant(LikePatternType.LIKE_PATTERN, LikePattern.compile(pattern, Optional.empty()))));
     }
 
     private FunctionCall like(Symbol symbol, Expression pattern, Expression escape)
@@ -2146,7 +2143,7 @@ public class TestDomainTranslator
     {
         return new FunctionCall(
                 functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)).toQualifiedName(),
-                ImmutableList.of(symbol.toSymbolReference(), literalEncoder.toExpression(LikePattern.compile(pattern, Optional.of(escape)), LikePatternType.LIKE_PATTERN)));
+                ImmutableList.of(symbol.toSymbolReference(), GenericLiteral.constant(LikePatternType.LIKE_PATTERN, LikePattern.compile(pattern, Optional.of(escape)))));
     }
 
     private FunctionCall startsWith(Symbol symbol, Expression expression)
@@ -2189,7 +2186,7 @@ public class TestDomainTranslator
     private InPredicate in(Expression expression, Type expressisonType, List<?> values)
     {
         List<Type> types = nCopies(values.size(), expressisonType);
-        List<Expression> expressions = literalEncoder.toExpressions(values, types);
+        List<Expression> expressions = LiteralEncoder.toExpressions(values, types);
         return new InPredicate(expression, expressions);
     }
 
@@ -2290,12 +2287,12 @@ public class TestDomainTranslator
 
     private Expression colorLiteral(long value)
     {
-        return literalEncoder.toExpression(value, COLOR);
+        return GenericLiteral.constant(COLOR, value);
     }
 
     private Expression varbinaryLiteral(Slice value)
     {
-        return toExpression(value, VARBINARY);
+        return GenericLiteral.constant(VARBINARY, value);
     }
 
     private static Long shortDecimal(String value)
@@ -2332,11 +2329,6 @@ public class TestDomainTranslator
         if (!actual.equals(expected)) {
             fail(format("for comparison [%s] expected [%s] but found [%s]", expression.toString(), expected.toString(SESSION), actual.toString(SESSION)));
         }
-    }
-
-    private Expression toExpression(Object object, Type type)
-    {
-        return literalEncoder.toExpression(object, type);
     }
 
     private static <T> TupleDomain<T> tupleDomain(T key, Domain domain)

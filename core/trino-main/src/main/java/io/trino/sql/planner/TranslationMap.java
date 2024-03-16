@@ -23,8 +23,6 @@ import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.plugin.base.util.JsonTypeUtil;
-import io.trino.spi.type.CharType;
-import io.trino.spi.type.Chars;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -35,7 +33,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
-import io.trino.spi.type.VarcharType;
+import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.ResolvedField;
@@ -104,13 +102,10 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.WhenClause;
-import io.trino.type.DateTimes;
 import io.trino.type.FunctionType;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
 import io.trino.type.JsonPath2016Type;
-import io.trino.type.Reals;
-import io.trino.util.DateTimeUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -123,18 +118,14 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
@@ -482,55 +473,59 @@ public class TranslationMap
         // TODO: record the parsed values in the analyzer and pull them out here
         Type type = analysis.getType(expression);
 
-        if (type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER) || type.equals(BIGINT)) {
-            return constant(type, Long.parseLong(expression.getValue()));
-        }
-
-        if (type.equals(REAL)) {
-            return constant(type, Reals.toReal(Float.parseFloat(expression.getValue())));
-        }
-
-        if (type.equals(DOUBLE)) {
-            return constant(type, Double.parseDouble(expression.getValue()));
-        }
-
-        if (type.equals(BOOLEAN)) {
-            return constant(type, Boolean.valueOf(expression.getValue()));
-        }
-
-        if (type.equals(DATE)) {
-            return constant(type, (long) DateTimeUtils.parseDate(expression.getValue().trim()));
-        }
-
-        if (type instanceof CharType) {
-            return constant(type, Chars.trimTrailingSpaces(Slices.utf8Slice(expression.getValue())));
-        }
-
-        if (type instanceof TimestampType timestamp) {
-            return constant(type, DateTimes.parseTimestamp(timestamp.getPrecision(), expression.getValue()));
-        }
-
-        if (type instanceof TimestampWithTimeZoneType timestamp) {
-            return constant(type, DateTimes.parseTimestampWithTimeZone(timestamp.getPrecision(), expression.getValue()));
-        }
-
-        if (type instanceof TimeWithTimeZoneType time) {
-            return constant(type, DateTimes.parseTimeWithTimeZone(time.getPrecision(), expression.getValue()));
-        }
-
-        if (type instanceof TimeType) {
-            return constant(type, DateTimes.parseTime(expression.getValue()));
-        }
-
-        if (type instanceof VarcharType || type.equals(VARBINARY)) {
-            return constant(type, Slices.utf8Slice(expression.getValue()));
-        }
-
+//        if (type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER) || type.equals(BIGINT)) {
+//            return constant(type, Long.parseLong(expression.getValue()));
+//        }
+//
+//        if (type.equals(REAL)) {
+//            return constant(type, Reals.toReal(Float.parseFloat(expression.getValue())));
+//        }
+//
+//        if (type.equals(DOUBLE)) {
+//            return constant(type, Double.parseDouble(expression.getValue()));
+//        }
+//
+//        if (type.equals(BOOLEAN)) {
+//            return constant(type, Boolean.valueOf(expression.getValue()));
+//        }
+//
+//        if (type.equals(DATE)) {
+//            return constant(type, (long) DateTimeUtils.parseDate(expression.getValue().trim()));
+//        }
+//
+//        if (type instanceof CharType) {
+//            return constant(type, Chars.trimTrailingSpaces(utf8Slice(expression.getValue())));
+//        }
+//
+//        if (type instanceof TimestampType timestamp) {
+//            return constant(type, DateTimes.parseTimestamp(timestamp.getPrecision(), expression.getValue()));
+//        }
+//
+//        if (type instanceof TimestampWithTimeZoneType timestamp) {
+//            return constant(type, DateTimes.parseTimestampWithTimeZone(timestamp.getPrecision(), expression.getValue()));
+//        }
+//
+//        if (type instanceof TimeWithTimeZoneType time) {
+//            return constant(type, DateTimes.parseTimeWithTimeZone(time.getPrecision(), expression.getValue()));
+//        }
+//
+//        if (type instanceof TimeType) {
+//            return constant(type, DateTimes.parseTime(expression.getValue()));
+//        }
+//
+//        if (type instanceof VarcharType || type.equals(VARBINARY)) {
+//            return constant(type, utf8Slice(expression.getValue()));
+//        }
+//
         if (type.equals(JSON)) {
-            return constant(type, JsonTypeUtil.jsonParse(Slices.utf8Slice(expression.getValue())));
+            return constant(type, JsonTypeUtil.jsonParse(utf8Slice(expression.getValue())));
         }
 
-        return new io.trino.sql.ir.GenericLiteral(type, expression.getValue());
+        InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
+        ResolvedFunction resolvedFunction = plannerContext.getMetadata().getCoercion(VARCHAR, type);
+        Object value = functionInvoker.invoke(resolvedFunction, session.toConnectorSession(), ImmutableList.of(utf8Slice(expression.getValue())));
+
+        return io.trino.sql.ir.GenericLiteral.constant(type, value);
     }
 
     private io.trino.sql.ir.Expression translate(DecimalLiteral expression)
@@ -626,7 +621,7 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(StringLiteral expression)
     {
-        return io.trino.sql.ir.GenericLiteral.constant(analysis.getType(expression), Slices.utf8Slice(expression.getValue()));
+        return io.trino.sql.ir.GenericLiteral.constant(analysis.getType(expression), utf8Slice(expression.getValue()));
     }
 
     private io.trino.sql.ir.Expression translate(LongLiteral expression)
@@ -1034,7 +1029,7 @@ public class TranslationMap
                 failOnError);
 
         IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
-        io.trino.sql.ir.Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
+        io.trino.sql.ir.Expression pathExpression = LiteralEncoder.toExpression(path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)
@@ -1068,7 +1063,7 @@ public class TranslationMap
                 failOnError);
 
         IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
-        io.trino.sql.ir.Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
+        io.trino.sql.ir.Expression pathExpression = LiteralEncoder.toExpression(path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)
@@ -1109,7 +1104,7 @@ public class TranslationMap
                 failOnError);
 
         IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
-        io.trino.sql.ir.Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
+        io.trino.sql.ir.Expression pathExpression = LiteralEncoder.toExpression(path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
 
         ImmutableList.Builder<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
                 .add(input)

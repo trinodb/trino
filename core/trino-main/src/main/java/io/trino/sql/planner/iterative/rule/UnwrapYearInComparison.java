@@ -35,7 +35,6 @@ import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.TypeProvider;
 
@@ -55,6 +54,7 @@ import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUA
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.planner.LiteralEncoder.toExpression;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.type.DateTimes.scaleFactor;
 import static java.lang.Math.multiplyExact;
@@ -109,7 +109,6 @@ public class UnwrapYearInComparison
         private final IrTypeAnalyzer typeAnalyzer;
         private final Session session;
         private final TypeProvider types;
-        private final LiteralEncoder literalEncoder;
 
         public Visitor(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
         {
@@ -117,7 +116,6 @@ public class UnwrapYearInComparison
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            this.literalEncoder = new LiteralEncoder(plannerContext);
         }
 
         @Override
@@ -200,10 +198,22 @@ public class UnwrapYearInComparison
                 case IS_DISTINCT_FROM -> or(
                         new IsNullPredicate(argument),
                         new NotExpression(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType))));
-                case LESS_THAN -> new ComparisonExpression(LESS_THAN, argument, toExpression(calculateRangeStartInclusive(year, argumentType), argumentType));
-                case LESS_THAN_OR_EQUAL -> new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, toExpression(calculateRangeEndInclusive(year, argumentType), argumentType));
-                case GREATER_THAN -> new ComparisonExpression(GREATER_THAN, argument, toExpression(calculateRangeEndInclusive(year, argumentType), argumentType));
-                case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, toExpression(calculateRangeStartInclusive(year, argumentType), argumentType));
+                case LESS_THAN -> {
+                    Object value = calculateRangeStartInclusive(year, argumentType);
+                    yield new ComparisonExpression(LESS_THAN, argument, toExpression(value, argumentType));
+                }
+                case LESS_THAN_OR_EQUAL -> {
+                    Object value = calculateRangeEndInclusive(year, argumentType);
+                    yield new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, toExpression(value, argumentType));
+                }
+                case GREATER_THAN -> {
+                    Object value = calculateRangeEndInclusive(year, argumentType);
+                    yield new ComparisonExpression(GREATER_THAN, argument, toExpression(value, argumentType));
+                }
+                case GREATER_THAN_OR_EQUAL -> {
+                    Object value = calculateRangeStartInclusive(year, argumentType);
+                    yield new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, toExpression(value, argumentType));
+                }
             };
         }
 
@@ -213,11 +223,6 @@ public class UnwrapYearInComparison
                     argument,
                     toExpression(minInclusive, type),
                     toExpression(maxInclusive, type));
-        }
-
-        private Expression toExpression(Object value, Type type)
-        {
-            return literalEncoder.toExpression(value, type);
         }
     }
 

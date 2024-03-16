@@ -342,8 +342,7 @@ public final class SqlRoutinePlanner
 
             // optimize the expression
             IrExpressionInterpreter interpreter = new IrExpressionInterpreter(lambdaCaptureDesugared, plannerContext, session, types);
-            io.trino.sql.ir.Expression optimized = new LiteralEncoder(plannerContext)
-                    .toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), types.get(io.trino.sql.ir.NodeRef.of(lambdaCaptureDesugared)));
+            io.trino.sql.ir.Expression optimized = LiteralEncoder.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), types.get(io.trino.sql.ir.NodeRef.of(lambdaCaptureDesugared)));
 
             // Analyze again after optimization
             types = analyzer.getTypes(session, typeProvider, optimized);
