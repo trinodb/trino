@@ -77,7 +77,6 @@ import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
-import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
@@ -673,8 +672,6 @@ public final class ConnectorExpressionTranslator
 
             CatalogSchemaFunctionName functionName = ResolvedFunction.extractFunctionName(node.getName());
             checkArgument(!isDynamicFilterFunction(functionName), "Dynamic filter has no meaning for a connector, it should not be translated into ConnectorExpression");
-            // literals should be handled by isEffectivelyLiteral case above
-            checkArgument(!builtinFunctionName(LITERAL_FUNCTION_NAME).equals(functionName), "Unexpected literal function");
 
             if (functionName.equals(builtinFunctionName(LIKE_FUNCTION_NAME))) {
                 return translateLike(node);

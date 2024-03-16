@@ -2823,7 +2823,6 @@ public final class MetadataManager
                         () -> { throw new UnsupportedOperationException(); });
                 TypeOperators typeOperators = new TypeOperators();
                 globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
-                globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager))));
             }
 
             if (languageFunctionManager == null) {

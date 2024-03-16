@@ -19,7 +19,6 @@ import com.google.common.graph.SuccessorsFunction;
 import com.google.common.graph.Traverser;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DeterminismEvaluator;
@@ -30,7 +29,6 @@ import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -47,8 +45,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
-import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
-import static io.trino.metadata.ResolvedFunction.isResolved;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
@@ -276,13 +272,6 @@ public final class IrUtils
             return ((Cast) expression).getExpression() instanceof Literal
                     // a Cast(Literal(...)) can fail, so this requires verification
                     && constantExpressionEvaluatesSuccessfully(plannerContext, session, expression);
-        }
-        if (expression instanceof FunctionCall) {
-            QualifiedName functionName = ((FunctionCall) expression).getName();
-            if (isResolved(functionName)) {
-                ResolvedFunction resolvedFunction = plannerContext.getMetadata().decodeFunction(functionName);
-                return LITERAL_FUNCTION_NAME.equals(resolvedFunction.getSignature().getName().getFunctionName());
-            }
         }
 
         return false;
