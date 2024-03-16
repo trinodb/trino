@@ -56,6 +56,7 @@ public class HttpThriftMetastoreClientFactory
     private final Map<String, String> additionalHeaders;
     private final OpenTelemetry openTelemetry;
 
+    private final AtomicInteger chosenGetTableMetaAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenAlterTransactionalTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenAlterPartitionsAlternative = new AtomicInteger(Integer.MAX_VALUE);
@@ -82,6 +83,7 @@ public class HttpThriftMetastoreClientFactory
                 () -> createHttpTransport(uri),
                 hostname,
                 new MetastoreSupportsDateStatistics(),
+                chosenGetTableMetaAlternative,
                 chosenGetTableAlternative,
                 chosenAlterTransactionalTableAlternative,
                 chosenAlterPartitionsAlternative);
