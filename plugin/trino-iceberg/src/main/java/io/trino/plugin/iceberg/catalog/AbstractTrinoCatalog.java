@@ -20,6 +20,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.HiveMetadata;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergUtil;
@@ -166,7 +167,11 @@ public abstract class AbstractTrinoCatalog
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace)
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
-        for (SchemaTableName name : listViews(session, namespace)) {
+        for (TableInfo tableInfo : listTables(session, namespace)) {
+            if (tableInfo.extendedRelationType() != TableInfo.ExtendedRelationType.TRINO_VIEW) {
+                continue;
+            }
+            SchemaTableName name = tableInfo.tableName();
             try {
                 getView(session, name).ifPresent(view -> views.put(name, view));
             }
