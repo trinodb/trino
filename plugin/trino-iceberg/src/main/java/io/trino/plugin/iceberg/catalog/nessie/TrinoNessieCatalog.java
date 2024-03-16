@@ -14,12 +14,12 @@
 package io.trino.plugin.iceberg.catalog.nessie;
 
 import com.google.common.cache.Cache;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
@@ -31,7 +31,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
-import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -59,9 +58,7 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
@@ -72,7 +69,6 @@ import static io.trino.plugin.iceberg.catalog.nessie.IcebergNessieUtil.toIdentif
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 
 public class TrinoNessieCatalog
         extends AbstractTrinoCatalog
@@ -168,22 +164,13 @@ public class TrinoNessieCatalog
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace)
+    public List<TableInfo> listTables(ConnectorSession session, Optional<String> namespace)
     {
+        // views and materialized views are currently not supported, so everything is a table
         return nessieClient.listTables(namespace.isEmpty() ? Namespace.empty() : Namespace.of(namespace.get()))
                 .stream()
-                .map(id -> schemaTableName(id.namespace().toString(), id.name()))
+                .map(id -> new TableInfo(schemaTableName(id.namespace().toString(), id.name()), TableInfo.ExtendedRelationType.TABLE))
                 .collect(toImmutableList());
-    }
-
-    @Override
-    public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> namespace)
-    {
-        // views and materialized views are currently not supported
-        verify(listViews(session, namespace).isEmpty(), "Unexpected views support");
-        verify(listMaterializedViews(session, namespace).isEmpty(), "Unexpected views support");
-        return listTables(session, namespace).stream()
-                .collect(toImmutableMap(identity(), ignore -> RelationType.TABLE));
     }
 
     @Override
@@ -386,12 +373,6 @@ public class TrinoNessieCatalog
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace)
     {
         return ImmutableMap.of();
@@ -401,12 +382,6 @@ public class TrinoNessieCatalog
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewIdentifier)
     {
         return Optional.empty();
-    }
-
-    @Override
-    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace)
-    {
-        return ImmutableList.of();
     }
 
     @Override
