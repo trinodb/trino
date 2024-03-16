@@ -45,8 +45,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlToRowExpressionTranslator
 {
-    private final LiteralEncoder literalEncoder = new LiteralEncoder(PLANNER_CONTEXT);
-
     @Test
     @Timeout(10)
     public void testPossibleExponentialOptimizationTime()
@@ -110,7 +108,7 @@ public class TestSqlToRowExpressionTranslator
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(expression);
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-        return literalEncoder.toExpression(value, expressionTypes.get(NodeRef.of(expression)));
+        return LiteralEncoder.toExpression(value, expressionTypes.get(NodeRef.of(expression)));
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)

@@ -19,24 +19,9 @@ import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.CharType;
-import io.trino.spi.type.DateType;
-import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimeWithTimeZoneType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TimestampWithTimeZoneType;
-import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.VarbinaryType;
-import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.BetweenPredicate;
@@ -68,9 +53,6 @@ import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.SpecialForm.Form;
 import io.trino.sql.relational.optimizer.ExpressionOptimizer;
-import io.trino.type.IntervalDayTimeType;
-import io.trino.type.IntervalYearMonthType;
-import io.trino.type.JsonType;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 
@@ -78,7 +60,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
@@ -88,7 +69,6 @@ import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.relational.Expressions.call;
 import static io.trino.sql.relational.Expressions.constant;
@@ -178,29 +158,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitGenericLiteral(GenericLiteral node, Void context)
         {
-            return switch (node.getType()) {
-                case TinyintType type -> constant(node.getRawValue(), type);
-                case SmallintType type -> constant(node.getRawValue(), type);
-                case IntegerType type -> constant(node.getRawValue(), type);
-                case BigintType type -> constant(node.getRawValue(), type);
-                case RealType type -> constant(node.getRawValue(), type);
-                case DoubleType type -> constant(node.getRawValue(), type);
-                case DecimalType type -> constant(node.getRawValue(), type);
-                case VarcharType type -> constant(node.getRawValue(), type);
-                case CharType type -> constant(node.getRawValue(), type);
-                case VarbinaryType type -> constant(node.getRawValue(), type);
-                case IntervalYearMonthType type -> constant(node.getRawValue(), type);
-                case IntervalDayTimeType type -> constant(node.getRawValue(), type);
-                case DateType type -> constant(node.getRawValue(), type);
-                case JsonType type -> constant(node.getRawValue(), type);
-                case TimeType type -> constant(node.getRawValue(), type);
-                case TimeWithTimeZoneType type -> constant(node.getRawValue(), type);
-                case TimestampType type -> constant(node.getRawValue(), type);
-                case TimestampWithTimeZoneType type -> constant(node.getRawValue(), type);
-                case Type type -> call(
-                        metadata.getCoercion(VARCHAR, type),
-                        constant(utf8Slice(node.getValue()), VARCHAR));
-            };
+            return constant(node.getRawValue(), node.getType());
         }
 
         @Override

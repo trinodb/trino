@@ -90,13 +90,11 @@ public class MetadataQueryOptimizer
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
         private final PlannerContext plannerContext;
-        private final LiteralEncoder literalEncoder;
 
         private Optimizer(Session session, PlannerContext plannerContext, PlanNodeIdAllocator idAllocator)
         {
             this.session = session;
             this.plannerContext = plannerContext;
-            this.literalEncoder = new LiteralEncoder(plannerContext);
             this.idAllocator = idAllocator;
         }
 
@@ -164,7 +162,7 @@ public class MetadataQueryOptimizer
                             // partition key does not have a single value, so bail out to be safe
                             return context.defaultRewrite(node);
                         }
-                        rowBuilder.add(literalEncoder.toExpression(value.getValue(), type));
+                        rowBuilder.add(LiteralEncoder.toExpression(value.getValue(), type));
                     }
                     rowsBuilder.add(new Row(rowBuilder.build()));
                 }
