@@ -56,7 +56,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static java.lang.Float.floatToIntBits;
+import static io.trino.type.Reals.toReal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -91,16 +91,16 @@ public class TestSqlJsonLiteralConverter
         assertThat(json(new TypedValue(DOUBLE, Double.POSITIVE_INFINITY)))
                 .isEqualTo(DoubleNode.valueOf(Double.POSITIVE_INFINITY));
 
-        assertThat(json(new TypedValue(REAL, floatToIntBits(1F))))
+        assertThat(json(new TypedValue(REAL, toReal(1F))))
                 .isEqualTo(FloatNode.valueOf(1F));
 
-        assertThat(json(new TypedValue(REAL, floatToIntBits(Float.NaN))))
+        assertThat(json(new TypedValue(REAL, toReal(Float.NaN))))
                 .isEqualTo(FloatNode.valueOf(Float.NaN));
 
-        assertThat(json(new TypedValue(REAL, floatToIntBits(Float.NEGATIVE_INFINITY))))
+        assertThat(json(new TypedValue(REAL, toReal(Float.NEGATIVE_INFINITY))))
                 .isEqualTo(FloatNode.valueOf(Float.NEGATIVE_INFINITY));
 
-        assertThat(json(new TypedValue(REAL, floatToIntBits(Float.POSITIVE_INFINITY))))
+        assertThat(json(new TypedValue(REAL, toReal(Float.POSITIVE_INFINITY))))
                 .isEqualTo(FloatNode.valueOf(Float.POSITIVE_INFINITY));
 
         assertThat(json(new TypedValue(createDecimalType(2, 1), 1L)))
@@ -176,13 +176,13 @@ public class TestSqlJsonLiteralConverter
                 .isEqualTo(new TypedValue(DOUBLE, Double.POSITIVE_INFINITY));
 
         assertThat(typedValueResult(FloatNode.valueOf(1F)))
-                .isEqualTo(new TypedValue(REAL, floatToIntBits(1F)));
+                .isEqualTo(new TypedValue(REAL, toReal(1F)));
 
         assertThat(typedValueResult(FloatNode.valueOf(Float.NEGATIVE_INFINITY)))
-                .isEqualTo(new TypedValue(REAL, floatToIntBits(Float.NEGATIVE_INFINITY)));
+                .isEqualTo(new TypedValue(REAL, toReal(Float.NEGATIVE_INFINITY)));
 
         assertThat(typedValueResult(FloatNode.valueOf(Float.POSITIVE_INFINITY)))
-                .isEqualTo(new TypedValue(REAL, floatToIntBits(Float.POSITIVE_INFINITY)));
+                .isEqualTo(new TypedValue(REAL, toReal(Float.POSITIVE_INFINITY)));
 
         assertThat(typedValueResult(IntNode.valueOf(1)))
                 .isEqualTo(new TypedValue(INTEGER, 1L));
