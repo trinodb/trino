@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.jsonwebtoken.impl.DefaultJwtBuilder;
 import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.trino.cache.EvictableCacheBuilder;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergSchemaProperties;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -34,7 +35,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
-import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -66,9 +66,7 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
@@ -78,7 +76,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
-import static java.util.function.Function.identity;
 
 public class TrinoRestCatalog
         implements TrinoCatalog
@@ -180,34 +177,24 @@ public class TrinoRestCatalog
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace)
+    public List<TableInfo> listTables(ConnectorSession session, Optional<String> namespace)
     {
         SessionContext sessionContext = convert(session);
         List<Namespace> namespaces = listNamespaces(session, namespace);
 
-        ImmutableList.Builder<SchemaTableName> tables = ImmutableList.builder();
+        ImmutableList.Builder<TableInfo> tables = ImmutableList.builder();
         for (Namespace restNamespace : namespaces) {
             try {
-                tables.addAll(
-                        restSessionCatalog.listTables(sessionContext, restNamespace).stream()
-                                .map(id -> SchemaTableName.schemaTableName(id.namespace().toString(), id.name()))
-                                .collect(toImmutableList()));
+                // views and materialized views are currently not supported, so everything is a table
+                restSessionCatalog.listTables(sessionContext, restNamespace).stream()
+                        .map(id -> new TableInfo(SchemaTableName.schemaTableName(id.namespace().toString(), id.name()), TableInfo.ExtendedRelationType.TABLE))
+                        .forEach(tables::add);
             }
             catch (NoSuchNamespaceException e) {
                 // Namespace may have been deleted during listing
             }
         }
         return tables.build();
-    }
-
-    @Override
-    public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> namespace)
-    {
-        // views and materialized views are currently not supported
-        verify(listViews(session, namespace).isEmpty(), "Unexpected views support");
-        verify(listMaterializedViews(session, namespace).isEmpty(), "Unexpected views support");
-        return listTables(session, namespace).stream()
-                .collect(toImmutableMap(identity(), ignore -> RelationType.TABLE));
     }
 
     @Override
@@ -405,12 +392,6 @@ public class TrinoRestCatalog
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace)
     {
         return ImmutableMap.of();
@@ -420,12 +401,6 @@ public class TrinoRestCatalog
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.empty();
-    }
-
-    @Override
-    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace)
-    {
-        return ImmutableList.of();
     }
 
     @Override

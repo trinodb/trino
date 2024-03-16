@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.LocationAccessControl;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
@@ -50,6 +51,8 @@ import java.util.UUID;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
+import static io.trino.plugin.hive.metastore.TableInfo.ExtendedRelationType.TABLE;
+import static io.trino.plugin.hive.metastore.TableInfo.ExtendedRelationType.TRINO_VIEW;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -151,8 +154,8 @@ public abstract class BaseTrinoCatalogTest
                             tableLocation,
                             tableProperties)
                     .commitTransaction();
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(schemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.empty())).contains(schemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(schemaTableName, TABLE));
+            assertThat(catalog.listTables(SESSION, Optional.empty())).contains(new TableInfo(schemaTableName, TABLE));
 
             Table icebergTable = catalog.loadTable(SESSION, schemaTableName);
             assertThat(icebergTable.name()).isEqualTo(quotedTableName(schemaTableName));
@@ -164,8 +167,7 @@ public abstract class BaseTrinoCatalogTest
             assertThat(icebergTable.properties()).containsAllEntriesOf(tableProperties);
 
             catalog.dropTable(SESSION, schemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).doesNotContain(schemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.empty())).doesNotContain(schemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.empty()).stream().map(TableInfo::tableName).toList()).doesNotContain(schemaTableName);
         }
         finally {
             try {
@@ -212,8 +214,8 @@ public abstract class BaseTrinoCatalogTest
                             tableLocation,
                             ImmutableMap.of())
                     .commitTransaction();
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(schemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.empty())).contains(schemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(schemaTableName, TABLE));
+            assertThat(catalog.listTables(SESSION, Optional.empty())).contains(new TableInfo(schemaTableName, TABLE));
 
             Table icebergTable = catalog.loadTable(SESSION, schemaTableName);
             assertThat(icebergTable.name()).isEqualTo(quotedTableName(schemaTableName));
@@ -267,20 +269,20 @@ public abstract class BaseTrinoCatalogTest
                             arbitraryTableLocation(catalog, SESSION, sourceSchemaTableName),
                             ImmutableMap.of())
                     .commitTransaction();
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(sourceSchemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(sourceSchemaTableName, TABLE));
 
             // Rename within the same schema
             SchemaTableName targetSchemaTableName = new SchemaTableName(sourceSchemaTableName.getSchemaName(), "newTableName");
             catalog.renameTable(SESSION, sourceSchemaTableName, targetSchemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).doesNotContain(sourceSchemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(targetSchemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.empty()).stream().map(TableInfo::tableName).toList()).doesNotContain(sourceSchemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(targetSchemaTableName, TABLE));
 
             // Move to a different schema
             sourceSchemaTableName = targetSchemaTableName;
             targetSchemaTableName = new SchemaTableName(targetNamespace, sourceSchemaTableName.getTableName());
             catalog.renameTable(SESSION, sourceSchemaTableName, targetSchemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).doesNotContain(sourceSchemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.of(targetNamespace))).contains(targetSchemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream().map(TableInfo::tableName).toList()).doesNotContain(sourceSchemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.of(targetNamespace))).contains(new TableInfo(targetSchemaTableName, TABLE));
 
             catalog.dropTable(SESSION, targetSchemaTableName);
         }
@@ -357,8 +359,7 @@ public abstract class BaseTrinoCatalogTest
             catalog.createNamespace(SESSION, namespace, ImmutableMap.of(), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             catalog.createView(SESSION, schemaTableName, viewDefinition, false);
 
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(schemaTableName);
-            assertThat(catalog.listViews(SESSION, Optional.of(namespace))).contains(schemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream()).contains(new TableInfo(schemaTableName, TRINO_VIEW));
 
             Map<SchemaTableName, ConnectorViewDefinition> views = catalog.getViews(SESSION, Optional.of(schemaTableName.getSchemaName()));
             assertThat(views.size()).isEqualTo(1);
@@ -366,8 +367,7 @@ public abstract class BaseTrinoCatalogTest
             assertViewDefinition(catalog.getView(SESSION, schemaTableName).orElseThrow(), viewDefinition);
 
             catalog.renameView(SESSION, schemaTableName, renamedSchemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).doesNotContain(schemaTableName);
-            assertThat(catalog.listViews(SESSION, Optional.of(namespace))).doesNotContain(schemaTableName);
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream().map(TableInfo::tableName).toList()).doesNotContain(schemaTableName);
             views = catalog.getViews(SESSION, Optional.of(schemaTableName.getSchemaName()));
             assertThat(views.size()).isEqualTo(1);
             assertViewDefinition(views.get(renamedSchemaTableName), viewDefinition);
@@ -375,7 +375,7 @@ public abstract class BaseTrinoCatalogTest
             assertThat(catalog.getView(SESSION, schemaTableName)).isEmpty();
 
             catalog.dropView(SESSION, renamedSchemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace)))
+            assertThat(catalog.listTables(SESSION, Optional.empty()).stream().map(TableInfo::tableName).toList())
                     .doesNotContain(renamedSchemaTableName);
         }
         finally {
@@ -428,9 +428,9 @@ public abstract class BaseTrinoCatalogTest
             closer.register(() -> catalog.dropTable(SESSION, table2));
 
             // No namespace provided, all tables across all namespaces should be returned
-            assertThat(catalog.listTables(SESSION, Optional.empty())).containsAll(ImmutableList.of(table1, table2));
+            assertThat(catalog.listTables(SESSION, Optional.empty())).containsAll(ImmutableList.of(new TableInfo(table1, TABLE), new TableInfo(table2, TABLE)));
             // Namespace is provided and exists
-            assertThat(catalog.listTables(SESSION, Optional.of(ns1))).isEqualTo(ImmutableList.of(table1));
+            assertThat(catalog.listTables(SESSION, Optional.of(ns1))).containsExactly(new TableInfo(table1, TABLE));
             // Namespace is provided and does not exist
             assertThat(catalog.listTables(SESSION, Optional.of("non_existing"))).isEmpty();
         }
