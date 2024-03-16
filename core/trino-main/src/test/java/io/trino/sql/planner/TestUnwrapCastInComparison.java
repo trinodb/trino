@@ -738,7 +738,7 @@ public class TestUnwrapCastInComparison
     }
 
     @Test
-    public void testUnwrapConvertTimestatmpToDate()
+    public void testUnwrapConvertTimestampToDate()
     {
         // equal
         testUnwrap("timestamp(3)", "date(a) = DATE '1981-06-22'", new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-22 00:00:00.000"))), new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-23 00:00:00.000"))))));
