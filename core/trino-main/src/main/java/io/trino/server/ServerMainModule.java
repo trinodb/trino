@@ -76,7 +76,6 @@ import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.LanguageFunctionManager;
-import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ProcedureRegistry;
@@ -528,14 +527,6 @@ public class ServerMainModule
     public static FunctionBundle systemFunctionBundle(FeaturesConfig featuresConfig, TypeOperators typeOperators, BlockTypeOperators blockTypeOperators, NodeVersion nodeVersion)
     {
         return SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeVersion);
-    }
-
-    @ProvidesIntoSet
-    @Singleton
-    // literal function must be registered lazily to break circular dependency
-    public static FunctionBundle literalFunctionBundle(BlockEncodingSerde blockEncodingSerde)
-    {
-        return new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde));
     }
 
     @ProvidesIntoSet
