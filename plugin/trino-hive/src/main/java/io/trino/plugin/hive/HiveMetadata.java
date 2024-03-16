@@ -803,8 +803,6 @@ public class HiveMetadata
                 tableNames.add(tableInfo.tableName());
             }
         }
-
-        tableNames.addAll(listMaterializedViews(session, optionalSchemaName));
         return tableNames.build().asList();
     }
 
@@ -812,15 +810,11 @@ public class HiveMetadata
     public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> optionalSchemaName)
     {
         ImmutableMap.Builder<SchemaTableName, RelationType> result = ImmutableMap.builder();
-
         for (String schemaName : listSchemas(session, optionalSchemaName)) {
             for (TableInfo tableInfo : metastore.getTables(schemaName)) {
                 result.put(tableInfo.tableName(), tableInfo.extendedRelationType().toRelationType());
             }
         }
-
-        listMaterializedViews(session, optionalSchemaName)
-                .forEach(name -> result.put(name, RelationType.MATERIALIZED_VIEW));
         return result.buildKeepingLast();
     }
 
