@@ -39,7 +39,7 @@ import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
-import static java.lang.Float.floatToIntBits;
+import static io.trino.type.Reals.toReal;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -215,7 +215,7 @@ public final class DoubleOperators
     public static long saturatedFloorCastToFloat(@SqlType(StandardTypes.DOUBLE) double value)
     {
         if (Double.isNaN(value)) {
-            return floatToIntBits(Float.NaN);
+            return toReal(Float.NaN);
         }
         float result;
         float minFloat = -1.0f * Float.MAX_VALUE;

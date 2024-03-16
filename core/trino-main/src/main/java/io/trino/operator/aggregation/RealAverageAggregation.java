@@ -26,7 +26,7 @@ import io.trino.spi.function.RemoveInputFunction;
 import io.trino.spi.function.SqlType;
 
 import static io.trino.spi.type.RealType.REAL;
-import static java.lang.Float.floatToIntBits;
+import static io.trino.type.Reals.toReal;
 import static java.lang.Float.intBitsToFloat;
 
 @AggregationFunction("avg")
@@ -81,7 +81,7 @@ public final class RealAverageAggregation
             out.appendNull();
         }
         else {
-            REAL.writeLong(out, floatToIntBits((float) (sum.getValue() / count.getValue())));
+            REAL.writeLong(out, toReal((float) (sum.getValue() / count.getValue())));
         }
     }
 }

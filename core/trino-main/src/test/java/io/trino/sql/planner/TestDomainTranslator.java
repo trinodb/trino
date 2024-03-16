@@ -92,7 +92,6 @@ import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.Reals.toReal;
-import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ONE;
 import static java.math.BigDecimal.TWO;
@@ -397,8 +396,8 @@ public class TestDomainTranslator
         tupleDomain = tupleDomain(C_REAL, Domain.create(
                 ValueSet.ofRanges(
                         Range.lessThan(REAL, 0L),
-                        Range.range(REAL, 0L, false, (long) Float.floatToIntBits(1F), false),
-                        Range.greaterThan(REAL, (long) Float.floatToIntBits(1F))),
+                        Range.range(REAL, 0L, false, toReal(1F), false),
+                        Range.greaterThan(REAL, toReal(1F))),
                 false));
         assertThat(toPredicate(tupleDomain)).isEqualTo(or(
                 lessThan(C_REAL, realLiteral(0.0f)),
@@ -408,8 +407,8 @@ public class TestDomainTranslator
         tupleDomain = tupleDomain(C_REAL, Domain.create(
                 ValueSet.ofRanges(
                         Range.lessThan(REAL, 0L),
-                        Range.range(REAL, 0L, false, (long) Float.floatToIntBits(1F), false),
-                        Range.greaterThan(REAL, (long) Float.floatToIntBits(2F))),
+                        Range.range(REAL, 0L, false, toReal(1F), false),
+                        Range.greaterThan(REAL, toReal(2F))),
                 false));
         assertThat(toPredicate(tupleDomain)).isEqualTo(or(and(lessThan(C_REAL, realLiteral(1.0f)), notEqual(C_REAL, realLiteral(0.0f))), greaterThan(C_REAL, realLiteral(2.0f))));
 
@@ -863,11 +862,11 @@ public class TestDomainTranslator
 
         assertUnsupportedPredicate(equal(
                 cast(C_BIGINT, REAL),
-                new Constant(REAL, realValue(12345.56f))));
+                new Constant(REAL, toReal(12345.56f))));
 
         assertUnsupportedPredicate(equal(
                 cast(C_INTEGER, REAL),
-                new Constant(REAL, realValue(12345.56f))));
+                new Constant(REAL, toReal(12345.56f))));
     }
 
     @Test
@@ -1153,7 +1152,7 @@ public class TestDomainTranslator
     @Test
     public void testInPredicateWithReal()
     {
-        testInPredicateWithFloatingPoint(C_REAL, C_REAL_1, REAL, (long) floatToIntBits(1), (long) floatToIntBits(2), (long) floatToIntBits(Float.NaN));
+        testInPredicateWithFloatingPoint(C_REAL, C_REAL_1, REAL, toReal(1), toReal(2), toReal(Float.NaN));
     }
 
     @Test
@@ -1567,7 +1566,7 @@ public class TestDomainTranslator
 
         testNumericTypeTranslationChain(
                 new NumericValues<>(C_DOUBLE, -1.0 * Double.MAX_VALUE, -22.0, -44.5556836, 23.0, 44.5556789, Double.MAX_VALUE),
-                new NumericValues<>(C_REAL, realValue(-1.0f * Float.MAX_VALUE), realValue(-22.0f), realValue(-44.555687f), realValue(23.0f), realValue(44.555676f), realValue(Float.MAX_VALUE)));
+                new NumericValues<>(C_REAL, toReal(-1.0f * Float.MAX_VALUE), toReal(-22.0f), toReal(-44.555687f), toReal(23.0f), toReal(44.555676f), toReal(Float.MAX_VALUE)));
     }
 
     private void testNumericTypeTranslationChain(NumericValues<?>... translationChain)
@@ -2293,11 +2292,6 @@ public class TestDomainTranslator
     private static Int128 longDecimal(String value)
     {
         return Decimals.valueOf(new BigDecimal(value));
-    }
-
-    private static Long realValue(float value)
-    {
-        return (long) Float.floatToIntBits(value);
     }
 
     private void testSimpleComparison(Expression expression, Symbol symbol, Range expectedDomainRange)
