@@ -135,17 +135,17 @@ public class CoordinatorDynamicCatalogManager
                                 CatalogProperties catalog = null;
                                 try {
                                     catalog = storedCatalog.loadProperties();
-                                    verify(catalog.getCatalogHandle().getCatalogName().equals(storedCatalog.getName().toString()), "Catalog name does not match catalog handle");
+                                    verify(catalog.getCatalogHandle().getCatalogName().equals(storedCatalog.name().toString()), "Catalog name does not match catalog handle");
                                     CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
-                                    activeCatalogs.put(storedCatalog.getName(), newCatalog.getCatalog());
+                                    activeCatalogs.put(storedCatalog.name(), newCatalog.getCatalog());
                                     allCatalogs.put(catalog.getCatalogHandle(), newCatalog);
-                                    log.debug("-- Added catalog %s using connector %s --", storedCatalog.getName(), catalog.getConnectorName());
+                                    log.debug("-- Added catalog %s using connector %s --", storedCatalog.name(), catalog.getConnectorName());
                                 }
                                 catch (Throwable e) {
-                                    CatalogHandle catalogHandle = catalog != null ? catalog.getCatalogHandle() : createRootCatalogHandle(storedCatalog.getName().toString(), new CatalogVersion("failed"));
+                                    CatalogHandle catalogHandle = catalog != null ? catalog.getCatalogHandle() : createRootCatalogHandle(storedCatalog.name().toString(), new CatalogVersion("failed"));
                                     ConnectorName connectorName = catalog != null ? catalog.getConnectorName() : new ConnectorName("unknown");
-                                    activeCatalogs.put(storedCatalog.getName(), failedCatalog(storedCatalog.getName(), catalogHandle, connectorName));
-                                    log.error(e, "-- Failed to load catalog %s using connector %s --", storedCatalog.getName(), connectorName);
+                                    activeCatalogs.put(storedCatalog.name(), failedCatalog(storedCatalog.name(), catalogHandle, connectorName));
+                                    log.error(e, "-- Failed to load catalog %s using connector %s --", storedCatalog.name(), connectorName);
                                 }
                                 return null;
                             })
