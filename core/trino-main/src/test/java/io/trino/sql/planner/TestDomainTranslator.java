@@ -41,7 +41,6 @@ import io.trino.sql.ir.NotExpression;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.type.LikePattern;
 import io.trino.type.LikePatternType;
-import io.trino.type.Reals;
 import io.trino.type.TypeCoercion;
 import io.trino.util.DateTimeUtils;
 import org.joda.time.DateTime;
@@ -92,6 +91,7 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
+import static io.trino.type.Reals.toReal;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ONE;
@@ -808,7 +808,7 @@ public class TestDomainTranslator
         assertPredicateIsAlwaysFalse(not(notEqual(C_DOUBLE, nanDouble)));
         assertUnsupportedPredicate(not(isDistinctFrom(C_DOUBLE, nanDouble)));
 
-        Expression nanReal = new Constant(REAL, Reals.toReal(Float.NaN));
+        Expression nanReal = new Constant(REAL, toReal(Float.NaN));
 
         assertPredicateIsAlwaysFalse(equal(C_REAL, nanReal));
         assertPredicateIsAlwaysFalse(greaterThan(C_REAL, nanReal));
@@ -2247,7 +2247,7 @@ public class TestDomainTranslator
 
     private static Expression realLiteral(float value)
     {
-        return new Constant(REAL, Reals.toReal(value));
+        return new Constant(REAL, toReal(value));
     }
 
     private static Constant stringLiteral(String value)
