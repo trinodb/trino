@@ -23,9 +23,9 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.type.FunctionType;
+import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -47,7 +47,7 @@ public class TestDeterminismEvaluator
         Metadata metadata = functionResolution.getMetadata();
         assertThat(DeterminismEvaluator.isDeterministic(function("rand"), metadata)).isFalse();
         assertThat(DeterminismEvaluator.isDeterministic(function("random"), metadata)).isFalse();
-        assertThat(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new NullLiteral())),
+        assertThat(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))),
                 metadata)).isFalse();
         assertThat(DeterminismEvaluator.isDeterministic(function("uuid"), metadata)).isFalse();
         assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))), metadata)).isTrue();

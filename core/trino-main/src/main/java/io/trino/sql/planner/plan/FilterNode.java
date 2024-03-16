@@ -19,12 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -43,9 +41,6 @@ public class FilterNode
 
         this.source = source;
         requireNonNull(predicate, "predicate is null");
-        // The condition doesn't guarantee that predicate is of type boolean, but was found to be a practical way to identify
-        // places where FilterNode was created without appropriate coercions.
-        checkArgument(!(predicate instanceof NullLiteral), "Predicate must be an expression of boolean type: %s", predicate);
         this.predicate = predicate;
     }
 

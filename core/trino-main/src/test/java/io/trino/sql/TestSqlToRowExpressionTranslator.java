@@ -21,10 +21,8 @@ import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NodeRef;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.relational.RowExpression;
@@ -63,7 +61,7 @@ public class TestSqlToRowExpressionTranslator
     public void testOptimizeDecimalLiteral()
     {
         // Short decimal
-        assertThat(translateAndOptimize(new Cast(new NullLiteral(), createDecimalType(7, 2))))
+        assertThat(translateAndOptimize(GenericLiteral.constant(createDecimalType(7, 2), null)))
                 .isEqualTo(constant(null, createDecimalType(7, 2)));
         assertThat(translateAndOptimize(GenericLiteral.constant(createDecimalType(2), Decimals.valueOf(42))))
                 .isEqualTo(constant(42L, createDecimalType(2, 0)));
@@ -73,7 +71,7 @@ public class TestSqlToRowExpressionTranslator
                 .isEqualTo(constant(4200L, createDecimalType(7, 2)));
 
         // Long decimal
-        assertThat(translateAndOptimize(new Cast(new NullLiteral(), createDecimalType(35, 2))))
+        assertThat(translateAndOptimize(GenericLiteral.constant(createDecimalType(35, 2), null)))
                 .isEqualTo(constant(null, createDecimalType(35, 2)));
         assertThat(translateAndOptimize(GenericLiteral.constant(createDecimalType(30), Decimals.valueOf(new BigDecimal("123456789012345678901234567890")))))
                 .isEqualTo(constant(Decimals.valueOf(new BigDecimal("123456789012345678901234567890")), createDecimalType(30, 0)));
@@ -108,7 +106,10 @@ public class TestSqlToRowExpressionTranslator
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(expression);
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-        return LiteralEncoder.toExpression(value, expressionTypes.get(NodeRef.of(expression)));
+
+        return value instanceof Expression optimized ?
+                optimized :
+                GenericLiteral.constant(expressionTypes.get(NodeRef.of(expression)), value);
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)

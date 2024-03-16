@@ -16,8 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
@@ -88,7 +87,7 @@ public class RemoveEmptyTableExecute
                 new ValuesNode(
                         finishNode.getId(),
                         finishNode.getOutputSymbols(),
-                        ImmutableList.of(new Row(ImmutableList.of(new Cast(new NullLiteral(), BIGINT))))));
+                        ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(BIGINT, null))))));
     }
 
     private Optional<PlanNode> getSingleSourceSkipExchange(PlanNode node, Lookup lookup)

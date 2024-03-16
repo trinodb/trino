@@ -37,7 +37,6 @@ import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NullIfExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -107,7 +106,7 @@ public class TestPageFieldsToInputParametersRewriter
         verifyEagerlyLoadedColumns(builder.buildExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("bigint0"), GenericLiteral.constant(INTEGER, 0L))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(ADD, new SymbolReference("bigint0"), GenericLiteral.constant(INTEGER, 1L)), GenericLiteral.constant(INTEGER, 0L))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new BetweenPredicate(new SymbolReference("bigint0"), GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 10L))), 1);
-        verifyEagerlyLoadedColumns(builder.buildExpression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("bigint0"), GenericLiteral.constant(INTEGER, 0L)), new SymbolReference("bigint0"))), Optional.of(new Cast(new NullLiteral(), BIGINT)))), 1);
+        verifyEagerlyLoadedColumns(builder.buildExpression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("bigint0"), GenericLiteral.constant(INTEGER, 0L)), new SymbolReference("bigint0"))), Optional.of(GenericLiteral.constant(BIGINT, null)))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new SimpleCaseExpression(new SymbolReference("bigint0"), ImmutableList.of(new WhenClause(GenericLiteral.constant(BIGINT, 1L), GenericLiteral.constant(BIGINT, 1L))), Optional.of(new ArithmeticUnaryExpression(MINUS, new SymbolReference("bigint0"))))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new IfExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("bigint0"), GenericLiteral.constant(INTEGER, 150000L)), GenericLiteral.constant(INTEGER, 0L), GenericLiteral.constant(INTEGER, 1L))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new IfExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("bigint0"), GenericLiteral.constant(BIGINT, 150000L)), new SymbolReference("bigint0"), GenericLiteral.constant(BIGINT, 0L))), 1);

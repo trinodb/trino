@@ -39,7 +39,6 @@ import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.Literal;
 import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.type.LikePattern;
 import io.trino.type.LikePatternType;
@@ -60,6 +59,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -97,7 +97,6 @@ import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ONE;
 import static java.math.BigDecimal.TWO;
-import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
@@ -591,13 +590,6 @@ public class TestDomainTranslator
         result = fromPredicate(originalPredicate);
         assertThat(result.getTupleDomain()).isEqualTo(TupleDomain.all());
         assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
-    }
-
-    @Test
-    public void testFromCastOfNullPredicate()
-    {
-        assertPredicateIsAlwaysFalse(cast(nullLiteral(), BOOLEAN));
-        assertPredicateIsAlwaysFalse(not(cast(nullLiteral(), BOOLEAN)));
     }
 
     @Test
@@ -1203,7 +1195,7 @@ public class TestDomainTranslator
     {
         Expression oneExpression = GenericLiteral.constant(type, one);
         Expression twoExpression = GenericLiteral.constant(type, two);
-        Expression nullExpression = LiteralEncoder.toExpression(null, type);
+        Expression nullExpression = GenericLiteral.constant(type, null);
         Expression otherSymbol = symbol2.toSymbolReference();
 
         // IN, single value
@@ -1277,7 +1269,7 @@ public class TestDomainTranslator
         Expression oneExpression = GenericLiteral.constant(type, one);
         Expression twoExpression = GenericLiteral.constant(type, two);
         Expression nanExpression = GenericLiteral.constant(type, nan);
-        Expression nullExpression = LiteralEncoder.toExpression(null, type);
+        Expression nullExpression = GenericLiteral.constant(type, null);
         Expression otherSymbol = symbol2.toSymbolReference();
 
         // IN, single value
@@ -1416,21 +1408,21 @@ public class TestDomainTranslator
     {
         assertPredicateIsAlwaysFalse(new InPredicate(
                 C_BIGINT.toSymbolReference(),
-                ImmutableList.of(cast(LiteralEncoder.toExpression(null, SMALLINT), BIGINT))));
+                ImmutableList.of(cast(GenericLiteral.constant(SMALLINT, null), BIGINT))));
 
         assertUnsupportedPredicate(not(new InPredicate(
                 cast(C_SMALLINT, BIGINT),
-                ImmutableList.of(LiteralEncoder.toExpression(null, BIGINT)))));
+                ImmutableList.of(GenericLiteral.constant(BIGINT, null)))));
 
         assertPredicateTranslates(
                 new InPredicate(
                         C_BIGINT.toSymbolReference(),
-                        ImmutableList.of(cast(LiteralEncoder.toExpression(null, SMALLINT), BIGINT), GenericLiteral.constant(BIGINT, 1L))),
+                        ImmutableList.of(cast(GenericLiteral.constant(SMALLINT, null), BIGINT), GenericLiteral.constant(BIGINT, 1L))),
                 tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), false)));
 
         assertPredicateIsAlwaysFalse(not(new InPredicate(
                 C_BIGINT.toSymbolReference(),
-                ImmutableList.of(cast(LiteralEncoder.toExpression(null, SMALLINT), BIGINT), GenericLiteral.constant(BIGINT, 1L)))));
+                ImmutableList.of(cast(GenericLiteral.constant(SMALLINT, null), BIGINT), GenericLiteral.constant(BIGINT, 1L)))));
     }
 
     @Test
@@ -1512,8 +1504,8 @@ public class TestDomainTranslator
     @Test
     public void testFromNullLiteralPredicate()
     {
-        assertPredicateIsAlwaysFalse(nullLiteral());
-        assertPredicateIsAlwaysFalse(not(nullLiteral()));
+        assertPredicateIsAlwaysFalse(nullLiteral(BOOLEAN));
+        assertPredicateIsAlwaysFalse(not(nullLiteral(BOOLEAN)));
     }
 
     @Test
@@ -2183,11 +2175,15 @@ public class TestDomainTranslator
         return new IsNullPredicate(expression);
     }
 
-    private InPredicate in(Expression expression, Type expressisonType, List<?> values)
+    private InPredicate in(Expression expression, Type type, List<?> values)
     {
-        List<Type> types = nCopies(values.size(), expressisonType);
-        List<Expression> expressions = LiteralEncoder.toExpressions(values, types);
-        return new InPredicate(expression, expressions);
+        return new InPredicate(
+                expression,
+                values.stream()
+                        .map(value -> value instanceof Expression valueExpression ?
+                                valueExpression :
+                                GenericLiteral.constant(type, value))
+                        .collect(toImmutableList()));
     }
 
     private static BetweenPredicate between(Expression expression, Expression min, Expression max)
@@ -2265,14 +2261,9 @@ public class TestDomainTranslator
         return cast(stringLiteral(value), type);
     }
 
-    private static NullLiteral nullLiteral()
-    {
-        return new NullLiteral();
-    }
-
     private static Expression nullLiteral(Type type)
     {
-        return cast(new NullLiteral(), type);
+        return GenericLiteral.constant(type, null);
     }
 
     private static Expression cast(Symbol symbol, Type type)

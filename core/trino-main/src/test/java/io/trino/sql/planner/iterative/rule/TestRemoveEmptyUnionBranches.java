@@ -16,10 +16,11 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -79,8 +80,8 @@ public class TestRemoveEmptyUnionBranches
                 })
                 .matches(
                         union(
-                                values(List.of("input1"), List.of(List.of(new NullLiteral()))),
-                                values(List.of("input3"), List.of(List.of(new NullLiteral()), List.of(new NullLiteral())))));
+                                values(List.of("input1"), List.of(List.of(GenericLiteral.constant(UnknownType.UNKNOWN, null)))),
+                                values(List.of("input3"), List.of(List.of(GenericLiteral.constant(UnknownType.UNKNOWN, null)), List.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))))));
     }
 
     @Test
@@ -104,7 +105,7 @@ public class TestRemoveEmptyUnionBranches
                 .matches(
                         project(
                                 ImmutableMap.of("output", expression(new SymbolReference("input1"))),
-                                values(ImmutableList.of("input1"), ImmutableList.of(ImmutableList.of(new NullLiteral())))));
+                                values(ImmutableList.of("input1"), ImmutableList.of(ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))))));
     }
 
     @Test

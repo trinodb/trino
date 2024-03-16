@@ -34,6 +34,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTranslation;
@@ -41,7 +42,6 @@ import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LayoutConstraintEvaluator;
-import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -286,10 +286,13 @@ public class PushPredicateIntoTableScan
             // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
             // by ensuring expression is optimized.
             Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), translatedExpression);
-            translatedExpression = LiteralEncoder.toExpression(
-                    new IrExpressionInterpreter(translatedExpression, plannerContext, session, translatedExpressionTypes)
-                            .optimize(NoOpSymbolResolver.INSTANCE),
-                    translatedExpressionTypes.get(NodeRef.of(translatedExpression)));
+            Object optimized = new IrExpressionInterpreter(translatedExpression, plannerContext, session, translatedExpressionTypes)
+                    .optimize(NoOpSymbolResolver.INSTANCE);
+
+            translatedExpression = optimized instanceof Expression optimizedExpression ?
+                    optimizedExpression :
+                    GenericLiteral.constant(translatedExpressionTypes.get(NodeRef.of(translatedExpression)), optimized);
+
             remainingDecomposedPredicate = combineConjuncts(plannerContext.getMetadata(), translatedExpression, expressionTranslation.remainingExpression());
         }
 

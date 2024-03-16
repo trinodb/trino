@@ -16,10 +16,9 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.SetOperationOutputMatcher;
@@ -115,13 +114,13 @@ public class TestImplementIntersectAll
                                                                                 "a1", expression(new SymbolReference("a_1")),
                                                                                 "b1", expression(new SymbolReference("b_1")),
                                                                                 "marker_left_1", expression(TRUE_LITERAL),
-                                                                                "marker_left_2", expression(new Cast(new NullLiteral(), BOOLEAN))),
+                                                                                "marker_left_2", expression(GenericLiteral.constant(BOOLEAN, null))),
                                                                         values("a_1", "b_1")),
                                                                 project(
                                                                         ImmutableMap.of(
                                                                                 "a2", expression(new SymbolReference("a_2")),
                                                                                 "b2", expression(new SymbolReference("b_2")),
-                                                                                "marker_right_1", expression(new Cast(new NullLiteral(), BOOLEAN)),
+                                                                                "marker_right_1", expression(GenericLiteral.constant(BOOLEAN, null)),
                                                                                 "marker_right_2", expression(TRUE_LITERAL)),
                                                                         values("a_2", "b_2")))
                                                                 .withAlias("a", new SetOperationOutputMatcher(0))

@@ -15,10 +15,9 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -144,7 +143,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "a", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("a")), new SymbolReference("a"), new Cast(new NullLiteral(), BIGINT))),
+                                        "a", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("a")), new SymbolReference("a"), GenericLiteral.constant(BIGINT, null))),
                                         "b", expression(new SymbolReference("b"))),
                                 join(JoinType.INNER, builder -> builder
                                         .left(values("a"))

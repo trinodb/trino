@@ -21,13 +21,13 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -104,9 +104,9 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                         project(
                                 ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a"))),
                                 values(ImmutableList.of("a"), ImmutableList.of(
-                                        ImmutableList.of(new NullLiteral()),
-                                        ImmutableList.of(new NullLiteral()),
-                                        ImmutableList.of(new NullLiteral())))));
+                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))))));
 
         tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p -> {
@@ -125,9 +125,9 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         "b", PlanMatchPattern.expression(new SymbolReference("b")),
                                         "c", PlanMatchPattern.expression(GenericLiteral.constant(INTEGER, 1L))),
                                 values(ImmutableList.of("a", "b"), ImmutableList.of(
-                                        ImmutableList.of(new NullLiteral(), new NullLiteral()),
-                                        ImmutableList.of(new NullLiteral(), new NullLiteral()),
-                                        ImmutableList.of(new NullLiteral(), new NullLiteral())))));
+                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null))))));
     }
 
     @Test
@@ -146,11 +146,11 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                         project(
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(new SymbolReference("a")),
-                                        "b", PlanMatchPattern.expression(new NullLiteral())),
+                                        "b", PlanMatchPattern.expression(GenericLiteral.constant(UnknownType.UNKNOWN, null))),
                                 values(ImmutableList.of("a"), ImmutableList.of(
-                                        ImmutableList.of(new NullLiteral()),
-                                        ImmutableList.of(new NullLiteral()),
-                                        ImmutableList.of(new NullLiteral())))));
+                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))))));
     }
 
     @Test

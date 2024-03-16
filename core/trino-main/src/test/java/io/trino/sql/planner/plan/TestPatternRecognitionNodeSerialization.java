@@ -31,7 +31,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
@@ -68,16 +67,37 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPatternRecognitionNodeSerialization
 {
+    private static final JsonCodec<ValuePointer> VALUE_POINTER_CODEC;
+    private static final JsonCodec<ExpressionAndValuePointers> EXPRESSION_AND_VALUE_POINTERS_CODEC;
+    private static final JsonCodec<Measure> MEASURE_CODEC;
+    private static final JsonCodec<PatternRecognitionNode> PATTERN_RECOGNITION_NODE_CODEC;
+
+    static {
+        ObjectMapperProvider provider = new ObjectMapperProvider();
+        provider.setKeyDeserializers(ImmutableMap.of(
+                TypeSignature.class, new TypeSignatureKeyDeserializer()));
+
+        provider.setJsonDeserializers(ImmutableMap.of(
+                Type.class, new TypeDeserializer(new TestingTypeManager()),
+                Block.class, new BlockJsonSerde.Deserializer(new TestingBlockEncodingSerde())));
+
+        provider.setJsonSerializers(ImmutableMap.of(
+                Block.class, new BlockJsonSerde.Serializer(new TestingBlockEncodingSerde())));
+
+        VALUE_POINTER_CODEC = new JsonCodecFactory(provider).jsonCodec(ValuePointer.class);
+        EXPRESSION_AND_VALUE_POINTERS_CODEC = new JsonCodecFactory(provider).jsonCodec(ExpressionAndValuePointers.class);
+        MEASURE_CODEC = new JsonCodecFactory(provider).jsonCodec(Measure.class);
+        PATTERN_RECOGNITION_NODE_CODEC = new JsonCodecFactory(provider).jsonCodec(PatternRecognitionNode.class);
+    }
+
     @Test
     public void testScalarValuePointerRoundtrip()
     {
-        JsonCodec<ValuePointer> codec = new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ValuePointer.class);
-
-        assertJsonRoundTrip(codec, new ScalarValuePointer(
+        assertJsonRoundTrip(VALUE_POINTER_CODEC, new ScalarValuePointer(
                 new LogicalIndexPointer(ImmutableSet.of(), false, false, 5, 5),
                 new Symbol("input_symbol")));
 
-        assertJsonRoundTrip(codec, new ScalarValuePointer(
+        assertJsonRoundTrip(VALUE_POINTER_CODEC, new ScalarValuePointer(
                 new LogicalIndexPointer(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), true, true, 1, -1),
                 new Symbol("input_symbol")));
     }
@@ -85,15 +105,8 @@ public class TestPatternRecognitionNodeSerialization
     @Test
     public void testAggregationValuePointerRoundtrip()
     {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setKeyDeserializers(ImmutableMap.of(
-                TypeSignature.class, new TypeSignatureKeyDeserializer()));
-        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TestingTypeManager())));
-
-        JsonCodec<ValuePointer> codec = new JsonCodecFactory(provider).jsonCodec(ValuePointer.class);
-
         ResolvedFunction countFunction = createTestMetadataManager().resolveBuiltinFunction("count", ImmutableList.of());
-        assertJsonRoundTrip(codec, new AggregationValuePointer(
+        assertJsonRoundTrip(VALUE_POINTER_CODEC, new AggregationValuePointer(
                 countFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(), false),
                 ImmutableList.of(),
@@ -101,10 +114,10 @@ public class TestPatternRecognitionNodeSerialization
                 Optional.of(new Symbol("match_number"))));
 
         ResolvedFunction maxFunction = createTestMetadataManager().resolveBuiltinFunction("max", fromTypes(BIGINT));
-        assertJsonRoundTrip(codec, new AggregationValuePointer(
+        assertJsonRoundTrip(VALUE_POINTER_CODEC, new AggregationValuePointer(
                 maxFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), true),
-                ImmutableList.of(new NullLiteral()),
+                ImmutableList.of(GenericLiteral.constant(BIGINT, null)),
                 Optional.of(new Symbol("classifier")),
                 Optional.of(new Symbol("match_number"))));
     }
@@ -112,12 +125,9 @@ public class TestPatternRecognitionNodeSerialization
     @Test
     public void testExpressionAndValuePointersRoundtrip()
     {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        JsonCodec<ExpressionAndValuePointers> codec = new JsonCodecFactory(provider).jsonCodec(ExpressionAndValuePointers.class);
+        assertJsonRoundTrip(EXPRESSION_AND_VALUE_POINTERS_CODEC, new ExpressionAndValuePointers(GenericLiteral.constant(BIGINT, null), ImmutableList.of()));
 
-        assertJsonRoundTrip(codec, new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of()));
-
-        assertJsonRoundTrip(codec, new ExpressionAndValuePointers(
+        assertJsonRoundTrip(EXPRESSION_AND_VALUE_POINTERS_CODEC, new ExpressionAndValuePointers(
                 new IfExpression(
                         new ComparisonExpression(GREATER_THAN, new SymbolReference("classifier"), new SymbolReference("x")),
                         new FunctionCall("rand", ImmutableList.of()),
@@ -140,21 +150,11 @@ public class TestPatternRecognitionNodeSerialization
     @Test
     public void testMeasureRoundtrip()
     {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, new TypeDeserializer(new TestingTypeManager()),
-                Block.class, new BlockJsonSerde.Deserializer(new TestingBlockEncodingSerde())));
-
-        provider.setJsonSerializers(ImmutableMap.of(
-                Block.class, new BlockJsonSerde.Serializer(new TestingBlockEncodingSerde())));
-
-        JsonCodec<Measure> codec = new JsonCodecFactory(provider).jsonCodec(Measure.class);
-
-        assertJsonRoundTrip(codec, new Measure(
-                new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of()),
+        assertJsonRoundTrip(MEASURE_CODEC, new Measure(
+                new ExpressionAndValuePointers(GenericLiteral.constant(BIGINT, null), ImmutableList.of()),
                 BOOLEAN));
 
-        assertJsonRoundTrip(codec, new Measure(
+        assertJsonRoundTrip(MEASURE_CODEC, new Measure(
                 new ExpressionAndValuePointers(
                         new IfExpression(
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("match_number"), new SymbolReference("x")),
@@ -180,13 +180,6 @@ public class TestPatternRecognitionNodeSerialization
     @Test
     public void testPatternRecognitionNodeRoundtrip()
     {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setKeyDeserializers(ImmutableMap.of(
-                TypeSignature.class, new TypeSignatureKeyDeserializer()));
-        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TestingTypeManager())));
-
-        JsonCodec<PatternRecognitionNode> codec = new JsonCodecFactory(provider).jsonCodec(PatternRecognitionNode.class);
-
         ResolvedFunction rankFunction = createTestMetadataManager().resolveBuiltinFunction("rank", ImmutableList.of());
 
         // test remaining fields inside PatternRecognitionNode specific to pattern recognition:
@@ -207,7 +200,7 @@ public class TestPatternRecognitionNodeSerialization
                                 false)),
                 ImmutableMap.of(
                         new Symbol("measure"),
-                        new Measure(new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of()), BOOLEAN)),
+                        new Measure(new ExpressionAndValuePointers(GenericLiteral.constant(BOOLEAN, null), ImmutableList.of()), BOOLEAN)),
                 Optional.of(new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty())),
                 WINDOW,
                 ImmutableSet.of(new IrLabel("B")),
@@ -215,10 +208,10 @@ public class TestPatternRecognitionNodeSerialization
                 true,
                 new IrConcatenation(ImmutableList.of(new IrLabel("A"), new IrLabel("B"), new IrLabel("C"))),
                 ImmutableMap.of(
-                        new IrLabel("B"), new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of()),
-                        new IrLabel("C"), new ExpressionAndValuePointers(new NullLiteral(), ImmutableList.of())));
+                        new IrLabel("B"), new ExpressionAndValuePointers(GenericLiteral.constant(BIGINT, null), ImmutableList.of()),
+                        new IrLabel("C"), new ExpressionAndValuePointers(GenericLiteral.constant(BIGINT, null), ImmutableList.of())));
 
-        PatternRecognitionNode roundtripNode = codec.fromJson(codec.toJson(node));
+        PatternRecognitionNode roundtripNode = PATTERN_RECOGNITION_NODE_CODEC.fromJson(PATTERN_RECOGNITION_NODE_CODEC.toJson(node));
 
         assertThat(roundtripNode.getMeasures()).isEqualTo(node.getMeasures());
         assertThat(roundtripNode.getRowsPerMatch()).isEqualTo(node.getRowsPerMatch());

@@ -14,10 +14,8 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
@@ -66,7 +64,7 @@ public class TestRemoveTrivialFilters
     {
         tester().assertThat(new RemoveTrivialFilters())
                 .on(p -> p.filter(
-                        new Cast(new NullLiteral(), BOOLEAN),
+                        GenericLiteral.constant(BOOLEAN, null),
                         p.values(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L))))))
