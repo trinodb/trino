@@ -70,7 +70,7 @@ public class InMemoryCatalogStore
         }
 
         @Override
-        public CatalogName getName()
+        public CatalogName name()
         {
             return catalogName;
         }

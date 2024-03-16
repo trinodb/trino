@@ -203,7 +203,7 @@ public final class FileCatalogStore
         }
 
         @Override
-        public CatalogName getName()
+        public CatalogName name()
         {
             return name;
         }

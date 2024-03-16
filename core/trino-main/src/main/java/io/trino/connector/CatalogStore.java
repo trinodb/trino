@@ -45,7 +45,7 @@ public interface CatalogStore
 
     interface StoredCatalog
     {
-        CatalogName getName();
+        CatalogName name();
 
         CatalogProperties loadProperties();
     }
