@@ -28,13 +28,13 @@ import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.type.Reals;
+import io.trino.type.UnknownType;
 import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
 
@@ -322,18 +322,18 @@ public class TestSimplifyExpressions
     public void testMultipleNulls()
     {
         assertSimplifies(
-                new LogicalExpression(AND, ImmutableList.of(new NullLiteral(), new NullLiteral(), new NullLiteral(), FALSE_LITERAL)),
+                new LogicalExpression(AND, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), FALSE_LITERAL)),
                 FALSE_LITERAL);
         assertSimplifies(
-                new LogicalExpression(AND, ImmutableList.of(new NullLiteral(), new NullLiteral(), new NullLiteral(), new SymbolReference("B1"))),
-                new LogicalExpression(AND, ImmutableList.of(new NullLiteral(), new SymbolReference("B1"))),
+                new LogicalExpression(AND, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
+                new LogicalExpression(AND, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
                 ImmutableMap.of("B1", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new NullLiteral(), new NullLiteral(), new NullLiteral(), TRUE_LITERAL)),
+                new LogicalExpression(OR, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), TRUE_LITERAL)),
                 TRUE_LITERAL);
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new NullLiteral(), new NullLiteral(), new NullLiteral(), new SymbolReference("B1"))),
-                new LogicalExpression(OR, ImmutableList.of(new NullLiteral(), new SymbolReference("B1"))),
+                new LogicalExpression(OR, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
+                new LogicalExpression(OR, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
                 ImmutableMap.of("B1", BOOLEAN));
     }
 

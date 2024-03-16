@@ -29,19 +29,17 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.BetweenPredicate;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.TypeProvider;
 
@@ -179,9 +177,9 @@ public class UnwrapDateTruncInComparison
             Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session, expressionTypes)
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
-            if (right == null || right instanceof NullLiteral) {
+            if (right == null) {
                 return switch (expression.getOperator()) {
-                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Cast(new NullLiteral(), BOOLEAN);
+                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> GenericLiteral.constant(BOOLEAN, null);
                     case IS_DISTINCT_FROM -> new IsNotNullPredicate(argument);
                 };
             }
@@ -235,17 +233,21 @@ public class UnwrapDateTruncInComparison
                 }
                 case LESS_THAN -> {
                     if (rightValueAtRangeLow) {
-                        yield new ComparisonExpression(LESS_THAN, argument, toExpression(rangeLow, rightType));
+                        yield new ComparisonExpression(LESS_THAN, argument, GenericLiteral.constant(rightType, rangeLow));
                     }
-                    yield new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, toExpression(calculateRangeEndInclusive(rangeLow, rightType, unit), rightType));
+                    yield new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, GenericLiteral.constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
-                case LESS_THAN_OR_EQUAL -> new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, toExpression(calculateRangeEndInclusive(rangeLow, rightType, unit), rightType));
-                case GREATER_THAN -> new ComparisonExpression(GREATER_THAN, argument, toExpression(calculateRangeEndInclusive(rangeLow, rightType, unit), rightType));
+                case LESS_THAN_OR_EQUAL -> {
+                    yield new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, GenericLiteral.constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                }
+                case GREATER_THAN -> {
+                    yield new ComparisonExpression(GREATER_THAN, argument, GenericLiteral.constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                }
                 case GREATER_THAN_OR_EQUAL -> {
                     if (rightValueAtRangeLow) {
-                        yield new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, toExpression(rangeLow, rightType));
+                        yield new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, GenericLiteral.constant(rightType, rangeLow));
                     }
-                    yield new ComparisonExpression(GREATER_THAN, argument, toExpression(calculateRangeEndInclusive(rangeLow, rightType, unit), rightType));
+                    yield new ComparisonExpression(GREATER_THAN, argument, GenericLiteral.constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
             };
         }
@@ -290,13 +292,8 @@ public class UnwrapDateTruncInComparison
         {
             return new BetweenPredicate(
                     argument,
-                    toExpression(minInclusive, type),
-                    toExpression(maxInclusive, type));
-        }
-
-        private Expression toExpression(Object value, Type type)
-        {
-            return LiteralEncoder.toExpression(value, type);
+                    GenericLiteral.constant(type, minInclusive),
+                    GenericLiteral.constant(type, maxInclusive));
         }
 
         private int compare(Type type, Object first, Object second)

@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
@@ -27,7 +26,6 @@ import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
@@ -290,7 +288,7 @@ public class TransformCorrelatedInPredicateToJoin
     private static Expression booleanConstant(@Nullable Boolean value)
     {
         if (value == null) {
-            return new Cast(new NullLiteral(), BOOLEAN);
+            return GenericLiteral.constant(BOOLEAN, null);
         }
         return GenericLiteral.constant(BOOLEAN, value);
     }

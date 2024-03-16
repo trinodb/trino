@@ -32,13 +32,13 @@ import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.NullIfExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.type.FunctionType;
+import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -326,11 +326,11 @@ public class TestEqualityInference
                         .addArgument(new FunctionType(ImmutableList.of(), VARCHAR), new LambdaExpression(ImmutableList.of(), nameReference("b")))
                         .build(),
                 new NullIfExpression(nameReference("b"), number(1)),
-                new IfExpression(nameReference("b"), number(1), new NullLiteral()),
-                new InPredicate(nameReference("b"), ImmutableList.of(new NullLiteral())),
-                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new IsNotNullPredicate(nameReference("b")), new NullLiteral())), Optional.empty()),
-                new SimpleCaseExpression(nameReference("b"), ImmutableList.of(new WhenClause(number(1), new NullLiteral())), Optional.empty()),
-                new SubscriptExpression(new Array(ImmutableList.of(new NullLiteral())), nameReference("b")));
+                new IfExpression(nameReference("b"), number(1), GenericLiteral.constant(UnknownType.UNKNOWN, null)),
+                new InPredicate(nameReference("b"), ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))),
+                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new IsNotNullPredicate(nameReference("b")), GenericLiteral.constant(UnknownType.UNKNOWN, null))), Optional.empty()),
+                new SimpleCaseExpression(nameReference("b"), ImmutableList.of(new WhenClause(number(1), GenericLiteral.constant(UnknownType.UNKNOWN, null))), Optional.empty()),
+                new SubscriptExpression(new Array(ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))), nameReference("b")));
 
         for (Expression candidate : candidates) {
             EqualityInference inference = new EqualityInference(

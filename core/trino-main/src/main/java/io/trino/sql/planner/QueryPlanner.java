@@ -52,7 +52,6 @@ import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SubscriptExpression;
@@ -546,7 +545,7 @@ class QueryPlanner
                 assignmentsBuilder.putIdentity(symbol);
             }
             else {
-                assignmentsBuilder.put(symbol, new Cast(new NullLiteral(), symbolAllocator.getTypes().get(symbol)));
+                assignmentsBuilder.put(symbol, GenericLiteral.constant(symbolAllocator.getTypes().get(symbol), null));
             }
         }
         List<Symbol> columnSymbols = columnSymbolsBuilder.build();
@@ -857,7 +856,7 @@ class QueryPlanner
         // Build the "else" clause for the SearchedCaseExpression
         ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
         dataColumnSchemas.forEach(columnSchema ->
-                rowBuilder.add(new Cast(new NullLiteral(), columnSchema.getType())));
+                rowBuilder.add(GenericLiteral.constant(columnSchema.getType(), null)));
         rowBuilder.add(new IsNotNullPredicate(presentColumn.toSymbolReference()));
         // The operation number
         rowBuilder.add(GenericLiteral.constant(TINYINT, -1L));

@@ -22,7 +22,6 @@ import com.google.errorprone.annotations.Immutable;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -94,9 +93,6 @@ public class JoinNode
         requireNonNull(leftOutputSymbols, "leftOutputSymbols is null");
         requireNonNull(rightOutputSymbols, "rightOutputSymbols is null");
         requireNonNull(filter, "filter is null");
-        // The condition doesn't guarantee that filter is of type boolean, but was found to be a practical way to identify
-        // places where JoinNode could be created without appropriate coercions.
-        checkArgument(filter.isEmpty() || !(filter.get() instanceof NullLiteral), "Filter must be an expression of boolean type: %s", filter);
         requireNonNull(leftHashSymbol, "leftHashSymbol is null");
         requireNonNull(rightHashSymbol, "rightHashSymbol is null");
         requireNonNull(distributionType, "distributionType is null");

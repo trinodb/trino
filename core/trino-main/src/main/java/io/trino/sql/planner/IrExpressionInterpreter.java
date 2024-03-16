@@ -58,7 +58,6 @@ import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullIfExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
@@ -203,12 +202,9 @@ public class IrExpressionInterpreter
         }
 
         @Override
-        protected Object visitLiteral(Literal node, Object context)
+        protected Object visitGenericLiteral(GenericLiteral node, Object context)
         {
-            return switch (node) {
-                case GenericLiteral value -> value.getRawValue();
-                case NullLiteral value -> null;
-            };
+            return node.getRawValue();
         }
 
         @Override
@@ -384,15 +380,11 @@ public class IrExpressionInterpreter
                         }
                         // This operand can be evaluated to a non-null value. Remaining operands can be skipped.
                         if (isEffectivelyLiteral(plannerContext, session, nestedOperand)) {
-                            verify(
-                                    !(nestedOperand instanceof NullLiteral) && !(nestedOperand instanceof Cast && ((Cast) nestedOperand).getExpression() instanceof NullLiteral),
-                                    "Null operand should have been removed by recursive coalesce processing");
                             return newOperands;
                         }
                     }
                 }
                 else if (value instanceof Expression expression) {
-                    verify(!(value instanceof NullLiteral), "Null value is expected to be represented as null, not NullLiteral");
                     // Skip duplicates unless they are non-deterministic.
                     if (!isDeterministic(expression, metadata) || uniqueNewOperands.add(expression)) {
                         newOperands.add(expression);
@@ -429,8 +421,12 @@ public class IrExpressionInterpreter
                 // the analysis below. If the value is null, it means that we can't apply the HashSet
                 // optimization
                 if (!inListCache.containsKey(valueList)) {
-                    if (valueList.stream().allMatch(Literal.class::isInstance) &&
-                            valueList.stream().noneMatch(NullLiteral.class::isInstance)) {
+                    boolean nonNullConstants = valueList.stream().allMatch(GenericLiteral.class::isInstance) &&
+                            valueList.stream()
+                                    .map(GenericLiteral.class::cast)
+                                    .map(GenericLiteral::getRawValue)
+                                    .noneMatch(Objects::isNull);
+                    if (nonNullConstants) {
                         Set<Object> objectSet = valueList.stream().map(expression -> processWithExceptionHandling(expression, context)).collect(Collectors.toSet());
                         set = FastutilSetHelper.toFastutilHashSet(
                                 objectSet,
@@ -1043,12 +1039,25 @@ public class IrExpressionInterpreter
 
         private Expression toExpression(Object base, Type type)
         {
-            return LiteralEncoder.toExpression(base, type);
+            if (base instanceof Expression expression) {
+                return expression;
+            }
+
+            return GenericLiteral.constant(type, base);
         }
 
         private List<Expression> toExpressions(List<Object> values, List<Type> types)
         {
-            return LiteralEncoder.toExpressions(values, types);
+            checkArgument(values.size() == types.size(), "values and types do not have the same size");
+
+            ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
+            for (int i = 0; i < values.size(); i++) {
+                Object object = values.get(i);
+                expressions.add(object instanceof Expression expression ?
+                        expression :
+                        GenericLiteral.constant(types.get(i), object));
+            }
+            return expressions.build();
         }
     }
 

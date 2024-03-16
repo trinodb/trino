@@ -15,14 +15,12 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.plan.Patterns.filter;
@@ -43,14 +41,13 @@ public class RemoveTrivialFilters
     public Result apply(FilterNode filterNode, Captures captures, Context context)
     {
         Expression predicate = filterNode.getPredicate();
-        checkArgument(!(predicate instanceof NullLiteral), "Unexpected null literal without a cast to boolean");
 
         if (predicate.equals(TRUE_LITERAL)) {
             return Result.ofPlanNode(filterNode.getSource());
         }
 
         if (predicate.equals(FALSE_LITERAL) ||
-                (predicate instanceof Cast cast && cast.getExpression() instanceof NullLiteral)) {
+                predicate instanceof GenericLiteral literal && literal.getRawValue() == null) {
             return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), filterNode.getOutputSymbols(), emptyList()));
         }
 

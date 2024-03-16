@@ -50,7 +50,6 @@ import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullIfExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
@@ -351,12 +350,6 @@ public class IrTypeAnalyzer
         protected Type visitGenericLiteral(GenericLiteral node, Context context)
         {
             return setExpressionType(node, node.getType());
-        }
-
-        @Override
-        protected Type visitNullLiteral(NullLiteral node, Context context)
-        {
-            return setExpressionType(node, UNKNOWN);
         }
 
         @Override
