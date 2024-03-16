@@ -134,7 +134,6 @@ public class PushAggregationIntoTableScan
             Map<Symbol, AggregationNode.Aggregation> aggregations,
             List<Symbol> groupingKeys)
     {
-        LiteralEncoder literalEncoder = new LiteralEncoder(plannerContext);
         Session session = context.getSession();
 
         if (groupingKeys.isEmpty() && aggregations.isEmpty()) {
@@ -193,11 +192,11 @@ public class PushAggregationIntoTableScan
 
         List<Expression> newProjections = result.getProjections().stream()
                 .map(expression -> {
-                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings, literalEncoder);
+                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
                     Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, context.getSymbolAllocator().getTypes(), translated);
-                    translated = literalEncoder.toExpression(
+                    translated = LiteralEncoder.toExpression(
                             new IrExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
                                     .optimize(NoOpSymbolResolver.INSTANCE),
                             translatedExpressionTypes.get(NodeRef.of(translated)));

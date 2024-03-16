@@ -98,8 +98,6 @@ public class TestConnectorExpressionTranslator
     private static final VarcharType VARCHAR_TYPE = createUnboundedVarcharType();
     private static final ArrayType VARCHAR_ARRAY_TYPE = new ArrayType(VARCHAR_TYPE);
 
-    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(PLANNER_CONTEXT);
-
     private static final Map<Symbol, Type> symbols = ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("double_symbol_1"), DOUBLE)
             .put(new Symbol("double_symbol_2"), DOUBLE)
@@ -134,7 +132,7 @@ public class TestConnectorExpressionTranslator
 
     private void testTranslateConstant(Object nativeValue, Type type)
     {
-        assertTranslationRoundTrips(LITERAL_ENCODER.toExpression(nativeValue, type), new Constant(nativeValue, type));
+        assertTranslationRoundTrips(GenericLiteral.constant(type, nativeValue), new Constant(nativeValue, type));
     }
 
     @Test
@@ -323,7 +321,7 @@ public class TestConnectorExpressionTranslator
                             BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
                                     .setName(LikeFunctions.LIKE_FUNCTION_NAME)
                                     .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
-                                    .addArgument(LIKE_PATTERN, LITERAL_ENCODER.toExpression(likePattern(utf8Slice(pattern)), LIKE_PATTERN))
+                                    .addArgument(LIKE_PATTERN, GenericLiteral.constant(LIKE_PATTERN, likePattern(utf8Slice(pattern))))
                                     .build(),
                             Optional.of(translated));
 
@@ -353,7 +351,7 @@ public class TestConnectorExpressionTranslator
                             BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
                                     .setName(LikeFunctions.LIKE_FUNCTION_NAME)
                                     .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
-                                    .addArgument(LIKE_PATTERN, LITERAL_ENCODER.toExpression(likePattern(utf8Slice(pattern), utf8Slice(escape)), LIKE_PATTERN))
+                                    .addArgument(LIKE_PATTERN, GenericLiteral.constant(LIKE_PATTERN, likePattern(utf8Slice(pattern), utf8Slice(escape))))
                                     .build(),
                             Optional.of(translated));
 
@@ -421,7 +419,7 @@ public class TestConnectorExpressionTranslator
                     FunctionCall input = BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
                             .setName("regexp_like")
                             .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
-                            .addArgument(JONI_REGEXP, LITERAL_ENCODER.toExpression(joniRegexp(utf8Slice("a+")), JONI_REGEXP))
+                            .addArgument(GenericLiteral.constant(JONI_REGEXP, joniRegexp(utf8Slice("a+"))))
                             .build();
                     Call translated = new Call(
                             BOOLEAN,
@@ -503,7 +501,7 @@ public class TestConnectorExpressionTranslator
 
     private void assertTranslationFromConnectorExpression(Session session, ConnectorExpression connectorExpression, Expression expected)
     {
-        Expression translation = ConnectorExpressionTranslator.translate(session, connectorExpression, PLANNER_CONTEXT, variableMappings, LITERAL_ENCODER);
+        Expression translation = ConnectorExpressionTranslator.translate(session, connectorExpression, PLANNER_CONTEXT, variableMappings);
         assertThat(translation).isEqualTo(expected);
     }
 }

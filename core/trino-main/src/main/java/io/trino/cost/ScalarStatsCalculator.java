@@ -28,13 +28,13 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Literal;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.IrLiteralInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
@@ -75,14 +75,12 @@ public class ScalarStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
-        private final IrLiteralInterpreter literalInterpreter;
         private final TypeProvider types;
 
         Visitor(PlanNodeStatsEstimate input, Session session, TypeProvider types)
         {
             this.input = input;
             this.session = session;
-            this.literalInterpreter = new IrLiteralInterpreter(plannerContext, session);
             this.types = types;
         }
 
@@ -108,7 +106,10 @@ public class ScalarStatsCalculator
         protected SymbolStatsEstimate visitLiteral(Literal node, Void context)
         {
             Type type = typeAnalyzer.getType(session, TypeProvider.empty(), node);
-            Object value = literalInterpreter.evaluate(node, type);
+            Object value = switch (node) {
+                case GenericLiteral literal -> literal.getRawValue();
+                case NullLiteral literal -> null;
+            };
 
             OptionalDouble doubleValue = toStatsRepresentation(type, value);
             SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()

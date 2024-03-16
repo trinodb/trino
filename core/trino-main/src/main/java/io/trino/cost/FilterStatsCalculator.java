@@ -120,7 +120,7 @@ public class FilterStatsCalculator
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
             value = false;
         }
-        return new LiteralEncoder(plannerContext).toExpression(value, BOOLEAN);
+        return LiteralEncoder.toExpression(value, BOOLEAN);
     }
 
     private class FilterExpressionStatsCalculatingVisitor

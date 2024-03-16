@@ -30,7 +30,6 @@ import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.transaction.TestingTransactionManager;
@@ -145,8 +144,7 @@ public class TestScalarStatsCalculator
     @Test
     public void testVarbinaryConstant()
     {
-        LiteralEncoder literalEncoder = new LiteralEncoder(functionResolution.getPlannerContext());
-        Expression expression = literalEncoder.toExpression(Slices.utf8Slice("ala ma kota"), VARBINARY);
+        Expression expression = GenericLiteral.constant(VARBINARY, Slices.utf8Slice("ala ma kota"));
 
         assertCalculate(expression)
                 .distinctValuesCount(1.0)

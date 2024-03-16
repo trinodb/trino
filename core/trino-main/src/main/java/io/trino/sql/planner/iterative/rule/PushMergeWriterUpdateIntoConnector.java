@@ -26,12 +26,11 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
-import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.MergeProcessorNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -47,7 +46,6 @@ import java.util.Optional;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.plan.Patterns.mergeProcessor;
 import static io.trino.sql.planner.plan.Patterns.mergeWriter;
 import static io.trino.sql.planner.plan.Patterns.project;
@@ -149,9 +147,9 @@ public class PushMergeWriterUpdateIntoConnector
                 assignments.put(columnHandles.get(columnName), (Constant) connectorExpression.get());
             }
         }
-        else if (isEffectivelyLiteral(plannerContext, context.getSession(), mergeRow)) {
-            RowType type = (RowType) new IrTypeAnalyzer(plannerContext).getType(context.getSession(), TypeProvider.empty(), mergeRow);
-            SqlRow rowValue = (SqlRow) IrExpressionInterpreter.evaluateConstantExpression(mergeRow, plannerContext, context.getSession());
+        else if (mergeRow instanceof GenericLiteral row) {
+            RowType type = (RowType) row.getType();
+            SqlRow rowValue = (SqlRow) row.getRawValue();
 
             for (int i = 0; i < orderedColumnNames.size(); i++) {
                 Type fieldType = type.getFields().get(i).getType();

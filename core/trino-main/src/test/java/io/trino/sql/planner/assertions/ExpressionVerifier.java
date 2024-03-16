@@ -89,7 +89,7 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expected)) &&
+        return actual.getRawValue().equals(expected.getRawValue()) &&
                 actual.getType().equals(expected.getType());
     }
 
@@ -97,17 +97,6 @@ public final class ExpressionVerifier
     protected Boolean visitNullLiteral(NullLiteral node, Expression expectedExpression)
     {
         return expectedExpression instanceof NullLiteral;
-    }
-
-    private static Object getValueFromLiteral(GenericLiteral expression)
-    {
-        Object result = expression.getRawValue();
-
-        if (result != null) {
-            return result;
-        }
-
-        return expression.getValue();
     }
 
     @Override
