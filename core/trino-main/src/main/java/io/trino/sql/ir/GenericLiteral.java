@@ -25,7 +25,6 @@ import io.trino.spi.type.Type;
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 
@@ -51,11 +50,9 @@ public final class GenericLiteral
 
     public GenericLiteral(Type type, Object rawValue)
     {
-        checkArgument(
-                Primitives.wrap(type.getJavaType()).isAssignableFrom(rawValue.getClass()),
-                "Improper Java type (%s) for type '%s'",
-                rawValue.getClass().getName(),
-                type.toString());
+        if (rawValue != null && !Primitives.wrap(type.getJavaType()).isAssignableFrom(rawValue.getClass())) {
+            throw new IllegalArgumentException("Improper Java type (%s) for type '%s'".formatted(rawValue.getClass().getName(), type));
+        }
         this.type = type;
         this.rawValue = rawValue;
     }
@@ -113,6 +110,8 @@ public final class GenericLiteral
     @Override
     public String toString()
     {
-        return "Literal[%s, %s]".formatted(type, rawValue);
+        return "Literal[%s, %s]".formatted(
+                type,
+                rawValue == null ? "<null>" : type.getObjectValue(null, getRawValueAsBlock(), 0));
     }
 }

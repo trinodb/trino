@@ -18,7 +18,6 @@ import io.airlift.slice.Slices;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
@@ -41,7 +40,7 @@ public class TestValuesNodeStats
                         .values(ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", DOUBLE)),
                                 ImmutableList.of(
                                         ImmutableList.of(new ArithmeticBinaryExpression(ADD, GenericLiteral.constant(BIGINT, 3L), GenericLiteral.constant(BIGINT, 3L)), GenericLiteral.constant(DOUBLE, 13.5e0)),
-                                        ImmutableList.of(GenericLiteral.constant(BIGINT, 55L), new NullLiteral()),
+                                        ImmutableList.of(GenericLiteral.constant(BIGINT, 55L), GenericLiteral.constant(UNKNOWN, null)),
                                         ImmutableList.of(GenericLiteral.constant(BIGINT, 6L), GenericLiteral.constant(DOUBLE, 13.5e0)))))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
@@ -70,7 +69,7 @@ public class TestValuesNodeStats
                                         ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("Alice"))),
                                         ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("'has'"))),
                                         ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("'a cat'"))),
-                                        ImmutableList.of(new NullLiteral()))))
+                                        ImmutableList.of(GenericLiteral.constant(UNKNOWN, null)))))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(4)
@@ -104,19 +103,19 @@ public class TestValuesNodeStats
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT)),
                                 ImmutableList.of(
-                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, GenericLiteral.constant(INTEGER, 3L), new NullLiteral())))))
+                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, GenericLiteral.constant(INTEGER, 3L), GenericLiteral.constant(UNKNOWN, null))))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT)),
                                 ImmutableList.of(
-                                        ImmutableList.of(new NullLiteral()))))
+                                        ImmutableList.of(GenericLiteral.constant(UNKNOWN, null)))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", UNKNOWN)),
                                 ImmutableList.of(
-                                        ImmutableList.of(new NullLiteral()))))
+                                        ImmutableList.of(GenericLiteral.constant(UNKNOWN, null)))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
     }
 

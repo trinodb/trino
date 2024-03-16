@@ -52,7 +52,6 @@ import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.type.LikeFunctions;
 import io.trino.type.LikePattern;
@@ -166,8 +165,8 @@ public final class DomainTranslator
             // specialize the range with BETWEEN expression if possible b/c it is currently more efficient
             return new BetweenPredicate(
                     reference,
-                    LiteralEncoder.toExpression(range.getLowBoundedValue(), type),
-                    LiteralEncoder.toExpression(range.getHighBoundedValue(), type));
+                    GenericLiteral.constant(type, range.getLowBoundedValue()),
+                    GenericLiteral.constant(type, range.getHighBoundedValue()));
         }
 
         List<Expression> rangeConjuncts = new ArrayList<>();
@@ -175,13 +174,13 @@ public final class DomainTranslator
             rangeConjuncts.add(new ComparisonExpression(
                     range.isLowInclusive() ? GREATER_THAN_OR_EQUAL : GREATER_THAN,
                     reference,
-                    LiteralEncoder.toExpression(range.getLowBoundedValue(), type)));
+                    GenericLiteral.constant(type, range.getLowBoundedValue())));
         }
         if (!range.isHighUnbounded()) {
             rangeConjuncts.add(new ComparisonExpression(
                     range.isHighInclusive() ? LESS_THAN_OR_EQUAL : LESS_THAN,
                     reference,
-                    LiteralEncoder.toExpression(range.getHighBoundedValue(), type)));
+                    GenericLiteral.constant(type, range.getHighBoundedValue())));
         }
         // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
         checkState(!rangeConjuncts.isEmpty());
@@ -236,14 +235,14 @@ public final class DomainTranslator
 
         for (Range range : originalUnionSingleValues) {
             if (range.isSingleValue()) {
-                singleValues.add(LiteralEncoder.toExpression(range.getSingleValue(), type));
+                singleValues.add(GenericLiteral.constant(type, range.getSingleValue()));
                 continue;
             }
 
             // attempt to optimize ranges that can be coalesced as long as single value points are excluded
             List<Expression> singleValuesInRange = new ArrayList<>();
             while (singleValueExclusions.hasNext() && range.contains(singleValueExclusions.peek())) {
-                singleValuesInRange.add(LiteralEncoder.toExpression(singleValueExclusions.next().getSingleValue(), type));
+                singleValuesInRange.add(GenericLiteral.constant(type, singleValueExclusions.next().getSingleValue()));
             }
 
             if (!singleValuesInRange.isEmpty()) {
@@ -267,7 +266,7 @@ public final class DomainTranslator
     private List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, SymbolReference reference)
     {
         List<Expression> values = discreteValues.getValues().stream()
-                .map(object -> LiteralEncoder.toExpression(object, type))
+                .map(object -> GenericLiteral.constant(type, object))
                 .collect(toList());
 
         // If values is empty, then the equatableValues was either ALL or NONE, both of which should already have been checked for
@@ -443,15 +442,6 @@ public final class DomainTranslator
                     return new ExtractionResult(columnUnionedTupleDomain, remainingExpression);
             }
             throw new AssertionError("Unknown operator: " + node.getOperator());
-        }
-
-        @Override
-        protected ExtractionResult visitCast(Cast node, Boolean context)
-        {
-            if (node.getExpression() instanceof NullLiteral) {
-                return new ExtractionResult(TupleDomain.none(), TRUE_LITERAL);
-            }
-            return super.visitCast(node, context);
         }
 
         @Override
@@ -841,7 +831,7 @@ public final class DomainTranslator
             boolean coercedValueIsEqualToOriginal = originalComparedToCoerced == 0;
             boolean coercedValueIsLessThanOriginal = originalComparedToCoerced > 0;
             boolean coercedValueIsGreaterThanOriginal = originalComparedToCoerced < 0;
-            Expression coercedLiteral = LiteralEncoder.toExpression(coercedValue, symbolExpressionType);
+            Expression coercedLiteral = GenericLiteral.constant(symbolExpressionType, coercedValue);
 
             return switch (comparisonOperator) {
                 case GREATER_THAN_OR_EQUAL, GREATER_THAN -> {
@@ -964,7 +954,7 @@ public final class DomainTranslator
             for (Expression expression : node.getValueList()) {
                 Object value = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes)
                         .optimize(NoOpSymbolResolver.INSTANCE);
-                if (value == null || value instanceof NullLiteral) {
+                if (value == null) {
                     if (!complement) {
                         // in case of IN, NULL on the right results with NULL comparison result (effectively false in predicate context), so can be ignored, as the
                         // comparison results are OR-ed
@@ -1193,6 +1183,10 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitGenericLiteral(GenericLiteral node, Boolean complement)
         {
+            if (node.getRawValue() == null) {
+                return new ExtractionResult(TupleDomain.none(), TRUE_LITERAL);
+            }
+
             if (node.getType().equals(BOOLEAN)) {
                 boolean value = (boolean) node.getRawValue();
                 value = complement != value;
@@ -1200,12 +1194,6 @@ public final class DomainTranslator
             }
 
             return super.visitGenericLiteral(node, complement);
-        }
-
-        @Override
-        protected ExtractionResult visitNullLiteral(NullLiteral node, Boolean complement)
-        {
-            return new ExtractionResult(TupleDomain.none(), TRUE_LITERAL);
         }
     }
 

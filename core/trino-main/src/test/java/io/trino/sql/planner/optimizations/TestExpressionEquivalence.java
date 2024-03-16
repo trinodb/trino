@@ -31,7 +31,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
@@ -92,8 +91,8 @@ public class TestExpressionEquivalence
     public void testEquivalent()
     {
         assertEquivalent(
-                new Cast(new NullLiteral(), BIGINT),
-                new Cast(new NullLiteral(), BIGINT));
+                GenericLiteral.constant(BIGINT, null),
+                GenericLiteral.constant(BIGINT, null));
         assertEquivalent(
                 new ComparisonExpression(LESS_THAN, new SymbolReference("a_bigint"), new SymbolReference("b_double")),
                 new ComparisonExpression(GREATER_THAN, new SymbolReference("b_double"), new SymbolReference("a_bigint")));
@@ -229,11 +228,11 @@ public class TestExpressionEquivalence
     public void testNotEquivalent()
     {
         assertNotEquivalent(
-                new Cast(new NullLiteral(), BOOLEAN),
+                GenericLiteral.constant(BOOLEAN, null),
                 FALSE_LITERAL);
         assertNotEquivalent(
                 FALSE_LITERAL,
-                new Cast(new NullLiteral(), BOOLEAN));
+                GenericLiteral.constant(BOOLEAN, null));
         assertNotEquivalent(
                 TRUE_LITERAL,
                 FALSE_LITERAL);

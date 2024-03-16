@@ -37,7 +37,6 @@ import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SimpleCaseExpression;
 import io.trino.sql.ir.SubscriptExpression;
@@ -842,7 +841,7 @@ public class TestLogicalPlanner
                 anyTree(
                         correlatedJoin(
                                 List.of("r_row_number", "r_regionkey", "r_name", "r_comment"),
-                                new Cast(new NullLiteral(), BOOLEAN),
+                                GenericLiteral.constant(BOOLEAN, null),
                                 tableScan("region", Map.of(
                                         "r_row_number", "row_number",
                                         "r_regionkey", "regionkey",

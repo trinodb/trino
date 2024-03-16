@@ -30,9 +30,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.Literal;
 import io.trino.sql.ir.NodeRef;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
@@ -97,19 +95,13 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        protected SymbolStatsEstimate visitNullLiteral(NullLiteral node, Void context)
+        protected SymbolStatsEstimate visitGenericLiteral(GenericLiteral node, Void context)
         {
-            return nullStatsEstimate();
-        }
-
-        @Override
-        protected SymbolStatsEstimate visitLiteral(Literal node, Void context)
-        {
-            Type type = typeAnalyzer.getType(session, TypeProvider.empty(), node);
-            Object value = switch (node) {
-                case GenericLiteral literal -> literal.getRawValue();
-                case NullLiteral literal -> null;
-            };
+            Type type = node.getType();
+            Object value = node.getRawValue();
+            if (value == null) {
+                return nullStatsEstimate();
+            }
 
             OptionalDouble doubleValue = toStatsRepresentation(type, value);
             SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()
@@ -130,7 +122,7 @@ public class ScalarStatsCalculator
             IrExpressionInterpreter interpreter = new IrExpressionInterpreter(node, plannerContext, session, expressionTypes);
             Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
-            if (value == null || value instanceof NullLiteral) {
+            if (value == null) {
                 return nullStatsEstimate();
             }
 

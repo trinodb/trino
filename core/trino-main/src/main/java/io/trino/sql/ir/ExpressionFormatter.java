@@ -80,15 +80,14 @@ public final class ExpressionFormatter
         {
             return literalFormatter
                     .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> node.getType() + " '" + node.getType().getObjectValue(null, node.getRawValueAsBlock(), 0) + "'");
-        }
-
-        @Override
-        protected String visitNullLiteral(NullLiteral node, Void context)
-        {
-            return literalFormatter
-                    .map(formatter -> formatter.apply(node))
-                    .orElse("null");
+                    .orElseGet(() -> {
+                        if (node.getRawValue() == null) {
+                            return "null::" + node.getType();
+                        }
+                        else {
+                            return node.getType() + " '" + node.getType().getObjectValue(null, node.getRawValueAsBlock(), 0) + "'";
+                        }
+                    });
         }
 
         @Override

@@ -20,13 +20,11 @@ import com.google.common.collect.Iterables;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -359,7 +357,7 @@ public class OptimizeMixedDistinctAggregations
 
             // add null assignment for mask
             // unused mask will be removed by PruneUnreferencedOutputs
-            outputSymbols.put(aggregateInfo.getMask(), new Cast(new NullLiteral(), BOOLEAN));
+            outputSymbols.put(aggregateInfo.getMask(), GenericLiteral.constant(BOOLEAN, null));
 
             aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateSymbols.buildOrThrow());
 
@@ -469,7 +467,7 @@ public class OptimizeMixedDistinctAggregations
             return new IfExpression(
                     new ComparisonExpression(operator, left, right),
                     result,
-                    new Cast(new NullLiteral(), trueValueType));
+                    GenericLiteral.constant(trueValueType, null));
         }
     }
 

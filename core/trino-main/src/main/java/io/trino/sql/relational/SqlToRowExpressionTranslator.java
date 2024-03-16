@@ -43,7 +43,6 @@ import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullIfExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
@@ -54,7 +53,6 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.SpecialForm.Form;
 import io.trino.sql.relational.optimizer.ExpressionOptimizer;
 import io.trino.type.TypeCoercion;
-import io.trino.type.UnknownType;
 
 import java.util.List;
 import java.util.Map;
@@ -147,12 +145,6 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitExpression(Expression node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: expression translator for " + node.getClass().getName());
-        }
-
-        @Override
-        protected RowExpression visitNullLiteral(NullLiteral node, Void context)
-        {
-            return constantNull(UnknownType.UNKNOWN);
         }
 
         @Override

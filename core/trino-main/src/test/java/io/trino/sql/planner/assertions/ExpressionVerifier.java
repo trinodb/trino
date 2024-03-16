@@ -31,7 +31,6 @@ import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
@@ -40,6 +39,7 @@ import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -89,14 +89,8 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return actual.getRawValue().equals(expected.getRawValue()) &&
+        return Objects.equals(actual.getRawValue(), expected.getRawValue()) &&
                 actual.getType().equals(expected.getType());
-    }
-
-    @Override
-    protected Boolean visitNullLiteral(NullLiteral node, Expression expectedExpression)
-    {
-        return expectedExpression instanceof NullLiteral;
     }
 
     @Override

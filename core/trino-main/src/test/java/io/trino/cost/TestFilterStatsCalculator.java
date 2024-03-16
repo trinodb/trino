@@ -41,7 +41,6 @@ import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
@@ -190,7 +189,7 @@ public class TestFilterStatsCalculator
     {
         assertExpression(TRUE_LITERAL).equalTo(standardInputStatistics);
         assertExpression(FALSE_LITERAL).equalTo(zeroStatistics);
-        assertExpression(new Cast(new NullLiteral(), BOOLEAN)).equalTo(zeroStatistics);
+        assertExpression(GenericLiteral.constant(BOOLEAN, null)).equalTo(zeroStatistics);
     }
 
     @Test
@@ -238,7 +237,7 @@ public class TestFilterStatsCalculator
                             new ArithmeticBinaryExpression(
                                     MULTIPLY,
                                     new SymbolReference("x"),
-                                    new Cast(new NullLiteral(), DOUBLE)),
+                                    GenericLiteral.constant(DOUBLE, null)),
                             new SymbolReference("x")),
                     new Cast(minusThree, DOUBLE)))
                     .outputRowsCount(18.75)
@@ -408,8 +407,8 @@ public class TestFilterStatsCalculator
         assertExpression(new LogicalExpression(AND, ImmutableList.of(new InPredicate(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("c")))), new ComparisonExpression(EQUAL, new SymbolReference("unknownRange"), GenericLiteral.constant(DOUBLE, 3.0)))))
                 .outputRowsCount(0);
 
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new Cast(new NullLiteral(), BOOLEAN), new Cast(new NullLiteral(), BOOLEAN)))).equalTo(zeroStatistics);
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new Cast(new NullLiteral(), BOOLEAN), new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), GenericLiteral.constant(DOUBLE, 0.0)), new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), GenericLiteral.constant(DOUBLE, 1.0))))))).equalTo(zeroStatistics);
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(GenericLiteral.constant(BOOLEAN, null), GenericLiteral.constant(BOOLEAN, null)))).equalTo(zeroStatistics);
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(GenericLiteral.constant(BOOLEAN, null), new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), GenericLiteral.constant(DOUBLE, 0.0)), new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), GenericLiteral.constant(DOUBLE, 1.0))))))).equalTo(zeroStatistics);
 
         Consumer<SymbolStatsAssertion> symbolAssertX = symbolAssert -> symbolAssert.averageRowSize(4.0)
                 .lowValue(-5.0)
@@ -560,7 +559,7 @@ public class TestFilterStatsCalculator
         assertExpression(
                 new LogicalExpression(AND, ImmutableList.of(
                         new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new Cast(GenericLiteral.constant(INTEGER, 0L), DOUBLE)),
-                        new Cast(new NullLiteral(), BOOLEAN))),
+                        GenericLiteral.constant(BOOLEAN, null))),
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
                 .outputRowsCount(filterSelectivityX * inputRowCount * 0.9)
                 .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
@@ -726,9 +725,9 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(xStats.getNullsFraction()));
 
         assertExpression(new InPredicate(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("b"))))).equalTo(standardInputStatistics);
-        assertExpression(new InPredicate(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("a")), ImmutableList.of(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("a")), GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("b")), new Cast(new NullLiteral(), createVarcharType(1))))).equalTo(standardInputStatistics);
+        assertExpression(new InPredicate(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("a")), ImmutableList.of(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("a")), GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("b")), GenericLiteral.constant(createVarcharType(1), null)))).equalTo(standardInputStatistics);
         assertExpression(new InPredicate(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("c"))))).outputRowsCount(0);
-        assertExpression(new InPredicate(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("a")), ImmutableList.of(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("b")), GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("c")), new Cast(new NullLiteral(), createVarcharType(1))))).outputRowsCount(0);
+        assertExpression(new InPredicate(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("a")), ImmutableList.of(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("b")), GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("c")), GenericLiteral.constant(createVarcharType(1), null)))).outputRowsCount(0);
         assertExpression(new InPredicate(new Cast(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3)), ImmutableList.of(new Cast(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), createVarcharType(3)), new Cast(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3))))).equalTo(standardInputStatistics);
         assertExpression(new InPredicate(new Cast(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("c")), createVarcharType(3)), ImmutableList.of(new Cast(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), createVarcharType(3)), new Cast(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3))))).outputRowsCount(0);
     }
@@ -805,7 +804,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Multiple values some including NULL
-        assertExpression(new InPredicate(new SymbolReference("x"), ImmutableList.of(GenericLiteral.constant(DOUBLE, -42.0), GenericLiteral.constant(DOUBLE, 1.5), GenericLiteral.constant(DOUBLE, 2.5), GenericLiteral.constant(DOUBLE, 7.5), GenericLiteral.constant(DOUBLE, 314.0), new Cast(new NullLiteral(), DOUBLE))))
+        assertExpression(new InPredicate(new SymbolReference("x"), ImmutableList.of(GenericLiteral.constant(DOUBLE, -42.0), GenericLiteral.constant(DOUBLE, 1.5), GenericLiteral.constant(DOUBLE, 2.5), GenericLiteral.constant(DOUBLE, 7.5), GenericLiteral.constant(DOUBLE, 314.0), GenericLiteral.constant(DOUBLE, null))))
                 .outputRowsCount(56.25)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(3.0)

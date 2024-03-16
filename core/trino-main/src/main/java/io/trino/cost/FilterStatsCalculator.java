@@ -37,7 +37,6 @@ import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -116,11 +115,16 @@ public class FilterStatsCalculator
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(predicate, plannerContext, session, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
+        if (value instanceof Expression expression) {
+            return expression;
+        }
+
         if (value == null) {
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
             value = false;
         }
-        return LiteralEncoder.toExpression(value, BOOLEAN);
+
+        return GenericLiteral.constant(BOOLEAN, value);
     }
 
     private class FilterExpressionStatsCalculatingVisitor
@@ -263,7 +267,7 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitGenericLiteral(GenericLiteral node, Void context)
         {
-            if (node.getType().equals(BOOLEAN)) {
+            if (node.getType().equals(BOOLEAN) && node.getRawValue() != null) {
                 if ((boolean) node.getRawValue()) {
                     return input;
                 }

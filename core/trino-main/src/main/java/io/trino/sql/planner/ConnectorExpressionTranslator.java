@@ -49,12 +49,10 @@ import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.Literal;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullIfExpression;
-import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.tree.QualifiedName;
@@ -215,8 +213,8 @@ public final class ConnectorExpressionTranslator
                 return Optional.of(variableMappings.get(name).toSymbolReference());
             }
 
-            if (expression instanceof Constant) {
-                return Optional.of(LiteralEncoder.toExpression(((Constant) expression).getValue(), expression.getType()));
+            if (expression instanceof Constant constant) {
+                return Optional.of(GenericLiteral.constant(constant.getType(), constant.getValue()));
             }
 
             if (expression instanceof FieldDereference dereference) {
@@ -556,12 +554,9 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitLiteral(Literal node, Void context)
+        protected Optional<ConnectorExpression> visitGenericLiteral(GenericLiteral node, Void context)
         {
-            return Optional.of(switch (node) {
-                case GenericLiteral literal -> constantFor(literal.getType(), literal.getRawValue());
-                case NullLiteral nullLiteral -> new Constant(null, typeOf(node));
-            });
+            return Optional.of(constantFor(node.getType(), node.getRawValue()));
         }
 
         @Override
@@ -831,7 +826,7 @@ public final class ConnectorExpressionTranslator
             ImmutableList.Builder<ConnectorExpression> values = ImmutableList.builderWithExpectedSize(node.getValueList().size());
             for (Expression value : node.getValueList()) {
                 // TODO: NULL should be eliminated on the engine side (within a rule)
-                if (value == null || value instanceof NullLiteral) {
+                if (value == null) {
                     return Optional.empty();
                 }
 
