@@ -1639,7 +1639,7 @@ public abstract class BaseJdbcConnectorTest
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_all", "(a INT, b INT, c INT)", ImmutableList.of("1, 2, 3"))) {
-            assertQueryFails("UPDATE " + table.getName() + " SET a = 1, b = 1, c = 2", MODIFYING_ROWS_MESSAGE);
+            assertUpdate("UPDATE " + table.getName() + " SET a = 1, b = 1, c = 2", 1);
         }
     }
 
