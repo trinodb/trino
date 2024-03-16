@@ -37,7 +37,6 @@ import org.apache.thrift.TException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -87,7 +86,7 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public List<TableMeta> getTableMeta(Optional<String> databaseName)
+    public List<TableMeta> getTableMeta(String databaseName)
             throws TException
     {
         return runWithHandle(() -> delegate.getTableMeta(databaseName));
