@@ -13,7 +13,7 @@
  */
 package io.trino.type;
 
-public class Reals
+public final class Reals
 {
     private Reals() {}
 
