@@ -15,13 +15,8 @@ package io.trino.plugin.geospatial;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.function.BoundSignature;
-import io.trino.spi.function.FunctionId;
-import io.trino.spi.function.FunctionKind;
-import io.trino.spi.function.FunctionNullability;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.SymbolReference;
@@ -35,27 +30,18 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.util.SpatialJoinUtils.ST_DISTANCE;
 
 public class TestPruneSpatialJoinChildrenColumns
         extends BaseRuleTest
 {
-    // normally a test can just resolve the function from metadata, but the geo functions are in a plugin that is not visible to this module
-    public static final ResolvedFunction TEST_ST_DISTANCE_FUNCTION = new ResolvedFunction(
-            new BoundSignature(builtinFunctionName(ST_DISTANCE), BIGINT, ImmutableList.of(BIGINT, BIGINT)),
-            GlobalSystemConnector.CATALOG_HANDLE,
-            new FunctionId("st_distance"),
-            FunctionKind.SCALAR,
-            true,
-            new FunctionNullability(false, ImmutableList.of(false, false)),
-            ImmutableMap.of(),
-            ImmutableSet.of());
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(new GeoPlugin());
+    private static final ResolvedFunction TEST_ST_DISTANCE_FUNCTION = FUNCTIONS.resolveFunction("st_distance", fromTypes(GEOMETRY, GEOMETRY));
 
     @Test
     public void testPruneOneChild()
