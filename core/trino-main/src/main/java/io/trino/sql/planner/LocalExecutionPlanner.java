@@ -4398,16 +4398,6 @@ public class LocalExecutionPlanner
             this.boundSignature = requireNonNull(boundSignature, "boundSignature is null");
         }
 
-        public FunctionId getFunctionId()
-        {
-            return functionId;
-        }
-
-        public BoundSignature getBoundSignature()
-        {
-            return boundSignature;
-        }
-
         @Override
         public boolean equals(Object o)
         {
