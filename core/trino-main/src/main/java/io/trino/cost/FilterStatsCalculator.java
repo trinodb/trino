@@ -23,9 +23,9 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IrVisitor;
@@ -124,7 +124,7 @@ public class FilterStatsCalculator
             value = false;
         }
 
-        return GenericLiteral.constant(BOOLEAN, value);
+        return new Constant(BOOLEAN, value);
     }
 
     private class FilterExpressionStatsCalculatingVisitor
@@ -265,10 +265,10 @@ public class FilterStatsCalculator
         }
 
         @Override
-        protected PlanNodeStatsEstimate visitGenericLiteral(GenericLiteral node, Void context)
+        protected PlanNodeStatsEstimate visitConstant(Constant node, Void context)
         {
-            if (node.getType().equals(BOOLEAN) && node.getRawValue() != null) {
-                if ((boolean) node.getRawValue()) {
+            if (node.getType().equals(BOOLEAN) && node.getValue() != null) {
+                if ((boolean) node.getValue()) {
                     return input;
                 }
 
@@ -278,7 +278,7 @@ public class FilterStatsCalculator
                 return result.build();
             }
 
-            return super.visitGenericLiteral(node, context);
+            return super.visitConstant(node, context);
         }
 
         @Override

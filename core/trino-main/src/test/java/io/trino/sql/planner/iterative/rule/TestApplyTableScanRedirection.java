@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
@@ -32,7 +31,7 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
@@ -238,7 +237,7 @@ public class TestApplyTableScanRedirection
                     })
                     .matches(
                             filter(
-                                    new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL"), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("foo"))),
+                                    new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL"), new Constant(VARCHAR, utf8Slice("foo"))),
                                     tableScan(
                                             new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                             TupleDomain.all(),
@@ -258,7 +257,7 @@ public class TestApplyTableScanRedirection
                             project(
                                     ImmutableMap.of("expr", expression(new SymbolReference("DEST_COL_B"))),
                                     filter(
-                                            new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL_A"), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("foo"))),
+                                            new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL_A"), new Constant(VARCHAR, utf8Slice("foo"))),
                                             tableScan(
                                                     new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                                     TupleDomain.all(),

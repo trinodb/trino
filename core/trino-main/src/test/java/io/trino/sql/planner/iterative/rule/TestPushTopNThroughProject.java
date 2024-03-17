@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.BooleanLiteral;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
@@ -155,8 +155,8 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(p.symbol("c")),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), GenericLiteral.constant(INTEGER, 1L)))
-                                            .put(p.symbol("c"), new SubscriptExpression(a.toSymbolReference(), GenericLiteral.constant(INTEGER, 2L)))
+                                            .put(p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new Constant(INTEGER, 1L)))
+                                            .put(p.symbol("c"), new SubscriptExpression(a.toSymbolReference(), new Constant(INTEGER, 2L)))
                                             .build(),
                                     p.values(a)));
                 }).doesNotFire();
@@ -174,7 +174,7 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(d),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), GenericLiteral.constant(INTEGER, 1L)))
+                                            .put(p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new Constant(INTEGER, 1L)))
                                             .put(p.symbol("c", rowType), a.toSymbolReference())
                                             .putIdentity(d)
                                             .build(),
@@ -182,7 +182,7 @@ public class TestPushTopNThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L))), "c", expression(new SymbolReference("a")), "d", expression(new SymbolReference("d"))),
+                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("a"), new Constant(INTEGER, 1L))), "c", expression(new SymbolReference("a")), "d", expression(new SymbolReference("d"))),
                                 topN(
                                         1,
                                         ImmutableList.of(sort("d", ASCENDING, FIRST)),

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
@@ -80,7 +80,7 @@ public class ImplementOffset
                 new ComparisonExpression(
                         GREATER_THAN,
                         rowNumberSymbol.toSymbolReference(),
-                        GenericLiteral.constant(BIGINT, parent.getCount())));
+                        new Constant(BIGINT, parent.getCount())));
 
         ProjectNode projectNode = new ProjectNode(
                 context.getIdAllocator().getNextId(),

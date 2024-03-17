@@ -15,8 +15,8 @@ package io.trino.plugin.geospatial;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -67,7 +67,7 @@ public class TestRewriteSpatialPartitioningAggregation
                         aggregation(
                                 ImmutableMap.of("sp", aggregationFunction("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
                                 project(
-                                        ImmutableMap.of("partition_count", expression(GenericLiteral.constant(INTEGER, 100L)),
+                                        ImmutableMap.of("partition_count", expression(new Constant(INTEGER, 100L)),
                                                 "envelope", expression(new FunctionCall(QualifiedName.of("st_envelope"), ImmutableList.of(new SymbolReference("geometry"))))),
                                         values("geometry"))));
 
@@ -81,7 +81,7 @@ public class TestRewriteSpatialPartitioningAggregation
                         aggregation(
                                 ImmutableMap.of("sp", aggregationFunction("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
                                 project(
-                                        ImmutableMap.of("partition_count", expression(GenericLiteral.constant(INTEGER, 100L)),
+                                        ImmutableMap.of("partition_count", expression(new Constant(INTEGER, 100L)),
                                                 "envelope", expression(new FunctionCall(QualifiedName.of("st_envelope"), ImmutableList.of(new SymbolReference("geometry"))))),
                                         values("geometry"))));
     }

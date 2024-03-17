@@ -18,7 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.SystemSessionProperties;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -161,11 +161,11 @@ public class TestEliminateCrossJoins
                                                 .equiCriteria("P_PARTKEY", "L_PARTKEY")
                                                 .left(anyTree(PART_TABLESCAN))
                                                 .right(anyTree(filter(
-                                                        new ComparisonExpression(EQUAL, new SymbolReference("L_RETURNFLAG"), GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("R"))),
+                                                        new ComparisonExpression(EQUAL, new SymbolReference("L_RETURNFLAG"), new Constant(createVarcharType(1), Slices.utf8Slice("R"))),
                                                         LINEITEM_WITH_RETURNFLAG_TABLESCAN)))))
                                 .right(
                                         anyTree(filter(
-                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("O_SHIPPRIORITY"), GenericLiteral.constant(INTEGER, 10L)),
+                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("O_SHIPPRIORITY"), new Constant(INTEGER, 10L)),
                                                 ORDERS_WITH_SHIPPRIORITY_TABLESCAN))))));
     }
 }

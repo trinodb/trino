@@ -14,7 +14,7 @@
 package io.trino.sql.planner;
 
 import io.airlift.slice.Slices;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import org.junit.jupiter.api.Test;
 
@@ -32,6 +32,6 @@ public class TestHaving
     {
         assertPlan(
                 "SELECT 'a' FROM (VALUES 1, 1, 2) t(a) HAVING true",
-                output(values(List.of("a_symbol"), List.of(List.of(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("a")))))));
+                output(values(List.of("a_symbol"), List.of(List.of(new Constant(createVarcharType(1), Slices.utf8Slice("a")))))));
     }
 }

@@ -36,11 +36,11 @@ public final class ExpressionFormatter
     public static class Formatter
             extends IrVisitor<String, Void>
     {
-        private final Optional<Function<Literal, String>> literalFormatter;
+        private final Optional<Function<Constant, String>> literalFormatter;
         private final Optional<Function<SymbolReference, String>> symbolReferenceFormatter;
 
         public Formatter(
-                Optional<Function<Literal, String>> literalFormatter,
+                Optional<Function<Constant, String>> literalFormatter,
                 Optional<Function<SymbolReference, String>> symbolReferenceFormatter)
         {
             this.literalFormatter = requireNonNull(literalFormatter, "literalFormatter is null");
@@ -87,16 +87,16 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitGenericLiteral(GenericLiteral node, Void context)
+        protected String visitConstant(Constant node, Void context)
         {
             return literalFormatter
                     .map(formatter -> formatter.apply(node))
                     .orElseGet(() -> {
-                        if (node.getRawValue() == null) {
+                        if (node.getValue() == null) {
                             return "null::" + node.getType();
                         }
                         else {
-                            return node.getType() + " '" + node.getType().getObjectValue(null, node.getRawValueAsBlock(), 0) + "'";
+                            return node.getType() + " '" + node.getType().getObjectValue(null, node.getValueAsBlock(), 0) + "'";
                         }
                     });
         }

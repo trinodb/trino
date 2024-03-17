@@ -28,33 +28,28 @@ import java.util.Objects;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 
-public final class GenericLiteral
-        extends Literal
+public final class Constant
+        extends Expression
 {
     private final Type type;
-    private final Object rawValue;
-
-    public static GenericLiteral constant(Type type, Object rawValue)
-    {
-        return new GenericLiteral(type, rawValue);
-    }
+    private final Object value;
 
     @JsonCreator
     @DoNotCall // For JSON deserialization only
-    public static GenericLiteral fromJson(
+    public static Constant fromJson(
             @JsonProperty Type type,
-            @JsonProperty Block rawValueAsBlock)
+            @JsonProperty Block valueAsBlock)
     {
-        return new GenericLiteral(type, readNativeValue(type, rawValueAsBlock, 0));
+        return new Constant(type, readNativeValue(type, valueAsBlock, 0));
     }
 
-    public GenericLiteral(Type type, Object rawValue)
+    public Constant(Type type, Object value)
     {
-        if (rawValue != null && !Primitives.wrap(type.getJavaType()).isAssignableFrom(rawValue.getClass())) {
-            throw new IllegalArgumentException("Improper Java type (%s) for type '%s'".formatted(rawValue.getClass().getName(), type));
+        if (value != null && !Primitives.wrap(type.getJavaType()).isAssignableFrom(value.getClass())) {
+            throw new IllegalArgumentException("Improper Java type (%s) for type '%s'".formatted(value.getClass().getName(), type));
         }
         this.type = type;
-        this.rawValue = rawValue;
+        this.value = value;
     }
 
     @JsonProperty
@@ -64,22 +59,22 @@ public final class GenericLiteral
     }
 
     @JsonProperty
-    public Block getRawValueAsBlock()
+    public Block getValueAsBlock()
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-        writeNativeValue(type, blockBuilder, rawValue);
+        writeNativeValue(type, blockBuilder, value);
         return blockBuilder.build();
     }
 
-    public Object getRawValue()
+    public Object getValue()
     {
-        return rawValue;
+        return value;
     }
 
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitGenericLiteral(this, context);
+        return visitor.visitConstant(this, context);
     }
 
     @Override
@@ -97,21 +92,21 @@ public final class GenericLiteral
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        GenericLiteral that = (GenericLiteral) o;
-        return Objects.equals(type, that.type) && Objects.equals(rawValue, that.rawValue);
+        Constant that = (Constant) o;
+        return Objects.equals(type, that.type) && Objects.equals(value, that.value);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, rawValue);
+        return Objects.hash(type, value);
     }
 
     @Override
     public String toString()
     {
-        return "Literal[%s, %s]".formatted(
+        return "Constant[%s, %s]".formatted(
                 type,
-                rawValue == null ? "<null>" : type.getObjectValue(null, getRawValueAsBlock(), 0));
+                value == null ? "<null>" : type.getObjectValue(null, getValueAsBlock(), 0));
     }
 }

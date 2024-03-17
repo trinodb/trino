@@ -23,10 +23,10 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
@@ -171,7 +171,7 @@ public class UnwrapYearInComparison
 
             if (right == null) {
                 return switch (expression.getOperator()) {
-                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> GenericLiteral.constant(BOOLEAN, null);
+                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Constant(BOOLEAN, null);
                     case IS_DISTINCT_FROM -> new IsNotNullPredicate(argument);
                 };
             }
@@ -198,19 +198,19 @@ public class UnwrapYearInComparison
                         new NotExpression(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType))));
                 case LESS_THAN -> {
                     Object value = calculateRangeStartInclusive(year, argumentType);
-                    yield new ComparisonExpression(LESS_THAN, argument, GenericLiteral.constant(argumentType, value));
+                    yield new ComparisonExpression(LESS_THAN, argument, new Constant(argumentType, value));
                 }
                 case LESS_THAN_OR_EQUAL -> {
                     Object value = calculateRangeEndInclusive(year, argumentType);
-                    yield new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, GenericLiteral.constant(argumentType, value));
+                    yield new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, new Constant(argumentType, value));
                 }
                 case GREATER_THAN -> {
                     Object value = calculateRangeEndInclusive(year, argumentType);
-                    yield new ComparisonExpression(GREATER_THAN, argument, GenericLiteral.constant(argumentType, value));
+                    yield new ComparisonExpression(GREATER_THAN, argument, new Constant(argumentType, value));
                 }
                 case GREATER_THAN_OR_EQUAL -> {
                     Object value = calculateRangeStartInclusive(year, argumentType);
-                    yield new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, GenericLiteral.constant(argumentType, value));
+                    yield new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, new Constant(argumentType, value));
                 }
             };
         }
@@ -219,8 +219,8 @@ public class UnwrapYearInComparison
         {
             return new BetweenPredicate(
                     argument,
-                    GenericLiteral.constant(type, minInclusive),
-                    GenericLiteral.constant(type, maxInclusive));
+                    new Constant(type, minInclusive),
+                    new Constant(type, maxInclusive));
         }
     }
 

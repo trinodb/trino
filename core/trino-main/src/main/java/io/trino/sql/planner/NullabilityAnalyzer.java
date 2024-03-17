@@ -14,10 +14,10 @@
 package io.trino.sql.planner;
 
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.NullIfExpression;
@@ -120,9 +120,9 @@ public final class NullabilityAnalyzer
         }
 
         @Override
-        protected Void visitGenericLiteral(GenericLiteral node, AtomicBoolean result)
+        protected Void visitConstant(Constant node, AtomicBoolean result)
         {
-            if (node.getRawValue() == null) {
+            if (node.getValue() == null) {
                 result.set(true);
             }
             return null;

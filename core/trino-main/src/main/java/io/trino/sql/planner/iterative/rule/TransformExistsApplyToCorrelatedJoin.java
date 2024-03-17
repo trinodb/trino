@@ -22,7 +22,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeDecorrelator;
@@ -179,7 +179,7 @@ public class TransformExistsApplyToCorrelatedJoin
                                         Optional.empty(),
                                         Optional.empty())),
                                 globalAggregation()),
-                        Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), GenericLiteral.constant(BIGINT, 0L)))),
+                        Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Constant(BIGINT, 0L)))),
                 applyNode.getCorrelation(),
                 INNER,
                 TRUE_LITERAL,

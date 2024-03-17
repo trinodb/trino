@@ -26,7 +26,6 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.StandardFunctions;
@@ -42,9 +41,9 @@ import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNotNullPredicate;
@@ -213,13 +212,13 @@ public final class ConnectorExpressionTranslator
                 return Optional.of(variableMappings.get(name).toSymbolReference());
             }
 
-            if (expression instanceof Constant constant) {
-                return Optional.of(GenericLiteral.constant(constant.getType(), constant.getValue()));
+            if (expression instanceof io.trino.spi.expression.Constant constant) {
+                return Optional.of(new Constant(constant.getType(), constant.getValue()));
             }
 
             if (expression instanceof FieldDereference dereference) {
                 return translate(dereference.getTarget())
-                        .map(base -> new SubscriptExpression(base, GenericLiteral.constant(INTEGER, (long) (dereference.getField() + 1))));
+                        .map(base -> new SubscriptExpression(base, new Constant(INTEGER, (long) (dereference.getField() + 1))));
             }
 
             if (expression instanceof Call) {
@@ -554,9 +553,9 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitGenericLiteral(GenericLiteral node, Void context)
+        protected Optional<ConnectorExpression> visitConstant(Constant node, Void context)
         {
-            return Optional.of(constantFor(node.getType(), node.getRawValue()));
+            return Optional.of(constantFor(node.getType(), node.getValue()));
         }
 
         @Override
@@ -712,9 +711,9 @@ public final class ConnectorExpressionTranslator
                 // the pattern argument has been constant folded, so extract the underlying pattern and escape
                 LikePattern matcher = (LikePattern) evaluateConstantExpression(patternArgument, plannerContext, session);
 
-                arguments.add(new Constant(Slices.utf8Slice(matcher.getPattern()), createVarcharType(matcher.getPattern().length())));
+                arguments.add(new io.trino.spi.expression.Constant(Slices.utf8Slice(matcher.getPattern()), createVarcharType(matcher.getPattern().length())));
                 if (matcher.getEscape().isPresent()) {
-                    arguments.add(new Constant(Slices.utf8Slice(matcher.getEscape().get().toString()), createVarcharType(1)));
+                    arguments.add(new io.trino.spi.expression.Constant(Slices.utf8Slice(matcher.getEscape().get().toString()), createVarcharType(1)));
                 }
             }
             else if (patternArgument instanceof FunctionCall call && ResolvedFunction.extractFunctionName(call.getName()).equals(builtinFunctionName(LIKE_PATTERN_FUNCTION_NAME))) {
@@ -775,17 +774,17 @@ public final class ConnectorExpressionTranslator
         {
             if (type == JONI_REGEXP) {
                 Slice pattern = ((JoniRegexp) value).pattern();
-                return new Constant(pattern, createVarcharType(countCodePoints(pattern)));
+                return new io.trino.spi.expression.Constant(pattern, createVarcharType(countCodePoints(pattern)));
             }
             if (type instanceof Re2JRegexpType) {
                 Slice pattern = Slices.utf8Slice(((Re2JRegexp) value).pattern());
-                return new Constant(pattern, createVarcharType(countCodePoints(pattern)));
+                return new io.trino.spi.expression.Constant(pattern, createVarcharType(countCodePoints(pattern)));
             }
             if (type instanceof JsonPathType) {
                 Slice pattern = Slices.utf8Slice(((JsonPath) value).pattern());
-                return new Constant(pattern, createVarcharType(countCodePoints(pattern)));
+                return new io.trino.spi.expression.Constant(pattern, createVarcharType(countCodePoints(pattern)));
             }
-            return new Constant(value, type);
+            return new io.trino.spi.expression.Constant(value, type);
         }
 
         @Override
@@ -811,7 +810,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            return Optional.of(new FieldDereference(typeOf(node), translatedBase.get(), (int) ((long) ((GenericLiteral) node.getIndex()).getRawValue() - 1)));
+            return Optional.of(new FieldDereference(typeOf(node), translatedBase.get(), (int) ((long) ((Constant) node.getIndex()).getValue() - 1)));
         }
 
         @Override

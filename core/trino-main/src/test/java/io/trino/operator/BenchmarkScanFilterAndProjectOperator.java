@@ -40,9 +40,9 @@ import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
@@ -223,10 +223,10 @@ public class BenchmarkScanFilterAndProjectOperator
         private RowExpression getFilter(Type type)
         {
             if (type == VARCHAR) {
-                return rowExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new Cast(new SymbolReference("varchar0"), BIGINT), GenericLiteral.constant(INTEGER, 2L)), GenericLiteral.constant(INTEGER, 0L)));
+                return rowExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new Cast(new SymbolReference("varchar0"), BIGINT), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)));
             }
             if (type == BIGINT) {
-                return rowExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("bigint0"), GenericLiteral.constant(INTEGER, 2L)), GenericLiteral.constant(INTEGER, 0L)));
+                return rowExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("bigint0"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)));
             }
             throw new IllegalArgumentException("filter not supported for type : " + type);
         }
@@ -236,14 +236,14 @@ public class BenchmarkScanFilterAndProjectOperator
             ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
             if (type == BIGINT) {
                 for (int i = 0; i < columnCount; i++) {
-                    builder.add(rowExpression(new ArithmeticBinaryExpression(ADD, new SymbolReference("bigint" + i), GenericLiteral.constant(INTEGER, 5L))));
+                    builder.add(rowExpression(new ArithmeticBinaryExpression(ADD, new SymbolReference("bigint" + i), new Constant(INTEGER, 5L))));
                 }
             }
             else if (type == VARCHAR) {
                 for (int i = 0; i < columnCount; i++) {
                     // alternatively use identity expression rowExpression("varchar" + i, type) or
                     // rowExpression("substr(varchar" + i + ", 1, 1)", type)
-                    builder.add(rowExpression(new FunctionCall(CONCAT.toQualifiedName(), ImmutableList.of(new SymbolReference("varchar" + i), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("foo"))))));
+                    builder.add(rowExpression(new FunctionCall(CONCAT.toQualifiedName(), ImmutableList.of(new SymbolReference("varchar" + i), new Constant(VARCHAR, Slices.utf8Slice("foo"))))));
                 }
             }
             return builder.build();

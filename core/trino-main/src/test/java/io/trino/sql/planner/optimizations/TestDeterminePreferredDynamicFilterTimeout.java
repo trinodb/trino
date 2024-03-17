@@ -25,8 +25,8 @@ import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -419,7 +419,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                                 .equals(OptionalLong.of(waitForCascadingDynamicFiltersTimeout))),
                                 node(ExchangeNode.class,
                                         filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("B_1"), new FunctionCall(QualifiedName.of("random"), ImmutableList.of(GenericLiteral.constant(INTEGER, 5L)))),
+                                                new ComparisonExpression(EQUAL, new SymbolReference("B_1"), new FunctionCall(QualifiedName.of("random"), ImmutableList.of(new Constant(INTEGER, 5L)))),
                                                 tableScan("table_small_b", ImmutableMap.of("B_1", "b_1")))))));
     }
 }

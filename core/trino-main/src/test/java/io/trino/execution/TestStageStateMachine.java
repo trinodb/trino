@@ -28,7 +28,7 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskStats;
 import io.trino.operator.TestingOperatorContext;
 import io.trino.spi.QueryId;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -405,7 +405,7 @@ public class TestStageStateMachine
                 new PlanFragmentId("plan"),
                 new ValuesNode(valuesNodeId,
                         ImmutableList.of(symbol),
-                        ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(VARCHAR, Slices.utf8Slice("foo")))))),
+                        ImmutableList.of(new Row(ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("foo")))))),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 Optional.empty(),

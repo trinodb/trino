@@ -30,8 +30,8 @@ import io.trino.operator.table.json.JsonTablePlanUnion;
 import io.trino.operator.table.json.JsonTableQueryColumn;
 import io.trino.operator.table.json.JsonTableValueColumn;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -104,7 +104,7 @@ public class TestJsonTable
                         ImmutableList.of("json_col", "int_col", "bigint_col", "formatted_varchar_col"),
                         anyTree(
                                 project(
-                                        ImmutableMap.of("formatted_varchar_col", expression(new FunctionCall(QualifiedName.of("$json_to_varchar"), ImmutableList.of(new SymbolReference("varchar_col"), GenericLiteral.constant(TINYINT, 1L), FALSE_LITERAL)))),
+                                        ImmutableMap.of("formatted_varchar_col", expression(new FunctionCall(QualifiedName.of("$json_to_varchar"), ImmutableList.of(new SymbolReference("varchar_col"), new Constant(TINYINT, 1L), FALSE_LITERAL)))),
                                         tableFunction(builder -> builder
                                                         .name("$json_table")
                                                         .addTableArgument(
@@ -126,13 +126,13 @@ public class TestJsonTable
                                                                         "int_col_coerced", expression(new Cast(new SymbolReference("int_col"), BIGINT))), // cast default value to BIGINT to match declared return type for the column
                                                                 project(// pre-project context item, path parameters and default expressions
                                                                         ImmutableMap.of(
-                                                                                "name", expression(GenericLiteral.constant(createVarcharType(5), Slices.utf8Slice("[ala]"))),
-                                                                                "default_value", expression(GenericLiteral.constant(INTEGER, 5L))),
+                                                                                "name", expression(new Constant(createVarcharType(5), Slices.utf8Slice("[ala]"))),
+                                                                                "default_value", expression(new Constant(INTEGER, 5L))),
                                                                         anyTree(
                                                                                 project(
                                                                                         ImmutableMap.of(
-                                                                                                "json_col", expression(GenericLiteral.constant(createVarcharType(9), Slices.utf8Slice("[1, 2, 3]"))),
-                                                                                                "int_col", expression(GenericLiteral.constant(INTEGER, 4L))),
+                                                                                                "json_col", expression(new Constant(createVarcharType(9), Slices.utf8Slice("[1, 2, 3]"))),
+                                                                                                "int_col", expression(new Constant(INTEGER, 4L))),
                                                                                         values(1)))))))))));
     }
 

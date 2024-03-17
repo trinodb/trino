@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
@@ -86,7 +86,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                 .filter(new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new SymbolReference("a")))
                                 .left(values("a"))
                                 .right(project(
-                                        ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(BIGINT, 1L)))),
+                                        ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(BIGINT, 1L)))),
                                         values("b")))));
     }
 
@@ -112,8 +112,8 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                 .right(
                                         project(
                                                 ImmutableMap.of(
-                                                        "expr_less", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(BIGINT, 1L))),
-                                                        "expr_greater", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(BIGINT, 10L)))),
+                                                        "expr_less", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(BIGINT, 1L))),
+                                                        "expr_greater", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(BIGINT, 10L)))),
                                                 values("b")))));
     }
 
@@ -132,11 +132,11 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         join(INNER, builder -> builder
-                                .filter(new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 2L))))
+                                .filter(new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Constant(BIGINT, 2L))))
                                 .left(values("a"))
                                 .right(
                                         project(
-                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(BIGINT, 1L)))),
                                                 values("b")))));
     }
 
@@ -180,7 +180,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                                         values("a"))
                                                 .right(
                                                         project(
-                                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(BIGINT, 1L)))),
                                                                 values("b")))))));
     }
 
@@ -208,8 +208,8 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                                 .right(
                                                         project(
                                                                 ImmutableMap.of(
-                                                                        "expr_less", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(BIGINT, 1L))),
-                                                                        "expr_greater", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(BIGINT, 10L)))),
+                                                                        "expr_less", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(BIGINT, 1L))),
+                                                                        "expr_greater", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(BIGINT, 10L)))),
                                                                 values("b")))))));
     }
 
@@ -238,8 +238,8 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                                 .right(
                                                         project(
                                                                 ImmutableMap.of(
-                                                                        "join_expression", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(BIGINT, 2L))),
-                                                                        "parent_expression", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                        "join_expression", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(BIGINT, 2L))),
+                                                                        "parent_expression", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(BIGINT, 1L)))),
                                                                 values("b"))))
                                                 .withExactOutputs("a", "b", "parent_expression"))));
     }
@@ -284,6 +284,6 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
         return new ArithmeticBinaryExpression(
                 ADD,
                 symbol.toSymbolReference(),
-                GenericLiteral.constant(BIGINT, value));
+                new Constant(BIGINT, value));
     }
 }

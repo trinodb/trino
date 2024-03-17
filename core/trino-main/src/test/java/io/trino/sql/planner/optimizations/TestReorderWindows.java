@@ -20,7 +20,7 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -237,7 +237,7 @@ public class TestReorderWindows
                                                         .specification(windowA)
                                                         .addFunction(windowFunction("lag", ImmutableList.of(QUANTITY_ALIAS, "ONE"), DEFAULT_FRAME)),
                                                 project(ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), BIGINT))),
-                                                        project(ImmutableMap.of("expr", expression(GenericLiteral.constant(INTEGER, 1L))),
+                                                        project(ImmutableMap.of("expr", expression(new Constant(INTEGER, 1L))),
                                                                 LINEITEM_TABLESCAN_DOQRST)))))));
     }
 
@@ -294,7 +294,7 @@ public class TestReorderWindows
                                                         .specification(windowA)
                                                         .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                                 filter(
-                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("SUPPKEY"), GenericLiteral.constant(BIGINT, 0L)),
+                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("SUPPKEY"), new Constant(BIGINT, 0L)),
                                                         LINEITEM_TABLESCAN_DOQRST))))));
     }
 

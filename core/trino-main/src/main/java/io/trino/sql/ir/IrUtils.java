@@ -264,11 +264,11 @@ public final class IrUtils
      */
     public static boolean isEffectivelyLiteral(PlannerContext plannerContext, Session session, Expression expression)
     {
-        if (expression instanceof Literal) {
+        if (expression instanceof Constant) {
             return true;
         }
-        if (expression instanceof Cast) {
-            return ((Cast) expression).getExpression() instanceof Literal
+        if (expression instanceof Cast cast) {
+            return cast.getExpression() instanceof Constant
                     // a Cast(Literal(...)) can fail, so this requires verification
                     && constantExpressionEvaluatesSuccessfully(plannerContext, session, expression);
         }

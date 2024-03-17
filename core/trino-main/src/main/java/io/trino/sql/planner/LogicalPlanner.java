@@ -66,9 +66,9 @@ import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
@@ -389,7 +389,7 @@ public class LogicalPlanner
         if ((statement instanceof CreateTableAsSelect && analysis.getCreate().orElseThrow().isCreateTableAsSelectNoOp()) ||
                 statement instanceof RefreshMaterializedView && analysis.isSkipMaterializedViewRefresh()) {
             Symbol symbol = symbolAllocator.newSymbol("rows", BIGINT);
-            PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(BIGINT, 0L)))));
+            PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, 0L)))));
             return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol));
         }
         return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);
@@ -584,7 +584,7 @@ public class LogicalPlanner
                 if (supportsMissingColumnsOnInsert) {
                     continue;
                 }
-                expression = GenericLiteral.constant(column.getType(), null);
+                expression = new Constant(column.getType(), null);
             }
             else {
                 Symbol input = visibleFieldMappings.get(index);
@@ -686,10 +686,11 @@ public class LogicalPlanner
 
     public static FunctionCall failFunction(Metadata metadata, ErrorCodeSupplier errorCode, String errorMessage)
     {
+        Object rawValue = Slices.utf8Slice(errorMessage);
         return BuiltinFunctionCallBuilder.resolve(metadata)
                 .setName("fail")
-                .addArgument(INTEGER, GenericLiteral.constant(INTEGER, (long) errorCode.toErrorCode().getCode()))
-                .addArgument(GenericLiteral.constant(VARCHAR, Slices.utf8Slice(errorMessage)))
+                .addArgument(INTEGER, new Constant(INTEGER, (long) errorCode.toErrorCode().getCode()))
+                .addArgument(new Constant(VARCHAR, rawValue))
                 .build();
     }
 
@@ -863,12 +864,12 @@ public class LogicalPlanner
                 // check if the trimmed value fits in the target type
                 new ComparisonExpression(
                         GREATER_THAN_OR_EQUAL,
-                        GenericLiteral.constant(BIGINT, (long) targetLength),
+                        new Constant(BIGINT, (long) targetLength),
                         new CoalesceExpression(
                                 new FunctionCall(
                                         spaceTrimmedLength.toQualifiedName(),
                                         ImmutableList.of(new Cast(expression, VARCHAR))),
-                                GenericLiteral.constant(BIGINT, 0L))),
+                                new Constant(BIGINT, 0L))),
                 new Cast(expression, toType),
                 new Cast(
                         failFunction(metadata, INVALID_CAST_ARGUMENT, format(

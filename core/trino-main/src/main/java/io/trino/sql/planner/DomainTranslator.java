@@ -42,9 +42,9 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNotNullPredicate;
@@ -165,8 +165,8 @@ public final class DomainTranslator
             // specialize the range with BETWEEN expression if possible b/c it is currently more efficient
             return new BetweenPredicate(
                     reference,
-                    GenericLiteral.constant(type, range.getLowBoundedValue()),
-                    GenericLiteral.constant(type, range.getHighBoundedValue()));
+                    new Constant(type, range.getLowBoundedValue()),
+                    new Constant(type, range.getHighBoundedValue()));
         }
 
         List<Expression> rangeConjuncts = new ArrayList<>();
@@ -174,13 +174,13 @@ public final class DomainTranslator
             rangeConjuncts.add(new ComparisonExpression(
                     range.isLowInclusive() ? GREATER_THAN_OR_EQUAL : GREATER_THAN,
                     reference,
-                    GenericLiteral.constant(type, range.getLowBoundedValue())));
+                    new Constant(type, range.getLowBoundedValue())));
         }
         if (!range.isHighUnbounded()) {
             rangeConjuncts.add(new ComparisonExpression(
                     range.isHighInclusive() ? LESS_THAN_OR_EQUAL : LESS_THAN,
                     reference,
-                    GenericLiteral.constant(type, range.getHighBoundedValue())));
+                    new Constant(type, range.getHighBoundedValue())));
         }
         // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
         checkState(!rangeConjuncts.isEmpty());
@@ -235,14 +235,14 @@ public final class DomainTranslator
 
         for (Range range : originalUnionSingleValues) {
             if (range.isSingleValue()) {
-                singleValues.add(GenericLiteral.constant(type, range.getSingleValue()));
+                singleValues.add(new Constant(type, range.getSingleValue()));
                 continue;
             }
 
             // attempt to optimize ranges that can be coalesced as long as single value points are excluded
             List<Expression> singleValuesInRange = new ArrayList<>();
             while (singleValueExclusions.hasNext() && range.contains(singleValueExclusions.peek())) {
-                singleValuesInRange.add(GenericLiteral.constant(type, singleValueExclusions.next().getSingleValue()));
+                singleValuesInRange.add(new Constant(type, singleValueExclusions.next().getSingleValue()));
             }
 
             if (!singleValuesInRange.isEmpty()) {
@@ -266,7 +266,7 @@ public final class DomainTranslator
     private List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, SymbolReference reference)
     {
         List<Expression> values = discreteValues.getValues().stream()
-                .map(object -> GenericLiteral.constant(type, object))
+                .map(object -> new Constant(type, object))
                 .collect(toList());
 
         // If values is empty, then the equatableValues was either ALL or NONE, both of which should already have been checked for
@@ -831,7 +831,7 @@ public final class DomainTranslator
             boolean coercedValueIsEqualToOriginal = originalComparedToCoerced == 0;
             boolean coercedValueIsLessThanOriginal = originalComparedToCoerced > 0;
             boolean coercedValueIsGreaterThanOriginal = originalComparedToCoerced < 0;
-            Expression coercedLiteral = GenericLiteral.constant(symbolExpressionType, coercedValue);
+            Expression coercedLiteral = new Constant(symbolExpressionType, coercedValue);
 
             return switch (comparisonOperator) {
                 case GREATER_THAN_OR_EQUAL, GREATER_THAN -> {
@@ -1105,7 +1105,7 @@ public final class DomainTranslator
             }
 
             Expression prefix = args.get(1);
-            if (!(prefix instanceof GenericLiteral literal && literal.getType().equals(VarcharType.VARCHAR))) {
+            if (!(prefix instanceof Constant literal && literal.getType().equals(VarcharType.VARCHAR))) {
                 // dynamic pattern
                 return Optional.empty();
             }
@@ -1120,7 +1120,7 @@ public final class DomainTranslator
             }
 
             Symbol symbol = Symbol.from(target);
-            Slice constantPrefix = (Slice) ((GenericLiteral) prefix).getRawValue();
+            Slice constantPrefix = (Slice) ((Constant) prefix).getValue();
 
             return createRangeDomain(type, constantPrefix).map(domain -> new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), node));
         }
@@ -1181,19 +1181,19 @@ public final class DomainTranslator
         }
 
         @Override
-        protected ExtractionResult visitGenericLiteral(GenericLiteral node, Boolean complement)
+        protected ExtractionResult visitConstant(Constant node, Boolean complement)
         {
-            if (node.getRawValue() == null) {
+            if (node.getValue() == null) {
                 return new ExtractionResult(TupleDomain.none(), TRUE_LITERAL);
             }
 
             if (node.getType().equals(BOOLEAN)) {
-                boolean value = (boolean) node.getRawValue();
+                boolean value = (boolean) node.getValue();
                 value = complement != value;
                 return new ExtractionResult(value ? TupleDomain.all() : TupleDomain.none(), TRUE_LITERAL);
             }
 
-            return super.visitGenericLiteral(node, complement);
+            return super.visitConstant(node, complement);
         }
     }
 

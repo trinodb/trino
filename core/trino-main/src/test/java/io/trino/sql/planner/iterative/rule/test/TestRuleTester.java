@@ -19,7 +19,7 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.TestingColumnHandle;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.Rule;
@@ -55,7 +55,7 @@ public class TestRuleTester
                                     Assignments.of(p.symbol("y"), new SymbolReference("x")),
                                     p.values(
                                             ImmutableList.of(p.symbol("x")),
-                                            ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L))))));
+                                            ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L))))));
 
             PlanMatchPattern expected = values(ImmutableList.of("different"), ImmutableList.of());
             assertThatThrownBy(() -> ruleAssert.matches(expected))
@@ -76,7 +76,7 @@ public class TestRuleTester
                     .on(p ->
                             p.values(
                                     List.of(p.symbol("x")),
-                                    List.of(List.of(GenericLiteral.constant(INTEGER, 1L)))));
+                                    List.of(List.of(new Constant(INTEGER, 1L)))));
 
             PlanMatchPattern expected = values(List.of("whatever"), List.of());
             assertThatThrownBy(() -> ruleAssert.matches(expected))

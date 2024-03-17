@@ -43,10 +43,10 @@ import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IsNullPredicate;
@@ -568,7 +568,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1))),
                                 new Row(ImmutableList.of(bigintLiteral(2))),
-                                new Row(ImmutableList.of(GenericLiteral.constant(BIGINT, null))))),
+                                new Row(ImmutableList.of(new Constant(BIGINT, null))))),
                 types,
                 typeAnalyzer))
                 .isEqualTo(or(
@@ -581,7 +581,7 @@ public class TestEffectivePredicateExtractor
                 new ValuesNode(
                         newId(),
                         ImmutableList.of(A),
-                        ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(BIGINT, null))))),
+                        ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, null))))),
                 types,
                 typeAnalyzer))
                 .isEqualTo(new IsNullPredicate(AE));
@@ -592,7 +592,7 @@ public class TestEffectivePredicateExtractor
                 new ValuesNode(
                         newId(),
                         ImmutableList.of(R),
-                        ImmutableList.of(new Row(ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), GenericLiteral.constant(UNKNOWN, null))))))),
+                        ImmutableList.of(new Row(ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), new Constant(UNKNOWN, null))))))),
                 types,
                 typeAnalyzer))
                 .isEqualTo(TRUE_LITERAL);
@@ -629,7 +629,7 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(D),
                         ImmutableList.of(
-                                new Row(ImmutableList.of(GenericLiteral.constant(DOUBLE, null))),
+                                new Row(ImmutableList.of(new Constant(DOUBLE, null))),
                                 new Row(ImmutableList.of(doubleLiteral(Double.NaN))))),
                 types,
                 typeAnalyzer)).isEqualTo(TRUE_LITERAL);
@@ -678,8 +678,8 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(A, B),
                         ImmutableList.of(
-                                new Row(ImmutableList.of(bigintLiteral(1), GenericLiteral.constant(BIGINT, null))),
-                                new Row(ImmutableList.of(GenericLiteral.constant(BIGINT, null), bigintLiteral(200))))),
+                                new Row(ImmutableList.of(bigintLiteral(1), new Constant(BIGINT, null))),
+                                new Row(ImmutableList.of(new Constant(BIGINT, null), bigintLiteral(200))))),
                 types,
                 typeAnalyzer)).isEqualTo(and(
                 or(new ComparisonExpression(EQUAL, AE, bigintLiteral(1)), new IsNullPredicate(AE)),
@@ -1106,12 +1106,12 @@ public class TestEffectivePredicateExtractor
 
     private static Expression bigintLiteral(long number)
     {
-        return GenericLiteral.constant(BIGINT, number);
+        return new Constant(BIGINT, number);
     }
 
     private static Expression doubleLiteral(double value)
     {
-        return GenericLiteral.constant(DOUBLE, value);
+        return new Constant(DOUBLE, value);
     }
 
     private static ComparisonExpression equals(Expression expression1, Expression expression2)

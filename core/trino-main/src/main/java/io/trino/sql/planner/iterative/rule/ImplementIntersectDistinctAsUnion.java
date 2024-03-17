@@ -17,8 +17,8 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
@@ -89,7 +89,7 @@ public class ImplementIntersectDistinctAsUnion
 
         // intersect predicate: the row must be present in every source
         Expression predicate = and(result.getCountSymbols().stream()
-                .map(symbol -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbol.toSymbolReference(), GenericLiteral.constant(BIGINT, 1L)))
+                .map(symbol -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbol.toSymbolReference(), new Constant(BIGINT, 1L)))
                 .collect(toImmutableList()));
 
         return Result.ofPlanNode(

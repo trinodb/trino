@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.TableFinishNode;
@@ -107,7 +107,7 @@ public final class RemoveEmptyMergeWriterRuleSet
                     new ValuesNode(
                             node.getId(),
                             node.getOutputSymbols(),
-                            ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(BIGINT, 0L))))));
+                            ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, 0L))))));
         }
     }
 }

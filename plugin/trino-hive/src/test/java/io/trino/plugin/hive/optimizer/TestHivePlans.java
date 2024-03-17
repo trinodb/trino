@@ -24,8 +24,8 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -147,7 +147,7 @@ public class TestHivePlans
                 "SELECT * FROM table_str_partitioned WHERE str_part LIKE 't%'",
                 output(
                         filter(
-                                new FunctionCall(QualifiedName.of("$like"), ImmutableList.of(new SymbolReference("STR_PART"), GenericLiteral.constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))),
+                                new FunctionCall(QualifiedName.of("$like"), ImmutableList.of(new SymbolReference("STR_PART"), new Constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))),
                                 tableScan("table_str_partitioned", Map.of("INT_COL", "int_col", "STR_PART", "str_part")))));
     }
 
@@ -169,12 +169,12 @@ public class TestHivePlans
                                 .left(
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new FunctionCall(QualifiedName.of("$like"), ImmutableList.of(new SymbolReference("L_STR_PART"), GenericLiteral.constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))),
+                                                        new FunctionCall(QualifiedName.of("$like"), ImmutableList.of(new SymbolReference("L_STR_PART"), new Constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))),
                                                         tableScan("table_str_partitioned", Map.of("L_INT_COL", "int_col", "L_STR_PART", "str_part")))))
                                 .right(exchange(LOCAL,
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new LogicalExpression(AND, ImmutableList.of(new InPredicate(new SymbolReference("R_STR_COL"), ImmutableList.of(GenericLiteral.constant(createVarcharType(5), Slices.utf8Slice("three")), GenericLiteral.constant(createVarcharType(5), Slices.utf8Slice("two")))), new FunctionCall(QualifiedName.of("$like"), ImmutableList.of(new SymbolReference("R_STR_COL"), GenericLiteral.constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))))),
+                                                        new LogicalExpression(AND, ImmutableList.of(new InPredicate(new SymbolReference("R_STR_COL"), ImmutableList.of(new Constant(createVarcharType(5), Slices.utf8Slice("three")), new Constant(createVarcharType(5), Slices.utf8Slice("two")))), new FunctionCall(QualifiedName.of("$like"), ImmutableList.of(new SymbolReference("R_STR_COL"), new Constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))))),
                                                         tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -199,7 +199,7 @@ public class TestHivePlans
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                new InPredicate(new SymbolReference("R_INT_COL"), ImmutableList.of(GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(INTEGER, 3L), GenericLiteral.constant(INTEGER, 4L))),
+                                                                new InPredicate(new SymbolReference("R_INT_COL"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L))),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -219,13 +219,13 @@ public class TestHivePlans
                                 .left(
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new ComparisonExpression(NOT_EQUAL, new SymbolReference("L_STR_COL"), GenericLiteral.constant(createVarcharType(5), Slices.utf8Slice("three"))),
+                                                        new ComparisonExpression(NOT_EQUAL, new SymbolReference("L_STR_COL"), new Constant(createVarcharType(5), Slices.utf8Slice("three"))),
                                                         tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))))
                                 .right(
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                new LogicalExpression(AND, ImmutableList.of(new InPredicate(new SymbolReference("R_INT_COL"), ImmutableList.of(GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(INTEGER, 3L), GenericLiteral.constant(INTEGER, 4L))), new BetweenPredicate(new SymbolReference("R_INT_COL"), GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(INTEGER, 4L)))),
+                                                                new LogicalExpression(AND, ImmutableList.of(new InPredicate(new SymbolReference("R_INT_COL"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L))), new BetweenPredicate(new SymbolReference("R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)))),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -245,13 +245,13 @@ public class TestHivePlans
                                 .left(
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new ComparisonExpression(NOT_EQUAL, new FunctionCall(QualifiedName.of("substring"), ImmutableList.of(new SymbolReference("L_STR_COL"), GenericLiteral.constant(BIGINT, 2L))), GenericLiteral.constant(createVarcharType(5), Slices.utf8Slice("hree"))),
+                                                        new ComparisonExpression(NOT_EQUAL, new FunctionCall(QualifiedName.of("substring"), ImmutableList.of(new SymbolReference("L_STR_COL"), new Constant(BIGINT, 2L))), new Constant(createVarcharType(5), Slices.utf8Slice("hree"))),
                                                         tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))))
                                 .right(
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                new LogicalExpression(AND, ImmutableList.of(new InPredicate(new SymbolReference("R_INT_COL"), ImmutableList.of(GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(INTEGER, 3L), GenericLiteral.constant(INTEGER, 4L))), new BetweenPredicate(new SymbolReference("R_INT_COL"), GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(INTEGER, 4L)))),
+                                                                new LogicalExpression(AND, ImmutableList.of(new InPredicate(new SymbolReference("R_INT_COL"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L))), new BetweenPredicate(new SymbolReference("R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)))),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -271,13 +271,13 @@ public class TestHivePlans
                                 .left(
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("L_INT_PART"), GenericLiteral.constant(INTEGER, 2L)), GenericLiteral.constant(INTEGER, 0L)),
+                                                        new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("L_INT_PART"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)),
                                                         tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))))
                                 .right(
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                new LogicalExpression(AND, ImmutableList.of(new InPredicate(new SymbolReference("R_INT_COL"), ImmutableList.of(GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(INTEGER, 4L))), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("R_INT_COL"), GenericLiteral.constant(INTEGER, 2L)), GenericLiteral.constant(INTEGER, 0L)))),
+                                                                new LogicalExpression(AND, ImmutableList.of(new InPredicate(new SymbolReference("R_INT_COL"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L))), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("R_INT_COL"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)))),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -300,7 +300,7 @@ public class TestHivePlans
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                new InPredicate(new SymbolReference("R_INT_COL"), ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(INTEGER, 3L), GenericLiteral.constant(INTEGER, 4L), GenericLiteral.constant(INTEGER, 5L))),
+                                                                new InPredicate(new SymbolReference("R_INT_COL"), ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L), new Constant(INTEGER, 5L))),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 

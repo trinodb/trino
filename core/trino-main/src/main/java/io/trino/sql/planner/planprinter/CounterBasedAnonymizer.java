@@ -22,10 +22,9 @@ import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionFormatter;
-import io.trino.sql.ir.GenericLiteral;
-import io.trino.sql.ir.Literal;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
@@ -105,18 +104,15 @@ public class CounterBasedAnonymizer
         return '"' + anonymize(Symbol.from(node)) + '"';
     }
 
-    private String anonymizeLiteral(Literal node)
+    private String anonymizeLiteral(Constant literal)
     {
-        if (node instanceof GenericLiteral literal) {
-            if (literal.getRawValue() == null) {
-                return "null";
-            }
-            if (literal.getType().equals(BOOLEAN)) {
-                return literal.getRawValue().toString();
-            }
-            return anonymizeLiteral(literal.getType().getDisplayName(), literal.getRawValue());
+        if (literal.getValue() == null) {
+            return "null";
         }
-        throw new UnsupportedOperationException("Anonymization is not supported for literal " + node);
+        if (literal.getType().equals(BOOLEAN)) {
+            return literal.getValue().toString();
+        }
+        return anonymizeLiteral(literal.getType().getDisplayName(), literal.getValue());
     }
 
     private <T> String anonymizeLiteral(String type, T value)

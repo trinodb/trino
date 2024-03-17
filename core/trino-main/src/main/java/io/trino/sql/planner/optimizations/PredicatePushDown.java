@@ -28,8 +28,8 @@ import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -1256,7 +1256,7 @@ public class PredicatePushDown
 
             return object instanceof Expression optimized ?
                     optimized :
-                    GenericLiteral.constant(expressionTypes.get(NodeRef.of(expression)), object);
+                    new Constant(expressionTypes.get(NodeRef.of(expression)), object);
         }
 
         private boolean areExpressionsEquivalent(Expression leftExpression, Expression rightExpression)

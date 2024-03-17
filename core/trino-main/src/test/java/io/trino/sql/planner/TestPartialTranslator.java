@@ -20,9 +20,9 @@ import io.trino.Session;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -71,9 +71,9 @@ public class TestPartialTranslator
     public void testPartialTranslator()
     {
         Expression rowSymbolReference = new SymbolReference("row_symbol_1");
-        Expression dereferenceExpression1 = new SubscriptExpression(rowSymbolReference, GenericLiteral.constant(INTEGER, 1L));
-        Expression dereferenceExpression2 = new SubscriptExpression(rowSymbolReference, GenericLiteral.constant(INTEGER, 2L));
-        Expression stringLiteral = GenericLiteral.constant(VARCHAR, Slices.utf8Slice("abcd"));
+        Expression dereferenceExpression1 = new SubscriptExpression(rowSymbolReference, new Constant(INTEGER, 1L));
+        Expression dereferenceExpression2 = new SubscriptExpression(rowSymbolReference, new Constant(INTEGER, 2L));
+        Expression stringLiteral = new Constant(VARCHAR, Slices.utf8Slice("abcd"));
         Expression symbolReference1 = new SymbolReference("double_symbol_1");
 
         assertFullTranslation(symbolReference1);

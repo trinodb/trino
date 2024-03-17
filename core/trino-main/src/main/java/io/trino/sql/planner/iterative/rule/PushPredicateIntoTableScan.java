@@ -33,8 +33,8 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTranslation;
@@ -297,7 +297,7 @@ public class PushPredicateIntoTableScan
 
                 translatedExpression = optimized instanceof Expression optimizedExpression ?
                         optimizedExpression :
-                        GenericLiteral.constant(translatedExpressionTypes.get(NodeRef.of(translatedExpression)), optimized);
+                        new Constant(translatedExpressionTypes.get(NodeRef.of(translatedExpression)), optimized);
 
                 remainingDecomposedPredicate = combineConjuncts(plannerContext.getMetadata(), translatedExpression, expressionTranslation.remainingExpression());
             }

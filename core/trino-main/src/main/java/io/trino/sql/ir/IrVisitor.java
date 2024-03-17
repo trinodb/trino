@@ -57,14 +57,9 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitLiteral(Literal node, C context)
+    protected R visitConstant(Constant node, C context)
     {
         return visitExpression(node, context);
-    }
-
-    protected R visitGenericLiteral(GenericLiteral node, C context)
-    {
-        return visitLiteral(node, context);
     }
 
     protected R visitWhenClause(WhenClause node, C context)

@@ -41,7 +41,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -149,7 +149,7 @@ public class TestTableScanRedirectionWithPushdown
                     output(
                             ImmutableList.of("DEST_COL"),
                             filter(
-                                    new ComparisonExpression(GREATER_THAN, new SymbolReference("DEST_COL"), GenericLiteral.constant(INTEGER, 0L)),
+                                    new ComparisonExpression(GREATER_THAN, new SymbolReference("DEST_COL"), new Constant(INTEGER, 0L)),
                                     tableScan(
                                             new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                             TupleDomain.all(),
@@ -206,7 +206,7 @@ public class TestTableScanRedirectionWithPushdown
                             ImmutableList.of("DEST_COL_A", "DEST_COL_B"),
                             filter(
 
-                                    new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL_A"), GenericLiteral.constant(INTEGER, 1L)),
+                                    new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL_A"), new Constant(INTEGER, 1L)),
                                     tableScan(
                                             new MockConnectorTableHandle(
                                                     DESTINATION_TABLE,
@@ -263,7 +263,7 @@ public class TestTableScanRedirectionWithPushdown
                             ImmutableList.of("DEST_COL_B"),
                             project(ImmutableMap.of("DEST_COL_B", expression(new SymbolReference("DEST_COL_B"))),
                                     filter(
-                                            new ComparisonExpression(EQUAL, new Cast(new SymbolReference("DEST_COL_A"), VARCHAR), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("foo"))),
+                                            new ComparisonExpression(EQUAL, new Cast(new SymbolReference("DEST_COL_A"), VARCHAR), new Constant(VARCHAR, Slices.utf8Slice("foo"))),
                                             tableScan(
                                                     new MockConnectorTableHandle(
                                                             DESTINATION_TABLE,

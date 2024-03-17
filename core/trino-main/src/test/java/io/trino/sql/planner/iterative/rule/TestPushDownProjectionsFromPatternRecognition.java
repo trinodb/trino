@@ -21,8 +21,8 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -72,9 +72,9 @@ public class TestPushDownProjectionsFromPatternRecognition
                         .addVariableDefinition(
                                 new IrLabel("X"),
                                 new ComparisonExpression(GREATER_THAN, new FunctionCall(MAX_BY, ImmutableList.of(
-                                        new ArithmeticBinaryExpression(ADD, GenericLiteral.constant(INTEGER, 1L), new FunctionCall(QualifiedName.of("match_number"), ImmutableList.of())),
-                                        new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("x")), new FunctionCall(QualifiedName.of("classifier"), ImmutableList.of()))))),
-                                        GenericLiteral.constant(INTEGER, 5L)))
+                                        new ArithmeticBinaryExpression(ADD, new Constant(INTEGER, 1L), new FunctionCall(QualifiedName.of("match_number"), ImmutableList.of())),
+                                        new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("x")), new FunctionCall(QualifiedName.of("classifier"), ImmutableList.of()))))),
+                                        new Constant(INTEGER, 5L)))
                         .source(p.values(p.symbol("a")))))
                 .doesNotFire();
     }
@@ -87,7 +87,7 @@ public class TestPushDownProjectionsFromPatternRecognition
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new ComparisonExpression(GREATER_THAN, new FunctionCall(MAX_BY, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), GenericLiteral.constant(INTEGER, 5L)))
+                                new ComparisonExpression(GREATER_THAN, new FunctionCall(MAX_BY, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), new Constant(INTEGER, 5L)))
                         .source(p.values(p.symbol("a"), p.symbol("b")))))
                 .doesNotFire();
     }
@@ -101,11 +101,11 @@ public class TestPushDownProjectionsFromPatternRecognition
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new ComparisonExpression(LESS_THAN, new SymbolReference("agg"), GenericLiteral.constant(INTEGER, 5L)),
+                                new ComparisonExpression(LESS_THAN, new SymbolReference("agg"), new Constant(INTEGER, 5L)),
                                 ImmutableMap.of("agg", new AggregationValuePointer(
                                         maxBy,
                                         new AggregatedSetDescriptor(ImmutableSet.of(), true),
-                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 2L))),
+                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new Constant(INTEGER, 2L))),
                                         Optional.empty(),
                                         Optional.empty())))
                         .source(p.values(p.symbol("a"), p.symbol("b")))))
@@ -114,7 +114,7 @@ public class TestPushDownProjectionsFromPatternRecognition
                                         .pattern(new IrLabel("X"))
                                         .addVariableDefinition(
                                                 new IrLabel("X"),
-                                                new ComparisonExpression(LESS_THAN, new SymbolReference("agg"), GenericLiteral.constant(INTEGER, 5L)),
+                                                new ComparisonExpression(LESS_THAN, new SymbolReference("agg"), new Constant(INTEGER, 5L)),
                                                 ImmutableMap.of("agg", new AggregationValuePointer(
                                                         maxBy,
                                                         new AggregatedSetDescriptor(ImmutableSet.of(), true),
@@ -123,8 +123,8 @@ public class TestPushDownProjectionsFromPatternRecognition
                                                         Optional.empty()))),
                                 project(
                                         ImmutableMap.of(
-                                                "expr_1", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L))),
-                                                "expr_2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 2L))),
+                                                "expr_1", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Constant(INTEGER, 1L))),
+                                                "expr_2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new Constant(INTEGER, 2L))),
                                                 "a", PlanMatchPattern.expression(new SymbolReference("a")),
                                                 "b", PlanMatchPattern.expression(new SymbolReference("b"))),
                                         values("a", "b"))));

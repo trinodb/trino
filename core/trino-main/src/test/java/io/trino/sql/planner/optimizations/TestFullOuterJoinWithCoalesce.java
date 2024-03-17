@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.CoalesceExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import org.junit.jupiter.api.Disabled;
@@ -167,7 +167,7 @@ public class TestFullOuterJoinWithCoalesce
                                         ImmutableMap.of(),
                                         PARTIAL,
                                         project(
-                                                ImmutableMap.of("expr", expression(new CoalesceExpression(new SymbolReference("l"), new ArithmeticBinaryExpression(ADD, new SymbolReference("m"), GenericLiteral.constant(INTEGER, 1L)), new SymbolReference("r")))),
+                                                ImmutableMap.of("expr", expression(new CoalesceExpression(new SymbolReference("l"), new ArithmeticBinaryExpression(ADD, new SymbolReference("m"), new Constant(INTEGER, 1L)), new SymbolReference("r")))),
                                                 join(FULL, builder -> builder
                                                         .equiCriteria("l", "r")
                                                         .left(
