@@ -51,7 +51,6 @@ public class TestGroupByHash
 {
     private static final int MAX_GROUP_ID = 500;
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
-    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(new TypeOperators());
     private static final int BIGINT_EXPECTED_REHASH = 20;
     // first rehash moves from the initial capacity to 1024 (batch size) and last hash moves to 1024 * 1024,
     // which is 1 initial rehash + 10 additional rehashes
@@ -75,7 +74,7 @@ public class TestGroupByHash
                         true,
                         expectedSize,
                         true,
-                        JOIN_COMPILER,
+                        new JoinCompiler(new TypeOperators()),
                         updateMemory);
             };
         }
@@ -303,7 +302,7 @@ public class TestGroupByHash
 
         // Create GroupByHash with tiny size
         AtomicInteger rehashCount = new AtomicInteger();
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, JOIN_COMPILER, () -> {
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, new JoinCompiler(new TypeOperators()), () -> {
             rehashCount.incrementAndGet();
             return true;
         });
@@ -324,7 +323,7 @@ public class TestGroupByHash
 
         // Create GroupByHash with tiny size
         AtomicInteger rehashCount = new AtomicInteger();
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, JOIN_COMPILER, () -> {
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, new JoinCompiler(new TypeOperators()), () -> {
             rehashCount.incrementAndGet();
             return true;
         });
@@ -359,7 +358,7 @@ public class TestGroupByHash
         int yields = 0;
 
         // test addPage
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, JOIN_COMPILER, updateMemory);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, new JoinCompiler(new TypeOperators()), updateMemory);
         boolean finish = false;
         Work<?> addPageWork = groupByHash.addPage(page);
         while (!finish) {
@@ -385,7 +384,7 @@ public class TestGroupByHash
         currentQuota.set(0);
         allowedQuota.set(6);
         yields = 0;
-        groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, JOIN_COMPILER, updateMemory);
+        groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, new JoinCompiler(new TypeOperators()), updateMemory);
 
         finish = false;
         Work<int[]> getGroupIdsWork = groupByHash.getGroupIds(page);
@@ -494,7 +493,7 @@ public class TestGroupByHash
                 ImmutableList.of(BIGINT, BIGINT),
                 false,
                 100,
-                JOIN_COMPILER,
+                new JoinCompiler(new TypeOperators()),
                 NOOP);
         Block firstBlock = BlockAssertions.createLongDictionaryBlock(0, 1000, 10);
         Block secondBlock = BlockAssertions.createLongDictionaryBlock(0, 1000, 10);
@@ -522,7 +521,7 @@ public class TestGroupByHash
                 ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT, BIGINT),
                 false,
                 100,
-                JOIN_COMPILER,
+                new JoinCompiler(new TypeOperators()),
                 NOOP);
 
         GroupByHash lowCardinalityGroupByHash = createGroupByHash(
@@ -530,7 +529,7 @@ public class TestGroupByHash
                 ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT),
                 false,
                 100,
-                JOIN_COMPILER,
+                new JoinCompiler(new TypeOperators()),
                 NOOP);
         Block sameValueBlock = BlockAssertions.createLongRepeatBlock(0, 100);
         Block block1 = BlockAssertions.createLongDictionaryBlock(0, 100, 1);
@@ -563,7 +562,7 @@ public class TestGroupByHash
                 ImmutableList.of(BIGINT, BIGINT),
                 false,
                 100,
-                JOIN_COMPILER,
+                new JoinCompiler(new TypeOperators()),
                 NOOP);
 
         Block dictionary = new LongArrayBlock(2, Optional.empty(), new long[] {0, 1});
@@ -628,7 +627,7 @@ public class TestGroupByHash
 
     private static void assertGroupByHashWork(Page page, List<Type> types, Class<?> clazz)
     {
-        GroupByHash groupByHash = createGroupByHash(types, false, 100, true, JOIN_COMPILER, NOOP);
+        GroupByHash groupByHash = createGroupByHash(types, false, 100, true, new JoinCompiler(new TypeOperators()), NOOP);
         Work<int[]> work = groupByHash.getGroupIds(page);
         // Compare by name since classes are private
         assertThat(work).isInstanceOf(clazz);
