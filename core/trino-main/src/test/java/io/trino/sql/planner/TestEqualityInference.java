@@ -377,11 +377,6 @@ public class TestEqualityInference
         return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD, expression1, expression2);
     }
 
-    private static Expression multiply(String symbol1, String symbol2)
-    {
-        return multiply(nameReference(symbol1), nameReference(symbol2));
-    }
-
     private static Expression multiply(Expression expression1, Expression expression2)
     {
         return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, expression1, expression2);
