@@ -16,6 +16,7 @@ package io.trino.metadata;
 import io.trino.Session;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.Plugin;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
@@ -27,6 +28,7 @@ import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.planner.TestingPlannerContext;
 import io.trino.testing.QueryRunner;
 import io.trino.transaction.TransactionManager;
 
@@ -37,6 +39,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -60,6 +63,21 @@ public class TestingFunctionResolution
                 .withTransactionManager(transactionManager)
                 .addFunctions(functions)
                 .build();
+        metadata = plannerContext.getMetadata();
+    }
+
+    public TestingFunctionResolution(Plugin plugin)
+    {
+        transactionManager = createTestTransactionManager();
+
+        TestingPlannerContext.Builder builder = plannerContextBuilder()
+                .withTransactionManager(transactionManager)
+                .addFunctions(extractFunctions(plugin.getFunctions()));
+
+        plugin.getTypes().forEach(builder::addType);
+        plugin.getParametricTypes().forEach(builder::addParametricType);
+
+        plannerContext = builder.build();
         metadata = plannerContext.getMetadata();
     }
 
