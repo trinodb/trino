@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -42,12 +42,12 @@ public class TestMergeFilters
         tester().assertThat(new MergeFilters(metadata))
                 .on(p ->
                         p.filter(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 44L)),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 44L)),
                                 p.filter(
-                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 42L)),
+                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 42L)),
                                         p.values(p.symbol("a"), p.symbol("b")))))
                 .matches(filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 42L)), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 44L)))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 42L)), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 44L)))),
                         values(ImmutableMap.of("a", 0, "b", 1))));
     }
 }

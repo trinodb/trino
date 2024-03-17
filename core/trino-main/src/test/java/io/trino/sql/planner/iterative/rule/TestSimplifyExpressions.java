@@ -21,10 +21,10 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
@@ -322,18 +322,18 @@ public class TestSimplifyExpressions
     public void testMultipleNulls()
     {
         assertSimplifies(
-                new LogicalExpression(AND, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), FALSE_LITERAL)),
+                new LogicalExpression(AND, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), FALSE_LITERAL)),
                 FALSE_LITERAL);
         assertSimplifies(
-                new LogicalExpression(AND, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
-                new LogicalExpression(AND, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
+                new LogicalExpression(AND, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
+                new LogicalExpression(AND, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
                 ImmutableMap.of("B1", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), TRUE_LITERAL)),
+                new LogicalExpression(OR, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), TRUE_LITERAL)),
                 TRUE_LITERAL);
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
-                new LogicalExpression(OR, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
+                new LogicalExpression(OR, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
+                new LogicalExpression(OR, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
                 ImmutableMap.of("B1", BOOLEAN));
     }
 
@@ -342,22 +342,22 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(GenericLiteral.constant(BIGINT, 12300000000L), createVarcharType(11)),
-                GenericLiteral.constant(createVarcharType(11), Slices.utf8Slice("12300000000")));
+                new Cast(new Constant(BIGINT, 12300000000L), createVarcharType(11)),
+                new Constant(createVarcharType(11), Slices.utf8Slice("12300000000")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(BIGINT, -12300000000L), createVarcharType(50)),
-                GenericLiteral.constant(createVarcharType(50), Slices.utf8Slice("-12300000000")));
+                new Cast(new Constant(BIGINT, -12300000000L), createVarcharType(50)),
+                new Constant(createVarcharType(50), Slices.utf8Slice("-12300000000")));
 
         // cast from bigint to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(GenericLiteral.constant(BIGINT, 12300000000L), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(BIGINT, 12300000000L), createVarcharType(3)));
+                new Cast(new Constant(BIGINT, 12300000000L), createVarcharType(3)),
+                new Cast(new Constant(BIGINT, 12300000000L), createVarcharType(3)));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(BIGINT, -12300000000L), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(BIGINT, -12300000000L), createVarcharType(3)));
+                new Cast(new Constant(BIGINT, -12300000000L), createVarcharType(3)),
+                new Cast(new Constant(BIGINT, -12300000000L), createVarcharType(3)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(BIGINT, 12300000000L), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("12300000000"))),
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(BIGINT, 12300000000L), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("12300000000"))));
+                new ComparisonExpression(EQUAL, new Cast(new Constant(BIGINT, 12300000000L), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("12300000000"))),
+                new ComparisonExpression(EQUAL, new Cast(new Constant(BIGINT, 12300000000L), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("12300000000"))));
     }
 
     @Test
@@ -365,22 +365,22 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(GenericLiteral.constant(INTEGER, 1234L), createVarcharType(4)),
-                GenericLiteral.constant(createVarcharType(4), Slices.utf8Slice("1234")));
+                new Cast(new Constant(INTEGER, 1234L), createVarcharType(4)),
+                new Constant(createVarcharType(4), Slices.utf8Slice("1234")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(INTEGER, -1234L), createVarcharType(50)),
-                GenericLiteral.constant(createVarcharType(50), Slices.utf8Slice("-1234")));
+                new Cast(new Constant(INTEGER, -1234L), createVarcharType(50)),
+                new Constant(createVarcharType(50), Slices.utf8Slice("-1234")));
 
         // cast from integer to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(GenericLiteral.constant(INTEGER, 1234L), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(INTEGER, 1234L), createVarcharType(3)));
+                new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)),
+                new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(INTEGER, 1234L), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(INTEGER, 1234L), createVarcharType(3)));
+                new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)),
+                new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(INTEGER, 1234L), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("1234"))),
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(INTEGER, 1234L), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("1234"))));
+                new ComparisonExpression(EQUAL, new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1234"))),
+                new ComparisonExpression(EQUAL, new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1234"))));
     }
 
     @Test
@@ -388,22 +388,22 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(GenericLiteral.constant(SMALLINT, 1234L), createVarcharType(4)),
-                GenericLiteral.constant(createVarcharType(4), Slices.utf8Slice("1234")));
+                new Cast(new Constant(SMALLINT, 1234L), createVarcharType(4)),
+                new Constant(createVarcharType(4), Slices.utf8Slice("1234")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(SMALLINT, -1234L), createVarcharType(50)),
-                GenericLiteral.constant(createVarcharType(50), Slices.utf8Slice("-1234")));
+                new Cast(new Constant(SMALLINT, -1234L), createVarcharType(50)),
+                new Constant(createVarcharType(50), Slices.utf8Slice("-1234")));
 
         // cast from smallint to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(GenericLiteral.constant(SMALLINT, 1234L), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(SMALLINT, 1234L), createVarcharType(3)));
+                new Cast(new Constant(SMALLINT, 1234L), createVarcharType(3)),
+                new Cast(new Constant(SMALLINT, 1234L), createVarcharType(3)));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(SMALLINT, -1234L), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(SMALLINT, -1234L), createVarcharType(3)));
+                new Cast(new Constant(SMALLINT, -1234L), createVarcharType(3)),
+                new Cast(new Constant(SMALLINT, -1234L), createVarcharType(3)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(SMALLINT, 1234L), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("1234"))),
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(SMALLINT, 1234L), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("1234"))));
+                new ComparisonExpression(EQUAL, new Cast(new Constant(SMALLINT, 1234L), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1234"))),
+                new ComparisonExpression(EQUAL, new Cast(new Constant(SMALLINT, 1234L), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1234"))));
     }
 
     @Test
@@ -411,22 +411,22 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(GenericLiteral.constant(TINYINT, 123L), createVarcharType(3)),
-                GenericLiteral.constant(createVarcharType(3), Slices.utf8Slice("123")));
+                new Cast(new Constant(TINYINT, 123L), createVarcharType(3)),
+                new Constant(createVarcharType(3), Slices.utf8Slice("123")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(TINYINT, -123L), createVarcharType(50)),
-                GenericLiteral.constant(createVarcharType(50), Slices.utf8Slice("-123")));
+                new Cast(new Constant(TINYINT, -123L), createVarcharType(50)),
+                new Constant(createVarcharType(50), Slices.utf8Slice("-123")));
 
         // cast from smallint to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(GenericLiteral.constant(TINYINT, 123L), createVarcharType(2)),
-                new Cast(GenericLiteral.constant(TINYINT, 123L), createVarcharType(2)));
+                new Cast(new Constant(TINYINT, 123L), createVarcharType(2)),
+                new Cast(new Constant(TINYINT, 123L), createVarcharType(2)));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(TINYINT, -123L), createVarcharType(2)),
-                new Cast(GenericLiteral.constant(TINYINT, -123L), createVarcharType(2)));
+                new Cast(new Constant(TINYINT, -123L), createVarcharType(2)),
+                new Cast(new Constant(TINYINT, -123L), createVarcharType(2)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(TINYINT, 123L), createVarcharType(2)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("123"))),
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(TINYINT, 123L), createVarcharType(2)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("123"))));
+                new ComparisonExpression(EQUAL, new Cast(new Constant(TINYINT, 123L), createVarcharType(2)), new Constant(VARCHAR, Slices.utf8Slice("123"))),
+                new ComparisonExpression(EQUAL, new Cast(new Constant(TINYINT, 123L), createVarcharType(2)), new Constant(VARCHAR, Slices.utf8Slice("123"))));
     }
 
     @Test
@@ -434,22 +434,22 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(4)),
-                GenericLiteral.constant(createVarcharType(4), Slices.utf8Slice("12.4")));
+                new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(4)),
+                new Constant(createVarcharType(4), Slices.utf8Slice("12.4")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("-12.4"))), createVarcharType(50)),
-                GenericLiteral.constant(createVarcharType(50), Slices.utf8Slice("-12.4")));
+                new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("-12.4"))), createVarcharType(50)),
+                new Constant(createVarcharType(50), Slices.utf8Slice("-12.4")));
 
         // cast from short decimal to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)));
+                new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)),
+                new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("-12.4"))), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("-12.4"))), createVarcharType(3)));
+                new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("-12.4"))), createVarcharType(3)),
+                new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("-12.4"))), createVarcharType(3)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("12.4"))),
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("12.4"))));
+                new ComparisonExpression(EQUAL, new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("12.4"))),
+                new ComparisonExpression(EQUAL, new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("12.4"))));
     }
 
     @Test
@@ -457,22 +457,22 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(GenericLiteral.constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(20)),
-                GenericLiteral.constant(createVarcharType(20), Slices.utf8Slice("100000000000000000.1")));
+                new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(20)),
+                new Constant(createVarcharType(20), Slices.utf8Slice("100000000000000000.1")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("-100000000000000000.1"))), createVarcharType(50)),
-                GenericLiteral.constant(createVarcharType(50), Slices.utf8Slice("-100000000000000000.1")));
+                new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("-100000000000000000.1"))), createVarcharType(50)),
+                new Constant(createVarcharType(50), Slices.utf8Slice("-100000000000000000.1")));
 
         // cast from long decimal to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(GenericLiteral.constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)));
+                new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)),
+                new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("-100000000000000000.1"))), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("-100000000000000000.1"))), createVarcharType(3)));
+                new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("-100000000000000000.1"))), createVarcharType(3)),
+                new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("-100000000000000000.1"))), createVarcharType(3)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("100000000000000000.1"))),
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("100000000000000000.1"))));
+                new ComparisonExpression(EQUAL, new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("100000000000000000.1"))),
+                new ComparisonExpression(EQUAL, new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("100000000000000000.1"))));
     }
 
     @Test
@@ -480,40 +480,40 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(GenericLiteral.constant(DOUBLE, 0.0), createVarcharType(3)),
-                GenericLiteral.constant(createVarcharType(3), Slices.utf8Slice("0E0")));
+                new Cast(new Constant(DOUBLE, 0.0), createVarcharType(3)),
+                new Constant(createVarcharType(3), Slices.utf8Slice("0E0")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(DOUBLE, -0.0), createVarcharType(4)),
-                GenericLiteral.constant(createVarcharType(4), Slices.utf8Slice("-0E0")));
+                new Cast(new Constant(DOUBLE, -0.0), createVarcharType(4)),
+                new Constant(createVarcharType(4), Slices.utf8Slice("-0E0")));
         assertSimplifies(
-                new Cast(new ArithmeticBinaryExpression(DIVIDE, GenericLiteral.constant(DOUBLE, 0.0), GenericLiteral.constant(DOUBLE, 0.0)), createVarcharType(3)),
-                GenericLiteral.constant(createVarcharType(3), Slices.utf8Slice("NaN")));
+                new Cast(new ArithmeticBinaryExpression(DIVIDE, new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 0.0)), createVarcharType(3)),
+                new Constant(createVarcharType(3), Slices.utf8Slice("NaN")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(DOUBLE, Double.POSITIVE_INFINITY), createVarcharType(8)),
-                GenericLiteral.constant(createVarcharType(8), Slices.utf8Slice("Infinity")));
+                new Cast(new Constant(DOUBLE, Double.POSITIVE_INFINITY), createVarcharType(8)),
+                new Constant(createVarcharType(8), Slices.utf8Slice("Infinity")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(DOUBLE, 1200.0), createVarcharType(5)),
-                GenericLiteral.constant(createVarcharType(5), Slices.utf8Slice("1.2E3")));
+                new Cast(new Constant(DOUBLE, 1200.0), createVarcharType(5)),
+                new Constant(createVarcharType(5), Slices.utf8Slice("1.2E3")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(DOUBLE, -1200.0), createVarcharType(50)),
-                GenericLiteral.constant(createVarcharType(50), Slices.utf8Slice("-1.2E3")));
+                new Cast(new Constant(DOUBLE, -1200.0), createVarcharType(50)),
+                new Constant(createVarcharType(50), Slices.utf8Slice("-1.2E3")));
 
         // cast from double to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(GenericLiteral.constant(DOUBLE, 1200.0), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(DOUBLE, 1200.0), createVarcharType(3)));
+                new Cast(new Constant(DOUBLE, 1200.0), createVarcharType(3)),
+                new Cast(new Constant(DOUBLE, 1200.0), createVarcharType(3)));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(DOUBLE, -1200.0), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(DOUBLE, -1200.0), createVarcharType(3)));
+                new Cast(new Constant(DOUBLE, -1200.0), createVarcharType(3)),
+                new Cast(new Constant(DOUBLE, -1200.0), createVarcharType(3)));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(DOUBLE, Double.NaN), createVarcharType(2)),
-                new Cast(GenericLiteral.constant(DOUBLE, Double.NaN), createVarcharType(2)));
+                new Cast(new Constant(DOUBLE, Double.NaN), createVarcharType(2)),
+                new Cast(new Constant(DOUBLE, Double.NaN), createVarcharType(2)));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(DOUBLE, Double.POSITIVE_INFINITY), createVarcharType(7)),
-                new Cast(GenericLiteral.constant(DOUBLE, Double.POSITIVE_INFINITY), createVarcharType(7)));
+                new Cast(new Constant(DOUBLE, Double.POSITIVE_INFINITY), createVarcharType(7)),
+                new Cast(new Constant(DOUBLE, Double.POSITIVE_INFINITY), createVarcharType(7)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(DOUBLE, 1200.0), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("1200.0"))),
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(DOUBLE, 1200.0), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("1200.0"))));
+                new ComparisonExpression(EQUAL, new Cast(new Constant(DOUBLE, 1200.0), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1200.0"))),
+                new ComparisonExpression(EQUAL, new Cast(new Constant(DOUBLE, 1200.0), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1200.0"))));
     }
 
     @Test
@@ -521,40 +521,40 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the number's representation
         assertSimplifies(
-                new Cast(GenericLiteral.constant(REAL, Reals.toReal(0.0f)), createVarcharType(3)),
-                GenericLiteral.constant(createVarcharType(3), Slices.utf8Slice("0E0")));
+                new Cast(new Constant(REAL, Reals.toReal(0.0f)), createVarcharType(3)),
+                new Constant(createVarcharType(3), Slices.utf8Slice("0E0")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(REAL, Reals.toReal(-0.0f)), createVarcharType(4)),
-                GenericLiteral.constant(createVarcharType(4), Slices.utf8Slice("-0E0")));
+                new Cast(new Constant(REAL, Reals.toReal(-0.0f)), createVarcharType(4)),
+                new Constant(createVarcharType(4), Slices.utf8Slice("-0E0")));
         assertSimplifies(
-                new Cast(new ArithmeticBinaryExpression(DIVIDE, GenericLiteral.constant(REAL, Reals.toReal(0.0f)), GenericLiteral.constant(REAL, Reals.toReal(0.0f))), createVarcharType(3)),
-                GenericLiteral.constant(createVarcharType(3), Slices.utf8Slice("NaN")));
+                new Cast(new ArithmeticBinaryExpression(DIVIDE, new Constant(REAL, Reals.toReal(0.0f)), new Constant(REAL, Reals.toReal(0.0f))), createVarcharType(3)),
+                new Constant(createVarcharType(3), Slices.utf8Slice("NaN")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(8)),
-                GenericLiteral.constant(createVarcharType(8), Slices.utf8Slice("Infinity")));
+                new Cast(new Constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(8)),
+                new Constant(createVarcharType(8), Slices.utf8Slice("Infinity")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(REAL, Reals.toReal(12e2f)), createVarcharType(5)),
-                GenericLiteral.constant(createVarcharType(5), Slices.utf8Slice("1.2E3")));
+                new Cast(new Constant(REAL, Reals.toReal(12e2f)), createVarcharType(5)),
+                new Constant(createVarcharType(5), Slices.utf8Slice("1.2E3")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(REAL, Reals.toReal(-12e2f)), createVarcharType(50)),
-                GenericLiteral.constant(createVarcharType(50), Slices.utf8Slice("-1.2E3")));
+                new Cast(new Constant(REAL, Reals.toReal(-12e2f)), createVarcharType(50)),
+                new Constant(createVarcharType(50), Slices.utf8Slice("-1.2E3")));
 
         // cast from real to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(GenericLiteral.constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)));
+                new Cast(new Constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)),
+                new Cast(new Constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(REAL, Reals.toReal(-12e2f)), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(REAL, Reals.toReal(-12e2f)), createVarcharType(3)));
+                new Cast(new Constant(REAL, Reals.toReal(-12e2f)), createVarcharType(3)),
+                new Cast(new Constant(REAL, Reals.toReal(-12e2f)), createVarcharType(3)));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(REAL, Reals.toReal(Float.NaN)), createVarcharType(2)),
-                new Cast(GenericLiteral.constant(REAL, Reals.toReal(Float.NaN)), createVarcharType(2)));
+                new Cast(new Constant(REAL, Reals.toReal(Float.NaN)), createVarcharType(2)),
+                new Cast(new Constant(REAL, Reals.toReal(Float.NaN)), createVarcharType(2)));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(7)),
-                new Cast(GenericLiteral.constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(7)));
+                new Cast(new Constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(7)),
+                new Cast(new Constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(7)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("1200.0"))),
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("1200.0"))));
+                new ComparisonExpression(EQUAL, new Cast(new Constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1200.0"))),
+                new ComparisonExpression(EQUAL, new Cast(new Constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1200.0"))));
     }
 
     @Test
@@ -562,19 +562,19 @@ public class TestSimplifyExpressions
     {
         // the varchar type length is enough to contain the date's representation
         assertSimplifies(
-                new Cast(GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(10)),
-                GenericLiteral.constant(createVarcharType(10), Slices.utf8Slice("2013-02-02")));
+                new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(10)),
+                new Constant(createVarcharType(10), Slices.utf8Slice("2013-02-02")));
         assertSimplifies(
-                new Cast(GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(50)),
-                GenericLiteral.constant(createVarcharType(50), Slices.utf8Slice("2013-02-02")));
+                new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(50)),
+                new Constant(createVarcharType(50), Slices.utf8Slice("2013-02-02")));
 
         // cast from date to varchar fails, so the expression is not modified
         assertSimplifies(
-                new Cast(GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)),
-                new Cast(GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)));
+                new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)),
+                new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("2013-02-02"))),
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("2013-02-02"))));
+                new ComparisonExpression(EQUAL, new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("2013-02-02"))),
+                new ComparisonExpression(EQUAL, new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("2013-02-02"))));
     }
 
     private static void assertSimplifies(Expression expression, Expression expected)
@@ -694,17 +694,17 @@ public class TestSimplifyExpressions
 
         // Symbol of type having NaN on either side of comparison
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), GenericLiteral.constant(INTEGER, 1L))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), GenericLiteral.constant(INTEGER, 1L))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new Constant(INTEGER, 1L))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new Constant(INTEGER, 1L))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("D2"))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("D2"))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 1L), new SymbolReference("D2"))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 1L), new SymbolReference("D2"))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), GenericLiteral.constant(INTEGER, 1L))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), GenericLiteral.constant(INTEGER, 1L))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new Constant(INTEGER, 1L))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new Constant(INTEGER, 1L))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("R2"))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("R2"))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 1L), new SymbolReference("R2"))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 1L), new SymbolReference("R2"))));
     }
 
     private static void assertSimplifiesNumericTypes(Expression expression, Expression expected)

@@ -25,8 +25,8 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
@@ -66,49 +66,49 @@ public class TestScalarStatsCalculator
     @Test
     public void testLiteral()
     {
-        assertCalculate(GenericLiteral.constant(TINYINT, 7L))
+        assertCalculate(new Constant(TINYINT, 7L))
                 .distinctValuesCount(1.0)
                 .lowValue(7)
                 .highValue(7)
                 .nullsFraction(0.0);
 
-        assertCalculate(GenericLiteral.constant(SMALLINT, 8L))
+        assertCalculate(new Constant(SMALLINT, 8L))
                 .distinctValuesCount(1.0)
                 .lowValue(8)
                 .highValue(8)
                 .nullsFraction(0.0);
 
-        assertCalculate(GenericLiteral.constant(INTEGER, 9L))
+        assertCalculate(new Constant(INTEGER, 9L))
                 .distinctValuesCount(1.0)
                 .lowValue(9)
                 .highValue(9)
                 .nullsFraction(0.0);
 
-        assertCalculate(GenericLiteral.constant(BIGINT, MAX_VALUE))
+        assertCalculate(new Constant(BIGINT, MAX_VALUE))
                 .distinctValuesCount(1.0)
                 .lowValue(Long.MAX_VALUE)
                 .highValue(Long.MAX_VALUE)
                 .nullsFraction(0.0);
 
-        assertCalculate(GenericLiteral.constant(DOUBLE, 7.5))
+        assertCalculate(new Constant(DOUBLE, 7.5))
                 .distinctValuesCount(1.0)
                 .lowValue(7.5)
                 .highValue(7.5)
                 .nullsFraction(0.0);
 
-        assertCalculate(GenericLiteral.constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("75.5"))))
+        assertCalculate(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("75.5"))))
                 .distinctValuesCount(1.0)
                 .lowValue(75.5)
                 .highValue(75.5)
                 .nullsFraction(0.0);
 
-        assertCalculate(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("blah")))
+        assertCalculate(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("blah")))
                 .distinctValuesCount(1.0)
                 .lowValueUnknown()
                 .highValueUnknown()
                 .nullsFraction(0.0);
 
-        assertCalculate(GenericLiteral.constant(UnknownType.UNKNOWN, null))
+        assertCalculate(new Constant(UnknownType.UNKNOWN, null))
                 .distinctValuesCount(0.0)
                 .lowValueUnknown()
                 .highValueUnknown()
@@ -121,7 +121,7 @@ public class TestScalarStatsCalculator
         assertCalculate(
                 functionResolution
                         .functionCallBuilder("length")
-                        .addArgument(createVarcharType(10), GenericLiteral.constant(createVarcharType(10), null))
+                        .addArgument(createVarcharType(10), new Constant(createVarcharType(10), null))
                         .build())
                 .distinctValuesCount(0.0)
                 .lowValueUnknown()
@@ -144,7 +144,7 @@ public class TestScalarStatsCalculator
     @Test
     public void testVarbinaryConstant()
     {
-        Expression expression = GenericLiteral.constant(VARBINARY, Slices.utf8Slice("ala ma kota"));
+        Expression expression = new Constant(VARBINARY, Slices.utf8Slice("ala ma kota"));
 
         assertCalculate(expression)
                 .distinctValuesCount(1.0)

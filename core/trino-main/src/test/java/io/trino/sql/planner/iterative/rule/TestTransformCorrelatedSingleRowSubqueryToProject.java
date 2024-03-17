@@ -20,7 +20,7 @@ import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
@@ -65,14 +65,14 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),
                                 p.project(
-                                        Assignments.of(p.symbol("l_expr2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), GenericLiteral.constant(INTEGER, 1L))),
+                                        Assignments.of(p.symbol("l_expr2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), new Constant(INTEGER, 1L))),
                                         p.values(
                                                 ImmutableList.of(),
                                                 ImmutableList.of(
                                                         ImmutableList.of())))))
                 .matches(project(
                         ImmutableMap.of(
-                                "l_expr2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), GenericLiteral.constant(INTEGER, 1L))),
+                                "l_expr2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), new Constant(INTEGER, 1L))),
                                 "l_nationkey", PlanMatchPattern.expression(new SymbolReference("l_nationkey"))),
                         tableScan("nation", ImmutableMap.of("l_nationkey", "nationkey"))));
     }
@@ -104,9 +104,9 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                         project(
                                 ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a"))),
                                 values(ImmutableList.of("a"), ImmutableList.of(
-                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))))));
+                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
 
         tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p -> {
@@ -116,18 +116,18 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                     return p.correlatedJoin(
                             ImmutableList.of(a),
                             p.values(3, a, b),
-                            p.values(ImmutableList.of(a, c), ImmutableList.of(ImmutableList.of(new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)))));
+                            p.values(ImmutableList.of(a, c), ImmutableList.of(ImmutableList.of(new SymbolReference("a"), new Constant(INTEGER, 1L)))));
                 })
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(new SymbolReference("a")),
                                         "b", PlanMatchPattern.expression(new SymbolReference("b")),
-                                        "c", PlanMatchPattern.expression(GenericLiteral.constant(INTEGER, 1L))),
+                                        "c", PlanMatchPattern.expression(new Constant(INTEGER, 1L))),
                                 values(ImmutableList.of("a", "b"), ImmutableList.of(
-                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null), GenericLiteral.constant(UnknownType.UNKNOWN, null))))));
+                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null))))));
     }
 
     @Test
@@ -146,11 +146,11 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                         project(
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(new SymbolReference("a")),
-                                        "b", PlanMatchPattern.expression(GenericLiteral.constant(UnknownType.UNKNOWN, null))),
+                                        "b", PlanMatchPattern.expression(new Constant(UnknownType.UNKNOWN, null))),
                                 values(ImmutableList.of("a"), ImmutableList.of(
-                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))))));
+                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
     }
 
     @Test
@@ -177,7 +177,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                     return p.correlatedJoin(
                             ImmutableList.of(a),
                             p.values(3, a),
-                            p.valuesOfExpressions(ImmutableList.of(p.symbol("b")), ImmutableList.of(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("true")))), rowType(field("col", BOOLEAN))))));
+                            p.valuesOfExpressions(ImmutableList.of(p.symbol("b")), ImmutableList.of(new Cast(new Row(ImmutableList.of(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("true")))), rowType(field("col", BOOLEAN))))));
                 })
                 .doesNotFire();
     }

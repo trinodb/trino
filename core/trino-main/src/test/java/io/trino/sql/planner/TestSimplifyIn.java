@@ -14,7 +14,7 @@
 package io.trino.sql.planner;
 
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import org.junit.jupiter.api.Test;
@@ -35,7 +35,7 @@ public class TestSimplifyIn
                 "SELECT * FROM (VALUES 0) t(a) WHERE a IN (5)",
                 anyTree(
                         filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference("A"), GenericLiteral.constant(INTEGER, 5L)),
+                                new ComparisonExpression(EQUAL, new SymbolReference("A"), new Constant(INTEGER, 5L)),
                                 values("A"))));
     }
 }

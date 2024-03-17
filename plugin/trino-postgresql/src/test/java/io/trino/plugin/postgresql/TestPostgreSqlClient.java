@@ -41,8 +41,8 @@ import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
@@ -235,11 +235,11 @@ public class TestPostgreSqlClient
                                                 new ComparisonExpression(
                                                         ComparisonExpression.Operator.EQUAL,
                                                         new SymbolReference("c_bigint_symbol"),
-                                                        GenericLiteral.constant(BIGINT, 42L)),
+                                                        new Constant(BIGINT, 42L)),
                                                 new ComparisonExpression(
                                                         ComparisonExpression.Operator.EQUAL,
                                                         new SymbolReference("c_bigint_symbol_2"),
-                                                        GenericLiteral.constant(BIGINT, 415L)))),
+                                                        new Constant(BIGINT, 415L)))),
                                 Map.of(
                                         "c_bigint_symbol", BIGINT,
                                         "c_bigint_symbol_2", BIGINT)),
@@ -265,18 +265,18 @@ public class TestPostgreSqlClient
                                                 new ComparisonExpression(
                                                         ComparisonExpression.Operator.EQUAL,
                                                         new SymbolReference("c_bigint_symbol"),
-                                                        GenericLiteral.constant(BIGINT, 42L)),
+                                                        new Constant(BIGINT, 42L)),
                                                 new LogicalExpression(
                                                         LogicalExpression.Operator.AND,
                                                         List.of(
                                                                 new ComparisonExpression(
                                                                         ComparisonExpression.Operator.EQUAL,
                                                                         new SymbolReference("c_bigint_symbol"),
-                                                                        GenericLiteral.constant(BIGINT, 43L)),
+                                                                        new Constant(BIGINT, 43L)),
                                                                 new ComparisonExpression(
                                                                         ComparisonExpression.Operator.EQUAL,
                                                                         new SymbolReference("c_bigint_symbol_2"),
-                                                                        GenericLiteral.constant(BIGINT, 44L)))))),
+                                                                        new Constant(BIGINT, 44L)))))),
                                 Map.of(
                                         "c_bigint_symbol", BIGINT,
                                         "c_bigint_symbol_2", BIGINT)),
@@ -301,7 +301,7 @@ public class TestPostgreSqlClient
                             new ComparisonExpression(
                                     operator,
                                     new SymbolReference("c_bigint_symbol"),
-                                    GenericLiteral.constant(BIGINT, 42L)),
+                                    new Constant(BIGINT, 42L)),
                             Map.of("c_bigint_symbol", BIGINT)),
                     Map.of("c_bigint_symbol", BIGINT_COLUMN));
 
@@ -335,7 +335,7 @@ public class TestPostgreSqlClient
                                     new ArithmeticBinaryExpression(
                                             operator,
                                             new SymbolReference("c_bigint_symbol"),
-                                            GenericLiteral.constant(BIGINT, 42L)),
+                                            new Constant(BIGINT, 42L)),
                                     Map.of("c_bigint_symbol", BIGINT)),
                             Map.of("c_bigint_symbol", BIGINT_COLUMN))
                     .orElseThrow();
@@ -433,8 +433,8 @@ public class TestPostgreSqlClient
                                 new InPredicate(
                                         new SymbolReference("c_varchar"),
                                         List.of(
-                                                new Cast(GenericLiteral.constant(VarcharType.VARCHAR, utf8Slice("value1")), VARCHAR_COLUMN.getColumnType()),
-                                                new Cast(GenericLiteral.constant(VarcharType.VARCHAR, utf8Slice("value2")), VARCHAR_COLUMN.getColumnType()),
+                                                new Cast(new Constant(VarcharType.VARCHAR, utf8Slice("value1")), VARCHAR_COLUMN.getColumnType()),
+                                                new Cast(new Constant(VarcharType.VARCHAR, utf8Slice("value2")), VARCHAR_COLUMN.getColumnType()),
                                                 new SymbolReference("c_varchar2"))),
                                 Map.of("c_varchar", VARCHAR_COLUMN.getColumnType(), "c_varchar2", VARCHAR_COLUMN2.getColumnType())),
                         Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2))

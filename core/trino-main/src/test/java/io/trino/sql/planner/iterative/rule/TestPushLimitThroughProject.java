@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
@@ -153,8 +153,8 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), GenericLiteral.constant(INTEGER, 1L)),
-                                            p.symbol("c"), new SubscriptExpression(a.toSymbolReference(), GenericLiteral.constant(INTEGER, 2L))),
+                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new Constant(INTEGER, 1L)),
+                                            p.symbol("c"), new SubscriptExpression(a.toSymbolReference(), new Constant(INTEGER, 2L))),
                                     p.values(a)));
                 })
                 .doesNotFire();
@@ -216,13 +216,13 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), GenericLiteral.constant(INTEGER, 1L)),
+                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new Constant(INTEGER, 1L)),
                                             p.symbol("c", rowType), a.toSymbolReference()),
                                     p.values(a)));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L))), "c", expression(new SymbolReference("a"))),
+                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("a"), new Constant(INTEGER, 1L))), "c", expression(new SymbolReference("a"))),
                                 limit(1,
                                         values("a"))));
     }

@@ -40,8 +40,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Partitioning;
@@ -244,7 +244,7 @@ public class PlanBuilder
         return values(
                 id,
                 ImmutableList.copyOf(columns),
-                nElements(rows, row -> nElements(columns.length, cell -> GenericLiteral.constant(UnknownType.UNKNOWN, null))));
+                nElements(rows, row -> nElements(columns.length, cell -> new Constant(UnknownType.UNKNOWN, null))));
     }
 
     public ValuesNode values(List<Symbol> columns, List<List<Expression>> rows)

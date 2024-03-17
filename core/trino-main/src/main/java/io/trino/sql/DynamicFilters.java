@@ -33,9 +33,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
@@ -83,8 +83,8 @@ public final class DynamicFilters
         return BuiltinFunctionCallBuilder.resolve(metadata)
                 .setName(nullAllowed ? NullableFunction.NAME : Function.NAME)
                 .addArgument(inputType, input)
-                .addArgument(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice(operator.toString())))
-                .addArgument(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice(id.toString())))
+                .addArgument(new Constant(VarcharType.VARCHAR, Slices.utf8Slice(operator.toString())))
+                .addArgument(new Constant(VarcharType.VARCHAR, Slices.utf8Slice(id.toString())))
                 .addArgument(BooleanType.BOOLEAN, nullAllowed ? TRUE_LITERAL : FALSE_LITERAL)
                 .build();
     }
@@ -145,7 +145,7 @@ public final class DynamicFilters
                 ImmutableList.of(
                         dynamicFilterFunctionCall.getArguments().get(0),
                         dynamicFilterFunctionCall.getArguments().get(1),
-                        GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice(newId.toString())), // dynamic filter id is the 3rd argument
+                        new Constant(VarcharType.VARCHAR, Slices.utf8Slice(newId.toString())), // dynamic filter id is the 3rd argument
                         dynamicFilterFunctionCall.getArguments().get(3)));
     }
 
@@ -170,17 +170,17 @@ public final class DynamicFilters
         Expression probeSymbol = arguments.get(0);
 
         Expression operatorExpression = arguments.get(1);
-        checkArgument(operatorExpression instanceof GenericLiteral literal && literal.getType().equals(VarcharType.VARCHAR), "operatorExpression is expected to be a varchar: %s", operatorExpression.getClass().getSimpleName());
-        String operatorExpressionString = ((Slice) ((GenericLiteral) operatorExpression).getRawValue()).toStringUtf8();
+        checkArgument(operatorExpression instanceof Constant literal && literal.getType().equals(VarcharType.VARCHAR), "operatorExpression is expected to be a varchar: %s", operatorExpression.getClass().getSimpleName());
+        String operatorExpressionString = ((Slice) ((Constant) operatorExpression).getValue()).toStringUtf8();
         ComparisonExpression.Operator operator = ComparisonExpression.Operator.valueOf(operatorExpressionString);
 
         Expression idExpression = arguments.get(2);
-        checkArgument(idExpression instanceof GenericLiteral literal && literal.getType().equals(VarcharType.VARCHAR), "id is expected to be a varchar: %s", idExpression.getClass().getSimpleName());
-        String id = ((Slice) ((GenericLiteral) idExpression).getRawValue()).toStringUtf8();
+        checkArgument(idExpression instanceof Constant literal && literal.getType().equals(VarcharType.VARCHAR), "id is expected to be a varchar: %s", idExpression.getClass().getSimpleName());
+        String id = ((Slice) ((Constant) idExpression).getValue()).toStringUtf8();
 
         Expression nullAllowedExpression = arguments.get(3);
-        checkArgument(nullAllowedExpression instanceof GenericLiteral literal && literal.getType().equals(BooleanType.BOOLEAN), "nullAllowedExpression is expected to be a boolean constant: %s", nullAllowedExpression.getClass().getSimpleName());
-        boolean nullAllowed = (boolean) ((GenericLiteral) nullAllowedExpression).getRawValue();
+        checkArgument(nullAllowedExpression instanceof Constant literal && literal.getType().equals(BooleanType.BOOLEAN), "nullAllowedExpression is expected to be a boolean constant: %s", nullAllowedExpression.getClass().getSimpleName());
+        boolean nullAllowed = (boolean) ((Constant) nullAllowedExpression).getValue();
         return Optional.of(new Descriptor(new DynamicFilterId(id), probeSymbol, operator, nullAllowed));
     }
 

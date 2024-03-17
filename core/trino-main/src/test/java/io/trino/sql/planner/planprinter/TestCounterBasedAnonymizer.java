@@ -15,7 +15,7 @@ package io.trino.sql.planner.planprinter;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.type.UnknownType;
@@ -43,9 +43,9 @@ public class TestCounterBasedAnonymizer
     public void testSymbolReferenceAnonymization()
     {
         LogicalExpression expression = new LogicalExpression(AND, ImmutableList.of(
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)),
-                new ComparisonExpression(LESS_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 2L)),
-                new ComparisonExpression(EQUAL, new SymbolReference("c"), GenericLiteral.constant(INTEGER, 3L))));
+                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new Constant(INTEGER, 2L)),
+                new ComparisonExpression(EQUAL, new SymbolReference("c"), new Constant(INTEGER, 3L))));
         CounterBasedAnonymizer anonymizer = new CounterBasedAnonymizer();
         assertThat(anonymizer.anonymize(expression))
                 .isEqualTo("((\"symbol_1\" > 'integer_literal_1') AND (\"symbol_2\" < 'integer_literal_2') AND (\"symbol_3\" = 'integer_literal_3'))");
@@ -65,7 +65,7 @@ public class TestCounterBasedAnonymizer
 //        assertThat(anonymizer.anonymize(TRUE_LITERAL))
 //                .isEqualTo("true");
 
-        assertThat(anonymizer.anonymize(GenericLiteral.constant(UnknownType.UNKNOWN, null)))
+        assertThat(anonymizer.anonymize(new Constant(UnknownType.UNKNOWN, null)))
                 .isEqualTo("null");
     }
 }

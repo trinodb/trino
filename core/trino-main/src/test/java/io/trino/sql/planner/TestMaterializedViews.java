@@ -40,7 +40,7 @@ import io.trino.spi.type.TypeParameter;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.testing.PlanTester;
@@ -315,7 +315,7 @@ public class TestMaterializedViews
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "A_CAST", expression(new ArithmeticBinaryExpression(ADD, new Cast(new SymbolReference("A"), BIGINT), GenericLiteral.constant(BIGINT, 1L))),
+                                        "A_CAST", expression(new ArithmeticBinaryExpression(ADD, new Cast(new SymbolReference("A"), BIGINT), new Constant(BIGINT, 1L))),
                                         "B_CAST", expression(new Cast(new SymbolReference("B"), BIGINT))),
                                 tableScan("storage_table_with_casts", ImmutableMap.of("A", "a", "B", "b")))));
     }
@@ -335,7 +335,7 @@ public class TestMaterializedViews
         // No-op REFRESH
         assertPlan("REFRESH MATERIALIZED VIEW materialized_view_with_casts",
                 output(
-                        values(List.of("rows"), List.of(List.of(GenericLiteral.constant(BIGINT, 0L))))));
+                        values(List.of("rows"), List.of(List.of(new Constant(BIGINT, 0L))))));
     }
 
     @Test
@@ -345,7 +345,7 @@ public class TestMaterializedViews
                 anyTree(
                         project(ImmutableMap.of("ts_0", expression(new Cast(new SymbolReference("ts"), TIMESTAMP_TZ_MILLIS))),
                                 filter(
-                                        new ComparisonExpression(LESS_THAN, new Cast(new SymbolReference("ts"), TIMESTAMP_TZ_MILLIS), GenericLiteral.constant(createTimestampWithTimeZoneType(3), DateTimes.parseTimestampWithTimeZone(3, "2024-01-01 00:00:00.000 America/New_York"))),
+                                        new ComparisonExpression(LESS_THAN, new Cast(new SymbolReference("ts"), TIMESTAMP_TZ_MILLIS), new Constant(createTimestampWithTimeZoneType(3), DateTimes.parseTimestampWithTimeZone(3, "2024-01-01 00:00:00.000 America/New_York"))),
                                         tableScan("timestamp_test_storage", ImmutableMap.of("ts", "ts", "id", "id"))))));
     }
 

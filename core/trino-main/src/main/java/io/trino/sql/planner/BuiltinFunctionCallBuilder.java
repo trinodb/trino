@@ -18,9 +18,9 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,7 +51,7 @@ public class BuiltinFunctionCallBuilder
         return this;
     }
 
-    public BuiltinFunctionCallBuilder addArgument(GenericLiteral value)
+    public BuiltinFunctionCallBuilder addArgument(Constant value)
     {
         requireNonNull(value, "value is null");
         return addArgument(value.getType().getTypeSignature(), value);

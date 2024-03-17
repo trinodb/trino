@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrExpressionInterpreter;
@@ -55,7 +55,7 @@ public class SimplifyExpressions
 
         return optimized instanceof Expression optimizedExpresion ?
                 optimizedExpresion :
-                GenericLiteral.constant(expressionTypes.get(NodeRef.of(expression)), optimized);
+                new Constant(expressionTypes.get(NodeRef.of(expression)), optimized);
     }
 
     public SimplifyExpressions(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)

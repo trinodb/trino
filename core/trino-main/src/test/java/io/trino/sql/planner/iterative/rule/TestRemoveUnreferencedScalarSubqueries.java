@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
@@ -98,7 +98,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                                     new ComparisonExpression(
                                             LESS_THAN,
                                             b.toSymbolReference(),
-                                            GenericLiteral.constant(INTEGER, 3L)),
+                                            new Constant(INTEGER, 3L)),
                                     p.values(2, b)));
                 })
                 .doesNotFire();
@@ -115,7 +115,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                                     new ComparisonExpression(
                                             LESS_THAN,
                                             b.toSymbolReference(),
-                                            GenericLiteral.constant(INTEGER, 3L)),
+                                            new Constant(INTEGER, 3L)),
                                     p.values(2, b)));
                 })
                 .doesNotFire();

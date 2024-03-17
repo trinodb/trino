@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -53,7 +53,7 @@ public class TestImplementLimitWithTies
                         strictProject(
                                 ImmutableMap.of("a", expression(new SymbolReference("a")), "b", expression(new SymbolReference("b"))),
                                 filter(
-                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("rank_num"), GenericLiteral.constant(BIGINT, 2L)),
+                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("rank_num"), new Constant(BIGINT, 2L)),
                                         window(
                                                 windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(specification(

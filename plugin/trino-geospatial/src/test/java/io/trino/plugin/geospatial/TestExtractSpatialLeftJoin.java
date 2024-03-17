@@ -16,8 +16,8 @@ package io.trino.plugin.geospatial;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -101,7 +101,7 @@ public class TestExtractSpatialLeftJoin
                             p.values(b),
                             new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                     distanceCall(a.toSymbolReference(), b.toSymbolReference()),
-                                    GenericLiteral.constant(INTEGER, 5L)));
+                                    new Constant(INTEGER, 5L)));
                 })
                 .doesNotFire();
 
@@ -116,7 +116,7 @@ public class TestExtractSpatialLeftJoin
                             p.values(b),
                             new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                     sphericalDistanceCall(a.toSymbolReference(), b.toSymbolReference()),
-                                    GenericLiteral.constant(INTEGER, 5L)));
+                                    new Constant(INTEGER, 5L)));
                 })
                 .doesNotFire();
 
@@ -131,7 +131,7 @@ public class TestExtractSpatialLeftJoin
                             p.values(point),
                             new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
                                     sphericalDistanceCall(toSphericalGeographyCall(wkt), point.toSymbolReference()),
-                                    GenericLiteral.constant(INTEGER, 5L)));
+                                    new Constant(INTEGER, 5L)));
                 })
                 .doesNotFire();
     }
@@ -226,7 +226,7 @@ public class TestExtractSpatialLeftJoin
                     return p.join(LEFT,
                             p.values(wkt),
                             p.values(),
-                            containsCall(geometryFromTextCall(wkt), toPointCall(GenericLiteral.constant(INTEGER, 0L), GenericLiteral.constant(INTEGER, 0L))));
+                            containsCall(geometryFromTextCall(wkt), toPointCall(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))));
                 })
                 .doesNotFire();
     }

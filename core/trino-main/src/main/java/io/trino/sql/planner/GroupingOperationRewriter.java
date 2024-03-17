@@ -21,8 +21,8 @@ import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Array;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.NodeRef;
@@ -54,8 +54,8 @@ public final class GroupingOperationRewriter
         // See SQL:2011:4.16.2 and SQL:2011:6.9.10.
         if (groupingSets.size() == 1) {
             return switch (type) {
-                case BigintType unused -> GenericLiteral.constant(BIGINT, 0L);
-                case IntegerType unused -> GenericLiteral.constant(INTEGER, 0L);
+                case BigintType unused -> new Constant(BIGINT, 0L);
+                case IntegerType unused -> new Constant(INTEGER, 0L);
                 default -> throw new IllegalArgumentException("Unexpected type for GROUPING operation: " + type);
             };
         }
@@ -74,8 +74,8 @@ public final class GroupingOperationRewriter
         List<Expression> groupingResults = groupingSets.stream()
                 .map(groupingSet -> calculateGrouping(groupingSet, columns))
                 .map(value -> switch (type) {
-                    case BigintType unused -> GenericLiteral.constant(BIGINT, value);
-                    case IntegerType unused -> GenericLiteral.constant(INTEGER, value);
+                    case BigintType unused -> new Constant(BIGINT, value);
+                    case IntegerType unused -> new Constant(INTEGER, value);
                     default -> throw new IllegalArgumentException("Unexpected type for GROUPING operation: " + type);
                 })
                 .collect(toImmutableList());
@@ -83,7 +83,7 @@ public final class GroupingOperationRewriter
         // It is necessary to add a 1 to the groupId because the underlying array is indexed starting at 1
         return new SubscriptExpression(
                 new Array(groupingResults),
-                new ArithmeticBinaryExpression(ADD, groupIdSymbol.get().toSymbolReference(), GenericLiteral.constant(BIGINT, 1L)));
+                new ArithmeticBinaryExpression(ADD, groupIdSymbol.get().toSymbolReference(), new Constant(BIGINT, 1L)));
     }
 
     private static int translateFieldToInteger(FieldId fieldId, RelationId requiredOriginRelationId)

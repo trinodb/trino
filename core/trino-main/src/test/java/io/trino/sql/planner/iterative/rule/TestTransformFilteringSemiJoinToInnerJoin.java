@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
@@ -51,7 +51,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                     Symbol b = p.symbol("b");
                     Symbol aInB = p.symbol("a_in_b");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a_in_b"), new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 5L)))),
+                            new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a_in_b"), new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 5L)))),
                             p.semiJoin(
                                     p.values(a),
                                     p.values(b),
@@ -66,7 +66,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                         ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a")), "a_in_b", PlanMatchPattern.expression(TRUE_LITERAL)),
                         join(INNER, builder -> builder
                                 .equiCriteria("a", "b")
-                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 5L)))
+                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 5L)))
                                 .left(values("a"))
                                 .right(
                                         aggregation(
@@ -120,7 +120,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                     Symbol b = p.symbol("b");
                     Symbol aInB = p.symbol("a_in_b");
                     return p.filter(
-                            new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 5L)),
+                            new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 5L)),
                             p.semiJoin(
                                     p.values(a),
                                     p.values(b),

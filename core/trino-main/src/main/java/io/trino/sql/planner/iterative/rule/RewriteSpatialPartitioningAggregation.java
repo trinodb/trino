@@ -22,9 +22,9 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -140,7 +140,7 @@ public class RewriteSpatialPartitioningAggregation
                                 node.getSource(),
                                 Assignments.builder()
                                         .putIdentities(node.getSource().getOutputSymbols())
-                                        .put(partitionCountSymbol, GenericLiteral.constant(INTEGER, (long) partitionCount))
+                                        .put(partitionCountSymbol, new Constant(INTEGER, (long) partitionCount))
                                         .putAll(envelopeAssignments.buildOrThrow())
                                         .build()))
                         .setAggregations(aggregations.buildOrThrow())

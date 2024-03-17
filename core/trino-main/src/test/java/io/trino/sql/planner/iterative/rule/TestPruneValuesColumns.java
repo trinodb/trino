@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -46,16 +46,16 @@ public class TestPruneValuesColumns
                                 p.values(
                                         ImmutableList.of(p.symbol("unused"), p.symbol("x")),
                                         ImmutableList.of(
-                                                ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 2L)),
-                                                ImmutableList.of(GenericLiteral.constant(INTEGER, 3L), GenericLiteral.constant(INTEGER, 4L))))))
+                                                ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)),
+                                                ImmutableList.of(new Constant(INTEGER, 3L), new Constant(INTEGER, 4L))))))
                 .matches(
                         project(
                                 ImmutableMap.of("y", PlanMatchPattern.expression(new SymbolReference("x"))),
                                 values(
                                         ImmutableList.of("x"),
                                         ImmutableList.of(
-                                                ImmutableList.of(GenericLiteral.constant(INTEGER, 2L)),
-                                                ImmutableList.of(GenericLiteral.constant(INTEGER, 4L))))));
+                                                ImmutableList.of(new Constant(INTEGER, 2L)),
+                                                ImmutableList.of(new Constant(INTEGER, 4L))))));
     }
 
     @Test
@@ -92,7 +92,7 @@ public class TestPruneValuesColumns
                                 Assignments.of(),
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("x")),
-                                        ImmutableList.of(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L))), anonymousRow(BIGINT))))))
+                                        ImmutableList.of(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L))), anonymousRow(BIGINT))))))
                 .matches(
                         project(
                                 ImmutableMap.of(),
@@ -108,7 +108,7 @@ public class TestPruneValuesColumns
                                 Assignments.of(p.symbol("x"), new SymbolReference("x")),
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("x"), p.symbol("y")),
-                                        ImmutableList.of(new Cast(new Row(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("a")))), anonymousRow(BIGINT, createCharType(2)))))))
+                                        ImmutableList.of(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")))), anonymousRow(BIGINT, createCharType(2)))))))
                 .doesNotFire();
     }
 }

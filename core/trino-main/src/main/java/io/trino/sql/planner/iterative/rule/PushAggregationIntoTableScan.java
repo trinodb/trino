@@ -31,8 +31,8 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
@@ -201,7 +201,7 @@ public class PushAggregationIntoTableScan
 
                     return optimized instanceof Expression optimizedExpression ?
                             optimizedExpression :
-                            GenericLiteral.constant(translatedExpressionTypes.get(NodeRef.of(translated)), optimized);
+                            new Constant(translatedExpressionTypes.get(NodeRef.of(translated)), optimized);
                 })
                 .collect(toImmutableList());
 

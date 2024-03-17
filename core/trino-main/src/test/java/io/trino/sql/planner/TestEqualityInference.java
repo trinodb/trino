@@ -25,8 +25,8 @@ import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNotNullPredicate;
@@ -326,11 +326,11 @@ public class TestEqualityInference
                         .addArgument(new FunctionType(ImmutableList.of(), VARCHAR), new LambdaExpression(ImmutableList.of(), nameReference("b")))
                         .build(),
                 new NullIfExpression(nameReference("b"), number(1)),
-                new IfExpression(nameReference("b"), number(1), GenericLiteral.constant(UnknownType.UNKNOWN, null)),
-                new InPredicate(nameReference("b"), ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))),
-                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new IsNotNullPredicate(nameReference("b")), GenericLiteral.constant(UnknownType.UNKNOWN, null))), Optional.empty()),
-                new SimpleCaseExpression(nameReference("b"), ImmutableList.of(new WhenClause(number(1), GenericLiteral.constant(UnknownType.UNKNOWN, null))), Optional.empty()),
-                new SubscriptExpression(new Array(ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))), nameReference("b")));
+                new IfExpression(nameReference("b"), number(1), new Constant(UnknownType.UNKNOWN, null)),
+                new InPredicate(nameReference("b"), ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))),
+                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new IsNotNullPredicate(nameReference("b")), new Constant(UnknownType.UNKNOWN, null))), Optional.empty()),
+                new SimpleCaseExpression(nameReference("b"), ImmutableList.of(new WhenClause(number(1), new Constant(UnknownType.UNKNOWN, null))), Optional.empty()),
+                new SubscriptExpression(new Array(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))), nameReference("b")));
 
         for (Expression candidate : candidates) {
             EqualityInference inference = new EqualityInference(
@@ -402,13 +402,13 @@ public class TestEqualityInference
         return new SymbolReference(symbol);
     }
 
-    private static GenericLiteral number(long number)
+    private static Constant number(long number)
     {
         if (number >= Integer.MIN_VALUE && number < Integer.MAX_VALUE) {
-            return GenericLiteral.constant(INTEGER, number);
+            return new Constant(INTEGER, number);
         }
 
-        return GenericLiteral.constant(BIGINT, number);
+        return new Constant(BIGINT, number);
     }
 
     private static Set<Symbol> symbols(String... symbols)

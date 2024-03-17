@@ -14,8 +14,8 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.SymbolReference;
 import org.junit.jupiter.api.Test;
@@ -64,7 +64,7 @@ public class BenchmarkExpressionInterpreter
         public void setup()
         {
             expressions = ImmutableList.of(
-                    new InPredicate(new SymbolReference("bound_value"), IntStream.range(0, inValuesCount).mapToObj(i -> GenericLiteral.constant(INTEGER, (long) i))
+                    new InPredicate(new SymbolReference("bound_value"), IntStream.range(0, inValuesCount).mapToObj(i -> new Constant(INTEGER, (long) i))
                             .collect(Collectors.toList())));
         }
     }

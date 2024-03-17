@@ -30,9 +30,9 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.ComparisonExpression.Operator;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
@@ -148,9 +148,9 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitGenericLiteral(GenericLiteral node, Void context)
+        protected RowExpression visitConstant(Constant node, Void context)
         {
-            return constant(node.getRawValue(), node.getType());
+            return constant(node.getValue(), node.getType());
         }
 
         @Override

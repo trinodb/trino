@@ -16,7 +16,7 @@ package io.trino.cost;
 
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.AfterAll;
@@ -56,7 +56,7 @@ public class TestFilterStatsRule
     public void testEstimatableFilter()
     {
         tester().assertStatsFor(pb -> pb
-                .filter(new ComparisonExpression(EQUAL, new SymbolReference("i1"), GenericLiteral.constant(INTEGER, 5L)),
+                .filter(new ComparisonExpression(EQUAL, new SymbolReference("i1"), new Constant(INTEGER, 5L)),
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
@@ -101,7 +101,7 @@ public class TestFilterStatsRule
                                 .nullsFraction(0.05)));
 
         defaultFilterTester.assertStatsFor(pb -> pb
-                .filter(new ComparisonExpression(EQUAL, new SymbolReference("i1"), GenericLiteral.constant(INTEGER, 5L)),
+                .filter(new ComparisonExpression(EQUAL, new SymbolReference("i1"), new Constant(INTEGER, 5L)),
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
@@ -156,7 +156,7 @@ public class TestFilterStatsRule
                         .functionCallBuilder("sin")
                         .addArgument(DOUBLE, new SymbolReference("i1"))
                         .build(),
-                GenericLiteral.constant(DOUBLE, 1.0));
+                new Constant(DOUBLE, 1.0));
 
         tester()
                 .assertStatsFor(pb -> pb
