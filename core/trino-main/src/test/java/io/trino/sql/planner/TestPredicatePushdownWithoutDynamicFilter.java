@@ -19,8 +19,8 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -73,13 +73,13 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .left(
                                         project(
                                                 filter(
-                                                        new ComparisonExpression(EQUAL, GenericLiteral.constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference("t_v"), createVarcharType(4))),
+                                                        new ComparisonExpression(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference("t_v"), createVarcharType(4))),
                                                         tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
                                                 project(
                                                         filter(
-                                                                new ComparisonExpression(EQUAL, GenericLiteral.constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference("u_v"), createVarcharType(4))),
+                                                                new ComparisonExpression(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference("u_v"), createVarcharType(4))),
                                                                 tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))))));
 
         // values have different types (varchar(4) vs varchar(5)) in each table
@@ -96,13 +96,13 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .left(
                                         project(
                                                 filter(
-                                                        new ComparisonExpression(EQUAL, GenericLiteral.constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference("t_v"), createVarcharType(4))),
+                                                        new ComparisonExpression(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference("t_v"), createVarcharType(4))),
                                                         tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
                                                 project(
                                                         filter(
-                                                                new ComparisonExpression(EQUAL, GenericLiteral.constant(createVarcharType(5), Slices.utf8Slice("x")), new Cast(new SymbolReference("u_v"), createVarcharType(5))),
+                                                                new ComparisonExpression(EQUAL, new Constant(createVarcharType(5), Slices.utf8Slice("x")), new Cast(new SymbolReference("u_v"), createVarcharType(5))),
                                                                 tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))))));
     }
 
@@ -169,7 +169,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                         "LINE_ORDER_KEY", "orderkey")),
                                 node(ExchangeNode.class,
                                         filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("ORDERS_ORDER_KEY"), new Cast(new FunctionCall(QualifiedName.of("random"), ImmutableList.of(GenericLiteral.constant(INTEGER, 5L))), BIGINT)),
+                                                new ComparisonExpression(EQUAL, new SymbolReference("ORDERS_ORDER_KEY"), new Cast(new FunctionCall(QualifiedName.of("random"), ImmutableList.of(new Constant(INTEGER, 5L))), BIGINT)),
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 
@@ -183,7 +183,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .equiCriteria("LINEITEM_OK", "ORDERS_OK")
                                 .left(
                                         filter(
-                                                new ComparisonExpression(EQUAL, new Cast(new SymbolReference("LINEITEM_LINENUMBER"), VARCHAR), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("2"))),
+                                                new ComparisonExpression(EQUAL, new Cast(new SymbolReference("LINEITEM_LINENUMBER"), VARCHAR), new Constant(VARCHAR, Slices.utf8Slice("2"))),
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINEITEM_OK", "orderkey",
                                                         "LINEITEM_LINENUMBER", "linenumber"))))

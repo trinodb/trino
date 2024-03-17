@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
@@ -47,7 +47,7 @@ public class TestPushProjectionThroughUnion
         tester().assertThat(new PushProjectionThroughUnion())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), GenericLiteral.constant(INTEGER, 3L)),
+                                Assignments.of(p.symbol("x"), new Constant(INTEGER, 3L)),
                                 p.values(p.symbol("a"))))
                 .doesNotFire();
     }
@@ -90,8 +90,8 @@ public class TestPushProjectionThroughUnion
                     Symbol w = p.symbol("w", ROW_TYPE);
                     return p.project(
                             Assignments.of(
-                                    cTimes3, new ArithmeticBinaryExpression(MULTIPLY, c.toSymbolReference(), GenericLiteral.constant(INTEGER, 3L)),
-                                    dX, new SubscriptExpression(new SymbolReference("d"), GenericLiteral.constant(INTEGER, 1L))),
+                                    cTimes3, new ArithmeticBinaryExpression(MULTIPLY, c.toSymbolReference(), new Constant(INTEGER, 3L)),
+                                    dX, new SubscriptExpression(new SymbolReference("d"), new Constant(INTEGER, 1L))),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()
                                             .put(c, a)
@@ -106,10 +106,10 @@ public class TestPushProjectionThroughUnion
                 .matches(
                         union(
                                 project(
-                                        ImmutableMap.of("a_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 3L))), "z_x", expression(new SubscriptExpression(new SymbolReference("z"), GenericLiteral.constant(INTEGER, 1L)))),
+                                        ImmutableMap.of("a_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new Constant(INTEGER, 3L))), "z_x", expression(new SubscriptExpression(new SymbolReference("z"), new Constant(INTEGER, 1L)))),
                                         values(ImmutableList.of("a", "z"))),
                                 project(
-                                        ImmutableMap.of("b_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 3L))), "w_x", expression(new SubscriptExpression(new SymbolReference("w"), GenericLiteral.constant(INTEGER, 1L)))),
+                                        ImmutableMap.of("b_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new Constant(INTEGER, 3L))), "w_x", expression(new SubscriptExpression(new SymbolReference("w"), new Constant(INTEGER, 1L)))),
                                         values(ImmutableList.of("b", "w"))))
                                 .withNumberOfOutputColumns(2)
                                 .withAlias("a_times_3")

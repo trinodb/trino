@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
@@ -68,7 +68,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)),
+                            new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)),
                             p.project(
                                     Assignments.identity(a),
                                     p.window(
@@ -95,7 +95,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 1L)),
+                            new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(BIGINT, 1L)),
                             p.project(
                                     Assignments.identity(a, ranking),
                                     p.window(
@@ -122,7 +122,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 1L)), new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), GenericLiteral.constant(BIGINT, -10L)))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(BIGINT, 1L)), new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), new Constant(BIGINT, -10L)))),
                             p.project(
                                     Assignments.identity(a, ranking),
                                     p.window(
@@ -149,7 +149,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("ranking"), GenericLiteral.constant(BIGINT, 2L)), new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), GenericLiteral.constant(BIGINT, 5L)))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("ranking"), new Constant(BIGINT, 2L)), new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), new Constant(BIGINT, 5L)))),
                             p.project(
                                     Assignments.identity(ranking),
                                     p.window(
@@ -160,7 +160,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             p.values(a))));
                 })
                 .matches(filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("ranking"), GenericLiteral.constant(BIGINT, 2L)), new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), GenericLiteral.constant(BIGINT, 5L)))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("ranking"), new Constant(BIGINT, 2L)), new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), new Constant(BIGINT, 5L)))),
                         project(
                                 ImmutableMap.of("ranking", expression(new SymbolReference("ranking"))),
                                 topNRanking(
@@ -190,7 +190,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), GenericLiteral.constant(BIGINT, 5L)),
+                            new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), new Constant(BIGINT, 5L)),
                             p.project(
                                     Assignments.identity(ranking),
                                     p.window(
@@ -229,7 +229,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), GenericLiteral.constant(BIGINT, 5L)), new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 0L)))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), new Constant(BIGINT, 5L)), new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(BIGINT, 0L)))),
                             p.project(
                                     Assignments.identity(ranking, a),
                                     p.window(
@@ -240,7 +240,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             p.values(a))));
                 })
                 .matches(filter(
-                        new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(BIGINT, 0L)),
+                        new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(BIGINT, 0L)),
                         project(
                                 ImmutableMap.of("ranking", expression(new SymbolReference("ranking")), "a", expression(new SymbolReference("a"))),
                                 topNRanking(
@@ -260,7 +260,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), GenericLiteral.constant(BIGINT, 5L)), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("ranking"), GenericLiteral.constant(INTEGER, 2L)), GenericLiteral.constant(BIGINT, 0L)))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("ranking"), new Constant(BIGINT, 5L)), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("ranking"), new Constant(INTEGER, 2L)), new Constant(BIGINT, 0L)))),
                             p.project(
                                     Assignments.identity(ranking),
                                     p.window(
@@ -271,7 +271,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             p.values(a))));
                 })
                 .matches(filter(
-                        new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("ranking"), GenericLiteral.constant(INTEGER, 2L)), GenericLiteral.constant(BIGINT, 0L)),
+                        new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("ranking"), new Constant(INTEGER, 2L)), new Constant(BIGINT, 0L)),
                         project(
                                 ImmutableMap.of("ranking", expression(new SymbolReference("ranking"))),
                                 topNRanking(

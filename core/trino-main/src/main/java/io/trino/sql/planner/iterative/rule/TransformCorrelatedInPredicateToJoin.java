@@ -20,8 +20,8 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
@@ -282,15 +282,15 @@ public class TransformCorrelatedInPredicateToJoin
 
     private static Expression bigint(long value)
     {
-        return GenericLiteral.constant(BIGINT, value);
+        return new Constant(BIGINT, value);
     }
 
     private static Expression booleanConstant(@Nullable Boolean value)
     {
         if (value == null) {
-            return GenericLiteral.constant(BOOLEAN, null);
+            return new Constant(BOOLEAN, null);
         }
-        return GenericLiteral.constant(BOOLEAN, value);
+        return new Constant(BOOLEAN, value);
     }
 
     private static class DecorrelatingVisitor

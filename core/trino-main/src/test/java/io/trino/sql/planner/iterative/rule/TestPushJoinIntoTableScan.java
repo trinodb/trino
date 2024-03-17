@@ -30,14 +30,13 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.Call;
-import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.JoinNode;
@@ -239,7 +238,7 @@ public class TestPushJoinIntoTableScan
                                                     BIGINT,
                                                     MULTIPLY_FUNCTION_NAME,
                                                     List.of(
-                                                            new Constant(44L, BIGINT),
+                                                            new io.trino.spi.expression.Constant(44L, BIGINT),
                                                             new Variable("columna1", BIGINT))),
                                             new Variable("columnb1", BIGINT))));
                     return Optional.of(new JoinApplicationResult<>(
@@ -272,7 +271,7 @@ public class TestPushJoinIntoTableScan
                                 right,
                                 new ComparisonExpression(
                                         ComparisonExpression.Operator.GREATER_THAN,
-                                        new ArithmeticBinaryExpression(MULTIPLY, GenericLiteral.constant(BIGINT, 44L), columnA1Symbol.toSymbolReference()),
+                                        new ArithmeticBinaryExpression(MULTIPLY, new Constant(BIGINT, 44L), columnA1Symbol.toSymbolReference()),
                                         columnB1Symbol.toSymbolReference()));
                     })
                     .matches(

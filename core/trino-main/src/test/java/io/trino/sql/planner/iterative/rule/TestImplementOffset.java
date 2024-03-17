@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
@@ -52,7 +52,7 @@ public class TestImplementOffset
                         strictProject(
                                 ImmutableMap.of("a", expression(new SymbolReference("a")), "b", expression(new SymbolReference("b"))),
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), GenericLiteral.constant(BIGINT, 2L)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), new Constant(BIGINT, 2L)),
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),
@@ -77,7 +77,7 @@ public class TestImplementOffset
                         strictProject(
                                 ImmutableMap.of("a", expression(new SymbolReference("a")), "b", expression(new SymbolReference("b"))),
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), GenericLiteral.constant(BIGINT, 2L)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), new Constant(BIGINT, 2L)),
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),

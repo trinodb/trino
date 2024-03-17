@@ -19,8 +19,8 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
 import io.trino.sql.ir.WhenClause;
@@ -178,7 +178,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
 
         public Expression rewriteUsingBounds(ApplyNode.QuantifiedComparison quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)
         {
-            GenericLiteral emptySetResult;
+            Constant emptySetResult;
             Function<List<Expression>, Expression> quantifier;
             if (quantifiedComparison.quantifier() == ALL) {
                 emptySetResult = TRUE_LITERAL;
@@ -193,7 +193,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             return new SimpleCaseExpression(
                     countAllValue.toSymbolReference(),
                     ImmutableList.of(new WhenClause(
-                            GenericLiteral.constant(BIGINT, 0L),
+                            new Constant(BIGINT, 0L),
                             emptySetResult)),
                     Optional.of(quantifier.apply(ImmutableList.of(
                             comparisonWithExtremeValue,
@@ -201,7 +201,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                                     ImmutableList.of(
                                             new WhenClause(
                                                     new ComparisonExpression(NOT_EQUAL, countAllValue.toSymbolReference(), countNonNullValue.toSymbolReference()),
-                                                    GenericLiteral.constant(BOOLEAN, null))),
+                                                    new Constant(BOOLEAN, null))),
                                     Optional.of(emptySetResult))))));
         }
 

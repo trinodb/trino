@@ -20,7 +20,7 @@ import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.SymbolStatsEstimate;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleBuilder;
@@ -78,8 +78,8 @@ public class TestDetermineSemiJoinDistributionType
         assertDetermineSemiJoinDistributionType()
                 .on(p ->
                         p.semiJoin(
-                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 10L)), ImmutableList.of(GenericLiteral.constant(INTEGER, 11L)))),
-                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 50L)), ImmutableList.of(GenericLiteral.constant(INTEGER, 11L)))),
+                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 10L)), ImmutableList.of(new Constant(INTEGER, 11L)))),
+                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 50L)), ImmutableList.of(new Constant(INTEGER, 11L)))),
                                 p.symbol("A1"),
                                 p.symbol("B1"),
                                 p.symbol("output"),

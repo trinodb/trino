@@ -26,9 +26,9 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
@@ -84,7 +84,7 @@ public class TestSpatialJoinPlanning
         extends BasePlanTest
 {
     private static final String KDB_TREE_JSON = KdbTreeUtils.toJson(new KdbTree(newLeaf(new Rectangle(0, 0, 10, 10), 0)));
-    private static final Expression KDB_TREE_LITERAL = GenericLiteral.constant(KdbTreeType.KDB_TREE, KdbTreeUtils.fromJson(KDB_TREE_JSON));
+    private static final Expression KDB_TREE_LITERAL = new Constant(KdbTreeType.KDB_TREE, KdbTreeUtils.fromJson(KDB_TREE_JSON));
 
     @Override
     protected PlanTester createPlanTester()
@@ -348,14 +348,14 @@ public class TestSpatialJoinPlanning
                                         .left(
                                                 project(
                                                         ImmutableMap.of(
-                                                                "wkt_a", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), GenericLiteral.constant(DOUBLE, 0.0)), GenericLiteral.constant(createVarcharType(45), Slices.utf8Slice("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))")))), Optional.empty())),
-                                                                "name_a", expression(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("a")))),
+                                                                "wkt_a", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new Constant(DOUBLE, 0.0)), new Constant(createVarcharType(45), Slices.utf8Slice("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))")))), Optional.empty())),
+                                                                "name_a", expression(new Constant(createVarcharType(1), Slices.utf8Slice("a")))),
                                                         singleRow()))
                                         .right(
                                                 any(project(
                                                         ImmutableMap.of(
-                                                                "wkt_b", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), GenericLiteral.constant(DOUBLE, 0.0)), GenericLiteral.constant(createVarcharType(45), Slices.utf8Slice("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))")))), Optional.empty())),
-                                                                "name_b", expression(GenericLiteral.constant(createVarcharType(1), Slices.utf8Slice("a")))),
+                                                                "wkt_b", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new Constant(DOUBLE, 0.0)), new Constant(createVarcharType(45), Slices.utf8Slice("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))")))), Optional.empty())),
+                                                                "name_b", expression(new Constant(createVarcharType(1), Slices.utf8Slice("a")))),
                                                         singleRow())))))));
     }
 
@@ -429,7 +429,7 @@ public class TestSpatialJoinPlanning
                         "ON ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat)) AND rand() < 0.5",
                 anyTree(
                         spatialLeftJoin(
-                                new LogicalExpression(AND, ImmutableList.of(new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))), new ComparisonExpression(LESS_THAN, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), GenericLiteral.constant(DOUBLE, 0.5)))),
+                                new LogicalExpression(AND, ImmutableList.of(new FunctionCall(QualifiedName.of("st_contains"), ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))), new ComparisonExpression(LESS_THAN, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new Constant(DOUBLE, 0.5)))),
                                 project(ImmutableMap.of("st_point", expression(new FunctionCall(QualifiedName.of("st_point"), ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
                                         tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))),
                                 anyTree(
@@ -518,7 +518,7 @@ public class TestSpatialJoinPlanning
     private PlanMatchPattern singleRow()
     {
         return filter(
-                new ComparisonExpression(EQUAL, new SymbolReference("regionkey"), GenericLiteral.constant(BIGINT, 1L)),
+                new ComparisonExpression(EQUAL, new SymbolReference("regionkey"), new Constant(BIGINT, 1L)),
                 tableScan("region", ImmutableMap.of("regionkey", "regionkey")));
     }
 

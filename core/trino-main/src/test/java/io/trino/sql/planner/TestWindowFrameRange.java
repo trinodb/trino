@@ -20,8 +20,8 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Decimals;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -93,15 +93,15 @@ public class TestWindowFrameRange
                                                         ImmutableMap.of("key_for_frame_start_calculation", expression(new Cast(new SymbolReference("key"), createDecimalType(10, 0)))),
                                                         filter(// validate offset values
                                                                 new IfExpression(
-                                                                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), GenericLiteral.constant(createDecimalType(2, 1), 0L)),
+                                                                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), new Constant(createDecimalType(2, 1), 0L)),
                                                                         TRUE_LITERAL,
-                                                                        new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
+                                                                        new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new Constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                                 anyTree(
                                                                         values(
                                                                                 ImmutableList.of("key", "x"),
                                                                                 ImmutableList.of(
-                                                                                        ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("1.1")))),
-                                                                                        ImmutableList.of(GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("2.2")))))))))))));
+                                                                                        ImmutableList.of(new Constant(INTEGER, 1L), new Constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("1.1")))),
+                                                                                        ImmutableList.of(new Constant(INTEGER, 2L), new Constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("2.2")))))))))))));
 
         assertPlan(sql, CREATED, pattern);
     }
@@ -139,17 +139,17 @@ public class TestWindowFrameRange
                                                 ImmutableMap.of("frame_end_value", expression(new FunctionCall(QualifiedName.of("$operator$add"), ImmutableList.of(new SymbolReference("key"), new SymbolReference("offset"))))),
                                                 filter(// validate offset values
                                                         new IfExpression(
-                                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("offset"), GenericLiteral.constant(createDecimalType(10, 0), 0L)),
+                                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("offset"), new Constant(createDecimalType(10, 0), 0L)),
                                                                 TRUE_LITERAL,
-                                                                new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
+                                                                new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new Constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                         project(// coerce offset value to calculate frame end values
                                                                 ImmutableMap.of("offset", expression(new Cast(new SymbolReference("x"), createDecimalType(10, 0)))),
                                                                 anyTree(
                                                                         values(
                                                                                 ImmutableList.of("key", "x"),
                                                                                 ImmutableList.of(
-                                                                                        ImmutableList.of(GenericLiteral.constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("1.1"))), GenericLiteral.constant(INTEGER, 1L)),
-                                                                                        ImmutableList.of(GenericLiteral.constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("2.2"))), GenericLiteral.constant(INTEGER, 2L)))))))))));
+                                                                                        ImmutableList.of(new Constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("1.1"))), new Constant(INTEGER, 1L)),
+                                                                                        ImmutableList.of(new Constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("2.2"))), new Constant(INTEGER, 2L)))))))))));
 
         assertPlan(sql, CREATED, pattern);
     }
@@ -185,22 +185,22 @@ public class TestWindowFrameRange
                                         ImmutableMap.of("frame_end_value", expression(new FunctionCall(QualifiedName.of("$operator$add"), ImmutableList.of(new SymbolReference("key"), new SymbolReference("y"))))),
                                         filter(// validate frame end offset values
                                                 new IfExpression(
-                                                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("y"), GenericLiteral.constant(INTEGER, 0L)),
+                                                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("y"), new Constant(INTEGER, 0L)),
                                                         TRUE_LITERAL,
-                                                        new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
+                                                        new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new Constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                 project(// calculate frame start value (sort key - frame start offset)
                                                         ImmutableMap.of("frame_start_value", expression(new FunctionCall(QualifiedName.of("$operator$subtract"), ImmutableList.of(new SymbolReference("key"), new SymbolReference("x"))))),
                                                         filter(// validate frame start offset values
                                                                 new IfExpression(
-                                                                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), GenericLiteral.constant(INTEGER, 0L)),
+                                                                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), new Constant(INTEGER, 0L)),
                                                                         TRUE_LITERAL,
-                                                                        new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(GenericLiteral.constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
+                                                                        new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new Constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                                 anyTree(
                                                                         values(
                                                                                 ImmutableList.of("key", "x", "y"),
                                                                                 ImmutableList.of(
-                                                                                        ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 1L)),
-                                                                                        ImmutableList.of(GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(INTEGER, 2L)))))))))));
+                                                                                        ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 1L), new Constant(INTEGER, 1L)),
+                                                                                        ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 2L), new Constant(INTEGER, 2L)))))))))));
 
         assertPlan(sql, CREATED, pattern);
     }

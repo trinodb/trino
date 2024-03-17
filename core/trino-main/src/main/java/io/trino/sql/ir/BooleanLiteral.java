@@ -17,8 +17,8 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 public final class BooleanLiteral
 {
-    public static final GenericLiteral TRUE_LITERAL = GenericLiteral.constant(BOOLEAN, true);
-    public static final GenericLiteral FALSE_LITERAL = GenericLiteral.constant(BOOLEAN, false);
+    public static final Constant TRUE_LITERAL = new Constant(BOOLEAN, true);
+    public static final Constant FALSE_LITERAL = new Constant(BOOLEAN, false);
 
     private BooleanLiteral() {}
 }

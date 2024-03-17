@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
@@ -39,9 +39,9 @@ public class TestValuesNodeStats
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", DOUBLE)),
                                 ImmutableList.of(
-                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, GenericLiteral.constant(BIGINT, 3L), GenericLiteral.constant(BIGINT, 3L)), GenericLiteral.constant(DOUBLE, 13.5e0)),
-                                        ImmutableList.of(GenericLiteral.constant(BIGINT, 55L), GenericLiteral.constant(UNKNOWN, null)),
-                                        ImmutableList.of(GenericLiteral.constant(BIGINT, 6L), GenericLiteral.constant(DOUBLE, 13.5e0)))))
+                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, new Constant(BIGINT, 3L), new Constant(BIGINT, 3L)), new Constant(DOUBLE, 13.5e0)),
+                                        ImmutableList.of(new Constant(BIGINT, 55L), new Constant(UNKNOWN, null)),
+                                        ImmutableList.of(new Constant(BIGINT, 6L), new Constant(DOUBLE, 13.5e0)))))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(3)
@@ -66,10 +66,10 @@ public class TestValuesNodeStats
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("v", createVarcharType(30))),
                                 ImmutableList.of(
-                                        ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("Alice"))),
-                                        ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("'has'"))),
-                                        ImmutableList.of(GenericLiteral.constant(VarcharType.VARCHAR, Slices.utf8Slice("'a cat'"))),
-                                        ImmutableList.of(GenericLiteral.constant(UNKNOWN, null)))))
+                                        ImmutableList.of(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("Alice"))),
+                                        ImmutableList.of(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("'has'"))),
+                                        ImmutableList.of(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("'a cat'"))),
+                                        ImmutableList.of(new Constant(UNKNOWN, null)))))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(4)
@@ -88,7 +88,7 @@ public class TestValuesNodeStats
     {
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT)),
-                                ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE, GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 0L))))))
+                                ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE, new Constant(INTEGER, 1L), new Constant(INTEGER, 0L))))))
                 .check(outputStats -> outputStats.equalTo(unknown()));
     }
 
@@ -103,19 +103,19 @@ public class TestValuesNodeStats
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT)),
                                 ImmutableList.of(
-                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, GenericLiteral.constant(INTEGER, 3L), GenericLiteral.constant(UNKNOWN, null))))))
+                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, new Constant(INTEGER, 3L), new Constant(UNKNOWN, null))))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT)),
                                 ImmutableList.of(
-                                        ImmutableList.of(GenericLiteral.constant(UNKNOWN, null)))))
+                                        ImmutableList.of(new Constant(UNKNOWN, null)))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", UNKNOWN)),
                                 ImmutableList.of(
-                                        ImmutableList.of(GenericLiteral.constant(UNKNOWN, null)))))
+                                        ImmutableList.of(new Constant(UNKNOWN, null)))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
     }
 

@@ -29,7 +29,7 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -141,7 +141,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                 session,
                 any(
                         project(
-                                ImmutableMap.of("expr", expression(new SubscriptExpression(new SymbolReference("col0"), GenericLiteral.constant(INTEGER, 1L))), "expr_2", expression(new SubscriptExpression(new SymbolReference("col0"), GenericLiteral.constant(INTEGER, 2L)))),
+                                ImmutableMap.of("expr", expression(new SubscriptExpression(new SymbolReference("col0"), new Constant(INTEGER, 1L))), "expr_2", expression(new SubscriptExpression(new SymbolReference("col0"), new Constant(INTEGER, 2L)))),
                                 tableScan(testTable, ImmutableMap.of("col0", "col0")))));
     }
 
@@ -192,8 +192,8 @@ public class TestDeltaLakeProjectionPushdownPlans
                 anyTree(
                         filter(
                                 new LogicalExpression(AND, ImmutableList.of(
-                                        new ComparisonExpression(EQUAL, new SymbolReference("y"), GenericLiteral.constant(BIGINT, 2L)),
-                                        new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), GenericLiteral.constant(INTEGER, 3L)), BIGINT)))),
+                                        new ComparisonExpression(EQUAL, new SymbolReference("y"), new Constant(BIGINT, 2L)),
+                                        new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), new Constant(INTEGER, 3L)), BIGINT)))),
                                 source2)));
 
         // Projection and predicate pushdown with overlapping columns
@@ -210,7 +210,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                 format("SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5", testTable),
                 anyTree(
                         filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference("x"), GenericLiteral.constant(BIGINT, 5L)),
+                                new ComparisonExpression(EQUAL, new SymbolReference("x"), new Constant(BIGINT, 5L)),
                                 source1)));
 
         // Projection and predicate pushdown with joins
@@ -219,9 +219,9 @@ public class TestDeltaLakeProjectionPushdownPlans
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference("expr_0"), GenericLiteral.constant(INTEGER, 1L))),
+                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference("expr_0"), new Constant(INTEGER, 1L))),
                                         "expr_0", expression(new SymbolReference("expr_0")),
-                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference("expr_0"), GenericLiteral.constant(INTEGER, 2L)))),
+                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference("expr_0"), new Constant(INTEGER, 2L)))),
                                 join(INNER, builder -> {
                                     PlanMatchPattern source = tableScan(
                                             table -> {
@@ -240,7 +240,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                                             .left(
                                                     anyTree(
                                                             filter(
-                                                                    new ComparisonExpression(EQUAL, new SymbolReference("x"), GenericLiteral.constant(BIGINT, 2L)),
+                                                                    new ComparisonExpression(EQUAL, new SymbolReference("x"), new Constant(BIGINT, 2L)),
                                                                     source)))
                                             .right(
                                                     anyTree(

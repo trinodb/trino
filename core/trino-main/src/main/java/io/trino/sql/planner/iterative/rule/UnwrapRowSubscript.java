@@ -16,9 +16,9 @@ package io.trino.sql.planner.iterative.rule;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.type.UnknownType;
@@ -58,7 +58,7 @@ public class UnwrapRowSubscript
                     break;
                 }
 
-                int index = (int) (long) ((GenericLiteral) node.getIndex()).getRawValue();
+                int index = (int) (long) ((Constant) node.getIndex()).getValue();
                 Type type = rowType.getFields().get(index - 1).getType();
                 if (!(type instanceof UnknownType)) {
                     coercions.push(new Coercion(type, cast.isSafe()));
@@ -68,7 +68,7 @@ public class UnwrapRowSubscript
             }
 
             if (base instanceof Row row) {
-                int index = (int) (long) ((GenericLiteral) node.getIndex()).getRawValue();
+                int index = (int) (long) ((Constant) node.getIndex()).getValue();
                 Expression result = row.getItems().get(index - 1);
 
                 while (!coercions.isEmpty()) {

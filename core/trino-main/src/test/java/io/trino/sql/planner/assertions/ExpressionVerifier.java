@@ -20,9 +20,9 @@ import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
@@ -83,13 +83,13 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitGenericLiteral(GenericLiteral actual, Expression expectedExpression)
+    protected Boolean visitConstant(Constant actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof GenericLiteral expected)) {
+        if (!(expectedExpression instanceof Constant expected)) {
             return false;
         }
 
-        return Objects.equals(actual.getRawValue(), expected.getRawValue()) &&
+        return Objects.equals(actual.getValue(), expected.getValue()) &&
                 actual.getType().equals(expected.getType());
     }
 

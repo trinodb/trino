@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.type.UnknownType;
@@ -91,8 +91,8 @@ public class TestReplaceRedundantJoinWithProject
                         project(
                                 ImmutableMap.of(
                                         "a", expression(new SymbolReference("a")),
-                                        "b", expression(GenericLiteral.constant(BIGINT, null))),
-                                values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))))));
+                                        "b", expression(new Constant(BIGINT, null))),
+                                values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
     }
 
     @Test
@@ -107,9 +107,9 @@ public class TestReplaceRedundantJoinWithProject
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "a", expression(GenericLiteral.constant(BIGINT, null)),
+                                        "a", expression(new Constant(BIGINT, null)),
                                         "b", expression(new SymbolReference("b"))),
-                                values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))))));
+                                values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
     }
 
     @Test
@@ -125,8 +125,8 @@ public class TestReplaceRedundantJoinWithProject
                         project(
                                 ImmutableMap.of(
                                         "a", expression(new SymbolReference("a")),
-                                        "b", expression(GenericLiteral.constant(BIGINT, null))),
-                                values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))))));
+                                        "b", expression(new Constant(BIGINT, null))),
+                                values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
 
         tester().assertThat(new ReplaceRedundantJoinWithProject())
                 .on(p ->
@@ -137,8 +137,8 @@ public class TestReplaceRedundantJoinWithProject
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "a", expression(GenericLiteral.constant(BIGINT, null)),
+                                        "a", expression(new Constant(BIGINT, null)),
                                         "b", expression(new SymbolReference("b"))),
-                                values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(GenericLiteral.constant(UnknownType.UNKNOWN, null))))));
+                                values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
     }
 }

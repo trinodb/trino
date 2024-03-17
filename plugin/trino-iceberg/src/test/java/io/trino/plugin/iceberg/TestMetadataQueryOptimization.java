@@ -20,7 +20,7 @@ import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.PrincipalType;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
@@ -101,15 +101,15 @@ public class TestMetadataQueryOptimization
                 anyTree(values(
                         ImmutableList.of("b", "c"),
                         ImmutableList.of(
-                                ImmutableList.of(GenericLiteral.constant(INTEGER, 6L), GenericLiteral.constant(INTEGER, 7L)),
-                                ImmutableList.of(GenericLiteral.constant(INTEGER, 9L), GenericLiteral.constant(INTEGER, 10L))))));
+                                ImmutableList.of(new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)),
+                                ImmutableList.of(new Constant(INTEGER, 9L), new Constant(INTEGER, 10L))))));
 
         assertPlan(
                 format("SELECT DISTINCT b, c FROM %s WHERE b > 7", testTable),
                 session,
                 anyTree(values(
                         ImmutableList.of("b", "c"),
-                        ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 9L), GenericLiteral.constant(INTEGER, 10L))))));
+                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 9L), new Constant(INTEGER, 10L))))));
 
         assertPlan(
                 format("SELECT DISTINCT b, c FROM %s WHERE b > 7 AND c < 8", testTable),

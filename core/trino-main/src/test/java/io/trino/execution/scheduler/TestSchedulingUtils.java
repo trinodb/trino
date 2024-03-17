@@ -20,7 +20,7 @@ import io.airlift.slice.Slices;
 import io.trino.cost.StatsAndCosts;
 import io.trino.operator.RetryPolicy;
 import io.trino.sql.ir.BooleanLiteral;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -349,7 +349,7 @@ public class TestSchedulingUtils
         Symbol symbol = new Symbol("column");
         return createSubPlan(fragmentId, new ValuesNode(new PlanNodeId(fragmentId + "Values"),
                         ImmutableList.of(symbol),
-                        ImmutableList.of(new Row(ImmutableList.of(GenericLiteral.constant(VARCHAR, Slices.utf8Slice("foo")))))),
+                        ImmutableList.of(new Row(ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("foo")))))),
                 ImmutableList.of());
     }
 

@@ -22,8 +22,8 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -261,7 +261,7 @@ public class DecorrelateUnnest
                         subquerySymbol,
                         new IfExpression(
                                 new IsNullPredicate(ordinalitySymbol.toSymbolReference()),
-                                GenericLiteral.constant(context.getSymbolAllocator().getTypes().get(subquerySymbol), null),
+                                new Constant(context.getSymbolAllocator().getTypes().get(subquerySymbol), null),
                                 subquerySymbol.toSymbolReference()));
             }
             rewrittenPlan = new ProjectNode(
@@ -404,7 +404,7 @@ public class DecorrelateUnnest
                     new ComparisonExpression(
                             GREATER_THAN,
                             rowNumberSymbol.toSymbolReference(),
-                            GenericLiteral.constant(BIGINT, 1L)),
+                            new Constant(BIGINT, 1L)),
                     new Cast(
                             failFunction(metadata, SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                             BOOLEAN),
@@ -447,7 +447,7 @@ public class DecorrelateUnnest
                     new FilterNode(
                             idAllocator.getNextId(),
                             sourceNode,
-                            new ComparisonExpression(LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), GenericLiteral.constant(BIGINT, node.getCount()))),
+                            new ComparisonExpression(LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), new Constant(BIGINT, node.getCount()))),
                     Optional.of(rowNumberSymbol));
         }
 
@@ -476,7 +476,7 @@ public class DecorrelateUnnest
                     new FilterNode(
                             idAllocator.getNextId(),
                             windowNode,
-                            new ComparisonExpression(LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), GenericLiteral.constant(BIGINT, node.getCount()))),
+                            new ComparisonExpression(LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), new Constant(BIGINT, node.getCount()))),
                     Optional.of(rowNumberSymbol));
         }
 

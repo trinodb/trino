@@ -21,9 +21,9 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
@@ -85,88 +85,88 @@ public class TestCanonicalizeExpressionRewriter
     public void testRewriteIfExpression()
     {
         assertRewritten(
-                new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("x"), GenericLiteral.constant(INTEGER, 0L)), GenericLiteral.constant(INTEGER, 0L), GenericLiteral.constant(INTEGER, 1L)),
-                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("x"), GenericLiteral.constant(INTEGER, 0L)), GenericLiteral.constant(INTEGER, 0L))), Optional.of(GenericLiteral.constant(INTEGER, 1L))));
+                new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("x"), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L), new Constant(INTEGER, 1L)),
+                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("x"), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L))), Optional.of(new Constant(INTEGER, 1L))));
     }
 
     @Test
     public void testCanonicalizeArithmetic()
     {
         assertRewritten(
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)),
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)),
+                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(ADD, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("a")),
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ArithmeticBinaryExpression(ADD, new Constant(INTEGER, 1L), new SymbolReference("a")),
+                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)),
-                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new Constant(INTEGER, 1L)),
+                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(MULTIPLY, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("a")),
-                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ArithmeticBinaryExpression(MULTIPLY, new Constant(INTEGER, 1L), new SymbolReference("a")),
+                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new Constant(INTEGER, 1L)));
     }
 
     @Test
     public void testCanonicalizeComparison()
     {
         assertRewritten(
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)),
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(EQUAL, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ComparisonExpression(EQUAL, new Constant(INTEGER, 1L), new SymbolReference("a")),
+                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)),
-                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(NOT_EQUAL, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ComparisonExpression(NOT_EQUAL, new Constant(INTEGER, 1L), new SymbolReference("a")),
+                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(GREATER_THAN, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 1L), new SymbolReference("a")),
+                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)),
-                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(LESS_THAN, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 1L), new SymbolReference("a")),
+                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)),
-                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(GREATER_THAN_OR_EQUAL, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 1L), new SymbolReference("a")),
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)),
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 1L)));
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 1L), new SymbolReference("a")),
+                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(IS_DISTINCT_FROM, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(IS_DISTINCT_FROM, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("a")));
+                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new SymbolReference("a")),
+                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new SymbolReference("a")));
 
         assertRewritten(
-                new ComparisonExpression(IS_DISTINCT_FROM, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(IS_DISTINCT_FROM, GenericLiteral.constant(INTEGER, 1L), new SymbolReference("a")));
+                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new SymbolReference("a")),
+                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new SymbolReference("a")));
     }
 
     @Test
@@ -175,20 +175,20 @@ public class TestCanonicalizeExpressionRewriter
         // typed literals are encoded as Cast(Literal) in current IR
 
         assertRewritten(
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(GenericLiteral.constant(INTEGER, 1L), createDecimalType(5, 2))),
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(GenericLiteral.constant(INTEGER, 1L), createDecimalType(5, 2))));
+                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2))),
+                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2))));
 
         assertRewritten(
-                new ComparisonExpression(EQUAL, new Cast(GenericLiteral.constant(INTEGER, 1L), createDecimalType(5, 2)), new SymbolReference("a")),
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(GenericLiteral.constant(INTEGER, 1L), createDecimalType(5, 2))));
+                new ComparisonExpression(EQUAL, new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2)), new SymbolReference("a")),
+                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2))));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(GenericLiteral.constant(INTEGER, 1L), createDecimalType(5, 2))),
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(GenericLiteral.constant(INTEGER, 1L), createDecimalType(5, 2))));
+                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2))),
+                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2))));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(ADD, new Cast(GenericLiteral.constant(INTEGER, 1L), createDecimalType(5, 2)), new SymbolReference("a")),
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(GenericLiteral.constant(INTEGER, 1L), createDecimalType(5, 2))));
+                new ArithmeticBinaryExpression(ADD, new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2)), new SymbolReference("a")),
+                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2))));
     }
 
     @Test

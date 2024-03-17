@@ -28,7 +28,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
@@ -127,7 +127,7 @@ public class TestMongoProjectionPushdownPlans
                 session,
                 any(
                         project(
-                                ImmutableMap.of("expr_1", expression(new SubscriptExpression(new SymbolReference("col0"), GenericLiteral.constant(INTEGER, 1L))), "expr_2", expression(new SubscriptExpression(new SymbolReference("col0"), GenericLiteral.constant(INTEGER, 2L)))),
+                                ImmutableMap.of("expr_1", expression(new SubscriptExpression(new SymbolReference("col0"), new Constant(INTEGER, 1L))), "expr_2", expression(new SubscriptExpression(new SymbolReference("col0"), new Constant(INTEGER, 2L)))),
                                 tableScan(tableName, ImmutableMap.of("col0", "col0")))));
     }
 
@@ -168,7 +168,7 @@ public class TestMongoProjectionPushdownPlans
                 "SELECT col0.x FROM " + tableName + " WHERE col0.x = col1 + 3 and col0.y = 2",
                 anyTree(
                         filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), GenericLiteral.constant(BIGINT, 3L))),
+                                new ComparisonExpression(EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), new Constant(BIGINT, 3L))),
                                 tableScan(
                                         table -> {
                                             MongoTableHandle actualTableHandle = (MongoTableHandle) table;
@@ -199,9 +199,9 @@ public class TestMongoProjectionPushdownPlans
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference("expr_0"), GenericLiteral.constant(INTEGER, 1L))),
+                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference("expr_0"), new Constant(INTEGER, 1L))),
                                         "expr_0", expression(new SymbolReference("expr_0")),
-                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference("expr_0"), GenericLiteral.constant(INTEGER, 2L)))),
+                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference("expr_0"), new Constant(INTEGER, 2L)))),
                                 PlanMatchPattern.join(INNER, builder -> builder
                                         .equiCriteria("t_expr_1", "s_expr_1")
                                         .left(

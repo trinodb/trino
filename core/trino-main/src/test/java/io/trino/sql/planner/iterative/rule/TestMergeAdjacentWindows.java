@@ -19,7 +19,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -102,7 +102,7 @@ public class TestMergeAdjacentWindows
                                 newWindowNodeSpecification(p, "a"),
                                 ImmutableMap.of(p.symbol("avg_2"), newWindowNodeFunction(AVG, "a")),
                                 p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 5L)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 5L)),
                                         p.window(
                                                 newWindowNodeSpecification(p, "a"),
                                                 ImmutableMap.of(p.symbol("avg_1"), newWindowNodeFunction(AVG, "a")),
@@ -175,7 +175,7 @@ public class TestMergeAdjacentWindows
                                 ImmutableMap.of(p.symbol("lagOutput"), newWindowNodeFunction(LAG, "a", "one")),
                                 p.project(
                                         Assignments.builder()
-                                                .put(p.symbol("one"), new Cast(GenericLiteral.constant(INTEGER, 1L), BIGINT))
+                                                .put(p.symbol("one"), new Cast(new Constant(INTEGER, 1L), BIGINT))
                                                 .putIdentities(ImmutableList.of(p.symbol("a"), p.symbol("avgOutput")))
                                                 .build(),
                                         p.project(
@@ -197,7 +197,7 @@ public class TestMergeAdjacentWindows
                                                 .addFunction(avgOutputAlias, windowFunction(AVG.getSignature().getName().getFunctionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME)),
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        oneAlias, PlanMatchPattern.expression(new Cast(GenericLiteral.constant(INTEGER, 1L), BIGINT)),
+                                                        oneAlias, PlanMatchPattern.expression(new Cast(new Constant(INTEGER, 1L), BIGINT)),
                                                         columnAAlias, PlanMatchPattern.expression(new SymbolReference(columnAAlias)),
                                                         unusedAlias, PlanMatchPattern.expression(new SymbolReference(unusedAlias))),
                                                 strictProject(

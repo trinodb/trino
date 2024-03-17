@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -284,8 +284,8 @@ public class TestJoinNodeFlattener
         ValuesNode valuesB = p.values(b1, b2);
         ValuesNode valuesC = p.values(c1, c2);
         Expression bcFilter = and(
-                new ComparisonExpression(GREATER_THAN, c2.toSymbolReference(), GenericLiteral.constant(INTEGER, 0L)),
-                new ComparisonExpression(NOT_EQUAL, c2.toSymbolReference(), GenericLiteral.constant(INTEGER, 7L)),
+                new ComparisonExpression(GREATER_THAN, c2.toSymbolReference(), new Constant(INTEGER, 0L)),
+                new ComparisonExpression(NOT_EQUAL, c2.toSymbolReference(), new Constant(INTEGER, 7L)),
                 new ComparisonExpression(GREATER_THAN, b2.toSymbolReference(), c2.toSymbolReference()));
         ComparisonExpression abcFilter = new ComparisonExpression(
                 LESS_THAN,

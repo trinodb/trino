@@ -22,7 +22,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -141,6 +141,6 @@ public class ImplementLimitWithTies
                 new ComparisonExpression(
                         LESS_THAN_OR_EQUAL,
                         rankSymbol.toSymbolReference(),
-                        GenericLiteral.constant(BIGINT, limitNode.getCount())));
+                        new Constant(BIGINT, limitNode.getCount())));
     }
 }

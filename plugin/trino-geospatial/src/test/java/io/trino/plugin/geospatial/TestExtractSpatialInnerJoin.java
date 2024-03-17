@@ -16,8 +16,8 @@ package io.trino.plugin.geospatial;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -97,7 +97,7 @@ public class TestExtractSpatialInnerJoin
                     Symbol a = p.symbol("a", GEOMETRY);
                     Symbol b = p.symbol("b", GEOMETRY);
                     return p.filter(
-                            new ComparisonExpression(GREATER_THAN, distanceCall(a.toSymbolReference(), b.toSymbolReference()), GenericLiteral.constant(INTEGER, 5L)),
+                            new ComparisonExpression(GREATER_THAN, distanceCall(a.toSymbolReference(), b.toSymbolReference()), new Constant(INTEGER, 5L)),
                             p.join(INNER,
                                     p.values(a),
                                     p.values(b)));
@@ -111,7 +111,7 @@ public class TestExtractSpatialInnerJoin
                     Symbol a = p.symbol("a", SPHERICAL_GEOGRAPHY);
                     Symbol b = p.symbol("b", SPHERICAL_GEOGRAPHY);
                     return p.filter(
-                            new ComparisonExpression(LESS_THAN, sphericalDistanceCall(a.toSymbolReference(), b.toSymbolReference()), GenericLiteral.constant(INTEGER, 5L)),
+                            new ComparisonExpression(LESS_THAN, sphericalDistanceCall(a.toSymbolReference(), b.toSymbolReference()), new Constant(INTEGER, 5L)),
                             p.join(INNER,
                                     p.values(a),
                                     p.values(b)));
@@ -125,7 +125,7 @@ public class TestExtractSpatialInnerJoin
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", SPHERICAL_GEOGRAPHY);
                     return p.filter(
-                            new ComparisonExpression(LESS_THAN, sphericalDistanceCall(toSphericalGeographyCall(wkt), point.toSymbolReference()), GenericLiteral.constant(INTEGER, 5L)),
+                            new ComparisonExpression(LESS_THAN, sphericalDistanceCall(toSphericalGeographyCall(wkt), point.toSymbolReference()), new Constant(INTEGER, 5L)),
                             p.join(INNER,
                                     p.values(wkt),
                                     p.values(point)));
@@ -225,7 +225,7 @@ public class TestExtractSpatialInnerJoin
                 {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     return p.filter(
-                            containsCall(geometryFromTextCall(wkt), toPointCall(GenericLiteral.constant(INTEGER, 0L), GenericLiteral.constant(INTEGER, 0L))),
+                            containsCall(geometryFromTextCall(wkt), toPointCall(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))),
                             p.join(INNER,
                                     p.values(wkt),
                                     p.values()));

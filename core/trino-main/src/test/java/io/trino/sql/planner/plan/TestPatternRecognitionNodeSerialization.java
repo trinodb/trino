@@ -28,8 +28,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
@@ -117,7 +117,7 @@ public class TestPatternRecognitionNodeSerialization
         assertJsonRoundTrip(VALUE_POINTER_CODEC, new AggregationValuePointer(
                 maxFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), true),
-                ImmutableList.of(GenericLiteral.constant(BIGINT, null)),
+                ImmutableList.of(new Constant(BIGINT, null)),
                 Optional.of(new Symbol("classifier")),
                 Optional.of(new Symbol("match_number"))));
     }
@@ -125,7 +125,7 @@ public class TestPatternRecognitionNodeSerialization
     @Test
     public void testExpressionAndValuePointersRoundtrip()
     {
-        assertJsonRoundTrip(EXPRESSION_AND_VALUE_POINTERS_CODEC, new ExpressionAndValuePointers(GenericLiteral.constant(BIGINT, null), ImmutableList.of()));
+        assertJsonRoundTrip(EXPRESSION_AND_VALUE_POINTERS_CODEC, new ExpressionAndValuePointers(new Constant(BIGINT, null), ImmutableList.of()));
 
         assertJsonRoundTrip(EXPRESSION_AND_VALUE_POINTERS_CODEC, new ExpressionAndValuePointers(
                 new IfExpression(
@@ -151,14 +151,14 @@ public class TestPatternRecognitionNodeSerialization
     public void testMeasureRoundtrip()
     {
         assertJsonRoundTrip(MEASURE_CODEC, new Measure(
-                new ExpressionAndValuePointers(GenericLiteral.constant(BIGINT, null), ImmutableList.of()),
+                new ExpressionAndValuePointers(new Constant(BIGINT, null), ImmutableList.of()),
                 BOOLEAN));
 
         assertJsonRoundTrip(MEASURE_CODEC, new Measure(
                 new ExpressionAndValuePointers(
                         new IfExpression(
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("match_number"), new SymbolReference("x")),
-                                GenericLiteral.constant(BIGINT, 10L),
+                                new Constant(BIGINT, 10L),
                                 new ArithmeticUnaryExpression(MINUS, new SymbolReference("y"))),
                         ImmutableList.of(
                                 new ExpressionAndValuePointers.Assignment(
@@ -200,7 +200,7 @@ public class TestPatternRecognitionNodeSerialization
                                 false)),
                 ImmutableMap.of(
                         new Symbol("measure"),
-                        new Measure(new ExpressionAndValuePointers(GenericLiteral.constant(BOOLEAN, null), ImmutableList.of()), BOOLEAN)),
+                        new Measure(new ExpressionAndValuePointers(new Constant(BOOLEAN, null), ImmutableList.of()), BOOLEAN)),
                 Optional.of(new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty())),
                 WINDOW,
                 ImmutableSet.of(new IrLabel("B")),
@@ -208,8 +208,8 @@ public class TestPatternRecognitionNodeSerialization
                 true,
                 new IrConcatenation(ImmutableList.of(new IrLabel("A"), new IrLabel("B"), new IrLabel("C"))),
                 ImmutableMap.of(
-                        new IrLabel("B"), new ExpressionAndValuePointers(GenericLiteral.constant(BIGINT, null), ImmutableList.of()),
-                        new IrLabel("C"), new ExpressionAndValuePointers(GenericLiteral.constant(BIGINT, null), ImmutableList.of())));
+                        new IrLabel("B"), new ExpressionAndValuePointers(new Constant(BIGINT, null), ImmutableList.of()),
+                        new IrLabel("C"), new ExpressionAndValuePointers(new Constant(BIGINT, null), ImmutableList.of())));
 
         PatternRecognitionNode roundtripNode = PATTERN_RECOGNITION_NODE_CODEC.fromJson(PATTERN_RECOGNITION_NODE_CODEC.toJson(node));
 

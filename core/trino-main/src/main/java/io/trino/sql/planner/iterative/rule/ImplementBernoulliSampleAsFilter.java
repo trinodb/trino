@@ -17,7 +17,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
@@ -70,6 +70,6 @@ public class ImplementBernoulliSampleAsFilter
                         BuiltinFunctionCallBuilder.resolve(metadata)
                                 .setName("rand")
                                 .build(),
-                        GenericLiteral.constant(DOUBLE, sample.getSampleRatio()))));
+                        new Constant(DOUBLE, sample.getSampleRatio()))));
     }
 }

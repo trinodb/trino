@@ -20,8 +20,8 @@ import com.google.common.collect.Sets;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Lookup;
@@ -97,7 +97,7 @@ public class TransformUncorrelatedSubqueryToJoin
                     ImmutableSet.copyOf(correlatedJoinNode.getInput().getOutputSymbols()),
                     ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols()))) {
                 Type inputType = context.getSymbolAllocator().getTypes().get(inputSymbol);
-                assignments.put(inputSymbol, new IfExpression(correlatedJoinNode.getFilter(), inputSymbol.toSymbolReference(), GenericLiteral.constant(inputType, null)));
+                assignments.put(inputSymbol, new IfExpression(correlatedJoinNode.getFilter(), inputSymbol.toSymbolReference(), new Constant(inputType, null)));
             }
             ProjectNode projectNode = new ProjectNode(
                     context.getIdAllocator().getNextId(),
