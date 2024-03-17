@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.BetweenPredicate;
@@ -42,10 +41,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
-import static io.trino.metadata.ResolvedFunction.isResolved;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -314,16 +309,7 @@ public final class ExpressionVerifier
             return false;
         }
 
-        CatalogSchemaFunctionName expectedFunctionName;
-        if (isResolved(expected.getName())) {
-            expectedFunctionName = extractFunctionName(expected.getName());
-        }
-        else {
-            checkArgument(expected.getName().getParts().size() == 1, "Unresolved function call name must not be qualified: %s", expected.getName());
-            expectedFunctionName = builtinFunctionName(expected.getName().getSuffix());
-        }
-
-        return extractFunctionName(actual.getName()).equals(expectedFunctionName) &&
+        return actual.getFunction().getName().equals(expected.getFunction().getName()) &&
                 process(actual.getArguments(), expected.getArguments());
     }
 

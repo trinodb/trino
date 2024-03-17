@@ -19,6 +19,8 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Decimals;
@@ -38,7 +40,6 @@ import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -57,6 +58,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MODULUS;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
@@ -78,6 +80,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestPreAggregateCaseAggregations
         extends BasePlanTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction CONCAT = FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR));
+
     private static final SchemaTableName TABLE = new SchemaTableName("default", "t");
 
     @Override
@@ -161,7 +166,7 @@ public class TestPreAggregateCaseAggregations
                                                         SINGLE,
                                                         exchange(
                                                                 project(ImmutableMap.of(
-                                                                                "KEY", expression(new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new SymbolReference("COL_VARCHAR"), new Constant(VARCHAR, Slices.utf8Slice("a"))))),
+                                                                                "KEY", expression(new FunctionCall(CONCAT, ImmutableList.of(new SymbolReference("COL_VARCHAR"), new Constant(VARCHAR, Slices.utf8Slice("a"))))),
                                                                                 "VALUE_BIGINT", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new InPredicate(new SymbolReference("COL_BIGINT"), ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("COL_BIGINT"), new Constant(BIGINT, 2L)))), Optional.empty())),
                                                                                 "VALUE_INT_CAST", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("COL_BIGINT"), new Constant(BIGINT, 1L)), new Cast(new Cast(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("COL_BIGINT"), new Constant(BIGINT, 2L)), INTEGER), BIGINT))), Optional.empty())),
                                                                                 "VALUE_2_BIGINT", expression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("COL_BIGINT"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 1L)), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("COL_BIGINT"), new Constant(BIGINT, 2L)))), Optional.empty())),

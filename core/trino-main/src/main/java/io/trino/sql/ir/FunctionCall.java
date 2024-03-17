@@ -16,43 +16,31 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.connector.system.GlobalSystemConnector;
-import io.trino.sql.tree.QualifiedName;
+import io.trino.metadata.ResolvedFunction;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import static java.util.Objects.requireNonNull;
+
 public final class FunctionCall
         extends Expression
 {
-    private final QualifiedName name;
+    private final ResolvedFunction function;
     private final List<Expression> arguments;
 
     @JsonCreator
-    public FunctionCall(String resolvedFunction, List<Expression> arguments)
+    public FunctionCall(ResolvedFunction function, List<Expression> arguments)
     {
-        this(
-                QualifiedName.of(GlobalSystemConnector.NAME, "$resolved", resolvedFunction),
-                ImmutableList.copyOf(arguments));
-    }
-
-    public FunctionCall(QualifiedName name, List<Expression> arguments)
-    {
-        this.name = name;
+        this.function = requireNonNull(function, "function is null");
         this.arguments = ImmutableList.copyOf(arguments);
     }
 
-    @Deprecated
-    public QualifiedName getName()
-    {
-        return name;
-    }
-
     @JsonProperty
-    public String getResolvedFunction()
+    public ResolvedFunction getFunction()
     {
-        return name.getSuffix();
+        return function;
     }
 
     @JsonProperty
@@ -83,21 +71,21 @@ public final class FunctionCall
             return false;
         }
         FunctionCall o = (FunctionCall) obj;
-        return Objects.equals(name, o.name) &&
+        return Objects.equals(function, o.function) &&
                 Objects.equals(arguments, o.arguments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, arguments);
+        return Objects.hash(function, arguments);
     }
 
     @Override
     public String toString()
     {
         return "%s(%s)".formatted(
-                name.getSuffix(),
+                function.getName(),
                 arguments.stream()
                         .map(Expression::toString)
                         .collect(Collectors.joining(", ")));

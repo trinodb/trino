@@ -70,7 +70,7 @@ public class TestCanonicalize
                                         .addFunction(windowFunction("row_number", ImmutableList.of(), DEFAULT_FRAME)),
                                 values("A"))),
                 ImmutableList.of(
-                        new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
+                        new UnaliasSymbolReferences(),
                         new IterativeOptimizer(
                                 getPlanTester().getPlannerContext(),
                                 new RuleStatsRecorder(),

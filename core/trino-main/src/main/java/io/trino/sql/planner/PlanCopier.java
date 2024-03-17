@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner;
 
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -55,10 +54,10 @@ public final class PlanCopier
 {
     private PlanCopier() {}
 
-    public static NodeAndMappings copyPlan(PlanNode plan, List<Symbol> fields, Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public static NodeAndMappings copyPlan(PlanNode plan, List<Symbol> fields, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         PlanNode copy = SimplePlanRewriter.rewriteWith(new Copier(idAllocator), plan, null);
-        return new UnaliasSymbolReferences(metadata).reallocateSymbols(copy, fields, symbolAllocator);
+        return new UnaliasSymbolReferences().reallocateSymbols(copy, fields, symbolAllocator);
     }
 
     private static class Copier

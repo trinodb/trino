@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.LogicalExpression;
@@ -23,7 +22,6 @@ import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
@@ -34,12 +32,10 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 public class TestMergeFilters
         extends BaseRuleTest
 {
-    private final Metadata metadata = createTestMetadataManager();
-
     @Test
     public void test()
     {
-        tester().assertThat(new MergeFilters(metadata))
+        tester().assertThat(new MergeFilters())
                 .on(p ->
                         p.filter(
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 44L)),

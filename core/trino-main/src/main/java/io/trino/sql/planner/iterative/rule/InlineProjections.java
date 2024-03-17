@@ -195,7 +195,7 @@ public class InlineProjections
                     Expression assignment = child.getAssignments().get(entry.getKey());
 
                     if (assignment instanceof SubscriptExpression) {
-                        if (typeAnalyzer.getType(session, types, ((SubscriptExpression) assignment).getBase()) instanceof RowType) {
+                        if (typeAnalyzer.getType(types, ((SubscriptExpression) assignment).getBase()) instanceof RowType) {
                             return false;
                         }
                     }

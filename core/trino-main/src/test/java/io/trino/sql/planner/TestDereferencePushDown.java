@@ -16,6 +16,8 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
@@ -24,7 +26,6 @@ import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
@@ -32,6 +33,7 @@ import static io.trino.SystemSessionProperties.MERGE_PROJECT_WITH_VALUES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.LogicalExpression.Operator.OR;
@@ -52,6 +54,9 @@ import static io.trino.sql.planner.plan.JoinType.INNER;
 public class TestDereferencePushDown
         extends BasePlanTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction IS_FINITE = FUNCTIONS.resolveFunction("is_finite", fromTypes(DOUBLE));
+
     @Test
     public void testDereferencePushdownMultiLevel()
     {
@@ -128,7 +133,7 @@ public class TestDereferencePushDown
                                 filter(
                                         new LogicalExpression(OR, ImmutableList.of(
                                                 new ComparisonExpression(EQUAL, new SymbolReference("a_x"), new Constant(BIGINT, 7L)),
-                                                new FunctionCall(QualifiedName.of("is_finite"), ImmutableList.of(new SymbolReference("b_y"))))),
+                                                new FunctionCall(IS_FINITE, ImmutableList.of(new SymbolReference("b_y"))))),
                                         values(
                                                 ImmutableList.of("b_x", "b_y", "a_y", "a_x"),
                                                 ImmutableList.of(ImmutableList.of(

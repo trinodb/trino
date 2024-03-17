@@ -49,21 +49,21 @@ public class TestArraySortAfterArrayDistinct
     public void testArrayDistinctAfterArraySort()
     {
         test(
-                new FunctionCall(DISTINCT.toQualifiedName(), ImmutableList.of(new FunctionCall(SORT.toQualifiedName(), ImmutableList.of(new FunctionCall(ARRAY.toQualifiedName(), ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))),
-                new FunctionCall(SORT.toQualifiedName(), ImmutableList.of(new FunctionCall(DISTINCT.toQualifiedName(), ImmutableList.of(new FunctionCall(ARRAY.toQualifiedName(), ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))));
+                new FunctionCall(DISTINCT, ImmutableList.of(new FunctionCall(SORT, ImmutableList.of(new FunctionCall(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))),
+                new FunctionCall(SORT, ImmutableList.of(new FunctionCall(DISTINCT, ImmutableList.of(new FunctionCall(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))));
     }
 
     @Test
     public void testArrayDistinctAfterArraySortWithLambda()
     {
         test(
-                new FunctionCall(DISTINCT.toQualifiedName(), ImmutableList.of(
-                        new FunctionCall(SORT_WITH_LAMBDA.toQualifiedName(), ImmutableList.of(
-                                new FunctionCall(ARRAY.toQualifiedName(), ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))),
+                new FunctionCall(DISTINCT, ImmutableList.of(
+                        new FunctionCall(SORT_WITH_LAMBDA, ImmutableList.of(
+                                new FunctionCall(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))),
                                 new LambdaExpression(ImmutableList.of("a", "b"), new Constant(INTEGER, 1L)))))),
-                new FunctionCall(SORT_WITH_LAMBDA.toQualifiedName(), ImmutableList.of(
-                        new FunctionCall(DISTINCT.toQualifiedName(), ImmutableList.of(
-                                new FunctionCall(ARRAY.toQualifiedName(), ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))),
+                new FunctionCall(SORT_WITH_LAMBDA, ImmutableList.of(
+                        new FunctionCall(DISTINCT, ImmutableList.of(
+                                new FunctionCall(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))),
                         new LambdaExpression(ImmutableList.of("a", "b"), new Constant(INTEGER, 1L)))));
     }
 

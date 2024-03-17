@@ -109,13 +109,6 @@ import static java.util.stream.Collectors.toList;
 
 public final class DomainTranslator
 {
-    private final PlannerContext plannerContext;
-
-    public DomainTranslator(PlannerContext plannerContext)
-    {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-    }
-
     public Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
         if (tupleDomain.isNone()) {
@@ -125,7 +118,7 @@ public final class DomainTranslator
         Map<Symbol, Domain> domains = tupleDomain.getDomains().get();
         return domains.entrySet().stream()
                 .map(entry -> toPredicate(entry.getValue(), entry.getKey().toSymbolReference()))
-                .collect(collectingAndThen(toImmutableList(), expressions -> combineConjuncts(plannerContext.getMetadata(), expressions)));
+                .collect(collectingAndThen(toImmutableList(), expressions -> combineConjuncts(expressions)));
     }
 
     private Expression toPredicate(Domain domain, SymbolReference reference)
@@ -152,7 +145,7 @@ public final class DomainTranslator
             disjuncts.add(new IsNullPredicate(reference));
         }
 
-        return combineDisjunctsWithDefault(plannerContext.getMetadata(), disjuncts, TRUE_LITERAL);
+        return combineDisjunctsWithDefault(disjuncts, TRUE_LITERAL);
     }
 
     private Expression processRange(Type type, Range range, SymbolReference reference)
@@ -184,7 +177,7 @@ public final class DomainTranslator
         }
         // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
         checkState(!rangeConjuncts.isEmpty());
-        return combineConjuncts(plannerContext.getMetadata(), rangeConjuncts);
+        return combineConjuncts(rangeConjuncts);
     }
 
     private Expression combineRangeWithExcludedPoints(Type type, SymbolReference reference, Range range, List<Expression> excludedPoints)
@@ -198,7 +191,7 @@ public final class DomainTranslator
             excludedPointsExpression = new ComparisonExpression(NOT_EQUAL, reference, getOnlyElement(excludedPoints));
         }
 
-        return combineConjuncts(plannerContext.getMetadata(), processRange(type, range, reference), excludedPointsExpression);
+        return combineConjuncts(processRange(type, range, reference), excludedPointsExpression);
     }
 
     private List<Expression> extractDisjuncts(Type type, Ranges ranges, SymbolReference reference)
@@ -374,7 +367,7 @@ public final class DomainTranslator
                 case AND:
                     return new ExtractionResult(
                             TupleDomain.intersect(tupleDomains),
-                            combineConjuncts(plannerContext.getMetadata(), residuals));
+                            combineConjuncts(residuals));
 
                 case OR:
                     TupleDomain<Symbol> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(tupleDomains);
@@ -387,7 +380,7 @@ public final class DomainTranslator
                     // some of these cases, we won't have to double check the bounds unnecessarily at execution time.
 
                     // We can only make inferences if the remaining expressions on all terms are equal and deterministic
-                    if (Set.copyOf(residuals).size() == 1 && DeterminismEvaluator.isDeterministic(residuals.get(0), plannerContext.getMetadata())) {
+                    if (Set.copyOf(residuals).size() == 1 && DeterminismEvaluator.isDeterministic(residuals.get(0))) {
                         // NONE are no-op for the purpose of OR
                         tupleDomains = tupleDomains.stream()
                                 .filter(domain -> !domain.isNone())
@@ -573,7 +566,7 @@ public final class DomainTranslator
 
         private Map<NodeRef<Expression>, Type> analyzeExpression(Expression expression)
         {
-            return typeAnalyzer.getTypes(session, types, expression);
+            return typeAnalyzer.getTypes(types, expression);
         }
 
         private Optional<ExtractionResult> createVarcharCastToDateComparisonExtractionResult(
@@ -1026,7 +1019,7 @@ public final class DomainTranslator
                 return Optional.empty();
             }
 
-            Type type = typeAnalyzer.getType(session, types, value);
+            Type type = typeAnalyzer.getType(types, value);
             if (!(type instanceof VarcharType varcharType)) {
                 // TODO support CharType
                 return Optional.empty();
@@ -1034,7 +1027,7 @@ public final class DomainTranslator
 
             Symbol symbol = Symbol.from(value);
 
-            if (!(typeAnalyzer.getType(session, types, patternArgument) instanceof LikePatternType) ||
+            if (!(typeAnalyzer.getType(types, patternArgument) instanceof LikePatternType) ||
                     !SymbolsExtractor.extractAll(patternArgument).isEmpty()) {
                 // dynamic pattern or escape
                 return Optional.empty();
@@ -1075,7 +1068,7 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitFunctionCall(FunctionCall node, Boolean complement)
         {
-            CatalogSchemaFunctionName name = ResolvedFunction.extractFunctionName(node.getName());
+            CatalogSchemaFunctionName name = node.getFunction().getName();
             if (name.equals(builtinFunctionName("starts_with"))) {
                 Optional<ExtractionResult> result = tryVisitStartsWithFunction(node, complement);
                 if (result.isPresent()) {
@@ -1110,7 +1103,7 @@ public final class DomainTranslator
                 return Optional.empty();
             }
 
-            Type type = typeAnalyzer.getType(session, types, target);
+            Type type = typeAnalyzer.getType(types, target);
             if (!(type instanceof VarcharType)) {
                 // TODO support CharType
                 return Optional.empty();

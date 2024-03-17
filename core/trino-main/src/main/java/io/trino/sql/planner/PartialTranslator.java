@@ -50,7 +50,7 @@ public final class PartialTranslator
         requireNonNull(typeProvider, "typeProvider is null");
 
         Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = new HashMap<>();
-        new Visitor(session, typeAnalyzer.getTypes(session, typeProvider, inputExpression), partialTranslations, plannerContext).process(inputExpression);
+        new Visitor(session, typeAnalyzer.getTypes(typeProvider, inputExpression), partialTranslations, plannerContext).process(inputExpression);
         return ImmutableMap.copyOf(partialTranslations);
     }
 

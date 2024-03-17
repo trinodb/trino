@@ -133,7 +133,7 @@ public class TestSetFlattening
     protected void assertPlan(String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
+                new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),

@@ -55,9 +55,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.ExpressionRewriter;
-import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
@@ -138,7 +135,6 @@ import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
 import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -164,7 +160,6 @@ import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
@@ -687,7 +682,7 @@ public class PlanPrinter
         public Void visitJoin(JoinNode node, Context context)
         {
             List<Expression> criteriaExpressions = node.getCriteria().stream()
-                    .map(clause -> unresolveFunctions(clause.toExpression()))
+                    .map(JoinNode.EquiJoinClause::toExpression)
                     .collect(toImmutableList());
 
             NodeRepresentation nodeOutput;
@@ -699,7 +694,7 @@ public class PlanPrinter
             else {
                 ImmutableMap.Builder<String, String> descriptor = ImmutableMap.<String, String>builder()
                         .put("criteria", Joiner.on(" AND ").join(anonymizeExpressions(criteriaExpressions)));
-                node.getFilter().ifPresent(filter -> descriptor.put("filter", formatFilter(unresolveFunctions(filter))));
+                node.getFilter().ifPresent(filter -> descriptor.put("filter", formatFilter(filter)));
                 descriptor.put("hash", formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol()));
                 node.getDistributionType().ifPresent(distribution -> descriptor.put("distribution", distribution.name()));
                 nodeOutput = addNode(node, node.getType().getJoinLabel(), descriptor.buildOrThrow(), node.getReorderJoinStatsAndCost(), context);
@@ -1006,7 +1001,7 @@ public class PlanPrinter
                 nodeOutput.appendDetails(
                         "%s := %s",
                         anonymizer.anonymize(entry.getKey()),
-                        anonymizer.anonymize(unresolveFunctions(entry.getValue().getExpressionAndValuePointers().getExpression())));
+                        anonymizer.anonymize(entry.getValue().getExpressionAndValuePointers().getExpression()));
                 appendValuePointers(nodeOutput, entry.getValue().getExpressionAndValuePointers());
             }
             if (node.getRowsPerMatch() != WINDOW) {
@@ -1016,7 +1011,7 @@ public class PlanPrinter
             nodeOutput.appendDetails("pattern[%s] (%s)", node.getPattern(), node.isInitial() ? "INITIAL" : "SEEK");
 
             for (Entry<IrLabel, ExpressionAndValuePointers> entry : node.getVariableDefinitions().entrySet()) {
-                nodeOutput.appendDetails("%s := %s", entry.getKey().getName(), anonymizer.anonymize(unresolveFunctions(entry.getValue().getExpression())));
+                nodeOutput.appendDetails("%s := %s", entry.getKey().getName(), anonymizer.anonymize(entry.getValue().getExpression()));
                 appendValuePointers(nodeOutput, entry.getValue());
             }
 
@@ -1193,11 +1188,10 @@ public class PlanPrinter
                     .map(row -> {
                         if (row instanceof Row) {
                             return ((Row) row).getItems().stream()
-                                    .map(PlanPrinter::unresolveFunctions)
                                     .map(anonymizer::anonymize)
                                     .collect(joining(", ", "(", ")"));
                         }
-                        return anonymizer.anonymize(unresolveFunctions(row));
+                        return anonymizer.anonymize(row);
                     })
                     .collect(toImmutableList());
             for (String row : rows) {
@@ -1259,7 +1253,7 @@ public class PlanPrinter
                 operatorName += "Filter";
                 Expression predicate = filterNode.get().getPredicate();
                 DynamicFilters.ExtractResult extractResult = extractDynamicFilters(predicate);
-                descriptor.put("filterPredicate", formatFilter(unresolveFunctions(combineConjunctsWithDuplicates(extractResult.getStaticConjuncts()))));
+                descriptor.put("filterPredicate", formatFilter(combineConjunctsWithDuplicates(extractResult.getStaticConjuncts())));
                 if (!extractResult.getDynamicConjuncts().isEmpty()) {
                     dynamicFilters = extractResult.getDynamicConjuncts();
                     descriptor.put("dynamicFilters", printDynamicFilters(dynamicFilters));
@@ -1973,7 +1967,7 @@ public class PlanPrinter
                     // skip identity assignments
                     continue;
                 }
-                nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(entry.getKey()), anonymizer.anonymize(unresolveFunctions(entry.getValue())));
+                nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(entry.getKey()), anonymizer.anonymize(entry.getValue()));
             }
         }
 
@@ -2250,27 +2244,6 @@ public class PlanPrinter
             return name.getFunctionName();
         }
         return name.toString();
-    }
-
-    private static Expression unresolveFunctions(Expression expression)
-    {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
-        {
-            @Override
-            public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
-                CatalogSchemaFunctionName name = extractFunctionName(node.getName());
-                QualifiedName qualifiedName;
-                if (isInlineFunction(name) || isBuiltinFunctionName(name)) {
-                    qualifiedName = QualifiedName.of(name.getFunctionName());
-                }
-                else {
-                    qualifiedName = QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getFunctionName());
-                }
-                return new FunctionCall(qualifiedName, rewritten.getArguments());
-            }
-        }, expression);
     }
 
     private record Context(Optional<String> tag, Optional<TypeProvider> types, boolean isInitialPlan)

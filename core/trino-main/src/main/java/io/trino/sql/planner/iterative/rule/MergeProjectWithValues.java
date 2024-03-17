@@ -20,7 +20,6 @@ import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
@@ -47,7 +46,6 @@ import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.values;
 import static java.util.Collections.nCopies;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Transforms:
@@ -88,13 +86,6 @@ public class MergeProjectWithValues
             .with(source().matching(values()
                     .matching(MergeProjectWithValues::isSupportedValues)
                     .capturedAs(VALUES)));
-
-    private final Metadata metadata;
-
-    public MergeProjectWithValues(Metadata metadata)
-    {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-    }
 
     @Override
     public Pattern<ProjectNode> getPattern()
@@ -140,7 +131,7 @@ public class MergeProjectWithValues
         for (Expression rowExpression : valuesNode.getRows().get()) {
             Row row = (Row) rowExpression;
             for (int i = 0; i < valuesNode.getOutputSymbols().size(); i++) {
-                if (!isDeterministic(row.getItems().get(i), metadata)) {
+                if (!isDeterministic(row.getItems().get(i))) {
                     nonDeterministicValuesOutputs.add(valuesNode.getOutputSymbols().get(i));
                 }
             }

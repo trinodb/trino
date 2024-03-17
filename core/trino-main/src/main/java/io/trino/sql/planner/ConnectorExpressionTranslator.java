@@ -123,7 +123,7 @@ public final class ConnectorExpressionTranslator
 
     public static Optional<ConnectorExpression> translate(Session session, Expression expression, TypeProvider types, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
-        return new SqlToConnectorExpressionTranslator(session, typeAnalyzer.getTypes(session, types, expression), plannerContext)
+        return new SqlToConnectorExpressionTranslator(session, typeAnalyzer.getTypes(types, expression), plannerContext)
                 .process(expression);
     }
 
@@ -134,7 +134,7 @@ public final class ConnectorExpressionTranslator
             PlannerContext plannerContext,
             IrTypeAnalyzer typeAnalyzer)
     {
-        Map<NodeRef<Expression>, Type> remainingExpressionTypes = typeAnalyzer.getTypes(session, types, expression);
+        Map<NodeRef<Expression>, Type> remainingExpressionTypes = typeAnalyzer.getTypes(types, expression);
         SqlToConnectorExpressionTranslator translator = new SqlToConnectorExpressionTranslator(
                 session,
                 remainingExpressionTypes,
@@ -154,7 +154,7 @@ public final class ConnectorExpressionTranslator
         }
         return new ConnectorExpressionTranslation(
                 ConnectorExpressions.and(converted),
-                combineConjuncts(plannerContext.getMetadata(), remaining));
+                combineConjuncts(remaining));
     }
 
     @VisibleForTesting
@@ -664,7 +664,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.of(constantFor(typeOf(node), evaluateConstantExpression(node, plannerContext, session)));
             }
 
-            CatalogSchemaFunctionName functionName = ResolvedFunction.extractFunctionName(node.getName());
+            CatalogSchemaFunctionName functionName = node.getFunction().getName();
             checkArgument(!isDynamicFilterFunction(functionName), "Dynamic filter has no meaning for a connector, it should not be translated into ConnectorExpression");
 
             if (functionName.equals(builtinFunctionName(LIKE_FUNCTION_NAME))) {
@@ -716,7 +716,7 @@ public final class ConnectorExpressionTranslator
                     arguments.add(new io.trino.spi.expression.Constant(Slices.utf8Slice(matcher.getEscape().get().toString()), createVarcharType(1)));
                 }
             }
-            else if (patternArgument instanceof FunctionCall call && ResolvedFunction.extractFunctionName(call.getName()).equals(builtinFunctionName(LIKE_PATTERN_FUNCTION_NAME))) {
+            else if (patternArgument instanceof FunctionCall call && call.getFunction().getName().equals(builtinFunctionName(LIKE_PATTERN_FUNCTION_NAME))) {
                 Optional<ConnectorExpression> translatedPattern = process(call.getArguments().get(0));
                 if (translatedPattern.isEmpty()) {
                     return Optional.empty();

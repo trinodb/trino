@@ -144,7 +144,7 @@ public class TestPushMergeWriterUpdateIntoConnector
                         Symbol rowCount = p.symbol("row_count");
                         // set function call, which represents update all columns statement
                         Expression updateMergeRowExpression = new Row(ImmutableList.of(new FunctionCall(
-                                ruleTester.getMetadata().resolveBuiltinFunction("from_base64", fromTypes(VARCHAR)).toQualifiedName(),
+                                ruleTester.getMetadata().resolveBuiltinFunction("from_base64", fromTypes(VARCHAR)),
                                 ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice(""))))));
 
                         return p.tableFinish(

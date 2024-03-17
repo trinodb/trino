@@ -75,7 +75,6 @@ public class TransformCorrelatedJoinToJoin
         DecorrelatedNode decorrelatedSubquery = decorrelatedNodeOptional.get();
 
         Expression filter = combineConjuncts(
-                plannerContext.getMetadata(),
                 decorrelatedSubquery.getCorrelatedPredicates().orElse(TRUE_LITERAL),
                 correlatedJoinNode.getFilter());
 

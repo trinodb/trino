@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -56,13 +55,6 @@ public class SimplifyFilterPredicate
 {
     private static final Pattern<FilterNode> PATTERN = filter();
 
-    private final Metadata metadata;
-
-    public SimplifyFilterPredicate(Metadata metadata)
-    {
-        this.metadata = metadata;
-    }
-
     @Override
     public Pattern<FilterNode> getPattern()
     {
@@ -93,7 +85,7 @@ public class SimplifyFilterPredicate
         return Result.ofPlanNode(new FilterNode(
                 node.getId(),
                 node.getSource(),
-                combineConjuncts(metadata, newConjuncts.build())));
+                combineConjuncts(newConjuncts.build())));
     }
 
     private Optional<Expression> simplifyFilterExpression(Expression expression)
@@ -109,7 +101,7 @@ public class SimplifyFilterPredicate
             if (isNotTrue(trueValue) && falseValue.isPresent() && falseValue.get().equals(TRUE_LITERAL)) {
                 return Optional.of(isFalseOrNullPredicate(condition));
             }
-            if (falseValue.isPresent() && falseValue.get().equals(trueValue) && isDeterministic(trueValue, metadata)) {
+            if (falseValue.isPresent() && falseValue.get().equals(trueValue) && isDeterministic(trueValue)) {
                 return Optional.of(trueValue);
             }
             if (isNotTrue(trueValue) && (falseValue.isEmpty() || isNotTrue(falseValue.get()))) {
@@ -163,7 +155,7 @@ public class SimplifyFilterPredicate
                     }
                     else {
                         builder.add(operand);
-                        return Optional.of(combineConjuncts(metadata, builder.build()));
+                        return Optional.of(combineConjuncts(builder.build()));
                     }
                 }
             }
@@ -171,7 +163,7 @@ public class SimplifyFilterPredicate
             if (notTrueResultsCount == results.size() && defaultValue.isPresent() && defaultValue.get().equals(TRUE_LITERAL)) {
                 ImmutableList.Builder<Expression> builder = ImmutableList.builder();
                 operands.forEach(operand -> builder.add(isFalseOrNullPredicate(operand)));
-                return Optional.of(combineConjuncts(metadata, builder.build()));
+                return Optional.of(combineConjuncts(builder.build()));
             }
             // skip clauses with not true conditions
             List<WhenClause> whenClauses = new ArrayList<>();

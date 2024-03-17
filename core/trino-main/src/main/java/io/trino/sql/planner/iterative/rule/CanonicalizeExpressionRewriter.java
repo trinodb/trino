@@ -41,7 +41,6 @@ import io.trino.sql.planner.TypeProvider;
 import java.util.Optional;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
@@ -134,10 +133,10 @@ public final class CanonicalizeExpressionRewriter
         @Override
         public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            CatalogSchemaFunctionName functionName = extractFunctionName(node.getName());
+            CatalogSchemaFunctionName functionName = node.getFunction().getName();
             if (functionName.equals(builtinFunctionName("date")) && node.getArguments().size() == 1) {
                 Expression argument = node.getArguments().get(0);
-                Type argumentType = typeAnalyzer.getType(session, types, argument);
+                Type argumentType = typeAnalyzer.getType(types, argument);
                 if (argumentType instanceof TimestampType
                         || argumentType instanceof TimestampWithTimeZoneType
                         || argumentType instanceof VarcharType) {

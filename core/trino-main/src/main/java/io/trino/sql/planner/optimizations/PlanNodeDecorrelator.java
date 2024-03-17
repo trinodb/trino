@@ -72,14 +72,12 @@ import static java.util.Objects.requireNonNull;
 
 public class PlanNodeDecorrelator
 {
-    private final PlannerContext plannerContext;
     private final SymbolAllocator symbolAllocator;
     private final Lookup lookup;
     private final TypeCoercion typeCoercion;
 
     public PlanNodeDecorrelator(PlannerContext plannerContext, SymbolAllocator symbolAllocator, Lookup lookup)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
@@ -159,7 +157,7 @@ public class PlanNodeDecorrelator
             FilterNode newFilterNode = new FilterNode(
                     node.getId(),
                     childDecorrelationResult.node,
-                    combineConjuncts(plannerContext.getMetadata(), uncorrelatedPredicates));
+                    combineConjuncts(uncorrelatedPredicates));
 
             Set<Symbol> symbolsToPropagate = Sets.difference(SymbolsExtractor.extractUnique(correlatedPredicates), ImmutableSet.copyOf(correlation));
             return Optional.of(new DecorrelationResult(
@@ -528,7 +526,7 @@ public class PlanNodeDecorrelator
         // checks whether the expression is a deterministic combination of correlation symbols
         private boolean isConstant(Expression expression)
         {
-            return isDeterministic(expression, plannerContext.getMetadata()) &&
+            return isDeterministic(expression) &&
                     ImmutableSet.copyOf(correlation).containsAll(SymbolsExtractor.extractUnique(expression));
         }
 

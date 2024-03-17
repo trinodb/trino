@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -37,7 +36,6 @@ import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.trino.sql.planner.plan.Patterns.join;
-import static java.util.Objects.requireNonNull;
 
 /**
  * This rule transforms plans with join where one of the sources is
@@ -82,13 +80,6 @@ public class ReplaceJoinOverConstantWithProject
 {
     private static final Pattern<JoinNode> PATTERN = join()
             .matching(ReplaceJoinOverConstantWithProject::isUnconditional);
-
-    private final Metadata metadata;
-
-    public ReplaceJoinOverConstantWithProject(Metadata metadata)
-    {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-    }
 
     @Override
     public Pattern<JoinNode> getPattern()
@@ -181,7 +172,7 @@ public class ReplaceJoinOverConstantWithProject
 
         Expression row = getOnlyElement(values.getRows().get());
 
-        if (!isDeterministic(row, metadata)) {
+        if (!isDeterministic(row)) {
             return false;
         }
 

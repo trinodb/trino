@@ -189,7 +189,7 @@ public final class SqlToRowExpressionTranslator
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
 
-            return new CallExpression(metadata.decodeFunction(node.getName()), arguments);
+            return new CallExpression(node.getFunction(), arguments);
         }
 
         @Override

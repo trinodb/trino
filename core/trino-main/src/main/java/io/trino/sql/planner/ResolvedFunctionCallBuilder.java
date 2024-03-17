@@ -53,6 +53,6 @@ public class ResolvedFunctionCallBuilder
 
     public FunctionCall build()
     {
-        return new FunctionCall(resolvedFunction.toQualifiedName(), argumentValues);
+        return new FunctionCall(resolvedFunction, argumentValues);
     }
 }
