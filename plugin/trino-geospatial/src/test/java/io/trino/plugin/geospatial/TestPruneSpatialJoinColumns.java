@@ -15,6 +15,8 @@ package io.trino.plugin.geospatial;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.SymbolReference;
@@ -29,7 +31,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.plugin.geospatial.TestPruneSpatialJoinChildrenColumns.TEST_ST_DISTANCE_FUNCTION;
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -38,6 +41,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 public class TestPruneSpatialJoinColumns
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(new GeoPlugin());
+    private static final ResolvedFunction TEST_ST_DISTANCE_FUNCTION = FUNCTIONS.resolveFunction("st_distance", fromTypes(GEOMETRY, GEOMETRY));
+
     @Test
     public void notAllOutputsReferenced()
     {
