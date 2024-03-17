@@ -867,7 +867,7 @@ public class LogicalPlanner
                         new Constant(BIGINT, (long) targetLength),
                         new CoalesceExpression(
                                 new FunctionCall(
-                                        spaceTrimmedLength.toQualifiedName(),
+                                        spaceTrimmedLength,
                                         ImmutableList.of(new Cast(expression, VARCHAR))),
                                 new Constant(BIGINT, 0L))),
                 new Cast(expression, toType),

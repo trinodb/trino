@@ -21,6 +21,7 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.block.BlockJsonSerde;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.TestingTypeManager;
@@ -67,6 +68,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPatternRecognitionNodeSerialization
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", fromTypes());
+
     private static final JsonCodec<ValuePointer> VALUE_POINTER_CODEC;
     private static final JsonCodec<ExpressionAndValuePointers> EXPRESSION_AND_VALUE_POINTERS_CODEC;
     private static final JsonCodec<Measure> MEASURE_CODEC;
@@ -130,7 +134,7 @@ public class TestPatternRecognitionNodeSerialization
         assertJsonRoundTrip(EXPRESSION_AND_VALUE_POINTERS_CODEC, new ExpressionAndValuePointers(
                 new IfExpression(
                         new ComparisonExpression(GREATER_THAN, new SymbolReference("classifier"), new SymbolReference("x")),
-                        new FunctionCall("rand", ImmutableList.of()),
+                        new FunctionCall(RANDOM, ImmutableList.of()),
                         new ArithmeticUnaryExpression(MINUS, new SymbolReference("match_number"))),
                 ImmutableList.of(
                         new ExpressionAndValuePointers.Assignment(

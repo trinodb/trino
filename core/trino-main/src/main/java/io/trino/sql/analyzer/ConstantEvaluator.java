@@ -64,7 +64,7 @@ public class ConstantEvaluator
         io.trino.sql.ir.Expression rewritten = translationMap.rewrite(expression);
 
         IrTypeAnalyzer analyzer = new IrTypeAnalyzer(plannerContext);
-        Map<io.trino.sql.ir.NodeRef<io.trino.sql.ir.Expression>, Type> types = analyzer.getTypes(session, TypeProvider.empty(), rewritten);
+        Map<io.trino.sql.ir.NodeRef<io.trino.sql.ir.Expression>, Type> types = analyzer.getTypes(TypeProvider.empty(), rewritten);
 
         Type actualType = types.get(io.trino.sql.ir.NodeRef.of(rewritten));
         if (!new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(actualType, expectedType)) {
@@ -73,7 +73,7 @@ public class ConstantEvaluator
 
         if (!actualType.equals(expectedType)) {
             rewritten = new Cast(rewritten, expectedType, false);
-            types = analyzer.getTypes(session, TypeProvider.empty(), rewritten);
+            types = analyzer.getTypes(TypeProvider.empty(), rewritten);
         }
 
         return new IrExpressionInterpreter(rewritten, plannerContext, session, types).evaluate();

@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.type.VarcharType;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
@@ -28,8 +28,10 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.rowpattern.AggregatedSetDescriptor;
 import io.trino.sql.planner.rowpattern.AggregationValuePointer;
+import io.trino.sql.planner.rowpattern.ClassifierValuePointer;
+import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
+import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -37,6 +39,7 @@ import java.util.Optional;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
@@ -50,7 +53,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 public class TestPushDownProjectionsFromPatternRecognition
         extends BaseRuleTest
 {
-    private static final QualifiedName MAX_BY = createTestMetadataManager().resolveBuiltinFunction("max_by", fromTypes(BIGINT, BIGINT)).toQualifiedName();
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction CONCAT = FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR));
+    private static final ResolvedFunction MAX_BY = createTestMetadataManager().resolveBuiltinFunction("max_by", fromTypes(BIGINT, BIGINT));
 
     @Test
     public void testNoAggregations()
@@ -72,9 +77,12 @@ public class TestPushDownProjectionsFromPatternRecognition
                         .addVariableDefinition(
                                 new IrLabel("X"),
                                 new ComparisonExpression(GREATER_THAN, new FunctionCall(MAX_BY, ImmutableList.of(
-                                        new ArithmeticBinaryExpression(ADD, new Constant(INTEGER, 1L), new FunctionCall(QualifiedName.of("match_number"), ImmutableList.of())),
-                                        new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("x")), new FunctionCall(QualifiedName.of("classifier"), ImmutableList.of()))))),
-                                        new Constant(INTEGER, 5L)))
+                                        new ArithmeticBinaryExpression(ADD, new Constant(INTEGER, 1L), new SymbolReference("match")),
+                                        new FunctionCall(CONCAT, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("x")), new SymbolReference("classifier"))))),
+                                        new Constant(INTEGER, 5L)),
+                                ImmutableMap.of(
+                                        "classifier", new ClassifierValuePointer(new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0)),
+                                        "match", new MatchNumberValuePointer()))
                         .source(p.values(p.symbol("a")))))
                 .doesNotFire();
     }

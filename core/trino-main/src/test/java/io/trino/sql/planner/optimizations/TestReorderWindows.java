@@ -341,7 +341,7 @@ public class TestReorderWindows
     {
         PlannerContext plannerContext = getPlanTester().getPlannerContext();
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
+                new UnaliasSymbolReferences(),
                 new PredicatePushDown(
                         getPlanTester().getPlannerContext(),
                         new IrTypeAnalyzer(plannerContext),

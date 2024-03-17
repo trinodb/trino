@@ -14,7 +14,6 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Metadata;
 import io.trino.operator.join.SortedPositionLinks;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.ComparisonExpression;
@@ -59,13 +58,13 @@ public final class SortExpressionExtractor
      */
     private SortExpressionExtractor() {}
 
-    public static Optional<SortExpressionContext> extractSortExpression(Metadata metadata, Set<Symbol> buildSymbols, Expression filter)
+    public static Optional<SortExpressionContext> extractSortExpression(Set<Symbol> buildSymbols, Expression filter)
     {
         List<Expression> filterConjuncts = IrUtils.extractConjuncts(filter);
         SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols);
 
         List<SortExpressionContext> sortExpressionCandidates = ImmutableList.copyOf(filterConjuncts.stream()
-                .filter(expression -> DeterminismEvaluator.isDeterministic(expression, metadata))
+                .filter(expression -> DeterminismEvaluator.isDeterministic(expression))
                 .map(visitor::process)
                 .filter(Optional::isPresent)
                 .map(Optional::get)

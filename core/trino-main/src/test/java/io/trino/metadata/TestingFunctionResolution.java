@@ -227,7 +227,7 @@ public class TestingFunctionResolution
         public FunctionCall build()
         {
             return new FunctionCall(
-                    resolveFunction(name, TypeSignatureProvider.fromTypeSignatures(argumentTypes)).toQualifiedName(),
+                    resolveFunction(name, TypeSignatureProvider.fromTypeSignatures(argumentTypes)),
                     argumentValues);
         }
     }

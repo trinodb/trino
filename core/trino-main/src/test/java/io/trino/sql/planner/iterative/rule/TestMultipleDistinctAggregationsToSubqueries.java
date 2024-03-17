@@ -1143,7 +1143,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
 
     private static MultipleDistinctAggregationsToSubqueries newMultipleDistinctAggregationsToSubqueries(RuleTester ruleTester)
     {
-        return new MultipleDistinctAggregationsToSubqueries(ruleTester.getMetadata(), new DistinctAggregationController(
+        return new MultipleDistinctAggregationsToSubqueries(new DistinctAggregationController(
                 new TaskCountEstimator(() -> Integer.MAX_VALUE),
                 ruleTester.getMetadata()));
     }

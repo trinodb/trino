@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.NodeAndMappings;
 import io.trino.sql.planner.PlanCopier;
@@ -96,12 +95,10 @@ public class MultipleDistinctAggregationsToSubqueries
                 aggregationNode.getHashSymbol().isEmpty();
     }
 
-    private final Metadata metadata;
     private final DistinctAggregationController distinctAggregationController;
 
-    public MultipleDistinctAggregationsToSubqueries(Metadata metadata, DistinctAggregationController distinctAggregationController)
+    public MultipleDistinctAggregationsToSubqueries(DistinctAggregationController distinctAggregationController)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
         this.distinctAggregationController = requireNonNull(distinctAggregationController, "distinctAggregationController is null");
     }
 
@@ -170,7 +167,6 @@ public class MultipleDistinctAggregationsToSubqueries
         NodeAndMappings copied = PlanCopier.copyPlan(
                 AggregationNode.builderFrom(aggregationNode).setAggregations(aggregations).build(),
                 originalAggregationOutputSymbols,
-                metadata,
                 context.getSymbolAllocator(),
                 context.getIdAllocator(),
                 context.getLookup());

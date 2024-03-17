@@ -1620,7 +1620,7 @@ public class LocalExecutionPlanner
             }
 
             // compile expression using input layout and input types
-            RowExpression rowExpression = toRowExpression(rewritten, typeAnalyzer.getTypes(session, TypeProvider.viewOf(inputTypes.buildOrThrow()), rewritten), inputLayout.buildOrThrow());
+            RowExpression rowExpression = toRowExpression(rewritten, typeAnalyzer.getTypes(TypeProvider.viewOf(inputTypes.buildOrThrow()), rewritten), inputLayout.buildOrThrow());
             return pageFunctionCompiler.compileProjection(rowExpression, Optional.empty());
         }
 
@@ -1778,7 +1778,7 @@ public class LocalExecutionPlanner
             }
 
             // compile expression using input layout and input types
-            RowExpression rowExpression = toRowExpression(argument, typeAnalyzer.getTypes(session, TypeProvider.viewOf(inputTypes.buildOrThrow()), argument), inputLayout.buildOrThrow());
+            RowExpression rowExpression = toRowExpression(argument, typeAnalyzer.getTypes(TypeProvider.viewOf(inputTypes.buildOrThrow()), argument), inputLayout.buildOrThrow());
             return pageFunctionCompiler.compileProjection(rowExpression, Optional.empty());
         }
 
@@ -2163,7 +2163,6 @@ public class LocalExecutionPlanner
             }
 
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(
-                    session,
                     context.getTypes(),
                     concat(staticFilters.map(ImmutableList::of).orElse(ImmutableList.of()), assignments.getExpressions()));
 
@@ -2327,7 +2326,7 @@ public class LocalExecutionPlanner
         private Optional<Expression> getStaticFilter(Expression filterExpression)
         {
             DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
-            Expression staticFilter = combineConjuncts(metadata, extractDynamicFilterResult.getStaticConjuncts());
+            Expression staticFilter = combineConjuncts(extractDynamicFilterResult.getStaticConjuncts());
             if (staticFilter.equals(TRUE_LITERAL)) {
                 return Optional.empty();
             }
@@ -2373,7 +2372,7 @@ public class LocalExecutionPlanner
                 // evaluate values for non-empty rows
                 if (node.getRows().isPresent()) {
                     Expression row = node.getRows().get().get(i);
-                    Map<NodeRef<Expression>, Type> types = typeAnalyzer.getTypes(session, TypeProvider.empty(), row);
+                    Map<NodeRef<Expression>, Type> types = typeAnalyzer.getTypes(TypeProvider.empty(), row);
                     checkState(types.get(NodeRef.of(row)) instanceof RowType, "unexpected type of Values row: %s", types);
                     // evaluate the literal value
                     SqlRow result = (SqlRow) new IrExpressionInterpreter(row, plannerContext, session, types).evaluate();
@@ -2782,7 +2781,7 @@ public class LocalExecutionPlanner
 
         private SpatialPredicate spatialTest(FunctionCall functionCall, boolean probeFirst, Optional<ComparisonExpression.Operator> comparisonOperator)
         {
-            CatalogSchemaFunctionName functionName = ResolvedFunction.extractFunctionName(functionCall.getName());
+            CatalogSchemaFunctionName functionName = functionCall.getFunction().getName();
             if (functionName.equals(builtinFunctionName(ST_CONTAINS))) {
                 if (probeFirst) {
                     return (buildGeometry, probeGeometry, radius) -> probeGeometry.contains(buildGeometry);
@@ -2961,8 +2960,7 @@ public class LocalExecutionPlanner
                             filterExpression,
                             probeLayout,
                             buildLayout,
-                            context.getTypes(),
-                            session));
+                            context.getTypes()));
 
             Optional<Integer> partitionChannel = node.getRightPartitionSymbol().map(buildChannelGetter);
 
@@ -3046,11 +3044,10 @@ public class LocalExecutionPlanner
                             filterExpression,
                             probeSource.getLayout(),
                             buildLayout,
-                            context.getTypes(),
-                            session));
+                            context.getTypes()));
 
             Optional<SortExpressionContext> sortExpressionContext = node.getFilter()
-                    .flatMap(filter -> extractSortExpression(metadata, ImmutableSet.copyOf(node.getRight().getOutputSymbols()), filter));
+                    .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(node.getRight().getOutputSymbols()), filter));
 
             Optional<Integer> sortChannel = sortExpressionContext
                     .map(SortExpressionContext::getSortExpression)
@@ -3064,8 +3061,7 @@ public class LocalExecutionPlanner
                                     searchExpression,
                                     probeSource.getLayout(),
                                     buildLayout,
-                                    context.getTypes(),
-                                    session))
+                                    context.getTypes()))
                             .collect(toImmutableList()))
                     .orElse(ImmutableList.of());
 
@@ -3332,12 +3328,11 @@ public class LocalExecutionPlanner
                 Expression filterExpression,
                 Map<Symbol, Integer> probeLayout,
                 Map<Symbol, Integer> buildLayout,
-                TypeProvider types,
-                Session session)
+                TypeProvider types)
         {
             Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
 
-            RowExpression translatedFilter = toRowExpression(filterExpression, typeAnalyzer.getTypes(session, types, filterExpression), joinSourcesLayout);
+            RowExpression translatedFilter = toRowExpression(filterExpression, typeAnalyzer.getTypes(types, filterExpression), joinSourcesLayout);
             return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size());
         }
 
@@ -4111,7 +4106,7 @@ public class LocalExecutionPlanner
                             .put(NodeRef.of(lambdaExpression), functionType)
                             // expressions from lambda arguments
                             // expressions from lambda body
-                            .putAll(typeAnalyzer.getTypes(session, TypeProvider.copyOf(lambdaArgumentSymbolTypes), lambdaExpression.getBody()))
+                            .putAll(typeAnalyzer.getTypes(TypeProvider.copyOf(lambdaArgumentSymbolTypes), lambdaExpression.getBody()))
                             .buildOrThrow();
 
                     LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) toRowExpression(lambdaExpression, expressionTypes, ImmutableMap.of());

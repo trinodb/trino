@@ -19,6 +19,8 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
@@ -32,7 +34,6 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -54,6 +55,7 @@ import static io.trino.SystemSessionProperties.getSmallDynamicFilterWaitTimeout;
 import static io.trino.spi.statistics.TableStatistics.empty;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -75,6 +77,8 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 public class TestDeterminePreferredDynamicFilterTimeout
         extends BasePlanTest
 {
+    private static final ResolvedFunction RANDOM = new TestingFunctionResolution().resolveFunction("random", fromTypes(INTEGER));
+
     private long waitForCascadingDynamicFiltersTimeout;
 
     @Override
@@ -419,7 +423,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                                 .equals(OptionalLong.of(waitForCascadingDynamicFiltersTimeout))),
                                 node(ExchangeNode.class,
                                         filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("B_1"), new FunctionCall(QualifiedName.of("random"), ImmutableList.of(new Constant(INTEGER, 5L)))),
+                                                new ComparisonExpression(EQUAL, new SymbolReference("B_1"), new FunctionCall(RANDOM, ImmutableList.of(new Constant(INTEGER, 5L)))),
                                                 tableScan("table_small_b", ImmutableMap.of("B_1", "b_1")))))));
     }
 }

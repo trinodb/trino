@@ -134,7 +134,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
          */
         private Expression distributeIfPossible(LogicalExpression expression)
         {
-            if (!isDeterministic(expression, metadata)) {
+            if (!isDeterministic(expression)) {
                 // Do not distribute boolean expressions if there are any non-deterministic elements
                 // TODO: This can be optimized further if non-deterministic elements are not repeated
                 return expression;
@@ -179,7 +179,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
         private Set<Expression> filterDeterministicPredicates(List<Expression> predicates)
         {
             return predicates.stream()
-                    .filter(expression -> isDeterministic(expression, metadata))
+                    .filter(expression -> isDeterministic(expression))
                     .collect(toSet());
         }
 

@@ -16,6 +16,8 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
@@ -25,13 +27,13 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.SetOperationOutputMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.SUBTRACT;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
@@ -51,6 +53,9 @@ import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 public class TestImplementExceptAll
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction GREATEST = FUNCTIONS.resolveFunction("GREATEST", fromTypes(BIGINT, BIGINT));
+
     @Test
     public void test()
     {
@@ -89,7 +94,7 @@ public class TestImplementExceptAll
                                         "a", expression(new SymbolReference("a")),
                                         "b", expression(new SymbolReference("b"))),
                                 filter(
-                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new FunctionCall(QualifiedName.of("greatest"), ImmutableList.of(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count_1"), new SymbolReference("count_2")), new Constant(BIGINT, 0L)))),
+                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new FunctionCall(GREATEST, ImmutableList.of(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count_1"), new SymbolReference("count_2")), new Constant(BIGINT, 0L)))),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         "a", expression(new SymbolReference("a")),

@@ -24,7 +24,6 @@ import io.trino.cache.CanonicalSubplan.CanonicalSubplanBuilder;
 import io.trino.cache.CanonicalSubplan.FilterProjectKey;
 import io.trino.cache.CanonicalSubplan.ScanFilterProjectKey;
 import io.trino.cache.CanonicalSubplan.TopNKey;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheTableId;
@@ -33,6 +32,7 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.sql.ir.CanonicalAggregation;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
@@ -76,10 +76,10 @@ public final class CanonicalSubplanExtractor
     /**
      * Extracts a list of {@link CanonicalSubplan} for a given plan.
      */
-    public static List<CanonicalSubplan> extractCanonicalSubplans(Metadata metadata, CacheMetadata cacheMetadata, Session session, PlanNode root)
+    public static List<CanonicalSubplan> extractCanonicalSubplans(CacheMetadata cacheMetadata, Session session, PlanNode root)
     {
         ImmutableList.Builder<CanonicalSubplan> canonicalSubplans = ImmutableList.builder();
-        root.accept(new Visitor(metadata, cacheMetadata, session, canonicalSubplans), null).ifPresent(canonicalSubplans::add);
+        root.accept(new Visitor(cacheMetadata, session, canonicalSubplans), null).ifPresent(canonicalSubplans::add);
         return canonicalSubplans.build();
     }
 
@@ -111,14 +111,12 @@ public final class CanonicalSubplanExtractor
     private static class Visitor
             extends PlanVisitor<Optional<CanonicalSubplan>, Void>
     {
-        private final Metadata metadata;
         private final CacheMetadata cacheMetadata;
         private final Session session;
         private final ImmutableList.Builder<CanonicalSubplan> canonicalSubplans;
 
-        public Visitor(Metadata metadata, CacheMetadata cacheMetadata, Session session, ImmutableList.Builder<CanonicalSubplan> canonicalSubplans)
+        public Visitor(CacheMetadata cacheMetadata, Session session, ImmutableList.Builder<CanonicalSubplan> canonicalSubplans)
         {
-            this.metadata = requireNonNull(metadata, "metadata is null");
             this.cacheMetadata = requireNonNull(cacheMetadata, "cacheMetadata is null");
             this.session = requireNonNull(session, "session is null");
             this.canonicalSubplans = requireNonNull(canonicalSubplans, "canonicalSubplans is null");
@@ -319,7 +317,7 @@ public final class CanonicalSubplanExtractor
         public Optional<CanonicalSubplan> visitProject(ProjectNode node, Void context)
         {
             PlanNode source = node.getSource();
-            if (!node.getAssignments().getExpressions().stream().allMatch(expression -> isDeterministic(expression, metadata))) {
+            if (!node.getAssignments().getExpressions().stream().allMatch(DeterminismEvaluator::isDeterministic)) {
                 canonicalizeRecursively(source);
                 return Optional.empty();
             }
@@ -387,7 +385,7 @@ public final class CanonicalSubplanExtractor
         public Optional<CanonicalSubplan> visitFilter(FilterNode node, Void context)
         {
             PlanNode source = node.getSource();
-            if (!isDeterministic(node.getPredicate(), metadata)) {
+            if (!isDeterministic(node.getPredicate())) {
                 canonicalizeRecursively(source);
                 return Optional.empty();
             }

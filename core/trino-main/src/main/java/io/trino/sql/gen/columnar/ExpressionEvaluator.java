@@ -23,7 +23,6 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.sql.gen.columnar.AndExpressionEvaluator.createAndExpressionEvaluator;
 import static io.trino.sql.gen.columnar.BetweenExpressionEvaluator.createBetweenEvaluator;
 import static io.trino.sql.gen.columnar.CallExpressionEvaluator.createCallExpressionEvaluator;
@@ -94,6 +93,6 @@ public interface ExpressionEvaluator
 
     static boolean isNotExpression(CallExpression callExpression)
     {
-        return extractFunctionName(callExpression.getResolvedFunction().toQualifiedName()).getFunctionName().equals("not");
+        return callExpression.getResolvedFunction().getName().getFunctionName().equals("not");
     }
 }

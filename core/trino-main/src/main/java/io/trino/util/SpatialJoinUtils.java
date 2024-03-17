@@ -22,7 +22,6 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 
 public final class SpatialJoinUtils
@@ -53,7 +52,7 @@ public final class SpatialJoinUtils
 
     private static boolean isSupportedSpatialFunction(FunctionCall functionCall)
     {
-        CatalogSchemaFunctionName functionName = extractFunctionName(functionCall.getName());
+        CatalogSchemaFunctionName functionName = functionCall.getFunction().getName();
         return functionName.equals(builtinFunctionName(ST_CONTAINS)) ||
                 functionName.equals(builtinFunctionName(ST_WITHIN)) ||
                 functionName.equals(builtinFunctionName(ST_INTERSECTS));
@@ -94,8 +93,8 @@ public final class SpatialJoinUtils
 
     private static boolean isSTDistance(Expression expression)
     {
-        if (expression instanceof FunctionCall) {
-            return extractFunctionName(((FunctionCall) expression).getName()).equals(builtinFunctionName(ST_DISTANCE));
+        if (expression instanceof FunctionCall call) {
+            return call.getFunction().getName().equals(builtinFunctionName(ST_DISTANCE));
         }
 
         return false;

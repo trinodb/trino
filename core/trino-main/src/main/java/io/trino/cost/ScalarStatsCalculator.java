@@ -118,7 +118,7 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitFunctionCall(FunctionCall node, Void context)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, node);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, node);
             IrExpressionInterpreter interpreter = new IrExpressionInterpreter(node, plannerContext, session, expressionTypes);
             Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
@@ -148,7 +148,7 @@ public class ScalarStatsCalculator
             double lowValue = sourceStats.getLowValue();
             double highValue = sourceStats.getHighValue();
 
-            if (isIntegralType(typeAnalyzer.getType(session, types, node))) {
+            if (isIntegralType(typeAnalyzer.getType(types, node))) {
                 // todo handle low/high value changes if range gets narrower due to cast (e.g. BIGINT -> SMALLINT)
                 if (isFinite(lowValue)) {
                     lowValue = Math.round(lowValue);

@@ -37,7 +37,7 @@ public class LayoutConstraintEvaluator
     public LayoutConstraintEvaluator(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, Session session, TypeProvider types, Map<Symbol, ColumnHandle> assignments, Expression expression)
     {
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
-        evaluator = new IrExpressionInterpreter(expression, plannerContext, session, typeAnalyzer.getTypes(session, types, expression));
+        evaluator = new IrExpressionInterpreter(expression, plannerContext, session, typeAnalyzer.getTypes(types, expression));
         arguments = SymbolsExtractor.extractUnique(expression).stream()
                 .map(assignments::get)
                 .collect(toImmutableSet());

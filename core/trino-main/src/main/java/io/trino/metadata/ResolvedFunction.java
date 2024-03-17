@@ -145,21 +145,23 @@ public class ResolvedFunction
         return SerializedResolvedFunction.isSerializedResolvedFunction(name);
     }
 
+    public CatalogSchemaFunctionName getName()
+    {
+        QualifiedName qualifiedName = toQualifiedName();
+        return SerializedResolvedFunction.fromSerializedName(qualifiedName).functionName();
+    }
+
+    @Deprecated
     public QualifiedName toQualifiedName()
     {
         CatalogSchemaFunctionName name = toCatalogSchemaFunctionName();
         return QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getFunctionName());
     }
 
+    @Deprecated
     public CatalogSchemaFunctionName toCatalogSchemaFunctionName()
     {
         return ResolvedFunctionDecoder.toCatalogSchemaFunctionName(this);
-    }
-
-    public static CatalogSchemaFunctionName extractFunctionName(QualifiedName qualifiedName)
-    {
-        checkArgument(isResolved(qualifiedName), "Expected qualifiedName to be a resolved function: %s", qualifiedName);
-        return SerializedResolvedFunction.fromSerializedName(qualifiedName).functionName();
     }
 
     @Override
@@ -313,5 +315,12 @@ public class ResolvedFunction
                     PREFIX + base32Data;
             return new CatalogSchemaFunctionName(GlobalSystemConnector.NAME, SCHEMA, encodedName);
         }
+    }
+
+    @Deprecated
+    public static CatalogSchemaFunctionName extractFunctionName(QualifiedName qualifiedName)
+    {
+        checkArgument(isResolved(qualifiedName), "Expected qualifiedName to be a resolved function: %s", qualifiedName);
+        return ResolvedFunction.SerializedResolvedFunction.fromSerializedName(qualifiedName).functionName();
     }
 }

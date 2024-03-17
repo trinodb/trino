@@ -19,7 +19,6 @@ import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.ScalarFunction;
@@ -165,7 +164,7 @@ public final class DynamicFilters
     public static Expression replaceDynamicFilterId(FunctionCall dynamicFilterFunctionCall, DynamicFilterId newId)
     {
         return new FunctionCall(
-                dynamicFilterFunctionCall.getName(),
+                dynamicFilterFunctionCall.getFunction(),
                 ImmutableList.of(
                         dynamicFilterFunctionCall.getArguments().get(0),
                         dynamicFilterFunctionCall.getArguments().get(1),
@@ -179,7 +178,7 @@ public final class DynamicFilters
         Expression timeoutArgument = new Constant(IntegerType.INTEGER, timeout);
 
         return new FunctionCall(
-                dynamicFilterFunctionCall.getName(),
+                dynamicFilterFunctionCall.getFunction(),
                 ImmutableList.of(
                         dynamicFilterFunctionCall.getArguments().get(0),
                         dynamicFilterFunctionCall.getArguments().get(1),
@@ -249,7 +248,7 @@ public final class DynamicFilters
 
     private static boolean isDynamicFilterFunction(FunctionCall functionCall)
     {
-        return isDynamicFilterFunction(ResolvedFunction.extractFunctionName(functionCall.getName()));
+        return isDynamicFilterFunction(functionCall.getFunction().getName());
     }
 
     public static boolean isDynamicFilterFunction(CatalogSchemaFunctionName functionName)

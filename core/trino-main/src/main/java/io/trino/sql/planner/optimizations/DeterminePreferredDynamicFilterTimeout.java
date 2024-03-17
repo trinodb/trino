@@ -21,7 +21,6 @@ import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.SymbolStatsEstimate;
 import io.trino.sql.DynamicFilters;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.planner.Symbol;
@@ -61,12 +60,10 @@ import static java.util.Objects.requireNonNull;
 public class DeterminePreferredDynamicFilterTimeout
         implements PlanOptimizer
 {
-    private final PlannerContext plannerContext;
     private final StatsCalculator statsCalculator;
 
-    public DeterminePreferredDynamicFilterTimeout(PlannerContext plannerContext, StatsCalculator statsCalculator)
+    public DeterminePreferredDynamicFilterTimeout(StatsCalculator statsCalculator)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
     }
 
@@ -93,7 +90,6 @@ public class DeterminePreferredDynamicFilterTimeout
 
         return SimplePlanRewriter.rewriteWith(
                 new DeterminePreferredDynamicFilterTimeout.Rewriter(
-                        plannerContext,
                         statsProvider,
                         smallDynamicFilterWaitTimeout,
                         smallDynamicFilterMaxRowCount,
@@ -129,7 +125,6 @@ public class DeterminePreferredDynamicFilterTimeout
     private static class Rewriter
             extends SimplePlanRewriter<Map<DynamicFilterId, PlanNode>>
     {
-        private final PlannerContext plannerContext;
         private final StatsProvider statsProvider;
         private final long smallDynamicFilterWaitTimeoutMillis;
         private final long smallDynamicFilterMaxRowCount;
@@ -137,13 +132,11 @@ public class DeterminePreferredDynamicFilterTimeout
         private final Map<DynamicFilterId, DynamicFilterTimeout> dynamicFilterBuildSideStates = new HashMap<>();
 
         public Rewriter(
-                PlannerContext plannerContext,
                 StatsProvider statsProvider,
                 Duration smallDynamicFilterWaitTimeout,
                 long smallDynamicFilterMaxRowCount,
                 long smallDynamicFilterMaxNdvCount)
         {
-            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.statsProvider = statsProvider;
             this.smallDynamicFilterWaitTimeoutMillis = smallDynamicFilterWaitTimeout.toMillis();
             this.smallDynamicFilterMaxRowCount = smallDynamicFilterMaxRowCount;
@@ -182,7 +175,7 @@ public class DeterminePreferredDynamicFilterTimeout
             return new FilterNode(
                     node.getId(),
                     node.getSource(),
-                    combineConjuncts(plannerContext.getMetadata(), expressionBuilder.build()));
+                    combineConjuncts(expressionBuilder.build()));
         }
 
         private static Symbol getDynamicFilterSymbol(PlanNode planNode, DynamicFilterId dynamicFilterId)

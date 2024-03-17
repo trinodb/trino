@@ -55,7 +55,7 @@ public class TestSimplifyFilterPredicate
     public void testSimplifyIfExpression()
     {
         // true result iff the condition is true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new IfExpression(new SymbolReference("a"), TRUE_LITERAL, FALSE_LITERAL),
                         p.values(p.symbol("a"))))
@@ -65,7 +65,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // true result iff the condition is true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new IfExpression(new SymbolReference("a"), TRUE_LITERAL, new Constant(UnknownType.UNKNOWN, null)),
                         p.values(p.symbol("a"))))
@@ -75,7 +75,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // true result iff the condition is null or false
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new IfExpression(new SymbolReference("a"), FALSE_LITERAL, TRUE_LITERAL),
                         p.values(p.symbol("a"))))
@@ -85,7 +85,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // true result iff the condition is null or false
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new IfExpression(new SymbolReference("a"), new Constant(UnknownType.UNKNOWN, null), TRUE_LITERAL),
                         p.values(p.symbol("a"))))
@@ -95,7 +95,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // always true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new IfExpression(new SymbolReference("a"), TRUE_LITERAL, TRUE_LITERAL),
                         p.values(p.symbol("a"))))
@@ -105,7 +105,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // always false
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new IfExpression(new SymbolReference("a"), FALSE_LITERAL, FALSE_LITERAL),
                         p.values(p.symbol("a"))))
@@ -115,7 +115,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // both results equal
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new IfExpression(new SymbolReference("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L)), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L))),
                         p.values(p.symbol("a"), p.symbol("b"))))
@@ -126,9 +126,9 @@ public class TestSimplifyFilterPredicate
 
         // both results are equal non-deterministic expressions
         FunctionCall randomFunction = new FunctionCall(
-                tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()).toQualifiedName(),
+                tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()),
                 ImmutableList.of());
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new IfExpression(
                                 new SymbolReference("a"),
@@ -138,7 +138,7 @@ public class TestSimplifyFilterPredicate
                 .doesNotFire();
 
         // always null (including the default) -> simplified to FALSE
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new IfExpression(new SymbolReference("a"), new Constant(UnknownType.UNKNOWN, null)),
                         p.values(p.symbol("a"))))
@@ -148,7 +148,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // condition is true -> first branch
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new IfExpression(TRUE_LITERAL, new SymbolReference("a"), new NotExpression(new SymbolReference("a"))),
                         p.values(p.symbol("a"))))
@@ -158,7 +158,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // condition is true -> second branch
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new IfExpression(FALSE_LITERAL, new SymbolReference("a"), new NotExpression(new SymbolReference("a"))),
                         p.values(p.symbol("a"))))
@@ -168,7 +168,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // condition is true, no second branch -> the result is null, simplified to FALSE
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new IfExpression(FALSE_LITERAL, new SymbolReference("a")),
                         p.values(p.symbol("a"))))
@@ -178,7 +178,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // not known result (`b`) - cannot optimize
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new IfExpression(new SymbolReference("a"), TRUE_LITERAL, new SymbolReference("b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
@@ -189,7 +189,7 @@ public class TestSimplifyFilterPredicate
     public void testSimplifyNullIfExpression()
     {
         // NULLIF(x, y) returns true if and only if: x != y AND x = true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new NullIfExpression(new SymbolReference("a"), new SymbolReference("b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
@@ -206,7 +206,7 @@ public class TestSimplifyFilterPredicate
     @Test
     public void testSimplifySearchedCaseExpression()
     {
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
                                 new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 0L)), TRUE_LITERAL),
@@ -217,7 +217,7 @@ public class TestSimplifyFilterPredicate
                 .doesNotFire();
 
         // all results true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
                                 new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 0L)), TRUE_LITERAL),
@@ -231,7 +231,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // all results not true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
                                 new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 0L)), FALSE_LITERAL),
@@ -245,7 +245,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // all results not true (including default null result)
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
                                 new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 0L)), FALSE_LITERAL),
@@ -259,7 +259,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // one result true, and remaining results not true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
                                 new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 0L)), FALSE_LITERAL),
@@ -273,7 +273,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // first result true, and remaining results not true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
                                 new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 0L)), TRUE_LITERAL),
@@ -287,7 +287,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // all results not true, and default true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
                                 new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 0L)), FALSE_LITERAL),
@@ -310,7 +310,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // all conditions not true - return the default
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
                                 new WhenClause(FALSE_LITERAL, new SymbolReference("a")),
@@ -324,7 +324,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // all conditions not true, no default specified - return false
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
                                 new WhenClause(FALSE_LITERAL, new SymbolReference("a")),
@@ -338,7 +338,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // not true conditions preceding true condition - return the result associated with the true condition
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
                                 new WhenClause(FALSE_LITERAL, new SymbolReference("a")),
@@ -352,7 +352,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // remove not true condition and move the result associated with the first true condition to default
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
                                 new WhenClause(FALSE_LITERAL, new SymbolReference("a")),
@@ -366,7 +366,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // move the result associated with the first true condition to default
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
                                 new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L)), new SymbolReference("a")),
@@ -384,7 +384,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // cannot remove any clause
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SearchedCaseExpression(ImmutableList.of(
                                 new WhenClause(new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L)), new SymbolReference("a")),
@@ -397,7 +397,7 @@ public class TestSimplifyFilterPredicate
     @Test
     public void testSimplifySimpleCaseExpression()
     {
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                                 new SimpleCaseExpression(
                                         new SymbolReference("a"),
@@ -409,7 +409,7 @@ public class TestSimplifyFilterPredicate
                 .doesNotFire();
 
         // comparison with null returns null - no WHEN branch matches, return default value
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SimpleCaseExpression(
                                 new Constant(UnknownType.UNKNOWN, null),
@@ -424,7 +424,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // comparison with null returns null - no WHEN branch matches, the result is default null, simplified to FALSE
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SimpleCaseExpression(
                                 new Constant(UnknownType.UNKNOWN, null),
@@ -439,7 +439,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // all results true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SimpleCaseExpression(
                                 new SymbolReference("a"),
@@ -454,7 +454,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // all results not true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SimpleCaseExpression(
                                 new SymbolReference("a"),
@@ -469,7 +469,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // all results not true (including default null result)
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new SimpleCaseExpression(
                                 new SymbolReference("a"),
@@ -487,7 +487,7 @@ public class TestSimplifyFilterPredicate
     @Test
     public void testCastNull()
     {
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new IfExpression(new SymbolReference("a"), new Cast(new Cast(new Constant(BOOLEAN, null), BIGINT), BOOLEAN), FALSE_LITERAL),
                         p.values(p.symbol("a", BOOLEAN))))

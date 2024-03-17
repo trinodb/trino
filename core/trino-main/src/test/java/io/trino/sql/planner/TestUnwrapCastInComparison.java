@@ -16,6 +16,8 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
@@ -27,7 +29,6 @@ import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.type.DateTimes;
 import io.trino.type.Reals;
 import io.trino.util.DateTimeUtils;
@@ -45,6 +46,7 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -64,6 +66,9 @@ import static java.util.Objects.requireNonNull;
 public class TestUnwrapCastInComparison
         extends BasePlanTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", fromTypes());
+
     @Test
     public void testEquals()
     {
@@ -807,7 +812,7 @@ public class TestUnwrapCastInComparison
     {
         assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s AND rand() = 42", inputType, inputPredicate),
                 output(
-                        filter(new ComparisonExpression(EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new Constant(DOUBLE, 42.0)),
+                        filter(new ComparisonExpression(EQUAL, new FunctionCall(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 42.0)),
                                 values("a"))));
     }
 
@@ -818,7 +823,7 @@ public class TestUnwrapCastInComparison
 
     private void testUnwrap(Session session, String inputType, String inputPredicate, Expression expected)
     {
-        Expression antiOptimization = new ComparisonExpression(EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new Constant(DOUBLE, 42.0));
+        Expression antiOptimization = new ComparisonExpression(EQUAL, new FunctionCall(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 42.0));
         if (expected instanceof LogicalExpression logical && logical.getOperator() == OR) {
             expected = new LogicalExpression(OR, ImmutableList.<Expression>builder()
                     .addAll(logical.getTerms())

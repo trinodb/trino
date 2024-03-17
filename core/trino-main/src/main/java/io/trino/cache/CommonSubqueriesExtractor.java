@@ -170,7 +170,7 @@ public final class CommonSubqueriesExtractor
         ImmutableMap.Builder<PlanNode, CommonPlanAdaptation> planAdaptations = ImmutableMap.builder();
         List<CacheCandidate> cacheCandidates = cacheController.getCachingCandidates(
                 session,
-                extractCanonicalSubplans(plannerContext.getMetadata(), plannerContext.getCacheMetadata(), session, root));
+                extractCanonicalSubplans(plannerContext.getCacheMetadata(), session, root));
 
         // extract common subplan adaptations
         Set<PlanNodeId> processedSubplans = new HashSet<>();
@@ -515,9 +515,8 @@ public final class CommonSubqueriesExtractor
     private Expression extractCommonDynamicFilterDisjuncts(List<CanonicalSubplan> subplans)
     {
         return combineDisjuncts(
-                plannerContext.getMetadata(),
                 subplans.stream()
-                        .map(subplan -> combineConjuncts(plannerContext.getMetadata(), subplan.getDynamicConjuncts()))
+                        .map(subplan -> combineConjuncts(subplan.getDynamicConjuncts()))
                         .collect(toImmutableList()));
     }
 
@@ -607,12 +606,11 @@ public final class CommonSubqueriesExtractor
         TupleDomain<CacheColumnId> remainingTupleDomain = extractedTupleDomain
                 .filter((columnId, domain) -> !retainedColumnIds.contains(columnId));
         if (!remainingTupleDomain.isAll() || !extractionResult.getRemainingExpression().equals(TRUE_LITERAL)) {
-            Expression remainingDomainExpression = new DomainTranslator(plannerContext).toPredicate(
+            Expression remainingDomainExpression = new DomainTranslator().toPredicate(
                     remainingTupleDomain.transformKeys(CanonicalSubplanExtractor::columnIdToSymbol));
             signatureKey = combine(
                     signatureKey,
                     "filters=" + formatExpression(combineConjuncts(
-                            plannerContext.getMetadata(),
                             // Order remaining expressions alphabetically to improve signature generalisation
                             Stream.of(remainingDomainExpression, extractionResult.getRemainingExpression())
                                     .map(IrUtils::extractConjuncts)
@@ -745,7 +743,6 @@ public final class CommonSubqueriesExtractor
                 // Subquery specific dynamic filters need to be added back to subplan.
                 // Actual dynamic filter domains are accounted for in PlanSignature on worker nodes.
                 symbolMapper.map(combineConjuncts(
-                        plannerContext.getMetadata(),
                         predicate,
                         and(subplan.getDynamicConjuncts())));
         FilterNode filterNode = new FilterNode(
@@ -764,7 +761,7 @@ public final class CommonSubqueriesExtractor
                 plannerContext,
                 typeAnalyzer,
                 node -> PlanNodeStatsEstimate.unknown(),
-                new DomainTranslator(plannerContext))
+                new DomainTranslator())
                 .getMainAlternative();
 
         // If ValuesNode was returned as a result of pushing down predicates we fall back

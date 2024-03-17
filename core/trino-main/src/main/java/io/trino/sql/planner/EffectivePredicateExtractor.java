@@ -169,7 +169,7 @@ public class EffectivePredicateExtractor
             // Remove non-deterministic conjuncts
             predicate = filterDeterministicConjuncts(metadata, predicate);
 
-            return combineConjuncts(metadata, predicate, underlyingPredicate);
+            return combineConjuncts(predicate, underlyingPredicate);
         }
 
         @Override
@@ -216,11 +216,10 @@ public class EffectivePredicateExtractor
                     .collect(toImmutableList());
 
             return pullExpressionThroughSymbols(combineConjuncts(
-                    metadata,
-                    ImmutableList.<Expression>builder()
-                            .addAll(projectionEqualities)
-                            .addAll(validUnderlyingEqualities)
-                            .build()),
+                            ImmutableList.<Expression>builder()
+                                    .addAll(projectionEqualities)
+                                    .addAll(validUnderlyingEqualities)
+                                    .build()),
                     node.getOutputSymbols());
         }
 
@@ -306,23 +305,23 @@ public class EffectivePredicateExtractor
                     .collect(toImmutableList());
 
             return switch (node.getType()) {
-                case INNER -> pullExpressionThroughSymbols(combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                case INNER -> pullExpressionThroughSymbols(combineConjuncts(ImmutableList.<Expression>builder()
                         .add(leftPredicate)
                         .add(rightPredicate)
-                        .add(combineConjuncts(metadata, joinConjuncts))
+                        .add(combineConjuncts(joinConjuncts))
                         .add(node.getFilter().orElse(TRUE_LITERAL))
                         .build()), node.getOutputSymbols());
-                case LEFT -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                case LEFT -> combineConjuncts(ImmutableList.<Expression>builder()
                         .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
                         .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
                         .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
                         .build());
-                case RIGHT -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                case RIGHT -> combineConjuncts(ImmutableList.<Expression>builder()
                         .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
                         .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
                         .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
                         .build());
-                case FULL -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                case FULL -> combineConjuncts(ImmutableList.<Expression>builder()
                         .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
                         .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
                         .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains, node.getRight().getOutputSymbols()::contains))
@@ -350,7 +349,7 @@ public class EffectivePredicateExtractor
                     })
                     .collect(toImmutableList());
 
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, processedExpressions);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, processedExpressions);
 
             boolean[] hasNull = new boolean[node.getOutputSymbols().size()];
             boolean[] hasNaN = new boolean[node.getOutputSymbols().size()];
@@ -365,7 +364,7 @@ public class EffectivePredicateExtractor
                 if (row instanceof Row) {
                     for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                         Expression value = ((Row) row).getItems().get(i);
-                        if (!DeterminismEvaluator.isDeterministic(value, metadata)) {
+                        if (!DeterminismEvaluator.isDeterministic(value)) {
                             nonDeterministic[i] = true;
                         }
                         else {
@@ -396,7 +395,7 @@ public class EffectivePredicateExtractor
                     }
                 }
                 else {
-                    if (!DeterminismEvaluator.isDeterministic(row, metadata)) {
+                    if (!DeterminismEvaluator.isDeterministic(row)) {
                         return TRUE_LITERAL;
                     }
                     IrExpressionInterpreter interpreter = new IrExpressionInterpreter(row, plannerContext, session, expressionTypes);
@@ -532,11 +531,11 @@ public class EffectivePredicateExtractor
             Expression rightPredicate = node.getRight().accept(this, context);
 
             return switch (node.getType()) {
-                case INNER -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                case INNER -> combineConjuncts(ImmutableList.<Expression>builder()
                         .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
                         .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
                         .build());
-                case LEFT -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                case LEFT -> combineConjuncts(ImmutableList.<Expression>builder()
                         .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
                         .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
                         .build());
@@ -556,11 +555,10 @@ public class EffectivePredicateExtractor
                         .collect(toImmutableList());
 
                 sourceOutputConjuncts.add(ImmutableSet.copyOf(extractConjuncts(pullExpressionThroughSymbols(combineConjuncts(
-                        metadata,
-                        ImmutableList.<Expression>builder()
-                                .addAll(equalities)
-                                .add(underlyingPredicate)
-                                .build()),
+                                ImmutableList.<Expression>builder()
+                                        .addAll(equalities)
+                                        .add(underlyingPredicate)
+                                        .build()),
                         node.getOutputSymbols()))));
             }
 
@@ -572,17 +570,17 @@ public class EffectivePredicateExtractor
                 potentialOutputConjuncts = Sets.intersection(potentialOutputConjuncts, iterator.next());
             }
 
-            return combineConjuncts(metadata, potentialOutputConjuncts);
+            return combineConjuncts(potentialOutputConjuncts);
         }
 
         private Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)
         {
-            EqualityInference equalityInference = new EqualityInference(metadata, expression);
+            EqualityInference equalityInference = new EqualityInference(expression);
 
             ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
             Set<Symbol> scope = ImmutableSet.copyOf(symbols);
-            EqualityInference.nonInferrableConjuncts(metadata, expression).forEach(conjunct -> {
-                if (DeterminismEvaluator.isDeterministic(conjunct, metadata)) {
+            EqualityInference.nonInferrableConjuncts(expression).forEach(conjunct -> {
+                if (DeterminismEvaluator.isDeterministic(conjunct)) {
                     Expression rewritten = equalityInference.rewrite(conjunct, scope);
                     if (rewritten != null) {
                         effectiveConjuncts.add(rewritten);
@@ -592,7 +590,7 @@ public class EffectivePredicateExtractor
 
             effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
 
-            return combineConjuncts(metadata, effectiveConjuncts.build());
+            return combineConjuncts(effectiveConjuncts.build());
         }
     }
 }

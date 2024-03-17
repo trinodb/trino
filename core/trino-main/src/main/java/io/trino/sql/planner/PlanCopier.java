@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner;
 
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
@@ -72,15 +71,15 @@ public final class PlanCopier
 {
     private PlanCopier() {}
 
-    public static NodeAndMappings copyPlan(PlanNode plan, List<Symbol> fields, Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public static NodeAndMappings copyPlan(PlanNode plan, List<Symbol> fields, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return copyPlan(plan, fields, metadata, symbolAllocator, idAllocator, Lookup.noLookup());
+        return copyPlan(plan, fields, symbolAllocator, idAllocator, Lookup.noLookup());
     }
 
-    public static NodeAndMappings copyPlan(PlanNode plan, List<Symbol> fields, Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    public static NodeAndMappings copyPlan(PlanNode plan, List<Symbol> fields, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
         PlanNode copy = SimplePlanRewriter.rewriteWith(new Copier(idAllocator, lookup), plan, null);
-        return new UnaliasSymbolReferences(metadata).reallocateSymbols(copy, fields, symbolAllocator);
+        return new UnaliasSymbolReferences().reallocateSymbols(copy, fields, symbolAllocator);
     }
 
     public static PlanNode copyPlan(PlanNode plan, PlanNodeIdAllocator idAllocator, Lookup lookup)

@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
@@ -87,20 +86,18 @@ public class RemoveUnsupportedDynamicFilters
     @Override
     public PlanNode optimize(PlanNode plan, Context context)
     {
-        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(context.session(), context.types()), ImmutableSet.of());
+        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(context.types()), ImmutableSet.of());
         return result.getNode();
     }
 
     private class Rewriter
             extends PlanVisitor<PlanWithConsumedDynamicFilters, Set<DynamicFilterId>>
     {
-        private final Session session;
         private final TypeProvider types;
         private final TypeCoercion typeCoercion;
 
-        public Rewriter(Session session, TypeProvider types)
+        public Rewriter(TypeProvider types)
         {
-            this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         }
@@ -295,7 +292,7 @@ public class RemoveUnsupportedDynamicFilters
 
         private Expression removeDynamicFilters(Expression expression, Set<DynamicFilterId> allowedDynamicFilterIds, ImmutableSet.Builder<DynamicFilterId> consumedDynamicFilterIds)
         {
-            return combineConjuncts(plannerContext.getMetadata(), extractConjuncts(expression)
+            return combineConjuncts(extractConjuncts(expression)
                     .stream()
                     .map(this::removeNestedDynamicFilters)
                     .filter(conjunct ->
@@ -322,7 +319,7 @@ public class RemoveUnsupportedDynamicFilters
             if (!(castExpression.getExpression() instanceof SymbolReference)) {
                 return false;
             }
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, expression);
             Type castSourceType = expressionTypes.get(NodeRef.of(castExpression.getExpression()));
             Type castTargetType = expressionTypes.get(NodeRef.<Expression>of(castExpression));
             // CAST must be an implicit coercion
@@ -350,7 +347,7 @@ public class RemoveUnsupportedDynamicFilters
             if (extractResult.getDynamicConjuncts().isEmpty()) {
                 return rewrittenExpression;
             }
-            return combineConjuncts(plannerContext.getMetadata(), extractResult.getStaticConjuncts());
+            return combineConjuncts(extractResult.getStaticConjuncts());
         }
 
         private Expression removeNestedDynamicFilters(Expression expression)

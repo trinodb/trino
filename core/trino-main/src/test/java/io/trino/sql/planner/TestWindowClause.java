@@ -15,7 +15,9 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.Cast;
@@ -26,12 +28,12 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.QualifiedName;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
@@ -58,6 +60,9 @@ import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 public class TestWindowClause
         extends BasePlanTest
 {
+    private static final ResolvedFunction SUBTRACT_INTEGER = createTestMetadataManager().resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction ADD_DOUBLE = createTestMetadataManager().resolveOperator(OperatorType.ADD, ImmutableList.of(DOUBLE, DOUBLE));
+
     @Test
     public void testPreprojectExpression()
     {
@@ -106,7 +111,7 @@ public class TestWindowClause
                                                                 Optional.empty(),
                                                                 Optional.empty()))),
                                 project(
-                                        ImmutableMap.of("frame_start", expression(new FunctionCall(QualifiedName.of("$operator$subtract"), ImmutableList.of(new SymbolReference("expr_b"), new SymbolReference("expr_c"))))),
+                                        ImmutableMap.of("frame_start", expression(new FunctionCall(SUBTRACT_INTEGER, ImmutableList.of(new SymbolReference("expr_b"), new SymbolReference("expr_c"))))),
                                         anyTree(project(
                                                 ImmutableMap.of(
                                                         "expr_a", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Constant(INTEGER, 1L))),
@@ -180,7 +185,7 @@ public class TestWindowClause
                                                                 Optional.of(new Symbol("frame_bound")),
                                                                 Optional.of(new Symbol("coerced_sortkey"))))),
                                 project(// frame bound value computation
-                                        ImmutableMap.of("frame_bound", expression(new FunctionCall(QualifiedName.of("$operator$add"), ImmutableList.of(new SymbolReference("coerced_sortkey"), new SymbolReference("frame_offset"))))),
+                                        ImmutableMap.of("frame_bound", expression(new FunctionCall(ADD_DOUBLE, ImmutableList.of(new SymbolReference("coerced_sortkey"), new SymbolReference("frame_offset"))))),
                                         project(// sort key coercion to frame bound type
                                                 ImmutableMap.of("coerced_sortkey", expression(new Cast(new SymbolReference("sortkey"), DOUBLE))),
                                                 node(FilterNode.class,

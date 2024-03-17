@@ -338,7 +338,7 @@ public final class SqlRoutinePlanner
             // The expression tree has been rewritten which breaks all the identity maps, so redo the analysis
             // to re-analyze coercions that might be necessary
             IrTypeAnalyzer analyzer = new IrTypeAnalyzer(plannerContext);
-            Map<io.trino.sql.ir.NodeRef<io.trino.sql.ir.Expression>, Type> types = analyzer.getTypes(session, typeProvider, lambdaCaptureDesugared);
+            Map<io.trino.sql.ir.NodeRef<io.trino.sql.ir.Expression>, Type> types = analyzer.getTypes(typeProvider, lambdaCaptureDesugared);
 
             // optimize the expression
             IrExpressionInterpreter interpreter = new IrExpressionInterpreter(lambdaCaptureDesugared, plannerContext, session, types);
@@ -349,7 +349,7 @@ public final class SqlRoutinePlanner
                     new Constant(types.get(io.trino.sql.ir.NodeRef.of(lambdaCaptureDesugared)), value);
 
             // Analyze again after optimization
-            types = analyzer.getTypes(session, typeProvider, optimized);
+            types = analyzer.getTypes(typeProvider, optimized);
 
             // translate to RowExpression
             TranslationVisitor translator = new TranslationVisitor(plannerContext.getMetadata(), plannerContext.getTypeManager(), types, ImmutableMap.of(), context.variables());

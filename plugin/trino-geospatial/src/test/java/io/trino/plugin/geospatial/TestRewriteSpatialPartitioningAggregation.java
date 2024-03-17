@@ -15,6 +15,8 @@ package io.trino.plugin.geospatial;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.SymbolReference;
@@ -23,11 +25,11 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.iterative.rule.test.RuleBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -37,6 +39,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 public class TestRewriteSpatialPartitioningAggregation
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(new GeoPlugin());
+    private static final ResolvedFunction ST_ENVELOPE = FUNCTIONS.resolveFunction("st_envelope", fromTypes(GEOMETRY));
+
     public TestRewriteSpatialPartitioningAggregation()
     {
         super(new GeoPlugin());
@@ -68,7 +73,7 @@ public class TestRewriteSpatialPartitioningAggregation
                                 ImmutableMap.of("sp", aggregationFunction("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
                                 project(
                                         ImmutableMap.of("partition_count", expression(new Constant(INTEGER, 100L)),
-                                                "envelope", expression(new FunctionCall(QualifiedName.of("st_envelope"), ImmutableList.of(new SymbolReference("geometry"))))),
+                                                "envelope", expression(new FunctionCall(ST_ENVELOPE, ImmutableList.of(new SymbolReference("geometry"))))),
                                         values("geometry"))));
 
         assertRuleApplication()
@@ -82,7 +87,7 @@ public class TestRewriteSpatialPartitioningAggregation
                                 ImmutableMap.of("sp", aggregationFunction("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
                                 project(
                                         ImmutableMap.of("partition_count", expression(new Constant(INTEGER, 100L)),
-                                                "envelope", expression(new FunctionCall(QualifiedName.of("st_envelope"), ImmutableList.of(new SymbolReference("geometry"))))),
+                                                "envelope", expression(new FunctionCall(ST_ENVELOPE, ImmutableList.of(new SymbolReference("geometry"))))),
                                         values("geometry"))));
     }
 

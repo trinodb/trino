@@ -16,6 +16,8 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
@@ -29,7 +31,6 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -61,6 +62,9 @@ import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 public class TestDecorrelateUnnest
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction FAIL = FUNCTIONS.resolveFunction("fail", fromTypes(INTEGER, VARCHAR));
+
     @Test
     public void doesNotFireWithoutUnnest()
     {
@@ -213,7 +217,7 @@ public class TestDecorrelateUnnest
                                         "corr", expression(new SymbolReference("corr")),
                                         "unnested_corr", expression(new IfExpression(new IsNullPredicate(new SymbolReference("ordinality")), new Constant(BIGINT, null), new SymbolReference("unnested_corr")))),
                                 filter(
-                                        new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new Constant(BIGINT, 1L)), new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new Constant(INTEGER, 28L), new Constant(VARCHAR, Slices.utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN), TRUE_LITERAL),
+                                        new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new Constant(BIGINT, 1L)), new Cast(new FunctionCall(FAIL, ImmutableList.of(new Constant(INTEGER, 28L), new Constant(VARCHAR, Slices.utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN), TRUE_LITERAL),
                                         rowNumber(
                                                 builder -> builder
                                                         .partitionBy(ImmutableList.of("unique"))
@@ -426,7 +430,7 @@ public class TestDecorrelateUnnest
                 .matches(
                         project(
                                 filter(// enforce single row
-                                        new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new Constant(BIGINT, 1L)), new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new Constant(INTEGER, 28L), new Constant(VARCHAR, Slices.utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN), TRUE_LITERAL),
+                                        new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new Constant(BIGINT, 1L)), new Cast(new FunctionCall(FAIL, ImmutableList.of(new Constant(INTEGER, 28L), new Constant(VARCHAR, Slices.utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN), TRUE_LITERAL),
                                         project(// second projection
                                                 ImmutableMap.of(
                                                         "corr", expression(new SymbolReference("corr")),
@@ -494,7 +498,7 @@ public class TestDecorrelateUnnest
                 .on(p -> {
                     Symbol corr = p.symbol("corr", VARCHAR);
                     FunctionCall regexpExtractAll = new FunctionCall(
-                            tester().getMetadata().resolveBuiltinFunction("regexp_extract_all", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
+                            tester().getMetadata().resolveBuiltinFunction("regexp_extract_all", fromTypes(VARCHAR, VARCHAR)),
                             ImmutableList.of(corr.toSymbolReference(), new Constant(VARCHAR, Slices.utf8Slice("."))));
 
                     return p.correlatedJoin(
@@ -519,7 +523,7 @@ public class TestDecorrelateUnnest
                                         Optional.of("ordinality"),
                                         LEFT,
                                         project(
-                                                ImmutableMap.of("char_array", expression(new FunctionCall(QualifiedName.of("regexp_extract_all"), ImmutableList.of(new SymbolReference("corr"), new Constant(VARCHAR, Slices.utf8Slice(".")))))),
+                                                ImmutableMap.of("char_array", expression(new FunctionCall(tester().getMetadata().resolveBuiltinFunction("regexp_extract_all", fromTypes(VARCHAR, VARCHAR)), ImmutableList.of(new SymbolReference("corr"), new Constant(VARCHAR, Slices.utf8Slice(".")))))),
                                                 assignUniqueId("unique", values("corr"))))));
     }
 }

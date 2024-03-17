@@ -201,7 +201,7 @@ public class BasePlanTest
     {
         Metadata metadata = getPlanTester().getPlannerContext().getMetadata();
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(metadata),
+                new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
                         planTester.getPlannerContext(),
                         new RuleStatsRecorder(),

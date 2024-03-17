@@ -56,7 +56,7 @@ public final class PushProjectionThroughJoin
             IrTypeAnalyzer typeAnalyzer,
             TypeProvider types)
     {
-        if (!projectNode.getAssignments().getExpressions().stream().allMatch(expression -> isDeterministic(expression, plannerContext.getMetadata()))) {
+        if (!projectNode.getAssignments().getExpressions().stream().allMatch(expression -> isDeterministic(expression))) {
             return Optional.empty();
         }
 

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
@@ -52,13 +51,6 @@ public class OptimizeDuplicateInsensitiveJoins
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(aggregation -> aggregation.getAggregations().isEmpty());
 
-    private final Metadata metadata;
-
-    public OptimizeDuplicateInsensitiveJoins(Metadata metadata)
-    {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-    }
-
     @Override
     public Pattern<AggregationNode> getPattern()
     {
@@ -74,7 +66,7 @@ public class OptimizeDuplicateInsensitiveJoins
     @Override
     public Result apply(AggregationNode aggregation, Captures captures, Context context)
     {
-        return aggregation.getSource().accept(new Rewriter(metadata, context.getLookup()), null)
+        return aggregation.getSource().accept(new Rewriter(context.getLookup()), null)
                 .map(rewrittenSource -> Result.ofPlanNode(aggregation.replaceChildren(ImmutableList.of(rewrittenSource))))
                 .orElse(Result.empty());
     }
@@ -82,12 +74,10 @@ public class OptimizeDuplicateInsensitiveJoins
     private static class Rewriter
             extends PlanVisitor<Optional<PlanNode>, Void>
     {
-        private final Metadata metadata;
         private final Lookup lookup;
 
-        private Rewriter(Metadata metadata, Lookup lookup)
+        private Rewriter(Lookup lookup)
         {
-            this.metadata = requireNonNull(metadata, "metadata is null");
             this.lookup = requireNonNull(lookup, "lookup is null");
         }
 
@@ -100,7 +90,7 @@ public class OptimizeDuplicateInsensitiveJoins
         @Override
         public Optional<PlanNode> visitFilter(FilterNode node, Void context)
         {
-            if (!isDeterministic(node.getPredicate(), metadata)) {
+            if (!isDeterministic(node.getPredicate())) {
                 // non-deterministic expressions could filter duplicate rows probabilistically
                 return Optional.empty();
             }
@@ -113,7 +103,7 @@ public class OptimizeDuplicateInsensitiveJoins
         public Optional<PlanNode> visitProject(ProjectNode node, Void context)
         {
             boolean isDeterministic = node.getAssignments().getExpressions().stream()
-                    .allMatch(expression -> isDeterministic(expression, metadata));
+                    .allMatch(expression -> isDeterministic(expression));
             if (!isDeterministic) {
                 // non-deterministic projections could be used in downstream filters which could
                 // filter duplicate rows probabilistically
@@ -144,7 +134,7 @@ public class OptimizeDuplicateInsensitiveJoins
             // LookupJoinOperator will evaluate non-deterministic condition on output rows until one of the
             // rows matches. Therefore it's safe to set maySkipOutputDuplicates for joins with non-deterministic
             // filters.
-            if (!isDeterministic(node.getFilter().orElse(TRUE_LITERAL), metadata)) {
+            if (!isDeterministic(node.getFilter().orElse(TRUE_LITERAL))) {
                 if (node.isMaySkipOutputDuplicates()) {
                     // join node is already set to skip duplicates, return empty to prevent rule from looping forever
                     return Optional.empty();

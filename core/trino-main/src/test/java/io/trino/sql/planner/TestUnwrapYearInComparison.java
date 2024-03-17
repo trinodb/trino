@@ -14,6 +14,8 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.ComparisonExpression;
@@ -25,7 +27,6 @@ import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.type.DateTimes;
 import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -64,6 +66,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestUnwrapYearInComparison
         extends BasePlanTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", fromTypes());
+    private static final ResolvedFunction YEAR_DATE = FUNCTIONS.resolveFunction("year", fromTypes(DATE));
+    private static final ResolvedFunction YEAR_TIMESTAMP_3 = FUNCTIONS.resolveFunction("year", fromTypes(createTimestampType(3)));
+
     @Test
     public void testEquals()
     {
@@ -277,8 +284,8 @@ public class TestUnwrapYearInComparison
     @Test
     public void testNaN()
     {
-        testUnwrap("date", "year(a) = nan()", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new FunctionCall(QualifiedName.of("year"), ImmutableList.of(new SymbolReference("a")))), new Constant(BOOLEAN, null))));
-        testUnwrap("timestamp", "year(a) = nan()", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new FunctionCall(QualifiedName.of("year"), ImmutableList.of(new SymbolReference("a")))), new Constant(BOOLEAN, null))));
+        testUnwrap("date", "year(a) = nan()", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new FunctionCall(YEAR_DATE, ImmutableList.of(new SymbolReference("a")))), new Constant(BOOLEAN, null))));
+        testUnwrap("timestamp", "year(a) = nan()", new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new FunctionCall(YEAR_TIMESTAMP_3, ImmutableList.of(new SymbolReference("a")))), new Constant(BOOLEAN, null))));
     }
 
     @Test
@@ -335,7 +342,7 @@ public class TestUnwrapYearInComparison
 
     private void testUnwrap(String inputType, String inputPredicate, Expression expected)
     {
-        Expression antiOptimization = new ComparisonExpression(EQUAL, new FunctionCall(QualifiedName.of("random"), ImmutableList.of()), new Constant(DOUBLE, 42.0));
+        Expression antiOptimization = new ComparisonExpression(EQUAL, new FunctionCall(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 42.0));
         if (expected instanceof LogicalExpression logical && logical.getOperator() == OR) {
             expected = new LogicalExpression(OR, ImmutableList.<Expression>builder()
                     .addAll(logical.getTerms())

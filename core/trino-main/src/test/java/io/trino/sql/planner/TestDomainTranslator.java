@@ -180,7 +180,7 @@ public class TestDomainTranslator
     public void setup()
     {
         functionResolution = new TestingFunctionResolution();
-        domainTranslator = new DomainTranslator(functionResolution.getPlannerContext());
+        domainTranslator = new DomainTranslator();
     }
 
     @AfterAll
@@ -1992,10 +1992,10 @@ public class TestDomainTranslator
     public void testUnsupportedFunctions()
     {
         assertUnsupportedPredicate(new FunctionCall(
-                functionResolution.resolveFunction("length", fromTypes(VARCHAR)).toQualifiedName(),
+                functionResolution.resolveFunction("length", fromTypes(VARCHAR)),
                 ImmutableList.of(C_VARCHAR.toSymbolReference())));
         assertUnsupportedPredicate(new FunctionCall(
-                functionResolution.resolveFunction("replace", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
+                functionResolution.resolveFunction("replace", fromTypes(VARCHAR, VARCHAR)),
                 ImmutableList.of(C_VARCHAR.toSymbolReference(), stringLiteral("abc"))));
     }
 
@@ -2116,31 +2116,31 @@ public class TestDomainTranslator
     private FunctionCall like(Symbol symbol, String pattern)
     {
         return new FunctionCall(
-                functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)).toQualifiedName(),
+                functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)),
                 ImmutableList.of(symbol.toSymbolReference(), new Constant(LikePatternType.LIKE_PATTERN, LikePattern.compile(pattern, Optional.empty()))));
     }
 
     private FunctionCall like(Symbol symbol, Expression pattern, Expression escape)
     {
         FunctionCall likePattern = new FunctionCall(
-                functionResolution.resolveFunction(LIKE_PATTERN_FUNCTION_NAME, fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
+                functionResolution.resolveFunction(LIKE_PATTERN_FUNCTION_NAME, fromTypes(VARCHAR, VARCHAR)),
                 ImmutableList.of(symbol.toSymbolReference(), pattern, escape));
         return new FunctionCall(
-                functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)).toQualifiedName(),
+                functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)),
                 ImmutableList.of(symbol.toSymbolReference(), pattern, likePattern));
     }
 
     private FunctionCall like(Symbol symbol, String pattern, Character escape)
     {
         return new FunctionCall(
-                functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)).toQualifiedName(),
+                functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)),
                 ImmutableList.of(symbol.toSymbolReference(), new Constant(LikePatternType.LIKE_PATTERN, LikePattern.compile(pattern, Optional.of(escape)))));
     }
 
     private FunctionCall startsWith(Symbol symbol, Expression expression)
     {
         return new FunctionCall(
-                functionResolution.resolveFunction("starts_with", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
+                functionResolution.resolveFunction("starts_with", fromTypes(VARCHAR, VARCHAR)),
                 ImmutableList.of(symbol.toSymbolReference(), expression));
     }
 

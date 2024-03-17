@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static io.trino.sql.SqlFormatter.formatName;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -65,7 +64,7 @@ public final class ExpressionFormatter
         protected String visitCanonicalAggregation(CanonicalAggregation node, Void context)
         {
             StringBuilder builder = new StringBuilder();
-            builder.append(formatName(node.getResolvedFunction().toQualifiedName()))
+            builder.append(node.getResolvedFunction().getName().toString())
                     .append('(').append(joinExpressions(node.getArguments())).append(')');
             if (node.getMask().isPresent()) {
                 builder.append(" FILTER (WHERE ").append(process(node.getMask().get().toSymbolReference(), null)).append(')');
@@ -104,7 +103,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitFunctionCall(FunctionCall node, Void context)
         {
-            return formatName(node.getName()) + '(' + joinExpressions(node.getArguments()) + ')';
+            return node.getFunction().getName().toString() + '(' + joinExpressions(node.getArguments()) + ')';
         }
 
         @Override

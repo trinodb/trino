@@ -186,7 +186,7 @@ public class PredicatePushDown
             this.dynamicFiltering = dynamicFiltering;
 
             this.effectivePredicateExtractor = new EffectivePredicateExtractor(
-                    new DomainTranslator(plannerContext),
+                    new DomainTranslator(),
                     plannerContext,
                     useTableProperties && isPredicatePushdownUseTableProperties(session));
         }
@@ -249,15 +249,15 @@ public class PredicatePushDown
             // function is injective, but that's a rare case. The majority of window nodes are expected to be partitioned by
             // pre-projected symbols.
             Predicate<Expression> isSupported = conjunct ->
-                    isDeterministic(conjunct, metadata) &&
+                    isDeterministic(conjunct) &&
                             partitionSymbols.containsAll(extractUnique(conjunct));
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(isSupported));
 
-            PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(metadata, conjuncts.get(true)));
+            PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(conjuncts.get(true)));
 
             if (!conjuncts.get(false).isEmpty()) {
-                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(metadata, conjuncts.get(false)));
+                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(conjuncts.get(false)));
             }
 
             return rewrittenNode;
@@ -267,7 +267,7 @@ public class PredicatePushDown
         public PlanNode visitProject(ProjectNode node, RewriteContext<Expression> context)
         {
             Set<Symbol> deterministicSymbols = node.getAssignments().entrySet().stream()
-                    .filter(entry -> isDeterministic(entry.getValue(), metadata))
+                    .filter(entry -> isDeterministic(entry.getValue()))
                     .map(Map.Entry::getKey)
                     .collect(Collectors.toSet());
 
@@ -290,7 +290,7 @@ public class PredicatePushDown
                     .map(conjunct -> unwrapCasts(session, plannerContext, typeAnalyzer, types, conjunct))
                     .collect(Collectors.toList());
 
-            PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(metadata, inlinedDeterministicConjuncts));
+            PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(inlinedDeterministicConjuncts));
 
             // All deterministic conjuncts that contains non-inlining targets, and non-deterministic conjuncts,
             // if any, will be in the filter node.
@@ -298,7 +298,7 @@ public class PredicatePushDown
             nonInliningConjuncts.addAll(conjuncts.get(false));
 
             if (!nonInliningConjuncts.isEmpty()) {
-                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(metadata, nonInliningConjuncts));
+                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(nonInliningConjuncts));
             }
 
             return rewrittenNode;
@@ -333,11 +333,11 @@ public class PredicatePushDown
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(pushdownEligiblePredicate));
 
             // Push down conjuncts from the inherited predicate that apply to common grouping symbols
-            PlanNode rewrittenNode = context.defaultRewrite(node, inlineSymbols(commonGroupingSymbolMapping, combineConjuncts(metadata, conjuncts.get(true))));
+            PlanNode rewrittenNode = context.defaultRewrite(node, inlineSymbols(commonGroupingSymbolMapping, combineConjuncts(conjuncts.get(true))));
 
             // All other conjuncts, if any, will be in the filter node.
             if (!conjuncts.get(false).isEmpty()) {
-                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(metadata, conjuncts.get(false)));
+                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(conjuncts.get(false)));
             }
 
             return rewrittenNode;
@@ -350,10 +350,10 @@ public class PredicatePushDown
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream()
                     .collect(Collectors.partitioningBy(conjunct -> pushDownableSymbols.containsAll(extractUnique(conjunct))));
 
-            PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(metadata, conjuncts.get(true)));
+            PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(conjuncts.get(true)));
 
             if (!conjuncts.get(false).isEmpty()) {
-                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(metadata, conjuncts.get(false)));
+                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(conjuncts.get(false)));
             }
             return rewrittenNode;
         }
@@ -390,7 +390,7 @@ public class PredicatePushDown
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Expression> context)
         {
-            PlanNode rewrittenPlan = context.rewrite(node.getSource(), combineConjuncts(metadata, node.getPredicate(), context.get()));
+            PlanNode rewrittenPlan = context.rewrite(node.getSource(), combineConjuncts(node.getPredicate(), context.get()));
             if (!(rewrittenPlan instanceof FilterNode rewrittenFilterNode)) {
                 return rewrittenPlan;
             }
@@ -513,7 +513,7 @@ public class PredicatePushDown
             List<Expression> joinFilter = joinFilterBuilder.build();
             DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, joinFilter, session, idAllocator);
             Map<DynamicFilterId, Symbol> dynamicFilters = dynamicFiltersResult.getDynamicFilters();
-            leftPredicate = combineConjuncts(metadata, leftPredicate, combineConjuncts(metadata, dynamicFiltersResult.getPredicates()));
+            leftPredicate = combineConjuncts(leftPredicate, combineConjuncts(dynamicFiltersResult.getPredicates()));
 
             PlanNode leftSource;
             PlanNode rightSource;
@@ -527,7 +527,7 @@ public class PredicatePushDown
                 rightSource = context.rewrite(node.getRight(), rightPredicate);
             }
 
-            Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(metadata, joinFilter));
+            Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(joinFilter));
             if (newJoinFilter.get().equals(TRUE_LITERAL)) {
                 newJoinFilter = Optional.empty();
             }
@@ -537,7 +537,7 @@ public class PredicatePushDown
                 // inner join, so we plan execution as nested-loops-join followed by filter instead
                 // hash join.
                 // todo: remove the code when we have support for filter function in nested loop join
-                postJoinPredicate = combineConjuncts(metadata, postJoinPredicate, newJoinFilter.get());
+                postJoinPredicate = combineConjuncts(postJoinPredicate, newJoinFilter.get());
                 newJoinFilter = Optional.empty();
             }
 
@@ -819,7 +819,7 @@ public class PredicatePushDown
                 return Symbol.from(expression);
             }
 
-            return symbolAllocator.newSymbol(expression, typeAnalyzer.getType(session, symbolAllocator.getTypes(), expression));
+            return symbolAllocator.newSymbol(expression, typeAnalyzer.getType(symbolAllocator.getTypes(), expression));
         }
 
         private OuterJoinPushDownResult processLimitedOuterJoin(
@@ -840,36 +840,36 @@ public class PredicatePushDown
 
             // Strip out non-deterministic conjuncts
             extractConjuncts(inheritedPredicate).stream()
-                    .filter(expression -> !isDeterministic(expression, metadata))
+                    .filter(expression -> !isDeterministic(expression))
                     .forEach(postJoinConjuncts::add);
             inheritedPredicate = filterDeterministicConjuncts(metadata, inheritedPredicate);
 
             outerEffectivePredicate = filterDeterministicConjuncts(metadata, outerEffectivePredicate);
             innerEffectivePredicate = filterDeterministicConjuncts(metadata, innerEffectivePredicate);
             extractConjuncts(joinPredicate).stream()
-                    .filter(expression -> !isDeterministic(expression, metadata))
+                    .filter(expression -> !isDeterministic(expression))
                     .forEach(joinConjuncts::add);
             joinPredicate = filterDeterministicConjuncts(metadata, joinPredicate);
 
             // Generate equality inferences
-            EqualityInference inheritedInference = new EqualityInference(metadata, inheritedPredicate);
-            EqualityInference outerInference = new EqualityInference(metadata, inheritedPredicate, outerEffectivePredicate);
+            EqualityInference inheritedInference = new EqualityInference(inheritedPredicate);
+            EqualityInference outerInference = new EqualityInference(inheritedPredicate, outerEffectivePredicate);
 
             Set<Symbol> innerScope = ImmutableSet.copyOf(innerSymbols);
             Set<Symbol> outerScope = ImmutableSet.copyOf(outerSymbols);
 
             EqualityInference.EqualityPartition equalityPartition = inheritedInference.generateEqualitiesPartitionedBy(outerScope);
-            Expression outerOnlyInheritedEqualities = combineConjuncts(metadata, equalityPartition.getScopeEqualities());
-            EqualityInference potentialNullSymbolInference = new EqualityInference(metadata, outerOnlyInheritedEqualities, outerEffectivePredicate, innerEffectivePredicate, joinPredicate);
+            Expression outerOnlyInheritedEqualities = combineConjuncts(equalityPartition.getScopeEqualities());
+            EqualityInference potentialNullSymbolInference = new EqualityInference(outerOnlyInheritedEqualities, outerEffectivePredicate, innerEffectivePredicate, joinPredicate);
 
             // Push outer and join equalities into the inner side. For example:
             // SELECT * FROM nation LEFT OUTER JOIN region ON nation.regionkey = region.regionkey and nation.name = region.name WHERE nation.name = 'blah'
 
-            EqualityInference potentialNullSymbolInferenceWithoutInnerInferred = new EqualityInference(metadata, outerOnlyInheritedEqualities, outerEffectivePredicate, joinPredicate);
+            EqualityInference potentialNullSymbolInferenceWithoutInnerInferred = new EqualityInference(outerOnlyInheritedEqualities, outerEffectivePredicate, joinPredicate);
             innerPushdownConjuncts.addAll(potentialNullSymbolInferenceWithoutInnerInferred.generateEqualitiesPartitionedBy(innerScope).getScopeEqualities());
 
             // TODO: we can further improve simplifying the equalities by considering other relationships from the outer side
-            EqualityInference.EqualityPartition joinEqualityPartition = new EqualityInference(metadata, joinPredicate).generateEqualitiesPartitionedBy(innerScope);
+            EqualityInference.EqualityPartition joinEqualityPartition = new EqualityInference(joinPredicate).generateEqualitiesPartitionedBy(innerScope);
             innerPushdownConjuncts.addAll(joinEqualityPartition.getScopeEqualities());
             joinConjuncts.addAll(joinEqualityPartition.getScopeComplementEqualities())
                     .addAll(joinEqualityPartition.getScopeStraddlingEqualities());
@@ -880,7 +880,7 @@ public class PredicatePushDown
             postJoinConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
 
             // See if we can push inherited predicates down
-            EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate).forEach(conjunct -> {
+            EqualityInference.nonInferrableConjuncts(inheritedPredicate).forEach(conjunct -> {
                 Expression outerRewritten = outerInference.rewrite(conjunct, outerScope);
                 if (outerRewritten != null) {
                     outerPushdownConjuncts.add(outerRewritten);
@@ -897,13 +897,13 @@ public class PredicatePushDown
             });
 
             // See if we can push down any outer effective predicates to the inner side
-            EqualityInference.nonInferrableConjuncts(metadata, outerEffectivePredicate)
+            EqualityInference.nonInferrableConjuncts(outerEffectivePredicate)
                     .map(conjunct -> potentialNullSymbolInference.rewrite(conjunct, innerScope))
                     .filter(Objects::nonNull)
                     .forEach(innerPushdownConjuncts::add);
 
             // See if we can push down join predicates to the inner side
-            EqualityInference.nonInferrableConjuncts(metadata, joinPredicate).forEach(conjunct -> {
+            EqualityInference.nonInferrableConjuncts(joinPredicate).forEach(conjunct -> {
                 Expression innerRewritten = potentialNullSymbolInference.rewrite(conjunct, innerScope);
                 if (innerRewritten != null) {
                     innerPushdownConjuncts.add(innerRewritten);
@@ -913,10 +913,10 @@ public class PredicatePushDown
                 }
             });
 
-            return new OuterJoinPushDownResult(combineConjuncts(metadata, outerPushdownConjuncts.build()),
-                    combineConjuncts(metadata, innerPushdownConjuncts.build()),
-                    combineConjuncts(metadata, joinConjuncts.build()),
-                    combineConjuncts(metadata, postJoinConjuncts.build()));
+            return new OuterJoinPushDownResult(combineConjuncts(outerPushdownConjuncts.build()),
+                    combineConjuncts(innerPushdownConjuncts.build()),
+                    combineConjuncts(joinConjuncts.build()),
+                    combineConjuncts(postJoinConjuncts.build()));
         }
 
         private static class OuterJoinPushDownResult
@@ -972,12 +972,12 @@ public class PredicatePushDown
 
             // Strip out non-deterministic conjuncts
             extractConjuncts(inheritedPredicate).stream()
-                    .filter(deterministic -> !isDeterministic(deterministic, metadata))
+                    .filter(deterministic -> !isDeterministic(deterministic))
                     .forEach(joinConjuncts::add);
             inheritedPredicate = filterDeterministicConjuncts(metadata, inheritedPredicate);
 
             extractConjuncts(joinPredicate).stream()
-                    .filter(expression -> !isDeterministic(expression, metadata))
+                    .filter(expression -> !isDeterministic(expression))
                     .forEach(joinConjuncts::add);
             joinPredicate = filterDeterministicConjuncts(metadata, joinPredicate);
 
@@ -988,9 +988,9 @@ public class PredicatePushDown
             ImmutableSet<Symbol> rightScope = ImmutableSet.copyOf(rightSymbols);
 
             // Generate equality inferences
-            EqualityInference allInference = new EqualityInference(metadata, inheritedPredicate, leftEffectivePredicate, rightEffectivePredicate, joinPredicate);
-            EqualityInference allInferenceWithoutLeftInferred = new EqualityInference(metadata, inheritedPredicate, rightEffectivePredicate, joinPredicate);
-            EqualityInference allInferenceWithoutRightInferred = new EqualityInference(metadata, inheritedPredicate, leftEffectivePredicate, joinPredicate);
+            EqualityInference allInference = new EqualityInference(inheritedPredicate, leftEffectivePredicate, rightEffectivePredicate, joinPredicate);
+            EqualityInference allInferenceWithoutLeftInferred = new EqualityInference(inheritedPredicate, rightEffectivePredicate, joinPredicate);
+            EqualityInference allInferenceWithoutRightInferred = new EqualityInference(inheritedPredicate, leftEffectivePredicate, joinPredicate);
 
             // Add equalities from the inference back in
             leftPushDownConjuncts.addAll(allInferenceWithoutLeftInferred.generateEqualitiesPartitionedBy(leftScope).getScopeEqualities());
@@ -998,7 +998,7 @@ public class PredicatePushDown
             joinConjuncts.addAll(allInference.generateEqualitiesPartitionedBy(leftScope).getScopeStraddlingEqualities()); // scope straddling equalities get dropped in as part of the join predicate
 
             // Sort through conjuncts in inheritedPredicate that were not used for inference
-            EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate).forEach(conjunct -> {
+            EqualityInference.nonInferrableConjuncts(inheritedPredicate).forEach(conjunct -> {
                 Expression leftRewrittenConjunct = allInference.rewrite(conjunct, leftScope);
                 if (leftRewrittenConjunct != null) {
                     leftPushDownConjuncts.add(leftRewrittenConjunct);
@@ -1061,19 +1061,19 @@ public class PredicatePushDown
             });
 
             // See if we can push the right effective predicate to the left side
-            EqualityInference.nonInferrableConjuncts(metadata, rightEffectivePredicate)
+            EqualityInference.nonInferrableConjuncts(rightEffectivePredicate)
                     .map(conjunct -> allInference.rewrite(conjunct, leftScope))
                     .filter(Objects::nonNull)
                     .forEach(leftPushDownConjuncts::add);
 
             // See if we can push the left effective predicate to the right side
-            EqualityInference.nonInferrableConjuncts(metadata, leftEffectivePredicate)
+            EqualityInference.nonInferrableConjuncts(leftEffectivePredicate)
                     .map(conjunct -> allInference.rewrite(conjunct, rightScope))
                     .filter(Objects::nonNull)
                     .forEach(rightPushDownConjuncts::add);
 
             // See if we can push any parts of the join predicates to either side
-            EqualityInference.nonInferrableConjuncts(metadata, joinPredicate).forEach(conjunct -> {
+            EqualityInference.nonInferrableConjuncts(joinPredicate).forEach(conjunct -> {
                 Expression leftRewritten = allInference.rewrite(conjunct, leftScope);
                 if (leftRewritten != null) {
                     leftPushDownConjuncts.add(leftRewritten);
@@ -1090,9 +1090,9 @@ public class PredicatePushDown
             });
 
             return new InnerJoinPushDownResult(
-                    combineConjuncts(metadata, leftPushDownConjuncts.build()),
-                    combineConjuncts(metadata, rightPushDownConjuncts.build()),
-                    combineConjuncts(metadata, joinConjuncts.build()),
+                    combineConjuncts(leftPushDownConjuncts.build()),
+                    combineConjuncts(rightPushDownConjuncts.build()),
+                    combineConjuncts(joinConjuncts.build()),
                     TRUE_LITERAL);
         }
 
@@ -1154,7 +1154,7 @@ public class PredicatePushDown
                 builder.add(equiJoinClause.toExpression());
             }
             joinNode.getFilter().ifPresent(builder::add);
-            return combineConjuncts(metadata, builder.build());
+            return combineConjuncts(builder.build());
         }
 
         private JoinNode tryNormalizeToOuterToInnerJoin(JoinNode node, Expression inheritedPredicate)
@@ -1233,7 +1233,7 @@ public class PredicatePushDown
         {
             Set<Symbol> innerSymbols = ImmutableSet.copyOf(innerSymbolsForOuterJoin);
             for (Expression conjunct : extractConjuncts(inheritedPredicate)) {
-                if (isDeterministic(conjunct, metadata)) {
+                if (isDeterministic(conjunct)) {
                     // Ignore a conjunct for this test if we cannot deterministically get responses from it
                     Object response = nullInputEvaluator(innerSymbols, conjunct);
                     if (response == null || Boolean.FALSE.equals(response)) {
@@ -1250,7 +1250,7 @@ public class PredicatePushDown
         // Temporary implementation for joins because the SimplifyExpressions optimizers cannot run properly on join clauses
         private Expression simplifyExpression(Expression expression)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(symbolAllocator.getTypes(), expression);
             IrExpressionInterpreter optimizer = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes);
             Object object = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
 
@@ -1269,7 +1269,7 @@ public class PredicatePushDown
          */
         private Object nullInputEvaluator(Collection<Symbol> nullSymbols, Expression expression)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(symbolAllocator.getTypes(), expression);
             return new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes)
                     .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
         }
@@ -1289,8 +1289,8 @@ public class PredicatePushDown
                 }
                 comparison = (ComparisonExpression) notExpression.getValue();
                 Set<Type> expressionTypes = ImmutableSet.of(
-                        typeAnalyzer.getType(session, types, comparison.getLeft()),
-                        typeAnalyzer.getType(session, types, comparison.getRight()));
+                        typeAnalyzer.getType(types, comparison.getLeft()),
+                        typeAnalyzer.getType(types, comparison.getRight()));
                 // Dynamic filtering is not supported with IS NOT DISTINCT FROM clause on REAL or DOUBLE types to avoid dealing with NaN values
                 if (expressionTypes.contains(REAL) || expressionTypes.contains(DOUBLE)) {
                     return false;
@@ -1311,7 +1311,7 @@ public class PredicatePushDown
         private boolean joinComparisonExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols, Set<ComparisonExpression.Operator> operators)
         {
             // At this point in time, our join predicates need to be deterministic
-            if (expression instanceof ComparisonExpression comparison && isDeterministic(expression, metadata)) {
+            if (expression instanceof ComparisonExpression comparison && isDeterministic(expression)) {
                 if (operators.contains(comparison.getOperator())) {
                     Set<Symbol> symbols1 = extractUnique(comparison.getLeft());
                     Set<Symbol> symbols2 = extractUnique(comparison.getRight());
@@ -1347,8 +1347,8 @@ public class PredicatePushDown
 
             // Push inheritedPredicates down to the source if they don't involve the semi join output
             ImmutableSet<Symbol> sourceScope = ImmutableSet.copyOf(node.getSource().getOutputSymbols());
-            EqualityInference inheritedInference = new EqualityInference(metadata, inheritedPredicate);
-            EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate).forEach(conjunct -> {
+            EqualityInference inheritedInference = new EqualityInference(inheritedPredicate);
+            EqualityInference.nonInferrableConjuncts(inheritedPredicate).forEach(conjunct -> {
                 Expression rewrittenConjunct = inheritedInference.rewrite(conjunct, sourceScope);
                 // Since each source row is reflected exactly once in the output, ok to push non-deterministic predicates down
                 if (rewrittenConjunct != null) {
@@ -1365,7 +1365,7 @@ public class PredicatePushDown
             postJoinConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
             postJoinConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
 
-            PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(metadata, sourceConjuncts));
+            PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(sourceConjuncts));
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource()) {
@@ -1382,7 +1382,7 @@ public class PredicatePushDown
                         Optional.empty());
             }
             if (!postJoinConjuncts.isEmpty()) {
-                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(metadata, postJoinConjuncts));
+                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postJoinConjuncts));
             }
             return output;
         }
@@ -1406,13 +1406,13 @@ public class PredicatePushDown
             List<Expression> postJoinConjuncts = new ArrayList<>();
 
             // Generate equality inferences
-            EqualityInference allInference = new EqualityInference(metadata, deterministicInheritedPredicate, sourceEffectivePredicate, filteringSourceEffectivePredicate, joinExpression);
-            EqualityInference allInferenceWithoutSourceInferred = new EqualityInference(metadata, deterministicInheritedPredicate, filteringSourceEffectivePredicate, joinExpression);
-            EqualityInference allInferenceWithoutFilteringSourceInferred = new EqualityInference(metadata, deterministicInheritedPredicate, sourceEffectivePredicate, joinExpression);
+            EqualityInference allInference = new EqualityInference(deterministicInheritedPredicate, sourceEffectivePredicate, filteringSourceEffectivePredicate, joinExpression);
+            EqualityInference allInferenceWithoutSourceInferred = new EqualityInference(deterministicInheritedPredicate, filteringSourceEffectivePredicate, joinExpression);
+            EqualityInference allInferenceWithoutFilteringSourceInferred = new EqualityInference(deterministicInheritedPredicate, sourceEffectivePredicate, joinExpression);
 
             // Push inheritedPredicates down to the source if they don't involve the semi join output
             Set<Symbol> sourceScope = ImmutableSet.copyOf(sourceSymbols);
-            EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate).forEach(conjunct -> {
+            EqualityInference.nonInferrableConjuncts(inheritedPredicate).forEach(conjunct -> {
                 Expression rewrittenConjunct = allInference.rewrite(conjunct, sourceScope);
                 // Since each source row is reflected exactly once in the output, ok to push non-deterministic predicates down
                 if (rewrittenConjunct != null) {
@@ -1425,7 +1425,7 @@ public class PredicatePushDown
 
             // Push inheritedPredicates down to the filtering source if possible
             Set<Symbol> filterScope = ImmutableSet.copyOf(filteringSourceSymbols);
-            EqualityInference.nonInferrableConjuncts(metadata, deterministicInheritedPredicate).forEach(conjunct -> {
+            EqualityInference.nonInferrableConjuncts(deterministicInheritedPredicate).forEach(conjunct -> {
                 Expression rewrittenConjunct = allInference.rewrite(conjunct, filterScope);
                 // We cannot push non-deterministic predicates to filtering side. Each filtering side row have to be
                 // logically reevaluated for each source row.
@@ -1436,13 +1436,13 @@ public class PredicatePushDown
 
             // move effective predicate conjuncts source <-> filter
             // See if we can push the filtering source effective predicate to the source side
-            EqualityInference.nonInferrableConjuncts(metadata, filteringSourceEffectivePredicate)
+            EqualityInference.nonInferrableConjuncts(filteringSourceEffectivePredicate)
                     .map(conjunct -> allInference.rewrite(conjunct, sourceScope))
                     .filter(Objects::nonNull)
                     .forEach(sourceConjuncts::add);
 
             // See if we can push the source effective predicate to the filtering source side
-            EqualityInference.nonInferrableConjuncts(metadata, sourceEffectivePredicate)
+            EqualityInference.nonInferrableConjuncts(sourceEffectivePredicate)
                     .map(conjunct -> allInference.rewrite(conjunct, filterScope))
                     .filter(Objects::nonNull)
                     .forEach(filteringSourceConjuncts::add);
@@ -1464,8 +1464,8 @@ public class PredicatePushDown
                         EQUAL));
             }
 
-            PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(metadata, sourceConjuncts));
-            PlanNode rewrittenFilteringSource = context.rewrite(node.getFilteringSource(), combineConjuncts(metadata, filteringSourceConjuncts));
+            PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(sourceConjuncts));
+            PlanNode rewrittenFilteringSource = context.rewrite(node.getFilteringSource(), combineConjuncts(filteringSourceConjuncts));
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource() || !dynamicFilterId.equals(node.getDynamicFilterId())) {
@@ -1482,7 +1482,7 @@ public class PredicatePushDown
                         dynamicFilterId);
             }
             if (!postJoinConjuncts.isEmpty()) {
-                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(metadata, postJoinConjuncts));
+                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postJoinConjuncts));
             }
             return output;
         }
@@ -1498,20 +1498,20 @@ public class PredicatePushDown
 
             Expression inheritedPredicate = context.get();
 
-            EqualityInference equalityInference = new EqualityInference(metadata, inheritedPredicate);
+            EqualityInference equalityInference = new EqualityInference(inheritedPredicate);
 
             List<Expression> pushdownConjuncts = new ArrayList<>();
             List<Expression> postAggregationConjuncts = new ArrayList<>();
 
             // Strip out non-deterministic conjuncts
             extractConjuncts(inheritedPredicate).stream()
-                    .filter(expression -> !isDeterministic(expression, metadata))
+                    .filter(expression -> !isDeterministic(expression))
                     .forEach(postAggregationConjuncts::add);
             inheritedPredicate = filterDeterministicConjuncts(metadata, inheritedPredicate);
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             Set<Symbol> groupingKeys = ImmutableSet.copyOf(node.getGroupingKeys());
-            EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate).forEach(conjunct -> {
+            EqualityInference.nonInferrableConjuncts(inheritedPredicate).forEach(conjunct -> {
                 if (node.getGroupIdSymbol().isPresent() && extractUnique(conjunct).contains(node.getGroupIdSymbol().get())) {
                     // aggregation operator synthesizes outputs for group ids corresponding to the global grouping set (i.e., ()), so we
                     // need to preserve any predicates that evaluate the group id to run after the aggregation
@@ -1536,7 +1536,7 @@ public class PredicatePushDown
             postAggregationConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
             postAggregationConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
 
-            PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(metadata, pushdownConjuncts));
+            PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(pushdownConjuncts));
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource()) {
@@ -1546,7 +1546,7 @@ public class PredicatePushDown
                         .build();
             }
             if (!postAggregationConjuncts.isEmpty()) {
-                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(metadata, postAggregationConjuncts));
+                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postAggregationConjuncts));
             }
             return output;
         }
@@ -1560,20 +1560,20 @@ public class PredicatePushDown
             }
 
             //TODO for LEFT or INNER join type, push down UnnestNode's filter on replicate symbols
-            EqualityInference equalityInference = new EqualityInference(metadata, inheritedPredicate);
+            EqualityInference equalityInference = new EqualityInference(inheritedPredicate);
 
             List<Expression> pushdownConjuncts = new ArrayList<>();
             List<Expression> postUnnestConjuncts = new ArrayList<>();
 
             // Strip out non-deterministic conjuncts
             extractConjuncts(inheritedPredicate).stream()
-                    .filter(expression -> !isDeterministic(expression, metadata))
+                    .filter(expression -> !isDeterministic(expression))
                     .forEach(postUnnestConjuncts::add);
             inheritedPredicate = filterDeterministicConjuncts(metadata, inheritedPredicate);
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             Set<Symbol> replicatedSymbols = ImmutableSet.copyOf(node.getReplicateSymbols());
-            EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate).forEach(conjunct -> {
+            EqualityInference.nonInferrableConjuncts(inheritedPredicate).forEach(conjunct -> {
                 Expression rewrittenConjunct = equalityInference.rewrite(conjunct, replicatedSymbols);
                 if (rewrittenConjunct != null) {
                     pushdownConjuncts.add(rewrittenConjunct);
@@ -1589,14 +1589,14 @@ public class PredicatePushDown
             postUnnestConjuncts.addAll(equalityPartition.getScopeComplementEqualities());
             postUnnestConjuncts.addAll(equalityPartition.getScopeStraddlingEqualities());
 
-            PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(metadata, pushdownConjuncts));
+            PlanNode rewrittenSource = context.rewrite(node.getSource(), combineConjuncts(pushdownConjuncts));
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource()) {
                 output = new UnnestNode(node.getId(), rewrittenSource, node.getReplicateSymbols(), node.getMappings(), node.getOrdinalitySymbol(), node.getJoinType());
             }
             if (!postUnnestConjuncts.isEmpty()) {
-                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(metadata, postUnnestConjuncts));
+                output = new FilterNode(idAllocator.getNextId(), output, combineConjuncts(postUnnestConjuncts));
             }
             return output;
         }
