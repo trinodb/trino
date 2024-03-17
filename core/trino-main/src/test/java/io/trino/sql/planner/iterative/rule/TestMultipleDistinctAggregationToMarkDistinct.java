@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -111,8 +111,8 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                                         Assignments.builder()
                                                 .putIdentity(p.symbol("input1"))
                                                 .putIdentity(p.symbol("input2"))
-                                                .put(p.symbol("filter1"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input2"), GenericLiteral.constant(INTEGER, 0L)))
-                                                .put(p.symbol("filter2"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input1"), GenericLiteral.constant(INTEGER, 0L)))
+                                                .put(p.symbol("filter1"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input2"), new Constant(INTEGER, 0L)))
+                                                .put(p.symbol("filter2"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input1"), new Constant(INTEGER, 0L)))
                                                 .build(),
                                         p.values(
                                                 p.symbol("input1"),
@@ -129,8 +129,8 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                                         Assignments.builder()
                                                 .putIdentity(p.symbol("input1"))
                                                 .putIdentity(p.symbol("input2"))
-                                                .put(p.symbol("filter1"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input2"), GenericLiteral.constant(INTEGER, 0L)))
-                                                .put(p.symbol("filter2"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input1"), GenericLiteral.constant(INTEGER, 0L)))
+                                                .put(p.symbol("filter1"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input2"), new Constant(INTEGER, 0L)))
+                                                .put(p.symbol("filter2"), new ComparisonExpression(GREATER_THAN, new SymbolReference("input1"), new Constant(INTEGER, 0L)))
                                                 .build(),
                                         p.values(
                                                 p.symbol("input1"),

@@ -26,9 +26,9 @@ import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.SymbolReference;
@@ -95,10 +95,10 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        protected SymbolStatsEstimate visitGenericLiteral(GenericLiteral node, Void context)
+        protected SymbolStatsEstimate visitConstant(Constant node, Void context)
         {
             Type type = node.getType();
-            Object value = node.getRawValue();
+            Object value = node.getValue();
             if (value == null) {
                 return nullStatsEstimate();
             }

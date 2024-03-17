@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -73,12 +73,12 @@ public class TestRemoveRedundantLimit
                         p.limit(
                                 0,
                                 p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 5L)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 5L)),
                                         p.values(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 ImmutableList.of(
-                                                        ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 10L)),
-                                                        ImmutableList.of(GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(INTEGER, 11L)))))))
+                                                        ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 10L)),
+                                                        ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 11L)))))))
                 // TODO: verify contents
                 .matches(values(ImmutableMap.of()));
     }
@@ -107,12 +107,12 @@ public class TestRemoveRedundantLimit
                         true,
                         ImmutableList.of(p.symbol("a")),
                         p.filter(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), GenericLiteral.constant(INTEGER, 5L)),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 5L)),
                                 p.values(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of(
-                                                ImmutableList.of(GenericLiteral.constant(INTEGER, 1L), GenericLiteral.constant(INTEGER, 10L)),
-                                                ImmutableList.of(GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(INTEGER, 11L)))))))
+                                                ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 10L)),
+                                                ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 11L)))))))
                 .matches(
                         node(FilterNode.class,
                                         node(ValuesNode.class)));

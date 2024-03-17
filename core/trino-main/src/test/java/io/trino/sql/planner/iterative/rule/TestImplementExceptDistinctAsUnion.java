@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -61,12 +61,12 @@ public class TestImplementExceptDistinctAsUnion
                                                                 ImmutableMap.of(
                                                                         "leftValue", expression(new SymbolReference("a")),
                                                                         "left_marker_1", expression(TRUE_LITERAL),
-                                                                        "left_marker_2", expression(GenericLiteral.constant(BOOLEAN, null))),
+                                                                        "left_marker_2", expression(new Constant(BOOLEAN, null))),
                                                                 values("a")),
                                                         project(
                                                                 ImmutableMap.of(
                                                                         "rightValue", expression(new SymbolReference("b")),
-                                                                        "right_marker_1", expression(GenericLiteral.constant(BOOLEAN, null)),
+                                                                        "right_marker_1", expression(new Constant(BOOLEAN, null)),
                                                                         "right_marker_2", expression(TRUE_LITERAL)),
                                                                 values("b")))))));
     }

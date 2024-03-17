@@ -26,7 +26,7 @@ import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
@@ -346,7 +346,7 @@ public final class SqlRoutinePlanner
 
             io.trino.sql.ir.Expression optimized = value instanceof io.trino.sql.ir.Expression optimizedExpression ?
                     optimizedExpression :
-                    GenericLiteral.constant(types.get(io.trino.sql.ir.NodeRef.of(lambdaCaptureDesugared)), value);
+                    new Constant(types.get(io.trino.sql.ir.NodeRef.of(lambdaCaptureDesugared)), value);
 
             // Analyze again after optimization
             types = analyzer.getTypes(session, typeProvider, optimized);

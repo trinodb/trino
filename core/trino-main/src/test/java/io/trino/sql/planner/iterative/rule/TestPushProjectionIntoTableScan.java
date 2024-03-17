@@ -35,16 +35,15 @@ import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
@@ -107,7 +106,7 @@ public class TestPushProjectionIntoTableScan
                     .on(p -> {
                         Symbol symbol = p.symbol(columnName, columnType);
                         return p.project(
-                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new SubscriptExpression(symbol.toSymbolReference(), GenericLiteral.constant(INTEGER, 1L))),
+                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new SubscriptExpression(symbol.toSymbolReference(), new Constant(INTEGER, 1L))),
                                 p.tableScan(
                                         ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE),
                                         ImmutableList.of(symbol),
@@ -146,11 +145,11 @@ public class TestPushProjectionIntoTableScan
             // Prepare project node assignments
             ImmutableMap<Symbol, Expression> inputProjections = ImmutableMap.<Symbol, Expression>builder()
                     .put(identity, baseColumn.toSymbolReference())
-                    .put(dereference, new SubscriptExpression(baseColumn.toSymbolReference(), GenericLiteral.constant(INTEGER, 1L)))
-                    .put(constant, GenericLiteral.constant(INTEGER, 5L))
+                    .put(dereference, new SubscriptExpression(baseColumn.toSymbolReference(), new Constant(INTEGER, 1L)))
+                    .put(constant, new Constant(INTEGER, 5L))
                     .put(call, new FunctionCall(
                             ruleTester.getMetadata().resolveBuiltinFunction("starts_with", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
-                            ImmutableList.of(GenericLiteral.constant(VARCHAR, Slices.utf8Slice("abc")), GenericLiteral.constant(VARCHAR, Slices.utf8Slice("ab")))))
+                            ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("abc")), new Constant(VARCHAR, Slices.utf8Slice("ab")))))
                     .buildOrThrow();
 
             // Compute expected symbols after applyProjection
@@ -305,7 +304,7 @@ public class TestPushProjectionIntoTableScan
             else if (projection instanceof Call) {
                 variablePrefix = "projected_call_";
             }
-            else if (projection instanceof Constant) {
+            else if (projection instanceof io.trino.spi.expression.Constant) {
                 throw new UnsupportedOperationException("constant expression should not be pushed to the connector");
             }
             else {

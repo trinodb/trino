@@ -37,9 +37,9 @@ import io.trino.sql.ir.BindExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
@@ -324,7 +324,7 @@ public class IrTypeAnalyzer
             return setExpressionType(
                     node,
                     switch (baseType) {
-                        case RowType rowType -> rowType.getFields().get((int) (long) ((GenericLiteral) node.getIndex()).getRawValue() - 1).getType();
+                        case RowType rowType -> rowType.getFields().get((int) (long) ((Constant) node.getIndex()).getValue() - 1).getType();
                         case ArrayType arrayType -> arrayType.getElementType();
                         case MapType mapType -> mapType.getValueType();
                         default -> throw new IllegalStateException("Unexpected type: " + baseType);
@@ -347,7 +347,7 @@ public class IrTypeAnalyzer
         }
 
         @Override
-        protected Type visitGenericLiteral(GenericLiteral node, Context context)
+        protected Type visitConstant(Constant node, Context context)
         {
             return setExpressionType(node, node.getType());
         }

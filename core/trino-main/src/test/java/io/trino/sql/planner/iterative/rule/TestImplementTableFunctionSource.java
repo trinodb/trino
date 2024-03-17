@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
@@ -280,12 +280,12 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, null)))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Constant(BIGINT, null))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Constant(BIGINT, null)))),
                                 project(// append helper symbols for joined nodes
                                         ImmutableMap.of(
-                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
-                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size")))),
+                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
+                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size")))),
                                         join(// join nodes using helper symbols
                                                 FULL,
                                                 joinBuilder -> joinBuilder
@@ -293,10 +293,10 @@ public class TestImplementTableFunctionSource
                                                                 new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number")),
                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_partition_size")),
-                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new Constant(BIGINT, 1L)))),
                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("input_2_row_number"), new SymbolReference("input_1_partition_size")),
-                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, 1L)))))))
+                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new Constant(BIGINT, 1L)))))))
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -372,13 +372,13 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of("combined_row_number_1_2_3"), ImmutableMap.of("combined_row_number_1_2_3", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_3_row_number"), GenericLiteral.constant(BIGINT, null)))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_1_row_number"), new Constant(BIGINT, null))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_2_row_number"), new Constant(BIGINT, null))),
+                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_3_row_number"), new Constant(BIGINT, null)))),
                                 project(// append helper symbols for joined nodes
                                         ImmutableMap.of(
-                                                "combined_row_number_1_2_3", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_row_number_1_2"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_3_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("combined_row_number_1_2"), new SymbolReference("input_3_row_number"))),
-                                                "combined_partition_size_1_2_3", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_partition_size_1_2"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_3_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("combined_partition_size_1_2"), new SymbolReference("input_3_partition_size")))),
+                                                "combined_row_number_1_2_3", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_row_number_1_2"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_3_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("combined_row_number_1_2"), new SymbolReference("input_3_row_number"))),
+                                                "combined_partition_size_1_2_3", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_partition_size_1_2"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_3_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("combined_partition_size_1_2"), new SymbolReference("input_3_partition_size")))),
                                         join(// join nodes using helper symbols
                                                 FULL,
                                                 joinBuilder -> joinBuilder
@@ -386,14 +386,14 @@ public class TestImplementTableFunctionSource
                                                                 new ComparisonExpression(EQUAL, new SymbolReference("combined_row_number_1_2"), new SymbolReference("input_3_row_number")),
                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("combined_row_number_1_2"), new SymbolReference("input_3_partition_size")),
-                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new Constant(BIGINT, 1L)))),
                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("input_3_row_number"), new SymbolReference("combined_partition_size_1_2")),
-                                                                        new ComparisonExpression(EQUAL, new SymbolReference("combined_row_number_1_2"), GenericLiteral.constant(BIGINT, 1L)))))))
+                                                                        new ComparisonExpression(EQUAL, new SymbolReference("combined_row_number_1_2"), new Constant(BIGINT, 1L)))))))
                                                         .left(project(// append helper symbols for joined nodes
                                                                 ImmutableMap.of(
-                                                                        "combined_row_number_1_2", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
-                                                                        "combined_partition_size_1_2", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size")))),
+                                                                        "combined_row_number_1_2", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
+                                                                        "combined_partition_size_1_2", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size")))),
                                                                 join(// join nodes using helper symbols
                                                                         FULL,
                                                                         nestedJoinBuilder -> nestedJoinBuilder
@@ -401,10 +401,10 @@ public class TestImplementTableFunctionSource
                                                                                         new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number")),
                                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_partition_size")),
-                                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new Constant(BIGINT, 1L)))),
                                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_2_row_number"), new SymbolReference("input_1_partition_size")),
-                                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, 1L)))))))
+                                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new Constant(BIGINT, 1L)))))))
                                                                                 .left(window(// append helper symbols for source input_1
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -475,12 +475,12 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, null)))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Constant(BIGINT, null))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Constant(BIGINT, null)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
-                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
-                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
+                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
+                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
                                                 "combined_partition_column", expression(new CoalesceExpression(new SymbolReference("c"), new SymbolReference("e")))),
                                         join(// co-partition nodes
                                                 LEFT,
@@ -491,10 +491,10 @@ public class TestImplementTableFunctionSource
                                                                         new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number")),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_partition_size")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new Constant(BIGINT, 1L)))),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_2_row_number"), new SymbolReference("input_1_partition_size")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, 1L)))))))))
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new Constant(BIGINT, 1L)))))))))
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -555,12 +555,12 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, null)))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Constant(BIGINT, null))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Constant(BIGINT, null)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
-                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
-                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
+                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
+                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
                                                 "combined_partition_column", expression(new CoalesceExpression(new SymbolReference("c"), new SymbolReference("d")))),
                                         join(// co-partition nodes
                                                 INNER,
@@ -571,10 +571,10 @@ public class TestImplementTableFunctionSource
                                                                         new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number")),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_partition_size")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new Constant(BIGINT, 1L)))),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_2_row_number"), new SymbolReference("input_1_partition_size")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, 1L)))))))))
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new Constant(BIGINT, 1L)))))))))
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -631,12 +631,12 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, null)))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Constant(BIGINT, null))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Constant(BIGINT, null)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
-                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
-                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
+                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
+                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
                                                 "combined_partition_column", expression(new CoalesceExpression(new SymbolReference("c"), new SymbolReference("d")))),
                                         join(// co-partition nodes
                                                 LEFT,
@@ -647,10 +647,10 @@ public class TestImplementTableFunctionSource
                                                                         new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number")),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_partition_size")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new Constant(BIGINT, 1L)))),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_2_row_number"), new SymbolReference("input_1_partition_size")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, 1L)))))))))
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new Constant(BIGINT, 1L)))))))))
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -707,12 +707,12 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, null)))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Constant(BIGINT, null))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Constant(BIGINT, null)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
-                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_2_row_number"), new SymbolReference("input_1_row_number"))),
-                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_2_partition_size"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_1_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_2_partition_size"), new SymbolReference("input_1_partition_size"))),
+                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_2_row_number"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_1_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("input_2_row_number"), new SymbolReference("input_1_row_number"))),
+                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_2_partition_size"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_1_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("input_2_partition_size"), new SymbolReference("input_1_partition_size"))),
                                                 "combined_partition_column", expression(new CoalesceExpression(new SymbolReference("d"), new SymbolReference("c")))),
                                         join(// co-partition nodes
                                                 LEFT,
@@ -723,10 +723,10 @@ public class TestImplementTableFunctionSource
                                                                         new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("input_1_row_number")),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_2_row_number"), new SymbolReference("input_1_partition_size")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new Constant(BIGINT, 1L)))),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_partition_size")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, 1L)))))))))
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new Constant(BIGINT, 1L)))))))))
                                                         .left(window(// append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
@@ -783,12 +783,12 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, null)))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Constant(BIGINT, null))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Constant(BIGINT, null)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
-                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
-                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
+                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
+                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
                                                 "combined_partition_column", expression(new CoalesceExpression(new SymbolReference("c"), new SymbolReference("d")))),
                                         join(// co-partition nodes
                                                 FULL,
@@ -799,10 +799,10 @@ public class TestImplementTableFunctionSource
                                                                         new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number")),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_partition_size")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new Constant(BIGINT, 1L)))),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_2_row_number"), new SymbolReference("input_1_partition_size")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, 1L)))))))))
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new Constant(BIGINT, 1L)))))))))
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -872,13 +872,13 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column_1_2_3"), ImmutableList.of("combined_row_number_1_2_3"), ImmutableMap.of("combined_row_number_1_2_3", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_3_row_number"), GenericLiteral.constant(BIGINT, null)))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_1_row_number"), new Constant(BIGINT, null))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_2_row_number"), new Constant(BIGINT, null))),
+                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_1_2_3")), new SymbolReference("input_3_row_number"), new Constant(BIGINT, null)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
-                                                "combined_row_number_1_2_3", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_row_number_1_2"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_3_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("combined_row_number_1_2"), new SymbolReference("input_3_row_number"))),
-                                                "combined_partition_size_1_2_3", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_partition_size_1_2"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_3_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("combined_partition_size_1_2"), new SymbolReference("input_3_partition_size"))),
+                                                "combined_row_number_1_2_3", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_row_number_1_2"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_3_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("combined_row_number_1_2"), new SymbolReference("input_3_row_number"))),
+                                                "combined_partition_size_1_2_3", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_partition_size_1_2"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_3_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("combined_partition_size_1_2"), new SymbolReference("input_3_partition_size"))),
                                                 "combined_partition_column_1_2_3", expression(new CoalesceExpression(new SymbolReference("combined_partition_column_1_2"), new SymbolReference("e")))),
                                         join(// co-partition nodes
                                                 LEFT,
@@ -889,14 +889,14 @@ public class TestImplementTableFunctionSource
                                                                         new ComparisonExpression(EQUAL, new SymbolReference("combined_row_number_1_2"), new SymbolReference("input_3_row_number")),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("combined_row_number_1_2"), new SymbolReference("input_3_partition_size")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new Constant(BIGINT, 1L)))),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_3_row_number"), new SymbolReference("combined_partition_size_1_2")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("combined_row_number_1_2"), GenericLiteral.constant(BIGINT, 1L)))))))))
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("combined_row_number_1_2"), new Constant(BIGINT, 1L)))))))))
                                                         .left(project(// append helper and partitioning symbols for co-partitioned nodes
                                                                 ImmutableMap.of(
-                                                                        "combined_row_number_1_2", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
-                                                                        "combined_partition_size_1_2", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
+                                                                        "combined_row_number_1_2", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
+                                                                        "combined_partition_size_1_2", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
                                                                         "combined_partition_column_1_2", expression(new CoalesceExpression(new SymbolReference("c"), new SymbolReference("d")))),
                                                                 join(// co-partition nodes
                                                                         INNER,
@@ -907,10 +907,10 @@ public class TestImplementTableFunctionSource
                                                                                                 new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number")),
                                                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_partition_size")),
-                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new Constant(BIGINT, 1L)))),
                                                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("input_2_row_number"), new SymbolReference("input_1_partition_size")),
-                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, 1L)))))))))
+                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new Constant(BIGINT, 1L)))))))))
                                                                                 .left(window(// append helper symbols for source input_1
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -1001,14 +1001,14 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column_1_2", "combined_partition_column_3_4"), ImmutableList.of("combined_row_number_1_2_3_4"), ImmutableMap.of("combined_row_number_1_2_3_4", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_3_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_4", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_4_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_4_row_number"), GenericLiteral.constant(BIGINT, null)))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_1_row_number"), new Constant(BIGINT, null))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_2_row_number"), new Constant(BIGINT, null))),
+                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_3_row_number"), new Constant(BIGINT, null))),
+                                        "marker_4", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_4_row_number"), new SymbolReference("combined_row_number_1_2_3_4")), new SymbolReference("input_4_row_number"), new Constant(BIGINT, null)))),
                                 project(// append helper symbols for joined nodes
                                         ImmutableMap.of(
-                                                "combined_row_number_1_2_3_4", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_row_number_1_2"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("combined_row_number_3_4"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("combined_row_number_1_2"), new SymbolReference("combined_row_number_3_4"))),
-                                                "combined_partition_size_1_2_3_4", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_partition_size_1_2"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("combined_partition_size_3_4"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("combined_partition_size_1_2"), new SymbolReference("combined_partition_size_3_4")))),
+                                                "combined_row_number_1_2_3_4", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_row_number_1_2"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("combined_row_number_3_4"), new Constant(BIGINT, -1L))), new SymbolReference("combined_row_number_1_2"), new SymbolReference("combined_row_number_3_4"))),
+                                                "combined_partition_size_1_2_3_4", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_partition_size_1_2"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("combined_partition_size_3_4"), new Constant(BIGINT, -1L))), new SymbolReference("combined_partition_size_1_2"), new SymbolReference("combined_partition_size_3_4")))),
                                         join(// join nodes using helper symbols
                                                 LEFT,
                                                 joinBuilder -> joinBuilder
@@ -1016,14 +1016,14 @@ public class TestImplementTableFunctionSource
                                                                 new ComparisonExpression(EQUAL, new SymbolReference("combined_row_number_1_2"), new SymbolReference("combined_row_number_3_4")),
                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("combined_row_number_1_2"), new SymbolReference("combined_partition_size_3_4")),
-                                                                        new ComparisonExpression(EQUAL, new SymbolReference("combined_row_number_3_4"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                        new ComparisonExpression(EQUAL, new SymbolReference("combined_row_number_3_4"), new Constant(BIGINT, 1L)))),
                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("combined_row_number_3_4"), new SymbolReference("combined_partition_size_1_2")),
-                                                                        new ComparisonExpression(EQUAL, new SymbolReference("combined_row_number_1_2"), GenericLiteral.constant(BIGINT, 1L)))))))
+                                                                        new ComparisonExpression(EQUAL, new SymbolReference("combined_row_number_1_2"), new Constant(BIGINT, 1L)))))))
                                                         .left(project(// append helper and partitioning symbols for co-partitioned nodes
                                                                 ImmutableMap.of(
-                                                                        "combined_row_number_1_2", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
-                                                                        "combined_partition_size_1_2", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
+                                                                        "combined_row_number_1_2", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
+                                                                        "combined_partition_size_1_2", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
                                                                         "combined_partition_column_1_2", expression(new CoalesceExpression(new SymbolReference("c"), new SymbolReference("d")))),
                                                                 join(// co-partition nodes
                                                                         INNER,
@@ -1034,10 +1034,10 @@ public class TestImplementTableFunctionSource
                                                                                                 new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number")),
                                                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_partition_size")),
-                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new Constant(BIGINT, 1L)))),
                                                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("input_2_row_number"), new SymbolReference("input_1_partition_size")),
-                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, 1L)))))))))
+                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new Constant(BIGINT, 1L)))))))))
                                                                                 .left(window(// append helper symbols for source input_1
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
@@ -1054,8 +1054,8 @@ public class TestImplementTableFunctionSource
                                                                                         values("d"))))))
                                                         .right(project(// append helper and partitioning symbols for co-partitioned nodes
                                                                 ImmutableMap.of(
-                                                                        "combined_row_number_3_4", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_3_row_number"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_4_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_3_row_number"), new SymbolReference("input_4_row_number"))),
-                                                                        "combined_partition_size_3_4", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_3_partition_size"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_4_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_3_partition_size"), new SymbolReference("input_4_partition_size"))),
+                                                                        "combined_row_number_3_4", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_3_row_number"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_4_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("input_3_row_number"), new SymbolReference("input_4_row_number"))),
+                                                                        "combined_partition_size_3_4", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_3_partition_size"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_4_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("input_3_partition_size"), new SymbolReference("input_4_partition_size"))),
                                                                         "combined_partition_column_3_4", expression(new CoalesceExpression(new SymbolReference("e"), new SymbolReference("f")))),
                                                                 join(// co-partition nodes
                                                                         FULL,
@@ -1066,10 +1066,10 @@ public class TestImplementTableFunctionSource
                                                                                                 new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("input_4_row_number")),
                                                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("input_3_row_number"), new SymbolReference("input_4_partition_size")),
-                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_4_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_4_row_number"), new Constant(BIGINT, 1L)))),
                                                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("input_4_row_number"), new SymbolReference("input_3_partition_size")),
-                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), GenericLiteral.constant(BIGINT, 1L)))))))))
+                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new Constant(BIGINT, 1L)))))))))
                                                                                 .left(window(// append helper symbols for source input_3
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("e"), ImmutableList.of(), ImmutableMap.of()))
@@ -1139,13 +1139,13 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column_2_3", "c"), ImmutableList.of("combined_row_number_2_3_1"), ImmutableMap.of("combined_row_number_2_3_1", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_2_3_1")), new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_2_3_1")), new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_2_3_1")), new SymbolReference("input_3_row_number"), GenericLiteral.constant(BIGINT, null)))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number_2_3_1")), new SymbolReference("input_1_row_number"), new Constant(BIGINT, null))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number_2_3_1")), new SymbolReference("input_2_row_number"), new Constant(BIGINT, null))),
+                                        "marker_3", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new SymbolReference("combined_row_number_2_3_1")), new SymbolReference("input_3_row_number"), new Constant(BIGINT, null)))),
                                 project(// append helper symbols for joined nodes
                                         ImmutableMap.of(
-                                                "combined_row_number_2_3_1", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_row_number_2_3"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("combined_row_number_2_3"), new SymbolReference("input_1_row_number"))),
-                                                "combined_partition_size_2_3_1", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_partition_size_2_3"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_1_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("combined_partition_size_2_3"), new SymbolReference("input_1_partition_size")))),
+                                                "combined_row_number_2_3_1", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_row_number_2_3"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_1_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("combined_row_number_2_3"), new SymbolReference("input_1_row_number"))),
+                                                "combined_partition_size_2_3_1", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("combined_partition_size_2_3"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_1_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("combined_partition_size_2_3"), new SymbolReference("input_1_partition_size")))),
                                         join(// join nodes using helper symbols
                                                 INNER,
                                                 joinBuilder -> joinBuilder
@@ -1153,14 +1153,14 @@ public class TestImplementTableFunctionSource
                                                                 new ComparisonExpression(EQUAL, new SymbolReference("combined_row_number_2_3"), new SymbolReference("input_1_row_number")),
                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("combined_row_number_2_3"), new SymbolReference("input_1_partition_size")),
-                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new Constant(BIGINT, 1L)))),
                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("input_1_row_number"), new SymbolReference("combined_partition_size_2_3")),
-                                                                        new ComparisonExpression(EQUAL, new SymbolReference("combined_row_number_2_3"), GenericLiteral.constant(BIGINT, 1L)))))))
+                                                                        new ComparisonExpression(EQUAL, new SymbolReference("combined_row_number_2_3"), new Constant(BIGINT, 1L)))))))
                                                         .left(project(// append helper and partitioning symbols for co-partitioned nodes
                                                                 ImmutableMap.of(
-                                                                        "combined_row_number_2_3", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_3_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_2_row_number"), new SymbolReference("input_3_row_number"))),
-                                                                        "combined_partition_size_2_3", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_2_partition_size"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_3_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_2_partition_size"), new SymbolReference("input_3_partition_size"))),
+                                                                        "combined_row_number_2_3", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_2_row_number"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_3_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("input_2_row_number"), new SymbolReference("input_3_row_number"))),
+                                                                        "combined_partition_size_2_3", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_2_partition_size"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_3_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("input_2_partition_size"), new SymbolReference("input_3_partition_size"))),
                                                                         "combined_partition_column_2_3", expression(new CoalesceExpression(new SymbolReference("d"), new SymbolReference("e")))),
                                                                 join(// co-partition nodes
                                                                         LEFT,
@@ -1171,10 +1171,10 @@ public class TestImplementTableFunctionSource
                                                                                                 new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("input_3_row_number")),
                                                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("input_2_row_number"), new SymbolReference("input_3_partition_size")),
-                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_3_row_number"), new Constant(BIGINT, 1L)))),
                                                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("input_3_row_number"), new SymbolReference("input_2_partition_size")),
-                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, 1L)))))))))
+                                                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new Constant(BIGINT, 1L)))))))))
                                                                                 .left(window(// append helper symbols for source input_2
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
@@ -1254,12 +1254,12 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, null)))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Constant(BIGINT, null))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Constant(BIGINT, null)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
-                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
-                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
+                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
+                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
                                                 "combined_partition_column", expression(new CoalesceExpression(new SymbolReference("c_coerced"), new SymbolReference("e")))),
                                         join(// co-partition nodes
                                                 LEFT,
@@ -1270,10 +1270,10 @@ public class TestImplementTableFunctionSource
                                                                         new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number")),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_partition_size")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new Constant(BIGINT, 1L)))),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_2_row_number"), new SymbolReference("input_1_partition_size")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, 1L)))))))))
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new Constant(BIGINT, 1L)))))))))
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c_coerced"), ImmutableList.of(), ImmutableMap.of()))
@@ -1339,12 +1339,12 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("combined_partition_column_1", "combined_partition_column_2"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, null)))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Constant(BIGINT, null))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Constant(BIGINT, null)))),
                                 project(// append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
-                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
-                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
+                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
+                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size"))),
                                                 "combined_partition_column_1", expression(new CoalesceExpression(new SymbolReference("c"), new SymbolReference("e"))),
                                                 "combined_partition_column_2", expression(new CoalesceExpression(new SymbolReference("d"), new SymbolReference("f")))),
                                         join(// co-partition nodes
@@ -1355,10 +1355,10 @@ public class TestImplementTableFunctionSource
                                                                 new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("d"), new SymbolReference("f"))),
                                                                 new LogicalExpression(OR, ImmutableList.of(
                                                                         new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number")),
-                                                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_partition_size")), new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_partition_size")), new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new Constant(BIGINT, 1L)))),
                                                                         new LogicalExpression(AND, ImmutableList.of(
                                                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("input_2_row_number"), new SymbolReference("input_1_partition_size")),
-                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, 1L)))))))))
+                                                                                new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new Constant(BIGINT, 1L)))))))))
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c", "d"), ImmutableList.of(), ImmutableMap.of()))
@@ -1422,12 +1422,12 @@ public class TestImplementTableFunctionSource
                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
                         project(// append marker symbols
                                 ImmutableMap.of(
-                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, null))),
-                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, null)))),
+                                        "marker_1", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_1_row_number"), new Constant(BIGINT, null))),
+                                        "marker_2", expression(new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new SymbolReference("combined_row_number")), new SymbolReference("input_2_row_number"), new Constant(BIGINT, null)))),
                                 project(// append helper symbols for joined nodes
                                         ImmutableMap.of(
-                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
-                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), GenericLiteral.constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), GenericLiteral.constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size")))),
+                                                "combined_row_number", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_row_number"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_row_number"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number"))),
+                                                "combined_partition_size", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new CoalesceExpression(new SymbolReference("input_1_partition_size"), new Constant(BIGINT, -1L)), new CoalesceExpression(new SymbolReference("input_2_partition_size"), new Constant(BIGINT, -1L))), new SymbolReference("input_1_partition_size"), new SymbolReference("input_2_partition_size")))),
                                         join(// join nodes using helper symbols
                                                 FULL,
                                                 joinBuilder -> joinBuilder
@@ -1435,10 +1435,10 @@ public class TestImplementTableFunctionSource
                                                                 new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_row_number")),
                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("input_1_row_number"), new SymbolReference("input_2_partition_size")),
-                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_2_row_number"), new Constant(BIGINT, 1L)))),
                                                                 new LogicalExpression(AND, ImmutableList.of(
                                                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("input_2_row_number"), new SymbolReference("input_1_partition_size")),
-                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), GenericLiteral.constant(BIGINT, 1L)))))))
+                                                                        new ComparisonExpression(EQUAL, new SymbolReference("input_1_row_number"), new Constant(BIGINT, 1L)))))))
                                                         .left(window(// append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))

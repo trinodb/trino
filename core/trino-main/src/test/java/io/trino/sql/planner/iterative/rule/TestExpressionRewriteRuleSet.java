@@ -16,9 +16,9 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.BigintType;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
@@ -48,14 +48,14 @@ public class TestExpressionRewriteRuleSet
                 @Override
                 protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
                 {
-                    return GenericLiteral.constant(INTEGER, 0L);
+                    return new Constant(INTEGER, 0L);
                 }
 
                 @Override
                 public Expression rewriteRow(Row node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
                 {
                     // rewrite Row items to preserve Row structure of ValuesNode
-                    return new Row(node.getItems().stream().map(item -> GenericLiteral.constant(INTEGER, 0L)).collect(toImmutableList()));
+                    return new Row(node.getItems().stream().map(item -> new Constant(INTEGER, 0L)).collect(toImmutableList()));
                 }
             }, expression));
 
@@ -67,7 +67,7 @@ public class TestExpressionRewriteRuleSet
                         Assignments.of(p.symbol("y"), new IsNotNullPredicate(new SymbolReference("x"))),
                         p.values(p.symbol("x"))))
                 .matches(
-                        project(ImmutableMap.of("y", expression(GenericLiteral.constant(INTEGER, 0L))), values("x")));
+                        project(ImmutableMap.of("y", expression(new Constant(INTEGER, 0L))), values("x")));
     }
 
     @Test
@@ -75,7 +75,7 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("y"), GenericLiteral.constant(INTEGER, 0L)),
+                        Assignments.of(p.symbol("y"), new Constant(INTEGER, 0L)),
                         p.values(p.symbol("x"))))
                 .doesNotFire();
     }
@@ -103,16 +103,16 @@ public class TestExpressionRewriteRuleSet
     public void testFilterExpressionRewrite()
     {
         tester().assertThat(zeroRewriter.filterExpressionRewrite())
-                .on(p -> p.filter(GenericLiteral.constant(INTEGER, 1L), p.values()))
+                .on(p -> p.filter(new Constant(INTEGER, 1L), p.values()))
                 .matches(
-                        filter(GenericLiteral.constant(INTEGER, 0L), values()));
+                        filter(new Constant(INTEGER, 0L), values()));
     }
 
     @Test
     public void testFilterExpressionNotRewritten()
     {
         tester().assertThat(zeroRewriter.filterExpressionRewrite())
-                .on(p -> p.filter(GenericLiteral.constant(INTEGER, 0L), p.values()))
+                .on(p -> p.filter(new Constant(INTEGER, 0L), p.values()))
                 .doesNotFire();
     }
 
@@ -122,9 +122,9 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.valuesExpressionRewrite())
                 .on(p -> p.values(
                         ImmutableList.<Symbol>of(p.symbol("a")),
-                        ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L)))))
+                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L)))))
                 .matches(
-                        values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 0L)))));
+                        values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 0L)))));
     }
 
     @Test
@@ -133,7 +133,7 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.valuesExpressionRewrite())
                 .on(p -> p.values(
                         ImmutableList.<Symbol>of(p.symbol("a")),
-                        ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 0L)))))
+                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 0L)))))
                 .doesNotFire();
     }
 
@@ -145,16 +145,16 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.patternRecognitionExpressionRewrite())
                 .on(p -> p.patternRecognition(
                         builder -> builder
-                                .addMeasure(p.symbol("measure_1"), GenericLiteral.constant(INTEGER, 1L), INTEGER)
+                                .addMeasure(p.symbol("measure_1"), new Constant(INTEGER, 1L), INTEGER)
                                 .pattern(label("X"))
                                 .addVariableDefinition(label("X"), TRUE_LITERAL)
                                 .source(p.values(p.symbol("a")))))
                 .matches(
                         patternRecognition(
                                 builder -> builder
-                                        .addMeasure("measure_1", GenericLiteral.constant(INTEGER, 0L), INTEGER)
+                                        .addMeasure("measure_1", new Constant(INTEGER, 0L), INTEGER)
                                         .pattern(label("X"))
-                                        .addVariableDefinition(label("X"), GenericLiteral.constant(INTEGER, 0L)),
+                                        .addVariableDefinition(label("X"), new Constant(INTEGER, 0L)),
                                 values("a")));
     }
 
@@ -164,9 +164,9 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.patternRecognitionExpressionRewrite())
                 .on(p -> p.patternRecognition(
                         builder -> builder
-                                .addMeasure(p.symbol("measure_1"), GenericLiteral.constant(INTEGER, 0L), INTEGER)
+                                .addMeasure(p.symbol("measure_1"), new Constant(INTEGER, 0L), INTEGER)
                                 .pattern(label("X"))
-                                .addVariableDefinition(label("X"), GenericLiteral.constant(INTEGER, 0L))
+                                .addVariableDefinition(label("X"), new Constant(INTEGER, 0L))
                                 .source(p.values(p.symbol("a")))))
                 .doesNotFire();
     }

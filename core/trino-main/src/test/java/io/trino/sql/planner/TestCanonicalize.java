@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.SortOrder;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
@@ -49,7 +49,7 @@ public class TestCanonicalize
                         ") t\n" +
                         "CROSS JOIN (VALUES 2)",
                 anyTree(
-                        values(ImmutableList.of("field", "expr"), ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 2L), GenericLiteral.constant(BIGINT, 1L))))));
+                        values(ImmutableList.of("field", "expr"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 2L), new Constant(BIGINT, 1L))))));
     }
 
     @Test

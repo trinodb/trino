@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.RuleStatsRecorder;
@@ -211,7 +211,7 @@ public class TestMergeWindows
                                                 project(
                                                         ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), BIGINT))),
                                                         project(
-                                                                ImmutableMap.of("expr", expression(GenericLiteral.constant(INTEGER, 1L))),
+                                                                ImmutableMap.of("expr", expression(new Constant(INTEGER, 1L))),
                                                                 LINEITEM_TABLESCAN_DOQSS)))))));
     }
 
@@ -266,7 +266,7 @@ public class TestMergeWindows
                                         .addFunction(windowFunction("nth_value", ImmutableList.of(QUANTITY_ALIAS, "ONE"), COMMON_FRAME))
                                         .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), COMMON_FRAME)),
                                 project(ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), BIGINT))),
-                                        project(ImmutableMap.of("expr", expression(GenericLiteral.constant(INTEGER, 1L))),
+                                        project(ImmutableMap.of("expr", expression(new Constant(INTEGER, 1L))),
                                                 LINEITEM_TABLESCAN_DOQS)))));
     }
 

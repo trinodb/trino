@@ -21,12 +21,11 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.expression.Constant;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
@@ -101,7 +100,7 @@ public class PushMergeWriterUpdateIntoConnector
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(context.getSession(), mergeWriter.getTarget().getHandle());
         List<String> orderedColumnNames = mergeWriter.getTarget().getMergeParadigmAndTypes().getColumnNames();
         Expression mergeRow = project.getAssignments().get(mergeProcessor.getMergeRowSymbol());
-        Map<ColumnHandle, Constant> assignments = buildAssignments(orderedColumnNames, mergeRow, columnHandles, context);
+        Map<ColumnHandle, io.trino.spi.expression.Constant> assignments = buildAssignments(orderedColumnNames, mergeRow, columnHandles, context);
 
         if (assignments.isEmpty()) {
             return Result.empty();
@@ -116,13 +115,13 @@ public class PushMergeWriterUpdateIntoConnector
                 .orElseGet(Result::empty);
     }
 
-    private Map<ColumnHandle, Constant> buildAssignments(
+    private Map<ColumnHandle, io.trino.spi.expression.Constant> buildAssignments(
             List<String> orderedColumnNames,
             Expression mergeRow,
             Map<String, ColumnHandle> columnHandles,
             Context context)
     {
-        ImmutableMap.Builder<ColumnHandle, Constant> assignments = ImmutableMap.builder();
+        ImmutableMap.Builder<ColumnHandle, io.trino.spi.expression.Constant> assignments = ImmutableMap.builder();
         if (mergeRow instanceof Row row) {
             List<? extends Expression> fields = row.getChildren();
             for (int i = 0; i < orderedColumnNames.size(); i++) {
@@ -141,20 +140,20 @@ public class PushMergeWriterUpdateIntoConnector
                         typeAnalyzer);
 
                 // we don't support any expressions in update statements yet, only constants
-                if (connectorExpression.isEmpty() || !(connectorExpression.get() instanceof Constant)) {
+                if (connectorExpression.isEmpty() || !(connectorExpression.get() instanceof io.trino.spi.expression.Constant)) {
                     return ImmutableMap.of();
                 }
-                assignments.put(columnHandles.get(columnName), (Constant) connectorExpression.get());
+                assignments.put(columnHandles.get(columnName), (io.trino.spi.expression.Constant) connectorExpression.get());
             }
         }
-        else if (mergeRow instanceof GenericLiteral row) {
+        else if (mergeRow instanceof Constant row) {
             RowType type = (RowType) row.getType();
-            SqlRow rowValue = (SqlRow) row.getRawValue();
+            SqlRow rowValue = (SqlRow) row.getValue();
 
             for (int i = 0; i < orderedColumnNames.size(); i++) {
                 Type fieldType = type.getFields().get(i).getType();
                 Object fieldValue = readNativeValue(fieldType, rowValue.getRawFieldBlock(i), rowValue.getRawIndex());
-                assignments.put(columnHandles.get(orderedColumnNames.get(i)), new Constant(fieldValue, fieldType));
+                assignments.put(columnHandles.get(orderedColumnNames.get(i)), new io.trino.spi.expression.Constant(fieldValue, fieldType));
             }
         }
 

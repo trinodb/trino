@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -100,7 +100,7 @@ public class ReplaceRedundantJoinWithProject
         Assignments.Builder assignments = Assignments.builder()
                 .putIdentities(sourceOutputs);
         nullSymbols
-                .forEach(symbol -> assignments.put(symbol, GenericLiteral.constant(symbolAllocator.getTypes().get(symbol), null)));
+                .forEach(symbol -> assignments.put(symbol, new Constant(symbolAllocator.getTypes().get(symbol), null)));
 
         return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
     }

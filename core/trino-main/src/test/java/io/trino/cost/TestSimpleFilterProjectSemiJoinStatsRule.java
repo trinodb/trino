@@ -15,7 +15,7 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -166,7 +166,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
             Symbol c = pb.symbol("c", BIGINT);
             Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
             return pb.filter(
-                    new LogicalExpression(AND, ImmutableList.of(new SymbolReference("sjo"), new ComparisonExpression(LESS_THAN, new SymbolReference("a"), GenericLiteral.constant(INTEGER, 8L)))),
+                    new LogicalExpression(AND, ImmutableList.of(new SymbolReference("sjo"), new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 8L)))),
                     pb.semiJoin(
                             pb.values(LEFT_SOURCE_ID, a, b),
                             pb.values(RIGHT_SOURCE_ID, c),

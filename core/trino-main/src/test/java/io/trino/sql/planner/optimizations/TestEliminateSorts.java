@@ -20,7 +20,7 @@ import io.trino.cost.TaskCountEstimator;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.RuleStatsRecorder;
@@ -96,7 +96,7 @@ public class TestEliminateSorts
                         sort(
                                 anyTree(
                                         filter(
-                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("QUANTITY"), new Cast(GenericLiteral.constant(INTEGER, 10L), DOUBLE)),
+                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("QUANTITY"), new Cast(new Constant(INTEGER, 10L), DOUBLE)),
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(windowSpec)
                                                                 .addFunction(windowFunction("row_number", ImmutableList.of(), DEFAULT_FRAME)),

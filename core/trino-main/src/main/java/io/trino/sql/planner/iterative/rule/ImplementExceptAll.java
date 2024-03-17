@@ -20,9 +20,9 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ExceptNode;
@@ -104,7 +104,7 @@ public class ImplementExceptAll
                     greatest.toQualifiedName(),
                     ImmutableList.of(
                             new ArithmeticBinaryExpression(SUBTRACT, count, result.getCountSymbols().get(i).toSymbolReference()),
-                            GenericLiteral.constant(BIGINT, 0L)));
+                            new Constant(BIGINT, 0L)));
         }
 
         // filter rows so that expected number of rows remains

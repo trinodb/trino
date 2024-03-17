@@ -16,9 +16,9 @@ package io.trino.plugin.geospatial;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 
@@ -60,7 +60,7 @@ public abstract class AbstractTestExtractSpatial
 
     protected FunctionCall geometryFromTextCall(String text)
     {
-        return functionCall("st_geometryfromtext", ImmutableList.of(VARCHAR), ImmutableList.of(GenericLiteral.constant(VARCHAR, Slices.utf8Slice(text))));
+        return functionCall("st_geometryfromtext", ImmutableList.of(VARCHAR), ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice(text))));
     }
 
     protected FunctionCall toSphericalGeographyCall(Symbol symbol)

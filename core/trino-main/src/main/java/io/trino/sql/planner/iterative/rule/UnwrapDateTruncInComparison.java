@@ -30,10 +30,10 @@ import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NodeRef;
@@ -179,7 +179,7 @@ public class UnwrapDateTruncInComparison
 
             if (right == null) {
                 return switch (expression.getOperator()) {
-                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> GenericLiteral.constant(BOOLEAN, null);
+                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Constant(BOOLEAN, null);
                     case IS_DISTINCT_FROM -> new IsNotNullPredicate(argument);
                 };
             }
@@ -233,21 +233,21 @@ public class UnwrapDateTruncInComparison
                 }
                 case LESS_THAN -> {
                     if (rightValueAtRangeLow) {
-                        yield new ComparisonExpression(LESS_THAN, argument, GenericLiteral.constant(rightType, rangeLow));
+                        yield new ComparisonExpression(LESS_THAN, argument, new Constant(rightType, rangeLow));
                     }
-                    yield new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, GenericLiteral.constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case LESS_THAN_OR_EQUAL -> {
-                    yield new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, GenericLiteral.constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case GREATER_THAN -> {
-                    yield new ComparisonExpression(GREATER_THAN, argument, GenericLiteral.constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield new ComparisonExpression(GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case GREATER_THAN_OR_EQUAL -> {
                     if (rightValueAtRangeLow) {
-                        yield new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, GenericLiteral.constant(rightType, rangeLow));
+                        yield new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, new Constant(rightType, rangeLow));
                     }
-                    yield new ComparisonExpression(GREATER_THAN, argument, GenericLiteral.constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield new ComparisonExpression(GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
             };
         }
@@ -292,8 +292,8 @@ public class UnwrapDateTruncInComparison
         {
             return new BetweenPredicate(
                     argument,
-                    GenericLiteral.constant(type, minInclusive),
-                    GenericLiteral.constant(type, maxInclusive));
+                    new Constant(type, minInclusive),
+                    new Constant(type, maxInclusive));
         }
 
         private int compare(Type type, Object first, Object second)

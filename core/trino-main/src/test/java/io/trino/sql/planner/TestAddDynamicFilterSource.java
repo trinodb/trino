@@ -24,7 +24,7 @@ import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
@@ -167,7 +167,7 @@ public class TestAddDynamicFilterSource
                                                                     DynamicFilterSourceNode.class,
                                                                     project(
                                                                             filter(
-                                                                                    new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("Z"), GenericLiteral.constant(INTEGER, 4L)), GenericLiteral.constant(INTEGER, 0L)),
+                                                                                    new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("Z"), new Constant(INTEGER, 4L)), new Constant(INTEGER, 0L)),
                                                                                     tableScan("lineitem", ImmutableMap.of("Y", "orderkey", "Z", "linenumber")))))))))));
         }
     }
@@ -267,7 +267,7 @@ public class TestAddDynamicFilterSource
                                                 exchange(
                                                         LOCAL,
                                                         project(
-                                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("L_PARTKEY"), GenericLiteral.constant(BIGINT, 1L)))),
+                                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("L_PARTKEY"), new Constant(BIGINT, 1L)))),
                                                                 exchange(
                                                                         REMOTE,
                                                                         tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey"))))))))));

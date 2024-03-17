@@ -28,13 +28,12 @@ import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.IrExpressionInterpreter;
@@ -115,7 +114,7 @@ public class PushProjectionIntoTableScan
                                 context.getSymbolAllocator().getTypes(),
                                 plannerContext).entrySet().stream())
                 // Filter out constant expressions. Constant expressions should not be pushed to the connector.
-                .filter(entry -> !(entry.getValue() instanceof Constant))
+                .filter(entry -> !(entry.getValue() instanceof io.trino.spi.expression.Constant))
                 // Avoid duplicates
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, (first, ignore) -> first));
 
@@ -162,7 +161,7 @@ public class PushProjectionIntoTableScan
 
                     return optimized instanceof Expression optimizedExpression ?
                             optimizedExpression :
-                            GenericLiteral.constant(translatedExpressionTypes.get(NodeRef.of(translated)), optimized);
+                            new Constant(translatedExpressionTypes.get(NodeRef.of(translated)), optimized);
                 })
                 .collect(toImmutableList());
 

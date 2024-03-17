@@ -19,7 +19,7 @@ import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.testing.QueryRunner;
@@ -240,7 +240,7 @@ public class TestSubqueries
                                 .equiCriteria("expr", "a")
                                 .left(
                                         project(
-                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(SUBTRACT, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new SymbolReference("c")), GenericLiteral.constant(INTEGER, 1L)))),
+                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(SUBTRACT, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new SymbolReference("c")), new Constant(INTEGER, 1L)))),
                                                 any(
                                                         values("b", "c"))))
                                 .right(

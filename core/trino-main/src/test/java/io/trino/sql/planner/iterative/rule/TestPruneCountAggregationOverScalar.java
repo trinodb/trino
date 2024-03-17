@@ -20,7 +20,7 @@ import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.type.BigintType;
-import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -88,7 +88,7 @@ public class TestPruneCountAggregationOverScalar
                                         ImmutableList.of())
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
-                                .source(p.values(ImmutableList.of(p.symbol("orderkey")), ImmutableList.of(ImmutableList.of(GenericLiteral.constant(INTEGER, 1L)))))))
+                                .source(p.values(ImmutableList.of(p.symbol("orderkey")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L)))))))
                 .matches(values(ImmutableMap.of("count_1", 0)));
     }
 

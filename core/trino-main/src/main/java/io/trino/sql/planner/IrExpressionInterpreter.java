@@ -44,16 +44,15 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.ComparisonExpression.Operator;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.Literal;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
@@ -202,9 +201,9 @@ public class IrExpressionInterpreter
         }
 
         @Override
-        protected Object visitGenericLiteral(GenericLiteral node, Object context)
+        protected Object visitConstant(Constant node, Object context)
         {
-            return node.getRawValue();
+            return node.getValue();
         }
 
         @Override
@@ -421,10 +420,10 @@ public class IrExpressionInterpreter
                 // the analysis below. If the value is null, it means that we can't apply the HashSet
                 // optimization
                 if (!inListCache.containsKey(valueList)) {
-                    boolean nonNullConstants = valueList.stream().allMatch(GenericLiteral.class::isInstance) &&
+                    boolean nonNullConstants = valueList.stream().allMatch(Constant.class::isInstance) &&
                             valueList.stream()
-                                    .map(GenericLiteral.class::cast)
-                                    .map(GenericLiteral::getRawValue)
+                                    .map(Constant.class::cast)
+                                    .map(Constant::getValue)
                                     .noneMatch(Objects::isNull);
                     if (nonNullConstants) {
                         Set<Object> objectSet = valueList.stream().map(expression -> processWithExceptionHandling(expression, context)).collect(Collectors.toSet());
@@ -450,7 +449,7 @@ public class IrExpressionInterpreter
 
             ResolvedFunction equalsOperator = metadata.resolveOperator(OperatorType.EQUAL, types(node.getValue(), node.getValue()));
             for (Expression expression : valueList) {
-                if (value instanceof Expression && expression instanceof Literal) {
+                if (value instanceof Expression && expression instanceof Constant) {
                     // skip interpreting of literal IN term since it cannot be compared
                     // with unresolved "value" and it cannot be simplified further
                     values.add(expression);
@@ -1043,7 +1042,7 @@ public class IrExpressionInterpreter
                 return expression;
             }
 
-            return GenericLiteral.constant(type, base);
+            return new Constant(type, base);
         }
 
         private List<Expression> toExpressions(List<Object> values, List<Type> types)
@@ -1055,7 +1054,7 @@ public class IrExpressionInterpreter
                 Object object = values.get(i);
                 expressions.add(object instanceof Expression expression ?
                         expression :
-                        GenericLiteral.constant(types.get(i), object));
+                        new Constant(types.get(i), object));
             }
             return expressions.build();
         }
