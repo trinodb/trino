@@ -114,6 +114,6 @@ public class TestSqlToRowExpressionTranslator
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
     {
-        return new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(TEST_SESSION, TypeProvider.empty(), expression);
+        return new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(TypeProvider.empty(), expression);
     }
 }

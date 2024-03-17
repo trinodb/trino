@@ -104,7 +104,6 @@ public class TestJoinEnumerator
                 ImmutableList.of(a1, b1),
                 false);
         JoinEnumerator joinEnumerator = new JoinEnumerator(
-                planTester.getPlannerContext().getMetadata(),
                 new CostComparator(1, 1, 1),
                 multiJoinNode.getFilter(),
                 createContext());

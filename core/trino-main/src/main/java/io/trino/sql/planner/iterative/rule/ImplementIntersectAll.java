@@ -97,7 +97,7 @@ public class ImplementIntersectAll
 
         Expression minCount = result.getCountSymbols().get(0).toSymbolReference();
         for (int i = 1; i < result.getCountSymbols().size(); i++) {
-            minCount = new FunctionCall(least.toQualifiedName(), ImmutableList.of(minCount, result.getCountSymbols().get(i).toSymbolReference()));
+            minCount = new FunctionCall(least, ImmutableList.of(minCount, result.getCountSymbols().get(i).toSymbolReference()));
         }
 
         // filter rows so that expected number of rows remains

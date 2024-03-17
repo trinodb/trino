@@ -439,7 +439,7 @@ public final class ExpressionTreeRewriter<C>
             List<Expression> arguments = rewrite(node.getArguments(), context);
 
             if (!sameElements(node.getArguments(), arguments)) {
-                return new FunctionCall(node.getName(), arguments);
+                return new FunctionCall(node.getFunction(), arguments);
             }
             return node;
         }

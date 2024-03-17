@@ -14,13 +14,11 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.SymbolReference;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.LogicalExpression.Operator.AND;
@@ -28,8 +26,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionUtils
 {
-    private final Metadata metadata = createTestMetadataManager();
-
     @Test
     public void testAnd()
     {
@@ -41,6 +37,6 @@ public class TestExpressionUtils
 
         assertThat(and(a, b, c, d, e)).isEqualTo(new LogicalExpression(AND, ImmutableList.of(a, b, c, d, e)));
 
-        assertThat(combineConjuncts(metadata, a, b, a, c, d, c, e)).isEqualTo(new LogicalExpression(AND, ImmutableList.of(a, b, c, d, e)));
+        assertThat(combineConjuncts(a, b, a, c, d, c, e)).isEqualTo(new LogicalExpression(AND, ImmutableList.of(a, b, c, d, e)));
     }
 }

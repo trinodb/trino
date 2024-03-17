@@ -13,16 +13,11 @@
  */
 package io.trino.sql.planner;
 
-import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-
-import static java.util.Objects.requireNonNull;
 
 /**
  * Determines whether a given Expression is deterministic
@@ -31,35 +26,20 @@ public final class DeterminismEvaluator
 {
     private DeterminismEvaluator() {}
 
-    public static boolean isDeterministic(Expression expression, Metadata metadata)
+    public static boolean isDeterministic(Expression expression)
     {
-        return isDeterministic(expression, functionCall -> metadata.decodeFunction(functionCall.getName()));
-    }
-
-    public static boolean isDeterministic(Expression expression, Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier)
-    {
-        requireNonNull(resolvedFunctionSupplier, "resolvedFunctionSupplier is null");
-        requireNonNull(expression, "expression is null");
-
         AtomicBoolean deterministic = new AtomicBoolean(true);
-        new Visitor(resolvedFunctionSupplier).process(expression, deterministic);
+        new Visitor().process(expression, deterministic);
         return deterministic.get();
     }
 
     private static class Visitor
             extends DefaultTraversalVisitor<AtomicBoolean>
     {
-        private final Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier;
-
-        public Visitor(Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier)
-        {
-            this.resolvedFunctionSupplier = resolvedFunctionSupplier;
-        }
-
         @Override
         protected Void visitFunctionCall(FunctionCall node, AtomicBoolean deterministic)
         {
-            if (!resolvedFunctionSupplier.apply(node).isDeterministic()) {
+            if (!node.getFunction().isDeterministic()) {
                 deterministic.set(false);
                 return null;
             }

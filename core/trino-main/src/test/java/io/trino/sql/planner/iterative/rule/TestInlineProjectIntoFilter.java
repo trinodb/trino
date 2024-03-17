@@ -43,7 +43,7 @@ public class TestInlineProjectIntoFilter
     @Test
     public void testInlineProjection()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
                         new SymbolReference("a"),
                         p.project(
@@ -58,7 +58,7 @@ public class TestInlineProjectIntoFilter
                                                 ImmutableMap.of("b", expression(new SymbolReference("b"))),
                                                 values("b")))));
 
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -87,7 +87,7 @@ public class TestInlineProjectIntoFilter
     @Test
     public void testNoSimpleConjuncts()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
                         new LogicalExpression(OR, ImmutableList.of(new SymbolReference("a"), FALSE_LITERAL)),
                         p.project(
@@ -99,7 +99,7 @@ public class TestInlineProjectIntoFilter
     @Test
     public void testMultipleReferencesToConjunct()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
                         new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new SymbolReference("a"))),
                         p.project(
@@ -107,7 +107,7 @@ public class TestInlineProjectIntoFilter
                                 p.values(p.symbol("b")))))
                 .doesNotFire();
 
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
                         new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("a"), FALSE_LITERAL)))),
                         p.project(
@@ -119,7 +119,7 @@ public class TestInlineProjectIntoFilter
     @Test
     public void testInlineMultiple()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
                         new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))),
                         p.project(
@@ -139,7 +139,7 @@ public class TestInlineProjectIntoFilter
     @Test
     public void testInlinePartially()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
                         new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new SymbolReference("a"), new SymbolReference("b"))),
                         p.project(
@@ -163,7 +163,7 @@ public class TestInlineProjectIntoFilter
     public void testTrivialProjection()
     {
         // identity projection
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
                         new SymbolReference("a"),
                         p.project(
@@ -172,7 +172,7 @@ public class TestInlineProjectIntoFilter
                 .doesNotFire();
 
         // renaming projection
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
                         new SymbolReference("a"),
                         p.project(
@@ -184,7 +184,7 @@ public class TestInlineProjectIntoFilter
     @Test
     public void testCorrelationSymbol()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
                         new SymbolReference("corr"),
                         p.project(

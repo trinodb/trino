@@ -75,6 +75,6 @@ public abstract class AbstractTestExtractSpatial
 
     private FunctionCall functionCall(String name, List<Type> types, List<Expression> arguments)
     {
-        return new FunctionCall(tester().getMetadata().resolveBuiltinFunction(name, fromTypes(types)).toQualifiedName(), arguments);
+        return new FunctionCall(tester().getMetadata().resolveBuiltinFunction(name, fromTypes(types)), arguments);
     }
 }

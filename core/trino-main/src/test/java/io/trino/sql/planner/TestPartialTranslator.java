@@ -82,7 +82,7 @@ public class TestPartialTranslator
         assertFullTranslation(new ArithmeticBinaryExpression(ADD, symbolReference1, dereferenceExpression1));
 
         Expression functionCallExpression = new FunctionCall(
-                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("concat", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
+                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("concat", fromTypes(VARCHAR, VARCHAR)),
                 ImmutableList.of(stringLiteral, dereferenceExpression2));
         assertFullTranslation(functionCallExpression);
     }

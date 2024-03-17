@@ -41,14 +41,12 @@ public final class PlanSanityChecker
                         Stage.INTERMEDIATE,
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
-                        new AllFunctionsResolved(),
                         new TypeValidator(),
                         new VerifyOnlyOneOutputNode())
                 .putAll(
                         Stage.FINAL,
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
-                        new AllFunctionsResolved(),
                         new TypeValidator(),
                         new VerifyOnlyOneOutputNode(),
                         new VerifyNoFilteredAggregations(),
@@ -63,7 +61,6 @@ public final class PlanSanityChecker
                         Stage.AFTER_ADAPTIVE_PLANNING,
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
-                        new AllFunctionsResolved(),
                         new TypeValidator(),
                         new VerifyOnlyOneOutputNode(),
                         new VerifyNoFilteredAggregations(),

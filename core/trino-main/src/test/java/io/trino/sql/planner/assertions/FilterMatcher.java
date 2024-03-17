@@ -57,11 +57,11 @@ final class FilterMatcher
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
 
         if (dynamicFilter.isPresent()) {
-            return new MatchResult(verifier.process(filterPredicate, combineConjuncts(metadata, predicate, dynamicFilter.get())));
+            return new MatchResult(verifier.process(filterPredicate, combineConjuncts(predicate, dynamicFilter.get())));
         }
 
         DynamicFilters.ExtractResult extractResult = extractDynamicFilters(filterPredicate);
-        return new MatchResult(verifier.process(combineConjuncts(metadata, extractResult.getStaticConjuncts()), predicate));
+        return new MatchResult(verifier.process(combineConjuncts(extractResult.getStaticConjuncts()), predicate));
     }
 
     @Override

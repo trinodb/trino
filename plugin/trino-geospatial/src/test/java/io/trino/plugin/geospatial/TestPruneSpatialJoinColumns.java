@@ -26,7 +26,6 @@ import io.trino.sql.planner.iterative.rule.PruneSpatialJoinColumns;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.SpatialJoinNode;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -61,14 +60,14 @@ public class TestPruneSpatialJoinColumns
                                     ImmutableList.of(a, b, r),
                                     new ComparisonExpression(
                                             LESS_THAN_OR_EQUAL,
-                                            new FunctionCall(TEST_ST_DISTANCE_FUNCTION.toQualifiedName(), ImmutableList.of(a.toSymbolReference(), b.toSymbolReference())),
+                                            new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(a.toSymbolReference(), b.toSymbolReference())),
                                             r.toSymbolReference())));
                 })
                 .matches(
                         strictProject(
                                 ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a"))),
                                 spatialJoin(
-                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("st_distance"), ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), new SymbolReference("r")),
+                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), new SymbolReference("r")),
                                         Optional.empty(),
                                         Optional.of(ImmutableList.of("a")),
                                         values("a"),
@@ -90,7 +89,7 @@ public class TestPruneSpatialJoinColumns
                                     p.values(a),
                                     p.values(b, r),
                                     ImmutableList.of(a, b, r),
-                                    new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(QualifiedName.of("st_distance"), ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), new SymbolReference("r"))));
+                                    new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), new SymbolReference("r"))));
                 })
                 .doesNotFire();
     }

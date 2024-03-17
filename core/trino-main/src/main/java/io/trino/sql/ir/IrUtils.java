@@ -135,18 +135,18 @@ public final class IrUtils
     public static Expression combinePredicates(Metadata metadata, LogicalExpression.Operator operator, Collection<Expression> expressions)
     {
         if (operator == LogicalExpression.Operator.AND) {
-            return combineConjuncts(metadata, expressions);
+            return combineConjuncts(expressions);
         }
 
-        return combineDisjuncts(metadata, expressions);
+        return combineDisjuncts(expressions);
     }
 
-    public static Expression combineConjuncts(Metadata metadata, Expression... expressions)
+    public static Expression combineConjuncts(Expression... expressions)
     {
-        return combineConjuncts(metadata, Arrays.asList(expressions));
+        return combineConjuncts(Arrays.asList(expressions));
     }
 
-    public static Expression combineConjuncts(Metadata metadata, Collection<Expression> expressions)
+    public static Expression combineConjuncts(Collection<Expression> expressions)
     {
         requireNonNull(expressions, "expressions is null");
 
@@ -155,7 +155,7 @@ public final class IrUtils
                 .filter(e -> !e.equals(TRUE_LITERAL))
                 .collect(toList());
 
-        conjuncts = removeDuplicates(metadata, conjuncts);
+        conjuncts = removeDuplicates(conjuncts);
 
         if (conjuncts.contains(FALSE_LITERAL)) {
             return FALSE_LITERAL;
@@ -180,17 +180,17 @@ public final class IrUtils
         return and(conjuncts);
     }
 
-    public static Expression combineDisjuncts(Metadata metadata, Expression... expressions)
+    public static Expression combineDisjuncts(Expression... expressions)
     {
-        return combineDisjuncts(metadata, Arrays.asList(expressions));
+        return combineDisjuncts(Arrays.asList(expressions));
     }
 
-    public static Expression combineDisjuncts(Metadata metadata, Collection<Expression> expressions)
+    public static Expression combineDisjuncts(Collection<Expression> expressions)
     {
-        return combineDisjunctsWithDefault(metadata, expressions, FALSE_LITERAL);
+        return combineDisjunctsWithDefault(expressions, FALSE_LITERAL);
     }
 
-    public static Expression combineDisjunctsWithDefault(Metadata metadata, Collection<Expression> expressions, Expression emptyDefault)
+    public static Expression combineDisjunctsWithDefault(Collection<Expression> expressions, Expression emptyDefault)
     {
         requireNonNull(expressions, "expressions is null");
 
@@ -199,7 +199,7 @@ public final class IrUtils
                 .filter(e -> !e.equals(FALSE_LITERAL))
                 .collect(toList());
 
-        disjuncts = removeDuplicates(metadata, disjuncts);
+        disjuncts = removeDuplicates(disjuncts);
 
         if (disjuncts.contains(TRUE_LITERAL)) {
             return TRUE_LITERAL;
@@ -210,21 +210,21 @@ public final class IrUtils
 
     public static Expression filterDeterministicConjuncts(Metadata metadata, Expression expression)
     {
-        return filterConjuncts(metadata, expression, expression1 -> DeterminismEvaluator.isDeterministic(expression1, metadata));
+        return filterConjuncts(expression, expression1 -> DeterminismEvaluator.isDeterministic(expression1));
     }
 
     public static Expression filterNonDeterministicConjuncts(Metadata metadata, Expression expression)
     {
-        return filterConjuncts(metadata, expression, not(testExpression -> DeterminismEvaluator.isDeterministic(testExpression, metadata)));
+        return filterConjuncts(expression, not(testExpression -> DeterminismEvaluator.isDeterministic(testExpression)));
     }
 
-    public static Expression filterConjuncts(Metadata metadata, Expression expression, Predicate<Expression> predicate)
+    public static Expression filterConjuncts(Expression expression, Predicate<Expression> predicate)
     {
         List<Expression> conjuncts = extractConjuncts(expression).stream()
                 .filter(predicate)
                 .collect(toList());
 
-        return combineConjuncts(metadata, conjuncts);
+        return combineConjuncts(conjuncts);
     }
 
     @SafeVarargs
@@ -276,7 +276,7 @@ public final class IrUtils
 
     private static boolean constantExpressionEvaluatesSuccessfully(PlannerContext plannerContext, Session session, Expression constantExpression)
     {
-        Map<NodeRef<Expression>, Type> types = new IrTypeAnalyzer(plannerContext).getTypes(session, TypeProvider.empty(), constantExpression);
+        Map<NodeRef<Expression>, Type> types = new IrTypeAnalyzer(plannerContext).getTypes(TypeProvider.empty(), constantExpression);
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(constantExpression, plannerContext, session, types);
         Object literalValue = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
         return !(literalValue instanceof Expression);
@@ -286,13 +286,13 @@ public final class IrUtils
      * Removes duplicate deterministic expressions. Preserves the relative order
      * of the expressions in the list.
      */
-    private static List<Expression> removeDuplicates(Metadata metadata, List<Expression> expressions)
+    private static List<Expression> removeDuplicates(List<Expression> expressions)
     {
         Set<Expression> seen = new HashSet<>();
 
         ImmutableList.Builder<Expression> result = ImmutableList.builder();
         for (Expression expression : expressions) {
-            if (!DeterminismEvaluator.isDeterministic(expression, metadata)) {
+            if (!DeterminismEvaluator.isDeterministic(expression)) {
                 result.add(expression);
             }
             else if (!seen.contains(expression)) {

@@ -142,7 +142,7 @@ public class RemoveRedundantPredicateAboveTableScan
                 context.getSymbolAllocator(),
                 typeAnalyzer,
                 TRUE_LITERAL, // Dynamic filters are included in decomposedPredicate.getRemainingExpression()
-                new DomainTranslator(plannerContext).toPredicate(unenforcedDomain.transformKeys(assignments::get)),
+                new DomainTranslator().toPredicate(unenforcedDomain.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
                 decomposedPredicate.getRemainingExpression());
 
@@ -163,7 +163,6 @@ public class RemoveRedundantPredicateAboveTableScan
                         .map(ExtractionResult::getTupleDomain)
                         .collect(toImmutableList())),
                 combineConjuncts(
-                        plannerContext.getMetadata(),
                         extractedPredicates.getOrDefault(FALSE, ImmutableList.of()).stream()
                                 .map(ExtractionResult::getRemainingExpression)
                                 .collect(toImmutableList())));

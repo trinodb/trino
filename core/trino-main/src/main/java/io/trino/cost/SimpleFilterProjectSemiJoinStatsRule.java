@@ -17,7 +17,6 @@ import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -49,13 +48,11 @@ public class SimpleFilterProjectSemiJoinStatsRule
 {
     private static final Pattern<FilterNode> PATTERN = filter();
 
-    private final Metadata metadata;
     private final FilterStatsCalculator filterStatsCalculator;
 
-    public SimpleFilterProjectSemiJoinStatsRule(Metadata metadata, StatsNormalizer normalizer, FilterStatsCalculator filterStatsCalculator)
+    public SimpleFilterProjectSemiJoinStatsRule(StatsNormalizer normalizer, FilterStatsCalculator filterStatsCalculator)
     {
         super(normalizer);
-        this.metadata = requireNonNull(metadata, "metadata is null");
         this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator cannot be null");
     }
 
@@ -135,7 +132,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
         }
 
         Expression semiJoinOutputReference = Iterables.getOnlyElement(semiJoinOutputReferences);
-        Expression remainingPredicate = combineConjuncts(metadata, conjuncts.stream()
+        Expression remainingPredicate = combineConjuncts(conjuncts.stream()
                 .filter(conjunct -> conjunct != semiJoinOutputReference)
                 .collect(toImmutableList()));
         boolean negated = semiJoinOutputReference instanceof NotExpression;

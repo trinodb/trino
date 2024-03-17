@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -65,13 +64,6 @@ public class ImplementFilteredAggregations
 {
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(ImplementFilteredAggregations::hasFilters);
-
-    private final Metadata metadata;
-
-    public ImplementFilteredAggregations(Metadata metadata)
-    {
-        this.metadata = metadata;
-    }
 
     private static boolean hasFilters(AggregationNode aggregation)
     {
@@ -133,7 +125,7 @@ public class ImplementFilteredAggregations
 
         Expression predicate = TRUE_LITERAL;
         if (!aggregationNode.hasNonEmptyGroupingSet() && !aggregateWithoutFilterOrMaskPresent) {
-            predicate = combineDisjunctsWithDefault(metadata, maskSymbols.build(), TRUE_LITERAL);
+            predicate = combineDisjunctsWithDefault(maskSymbols.build(), TRUE_LITERAL);
         }
 
         // identity projection for all existing inputs

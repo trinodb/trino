@@ -139,7 +139,7 @@ public class IrExpressionInterpreter
 
     public static Object evaluateConstantExpression(Expression expression, PlannerContext plannerContext, Session session)
     {
-        Map<NodeRef<Expression>, Type> types = new IrTypeAnalyzer(plannerContext).getTypes(session, TypeProvider.empty(), expression);
+        Map<NodeRef<Expression>, Type> types = new IrTypeAnalyzer(plannerContext).getTypes(TypeProvider.empty(), expression);
         return new IrExpressionInterpreter(expression, plannerContext, session, types).evaluate();
     }
 
@@ -374,7 +374,7 @@ public class IrExpressionInterpreter
                     // The nested CoalesceExpression was recursively processed. It does not contain null.
                     for (Expression nestedOperand : ((CoalesceExpression) value).getOperands()) {
                         // Skip duplicates unless they are non-deterministic.
-                        if (!isDeterministic(nestedOperand, metadata) || uniqueNewOperands.add(nestedOperand)) {
+                        if (!isDeterministic(nestedOperand) || uniqueNewOperands.add(nestedOperand)) {
                             newOperands.add(nestedOperand);
                         }
                         // This operand can be evaluated to a non-null value. Remaining operands can be skipped.
@@ -385,7 +385,7 @@ public class IrExpressionInterpreter
                 }
                 else if (value instanceof Expression expression) {
                     // Skip duplicates unless they are non-deterministic.
-                    if (!isDeterministic(expression, metadata) || uniqueNewOperands.add(expression)) {
+                    if (!isDeterministic(expression) || uniqueNewOperands.add(expression)) {
                         newOperands.add(expression);
                     }
                 }
@@ -492,10 +492,10 @@ public class IrExpressionInterpreter
                 List<Expression> expressionValues = toExpressions(values, types);
                 List<Expression> simplifiedExpressionValues = Stream.concat(
                                 expressionValues.stream()
-                                        .filter(expression -> isDeterministic(expression, metadata))
+                                        .filter(expression -> isDeterministic(expression))
                                         .distinct(),
                                 expressionValues.stream()
-                                        .filter(expression -> !isDeterministic(expression, metadata)))
+                                        .filter(expression -> !isDeterministic(expression)))
                         .collect(toImmutableList());
 
                 if (simplifiedExpressionValues.size() == 1) {
@@ -811,7 +811,7 @@ public class IrExpressionInterpreter
                 argumentTypes.add(type);
             }
 
-            ResolvedFunction resolvedFunction = metadata.decodeFunction(node.getName());
+            ResolvedFunction resolvedFunction = node.getFunction();
             FunctionNullability functionNullability = resolvedFunction.getFunctionNullability();
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);

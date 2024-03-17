@@ -229,8 +229,7 @@ public class PushFilterThroughCountAggregation
             // After filtering out `0` values, filter predicate's domain contains all remaining countSymbol values. Remove the countSymbol domain.
             TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(countSymbol));
             Expression newPredicate = combineConjuncts(
-                    plannerContext.getMetadata(),
-                    new DomainTranslator(plannerContext).toPredicate(newTupleDomain),
+                    new DomainTranslator().toPredicate(newTupleDomain),
                     extractionResult.getRemainingExpression());
             if (newPredicate.equals(TRUE_LITERAL)) {
                 return Result.ofPlanNode(filterSource);

@@ -111,7 +111,7 @@ public class FilterStatsCalculator
     {
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
 
-        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, predicate);
+        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, predicate);
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(predicate, plannerContext, session, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
@@ -445,7 +445,7 @@ public class FilterStatsCalculator
                 return requireNonNull(types.get(symbol), () -> format("No type for symbol %s", symbol));
             }
 
-            return typeAnalyzer.getType(session, types, expression);
+            return typeAnalyzer.getType(types, expression);
         }
 
         private SymbolStatsEstimate getExpressionStats(Expression expression)

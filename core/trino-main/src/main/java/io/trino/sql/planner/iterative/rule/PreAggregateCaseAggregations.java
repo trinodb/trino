@@ -427,12 +427,12 @@ public class PreAggregateCaseAggregations
 
     private Type getType(Context context, Expression expression)
     {
-        return typeAnalyzer.getType(context.getSession(), context.getSymbolAllocator().getTypes(), expression);
+        return typeAnalyzer.getType(context.getSymbolAllocator().getTypes(), expression);
     }
 
     private Object optimizeExpression(Expression expression, Context context)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(context.getSession(), context.getSymbolAllocator().getTypes(), expression);
+        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(context.getSymbolAllocator().getTypes(), expression);
         IrExpressionInterpreter expressionInterpreter = new IrExpressionInterpreter(expression, plannerContext, context.getSession(), expressionTypes);
         return expressionInterpreter.optimize(Symbol::toSymbolReference);
     }

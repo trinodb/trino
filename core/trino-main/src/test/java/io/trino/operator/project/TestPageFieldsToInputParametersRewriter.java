@@ -114,11 +114,11 @@ public class TestPageFieldsToInputParametersRewriter
 
         verifyEagerlyLoadedColumns(builder.buildExpression(new ArithmeticBinaryExpression(ADD, new SymbolReference("bigint0"), new ArithmeticBinaryExpression(MULTIPLY, new Constant(BIGINT, 2L), new SymbolReference("bigint1")))), 2);
         verifyEagerlyLoadedColumns(builder.buildExpression(new NullIfExpression(new SymbolReference("bigint0"), new SymbolReference("bigint1"))), 2);
-        verifyEagerlyLoadedColumns(builder.buildExpression(new CoalesceExpression(new FunctionCall(CEIL.toQualifiedName(), ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE, new SymbolReference("bigint0"), new SymbolReference("bigint1")))), new Constant(BIGINT, 0L))), 2);
+        verifyEagerlyLoadedColumns(builder.buildExpression(new CoalesceExpression(new FunctionCall(CEIL, ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE, new SymbolReference("bigint0"), new SymbolReference("bigint1")))), new Constant(BIGINT, 0L))), 2);
         verifyEagerlyLoadedColumns(builder.buildExpression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("bigint0"), new SymbolReference("bigint1")), new Constant(INTEGER, 1L))), Optional.of(new Constant(INTEGER, 0L)))), 2);
         verifyEagerlyLoadedColumns(
                 builder.buildExpression(new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(GREATER_THAN, new SymbolReference("bigint0"), new Constant(BIGINT, 0L)), new SymbolReference("bigint1"))), Optional.of(new Constant(BIGINT, 0L)))), 2, ImmutableSet.of(0));
-        verifyEagerlyLoadedColumns(builder.buildExpression(new CoalesceExpression(new FunctionCall(ROUND.toQualifiedName(), ImmutableList.of(new SymbolReference("bigint0"))), new SymbolReference("bigint1"))), 2, ImmutableSet.of(0));
+        verifyEagerlyLoadedColumns(builder.buildExpression(new CoalesceExpression(new FunctionCall(ROUND, ImmutableList.of(new SymbolReference("bigint0"))), new SymbolReference("bigint1"))), 2, ImmutableSet.of(0));
         verifyEagerlyLoadedColumns(builder.buildExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("bigint0"), new Constant(BIGINT, 0L)), new ComparisonExpression(GREATER_THAN, new SymbolReference("bigint1"), new Constant(BIGINT, 0L))))), 2, ImmutableSet.of(0));
         verifyEagerlyLoadedColumns(builder.buildExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("bigint0"), new Constant(BIGINT, 0L)), new ComparisonExpression(GREATER_THAN, new SymbolReference("bigint1"), new Constant(BIGINT, 0L))))), 2, ImmutableSet.of(0));
         verifyEagerlyLoadedColumns(builder.buildExpression(new BetweenPredicate(new SymbolReference("bigint0"), new Constant(BIGINT, 0L), new SymbolReference("bigint1"))), 2, ImmutableSet.of(0));
@@ -127,9 +127,9 @@ public class TestPageFieldsToInputParametersRewriter
         builder = RowExpressionBuilder.create()
                 .addSymbol("array_bigint0", new ArrayType(BIGINT))
                 .addSymbol("array_bigint1", new ArrayType(BIGINT));
-        verifyEagerlyLoadedColumns(builder.buildExpression(new FunctionCall(TRANSFORM.toQualifiedName(), ImmutableList.of(new SymbolReference("array_bigint0"), new LambdaExpression(ImmutableList.of("x"), new Constant(INTEGER, 1L))))), 1, ImmutableSet.of());
-        verifyEagerlyLoadedColumns(builder.buildExpression(new FunctionCall(TRANSFORM.toQualifiedName(), ImmutableList.of(new SymbolReference("array_bigint0"), new LambdaExpression(ImmutableList.of("x"), new ArithmeticBinaryExpression(MULTIPLY, new Constant(INTEGER, 2L), new SymbolReference("x")))))), 1, ImmutableSet.of());
-        verifyEagerlyLoadedColumns(builder.buildExpression(new FunctionCall(ZIP_WITH.toQualifiedName(), ImmutableList.of(new SymbolReference("array_bigint0"), new SymbolReference("array_bigint1"), new LambdaExpression(ImmutableList.of("x", "y"), new ArithmeticBinaryExpression(MULTIPLY, new Constant(BIGINT, 2L), new SymbolReference("x")))))), 2, ImmutableSet.of());
+        verifyEagerlyLoadedColumns(builder.buildExpression(new FunctionCall(TRANSFORM, ImmutableList.of(new SymbolReference("array_bigint0"), new LambdaExpression(ImmutableList.of("x"), new Constant(INTEGER, 1L))))), 1, ImmutableSet.of());
+        verifyEagerlyLoadedColumns(builder.buildExpression(new FunctionCall(TRANSFORM, ImmutableList.of(new SymbolReference("array_bigint0"), new LambdaExpression(ImmutableList.of("x"), new ArithmeticBinaryExpression(MULTIPLY, new Constant(INTEGER, 2L), new SymbolReference("x")))))), 1, ImmutableSet.of());
+        verifyEagerlyLoadedColumns(builder.buildExpression(new FunctionCall(ZIP_WITH, ImmutableList.of(new SymbolReference("array_bigint0"), new SymbolReference("array_bigint1"), new LambdaExpression(ImmutableList.of("x", "y"), new ArithmeticBinaryExpression(MULTIPLY, new Constant(BIGINT, 2L), new SymbolReference("x")))))), 2, ImmutableSet.of());
     }
 
     private static void verifyEagerlyLoadedColumns(RowExpression rowExpression, int columnCount)
@@ -179,7 +179,7 @@ public class TestPageFieldsToInputParametersRewriter
         {
             return SqlToRowExpressionTranslator.translate(
                     expression,
-                    TYPE_ANALYZER.getTypes(TEST_SESSION, TypeProvider.copyOf(symbolTypes), expression),
+                    TYPE_ANALYZER.getTypes(TypeProvider.copyOf(symbolTypes), expression),
                     sourceLayout,
                     PLANNER_CONTEXT.getMetadata(),
                     PLANNER_CONTEXT.getFunctionManager(),

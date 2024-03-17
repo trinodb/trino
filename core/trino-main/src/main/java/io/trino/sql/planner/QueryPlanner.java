@@ -377,7 +377,7 @@ class QueryPlanner
     // order and might be used to identify the original output symbols with their copies.
     private NodeAndMappings copy(PlanNode plan, List<Symbol> fields)
     {
-        return PlanCopier.copyPlan(plan, fields, plannerContext.getMetadata(), symbolAllocator, idAllocator);
+        return PlanCopier.copyPlan(plan, fields, symbolAllocator, idAllocator);
     }
 
     private PlanNode replace(PlanNode plan, NodeAndMappings replacementSpot, NodeAndMappings replacement)
@@ -1568,7 +1568,7 @@ class QueryPlanner
         // Note: if frameOffset needs a coercion, it was added before by a call to coerce() method.
         ResolvedFunction function = frameBoundCalculationFunction.get();
         Expression functionCall = new FunctionCall(
-                function.toQualifiedName(),
+                function,
                 ImmutableList.of(
                         sortKeyCoercedForFrameBoundCalculation.toSymbolReference(),
                         offsetSymbol.toSymbolReference()));

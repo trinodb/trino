@@ -18,7 +18,6 @@ import com.google.common.collect.Sets;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
@@ -94,13 +93,6 @@ public class InlineProjectIntoFilter
 
     private static final Pattern<FilterNode> PATTERN = filter()
             .with(source().matching(project().capturedAs(PROJECTION)));
-
-    private final Metadata metadata;
-
-    public InlineProjectIntoFilter(Metadata metadata)
-    {
-        this.metadata = metadata;
-    }
 
     @Override
     public Pattern<FilterNode> getPattern()
@@ -184,7 +176,7 @@ public class InlineProjectIntoFilter
                                 projectNode.getId(),
                                 projectNode.getSource(),
                                 newAssignments.build()),
-                        combineConjuncts(metadata, newConjuncts.build())),
+                        combineConjuncts(newConjuncts.build())),
                 Assignments.builder()
                         .putAll(outputAssignments)
                         .build()));

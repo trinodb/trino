@@ -102,9 +102,8 @@ public class PushdownFilterIntoRowNumber
 
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rowNumberSymbol));
         Expression newPredicate = combineConjuncts(
-                plannerContext.getMetadata(),
                 extractionResult.getRemainingExpression(),
-                new DomainTranslator(plannerContext).toPredicate(newTupleDomain));
+                new DomainTranslator().toPredicate(newTupleDomain));
 
         if (newPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
             return Result.ofPlanNode(source);

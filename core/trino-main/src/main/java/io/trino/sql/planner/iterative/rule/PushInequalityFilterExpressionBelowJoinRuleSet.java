@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
@@ -90,12 +89,10 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
     private static final Pattern<FilterNode> FILTER_PATTERN = filter().with(source().matching(
             join().capturedAs(JOIN_CAPTURE)));
 
-    private final Metadata metadata;
     private final IrTypeAnalyzer typeAnalyzer;
 
-    public PushInequalityFilterExpressionBelowJoinRuleSet(Metadata metadata, IrTypeAnalyzer typeAnalyzer)
+    public PushInequalityFilterExpressionBelowJoinRuleSet(IrTypeAnalyzer typeAnalyzer)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
@@ -171,7 +168,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
 
     private Optional<Expression> conjunctsToFilter(List<Expression> conjuncts)
     {
-        return Optional.of(combineConjuncts(metadata, conjuncts)).filter(expression -> !TRUE_LITERAL.equals(expression));
+        return Optional.of(combineConjuncts(conjuncts)).filter(expression -> !TRUE_LITERAL.equals(expression));
     }
 
     Map<Boolean, List<Expression>> extractPushDownCandidates(JoinNodeContext joinNodeContext, Expression filter)
@@ -182,7 +179,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
 
     private boolean isSupportedExpression(JoinNodeContext joinNodeContext, Expression expression)
     {
-        if (!(expression instanceof ComparisonExpression comparison && isDeterministic(expression, metadata))) {
+        if (!(expression instanceof ComparisonExpression comparison && isDeterministic(expression))) {
             return false;
         }
         if (!SUPPORTED_COMPARISONS.contains(comparison.getOperator())) {
@@ -293,7 +290,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
     private Symbol symbolForExpression(Context context, Expression expression)
     {
         checkArgument(!(expression instanceof SymbolReference), "expression '%s' is a SymbolReference", expression);
-        return context.getSymbolAllocator().newSymbol(expression, typeAnalyzer.getType(context.getSession(), context.getSymbolAllocator().getTypes(), expression));
+        return context.getSymbolAllocator().newSymbol(expression, typeAnalyzer.getType(context.getSymbolAllocator().getTypes(), expression));
     }
 
     private class PushFilterExpressionBelowJoinFilterRule

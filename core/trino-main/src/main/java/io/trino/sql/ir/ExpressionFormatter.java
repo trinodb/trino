@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static io.trino.sql.SqlFormatter.formatName;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -93,7 +92,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitFunctionCall(FunctionCall node, Void context)
         {
-            return formatName(node.getName()) + '(' + joinExpressions(node.getArguments()) + ')';
+            return node.getFunction().getName().toString() + '(' + joinExpressions(node.getArguments()) + ')';
         }
 
         @Override

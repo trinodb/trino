@@ -96,7 +96,7 @@ public class ExpressionEquivalence
     {
         return translate(
                 expression,
-                typeAnalyzer.getTypes(session, types, expression),
+                typeAnalyzer.getTypes(types, expression),
                 symbolInput,
                 metadata,
                 functionManager,

@@ -101,7 +101,7 @@ public class ImplementExceptAll
         Expression count = result.getCountSymbols().get(0).toSymbolReference();
         for (int i = 1; i < result.getCountSymbols().size(); i++) {
             count = new FunctionCall(
-                    greatest.toQualifiedName(),
+                    greatest,
                     ImmutableList.of(
                             new ArithmeticBinaryExpression(SUBTRACT, count, result.getCountSymbols().get(i).toSymbolReference()),
                             new Constant(BIGINT, 0L)));

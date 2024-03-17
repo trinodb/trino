@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
@@ -39,7 +41,6 @@ import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
@@ -49,6 +50,7 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.SUBTRACT;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
@@ -80,6 +82,9 @@ import static io.trino.sql.planner.plan.JoinType.RIGHT;
 public class TestDynamicFilter
         extends BasePlanTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction MOD = FUNCTIONS.resolveFunction("mod", fromTypes(INTEGER, INTEGER));
+
     public TestDynamicFilter()
     {
         super(ImmutableMap.of(
@@ -849,7 +854,7 @@ public class TestDynamicFilter
                                         .right(
                                                 anyTree(
                                                         project(
-                                                                ImmutableMap.of("mod", expression(new FunctionCall(QualifiedName.of("mod"), ImmutableList.of(new SymbolReference("n_nationkey"), new Constant(BIGINT, 2L))))),
+                                                                ImmutableMap.of("mod", expression(new FunctionCall(MOD, ImmutableList.of(new SymbolReference("n_nationkey"), new Constant(BIGINT, 2L))))),
                                                                 tableScan("nation", ImmutableMap.of("n_nationkey", "nationkey")))))))));
     }
 

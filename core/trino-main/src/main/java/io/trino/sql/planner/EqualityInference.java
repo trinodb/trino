@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
@@ -62,17 +61,17 @@ public class EqualityInference
     private final Map<Expression, List<Symbol>> symbolsCache = new HashMap<>();
     private final Map<Expression, Set<Symbol>> uniqueSymbolsCache = new HashMap<>();
 
-    public EqualityInference(Metadata metadata, Expression... expressions)
+    public EqualityInference(Expression... expressions)
     {
-        this(metadata, Arrays.asList(expressions));
+        this(Arrays.asList(expressions));
     }
 
-    public EqualityInference(Metadata metadata, Collection<Expression> expressions)
+    public EqualityInference(Collection<Expression> expressions)
     {
         DisjointSet<Expression> equalities = new DisjointSet<>();
         expressions.stream()
                 .flatMap(expression -> extractConjuncts(expression).stream())
-                .filter(expression -> isInferenceCandidate(metadata, expression))
+                .filter(expression -> isInferenceCandidate(expression))
                 .forEach(expression -> {
                     ComparisonExpression comparison = (ComparisonExpression) expression;
                     Expression expression1 = comparison.getLeft();
@@ -255,10 +254,10 @@ public class EqualityInference
     /**
      * Determines whether an Expression may be successfully applied to the equality inference
      */
-    public static boolean isInferenceCandidate(Metadata metadata, Expression expression)
+    public static boolean isInferenceCandidate(Expression expression)
     {
         if (expression instanceof ComparisonExpression comparison &&
-                isDeterministic(expression, metadata) &&
+                isDeterministic(expression) &&
                 !mayReturnNullOnNonNullInput(expression)) {
             if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
                 // We should only consider equalities that have distinct left and right components
@@ -271,10 +270,10 @@ public class EqualityInference
     /**
      * Provides a convenience Stream of Expression conjuncts which have not been added to the inference
      */
-    public static Stream<Expression> nonInferrableConjuncts(Metadata metadata, Expression expression)
+    public static Stream<Expression> nonInferrableConjuncts(Expression expression)
     {
         return extractConjuncts(expression).stream()
-                .filter(e -> !isInferenceCandidate(metadata, e));
+                .filter(e -> !isInferenceCandidate(e));
     }
 
     private Expression rewrite(Expression expression, Predicate<Symbol> symbolScope, boolean allowFullReplacement)

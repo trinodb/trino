@@ -309,19 +309,19 @@ public class TestExpressionInterpreter
     public void testFunctionCall()
     {
         assertOptimizedEquals(
-                new FunctionCall(ABS.toQualifiedName(), ImmutableList.of(new Constant(INTEGER, 5L))),
+                new FunctionCall(ABS, ImmutableList.of(new Constant(INTEGER, 5L))),
                 new Constant(INTEGER, 5L));
         assertOptimizedEquals(
-                new FunctionCall(ABS.toQualifiedName(), ImmutableList.of(new SymbolReference("unbound_value"))),
-                new FunctionCall(ABS.toQualifiedName(), ImmutableList.of(new SymbolReference("unbound_value"))));
+                new FunctionCall(ABS, ImmutableList.of(new SymbolReference("unbound_value"))),
+                new FunctionCall(ABS, ImmutableList.of(new SymbolReference("unbound_value"))));
     }
 
     @Test
     public void testNonDeterministicFunctionCall()
     {
         assertOptimizedEquals(
-                new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()),
-                new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()));
+                new FunctionCall(RANDOM, ImmutableList.of()),
+                new FunctionCall(RANDOM, ImmutableList.of()));
     }
 
     @Test
@@ -748,8 +748,8 @@ public class TestExpressionInterpreter
                 new CoalesceExpression(new Constant(INTEGER, 6L), new SymbolReference("unbound_value")),
                 new Constant(INTEGER, 6L));
         assertOptimizedMatches(
-                new CoalesceExpression(new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new Constant(DOUBLE, 5.0)),
-                new CoalesceExpression(new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new Constant(DOUBLE, 5.0)));
+                new CoalesceExpression(new FunctionCall(RANDOM, ImmutableList.of()), new FunctionCall(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 5.0)),
+                new CoalesceExpression(new FunctionCall(RANDOM, ImmutableList.of()), new FunctionCall(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 5.0)));
 
         assertOptimizedEquals(
                 new CoalesceExpression(new Constant(UnknownType.UNKNOWN, null), new CoalesceExpression(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null))),
@@ -773,8 +773,8 @@ public class TestExpressionInterpreter
                 new CoalesceExpression(new ArithmeticBinaryExpression(DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, null), new ArithmeticBinaryExpression(DIVIDE, new Constant(INTEGER, 1L), new Constant(INTEGER, 0L)), new Constant(INTEGER, null), new ArithmeticBinaryExpression(DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))),
                 new CoalesceExpression(new ArithmeticBinaryExpression(DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new ArithmeticBinaryExpression(DIVIDE, new Constant(INTEGER, 1L), new Constant(INTEGER, 0L))));
         assertOptimizedEquals(
-                new CoalesceExpression(new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new Constant(DOUBLE, 1.0), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of())),
-                new CoalesceExpression(new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new FunctionCall(RANDOM.toQualifiedName(), ImmutableList.of()), new Constant(DOUBLE, 1.0)));
+                new CoalesceExpression(new FunctionCall(RANDOM, ImmutableList.of()), new FunctionCall(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 1.0), new FunctionCall(RANDOM, ImmutableList.of())),
+                new CoalesceExpression(new FunctionCall(RANDOM, ImmutableList.of()), new FunctionCall(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 1.0)));
 
         assertEvaluatedEquals(
                 new CoalesceExpression(new Constant(INTEGER, 1L), new ArithmeticBinaryExpression(DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))),
@@ -904,7 +904,7 @@ public class TestExpressionInterpreter
 
     static Object optimize(Expression parsedExpression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(TEST_SESSION, SYMBOL_TYPES, parsedExpression);
+        Map<NodeRef<Expression>, Type> expressionTypes = new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(SYMBOL_TYPES, parsedExpression);
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
         return interpreter.optimize(INPUTS);
     }
@@ -916,7 +916,7 @@ public class TestExpressionInterpreter
 
     private static Object evaluate(Expression expression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(TEST_SESSION, SYMBOL_TYPES, expression);
+        Map<NodeRef<Expression>, Type> expressionTypes = new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(SYMBOL_TYPES, expression);
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
 
         return interpreter.evaluate(INPUTS);

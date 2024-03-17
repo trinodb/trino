@@ -207,7 +207,7 @@ public class ApplyTableScanRedirection
                 scanNode.isUpdateTarget(),
                 Optional.empty());
 
-        DomainTranslator domainTranslator = new DomainTranslator(plannerContext);
+        DomainTranslator domainTranslator = new DomainTranslator();
         FilterNode filterNode = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 applyProjection(

@@ -93,8 +93,8 @@ public final class PushTopNThroughProject
         // undoing of PushDownDereferencesThroughTopN. We still push topN in the case of overlapping dereferences since
         // it enables PushDownDereferencesThroughTopN rule to push optimal dereferences.
         Set<Expression> projections = ImmutableSet.copyOf(projectNode.getAssignments().getExpressions());
-        if (!extractRowSubscripts(projections, false, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes()).isEmpty()
-                && exclusiveDereferences(projections, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes())) {
+        if (!extractRowSubscripts(projections, false, typeAnalyzer, context.getSymbolAllocator().getTypes()).isEmpty()
+                && exclusiveDereferences(projections, typeAnalyzer, context.getSymbolAllocator().getTypes())) {
             return Result.empty();
         }
 
