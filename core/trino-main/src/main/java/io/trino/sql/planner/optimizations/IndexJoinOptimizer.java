@@ -251,7 +251,7 @@ public class IndexJoinOptimizer
                 Session session)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-            this.domainTranslator = new DomainTranslator(plannerContext);
+            this.domainTranslator = new DomainTranslator();
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.session = requireNonNull(session, "session is null");
@@ -325,7 +325,6 @@ public class IndexJoinOptimizer
                     node.getAssignments());
 
             Expression resultingPredicate = combineConjuncts(
-                    plannerContext.getMetadata(),
                     domainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
                     decomposedPredicate.getRemainingExpression());
 

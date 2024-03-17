@@ -14,7 +14,6 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
@@ -44,32 +43,31 @@ public class TestDeterminismEvaluator
     @Test
     public void testSanity()
     {
-        Metadata metadata = functionResolution.getMetadata();
-        assertThat(DeterminismEvaluator.isDeterministic(function("rand"), metadata)).isFalse();
-        assertThat(DeterminismEvaluator.isDeterministic(function("random"), metadata)).isFalse();
-        assertThat(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))),
-                metadata)).isFalse();
-        assertThat(DeterminismEvaluator.isDeterministic(function("uuid"), metadata)).isFalse();
-        assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))), metadata)).isTrue();
-        assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand"))), metadata)).isFalse();
+        assertThat(DeterminismEvaluator.isDeterministic(function("rand"))).isFalse();
+        assertThat(DeterminismEvaluator.isDeterministic(function("random"))).isFalse();
+        assertThat(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))
+        )).isFalse();
+        assertThat(DeterminismEvaluator.isDeterministic(function("uuid"))).isFalse();
+        assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))))).isTrue();
+        assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand"))))).isFalse();
         assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "abs",
                         ImmutableList.of(DOUBLE),
-                        ImmutableList.of(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))))),
-                metadata)).isTrue();
+                        ImmutableList.of(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol")))))
+        )).isTrue();
         assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
-                        ImmutableList.of(lambda("a", comparison(GREATER_THAN, input("a"), new Constant(INTEGER, 0L))))),
-                metadata)).isTrue();
+                        ImmutableList.of(lambda("a", comparison(GREATER_THAN, input("a"), new Constant(INTEGER, 0L)))))
+        )).isTrue();
         assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
-                        ImmutableList.of(lambda("a", comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(input("a"))), new Constant(INTEGER, 0L))))),
-                metadata)).isFalse();
+                        ImmutableList.of(lambda("a", comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(input("a"))), new Constant(INTEGER, 0L)))))
+        )).isFalse();
     }
 
     private FunctionCall function(String name)

@@ -184,7 +184,7 @@ public class AddExchanges
             this.types = symbolAllocator.getTypes();
             this.statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
             this.session = session;
-            this.domainTranslator = new DomainTranslator(plannerContext);
+            this.domainTranslator = new DomainTranslator();
             this.redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
         }
 

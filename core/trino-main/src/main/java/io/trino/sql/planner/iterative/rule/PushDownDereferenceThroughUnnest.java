@@ -87,7 +87,7 @@ public class PushDownDereferenceThroughUnnest
         expressionsBuilder.addAll(projectNode.getAssignments().getExpressions());
 
         // Extract dereferences for pushdown
-        Set<SubscriptExpression> dereferences = extractRowSubscripts(expressionsBuilder.build(), false, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
+        Set<SubscriptExpression> dereferences = extractRowSubscripts(expressionsBuilder.build(), false, typeAnalyzer, context.getSymbolAllocator().getTypes());
 
         // Only retain dereferences on replicate symbols
         dereferences = dereferences.stream()
@@ -99,7 +99,7 @@ public class PushDownDereferenceThroughUnnest
         }
 
         // Create new symbols for dereference expressions
-        Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSession(), context.getSymbolAllocator(), typeAnalyzer);
+        Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSymbolAllocator(), typeAnalyzer);
 
         // Rewrite project node assignments using new symbols for dereference expressions
         Map<Expression, SymbolReference> mappings = HashBiMap.create(dereferenceAssignments.getMap())

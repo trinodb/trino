@@ -195,7 +195,7 @@ public class PushAggregationIntoTableScan
                     Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
-                    Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, context.getSymbolAllocator().getTypes(), translated);
+                    Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(context.getSymbolAllocator().getTypes(), translated);
                     Object optimized = new IrExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
                             .optimize(NoOpSymbolResolver.INSTANCE);
 

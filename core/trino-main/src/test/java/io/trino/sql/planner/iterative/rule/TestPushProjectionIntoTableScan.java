@@ -148,7 +148,7 @@ public class TestPushProjectionIntoTableScan
                     .put(dereference, new SubscriptExpression(baseColumn.toSymbolReference(), new Constant(INTEGER, 1L)))
                     .put(constant, new Constant(INTEGER, 5L))
                     .put(call, new FunctionCall(
-                            ruleTester.getMetadata().resolveBuiltinFunction("starts_with", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
+                            ruleTester.getMetadata().resolveBuiltinFunction("starts_with", fromTypes(VARCHAR, VARCHAR)),
                             ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("abc")), new Constant(VARCHAR, Slices.utf8Slice("ab")))))
                     .buildOrThrow();
 

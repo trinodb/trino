@@ -55,19 +55,17 @@ public final class TypeValidator
             TypeProvider types,
             WarningCollector warningCollector)
     {
-        plan.accept(new Visitor(session, typeAnalyzer, types), null);
+        plan.accept(new Visitor(typeAnalyzer, types), null);
     }
 
     private static class Visitor
             extends SimplePlanVisitor<Void>
     {
-        private final Session session;
         private final IrTypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
 
-        public Visitor(Session session, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+        public Visitor(IrTypeAnalyzer typeAnalyzer, TypeProvider types)
         {
-            this.session = requireNonNull(session, "session is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.types = requireNonNull(types, "types is null");
         }
@@ -118,7 +116,7 @@ public final class TypeValidator
                     verifyTypeSignature(entry.getKey(), expectedType, types.get(Symbol.from(symbolReference)));
                     continue;
                 }
-                Type actualType = typeAnalyzer.getType(session, types, entry.getValue());
+                Type actualType = typeAnalyzer.getType(types, entry.getValue());
                 verifyTypeSignature(entry.getKey(), expectedType, actualType);
             }
 
@@ -173,7 +171,7 @@ public final class TypeValidator
                 if (expectedTypeSignature instanceof FunctionType) {
                     continue;
                 }
-                Type actualTypeSignature = typeAnalyzer.getType(session, types, arguments.get(i));
+                Type actualTypeSignature = typeAnalyzer.getType(types, arguments.get(i));
                 verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
             }
         }

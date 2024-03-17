@@ -67,7 +67,7 @@ public class TestUnaliasSymbolReferences
         String probeTable = "supplier";
         String buildTable = "nation";
         assertOptimizedPlan(
-                new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
+                new UnaliasSymbolReferences(),
                 (p, session, metadata) -> {
                     ColumnHandle column = new TpchColumnHandle("nationkey", BIGINT);
                     Symbol buildColumnSymbol = p.symbol("nationkey");
@@ -123,7 +123,7 @@ public class TestUnaliasSymbolReferences
     public void testGroupIdGroupingSetsDeduplicated()
     {
         assertOptimizedPlan(
-                new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
+                new UnaliasSymbolReferences(),
                 (p, session, metadata) -> {
                     Symbol symbol = p.symbol("symbol");
                     Symbol alias1 = p.symbol("alias1");

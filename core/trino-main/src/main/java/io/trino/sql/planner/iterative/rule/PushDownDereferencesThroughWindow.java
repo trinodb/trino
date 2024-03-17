@@ -96,7 +96,6 @@ public class PushDownDereferencesThroughWindow
                                 .collect(toImmutableList()))
                         .build(),
                 false,
-                context.getSession(),
                 typeAnalyzer,
                 context.getSymbolAllocator().getTypes());
 
@@ -116,7 +115,7 @@ public class PushDownDereferencesThroughWindow
         }
 
         // Create new symbols for dereference expressions
-        Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSession(), context.getSymbolAllocator(), typeAnalyzer);
+        Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSymbolAllocator(), typeAnalyzer);
 
         // Rewrite project node assignments using new symbols for dereference expressions
         Map<Expression, SymbolReference> mappings = HashBiMap.create(dereferenceAssignments.getMap())

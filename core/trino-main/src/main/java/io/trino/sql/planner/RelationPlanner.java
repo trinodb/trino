@@ -1367,7 +1367,7 @@ class RelationPlanner
         // apply the input function to the input expression
         Constant failOnError = new Constant(BOOLEAN, jsonTable.getErrorBehavior().orElse(JsonTable.ErrorBehavior.EMPTY) == JsonTable.ErrorBehavior.ERROR);
         ResolvedFunction inputToJson = analysis.getJsonInputFunction(inputExpression);
-        Expression inputJson = new FunctionCall(inputToJson.toQualifiedName(), ImmutableList.of(coerced.get(inputExpression).toSymbolReference(), failOnError));
+        Expression inputJson = new FunctionCall(inputToJson, ImmutableList.of(coerced.get(inputExpression).toSymbolReference(), failOnError));
 
         // apply the input functions to the JSON path parameters having FORMAT,
         // and collect all JSON path parameters in a Row
@@ -1498,7 +1498,7 @@ class RelationPlanner
                 Constant errorBehavior = new Constant(TINYINT, (long) queryColumn.getErrorBehavior().orElse(defaultErrorOnError ? ERROR : NULL).ordinal());
                 Constant omitQuotes = new Constant(BOOLEAN, queryColumn.getQuotesBehavior().orElse(KEEP) == OMIT);
                 ResolvedFunction outputFunction = analysis.getJsonOutputFunction(queryColumn);
-                Expression result = new FunctionCall(outputFunction.toQualifiedName(), ImmutableList.of(properOutput.toSymbolReference(), errorBehavior, omitQuotes));
+                Expression result = new FunctionCall(outputFunction, ImmutableList.of(properOutput.toSymbolReference(), errorBehavior, omitQuotes));
 
                 // cast to declared returned type
                 Type expectedType = jsonTableRelationType.getFieldByIndex(i).getType();

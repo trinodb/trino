@@ -86,12 +86,12 @@ public class ExtractDereferencesFromFilterAboveScan
     @Override
     public Result apply(FilterNode node, Captures captures, Context context)
     {
-        Set<SubscriptExpression> dereferences = extractRowSubscripts(ImmutableList.of(node.getPredicate()), true, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
+        Set<SubscriptExpression> dereferences = extractRowSubscripts(ImmutableList.of(node.getPredicate()), true, typeAnalyzer, context.getSymbolAllocator().getTypes());
         if (dereferences.isEmpty()) {
             return Result.empty();
         }
 
-        Assignments assignments = Assignments.of(dereferences, context.getSession(), context.getSymbolAllocator(), typeAnalyzer);
+        Assignments assignments = Assignments.of(dereferences, context.getSymbolAllocator(), typeAnalyzer);
         Map<Expression, SymbolReference> mappings = HashBiMap.create(assignments.getMap())
                 .inverse()
                 .entrySet().stream()

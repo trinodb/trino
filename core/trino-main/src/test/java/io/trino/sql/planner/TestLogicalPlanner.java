@@ -18,10 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -79,7 +82,6 @@ import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrQuantified;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.tests.QueryTemplate;
 import io.trino.type.Reals;
 import org.junit.jupiter.api.Test;
@@ -100,6 +102,7 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.predicate.Domain.multipleValues;
@@ -112,6 +115,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.SUBTRACT;
@@ -191,6 +195,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestLogicalPlanner
         extends BasePlanTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction FAIL = FUNCTIONS.resolveFunction("fail", fromTypes(INTEGER, VARCHAR));
+    private static final ResolvedFunction LOWER = FUNCTIONS.resolveFunction("lower", fromTypes(VARCHAR));
+    private static final ResolvedFunction COMBINE_HASH = FUNCTIONS.resolveFunction("combine_hash", fromTypes(BIGINT, BIGINT));
+    private static final ResolvedFunction HASH_CODE = createTestMetadataManager().resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(BIGINT));
+
     private static final WindowNode.Frame ROWS_FROM_CURRENT = new WindowNode.Frame(
             ROWS,
             CURRENT_ROW,
@@ -305,7 +315,7 @@ public class TestLogicalPlanner
     public void testAllFieldsDereferenceFromNonDeterministic()
     {
         FunctionCall randomFunction = new FunctionCall(
-                getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction("rand", ImmutableList.of()).toQualifiedName(),
+                getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction("rand", ImmutableList.of()),
                 ImmutableList.of());
 
         assertPlan("SELECT (x, x).* FROM (SELECT rand()) T(x)",
@@ -867,7 +877,7 @@ public class TestLogicalPlanner
                                 new SimpleCaseExpression(
                                         new SymbolReference("is_distinct"),
                                         ImmutableList.of(new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
-                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN))),
+                                        Optional.of(new Cast(new FunctionCall(FAIL, ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN))),
                                 project(
                                         markDistinct("is_distinct", ImmutableList.of("unique"),
                                                 join(LEFT, builder -> builder
@@ -885,7 +895,7 @@ public class TestLogicalPlanner
                                 new SimpleCaseExpression(
                                         new SymbolReference("is_distinct"),
                                         ImmutableList.of(new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
-                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN))),
+                                        Optional.of(new Cast(new FunctionCall(FAIL, ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN))),
                                 project(
                                         markDistinct("is_distinct", ImmutableList.of("unique"),
                                                 join(LEFT, builder -> builder
@@ -1143,7 +1153,7 @@ public class TestLogicalPlanner
                                 new SimpleCaseExpression(
                                         new SymbolReference("is_distinct"),
                                         ImmutableList.of(new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
-                                        Optional.of(new Cast(new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN))),
+                                        Optional.of(new Cast(new FunctionCall(FAIL, ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN))),
                                 project(markDistinct(
                                         "is_distinct",
                                         ImmutableList.of("unique"),
@@ -1859,10 +1869,10 @@ public class TestLogicalPlanner
                         project(
                                 node(AggregationNode.class,
                                         exchange(LOCAL, REPARTITION,
-                                                project(ImmutableMap.of("hash", expression(new FunctionCall(QualifiedName.of("combine_hash"), ImmutableList.of(new Constant(BIGINT, 0L), new CoalesceExpression(new FunctionCall(QualifiedName.of("$operator$hash_code"), ImmutableList.of(new SymbolReference("nationkey"))), new Constant(BIGINT, 0L)))))),
+                                                project(ImmutableMap.of("hash", expression(new FunctionCall(COMBINE_HASH, ImmutableList.of(new Constant(BIGINT, 0L), new CoalesceExpression(new FunctionCall(HASH_CODE, ImmutableList.of(new SymbolReference("nationkey"))), new Constant(BIGINT, 0L)))))),
                                                         node(AggregationNode.class,
                                                                 tableScan("customer", ImmutableMap.of("nationkey", "nationkey")))),
-                                                project(ImmutableMap.of("hash_1", expression(new FunctionCall(QualifiedName.of("combine_hash"), ImmutableList.of(new Constant(BIGINT, 0L), new CoalesceExpression(new FunctionCall(QualifiedName.of("$operator$hash_code"), ImmutableList.of(new SymbolReference("nationkey_6"))), new Constant(BIGINT, 0L)))))),
+                                                project(ImmutableMap.of("hash_1", expression(new FunctionCall(COMBINE_HASH, ImmutableList.of(new Constant(BIGINT, 0L), new CoalesceExpression(new FunctionCall(HASH_CODE, ImmutableList.of(new SymbolReference("nationkey_6"))), new Constant(BIGINT, 0L)))))),
                                                         node(AggregationNode.class,
                                                                 tableScan("customer", ImmutableMap.of("nationkey_6", "nationkey")))))))));
     }
@@ -1882,8 +1892,8 @@ public class TestLogicalPlanner
                                         node(MarkDistinctNode.class,
                                                 anyTree(
                                                         project(ImmutableMap.of(
-                                                                        "hash_1", expression(new FunctionCall(QualifiedName.of("combine_hash"), ImmutableList.of(new Constant(BIGINT, 0L), new CoalesceExpression(new FunctionCall(QualifiedName.of("$operator$hash_code"), ImmutableList.of(new SymbolReference("suppkey"))), new Constant(BIGINT, 0L))))),
-                                                                        "hash_2", expression(new FunctionCall(QualifiedName.of("combine_hash"), ImmutableList.of(new Constant(BIGINT, 0L), new CoalesceExpression(new FunctionCall(QualifiedName.of("$operator$hash_code"), ImmutableList.of(new SymbolReference("partkey"))), new Constant(BIGINT, 0L)))))),
+                                                                        "hash_1", expression(new FunctionCall(COMBINE_HASH, ImmutableList.of(new Constant(BIGINT, 0L), new CoalesceExpression(new FunctionCall(HASH_CODE, ImmutableList.of(new SymbolReference("suppkey"))), new Constant(BIGINT, 0L))))),
+                                                                        "hash_2", expression(new FunctionCall(COMBINE_HASH, ImmutableList.of(new Constant(BIGINT, 0L), new CoalesceExpression(new FunctionCall(HASH_CODE, ImmutableList.of(new SymbolReference("partkey"))), new Constant(BIGINT, 0L)))))),
                                                                 node(MarkDistinctNode.class,
                                                                         tableScan("lineitem", ImmutableMap.of("suppkey", "suppkey", "partkey", "partkey"))))))))));
     }
@@ -1904,8 +1914,8 @@ public class TestLogicalPlanner
                                                         exchange(LOCAL, REPARTITION,
                                                                 exchange(REMOTE, REPARTITION,
                                                                         project(ImmutableMap.of(
-                                                                                        "hash_custkey", expression(new FunctionCall(QualifiedName.of("combine_hash"), ImmutableList.of(new Constant(BIGINT, 0L), new CoalesceExpression(new FunctionCall(QualifiedName.of("$operator$hash_code"), ImmutableList.of(new SymbolReference("custkey"))), new Constant(BIGINT, 0L))))),
-                                                                                        "hash_nationkey", expression(new FunctionCall(QualifiedName.of("combine_hash"), ImmutableList.of(new Constant(BIGINT, 0L), new CoalesceExpression(new FunctionCall(QualifiedName.of("$operator$hash_code"), ImmutableList.of(new SymbolReference("nationkey"))), new Constant(BIGINT, 0L)))))),
+                                                                                        "hash_custkey", expression(new FunctionCall(COMBINE_HASH, ImmutableList.of(new Constant(BIGINT, 0L), new CoalesceExpression(new FunctionCall(HASH_CODE, ImmutableList.of(new SymbolReference("custkey"))), new Constant(BIGINT, 0L))))),
+                                                                                        "hash_nationkey", expression(new FunctionCall(COMBINE_HASH, ImmutableList.of(new Constant(BIGINT, 0L), new CoalesceExpression(new FunctionCall(HASH_CODE, ImmutableList.of(new SymbolReference("nationkey"))), new Constant(BIGINT, 0L)))))),
                                                                                 tableScan("customer", ImmutableMap.of("custkey", "custkey", "nationkey", "nationkey")))),
                                                                 exchange(REMOTE, REPARTITION,
                                                                         node(ProjectNode.class,
@@ -2401,7 +2411,7 @@ public class TestLogicalPlanner
                                 ImmutableMap.of(
                                         "output1", expression(new SymbolReference("id")),
                                         "output2", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("value"), new Constant(INTEGER, 2L))),
-                                        "output3", expression(new FunctionCall(QualifiedName.of("lower"), ImmutableList.of(new SymbolReference("label")))),
+                                        "output3", expression(new FunctionCall(LOWER, ImmutableList.of(new SymbolReference("label")))),
                                         "output4", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("min"), new Constant(INTEGER, 1L)))),
                                 project(
                                         ImmutableMap.of(

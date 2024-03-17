@@ -583,7 +583,7 @@ public class TestMergeWindows
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
+                new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),

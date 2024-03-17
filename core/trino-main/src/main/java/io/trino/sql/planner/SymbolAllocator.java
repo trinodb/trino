@@ -14,7 +14,6 @@
 package io.trino.sql.planner;
 
 import com.google.common.primitives.Ints;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Field;
@@ -109,12 +108,7 @@ public class SymbolAllocator
         String nameHint = "expr";
         if (expression instanceof FunctionCall functionCall) {
             // symbol allocation can happen during planning, before function calls are rewritten
-            if (ResolvedFunction.isResolved(functionCall.getName())) {
-                nameHint = ResolvedFunction.extractFunctionName(functionCall.getName()).getFunctionName();
-            }
-            else {
-                nameHint = functionCall.getName().getSuffix();
-            }
+            nameHint = functionCall.getFunction().getName().getFunctionName();
         }
         else if (expression instanceof SymbolReference symbolReference) {
             nameHint = symbolReference.getName();

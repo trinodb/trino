@@ -43,7 +43,6 @@ import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -130,7 +129,7 @@ public class UnwrapYearInComparison
             Expression value = inPredicate.getValue();
 
             if (!(value instanceof FunctionCall call) ||
-                    !extractFunctionName(call.getName()).equals(builtinFunctionName("year")) ||
+                    !call.getFunction().getName().equals(builtinFunctionName("year")) ||
                     call.getArguments().size() != 1) {
                 return inPredicate;
             }
@@ -156,12 +155,12 @@ public class UnwrapYearInComparison
             // Expect year on the left side and value on the right side of the comparison.
             // This is provided by CanonicalizeExpressionRewriter.
             if (!(expression.getLeft() instanceof FunctionCall call) ||
-                    !extractFunctionName(call.getName()).equals(builtinFunctionName("year")) ||
+                    !call.getFunction().getName().equals(builtinFunctionName("year")) ||
                     call.getArguments().size() != 1) {
                 return expression;
             }
 
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, expression);
 
             Expression argument = getOnlyElement(call.getArguments());
             Type argumentType = expressionTypes.get(NodeRef.of(argument));

@@ -53,7 +53,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -152,12 +151,12 @@ public class UnwrapDateTruncInComparison
             // This is provided by CanonicalizeExpressionRewriter.
 
             if (!(expression.getLeft() instanceof FunctionCall call) ||
-                    !extractFunctionName(call.getName()).equals(builtinFunctionName("date_trunc")) ||
+                    !call.getFunction().getName().equals(builtinFunctionName("date_trunc")) ||
                     call.getArguments().size() != 2) {
                 return expression;
             }
 
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, expression);
             Expression unitExpression = call.getArguments().get(0);
             if (!(expressionTypes.get(NodeRef.of(unitExpression)) instanceof VarcharType) || !isEffectivelyLiteral(plannerContext, session, unitExpression)) {
                 return expression;
@@ -193,7 +192,7 @@ public class UnwrapDateTruncInComparison
                 return expression;
             }
 
-            ResolvedFunction resolvedFunction = plannerContext.getMetadata().decodeFunction(call.getName());
+            ResolvedFunction resolvedFunction = call.getFunction();
 
             Optional<SupportedUnit> unitIfSupported = Enums.getIfPresent(SupportedUnit.class, unitName.toStringUtf8().toUpperCase(Locale.ENGLISH)).toJavaUtil();
             if (unitIfSupported.isEmpty()) {

@@ -182,11 +182,11 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             Function<List<Expression>, Expression> quantifier;
             if (quantifiedComparison.quantifier() == ALL) {
                 emptySetResult = TRUE_LITERAL;
-                quantifier = expressions -> combineConjuncts(metadata, expressions);
+                quantifier = expressions -> combineConjuncts(expressions);
             }
             else {
                 emptySetResult = FALSE_LITERAL;
-                quantifier = expressions -> combineDisjuncts(metadata, expressions);
+                quantifier = expressions -> combineDisjuncts(expressions);
             }
             Expression comparisonWithExtremeValue = getBoundComparisons(quantifiedComparison, minValue, maxValue);
 
@@ -210,7 +210,6 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             if (mapOperator(quantifiedComparison) == EQUAL && quantifiedComparison.quantifier() == ALL) {
                 // A = ALL B <=> min B = max B && A = min B
                 return combineConjuncts(
-                        metadata,
                         new ComparisonExpression(EQUAL, minValue.toSymbolReference(), maxValue.toSymbolReference()),
                         new ComparisonExpression(EQUAL, quantifiedComparison.value().toSymbolReference(), maxValue.toSymbolReference()));
             }

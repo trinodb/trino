@@ -202,7 +202,7 @@ public class TestCanonicalizeExpressionRewriter
     private static void assertCanonicalizedDate(Type type, String symbolName)
     {
         FunctionCall date = new FunctionCall(
-                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("date", fromTypes(type)).toQualifiedName(),
+                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("date", fromTypes(type)),
                 ImmutableList.of(new SymbolReference(symbolName)));
         assertRewritten(date, new Cast(new SymbolReference(symbolName), DATE));
     }

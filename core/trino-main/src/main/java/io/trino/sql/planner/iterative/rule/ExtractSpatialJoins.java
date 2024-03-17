@@ -381,8 +381,8 @@ public class ExtractSpatialJoins
         Expression secondArgument = arguments.get(1);
 
         Type sphericalGeographyType = plannerContext.getTypeManager().getType(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
-        if (typeAnalyzer.getType(context.getSession(), context.getSymbolAllocator().getTypes(), firstArgument).equals(sphericalGeographyType)
-                || typeAnalyzer.getType(context.getSession(), context.getSymbolAllocator().getTypes(), secondArgument).equals(sphericalGeographyType)) {
+        if (typeAnalyzer.getType(context.getSymbolAllocator().getTypes(), firstArgument).equals(sphericalGeographyType)
+                || typeAnalyzer.getType(context.getSymbolAllocator().getTypes(), secondArgument).equals(sphericalGeographyType)) {
             return Result.empty();
         }
 
@@ -435,9 +435,7 @@ public class ExtractSpatialJoins
             }
         }
 
-        ResolvedFunction resolvedFunction = plannerContext.getFunctionDecoder()
-                .fromQualifiedName(spatialFunction.getName())
-                .orElseThrow(() -> new IllegalArgumentException("function call not resolved"));
+        ResolvedFunction resolvedFunction = spatialFunction.getFunction();
         Expression newSpatialFunction = ResolvedFunctionCallBuilder.builder(resolvedFunction)
                 .addArgument(newFirstArgument)
                 .addArgument(newSecondArgument)

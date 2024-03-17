@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import io.trino.Session;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
@@ -80,12 +79,12 @@ public class Assignments
         return builder().put(symbol1, expression1).put(symbol2, expression2).build();
     }
 
-    public static Assignments of(Collection<? extends Expression> expressions, Session session, SymbolAllocator symbolAllocator, IrTypeAnalyzer typeAnalyzer)
+    public static Assignments of(Collection<? extends Expression> expressions, SymbolAllocator symbolAllocator, IrTypeAnalyzer typeAnalyzer)
     {
         Assignments.Builder assignments = Assignments.builder();
 
         for (Expression expression : expressions) {
-            Type type = typeAnalyzer.getType(session, symbolAllocator.getTypes(), expression);
+            Type type = typeAnalyzer.getType(symbolAllocator.getTypes(), expression);
             assignments.put(symbolAllocator.newSymbol(expression, type), expression);
         }
 

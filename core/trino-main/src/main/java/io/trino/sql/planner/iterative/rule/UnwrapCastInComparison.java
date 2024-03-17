@@ -175,7 +175,7 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session, typeAnalyzer.getTypes(session, types, expression.getRight()))
+            Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session, typeAnalyzer.getTypes(types, expression.getRight()))
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
             ComparisonExpression.Operator operator = expression.getOperator();
@@ -191,8 +191,8 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Type sourceType = typeAnalyzer.getType(session, types, cast.getExpression());
-            Type targetType = typeAnalyzer.getType(session, types, expression.getRight());
+            Type sourceType = typeAnalyzer.getType(types, cast.getExpression());
+            Type targetType = typeAnalyzer.getType(types, expression.getRight());
 
             if (sourceType instanceof TimestampType && targetType == DATE) {
                 return unwrapTimestampToDateCast((TimestampType) sourceType, operator, cast.getExpression(), (long) right).orElse(expression);

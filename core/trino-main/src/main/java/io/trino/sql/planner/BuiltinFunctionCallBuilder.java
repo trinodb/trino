@@ -86,6 +86,6 @@ public class BuiltinFunctionCallBuilder
     public FunctionCall build()
     {
         ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, TypeSignatureProvider.fromTypeSignatures(argumentTypes));
-        return new FunctionCall(resolvedFunction.toQualifiedName(), argumentValues);
+        return new FunctionCall(resolvedFunction, argumentValues);
     }
 }

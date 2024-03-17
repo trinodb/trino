@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 import io.trino.cost.PlanNodeStatsEstimate;
-import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Expression;
@@ -128,19 +127,12 @@ import static java.util.Objects.requireNonNull;
 public class UnaliasSymbolReferences
         implements PlanOptimizer
 {
-    private final Metadata metadata;
-
-    public UnaliasSymbolReferences(Metadata metadata)
-    {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-    }
-
     @Override
     public PlanNode optimize(PlanNode plan, Context context)
     {
         requireNonNull(plan, "plan is null");
 
-        Visitor visitor = new Visitor(metadata, SymbolMapper::symbolMapper);
+        Visitor visitor = new Visitor(SymbolMapper::symbolMapper);
         PlanAndMappings result = plan.accept(visitor, UnaliasContext.empty());
         return updateDynamicFilterIds(result.getRoot(), visitor.getDynamicFilterIdMap());
     }
@@ -157,7 +149,7 @@ public class UnaliasSymbolReferences
         requireNonNull(fields, "fields is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
 
-        Visitor visitor = new Visitor(metadata, mapping -> symbolReallocator(mapping, symbolAllocator));
+        Visitor visitor = new Visitor(mapping -> symbolReallocator(mapping, symbolAllocator));
         PlanAndMappings result = plan.accept(visitor, UnaliasContext.empty());
         return new NodeAndMappings(updateDynamicFilterIds(result.getRoot(), visitor.getDynamicFilterIdMap()), symbolMapper(result.getMappings()).map(fields));
     }
@@ -165,7 +157,7 @@ public class UnaliasSymbolReferences
     private PlanNode updateDynamicFilterIds(PlanNode resultNode, Map<DynamicFilterId, DynamicFilterId> dynamicFilterIdMap)
     {
         if (!dynamicFilterIdMap.isEmpty()) {
-            resultNode = rewriteWith(new DynamicFilterVisitor(metadata, dynamicFilterIdMap), resultNode);
+            resultNode = rewriteWith(new DynamicFilterVisitor(dynamicFilterIdMap), resultNode);
         }
         return resultNode;
     }
@@ -173,13 +165,11 @@ public class UnaliasSymbolReferences
     private static class Visitor
             extends PlanVisitor<PlanAndMappings, UnaliasContext>
     {
-        private final Metadata metadata;
         private final Function<Map<Symbol, Symbol>, SymbolMapper> mapperProvider;
         private final Map<DynamicFilterId, DynamicFilterId> dynamicFilterIdMap = new HashMap<>();
 
-        public Visitor(Metadata metadata, Function<Map<Symbol, Symbol>, SymbolMapper> mapperProvider)
+        public Visitor(Function<Map<Symbol, Symbol>, SymbolMapper> mapperProvider)
         {
-            this.metadata = requireNonNull(metadata, "metadata is null");
             this.mapperProvider = requireNonNull(mapperProvider, "mapperProvider is null");
         }
 
@@ -926,7 +916,7 @@ public class UnaliasSymbolReferences
                 }
                 // 2. map same deterministic expressions within a projection into the same symbol
                 // omit NullLiterals since those have ambiguous types
-                else if (DeterminismEvaluator.isDeterministic(expression, metadata)) {
+                else if (DeterminismEvaluator.isDeterministic(expression)) {
                     Symbol previous = inputsToOutputs.get(expression);
                     if (previous == null) {
                         inputsToOutputs.put(expression, assignment.getKey());
@@ -1417,12 +1407,10 @@ public class UnaliasSymbolReferences
     private static class DynamicFilterVisitor
             extends SimplePlanRewriter<Void>
     {
-        private final Metadata metadata;
         private final Map<DynamicFilterId, DynamicFilterId> dynamicFilterIdMap;
 
-        private DynamicFilterVisitor(Metadata metadata, Map<DynamicFilterId, DynamicFilterId> dynamicFilterIdMap)
+        private DynamicFilterVisitor(Map<DynamicFilterId, DynamicFilterId> dynamicFilterIdMap)
         {
-            this.metadata = requireNonNull(metadata, "metadata is null");
             this.dynamicFilterIdMap = requireNonNull(dynamicFilterIdMap, "dynamicFilterIdMap is null");
         }
 
@@ -1463,7 +1451,7 @@ public class UnaliasSymbolReferences
                 newConjuncts.add(newConjunct);
             }
             if (updated) {
-                return combineConjuncts(metadata, newConjuncts.build());
+                return combineConjuncts(newConjuncts.build());
             }
             return predicate;
         }

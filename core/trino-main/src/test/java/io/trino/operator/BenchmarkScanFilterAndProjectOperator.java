@@ -237,7 +237,7 @@ public class BenchmarkScanFilterAndProjectOperator
                 for (int i = 0; i < columnCount; i++) {
                     // alternatively use identity expression rowExpression("varchar" + i, type) or
                     // rowExpression("substr(varchar" + i + ", 1, 1)", type)
-                    builder.add(rowExpression(new FunctionCall(CONCAT.toQualifiedName(), ImmutableList.of(new SymbolReference("varchar" + i), new Constant(VARCHAR, Slices.utf8Slice("foo"))))));
+                    builder.add(rowExpression(new FunctionCall(CONCAT, ImmutableList.of(new SymbolReference("varchar" + i), new Constant(VARCHAR, Slices.utf8Slice("foo"))))));
                 }
             }
             return builder.build();
@@ -248,7 +248,7 @@ public class BenchmarkScanFilterAndProjectOperator
             TypeProvider typeProvider = TypeProvider.copyOf(symbolTypes);
             return SqlToRowExpressionTranslator.translate(
                     expression,
-                    new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(TEST_SESSION, typeProvider, expression),
+                    new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(typeProvider, expression),
                     sourceLayout,
                     PLANNER_CONTEXT.getMetadata(),
                     PLANNER_CONTEXT.getFunctionManager(),

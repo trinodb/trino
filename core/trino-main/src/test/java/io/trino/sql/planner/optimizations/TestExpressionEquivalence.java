@@ -138,8 +138,8 @@ public class TestExpressionEquivalence
                 new ComparisonExpression(EQUAL, new Constant(createTimestampWithTimeZoneType(9), DateTimes.parseTimestampWithTimeZone(9, "2021-05-10 12:34:56.123456789 +8")), new Constant(createTimestampWithTimeZoneType(9), DateTimes.parseTimestampWithTimeZone(9, "2020-05-10 12:34:56.123456789 +8"))));
 
         assertEquivalent(
-                new FunctionCall(MOD.toQualifiedName(), ImmutableList.of(new Constant(INTEGER, 4L), new Constant(INTEGER, 5L))),
-                new FunctionCall(MOD.toQualifiedName(), ImmutableList.of(new Constant(INTEGER, 4L), new Constant(INTEGER, 5L))));
+                new FunctionCall(MOD, ImmutableList.of(new Constant(INTEGER, 4L), new Constant(INTEGER, 5L))),
+                new FunctionCall(MOD, ImmutableList.of(new Constant(INTEGER, 4L), new Constant(INTEGER, 5L))));
 
         assertEquivalent(
                 new SymbolReference("a_bigint"),
@@ -263,8 +263,8 @@ public class TestExpressionEquivalence
                 new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)));
 
         assertNotEquivalent(
-                new FunctionCall(MOD.toQualifiedName(), ImmutableList.of(new Constant(INTEGER, 4L), new Constant(INTEGER, 5L))),
-                new FunctionCall(MOD.toQualifiedName(), ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 4L))));
+                new FunctionCall(MOD, ImmutableList.of(new Constant(INTEGER, 4L), new Constant(INTEGER, 5L))),
+                new FunctionCall(MOD, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 4L))));
 
         assertNotEquivalent(
                 new SymbolReference("a_bigint"),

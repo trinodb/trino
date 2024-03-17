@@ -79,12 +79,12 @@ public class ArraySortAfterArrayDistinct
         public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
-            if (metadata.decodeFunction(rewritten.getName()).getSignature().getName().equals(ARRAY_DISTINCT_NAME) &&
+            if (node.getFunction().getName().equals(ARRAY_DISTINCT_NAME) &&
                     getOnlyElement(rewritten.getArguments()) instanceof FunctionCall) {
                 Expression expression = getOnlyElement(rewritten.getArguments());
                 FunctionCall functionCall = (FunctionCall) expression;
-                ResolvedFunction resolvedFunction = metadata.decodeFunction(functionCall.getName());
-                if (resolvedFunction.getSignature().getName().equals(ARRAY_SORT_NAME)) {
+                ResolvedFunction resolvedFunction = functionCall.getFunction();
+                if (resolvedFunction.getName().equals(ARRAY_SORT_NAME)) {
                     List<Expression> arraySortArguments = functionCall.getArguments();
                     List<Type> arraySortArgumentsTypes = resolvedFunction.getSignature().getArgumentTypes();
 

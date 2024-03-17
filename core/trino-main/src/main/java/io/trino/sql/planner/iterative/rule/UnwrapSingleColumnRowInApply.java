@@ -148,7 +148,7 @@ public class UnwrapSingleColumnRowInApply
 
     private Optional<Unwrapping> unwrapSingleColumnRow(Context context, Expression value, Expression list, BiFunction<Symbol, Symbol, ApplyNode.SetExpression> function)
     {
-        Type type = typeAnalyzer.getType(context.getSession(), context.getSymbolAllocator().getTypes(), value);
+        Type type = typeAnalyzer.getType(context.getSymbolAllocator().getTypes(), value);
         if (type instanceof RowType rowType) {
             if (rowType.getFields().size() == 1) {
                 Type elementType = rowType.getTypeParameters().get(0);

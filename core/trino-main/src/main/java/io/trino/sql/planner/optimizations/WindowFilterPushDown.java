@@ -93,7 +93,7 @@ public class WindowFilterPushDown
             this.types = requireNonNull(types, "types is null");
             rowNumberFunctionId = plannerContext.getMetadata().resolveBuiltinFunction("row_number", ImmutableList.of()).getFunctionId();
             rankFunctionId = plannerContext.getMetadata().resolveBuiltinFunction("rank", ImmutableList.of()).getFunctionId();
-            domainTranslator = new DomainTranslator(plannerContext);
+            domainTranslator = new DomainTranslator();
         }
 
         @Override
@@ -201,7 +201,6 @@ public class WindowFilterPushDown
             // Remove the ranking domain because it is absorbed into the node
             TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rankingSymbol));
             Expression newPredicate = combineConjuncts(
-                    plannerContext.getMetadata(),
                     extractionResult.getRemainingExpression(),
                     domainTranslator.toPredicate(newTupleDomain));
 

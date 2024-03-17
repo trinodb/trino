@@ -86,7 +86,7 @@ public class PushDownDereferenceThroughSemiJoin
         SemiJoinNode semiJoinNode = captures.get(CHILD);
 
         // Extract dereferences from project node assignments for pushdown
-        Set<SubscriptExpression> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
+        Set<SubscriptExpression> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false, typeAnalyzer, context.getSymbolAllocator().getTypes());
 
         // All dereferences can be assumed on the symbols coming from source, since filteringSource output is not propagated,
         // and semiJoinOutput is of type boolean. We exclude pushdown of dereferences on sourceJoinSymbol.
@@ -99,7 +99,7 @@ public class PushDownDereferenceThroughSemiJoin
         }
 
         // Create new symbols for dereference expressions
-        Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSession(), context.getSymbolAllocator(), typeAnalyzer);
+        Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSymbolAllocator(), typeAnalyzer);
 
         // Rewrite project node assignments using new symbols for dereference expressions
         Map<Expression, SymbolReference> mappings = HashBiMap.create(dereferenceAssignments.getMap())

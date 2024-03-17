@@ -37,7 +37,6 @@ import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
 import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
-import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -105,7 +104,7 @@ public class TestMergePatternRecognitionNodes
                 .doesNotFire();
 
         // aggregations in variable definitions do not match
-        QualifiedName count = tester().getMetadata().resolveBuiltinFunction("count", fromTypes(BIGINT)).toQualifiedName();
+        ResolvedFunction count = tester().getMetadata().resolveBuiltinFunction("count", fromTypes(BIGINT));
         tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .pattern(new IrLabel("X"))

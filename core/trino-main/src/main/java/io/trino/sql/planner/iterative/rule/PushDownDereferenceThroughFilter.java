@@ -88,14 +88,14 @@ public class PushDownDereferenceThroughFilter
                 .build();
 
         // Extract dereferences from project node assignments for pushdown
-        Set<SubscriptExpression> dereferences = extractRowSubscripts(expressions, false, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
+        Set<SubscriptExpression> dereferences = extractRowSubscripts(expressions, false, typeAnalyzer, context.getSymbolAllocator().getTypes());
 
         if (dereferences.isEmpty()) {
             return Result.empty();
         }
 
         // Create new symbols for dereference expressions
-        Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSession(), context.getSymbolAllocator(), typeAnalyzer);
+        Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSymbolAllocator(), typeAnalyzer);
 
         // Rewrite project node assignments using new symbols for dereference expressions
         Map<Expression, SymbolReference> mappings = HashBiMap.create(dereferenceAssignments.getMap())
