@@ -34,7 +34,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNullPredicate;
@@ -204,21 +203,6 @@ public class IrTypeAnalyzer
             //    rely on the execution layer to insert the necessary casts.
 
             return setExpressionType(node, firstType);
-        }
-
-        @Override
-        protected Type visitIfExpression(IfExpression node, Context context)
-        {
-            Type conditionType = process(node.getCondition(), context);
-            checkArgument(conditionType.equals(BOOLEAN), "Condition must be boolean: %s", conditionType);
-
-            Type trueType = process(node.getTrueValue(), context);
-            if (node.getFalseValue().isPresent()) {
-                Type falseType = process(node.getFalseValue().get(), context);
-                checkArgument(trueType.equals(falseType), "Types must be equal: %s vs %s", trueType, falseType);
-            }
-
-            return setExpressionType(node, trueType);
         }
 
         @Override

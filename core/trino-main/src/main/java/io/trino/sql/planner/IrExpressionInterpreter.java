@@ -47,7 +47,6 @@ import io.trino.sql.ir.ComparisonExpression.Operator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNullPredicate;
@@ -251,25 +250,6 @@ public class IrExpressionInterpreter
 
             Expression defaultExpression = (defaultResult == null) ? null : toExpression(defaultResult, type(node));
             return new SearchedCaseExpression(whenClauses, Optional.ofNullable(defaultExpression));
-        }
-
-        @Override
-        protected Object visitIfExpression(IfExpression node, Object context)
-        {
-            Object condition = processWithExceptionHandling(node.getCondition(), context);
-
-            if (condition instanceof Expression) {
-                Object trueValue = processWithExceptionHandling(node.getTrueValue(), context);
-                Object falseValue = processWithExceptionHandling(node.getFalseValue().orElse(null), context);
-                return new IfExpression(
-                        toExpression(condition, type(node.getCondition())),
-                        toExpression(trueValue, type(node.getTrueValue())),
-                        (falseValue == null) ? null : toExpression(falseValue, type(node.getFalseValue().get())));
-            }
-            if (Boolean.TRUE.equals(condition)) {
-                return processWithExceptionHandling(node.getTrueValue(), context);
-            }
-            return processWithExceptionHandling(node.getFalseValue().orElse(null), context);
         }
 
         @Override

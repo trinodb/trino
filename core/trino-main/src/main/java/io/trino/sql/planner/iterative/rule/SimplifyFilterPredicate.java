@@ -19,7 +19,6 @@ import io.trino.matching.Pattern;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
@@ -70,7 +69,6 @@ public class SimplifyFilterPredicate
         boolean simplified = false;
         for (Expression conjunct : conjuncts) {
             Optional<Expression> simplifiedConjunct = switch (conjunct) {
-                case IfExpression expression -> simplify(expression);
                 case NullIfExpression expression -> Optional.of(LogicalExpression.and(expression.getFirst(), isFalseOrNullPredicate(expression.getSecond())));
                 case SearchedCaseExpression expression -> simplify(expression);
                 case SimpleCaseExpression expression -> simplify(expression);
@@ -95,12 +93,8 @@ public class SimplifyFilterPredicate
                 combineConjuncts(newConjuncts.build())));
     }
 
-    private static Optional<Expression> simplify(IfExpression ifExpression)
+    private static Optional<Expression> simplify(Expression condition, Expression trueValue, Optional<Expression> falseValue)
     {
-        Expression condition = ifExpression.getCondition();
-        Expression trueValue = ifExpression.getTrueValue();
-        Optional<Expression> falseValue = ifExpression.getFalseValue();
-
         if (trueValue.equals(TRUE_LITERAL) && (falseValue.isEmpty() || isNotTrue(falseValue.get()))) {
             return Optional.of(condition);
         }
@@ -125,6 +119,14 @@ public class SimplifyFilterPredicate
     private static Optional<Expression> simplify(SearchedCaseExpression caseExpression)
     {
         Optional<Expression> defaultValue = caseExpression.getDefaultValue();
+
+        if (caseExpression.getWhenClauses().size() == 1) {
+            // if-like expression
+            return simplify(
+                    caseExpression.getWhenClauses().getFirst().getOperand(),
+                    caseExpression.getWhenClauses().getFirst().getResult(),
+                    defaultValue);
+        }
 
         List<Expression> operands = caseExpression.getWhenClauses().stream()
                 .map(WhenClause::getOperand)

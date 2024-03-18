@@ -29,14 +29,9 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
-
-import java.util.Optional;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.DateType.DATE;
@@ -116,17 +111,6 @@ public final class CanonicalizeExpressionRewriter
             }
 
             return treeRewriter.defaultRewrite(node, context);
-        }
-
-        @Override
-        public Expression rewriteIfExpression(IfExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-        {
-            Expression condition = treeRewriter.rewrite(node.getCondition(), context);
-            Expression trueValue = treeRewriter.rewrite(node.getTrueValue(), context);
-
-            Optional<Expression> falseValue = node.getFalseValue().map(value -> treeRewriter.rewrite(value, context));
-
-            return new SearchedCaseExpression(ImmutableList.of(new WhenClause(condition, trueValue)), falseValue);
         }
 
         @Override

@@ -65,11 +65,6 @@ public class ExpressionRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
-    public Expression rewriteIfExpression(IfExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
-    {
-        return rewriteExpression(node, context, treeRewriter);
-    }
-
     public Expression rewriteSearchedCaseExpression(SearchedCaseExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);

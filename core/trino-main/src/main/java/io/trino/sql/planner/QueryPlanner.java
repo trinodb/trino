@@ -47,7 +47,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
@@ -153,6 +152,7 @@ import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
@@ -325,7 +325,7 @@ class QueryPlanner
 
         // 2. append filter to fail on non-empty result
         String recursionLimitExceededMessage = format("Recursion depth limit exceeded (%s). Use 'max_recursion_depth' session property to modify the limit.", maxRecursionDepth);
-        Expression predicate = new IfExpression(
+        Expression predicate = ifExpression(
                 new ComparisonExpression(
                         GREATER_THAN_OR_EQUAL,
                         countSymbol.toSymbolReference(),
@@ -719,7 +719,7 @@ class QueryPlanner
         for (io.trino.sql.tree.Expression constraint : constraints) {
             Expression symbol = constraintBuilder.translate(constraint).toSymbolReference();
 
-            Expression predicate = new IfExpression(
+            Expression predicate = ifExpression(
                     // When predicate evaluates to UNKNOWN (e.g. NULL > 100), it should not violate the check constraint.
                     new CoalesceExpression(coerceIfNecessary(analysis, constraint, symbol), TRUE_LITERAL),
                     TRUE_LITERAL,
@@ -897,7 +897,7 @@ class QueryPlanner
         MarkDistinctNode markDistinctNode = new MarkDistinctNode(idAllocator.getNextId(), project, isDistinctSymbol, ImmutableList.of(uniqueIdSymbol, caseNumberSymbol), Optional.empty());
 
         // Raise an error if unique_id symbol is non-null and the unique_id/case_number combination was not distinct
-        Expression filter = new IfExpression(
+        Expression filter = ifExpression(
                 LogicalExpression.and(
                         new NotExpression(isDistinctSymbol.toSymbolReference()),
                         new NotExpression(new IsNullPredicate(uniqueIdSymbol.toSymbolReference()))),
@@ -1520,7 +1520,7 @@ class QueryPlanner
         // First, append filter to validate offset values. They mustn't be negative or null.
         Symbol offsetSymbol = coercions.get(frameOffset.get());
         Expression zeroOffset = zeroOfType(symbolAllocator.getTypes().get(offsetSymbol));
-        Expression predicate = new IfExpression(
+        Expression predicate = ifExpression(
                 new ComparisonExpression(
                         GREATER_THAN_OR_EQUAL,
                         offsetSymbol.toSymbolReference(),
@@ -1621,7 +1621,7 @@ class QueryPlanner
 
         // Append filter to validate offset values. They mustn't be negative or null.
         Expression zeroOffset = zeroOfType(offsetType);
-        Expression predicate = new IfExpression(
+        Expression predicate = ifExpression(
                 new ComparisonExpression(GREATER_THAN_OR_EQUAL, offsetSymbol.toSymbolReference(), zeroOffset),
                 TRUE_LITERAL,
                 new Cast(
@@ -1651,7 +1651,7 @@ class QueryPlanner
                 offsetToBigint = new Constant(BIGINT, Long.MAX_VALUE);
             }
             else {
-                offsetToBigint = new IfExpression(
+                offsetToBigint = ifExpression(
                         new ComparisonExpression(LESS_THAN_OR_EQUAL, offsetSymbol.toSymbolReference(), new Constant(decimalType, Int128.valueOf(Long.MAX_VALUE))),
                         new Cast(offsetSymbol.toSymbolReference(), BIGINT),
                         new Constant(BIGINT, Long.MAX_VALUE));

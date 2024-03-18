@@ -28,7 +28,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -72,6 +71,7 @@ import static io.trino.sql.ir.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrUtils.extractPredicates;
 import static io.trino.sql.ir.IrUtils.logicalExpression;
 import static io.trino.sql.ir.LogicalExpression.Operator.AND;
@@ -696,8 +696,8 @@ public class TestSimplifyExpressions
                 new NotExpression(new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new SymbolReference("D2")), new ComparisonExpression(LESS_THAN, new SymbolReference("I1"), new SymbolReference("I2")))), new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("B1"), new SymbolReference("B2"))), new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new SymbolReference("R2"))))))),
                 new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new SymbolReference("D2"))), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("I1"), new SymbolReference("I2")))), new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new NotExpression(new SymbolReference("B1")), new NotExpression(new SymbolReference("B2")))), new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new SymbolReference("R2"))))))));
         assertSimplifiesNumericTypes(
-                new IfExpression(new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("I1"), new SymbolReference("I2"))), new SymbolReference("D1"), new SymbolReference("D2")),
-                new IfExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("I1"), new SymbolReference("I2")), new SymbolReference("D1"), new SymbolReference("D2")));
+                ifExpression(new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("I1"), new SymbolReference("I2"))), new SymbolReference("D1"), new SymbolReference("D2")),
+                ifExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("I1"), new SymbolReference("I2")), new SymbolReference("D1"), new SymbolReference("D2")));
 
         // Symbol of type having NaN on either side of comparison
         assertSimplifiesNumericTypes(

@@ -25,7 +25,6 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -43,6 +42,7 @@ import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -98,7 +98,7 @@ public class TestRecursiveCte
                                                         values()))))))),
                                 // "post-recursion" step with convergence assertion
                                 filter(
-                                        new IfExpression(
+                                        ifExpression(
                                                 new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("count"), new Constant(BIGINT, 0L)),
                                                 new Cast(new FunctionCall(FAIL, ImmutableList.of(new Constant(INTEGER, (long) NOT_SUPPORTED.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Recursion depth limit exceeded (1). Use 'max_recursion_depth' session property to modify the limit.")))), BOOLEAN),
                                                 TRUE_LITERAL),
