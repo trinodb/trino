@@ -28,7 +28,6 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.LanguageFunctionManager.RunAsIdentityLoader;
-import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
@@ -115,7 +114,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PartitioningHandle;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.TypeCoercion;
@@ -197,8 +195,6 @@ public final class MetadataManager
 
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
-    private final ResolvedFunctionDecoder functionDecoder;
-
     @Inject
     public MetadataManager(
             SystemSecurityMetadata systemSecurityMetadata,
@@ -209,8 +205,7 @@ public final class MetadataManager
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         functions = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
-        functionDecoder = new ResolvedFunctionDecoder(typeManager::getType);
-        functionResolver = new BuiltinFunctionResolver(this, typeManager, globalFunctionCatalog, functionDecoder);
+        functionResolver = new BuiltinFunctionResolver(this, typeManager, globalFunctionCatalog);
         this.typeCoercion = new TypeCoercion(typeManager::getType);
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
@@ -2444,13 +2439,6 @@ public final class MetadataManager
             functions.addAll(languageFunctionManager.listFunctions(metadata.listLanguageFunctions(connectorSession, schema.getSchemaName())));
         });
         return functions.build();
-    }
-
-    @Override
-    public ResolvedFunction decodeFunction(QualifiedName name)
-    {
-        return functionDecoder.fromQualifiedName(name)
-                .orElseThrow(() -> new IllegalArgumentException("Function is not resolved: " + name));
     }
 
     @Override
