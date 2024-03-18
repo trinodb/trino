@@ -36,10 +36,8 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -433,8 +431,8 @@ public class TestPostgreSqlClient
                                 new InPredicate(
                                         new SymbolReference("c_varchar"),
                                         List.of(
-                                                new Cast(new Constant(VarcharType.VARCHAR, utf8Slice("value1")), VARCHAR_COLUMN.getColumnType()),
-                                                new Cast(new Constant(VarcharType.VARCHAR, utf8Slice("value2")), VARCHAR_COLUMN.getColumnType()),
+                                                new Constant(VARCHAR_COLUMN.getColumnType(), utf8Slice("value1")),
+                                                new Constant(VARCHAR_COLUMN.getColumnType(), utf8Slice("value2")),
                                                 new SymbolReference("c_varchar2"))),
                                 Map.of("c_varchar", VARCHAR_COLUMN.getColumnType(), "c_varchar2", VARCHAR_COLUMN2.getColumnType())),
                         Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2))
@@ -452,7 +450,6 @@ public class TestPostgreSqlClient
                         expression,
                         TypeProvider.viewOf(symbolTypes.entrySet().stream()
                                 .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Entry::getValue))),
-                        PLANNER_CONTEXT,
                         new IrTypeAnalyzer(PLANNER_CONTEXT))
                 .orElseThrow();
     }

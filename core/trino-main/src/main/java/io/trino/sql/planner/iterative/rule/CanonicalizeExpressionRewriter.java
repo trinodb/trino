@@ -14,16 +14,15 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.Session;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
@@ -44,42 +43,36 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
-import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
 import static java.util.Objects.requireNonNull;
 
 public final class CanonicalizeExpressionRewriter
 {
-    public static Expression canonicalizeExpression(Expression expression, IrTypeAnalyzer typeAnalyzer, TypeProvider types, PlannerContext plannerContext, Session session)
+    public static Expression canonicalizeExpression(Expression expression, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, plannerContext, typeAnalyzer, types), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(typeAnalyzer, types), expression);
     }
 
     private CanonicalizeExpressionRewriter() {}
 
-    public static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+    public static Expression rewrite(Expression expression, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
     {
-        requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
         if (expression instanceof SymbolReference) {
             return expression;
         }
 
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, plannerContext, typeAnalyzer, types), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(typeAnalyzer, types), expression);
     }
 
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
-        private final Session session;
-        private final PlannerContext plannerContext;
         private final IrTypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
 
-        public Visitor(Session session, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+        public Visitor(IrTypeAnalyzer typeAnalyzer, TypeProvider types)
         {
-            this.session = session;
-            this.plannerContext = plannerContext;
             this.typeAnalyzer = typeAnalyzer;
             this.types = types;
         }
@@ -150,13 +143,7 @@ public final class CanonicalizeExpressionRewriter
 
         private boolean isConstant(Expression expression)
         {
-            // Current IR has no way to represent typed constants. It encodes simple ones as Cast(Literal)
-            // This is the simplest possible check that
-            //   1) doesn't require ExpressionInterpreter.optimize(), which is not cheap
-            //   2) doesn't try to duplicate all the logic in LiteralEncoder
-            //   3) covers a sufficient portion of the use cases that occur in practice
-            // TODO: this should eventually be removed when IR includes types
-            return isEffectivelyLiteral(plannerContext, session, expression);
+            return expression instanceof Constant;
         }
     }
 }

@@ -102,7 +102,6 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
-import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
@@ -116,7 +115,6 @@ public class IrExpressionInterpreter
     private final Expression expression;
     private final PlannerContext plannerContext;
     private final Metadata metadata;
-    private final Session session;
     private final ConnectorSession connectorSession;
     private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final InterpretedFunctionInvoker functionInvoker;
@@ -129,7 +127,6 @@ public class IrExpressionInterpreter
         this.expression = requireNonNull(expression, "expression is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
-        this.session = requireNonNull(session, "session is null");
         this.connectorSession = session.toConnectorSession();
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify(expressionTypes.containsKey(NodeRef.of(expression)));
@@ -378,7 +375,7 @@ public class IrExpressionInterpreter
                             newOperands.add(nestedOperand);
                         }
                         // This operand can be evaluated to a non-null value. Remaining operands can be skipped.
-                        if (isEffectivelyLiteral(plannerContext, session, nestedOperand)) {
+                        if (nestedOperand instanceof Constant constant && constant.getValue() != null) {
                             return newOperands;
                         }
                     }

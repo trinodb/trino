@@ -22,6 +22,7 @@ import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Partitioning;
@@ -84,7 +85,6 @@ import static io.trino.SystemSessionProperties.getTaskMinWriterCount;
 import static io.trino.SystemSessionProperties.isDistributedSortEnabled;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
-import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
@@ -190,7 +190,7 @@ public class AddLocalExchanges
         {
             // Special handling for trivial projections. Applies to identity and renaming projections, and constants
             // It might be extended to handle other low-cost projections.
-            if (node.getAssignments().getExpressions().stream().allMatch(expression -> expression instanceof SymbolReference || isEffectivelyLiteral(plannerContext, session, expression))) {
+            if (node.getAssignments().getExpressions().stream().allMatch(expression -> expression instanceof SymbolReference || expression instanceof Constant constant && constant.getValue() != null)) {
                 if (parentPreferences.isSingleStreamPreferred()) {
                     // Do not enforce gathering exchange below project:
                     // - if project's source is single stream, no exchanges will be added around project,

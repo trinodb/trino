@@ -101,7 +101,6 @@ import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.ir.IrUtils.filterDeterministicConjuncts;
-import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
@@ -286,7 +285,7 @@ public class PredicatePushDown
 
             List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
                     .map(entry -> inlineSymbols(node.getAssignments().getMap(), entry))
-                    .map(conjunct -> canonicalizeExpression(conjunct, typeAnalyzer, types, plannerContext, session)) // normalize expressions to a form that unwrapCasts understands
+                    .map(conjunct -> canonicalizeExpression(conjunct, typeAnalyzer, types)) // normalize expressions to a form that unwrapCasts understands
                     .map(conjunct -> unwrapCasts(session, plannerContext, typeAnalyzer, types, conjunct))
                     .collect(Collectors.toList());
 
@@ -317,7 +316,7 @@ public class PredicatePushDown
 
             return dependencies.entrySet().stream()
                     .allMatch(entry -> entry.getValue() == 1
-                            || isEffectivelyLiteral(plannerContext, session, node.getAssignments().get(entry.getKey()))
+                            || node.getAssignments().get(entry.getKey()) instanceof Constant
                             || node.getAssignments().get(entry.getKey()) instanceof SymbolReference);
         }
 
@@ -1104,7 +1103,7 @@ public class PredicatePushDown
         private boolean isSimpleExpression(Expression expression, boolean allowArithmeticBinaryExpression)
         {
             return expression instanceof SymbolReference ||
-                    isEffectivelyLiteral(plannerContext, session, expression) ||
+                    expression instanceof Constant ||
                     (expression instanceof Cast cast && isSimpleExpression(cast.getExpression(), allowArithmeticBinaryExpression)) ||
                     (allowArithmeticBinaryExpression && expression instanceof ArithmeticBinaryExpression arithmeticExpression &&
                             isSimpleExpression(arithmeticExpression.getLeft(), false) &&

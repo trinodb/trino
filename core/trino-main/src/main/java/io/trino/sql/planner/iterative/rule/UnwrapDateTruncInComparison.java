@@ -65,7 +65,6 @@ import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.falseIfNotNull;
 import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.trueIfNotNull;
@@ -158,7 +157,7 @@ public class UnwrapDateTruncInComparison
 
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, expression);
             Expression unitExpression = call.getArguments().get(0);
-            if (!(expressionTypes.get(NodeRef.of(unitExpression)) instanceof VarcharType) || !isEffectivelyLiteral(plannerContext, session, unitExpression)) {
+            if (!(expressionTypes.get(NodeRef.of(unitExpression)) instanceof VarcharType) || !(unitExpression instanceof Constant)) {
                 return expression;
             }
             Slice unitName = (Slice) new IrExpressionInterpreter(unitExpression, plannerContext, session, expressionTypes)

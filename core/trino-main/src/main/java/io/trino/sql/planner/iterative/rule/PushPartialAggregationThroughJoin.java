@@ -156,7 +156,7 @@ public class PushPartialAggregationThroughJoin
         {
             ProjectNode projectNode = (ProjectNode) context.getLookup().resolve(node.getSource());
             Optional<PlanNode> joinNodeOptional = pushProjectionThroughJoin(
-                    plannerContext, projectNode, context.getLookup(), context.getIdAllocator(), context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
+                    projectNode, context.getLookup(), context.getIdAllocator(), typeAnalyzer, context.getSymbolAllocator().getTypes());
             if (joinNodeOptional.isEmpty()) {
                 return Result.empty();
             }

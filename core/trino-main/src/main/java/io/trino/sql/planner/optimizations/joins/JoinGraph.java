@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.Session;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -62,7 +61,6 @@ public class JoinGraph
      * Builds {@link JoinGraph} containing {@code plan} node.
      */
     public static JoinGraph buildFrom(
-            PlannerContext plannerContext,
             PlanNode plan,
             Lookup lookup,
             PlanNodeIdAllocator planNodeIdAllocator,
@@ -70,7 +68,7 @@ public class JoinGraph
             IrTypeAnalyzer typeAnalyzer,
             TypeProvider types)
     {
-        return plan.accept(new Builder(plannerContext, lookup, planNodeIdAllocator, session, typeAnalyzer, types), new Context());
+        return plan.accept(new Builder(lookup, planNodeIdAllocator, typeAnalyzer, types), new Context());
     }
 
     public JoinGraph(PlanNode node)
@@ -202,19 +200,15 @@ public class JoinGraph
     private static class Builder
             extends PlanVisitor<JoinGraph, Context>
     {
-        private final PlannerContext plannerContext;
         private final Lookup lookup;
         private final PlanNodeIdAllocator planNodeIdAllocator;
-        private final Session session;
         private final IrTypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
 
-        private Builder(PlannerContext plannerContext, Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator, Session session, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+        private Builder(Lookup lookup, PlanNodeIdAllocator planNodeIdAllocator, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
         {
-            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.lookup = requireNonNull(lookup, "lookup cannot be null");
             this.planNodeIdAllocator = requireNonNull(planNodeIdAllocator, "planNodeIdAllocator is null");
-            this.session = requireNonNull(session, "session is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.types = requireNonNull(types, "types is null");
         }
@@ -257,7 +251,7 @@ public class JoinGraph
         @Override
         public JoinGraph visitProject(ProjectNode node, Context context)
         {
-            Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(plannerContext, node, lookup, planNodeIdAllocator, session, typeAnalyzer, types);
+            Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(node, lookup, planNodeIdAllocator, typeAnalyzer, types);
             if (rewrittenNode.isPresent()) {
                 return rewrittenNode.get().accept(this, context);
             }
