@@ -36,7 +36,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.Spiller;
 import io.trino.spiller.SpillerFactory;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
@@ -113,7 +112,7 @@ public class TestHashAggregationOperator
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     private final TypeOperators typeOperators = new TypeOperators();
-    private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
+    private final FlatHashStrategyCompiler hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
 
     @AfterAll
     public void tearDown()
@@ -175,7 +174,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 Optional.empty());
 
@@ -246,7 +245,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 Optional.empty());
 
@@ -308,7 +307,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 Optional.empty());
 
@@ -362,7 +361,7 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 Optional.empty());
 
@@ -418,7 +417,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMerge),
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 Optional.empty());
 
@@ -447,7 +446,7 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 1,
                 Optional.of(DataSize.of(16, MEGABYTE)),
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 Optional.empty());
 
@@ -511,7 +510,7 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 Optional.empty());
 
@@ -552,7 +551,7 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 Optional.empty());
 
@@ -591,7 +590,7 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 100_000,
                 Optional.of(DataSize.of(1, KILOBYTE)),
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 Optional.empty());
 
@@ -679,7 +678,7 @@ public class TestHashAggregationOperator
                 DataSize.ofBytes(smallPagesSpillThresholdSize),
                 succinctBytes(Integer.MAX_VALUE),
                 spillerFactory,
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 Optional.empty());
 
@@ -735,7 +734,7 @@ public class TestHashAggregationOperator
                 succinctBytes(8),
                 succinctBytes(Integer.MAX_VALUE),
                 new FailingSpillerFactory(),
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 Optional.empty());
 
@@ -765,7 +764,7 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 Optional.empty());
 
@@ -803,7 +802,7 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 100,
                 Optional.of(maxPartialMemory), // this setting makes operator to flush after each page
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 // 1 byte maxPartialMemory causes adaptive partial aggregation to be triggered after each page flush
                 Optional.of(partialAggregationController));
@@ -885,7 +884,7 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 10,
                 Optional.of(DataSize.of(16, MEGABYTE)), // this setting makes operator to flush only after all pages
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 // 1 byte maxPartialMemory causes adaptive partial aggregation to be triggered after each page flush
                 Optional.of(partialAggregationController));

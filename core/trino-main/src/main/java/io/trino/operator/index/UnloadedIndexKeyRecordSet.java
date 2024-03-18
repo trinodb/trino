@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHash;
 import io.trino.operator.Work;
 import io.trino.spi.Page;
@@ -24,7 +25,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntListIterator;
@@ -53,7 +53,7 @@ public class UnloadedIndexKeyRecordSet
             Set<Integer> channelsForDistinct,
             List<Type> types,
             List<UpdateRequest> requests,
-            JoinCompiler joinCompiler)
+            FlatHashStrategyCompiler hashStrategyCompiler)
     {
         requireNonNull(existingSnapshot, "existingSnapshot is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -66,7 +66,7 @@ public class UnloadedIndexKeyRecordSet
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
-        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, false, 10_000, joinCompiler, NOOP);
+        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, false, 10_000, hashStrategyCompiler, NOOP);
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
 
