@@ -103,7 +103,6 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.PartitioningHandle;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.Collection;
 import java.util.List;
@@ -1256,13 +1255,6 @@ public class TracingMetadata
         try (var ignored = scopedSpan(span)) {
             return delegate.listFunctions(session, schema);
         }
-    }
-
-    @Override
-    public ResolvedFunction decodeFunction(QualifiedName name)
-    {
-        // no tracing since it doesn't call any connector
-        return delegate.decodeFunction(name);
     }
 
     @Override

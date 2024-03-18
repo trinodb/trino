@@ -120,7 +120,6 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.PlanTester;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.AfterAll;
@@ -1887,12 +1886,6 @@ public class TestMultipleDistinctAggregationsToSubqueries
         public Collection<FunctionMetadata> listFunctions(Session session, CatalogSchemaName schema)
         {
             return metadata.listFunctions(session, schema);
-        }
-
-        @Override
-        public ResolvedFunction decodeFunction(QualifiedName name)
-        {
-            return metadata.decodeFunction(name);
         }
 
         @Override

@@ -74,7 +74,6 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.PartitioningHandle;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.Collection;
 import java.util.List;
@@ -722,8 +721,6 @@ public interface Metadata
     Collection<FunctionMetadata> listGlobalFunctions(Session session);
 
     Collection<FunctionMetadata> listFunctions(Session session, CatalogSchemaName schema);
-
-    ResolvedFunction decodeFunction(QualifiedName name);
 
     Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName catalogSchemaFunctionName);
 
