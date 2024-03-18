@@ -36,12 +36,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.partition;
@@ -105,13 +105,13 @@ final class S3FileSystem
     public void deleteDirectory(Location location)
             throws IOException
     {
-        FileIterator iterator = listFiles(location);
+        FileIterator iterator = listObjects(location, true);
         while (iterator.hasNext()) {
             List<Location> files = new ArrayList<>();
             while ((files.size() < 1000) && iterator.hasNext()) {
                 files.add(iterator.next().location());
             }
-            deleteFiles(files);
+            deleteObjects(files);
         }
     }
 
@@ -120,7 +120,12 @@ final class S3FileSystem
             throws IOException
     {
         locations.forEach(Location::verifyValidFileLocation);
+        deleteObjects(locations);
+    }
 
+    private void deleteObjects(Collection<Location> locations)
+            throws IOException
+    {
         SetMultimap<String, String> bucketToKeys = locations.stream()
                 .map(S3Location::new)
                 .collect(toMultimap(S3Location::bucket, S3Location::key, HashMultimap::create));
@@ -171,6 +176,12 @@ final class S3FileSystem
     public FileIterator listFiles(Location location)
             throws IOException
     {
+        return listObjects(location, false);
+    }
+
+    private FileIterator listObjects(Location location, boolean includeDirectoryObjects)
+            throws IOException
+    {
         S3Location s3Location = new S3Location(location);
 
         String key = s3Location.key();
@@ -185,10 +196,11 @@ final class S3FileSystem
                 .build();
 
         try {
-            Iterator<S3Object> iterator = client.listObjectsV2Paginator(request).contents().stream()
-                    .filter(object -> !object.key().endsWith("/"))
-                    .iterator();
-            return new S3FileIterator(s3Location, iterator);
+            Stream<S3Object> s3ObjectStream = client.listObjectsV2Paginator(request).contents().stream();
+            if (!includeDirectoryObjects) {
+                s3ObjectStream = s3ObjectStream.filter(object -> !object.key().endsWith("/"));
+            }
+            return new S3FileIterator(s3Location, s3ObjectStream.iterator());
         }
         catch (SdkException e) {
             throw new IOException("Failed to list location: " + location, e);

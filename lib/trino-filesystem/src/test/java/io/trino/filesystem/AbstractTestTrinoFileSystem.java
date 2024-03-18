@@ -1310,7 +1310,7 @@ public abstract class AbstractTestTrinoFileSystem
         }
     }
 
-    private Location createBlob(Closer closer, String path)
+    protected Location createBlob(Closer closer, String path)
     {
         Location location = createLocation(path);
         closer.register(new TempBlob(location)).createOrOverwrite(TEST_BLOB_CONTENT_PREFIX + location.toString());
