@@ -119,12 +119,7 @@ public final class IrUtils
         return new LogicalExpression(operator, ImmutableList.copyOf(expressions));
     }
 
-    public static Expression combinePredicates(Metadata metadata, LogicalExpression.Operator operator, Expression... expressions)
-    {
-        return combinePredicates(metadata, operator, Arrays.asList(expressions));
-    }
-
-    public static Expression combinePredicates(Metadata metadata, LogicalExpression.Operator operator, Collection<Expression> expressions)
+    public static Expression combinePredicates(LogicalExpression.Operator operator, Collection<Expression> expressions)
     {
         if (operator == LogicalExpression.Operator.AND) {
             return combineConjuncts(expressions);
