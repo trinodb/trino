@@ -39,7 +39,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -361,9 +361,7 @@ public class TestPostgreSqlClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
                         translateToConnectorExpression(
-                                new ArithmeticUnaryExpression(
-                                        ArithmeticUnaryExpression.Sign.MINUS,
-                                        new SymbolReference("c_bigint_symbol")),
+                                new ArithmeticNegation(new SymbolReference("c_bigint_symbol")),
                                 Map.of("c_bigint_symbol", BIGINT)),
                         Map.of("c_bigint_symbol", BIGINT_COLUMN))
                 .orElseThrow();

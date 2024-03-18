@@ -20,7 +20,7 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
@@ -39,7 +39,6 @@ import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
@@ -168,34 +167,34 @@ public class TestMergeProjectWithValues
                                 ImmutableList.of(
                                         new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))),
                                         new Row(ImmutableList.of(randomFunction)),
-                                        new Row(ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction)))))))
+                                        new Row(ImmutableList.of(new ArithmeticNegation(randomFunction)))))))
                 .matches(
                         values(
                                 ImmutableList.of("output"),
                                 ImmutableList.of(
                                         ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)),
                                         ImmutableList.of(randomFunction),
-                                        ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction)))));
+                                        ImmutableList.of(new ArithmeticNegation(randomFunction)))));
 
         // ValuesNode has multiple non-deterministic outputs
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
                         Assignments.of(
-                                p.symbol("x"), new ArithmeticUnaryExpression(MINUS, new SymbolReference("a")),
+                                p.symbol("x"), new ArithmeticNegation(new SymbolReference("a")),
                                 p.symbol("y"), new SymbolReference("b")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                 ImmutableList.of(
                                         new Row(ImmutableList.of(new Constant(DOUBLE, 1e0), randomFunction)),
                                         new Row(ImmutableList.of(randomFunction, new Constant(UnknownType.UNKNOWN, null))),
-                                        new Row(ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction), new Constant(UnknownType.UNKNOWN, null)))))))
+                                        new Row(ImmutableList.of(new ArithmeticNegation(randomFunction), new Constant(UnknownType.UNKNOWN, null)))))))
                 .matches(
                         values(
                                 ImmutableList.of("x", "y"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new ArithmeticUnaryExpression(MINUS, new Constant(DOUBLE, 1e0)), randomFunction),
-                                        ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction), new Constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(new ArithmeticUnaryExpression(MINUS, new ArithmeticUnaryExpression(MINUS, randomFunction)), new Constant(UnknownType.UNKNOWN, null)))));
+                                        ImmutableList.of(new ArithmeticNegation(new Constant(DOUBLE, 1e0)), randomFunction),
+                                        ImmutableList.of(new ArithmeticNegation(randomFunction), new Constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(new ArithmeticNegation(new ArithmeticNegation(randomFunction)), new Constant(UnknownType.UNKNOWN, null)))));
     }
 
     @Test

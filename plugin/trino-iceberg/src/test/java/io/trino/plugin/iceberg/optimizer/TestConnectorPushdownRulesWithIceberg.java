@@ -40,7 +40,7 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -72,7 +72,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -394,7 +393,7 @@ public class TestConnectorPushdownRulesWithIceberg
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p -> {
                     SymbolReference column = p.symbol("just_bigint", BIGINT).toSymbolReference();
-                    Expression negation = new ArithmeticUnaryExpression(MINUS, column);
+                    Expression negation = new ArithmeticNegation(column);
                     return p.project(
                             Assignments.of(
                                     // The column reference is part of both the assignments
@@ -408,7 +407,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 .matches(project(
                         ImmutableMap.of(
                                 "column_ref", expression(new SymbolReference("just_bigint_0")),
-                                "negated_column_ref", expression(new ArithmeticUnaryExpression(MINUS, new SymbolReference("just_bigint_0")))),
+                                "negated_column_ref", expression(new ArithmeticNegation(new SymbolReference("just_bigint_0")))),
                         tableScan(
                                 icebergTable.withProjectedColumns(ImmutableSet.of(bigintColumn))::equals,
                                 TupleDomain.all(),

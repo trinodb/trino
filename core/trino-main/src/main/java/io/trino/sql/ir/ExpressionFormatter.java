@@ -196,16 +196,9 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
+        protected String visitArithmeticNegation(ArithmeticNegation node, Void context)
         {
-            String value = process(node.getValue(), context);
-
-            return switch (node.getSign()) {
-                // Unary is ambiguous with respect to negative numbers. "-1" parses as a number, but "-(1)" parses as "unaryMinus(number)"
-                // The parentheses are needed to ensure the parsing roundtrips properly.
-                case MINUS -> "-(" + value + ")";
-                case PLUS -> "+" + value;
-            };
+            return "-(" + process(node.getValue(), context) + ")";
         }
 
         @Override

@@ -22,36 +22,17 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class ArithmeticUnaryExpression
+public final class ArithmeticNegation
         extends Expression
 {
-    public enum Sign
-    {
-        PLUS,
-        MINUS
-    }
-
     private final Expression value;
-    private final Sign sign;
 
     @JsonCreator
-    public ArithmeticUnaryExpression(Sign sign, Expression value)
+    public ArithmeticNegation(Expression value)
     {
         requireNonNull(value, "value is null");
-        requireNonNull(sign, "sign is null");
 
         this.value = value;
-        this.sign = sign;
-    }
-
-    public static ArithmeticUnaryExpression positive(Expression value)
-    {
-        return new ArithmeticUnaryExpression(Sign.PLUS, value);
-    }
-
-    public static ArithmeticUnaryExpression negative(Expression value)
-    {
-        return new ArithmeticUnaryExpression(Sign.MINUS, value);
     }
 
     @JsonProperty
@@ -60,16 +41,10 @@ public final class ArithmeticUnaryExpression
         return value;
     }
 
-    @JsonProperty
-    public Sign getSign()
-    {
-        return sign;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitArithmeticUnary(this, context);
+        return visitor.visitArithmeticNegation(this, context);
     }
 
     @Override
@@ -88,25 +63,19 @@ public final class ArithmeticUnaryExpression
             return false;
         }
 
-        ArithmeticUnaryExpression that = (ArithmeticUnaryExpression) o;
-        return Objects.equals(value, that.value) &&
-                (sign == that.sign);
+        ArithmeticNegation that = (ArithmeticNegation) o;
+        return Objects.equals(value, that.value);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, sign);
+        return Objects.hash(value);
     }
 
     @Override
     public String toString()
     {
-        return "%s(%s)".formatted(
-                switch (sign) {
-                    case PLUS -> "+";
-                    case MINUS -> "-";
-                },
-                value);
+        return "-(%s)".formatted(value);
     }
 }
