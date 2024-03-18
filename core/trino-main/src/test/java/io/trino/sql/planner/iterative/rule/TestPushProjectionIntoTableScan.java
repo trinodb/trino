@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
@@ -43,7 +42,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
@@ -66,7 +64,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TypeProvider.viewOf;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -76,7 +73,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.asList;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -134,33 +130,27 @@ public class TestPushProjectionIntoTableScan
             Symbol identity = new Symbol("symbol_identity");
             Symbol dereference = new Symbol("symbol_dereference");
             Symbol constant = new Symbol("symbol_constant");
-            Symbol call = new Symbol("symbol_call");
             ImmutableMap<Symbol, Type> types = ImmutableMap.of(
                     baseColumn, ROW_TYPE,
                     identity, ROW_TYPE,
                     dereference, BIGINT,
-                    constant, BIGINT,
-                    call, VARCHAR);
+                    constant, BIGINT);
 
             // Prepare project node assignments
             ImmutableMap<Symbol, Expression> inputProjections = ImmutableMap.<Symbol, Expression>builder()
                     .put(identity, baseColumn.toSymbolReference())
                     .put(dereference, new SubscriptExpression(baseColumn.toSymbolReference(), new Constant(INTEGER, 1L)))
                     .put(constant, new Constant(INTEGER, 5L))
-                    .put(call, new FunctionCall(
-                            ruleTester.getMetadata().resolveBuiltinFunction("starts_with", fromTypes(VARCHAR, VARCHAR)),
-                            ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("abc")), new Constant(VARCHAR, Slices.utf8Slice("ab")))))
                     .buildOrThrow();
 
             // Compute expected symbols after applyProjection
             TransactionId transactionId = ruleTester.getPlanTester().getTransactionManager().beginTransaction(false);
             Session session = MOCK_SESSION.beginTransactionId(transactionId, ruleTester.getPlanTester().getTransactionManager(), ruleTester.getPlanTester().getAccessControl());
             ImmutableMap<Symbol, String> connectorNames = inputProjections.entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, e -> translate(session, e.getValue(), viewOf(types), ruleTester.getPlannerContext(), typeAnalyzer).get().toString()));
+                    .collect(toImmutableMap(Map.Entry::getKey, e -> translate(session, e.getValue(), viewOf(types), typeAnalyzer).get().toString()));
             ImmutableMap<Symbol, String> newNames = ImmutableMap.of(
                     identity, "projected_variable_" + connectorNames.get(identity),
-                    dereference, "projected_dereference_" + connectorNames.get(dereference),
-                    call, "projected_call_" + connectorNames.get(call));
+                    dereference, "projected_dereference_" + connectorNames.get(dereference));
             ImmutableMap<Symbol, Expression> constants = ImmutableMap.of(
                     constant, requireNonNull(inputProjections.get(constant)));
             Map<String, ColumnHandle> expectedColumns = newNames.entrySet().stream()
@@ -209,10 +199,6 @@ public class TestPushProjectionIntoTableScan
                                             .collect(toImmutableMap(Map.Entry::getKey, e -> e.getValue()::equals)),
                                     Optional.of(PlanNodeStatsEstimate.builder()
                                             .setOutputRowCount(42)
-                                            .addSymbolStatistics(new Symbol(newNames.get(call).toLowerCase(ENGLISH)), SymbolStatsEstimate.builder()
-                                                    .setDistinctValuesCount(1)
-                                                    .setNullsFraction(0)
-                                                    .build())
                                             .addSymbolStatistics(new Symbol(newNames.get(identity)), SymbolStatsEstimate.builder()
                                                     .setDistinctValuesCount(33)
                                                     .setNullsFraction(0)

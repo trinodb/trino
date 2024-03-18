@@ -23,7 +23,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -173,10 +172,8 @@ public class TestPushMergeWriterUpdateIntoConnector
 
     private static PushMergeWriterUpdateIntoConnector createRule(RuleTester tester)
     {
-        PlannerContext plannerContext = tester.getPlannerContext();
         IrTypeAnalyzer typeAnalyzer = tester.getTypeAnalyzer();
         return new PushMergeWriterUpdateIntoConnector(
-                plannerContext,
                 typeAnalyzer,
                 new AbstractMockMetadata()
                 {

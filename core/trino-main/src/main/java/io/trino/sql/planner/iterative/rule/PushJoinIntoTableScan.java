@@ -114,7 +114,6 @@ public class PushJoinIntoTableScan
                 context.getSession(),
                 effectiveFilter,
                 context.getSymbolAllocator().getTypes(),
-                plannerContext,
                 typeAnalyzer);
 
         if (!translation.remainingExpression().equals(BooleanLiteral.TRUE_LITERAL)) {

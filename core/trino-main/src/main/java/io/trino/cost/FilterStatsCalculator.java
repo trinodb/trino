@@ -27,7 +27,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.InPredicate;
-import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
@@ -52,7 +51,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getFilterConjunctionIndependenceFactor;
 import static io.trino.cost.ComparisonStatsCalculator.estimateExpressionToExpressionComparison;
@@ -389,15 +387,14 @@ public class FilterStatsCalculator
             Expression left = node.getLeft();
             Expression right = node.getRight();
 
-            checkArgument(!(isEffectivelyLiteral(left) && isEffectivelyLiteral(right)), "Literal-to-literal not supported here, should be eliminated earlier");
+            checkArgument(!(left instanceof Constant && right instanceof Constant), "Literal-to-literal not supported here, should be eliminated earlier");
 
             if (!(left instanceof SymbolReference) && right instanceof SymbolReference) {
                 // normalize so that symbol is on the left
                 return process(new ComparisonExpression(operator.flip(), right, left));
             }
 
-            if (isEffectivelyLiteral(left)) {
-                verify(!isEffectivelyLiteral(right));
+            if (left instanceof Constant) {
                 // normalize so that literal is on the right
                 return process(new ComparisonExpression(operator.flip(), right, left));
             }
@@ -408,7 +405,7 @@ public class FilterStatsCalculator
 
             SymbolStatsEstimate leftStats = getExpressionStats(left);
             Optional<Symbol> leftSymbol = left instanceof SymbolReference ? Optional.of(Symbol.from(left)) : Optional.empty();
-            if (isEffectivelyLiteral(right)) {
+            if (right instanceof Constant) {
                 Type type = getType(left);
                 Object literalValue = evaluateConstantExpression(right, plannerContext, session);
                 if (literalValue == null) {
@@ -455,11 +452,6 @@ public class FilterStatsCalculator
                 return requireNonNull(input.getSymbolStatistics(symbol), () -> format("No statistics for symbol %s", symbol));
             }
             return scalarStatsCalculator.calculate(expression, input, session, types);
-        }
-
-        private boolean isEffectivelyLiteral(Expression expression)
-        {
-            return IrUtils.isEffectivelyLiteral(plannerContext, session, expression);
         }
     }
 

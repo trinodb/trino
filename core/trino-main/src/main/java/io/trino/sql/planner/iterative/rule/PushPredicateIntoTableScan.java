@@ -184,7 +184,6 @@ public class PushPredicateIntoTableScan
                 session,
                 decomposedPredicate.getRemainingExpression(),
                 symbolAllocator.getTypes(),
-                plannerContext,
                 typeAnalyzer);
         Map<String, ColumnHandle> connectorExpressionAssignments = node.getAssignments()
                 .entrySet().stream()
