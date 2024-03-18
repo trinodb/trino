@@ -22,7 +22,6 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
@@ -46,6 +45,7 @@ import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -63,7 +63,7 @@ public class TestSimplifyFilterPredicate
         // true result iff the condition is true
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        new IfExpression(new SymbolReference("a"), TRUE_LITERAL, FALSE_LITERAL),
+                        ifExpression(new SymbolReference("a"), TRUE_LITERAL, FALSE_LITERAL),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
@@ -73,7 +73,7 @@ public class TestSimplifyFilterPredicate
         // true result iff the condition is true
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        new IfExpression(new SymbolReference("a"), TRUE_LITERAL, new Constant(UnknownType.UNKNOWN, null)),
+                        ifExpression(new SymbolReference("a"), TRUE_LITERAL, new Constant(UnknownType.UNKNOWN, null)),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
@@ -83,7 +83,7 @@ public class TestSimplifyFilterPredicate
         // true result iff the condition is null or false
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        new IfExpression(new SymbolReference("a"), FALSE_LITERAL, TRUE_LITERAL),
+                        ifExpression(new SymbolReference("a"), FALSE_LITERAL, TRUE_LITERAL),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
@@ -93,7 +93,7 @@ public class TestSimplifyFilterPredicate
         // true result iff the condition is null or false
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        new IfExpression(new SymbolReference("a"), new Constant(UnknownType.UNKNOWN, null), TRUE_LITERAL),
+                        ifExpression(new SymbolReference("a"), new Constant(UnknownType.UNKNOWN, null), TRUE_LITERAL),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
@@ -103,7 +103,7 @@ public class TestSimplifyFilterPredicate
         // always true
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        new IfExpression(new SymbolReference("a"), TRUE_LITERAL, TRUE_LITERAL),
+                        ifExpression(new SymbolReference("a"), TRUE_LITERAL, TRUE_LITERAL),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
@@ -113,7 +113,7 @@ public class TestSimplifyFilterPredicate
         // always false
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        new IfExpression(new SymbolReference("a"), FALSE_LITERAL, FALSE_LITERAL),
+                        ifExpression(new SymbolReference("a"), FALSE_LITERAL, FALSE_LITERAL),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
@@ -123,7 +123,7 @@ public class TestSimplifyFilterPredicate
         // both results equal
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        new IfExpression(new SymbolReference("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L)), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L))),
+                        ifExpression(new SymbolReference("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L)), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L))),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(
@@ -136,7 +136,7 @@ public class TestSimplifyFilterPredicate
                 ImmutableList.of());
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        new IfExpression(
+                        ifExpression(
                                 new SymbolReference("a"),
                                 new ComparisonExpression(EQUAL, randomFunction, new Constant(INTEGER, 0L)),
                                 new ComparisonExpression(EQUAL, randomFunction, new Constant(INTEGER, 0L))),
@@ -146,7 +146,7 @@ public class TestSimplifyFilterPredicate
         // always null (including the default) -> simplified to FALSE
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        new IfExpression(new SymbolReference("a"), new Constant(UnknownType.UNKNOWN, null)),
+                        ifExpression(new SymbolReference("a"), new Constant(UnknownType.UNKNOWN, null)),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
@@ -156,7 +156,7 @@ public class TestSimplifyFilterPredicate
         // condition is true -> first branch
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        new IfExpression(TRUE_LITERAL, new SymbolReference("a"), new NotExpression(new SymbolReference("a"))),
+                        ifExpression(TRUE_LITERAL, new SymbolReference("a"), new NotExpression(new SymbolReference("a"))),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
@@ -166,7 +166,7 @@ public class TestSimplifyFilterPredicate
         // condition is true -> second branch
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        new IfExpression(FALSE_LITERAL, new SymbolReference("a"), new NotExpression(new SymbolReference("a"))),
+                        ifExpression(FALSE_LITERAL, new SymbolReference("a"), new NotExpression(new SymbolReference("a"))),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
@@ -176,7 +176,7 @@ public class TestSimplifyFilterPredicate
         // condition is true, no second branch -> the result is null, simplified to FALSE
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        new IfExpression(FALSE_LITERAL, new SymbolReference("a")),
+                        ifExpression(FALSE_LITERAL, new SymbolReference("a")),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
@@ -186,7 +186,7 @@ public class TestSimplifyFilterPredicate
         // not known result (`b`) - cannot optimize
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        new IfExpression(new SymbolReference("a"), TRUE_LITERAL, new SymbolReference("b")),
+                        ifExpression(new SymbolReference("a"), TRUE_LITERAL, new SymbolReference("b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
     }
@@ -495,7 +495,7 @@ public class TestSimplifyFilterPredicate
     {
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        new IfExpression(new SymbolReference("a"), new Cast(new Cast(new Constant(BOOLEAN, null), BIGINT), BOOLEAN), FALSE_LITERAL),
+                        ifExpression(new SymbolReference("a"), new Cast(new Cast(new Constant(BOOLEAN, null), BIGINT), BOOLEAN), FALSE_LITERAL),
                         p.values(p.symbol("a", BOOLEAN))))
                 .matches(
                         filter(

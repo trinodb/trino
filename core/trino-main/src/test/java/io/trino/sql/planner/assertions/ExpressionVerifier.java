@@ -22,7 +22,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNullPredicate;
@@ -95,18 +94,6 @@ public final class ExpressionVerifier
         }
 
         return symbolAliases.get(expected.getName()).equals(actual);
-    }
-
-    @Override
-    protected Boolean visitIfExpression(IfExpression actual, Expression expectedExpression)
-    {
-        if (!(expectedExpression instanceof IfExpression expected)) {
-            return false;
-        }
-
-        return process(actual.getCondition(), expected.getCondition())
-                && process(actual.getTrueValue(), expected.getTrueValue())
-                && process(actual.getFalseValue(), expected.getFalseValue());
     }
 
     @Override

@@ -26,7 +26,6 @@ import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.planner.OrderingScheme;
@@ -63,6 +62,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
@@ -497,7 +497,7 @@ public class ImplementTableFunctionSource
 
         // Derive row number for joined partitions: this is the bigger partition's row number. One of the combined values might be null as a result of outer join.
         Symbol joinedRowNumber = context.getSymbolAllocator().newSymbol("combined_row_number", BIGINT);
-        Expression rowNumberExpression = new IfExpression(
+        Expression rowNumberExpression = ifExpression(
                 new ComparisonExpression(
                         GREATER_THAN,
                         new CoalesceExpression(leftRowNumber, new Constant(BIGINT, -1L)),
@@ -507,7 +507,7 @@ public class ImplementTableFunctionSource
 
         // Derive partition size for joined partitions: this is the bigger partition's size. One of the combined values might be null as a result of outer join.
         Symbol joinedPartitionSize = context.getSymbolAllocator().newSymbol("combined_partition_size", BIGINT);
-        Expression partitionSizeExpression = new IfExpression(
+        Expression partitionSizeExpression = ifExpression(
                 new ComparisonExpression(
                         GREATER_THAN,
                         new CoalesceExpression(leftPartitionSize, new Constant(BIGINT, -1L)),
@@ -628,7 +628,7 @@ public class ImplementTableFunctionSource
 
         // Derive row number for joined partitions: this is the bigger partition's row number. One of the combined values might be null as a result of outer join.
         Symbol joinedRowNumber = context.getSymbolAllocator().newSymbol("combined_row_number", BIGINT);
-        Expression rowNumberExpression = new IfExpression(
+        Expression rowNumberExpression = ifExpression(
                 new ComparisonExpression(
                         GREATER_THAN,
                         new CoalesceExpression(leftRowNumber, new Constant(BIGINT, -1L)),
@@ -638,7 +638,7 @@ public class ImplementTableFunctionSource
 
         // Derive partition size for joined partitions: this is the bigger partition's size. One of the combined values might be null as a result of outer join.
         Symbol joinedPartitionSize = context.getSymbolAllocator().newSymbol("combined_partition_size", BIGINT);
-        Expression partitionSizeExpression = new IfExpression(
+        Expression partitionSizeExpression = ifExpression(
                 new ComparisonExpression(
                         GREATER_THAN,
                         new CoalesceExpression(leftPartitionSize, new Constant(BIGINT, -1L)),
@@ -682,7 +682,7 @@ public class ImplementTableFunctionSource
             symbolsToMarkers.put(symbol, marker);
             Expression actual = symbol.toSymbolReference();
             Expression reference = referenceSymbol.toSymbolReference();
-            assignments.put(marker, new IfExpression(new ComparisonExpression(EQUAL, actual, reference), actual, new Constant(BIGINT, null)));
+            assignments.put(marker, ifExpression(new ComparisonExpression(EQUAL, actual, reference), actual, new Constant(BIGINT, null)));
         }
 
         PlanNode project = new ProjectNode(

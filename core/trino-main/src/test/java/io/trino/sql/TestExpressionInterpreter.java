@@ -29,7 +29,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
@@ -74,6 +73,7 @@ import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
@@ -790,64 +790,64 @@ public class TestExpressionInterpreter
     public void testIf()
     {
         assertOptimizedEquals(
-                new IfExpression(new ComparisonExpression(EQUAL, new Constant(INTEGER, 2L), new Constant(INTEGER, 2L)), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
+                ifExpression(new ComparisonExpression(EQUAL, new Constant(INTEGER, 2L), new Constant(INTEGER, 2L)), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
                 new Constant(INTEGER, 3L));
         assertOptimizedEquals(
-                new IfExpression(new ComparisonExpression(EQUAL, new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
+                ifExpression(new ComparisonExpression(EQUAL, new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
                 new Constant(INTEGER, 4L));
 
         assertOptimizedEquals(
-                new IfExpression(TRUE_LITERAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
+                ifExpression(TRUE_LITERAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
                 new Constant(INTEGER, 3L));
         assertOptimizedEquals(
-                new IfExpression(FALSE_LITERAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
+                ifExpression(FALSE_LITERAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
                 new Constant(INTEGER, 4L));
         assertOptimizedEquals(
-                new IfExpression(new Constant(BOOLEAN, null), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
+                ifExpression(new Constant(BOOLEAN, null), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
                 new Constant(INTEGER, 4L));
 
         assertOptimizedEquals(
-                new IfExpression(TRUE_LITERAL, new Constant(INTEGER, 3L), new Constant(INTEGER, null)),
+                ifExpression(TRUE_LITERAL, new Constant(INTEGER, 3L), new Constant(INTEGER, null)),
                 new Constant(INTEGER, 3L));
         assertOptimizedEquals(
-                new IfExpression(FALSE_LITERAL, new Constant(INTEGER, 3L), new Constant(INTEGER, null)),
+                ifExpression(FALSE_LITERAL, new Constant(INTEGER, 3L), new Constant(INTEGER, null)),
                 new Constant(UnknownType.UNKNOWN, null));
         assertOptimizedEquals(
-                new IfExpression(TRUE_LITERAL, new Constant(INTEGER, null), new Constant(INTEGER, 4L)),
+                ifExpression(TRUE_LITERAL, new Constant(INTEGER, null), new Constant(INTEGER, 4L)),
                 new Constant(UnknownType.UNKNOWN, null));
         assertOptimizedEquals(
-                new IfExpression(FALSE_LITERAL, new Constant(INTEGER, null), new Constant(INTEGER, 4L)),
+                ifExpression(FALSE_LITERAL, new Constant(INTEGER, null), new Constant(INTEGER, 4L)),
                 new Constant(INTEGER, 4L));
         assertOptimizedEquals(
-                new IfExpression(TRUE_LITERAL, new Constant(INTEGER, null), new Constant(INTEGER, null)),
+                ifExpression(TRUE_LITERAL, new Constant(INTEGER, null), new Constant(INTEGER, null)),
                 new Constant(UnknownType.UNKNOWN, null));
         assertOptimizedEquals(
-                new IfExpression(FALSE_LITERAL, new Constant(INTEGER, null), new Constant(INTEGER, null)),
+                ifExpression(FALSE_LITERAL, new Constant(INTEGER, null), new Constant(INTEGER, null)),
                 new Constant(UnknownType.UNKNOWN, null));
 
         assertOptimizedEquals(
-                new IfExpression(TRUE_LITERAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))),
+                ifExpression(TRUE_LITERAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))),
                 new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)));
         assertOptimizedEquals(
-                new IfExpression(TRUE_LITERAL, new Constant(INTEGER, 1L), new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))),
+                ifExpression(TRUE_LITERAL, new Constant(INTEGER, 1L), new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))),
                 new Constant(INTEGER, 1L));
         assertOptimizedEquals(
-                new IfExpression(FALSE_LITERAL, new Constant(INTEGER, 1L), new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))),
+                ifExpression(FALSE_LITERAL, new Constant(INTEGER, 1L), new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))),
                 new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)));
         assertOptimizedEquals(
-                new IfExpression(FALSE_LITERAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L)),
+                ifExpression(FALSE_LITERAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L)),
                 new Constant(INTEGER, 1L));
         assertOptimizedEquals(
-                new IfExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)),
-                new IfExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)));
+                ifExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)),
+                ifExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)));
 
         assertEvaluatedEquals(
-                new IfExpression(TRUE_LITERAL, new Constant(INTEGER, 1L), new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))),
+                ifExpression(TRUE_LITERAL, new Constant(INTEGER, 1L), new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))),
                 new Constant(INTEGER, 1L));
         assertEvaluatedEquals(
-                new IfExpression(FALSE_LITERAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L)),
+                ifExpression(FALSE_LITERAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L)),
                 new Constant(INTEGER, 1L));
-        assertTrinoExceptionThrownBy(() -> evaluate(new IfExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))))
+        assertTrinoExceptionThrownBy(() -> evaluate(ifExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))))
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 

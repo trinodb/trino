@@ -30,7 +30,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -65,6 +64,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -306,7 +306,7 @@ public class PreAggregateCaseAggregations
                                 Expression unionConditions = or(caseAggregations.stream()
                                         .map(CaseAggregation::getOperand)
                                         .collect(toImmutableSet()));
-                                preProjection = new IfExpression(unionConditions, preProjection, Optional.empty());
+                                preProjection = ifExpression(unionConditions, preProjection);
                             }
 
                             Symbol preProjectionSymbol = context.getSymbolAllocator().newSymbol(preProjection, preProjectionType);
