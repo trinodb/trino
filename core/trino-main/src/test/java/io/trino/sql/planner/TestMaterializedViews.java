@@ -21,6 +21,8 @@ import io.trino.connector.StaticConnectorFactory;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.metadata.ViewColumn;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
@@ -30,6 +32,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.transaction.IsolationLevel;
@@ -81,6 +84,9 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 public class TestMaterializedViews
         extends BasePlanTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+
     private static final String SCHEMA = "tiny";
 
     @Override
@@ -315,7 +321,7 @@ public class TestMaterializedViews
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "A_CAST", expression(new ArithmeticBinaryExpression(ADD, new Cast(new SymbolReference("A"), BIGINT), new Constant(BIGINT, 1L))),
+                                        "A_CAST", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new Cast(new SymbolReference("A"), BIGINT), new Constant(BIGINT, 1L))),
                                         "B_CAST", expression(new Cast(new SymbolReference("B"), BIGINT))),
                                 tableScan("storage_table_with_casts", ImmutableMap.of("A", "a", "B", "b")))));
     }

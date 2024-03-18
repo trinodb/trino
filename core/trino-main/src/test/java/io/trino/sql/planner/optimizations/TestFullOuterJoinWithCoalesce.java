@@ -15,6 +15,9 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.Constant;
@@ -42,6 +45,9 @@ import static io.trino.sql.planner.plan.JoinType.FULL;
 public class TestFullOuterJoinWithCoalesce
         extends BasePlanTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+
     @Test
     @Disabled // TODO: re-enable once FULL join property derivations are re-introduced
     public void testFullOuterJoinWithCoalesce()
@@ -167,7 +173,7 @@ public class TestFullOuterJoinWithCoalesce
                                         ImmutableMap.of(),
                                         PARTIAL,
                                         project(
-                                                ImmutableMap.of("expr", expression(new CoalesceExpression(new SymbolReference("l"), new ArithmeticBinaryExpression(ADD, new SymbolReference("m"), new Constant(INTEGER, 1L)), new SymbolReference("r")))),
+                                                ImmutableMap.of("expr", expression(new CoalesceExpression(new SymbolReference("l"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("m"), new Constant(INTEGER, 1L)), new SymbolReference("r")))),
                                                 join(FULL, builder -> builder
                                                         .equiCriteria("l", "r")
                                                         .left(

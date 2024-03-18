@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.Constant;
@@ -61,6 +62,8 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction REGEXP_EXTRACT_ALL = FUNCTIONS.resolveFunction("regexp_extract_all", fromTypes(VARCHAR, VARCHAR));
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MODULUS_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(INTEGER, INTEGER));
 
     @Test
     public void doesNotFireWithoutGlobalAggregation()
@@ -279,7 +282,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.project(
-                                Assignments.of(p.symbol("sum_1"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new Constant(INTEGER, 1L))),
+                                Assignments.of(p.symbol("sum_1"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("sum"), new Constant(INTEGER, 1L))),
                                 p.aggregation(innerBuilder -> innerBuilder
                                         .globalGrouping()
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("unnested_corr"))), ImmutableList.of(BIGINT))
@@ -292,7 +295,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                 .matches(
                         project(
                                 strictProject(
-                                        ImmutableMap.of("corr", expression(new SymbolReference("corr")), "unique", expression(new SymbolReference("unique")), "sum_1", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new Constant(INTEGER, 1L)))),
+                                        ImmutableMap.of("corr", expression(new SymbolReference("corr")), "unique", expression(new SymbolReference("unique")), "sum_1", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("sum"), new Constant(INTEGER, 1L)))),
                                         aggregation(
                                                 singleGroupingSet("unique", "corr"),
                                                 ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("unnested_corr"))),
@@ -366,7 +369,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                         ImmutableList.of(p.symbol("groups"), p.symbol("numbers")),
                         p.values(p.symbol("groups"), p.symbol("numbers")),
                         p.project(
-                                Assignments.of(p.symbol("sum_1"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new Constant(INTEGER, 1L))),
+                                Assignments.of(p.symbol("sum_1"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("sum"), new Constant(INTEGER, 1L))),
                                 p.aggregation(globalBuilder -> globalBuilder
                                         .globalGrouping()
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("negate"))), ImmutableList.of(BIGINT))
@@ -381,7 +384,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                                 p.project(
                                                                         Assignments.builder()
                                                                                 .putIdentities(ImmutableList.of(p.symbol("group"), p.symbol("number")))
-                                                                                .put(p.symbol("modulo"), new ArithmeticBinaryExpression(MODULUS, new SymbolReference("number"), new Constant(INTEGER, 10L)))
+                                                                                .put(p.symbol("modulo"), new ArithmeticBinaryExpression(MODULUS_INTEGER, MODULUS, new SymbolReference("number"), new Constant(INTEGER, 10L)))
                                                                                 .build(),
                                                                         p.unnest(
                                                                                 ImmutableList.of(),
@@ -394,7 +397,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                 .matches(
                         project(
                                 project(
-                                        ImmutableMap.of("sum_1", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new Constant(INTEGER, 1L)))),
+                                        ImmutableMap.of("sum_1", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("sum"), new Constant(INTEGER, 1L)))),
                                         aggregation(
                                                 singleGroupingSet("groups", "numbers", "unique"),
                                                 ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("negated"))),
@@ -412,7 +415,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                                 Optional.empty(),
                                                                 SINGLE,
                                                                 project(
-                                                                        ImmutableMap.of("modulo", expression(new ArithmeticBinaryExpression(MODULUS, new SymbolReference("number"), new Constant(INTEGER, 10L)))),
+                                                                        ImmutableMap.of("modulo", expression(new ArithmeticBinaryExpression(MODULUS_INTEGER, MODULUS, new SymbolReference("number"), new Constant(INTEGER, 10L)))),
                                                                         project(
                                                                                 ImmutableMap.of("mask", expression(new IsNotNullPredicate(new SymbolReference("ordinality")))),
                                                                                 unnest(

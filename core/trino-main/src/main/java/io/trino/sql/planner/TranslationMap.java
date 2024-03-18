@@ -23,6 +23,7 @@ import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.plugin.base.util.JsonTypeUtil;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -474,50 +475,6 @@ public class TranslationMap
         // TODO: record the parsed values in the analyzer and pull them out here
         Type type = analysis.getType(expression);
 
-//        if (type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER) || type.equals(BIGINT)) {
-//            return constant(type, Long.parseLong(expression.getValue()));
-//        }
-//
-//        if (type.equals(REAL)) {
-//            return constant(type, Reals.toReal(Float.parseFloat(expression.getValue())));
-//        }
-//
-//        if (type.equals(DOUBLE)) {
-//            return constant(type, Double.parseDouble(expression.getValue()));
-//        }
-//
-//        if (type.equals(BOOLEAN)) {
-//            return constant(type, Boolean.valueOf(expression.getValue()));
-//        }
-//
-//        if (type.equals(DATE)) {
-//            return constant(type, (long) DateTimeUtils.parseDate(expression.getValue().trim()));
-//        }
-//
-//        if (type instanceof CharType) {
-//            return constant(type, Chars.trimTrailingSpaces(utf8Slice(expression.getValue())));
-//        }
-//
-//        if (type instanceof TimestampType timestamp) {
-//            return constant(type, DateTimes.parseTimestamp(timestamp.getPrecision(), expression.getValue()));
-//        }
-//
-//        if (type instanceof TimestampWithTimeZoneType timestamp) {
-//            return constant(type, DateTimes.parseTimestampWithTimeZone(timestamp.getPrecision(), expression.getValue()));
-//        }
-//
-//        if (type instanceof TimeWithTimeZoneType time) {
-//            return constant(type, DateTimes.parseTimeWithTimeZone(time.getPrecision(), expression.getValue()));
-//        }
-//
-//        if (type instanceof TimeType) {
-//            return constant(type, DateTimes.parseTime(expression.getValue()));
-//        }
-//
-//        if (type instanceof VarcharType || type.equals(VARBINARY)) {
-//            return constant(type, utf8Slice(expression.getValue()));
-//        }
-//
         if (type.equals(JSON)) {
             return new Constant(type, JsonTypeUtil.jsonParse(utf8Slice(expression.getValue())));
         }
@@ -608,7 +565,16 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(ArithmeticBinaryExpression expression)
     {
+        OperatorType operatorType = switch (expression.getOperator()) {
+            case ADD -> OperatorType.ADD;
+            case SUBTRACT -> OperatorType.SUBTRACT;
+            case MULTIPLY -> OperatorType.MULTIPLY;
+            case DIVIDE -> OperatorType.DIVIDE;
+            case MODULUS -> OperatorType.MODULUS;
+        };
+
         return new io.trino.sql.ir.ArithmeticBinaryExpression(
+                plannerContext.getMetadata().resolveOperator(operatorType, ImmutableList.of(getCoercedType(expression.getLeft()), getCoercedType(expression.getRight()))),
                 switch (expression.getOperator()) {
                     case ADD -> io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
                     case SUBTRACT -> io.trino.sql.ir.ArithmeticBinaryExpression.Operator.SUBTRACT;
@@ -618,6 +584,15 @@ public class TranslationMap
                 },
                 translateExpression(expression.getLeft()),
                 translateExpression(expression.getRight()));
+    }
+
+    private Type getCoercedType(Expression left)
+    {
+        Type leftType = analysis.getCoercion(left);
+        if (leftType == null) {
+            leftType = analysis.getType(left);
+        }
+        return leftType;
     }
 
     private io.trino.sql.ir.Expression translate(StringLiteral expression)

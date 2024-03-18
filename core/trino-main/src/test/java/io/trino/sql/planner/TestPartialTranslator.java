@@ -17,7 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Constant;
@@ -52,6 +55,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPartialTranslator
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+
     private static final Session TEST_SESSION = testSessionBuilder()
             .setTransactionId(TransactionId.create())
             .build();
@@ -79,7 +85,7 @@ public class TestPartialTranslator
         assertFullTranslation(symbolReference1);
         assertFullTranslation(dereferenceExpression1);
         assertFullTranslation(stringLiteral);
-        assertFullTranslation(new ArithmeticBinaryExpression(ADD, symbolReference1, dereferenceExpression1));
+        assertFullTranslation(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, symbolReference1, dereferenceExpression1));
 
         Expression functionCallExpression = new FunctionCall(
                 PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("concat", fromTypes(VARCHAR, VARCHAR)),

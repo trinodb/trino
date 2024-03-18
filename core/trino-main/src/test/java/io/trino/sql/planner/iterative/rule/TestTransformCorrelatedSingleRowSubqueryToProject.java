@@ -16,7 +16,10 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
@@ -44,6 +47,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 public class TestTransformCorrelatedSingleRowSubqueryToProject
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+
     @Test
     public void testDoesNotFire()
     {
@@ -65,14 +71,14 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),
                                 p.project(
-                                        Assignments.of(p.symbol("l_expr2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), new Constant(INTEGER, 1L))),
+                                        Assignments.of(p.symbol("l_expr2"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("l_nationkey"), new Constant(INTEGER, 1L))),
                                         p.values(
                                                 ImmutableList.of(),
                                                 ImmutableList.of(
                                                         ImmutableList.of())))))
                 .matches(project(
                         ImmutableMap.of(
-                                "l_expr2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("l_nationkey"), new Constant(INTEGER, 1L))),
+                                "l_expr2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("l_nationkey"), new Constant(INTEGER, 1L))),
                                 "l_nationkey", PlanMatchPattern.expression(new SymbolReference("l_nationkey"))),
                         tableScan("nation", ImmutableMap.of("l_nationkey", "nationkey"))));
     }

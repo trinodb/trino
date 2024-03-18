@@ -16,6 +16,9 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.Expression;
@@ -45,6 +48,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
@@ -62,6 +66,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestEliminateCrossJoins
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
     @Test
@@ -292,7 +299,7 @@ public class TestEliminateCrossJoins
                                         values("a1"),
                                         values("b")),
                                 "a2",
-                                new ArithmeticBinaryExpression(ADD, new SymbolReference("a1"), new SymbolReference("b")),
+                                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a1"), new SymbolReference("b")),
                                 "b",
                                 new SymbolReference("b")),
                         values("c"),

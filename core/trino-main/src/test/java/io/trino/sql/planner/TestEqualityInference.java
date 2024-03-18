@@ -18,8 +18,10 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.TryFunction;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Cast;
@@ -60,6 +62,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEqualityInference
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
+
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
     @Test
@@ -359,12 +365,12 @@ public class TestEqualityInference
 
     private static Expression add(Expression expression1, Expression expression2)
     {
-        return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD, expression1, expression2);
+        return new ArithmeticBinaryExpression(ADD_BIGINT, ArithmeticBinaryExpression.Operator.ADD, expression1, expression2);
     }
 
     private static Expression multiply(Expression expression1, Expression expression2)
     {
-        return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, expression1, expression2);
+        return new ArithmeticBinaryExpression(MULTIPLY_BIGINT, ArithmeticBinaryExpression.Operator.MULTIPLY, expression1, expression2);
     }
 
     private static Expression equals(String symbol1, String symbol2)

@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
@@ -77,6 +78,11 @@ public abstract class AbstractPredicatePushdownTest
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", fromTypes());
     private static final ResolvedFunction ROUND = FUNCTIONS.resolveFunction("round", fromTypes(DOUBLE));
     private static final ResolvedFunction LENGTH = FUNCTIONS.resolveFunction("length", fromTypes(createVarcharType(1)));
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction DIVIDE_INTEGER = FUNCTIONS.resolveOperator(OperatorType.DIVIDE, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction SUBTRACT_INTEGER = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MULTIPLY_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(DOUBLE, DOUBLE));
 
     private final boolean enableDynamicFiltering;
 
@@ -301,8 +307,8 @@ public abstract class AbstractPredicatePushdownTest
                         "SELECT * FROM t WHERE x + x > 1",
                 anyTree(
                         filter(
-                                new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), new SymbolReference("expr")), new Constant(BIGINT, 1L)),
-                                project(ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("orderkey"), new Constant(BIGINT, 2L)))),
+                                new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("expr"), new SymbolReference("expr")), new Constant(BIGINT, 1L)),
+                                project(ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference("orderkey"), new Constant(BIGINT, 2L)))),
                                         tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))));
 
         // constant non-singleton should be pushed down
@@ -312,7 +318,7 @@ public abstract class AbstractPredicatePushdownTest
                 anyTree(
                         project(
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("orderkey"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 1L)), new Constant(BIGINT, 1L)), new Constant(BIGINT, 1L)),
+                                        new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference("orderkey"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 1L)), new Constant(BIGINT, 1L)), new Constant(BIGINT, 1L)),
                                         tableScan("orders", ImmutableMap.of(
                                                 "orderkey", "orderkey"))))));
 
@@ -323,7 +329,7 @@ public abstract class AbstractPredicatePushdownTest
                 anyTree(
                         project(
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("orderkey"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 1L)),
+                                        new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference("orderkey"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 1L)),
                                         tableScan("orders", ImmutableMap.of(
                                                 "orderkey", "orderkey"))))));
 
@@ -334,7 +340,7 @@ public abstract class AbstractPredicatePushdownTest
                 anyTree(
                         project(
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("orderkey"), new Constant(BIGINT, 2L)), new SymbolReference("orderkey")), new Constant(BIGINT, 1L)),
+                                        new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference("orderkey"), new Constant(BIGINT, 2L)), new SymbolReference("orderkey")), new Constant(BIGINT, 1L)),
                                         tableScan("orders", ImmutableMap.of(
                                                 "orderkey", "orderkey"))))));
 
@@ -355,7 +361,7 @@ public abstract class AbstractPredicatePushdownTest
                 anyTree(
                         filter(
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("expr"), new Constant(DOUBLE, 5000.0)),
-                                project(ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(MULTIPLY, new FunctionCall(RANDOM, ImmutableList.of()), new Cast(new SymbolReference("orderkey"), DOUBLE)))),
+                                project(ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(MULTIPLY_DOUBLE, MULTIPLY, new FunctionCall(RANDOM, ImmutableList.of()), new Cast(new SymbolReference("orderkey"), DOUBLE)))),
                                         tableScan("orders", ImmutableMap.of(
                                                 "orderkey", "orderkey"))))));
     }
@@ -391,7 +397,7 @@ public abstract class AbstractPredicatePushdownTest
                         // Order matters: size<>1 should be before 100/(size-1)=2.
                         // In this particular example, reversing the order leads to div-by-zero error.
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("size"), new Constant(INTEGER, 1L)), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(DIVIDE, new Constant(INTEGER, 100L), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("size"), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L)))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("size"), new Constant(INTEGER, 1L)), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 100L), new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new SymbolReference("size"), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L)))),
                                 tableScan("part", ImmutableMap.of(
                                         "partkey", "partkey",
                                         "size", "size")))));
@@ -434,7 +440,7 @@ public abstract class AbstractPredicatePushdownTest
                                 anyTree(
                                         filter(
                                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("ROUND"), new Constant(DOUBLE, 100.0)),
-                                                project(ImmutableMap.of("ROUND", expression(new FunctionCall(ROUND, ImmutableList.of(new ArithmeticBinaryExpression(MULTIPLY, new Cast(new SymbolReference("CUST_KEY"), DOUBLE), new FunctionCall(RANDOM, ImmutableList.of())))))),
+                                                project(ImmutableMap.of("ROUND", expression(new FunctionCall(ROUND, ImmutableList.of(new ArithmeticBinaryExpression(MULTIPLY_DOUBLE, MULTIPLY, new Cast(new SymbolReference("CUST_KEY"), DOUBLE), new FunctionCall(RANDOM, ImmutableList.of())))))),
                                                         tableScan(
                                                                 "orders",
                                                                 ImmutableMap.of("CUST_KEY", "custkey"))))))));
@@ -450,7 +456,7 @@ public abstract class AbstractPredicatePushdownTest
                         ") WHERE custkey > 100*rand()",
                 anyTree(
                         filter(
-                                new ComparisonExpression(GREATER_THAN, new Cast(new SymbolReference("CUST_KEY"), DOUBLE), new ArithmeticBinaryExpression(MULTIPLY, new FunctionCall(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 100.0))),
+                                new ComparisonExpression(GREATER_THAN, new Cast(new SymbolReference("CUST_KEY"), DOUBLE), new ArithmeticBinaryExpression(MULTIPLY_DOUBLE, MULTIPLY, new FunctionCall(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 100.0))),
                                 anyTree(
                                         node(WindowNode.class,
                                                 anyTree(
@@ -551,7 +557,7 @@ public abstract class AbstractPredicatePushdownTest
                         join(INNER, builder -> builder
                                 .equiCriteria("L_NATIONKEY2", "R_NATIONKEY")
                                 .left(
-                                        project(ImmutableMap.of("L_NATIONKEY2", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("L_NATIONKEY"), new Constant(BIGINT, 1L)))),
+                                        project(ImmutableMap.of("L_NATIONKEY2", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("L_NATIONKEY"), new Constant(BIGINT, 1L)))),
                                                 tableScan("nation", ImmutableMap.of("L_NATIONKEY", "nationkey"))))
                                 .right(
                                         anyTree(
@@ -578,7 +584,7 @@ public abstract class AbstractPredicatePushdownTest
         assertPlan("SELECT * FROM (SELECT * FROM NATION WHERE nationkey = 5) a JOIN nation b ON a.nationkey = b.nationkey AND a.nationkey = a.regionkey + b.regionkey",
                 output(
                         filter(
-                                new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(ADD, new SymbolReference("L_REGIONKEY"), new SymbolReference("R_REGIONKEY")), new Constant(BIGINT, 5L)),
+                                new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("L_REGIONKEY"), new SymbolReference("R_REGIONKEY")), new Constant(BIGINT, 5L)),
                                 join(INNER, builder -> builder
                                         .equiCriteria(ImmutableList.of())
                                         .left(

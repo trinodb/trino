@@ -23,6 +23,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -53,7 +54,6 @@ import java.math.BigDecimal;
 import java.util.function.Consumer;
 
 import static io.trino.SystemSessionProperties.FILTER_CONJUNCTION_INDEPENDENCE_FACTOR;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -183,6 +183,11 @@ public class TestFilterStatsCalculator
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction JSON_ARRAY_CONTAINS = FUNCTIONS.resolveFunction("json_array_contains", fromTypes(JSON, DOUBLE));
     private static final ResolvedFunction SIN = FUNCTIONS.resolveFunction("sin", fromTypes(DOUBLE));
+    private static final ResolvedFunction ADD_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(DOUBLE, DOUBLE));
+    private static final ResolvedFunction SUBTRACT_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(DOUBLE, DOUBLE));
+    private static final ResolvedFunction MULTIPLY_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(DOUBLE, DOUBLE));
+    private static final ResolvedFunction SUBTRACT_INTEGER = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
 
     @Test
     public void testBooleanLiteralStats()
@@ -211,8 +216,7 @@ public class TestFilterStatsCalculator
         for (Expression minusThree : ImmutableList.of(
                 new Constant(createDecimalType(3), Decimals.valueOfShort(new BigDecimal("-3"))),
                 new Constant(DOUBLE, -3.0),
-                new ArithmeticBinaryExpression(SUBTRACT, new Constant(DOUBLE, 4.0), new Constant(DOUBLE, 7.0)),
-                new Cast(new Constant(INTEGER, -3L), createDecimalType(7, 3)))) {
+                new ArithmeticBinaryExpression(SUBTRACT_DOUBLE, SUBTRACT, new Constant(DOUBLE, 4.0), new Constant(DOUBLE, 7.0)), new Cast(new Constant(INTEGER, -3L), createDecimalType(7, 3)))) {
             assertExpression(new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(minusThree, DOUBLE)))
                     .outputRowsCount(18.75)
                     .symbolStats(new Symbol("x"), symbolAssert ->
@@ -235,6 +239,7 @@ public class TestFilterStatsCalculator
                     EQUAL,
                     new CoalesceExpression(
                             new ArithmeticBinaryExpression(
+                                    MULTIPLY_DOUBLE,
                                     MULTIPLY,
                                     new SymbolReference("x"),
                                     new Constant(DOUBLE, null)),
@@ -274,29 +279,29 @@ public class TestFilterStatsCalculator
         assertExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new SymbolReference("emptyRange")))
                 .outputRowsCount(0);
 
-        assertExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("y"), new Constant(INTEGER, 20L))))
+        assertExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("y"), new Constant(INTEGER, 20L))))
                 .outputRowsCount(0);
-        assertExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("y"), new Constant(INTEGER, 20L))))
+        assertExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("y"), new Constant(INTEGER, 20L))))
                 .outputRowsCount(0);
-        assertExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("y"), new Constant(INTEGER, 25L))))
+        assertExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new SymbolReference("y"), new Constant(INTEGER, 25L))))
                 .outputRowsCount(0);
-        assertExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("y"), new Constant(INTEGER, 25L))))
+        assertExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new SymbolReference("y"), new Constant(INTEGER, 25L))))
                 .outputRowsCount(0);
 
         double nullsFractionY = 0.5;
         double inputRowCount = standardInputStatistics.getOutputRowCount();
         double nonNullRowCount = inputRowCount * (1 - nullsFractionY);
         SymbolStatsEstimate nonNullStatsX = xStats.mapNullsFraction(nullsFraction -> 0.0);
-        assertExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("y"), new Constant(INTEGER, 25L))))
+        assertExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new SymbolReference("y"), new Constant(INTEGER, 25L))))
                 .outputRowsCount(nonNullRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
-        assertExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("y"), new Constant(INTEGER, 25L))))
+        assertExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new SymbolReference("y"), new Constant(INTEGER, 25L))))
                 .outputRowsCount(nonNullRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
-        assertExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("y"), new Constant(INTEGER, 20L))))
+        assertExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("y"), new Constant(INTEGER, 20L))))
                 .outputRowsCount(nonNullRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
-        assertExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("y"), new Constant(INTEGER, 20L))))
+        assertExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("y"), new Constant(INTEGER, 20L))))
                 .outputRowsCount(nonNullRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
     }
@@ -375,7 +380,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Impossible, with symbol-to-expression comparisons
-        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 1.0))), new ComparisonExpression(EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 3.0))))))
+        assertExpression(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD_DOUBLE, ADD, new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 1.0))), new ComparisonExpression(EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD_DOUBLE, ADD, new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 3.0))))))
                 .outputRowsCount(0)
                 .symbolStats(new Symbol("x"), SymbolStatsAssertion::emptyRange)
                 .symbolStats(new Symbol("y"), SymbolStatsAssertion::emptyRange);
@@ -764,7 +769,7 @@ public class TestFilterStatsCalculator
                                 .lowValue(-7.5)
                                 .highValue(-7.5)
                                 .nullsFraction(0.0));
-        assertExpression(new InPredicate(new SymbolReference("x"), ImmutableList.of(new ArithmeticBinaryExpression(ADD, new Constant(BIGINT, 2L), new Constant(DOUBLE, 5.5)))))
+        assertExpression(new InPredicate(new SymbolReference("x"), ImmutableList.of(new ArithmeticBinaryExpression(ADD_DOUBLE, ADD, new Constant(DOUBLE, 2.0), new Constant(DOUBLE, 5.5)))))
                 .outputRowsCount(18.75)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
