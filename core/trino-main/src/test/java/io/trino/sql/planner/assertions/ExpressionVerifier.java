@@ -14,7 +14,7 @@
 package io.trino.sql.planner.assertions;
 
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
@@ -179,14 +179,13 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitArithmeticUnary(ArithmeticUnaryExpression actual, Expression expectedExpression)
+    protected Boolean visitArithmeticNegation(ArithmeticNegation actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof ArithmeticUnaryExpression expected)) {
+        if (!(expectedExpression instanceof ArithmeticNegation expected)) {
             return false;
         }
 
-        return actual.getSign() == expected.getSign() &&
-                process(actual.getValue(), expected.getValue());
+        return process(actual.getValue(), expected.getValue());
     }
 
     @Override

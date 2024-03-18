@@ -20,7 +20,7 @@ import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.SymbolStatsEstimate;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
@@ -46,7 +46,6 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.AUTOMATIC;
@@ -422,7 +421,7 @@ public class TestReorderJoins
                                 INNER,
                                 p.project(
                                         Assignments.of(
-                                                p.symbol("P1"), new ArithmeticUnaryExpression(MINUS, p.symbol("B1").toSymbolReference()),
+                                                p.symbol("P1"), new ArithmeticNegation(p.symbol("B1").toSymbolReference()),
                                                 p.symbol("P2"), p.symbol("A1").toSymbolReference()),
                                         p.join(
                                                 INNER,
@@ -450,7 +449,7 @@ public class TestReorderJoins
                                                                 values("A1")))
                                                 .right(
                                                         strictProject(
-                                                                ImmutableMap.of("P1", expression(new ArithmeticUnaryExpression(MINUS, new SymbolReference("B1")))),
+                                                                ImmutableMap.of("P1", expression(new ArithmeticNegation(new SymbolReference("B1")))),
                                                                 values("B1")))))));
     }
 
@@ -476,7 +475,7 @@ public class TestReorderJoins
                                 INNER,
                                 p.project(
                                         Assignments.of(
-                                                p.symbol("P1"), new ArithmeticUnaryExpression(MINUS, p.symbol("B1").toSymbolReference())),
+                                                p.symbol("P1"), new ArithmeticNegation(p.symbol("B1").toSymbolReference())),
                                         p.join(
                                                 INNER,
                                                 p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1")),
@@ -496,7 +495,7 @@ public class TestReorderJoins
                                 .left(values("C1"))
                                 .right(
                                         strictProject(
-                                                ImmutableMap.of("P1", expression(new ArithmeticUnaryExpression(MINUS, new SymbolReference("B1")))),
+                                                ImmutableMap.of("P1", expression(new ArithmeticNegation(new SymbolReference("B1")))),
                                                 join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                         .equiCriteria("A1", "B1")
                                                         .left(values("A1"))

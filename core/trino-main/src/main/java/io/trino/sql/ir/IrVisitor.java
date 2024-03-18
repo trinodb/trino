@@ -92,7 +92,7 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitArithmeticUnary(ArithmeticUnaryExpression node, C context)
+    protected R visitArithmeticNegation(ArithmeticNegation node, C context)
     {
         return visitExpression(node, context);
     }
