@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNullPredicate;
@@ -216,8 +215,7 @@ public class SimplifyFilterPredicate
     private static boolean isNotTrue(Expression expression)
     {
         return expression.equals(FALSE_LITERAL) ||
-                expression instanceof Constant literal && literal.getValue() == null ||
-                expression instanceof Cast && isNotTrue(((Cast) expression).getExpression());
+                expression instanceof Constant literal && literal.getValue() == null;
     }
 
     private static Expression isFalseOrNullPredicate(Expression expression)
