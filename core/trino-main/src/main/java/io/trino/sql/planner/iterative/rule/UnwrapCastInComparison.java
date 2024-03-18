@@ -40,8 +40,8 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.NotExpression;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
@@ -183,7 +183,7 @@ public class UnwrapCastInComparison
             if (right == null) {
                 return switch (operator) {
                     case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Constant(BOOLEAN, null);
-                    case IS_DISTINCT_FROM -> new IsNotNullPredicate(cast);
+                    case IS_DISTINCT_FROM -> new NotExpression(new IsNullPredicate(cast));
                 };
             }
 
@@ -567,6 +567,6 @@ public class UnwrapCastInComparison
 
     public static Expression trueIfNotNull(Expression argument)
     {
-        return or(new IsNotNullPredicate(argument), new Constant(BOOLEAN, null));
+        return or(new NotExpression(new IsNullPredicate(argument)), new Constant(BOOLEAN, null));
     }
 }

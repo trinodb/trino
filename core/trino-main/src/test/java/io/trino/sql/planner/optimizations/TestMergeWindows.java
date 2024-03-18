@@ -20,7 +20,8 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -241,7 +242,7 @@ public class TestMergeWindows
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(specificationB)
                                                         .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), COMMON_FRAME)),
-                                                filter(new IsNotNullPredicate(new SymbolReference(SHIPDATE_ALIAS)),
+                                                filter(new NotExpression(new IsNullPredicate(new SymbolReference(SHIPDATE_ALIAS))),
                                                         project(
                                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                                 .specification(specificationA)
@@ -292,7 +293,7 @@ public class TestMergeWindows
                                         .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), COMMON_FRAME))
                                         .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), COMMON_FRAME)),
                                 project(
-                                        filter(new IsNotNullPredicate(new SymbolReference(SHIPDATE_ALIAS)),
+                                        filter(new NotExpression(new IsNullPredicate(new SymbolReference(SHIPDATE_ALIAS))),
                                                 project(
                                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                                         .specification(specificationA)

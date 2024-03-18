@@ -37,7 +37,6 @@ import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.LogicalExpression;
@@ -186,13 +185,6 @@ public class IrTypeAnalyzer
 
         @Override
         protected Type visitIsNullPredicate(IsNullPredicate node, Context context)
-        {
-            process(node.getValue(), context);
-            return setExpressionType(node, BOOLEAN);
-        }
-
-        @Override
-        protected Type visitIsNotNullPredicate(IsNotNullPredicate node, Context context)
         {
             process(node.getValue(), context);
             return setExpressionType(node, BOOLEAN);

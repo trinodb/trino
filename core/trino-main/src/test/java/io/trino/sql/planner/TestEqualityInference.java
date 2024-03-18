@@ -30,8 +30,9 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
-import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullIfExpression;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
@@ -320,7 +321,7 @@ public class TestEqualityInference
                 new NullIfExpression(nameReference("b"), number(1)),
                 new IfExpression(nameReference("b"), number(1), new Constant(UnknownType.UNKNOWN, null)),
                 new InPredicate(nameReference("b"), ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))),
-                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new IsNotNullPredicate(nameReference("b")), new Constant(UnknownType.UNKNOWN, null))), Optional.empty()),
+                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new NotExpression(new IsNullPredicate(nameReference("b"))), new Constant(UnknownType.UNKNOWN, null))), Optional.empty()),
                 new SimpleCaseExpression(nameReference("b"), ImmutableList.of(new WhenClause(number(1), new Constant(UnknownType.UNKNOWN, null))), Optional.empty()),
                 new SubscriptExpression(new Array(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))), nameReference("b")));
 

@@ -31,7 +31,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NodeRef;
@@ -228,10 +227,10 @@ public class TestExpressionInterpreter
                 new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("unbound_value"), new Constant(INTEGER, 1L)));
         assertOptimizedMatches(
                 new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("unbound_value"), new Constant(UnknownType.UNKNOWN, null)),
-                new IsNotNullPredicate(new SymbolReference("unbound_value")));
+                new NotExpression(new IsNullPredicate(new SymbolReference("unbound_value"))));
         assertOptimizedMatches(
                 new ComparisonExpression(IS_DISTINCT_FROM, new Constant(UnknownType.UNKNOWN, null), new SymbolReference("unbound_value")),
-                new IsNotNullPredicate(new SymbolReference("unbound_value")));
+                new NotExpression(new IsNullPredicate(new SymbolReference("unbound_value"))));
     }
 
     @Test
@@ -252,13 +251,13 @@ public class TestExpressionInterpreter
     public void testIsNotNull()
     {
         assertOptimizedEquals(
-                new IsNotNullPredicate(new Constant(UnknownType.UNKNOWN, null)),
+                new NotExpression(new IsNullPredicate(new Constant(UnknownType.UNKNOWN, null))),
                 FALSE_LITERAL);
         assertOptimizedEquals(
-                new IsNotNullPredicate(new Constant(INTEGER, 1L)),
+                new NotExpression(new IsNullPredicate(new Constant(INTEGER, 1L))),
                 TRUE_LITERAL);
         assertOptimizedEquals(
-                new IsNotNullPredicate(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new Constant(INTEGER, null), new Constant(INTEGER, 1L))),
+                new NotExpression(new IsNullPredicate(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new Constant(INTEGER, null), new Constant(INTEGER, 1L)))),
                 FALSE_LITERAL);
     }
 

@@ -19,7 +19,8 @@ import io.trino.spi.type.BigintType;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
@@ -64,7 +65,7 @@ public class TestExpressionRewriteRuleSet
     {
         tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("y"), new IsNotNullPredicate(new SymbolReference("x"))),
+                        Assignments.of(p.symbol("y"), new NotExpression(new IsNullPredicate(new SymbolReference("x")))),
                         p.values(p.symbol("x"))))
                 .matches(
                         project(ImmutableMap.of("y", expression(new Constant(INTEGER, 0L))), values("x")));
