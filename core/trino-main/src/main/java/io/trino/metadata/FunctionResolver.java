@@ -120,7 +120,7 @@ public class FunctionResolver
                 catalogSchemaFunctionName -> metadata.getFunctions(session, catalogSchemaFunctionName),
                 accessControl);
 
-        FunctionMetadata functionMetadata = catalogFunctionBinding.functionMetadata();
+        FunctionMetadata functionMetadata = catalogFunctionBinding.boundFunctionMetadata();
         if (functionMetadata.isDeprecated()) {
             warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION, "Use of deprecated function: %s: %s".formatted(name, functionMetadata.getDescription())));
         }
@@ -137,9 +137,9 @@ public class FunctionResolver
                     functionBinding.functionBinding().getBoundSignature(),
                     functionBinding.catalogHandle(),
                     functionBinding.functionBinding().getFunctionId(),
-                    functionBinding.functionMetadata().getKind(),
-                    functionBinding.functionMetadata().isDeterministic(),
-                    functionBinding.functionMetadata().getFunctionNullability(),
+                    functionBinding.boundFunctionMetadata().getKind(),
+                    functionBinding.boundFunctionMetadata().isDeterministic(),
+                    functionBinding.boundFunctionMetadata().getFunctionNullability(),
                     ImmutableMap.of(),
                     dependencies);
 
@@ -161,7 +161,7 @@ public class FunctionResolver
                 functionBinder,
                 functionBinding.catalogHandle(),
                 functionBinding.functionBinding(),
-                functionBinding.functionMetadata(),
+                functionBinding.boundFunctionMetadata(),
                 dependencies,
                 catalogSchemaFunctionName -> metadata.getFunctions(session, catalogSchemaFunctionName),
                 catalogFunctionBinding -> resolve(session, catalogFunctionBinding, accessControl));
