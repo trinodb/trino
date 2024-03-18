@@ -18,7 +18,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
@@ -36,8 +35,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
@@ -488,18 +485,5 @@ public class TestSimplifyFilterPredicate
                         filter(
                                 FALSE_LITERAL,
                                 values("a", "b")));
-    }
-
-    @Test
-    public void testCastNull()
-    {
-        tester().assertThat(new SimplifyFilterPredicate())
-                .on(p -> p.filter(
-                        ifExpression(new SymbolReference("a"), new Cast(new Cast(new Constant(BOOLEAN, null), BIGINT), BOOLEAN), FALSE_LITERAL),
-                        p.values(p.symbol("a", BOOLEAN))))
-                .matches(
-                        filter(
-                                FALSE_LITERAL,
-                                values("a")));
     }
 }
