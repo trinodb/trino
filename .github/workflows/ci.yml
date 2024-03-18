@@ -35,6 +35,11 @@ env:
   CI_SKIP_SECRETS_PRESENCE_CHECKS: ${{ secrets.CI_SKIP_SECRETS_PRESENCE_CHECKS }}
   SECRETS_PRESENT: ${{ secrets.SECRETS_PRESENT }}
   PTL_TMP_DOWNLOAD_PATH: /tmp/pt_java_downloads
+  # Tests must not depend on the system locale. It is expected that tests pass on every machine and that locale is fixed, if needed, on maven level.
+  # While Trino sets en_US (via air.test.language, air.test.region), set environment to something else to ensure the environment has no effect when undesired.
+  LANG: "pl_PL.UTF-8"
+  LANGUAGE: "pl_PL"
+  LC_ALL: "pl_PL.UTF-8"
 
 # Cancel previous PR builds.
 concurrency:
