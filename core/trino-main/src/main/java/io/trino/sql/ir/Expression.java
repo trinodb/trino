@@ -23,7 +23,7 @@ import java.util.List;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 @JsonSubTypes({
         @JsonSubTypes.Type(value = ArithmeticBinaryExpression.class, name = "arithmeticBinary"),
-        @JsonSubTypes.Type(value = ArithmeticUnaryExpression.class, name = "arithmeticUnary"),
+        @JsonSubTypes.Type(value = ArithmeticNegation.class, name = "arithmeticUnary"),
         @JsonSubTypes.Type(value = Array.class, name = "array"),
         @JsonSubTypes.Type(value = BetweenPredicate.class, name = "between"),
         @JsonSubTypes.Type(value = BindExpression.class, name = "bind"),
@@ -48,7 +48,7 @@ import java.util.List;
         @JsonSubTypes.Type(value = WhenClause.class, name = "when"),
 })
 public abstract sealed class Expression
-        permits ArithmeticBinaryExpression, ArithmeticUnaryExpression, Array, BetweenPredicate,
+        permits ArithmeticBinaryExpression, ArithmeticNegation, Array, BetweenPredicate,
         BindExpression, Cast, CoalesceExpression, ComparisonExpression, FunctionCall,
         IfExpression, InPredicate, IsNullPredicate,
         LambdaExpression, Constant, LogicalExpression,

@@ -27,7 +27,7 @@ import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
@@ -57,7 +57,6 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
@@ -135,7 +134,7 @@ public class TestPatternRecognitionNodeSerialization
                 new IfExpression(
                         new ComparisonExpression(GREATER_THAN, new SymbolReference("classifier"), new SymbolReference("x")),
                         new FunctionCall(RANDOM, ImmutableList.of()),
-                        new ArithmeticUnaryExpression(MINUS, new SymbolReference("match_number"))),
+                        new ArithmeticNegation(new SymbolReference("match_number"))),
                 ImmutableList.of(
                         new ExpressionAndValuePointers.Assignment(
                                 new Symbol("classifier"),
@@ -163,7 +162,7 @@ public class TestPatternRecognitionNodeSerialization
                         new IfExpression(
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("match_number"), new SymbolReference("x")),
                                 new Constant(BIGINT, 10L),
-                                new ArithmeticUnaryExpression(MINUS, new SymbolReference("y"))),
+                                new ArithmeticNegation(new SymbolReference("y"))),
                         ImmutableList.of(
                                 new ExpressionAndValuePointers.Assignment(
                                         new Symbol("match_number"),

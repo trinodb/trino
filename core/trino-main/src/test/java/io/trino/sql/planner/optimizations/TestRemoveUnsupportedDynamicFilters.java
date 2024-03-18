@@ -262,7 +262,7 @@ public class TestRemoveUnsupportedDynamicFilters
                                                 new IsNullPredicate(new SymbolReference("LINEITEM_OK")),
                                                 createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
                                         combineDisjuncts(
-                                                new NotExpression(new IsNullPredicate((new SymbolReference("LINEITEM_OK")))),
+                                                new NotExpression(new IsNullPredicate(new SymbolReference("LINEITEM_OK"))),
                                                 createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference()))),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeySymbol, lineitemOrderKeySymbol)),

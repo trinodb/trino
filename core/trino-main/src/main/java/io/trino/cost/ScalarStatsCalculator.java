@@ -23,7 +23,7 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.Constant;
@@ -185,19 +185,13 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        protected SymbolStatsEstimate visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
+        protected SymbolStatsEstimate visitArithmeticNegation(ArithmeticNegation node, Void context)
         {
             SymbolStatsEstimate stats = process(node.getValue());
-            switch (node.getSign()) {
-                case PLUS:
-                    return stats;
-                case MINUS:
-                    return SymbolStatsEstimate.buildFrom(stats)
-                            .setLowValue(-stats.getHighValue())
-                            .setHighValue(-stats.getLowValue())
-                            .build();
-            }
-            throw new IllegalStateException("Unexpected sign: " + node.getSign());
+            return SymbolStatsEstimate.buildFrom(stats)
+                    .setLowValue(-stats.getHighValue())
+                    .setHighValue(-stats.getLowValue())
+                    .build();
         }
 
         @Override

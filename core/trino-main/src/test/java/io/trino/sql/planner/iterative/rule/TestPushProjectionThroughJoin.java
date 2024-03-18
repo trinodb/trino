@@ -20,7 +20,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Plan;
@@ -43,8 +43,6 @@ import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
-import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.PLUS;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -77,14 +75,14 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        a3, new ArithmeticUnaryExpression(MINUS, a2.toSymbolReference()),
-                        b2, new ArithmeticUnaryExpression(PLUS, b1.toSymbolReference())),
+                        a3, new ArithmeticNegation(a2.toSymbolReference()),
+                        b2, new ArithmeticNegation(b1.toSymbolReference())),
                 p.join(
                         INNER,
                         // intermediate non-identity projections should be fully inlined
                         p.project(
                                 Assignments.of(
-                                        a2, new ArithmeticUnaryExpression(PLUS, a0.toSymbolReference()),
+                                        a2, new ArithmeticNegation(a0.toSymbolReference()),
                                         a1, a1.toSymbolReference()),
                                 p.project(
                                         Assignments.builder()
@@ -108,7 +106,7 @@ public class TestPushProjectionThroughJoin
                         .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol("a1"), new Symbol("b1"))))
                         .left(
                                 strictProject(ImmutableMap.of(
-                                                "a3", expression(new ArithmeticUnaryExpression(MINUS, new ArithmeticUnaryExpression(PLUS, new SymbolReference("a0")))),
+                                                "a3", expression(new ArithmeticNegation(new ArithmeticNegation(new SymbolReference("a0")))),
                                                 "a1", expression(new SymbolReference("a1"))),
                                         strictProject(ImmutableMap.of(
                                                         "a0", expression(new SymbolReference("a0")),
@@ -116,7 +114,7 @@ public class TestPushProjectionThroughJoin
                                                 PlanMatchPattern.values("a0", "a1"))))
                         .right(
                                 strictProject(ImmutableMap.of(
-                                                "b2", expression(new ArithmeticUnaryExpression(PLUS, new SymbolReference("b1"))),
+                                                "b2", expression(new ArithmeticNegation(new SymbolReference("b1"))),
                                                 "b1", expression(new SymbolReference("b1"))),
                                         PlanMatchPattern.values("b0", "b1"))))
                         .withExactOutputs("a3", "b2"));
@@ -151,7 +149,7 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        c, new ArithmeticUnaryExpression(MINUS, a.toSymbolReference())),
+                        c, new ArithmeticNegation(a.toSymbolReference())),
                 p.join(
                         LEFT,
                         p.values(a),

@@ -33,7 +33,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
@@ -224,17 +224,8 @@ public class TestConnectorExpressionTranslator
     public void testTranslateArithmeticUnaryMinus()
     {
         assertTranslationRoundTrips(
-                new ArithmeticUnaryExpression(ArithmeticUnaryExpression.Sign.MINUS, new SymbolReference("double_symbol_1")),
+                new ArithmeticNegation(new SymbolReference("double_symbol_1")),
                 new Call(DOUBLE, NEGATE_FUNCTION_NAME, List.of(new Variable("double_symbol_1", DOUBLE))));
-    }
-
-    @Test
-    public void testTranslateArithmeticUnaryPlus()
-    {
-        assertTranslationToConnectorExpression(
-                TEST_SESSION,
-                new ArithmeticUnaryExpression(ArithmeticUnaryExpression.Sign.PLUS, new SymbolReference("double_symbol_1")),
-                new Variable("double_symbol_1", DOUBLE));
     }
 
     @Test
@@ -290,7 +281,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateIsNotNull()
     {
         assertTranslationRoundTrips(
-                new NotExpression(new IsNullPredicate((new SymbolReference("varchar_symbol_1")))),
+                new NotExpression(new IsNullPredicate(new SymbolReference("varchar_symbol_1"))),
                 new Call(
                         BOOLEAN,
                         NOT_FUNCTION_NAME,

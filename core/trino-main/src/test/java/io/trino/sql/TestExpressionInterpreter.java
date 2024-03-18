@@ -21,7 +21,7 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
@@ -70,7 +70,6 @@ import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.DIVIDE;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.SUBTRACT;
-import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
@@ -285,11 +284,11 @@ public class TestExpressionInterpreter
     public void testNegative()
     {
         assertOptimizedEquals(
-                new ArithmeticUnaryExpression(MINUS, new Constant(INTEGER, 1L)),
+                new ArithmeticNegation(new Constant(INTEGER, 1L)),
                 new Constant(INTEGER, -1L));
         assertOptimizedEquals(
-                new ArithmeticUnaryExpression(MINUS, new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("unbound_value"), new Constant(INTEGER, 1L))),
-                new ArithmeticUnaryExpression(MINUS, new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("unbound_value"), new Constant(INTEGER, 1L))));
+                new ArithmeticNegation(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("unbound_value"), new Constant(INTEGER, 1L))),
+                new ArithmeticNegation(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("unbound_value"), new Constant(INTEGER, 1L))));
     }
 
     @Test

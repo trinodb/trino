@@ -20,7 +20,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
@@ -50,7 +50,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -242,14 +241,14 @@ public class TestEliminateCrossJoins
                             INNER,
                             p.project(
                                     Assignments.of(
-                                            a2, new ArithmeticUnaryExpression(MINUS, new SymbolReference("a1")),
+                                            a2, new ArithmeticNegation(new SymbolReference("a1")),
                                             f, new SymbolReference("f")),
                                     p.join(
                                             INNER,
                                             p.project(
                                                     Assignments.of(
                                                             a1, new SymbolReference("a1"),
-                                                            f, new ArithmeticUnaryExpression(MINUS, new SymbolReference("b"))),
+                                                            f, new ArithmeticNegation(new SymbolReference("b"))),
                                                     p.join(
                                                             INNER,
                                                             p.values(a1),
@@ -272,7 +271,7 @@ public class TestEliminateCrossJoins
                                                                 .left(
                                                                         strictProject(
                                                                                 ImmutableMap.of(
-                                                                                        "a2", expression(new ArithmeticUnaryExpression(MINUS, new SymbolReference("a1"))),
+                                                                                        "a2", expression(new ArithmeticNegation(new SymbolReference("a1"))),
                                                                                         "a1", expression(new SymbolReference("a1"))),
                                                                                 PlanMatchPattern.values("a1")))
                                                                 .right(
@@ -283,7 +282,7 @@ public class TestEliminateCrossJoins
                                                 .right(any())))
                                         .right(
                                                 strictProject(
-                                                        ImmutableMap.of("f", expression(new ArithmeticUnaryExpression(MINUS, new SymbolReference("b")))),
+                                                        ImmutableMap.of("f", expression(new ArithmeticNegation(new SymbolReference("b")))),
                                                         PlanMatchPattern.values("b"))))));
     }
 

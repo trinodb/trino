@@ -193,7 +193,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
                 rewrittenUnnest,
                 Assignments.builder()
                         .putIdentities(rewrittenUnnest.getOutputSymbols())
-                        .put(mask, new NotExpression(new IsNullPredicate((ordinalitySymbol.toSymbolReference()))))
+                        .put(mask, new NotExpression(new IsNullPredicate(ordinalitySymbol.toSymbolReference())))
                         .build());
 
         // restore all projections, grouped aggregations and global aggregations from the subquery

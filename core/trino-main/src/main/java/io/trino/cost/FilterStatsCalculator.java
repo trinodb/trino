@@ -393,7 +393,7 @@ public class FilterStatsCalculator
             }
 
             if (left instanceof SymbolReference && left.equals(right)) {
-                return process(new NotExpression(new IsNullPredicate((left))));
+                return process(new NotExpression(new IsNullPredicate(left)));
             }
 
             SymbolStatsEstimate leftStats = getExpressionStats(left);

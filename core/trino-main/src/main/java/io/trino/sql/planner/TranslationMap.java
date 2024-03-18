@@ -40,6 +40,7 @@ import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -376,12 +377,10 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(ArithmeticUnaryExpression expression)
     {
-        return new io.trino.sql.ir.ArithmeticUnaryExpression(
-                switch (expression.getSign()) {
-                    case PLUS -> io.trino.sql.ir.ArithmeticUnaryExpression.Sign.PLUS;
-                    case MINUS -> io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
-                },
-                translateExpression(expression.getValue()));
+        return switch (expression.getSign()) {
+            case PLUS -> translateExpression(expression.getValue());
+            case MINUS -> new ArithmeticNegation(translateExpression(expression.getValue()));
+        };
     }
 
     private io.trino.sql.ir.Expression translate(IntervalLiteral expression)
@@ -1061,7 +1060,7 @@ public class TranslationMap
         checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
 
         //  apply the input function to the input expression
-        Constant failOnError = new Constant(BOOLEAN, node.getErrorBehavior() == JsonQuery.EmptyOrErrorBehavior.ERROR);
+        Constant failOnError = new Constant(BOOLEAN, node.getErrorBehavior() == ERROR);
         ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getJsonPathInvocation().getInputExpression());
         io.trino.sql.ir.Expression input = new io.trino.sql.ir.FunctionCall(inputToJson, ImmutableList.of(
                 translateExpression(node.getJsonPathInvocation().getInputExpression()),
