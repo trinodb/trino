@@ -136,25 +136,6 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitArray(Array node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteArray(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            List<Expression> values = rewrite(node.getValues(), context);
-
-            if (!sameElements(node.getValues(), values)) {
-                return new Array(values);
-            }
-
-            return node;
-        }
-
-        @Override
         protected Expression visitSubscriptExpression(SubscriptExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
