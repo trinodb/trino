@@ -246,6 +246,10 @@
                                 <include>**/TestRedshiftTableStatisticsReader.java</include>
                                 <include>**/TestRedshiftTypeMapping.java</include>
                             </includes>
+                            <systemPropertyVariables>
+                                <!-- Redshift tests tend to fail with deadlocks when run concurrently -->
+                                <junit.jupiter.execution.parallel.enabled>false</junit.jupiter.execution.parallel.enabled>
+                            </systemPropertyVariables>
                         </configuration>
                     </plugin>
                 </plugins>
