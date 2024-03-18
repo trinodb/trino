@@ -31,7 +31,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -50,6 +49,7 @@ import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.BuiltinFunctionCallBuilder.resolve;
@@ -285,7 +285,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
                         new LogicalExpression(AND, ImmutableList.of(
-                                new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("name"), new Constant(VARCHAR, Slices.utf8Slice("x"))), TRUE_LITERAL, FALSE_LITERAL),
+                                ifExpression(new ComparisonExpression(EQUAL, new SymbolReference("name"), new Constant(VARCHAR, Slices.utf8Slice("x"))), TRUE_LITERAL, FALSE_LITERAL),
                                 new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new Constant(BIGINT, 44L)))),
                         p.tableScan(
                                 nationTableHandle,
@@ -300,7 +300,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                         nationKeyColumnHandle, NullableValue.of(BIGINT, (long) 44))))))
                 .matches(
                         filter(
-                                new IfExpression(new ComparisonExpression(EQUAL, new SymbolReference("name"), new Constant(VARCHAR, Slices.utf8Slice("x"))), TRUE_LITERAL, FALSE_LITERAL),
+                                ifExpression(new ComparisonExpression(EQUAL, new SymbolReference("name"), new Constant(VARCHAR, Slices.utf8Slice("x"))), TRUE_LITERAL, FALSE_LITERAL),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of(

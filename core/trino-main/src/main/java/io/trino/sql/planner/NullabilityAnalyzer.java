@@ -18,7 +18,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.NullIfExpression;
 import io.trino.sql.ir.SearchedCaseExpression;
@@ -99,13 +98,6 @@ public final class NullabilityAnalyzer
 
         @Override
         protected Void visitSubscriptExpression(SubscriptExpression node, AtomicBoolean result)
-        {
-            result.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitIfExpression(IfExpression node, AtomicBoolean result)
         {
             result.set(true);
             return null;

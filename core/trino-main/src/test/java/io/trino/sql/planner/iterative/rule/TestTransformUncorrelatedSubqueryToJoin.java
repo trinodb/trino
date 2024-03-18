@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -27,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -143,7 +143,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "a", expression(new IfExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("a")), new SymbolReference("a"), new Constant(BIGINT, null))),
+                                        "a", expression(ifExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("a")), new SymbolReference("a"), new Constant(BIGINT, null))),
                                         "b", expression(new SymbolReference("b"))),
                                 join(JoinType.INNER, builder -> builder
                                         .left(values("a"))

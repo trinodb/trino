@@ -134,18 +134,6 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitIfExpression(IfExpression node, C context)
-    {
-        process(node.getCondition(), context);
-        process(node.getTrueValue(), context);
-        if (node.getFalseValue().isPresent()) {
-            process(node.getFalseValue().get(), context);
-        }
-
-        return null;
-    }
-
-    @Override
     protected Void visitBindExpression(BindExpression node, C context)
     {
         for (Expression value : node.getValues()) {
