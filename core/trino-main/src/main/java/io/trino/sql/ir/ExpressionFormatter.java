@@ -72,14 +72,6 @@ public final class ExpressionFormatter
             return builder.toString();
         }
 
-        protected String visitArray(Array node, Void context)
-        {
-            return node.getValues().stream()
-                    .map(ExpressionFormatter::formatExpression)
-                    .collect(joining(",", "ARRAY[", "]"));
-        }
-
-        @Override
         protected String visitSubscriptExpression(SubscriptExpression node, Void context)
         {
             return formatExpression(node.getBase()) + "[" + formatExpression(node.getIndex()) + "]";
