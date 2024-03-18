@@ -446,7 +446,6 @@ public final class CommonSubqueriesExtractor
         // created for each subquery on top of common subquery.
         return normalizeOrExpression(
                 extractCommonPredicates(
-                        plannerContext.getMetadata(),
                         or(subplans.stream()
                                 .map(subplan -> and(
                                         subplan.getConjuncts()))

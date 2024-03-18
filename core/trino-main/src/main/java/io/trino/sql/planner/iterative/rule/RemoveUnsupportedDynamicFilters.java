@@ -375,7 +375,7 @@ public class RemoveUnsupportedDynamicFilters
                     if (!modified) {
                         return node;
                     }
-                    return combinePredicates(plannerContext.getMetadata(), node.getOperator(), expressionBuilder.build());
+                    return combinePredicates(node.getOperator(), expressionBuilder.build());
                 }
             }, expression);
         }

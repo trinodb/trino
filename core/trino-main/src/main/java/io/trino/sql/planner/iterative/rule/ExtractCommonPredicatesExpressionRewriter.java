@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
@@ -32,15 +31,14 @@ import static io.trino.sql.ir.IrUtils.extractPredicates;
 import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static java.util.Collections.emptySet;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 public final class ExtractCommonPredicatesExpressionRewriter
 {
-    public static Expression extractCommonPredicates(Metadata metadata, Expression expression)
+    public static Expression extractCommonPredicates(Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata), expression, NodeContext.ROOT_NODE);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(), expression, NodeContext.ROOT_NODE);
     }
 
     private ExtractCommonPredicatesExpressionRewriter() {}
@@ -48,13 +46,6 @@ public final class ExtractCommonPredicatesExpressionRewriter
     private static class Visitor
             extends ExpressionRewriter<NodeContext>
     {
-        private final Metadata metadata;
-
-        public Visitor(Metadata metadata)
-        {
-            this.metadata = requireNonNull(metadata, "metadata is null");
-        }
-
         @Override
         protected Expression rewriteExpression(Expression node, NodeContext context, ExpressionTreeRewriter<NodeContext> treeRewriter)
         {
@@ -69,7 +60,6 @@ public final class ExtractCommonPredicatesExpressionRewriter
         public Expression rewriteLogicalExpression(LogicalExpression node, NodeContext context, ExpressionTreeRewriter<NodeContext> treeRewriter)
         {
             Expression expression = combinePredicates(
-                    metadata,
                     node.getOperator(),
                     extractPredicates(node.getOperator(), node).stream()
                             .map(subExpression -> treeRewriter.rewrite(subExpression, NodeContext.NOT_ROOT_NODE))
@@ -105,11 +95,11 @@ public final class ExtractCommonPredicatesExpressionRewriter
             LogicalExpression.Operator flippedOperator = node.getOperator().flip();
 
             List<Expression> uncorrelatedPredicates = uncorrelatedSubPredicates.stream()
-                    .map(predicate -> combinePredicates(metadata, flippedOperator, predicate))
+                    .map(predicate -> combinePredicates(flippedOperator, predicate))
                     .collect(toImmutableList());
-            Expression combinedUncorrelatedPredicates = combinePredicates(metadata, node.getOperator(), uncorrelatedPredicates);
+            Expression combinedUncorrelatedPredicates = combinePredicates(node.getOperator(), uncorrelatedPredicates);
 
-            return combinePredicates(metadata, flippedOperator, ImmutableList.<Expression>builder()
+            return combinePredicates(flippedOperator, ImmutableList.<Expression>builder()
                     .addAll(commonPredicates)
                     .add(combinedUncorrelatedPredicates)
                     .build());
@@ -169,10 +159,9 @@ public final class ExtractCommonPredicatesExpressionRewriter
             Set<List<Expression>> crossProduct = Sets.cartesianProduct(subPredicates);
 
             return combinePredicates(
-                    metadata,
                     expression.getOperator().flip(),
                     crossProduct.stream()
-                            .map(expressions -> combinePredicates(metadata, expression.getOperator(), expressions))
+                            .map(expressions -> combinePredicates(expression.getOperator(), expressions))
                             .collect(toImmutableList()));
         }
 
