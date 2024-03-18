@@ -292,30 +292,6 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitIfExpression(IfExpression node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteIfExpression(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            Expression condition = rewrite(node.getCondition(), context.get());
-            Expression trueValue = rewrite(node.getTrueValue(), context.get());
-            Expression falseValue = null;
-            if (node.getFalseValue().isPresent()) {
-                falseValue = rewrite(node.getFalseValue().get(), context.get());
-            }
-
-            if ((condition != node.getCondition()) || (trueValue != node.getTrueValue()) || (falseValue != node.getFalseValue().orElse(null))) {
-                return new IfExpression(condition, trueValue, falseValue);
-            }
-
-            return node;
-        }
-
-        @Override
         protected Expression visitSearchedCaseExpression(SearchedCaseExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

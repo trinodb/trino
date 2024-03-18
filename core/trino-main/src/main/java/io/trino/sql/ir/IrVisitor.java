@@ -92,11 +92,6 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitIfExpression(IfExpression node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitArithmeticNegation(ArithmeticNegation node, C context)
     {
         return visitExpression(node, context);

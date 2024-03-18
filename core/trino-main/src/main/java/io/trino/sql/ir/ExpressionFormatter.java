@@ -174,22 +174,6 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitIfExpression(IfExpression node, Void context)
-        {
-            StringBuilder builder = new StringBuilder();
-            builder.append("IF(")
-                    .append(process(node.getCondition(), context))
-                    .append(", ")
-                    .append(process(node.getTrueValue(), context));
-            if (node.getFalseValue().isPresent()) {
-                builder.append(", ")
-                        .append(process(node.getFalseValue().get(), context));
-            }
-            builder.append(")");
-            return builder.toString();
-        }
-
-        @Override
         protected String visitCoalesceExpression(CoalesceExpression node, Void context)
         {
             return "COALESCE(" + joinExpressions(node.getOperands()) + ")";

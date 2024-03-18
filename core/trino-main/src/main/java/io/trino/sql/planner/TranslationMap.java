@@ -134,6 +134,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
@@ -433,10 +434,16 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(IfExpression expression)
     {
-        return new io.trino.sql.ir.IfExpression(
+        if (expression.getFalseValue().isPresent()) {
+            return ifExpression(
+                    translateExpression(expression.getCondition()),
+                    translateExpression(expression.getTrueValue()),
+                    translateExpression(expression.getFalseValue().get()));
+        }
+
+        return ifExpression(
                 translateExpression(expression.getCondition()),
-                translateExpression(expression.getTrueValue()),
-                expression.getFalseValue().map(this::translateExpression));
+                translateExpression(expression.getTrueValue()));
     }
 
     private io.trino.sql.ir.Expression translate(BinaryLiteral expression)

@@ -33,7 +33,6 @@ import io.trino.sql.ir.ComparisonExpression.Operator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNullPredicate;
@@ -426,24 +425,6 @@ public final class SqlToRowExpressionTranslator
             }
 
             return expression;
-        }
-
-        @Override
-        protected RowExpression visitIfExpression(IfExpression node, Void context)
-        {
-            ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
-
-            arguments.add(process(node.getCondition(), context))
-                    .add(process(node.getTrueValue(), context));
-
-            if (node.getFalseValue().isPresent()) {
-                arguments.add(process(node.getFalseValue().get(), context));
-            }
-            else {
-                arguments.add(constantNull(getType(node)));
-            }
-
-            return new SpecialForm(IF, getType(node), arguments.build());
         }
 
         @Override
