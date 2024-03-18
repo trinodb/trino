@@ -3524,7 +3524,9 @@ public abstract class BaseConnectorTest
 
         String validTargetColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
         assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO " + validTargetColumnName);
-        assertQuery("SELECT " + validTargetColumnName + " FROM " + tableName, "VALUES 123");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 456", 1);
+        assertQuery("SELECT " + validTargetColumnName + " FROM " + tableName, "VALUES 123, 456");
+        assertThat(query("SHOW STATS FOR " + tableName)).succeeds();
         assertUpdate("DROP TABLE " + tableName);
 
         if (maxColumnNameLength().isEmpty()) {
