@@ -19,10 +19,8 @@ import com.google.common.primitives.Primitives;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.ArraySubscriptOperator;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -37,7 +35,6 @@ import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticNegation;
-import io.trino.sql.ir.Array;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.BindExpression;
 import io.trino.sql.ir.Cast;
@@ -100,7 +97,6 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
-import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -874,29 +870,6 @@ public class IrExpressionInterpreter
         }
 
         @Override
-        protected Object visitArray(Array node, Object context)
-        {
-            Type elementType = ((ArrayType) type(node)).getElementType();
-            BlockBuilder arrayBlockBuilder = elementType.createBlockBuilder(null, node.getValues().size());
-
-            for (Expression expression : node.getValues()) {
-                Object value = processWithExceptionHandling(expression, context);
-                if (value instanceof Expression) {
-                    checkCondition(node.getValues().size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
-                    return visitFunctionCall(
-                            BuiltinFunctionCallBuilder.resolve(metadata)
-                                    .setName(ArrayConstructor.NAME)
-                                    .setArguments(types(node.getValues()), node.getValues())
-                                    .build(),
-                            context);
-                }
-                writeNativeValue(elementType, arrayBlockBuilder, value);
-            }
-
-            return arrayBlockBuilder.build();
-        }
-
-        @Override
         protected Object visitRow(Row node, Object context)
         {
             RowType rowType = (RowType) type(node);
@@ -960,14 +933,6 @@ public class IrExpressionInterpreter
         private List<Type> types(Expression... expressions)
         {
             return Stream.of(expressions)
-                    .map(NodeRef::of)
-                    .map(expressionTypes::get)
-                    .collect(toImmutableList());
-        }
-
-        private List<Type> types(List<Expression> expressions)
-        {
-            return expressions.stream()
                     .map(NodeRef::of)
                     .map(expressionTypes::get)
                     .collect(toImmutableList());

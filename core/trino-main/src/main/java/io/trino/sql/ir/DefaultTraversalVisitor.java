@@ -53,16 +53,6 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitArray(Array node, C context)
-    {
-        for (Expression expression : node.getValues()) {
-            process(expression, context);
-        }
-
-        return null;
-    }
-
-    @Override
     protected Void visitSubscriptExpression(SubscriptExpression node, C context)
     {
         process(node.getBase(), context);
