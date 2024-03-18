@@ -101,11 +101,6 @@ public class PlannerContext
         return functionManager;
     }
 
-    public ResolvedFunctionDecoder getFunctionDecoder()
-    {
-        return functionDecoder;
-    }
-
     public FunctionResolver getFunctionResolver()
     {
         return getFunctionResolver(WarningCollector.NOOP);
