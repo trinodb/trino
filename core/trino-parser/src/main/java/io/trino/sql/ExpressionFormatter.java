@@ -24,7 +24,6 @@ import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
-import io.trino.sql.tree.BindExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
@@ -488,21 +487,6 @@ public final class ExpressionFormatter
             Joiner.on(", ").appendTo(builder, node.getArguments());
             builder.append(") -> ");
             builder.append(process(node.getBody(), context));
-            return builder.toString();
-        }
-
-        @Override
-        protected String visitBindExpression(BindExpression node, Void context)
-        {
-            StringBuilder builder = new StringBuilder();
-
-            builder.append("\"$INTERNAL$BIND\"(");
-            for (Expression value : node.getValues()) {
-                builder.append(process(value, context))
-                        .append(", ");
-            }
-            builder.append(process(node.getFunction(), context))
-                    .append(")");
             return builder.toString();
         }
 

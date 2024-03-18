@@ -26,7 +26,6 @@ import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.BindExpression;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
@@ -502,17 +501,6 @@ class AggregationAnalyzer
         protected Boolean visitLambdaExpression(LambdaExpression node, Void context)
         {
             return process(node.getBody(), context);
-        }
-
-        @Override
-        protected Boolean visitBindExpression(BindExpression node, Void context)
-        {
-            for (Expression value : node.getValues()) {
-                if (!process(value, context)) {
-                    return false;
-                }
-            }
-            return process(node.getFunction(), context);
         }
 
         @Override
