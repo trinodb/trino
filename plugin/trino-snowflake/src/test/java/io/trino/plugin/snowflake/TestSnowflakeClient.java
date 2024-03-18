@@ -81,6 +81,12 @@ public class TestSnowflakeClient
                 Map.of(bigintVariable.getName(), BIGINT_COLUMN),
                 Optional.of("count(\"c_bigint\")"));
 
+        // count(DISTINCT bigint)
+        testImplementAggregation(
+                new AggregateFunction("count", BIGINT, List.of(bigintVariable), List.of(), true, Optional.empty()),
+                Map.of(bigintVariable.getName(), BIGINT_COLUMN),
+                Optional.of("count(DISTINCT \"c_bigint\")"));
+
         // count(double)
         testImplementAggregation(
                 new AggregateFunction("count", BIGINT, List.of(doubleVariable), List.of(), false, Optional.empty()),
