@@ -72,7 +72,7 @@ public final class LambdaCaptureDesugaringRewriter
             Set<Symbol> captureSymbols = Sets.difference(referencedSymbols, ImmutableSet.copyOf(lambdaArguments));
 
             // x -> f(x, captureSymbol)    will be rewritten into
-            // "$internal$bind"(captureSymbol, (extraSymbol, x) -> f(x, extraSymbol))
+            // "Bind"(captureSymbol, (extraSymbol, x) -> f(x, extraSymbol))
 
             ImmutableMap.Builder<Symbol, Symbol> captureSymbolToExtraSymbol = ImmutableMap.builder();
             ImmutableList.Builder<String> newLambdaArguments = ImmutableList.builder();

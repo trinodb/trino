@@ -34,7 +34,6 @@ import io.trino.sql.tree.AssignmentStatement;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
-import io.trino.sql.tree.BindExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
@@ -2946,26 +2945,6 @@ class AstBuilder
             check(!filter.isPresent(), "FILTER not valid for 'format' function", context);
 
             return new Format(getLocation(context), visit(context.expression(), Expression.class));
-        }
-
-        if (name.toString().equalsIgnoreCase("$internal$bind")) {
-            check(context.expression().size() >= 1, "The '$internal$bind' function must have at least one argument", context);
-            check(!window.isPresent(), "OVER clause not valid for '$internal$bind' function", context);
-            check(!distinct, "DISTINCT not valid for '$internal$bind' function", context);
-            check(nullTreatment == null, "Null treatment clause not valid for '$internal$bind' function", context);
-            check(processingMode == null, "Running or final semantics not valid for '$internal$bind' function", context);
-            check(!filter.isPresent(), "FILTER not valid for '$internal$bind' function", context);
-
-            int numValues = context.expression().size() - 1;
-            List<Expression> arguments = context.expression().stream()
-                    .map(this::visit)
-                    .map(Expression.class::cast)
-                    .collect(toImmutableList());
-
-            return new BindExpression(
-                    getLocation(context),
-                    arguments.subList(0, numValues),
-                    arguments.get(numValues));
         }
 
         Optional<NullTreatment> nulls = Optional.empty();
