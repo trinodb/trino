@@ -32,7 +32,6 @@ import io.trino.sql.ir.SymbolReference;
 import io.trino.transaction.TransactionId;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -91,15 +90,6 @@ public class TestPartialTranslator
                 PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("concat", fromTypes(VARCHAR, VARCHAR)),
                 ImmutableList.of(stringLiteral, dereferenceExpression2));
         assertFullTranslation(functionCallExpression);
-    }
-
-    private void assertPartialTranslation(Expression expression, List<Expression> subexpressions)
-    {
-        Map<NodeRef<Expression>, ConnectorExpression> translation = extractPartialTranslations(expression, TEST_SESSION, TYPE_ANALYZER, TYPE_PROVIDER);
-        assertThat(subexpressions.size()).isEqualTo(translation.size());
-        for (Expression subexpression : subexpressions) {
-            assertThat(translation).containsEntry(NodeRef.of(subexpression), translate(TEST_SESSION, subexpression, TYPE_PROVIDER, TYPE_ANALYZER).get());
-        }
     }
 
     private void assertFullTranslation(Expression expression)
