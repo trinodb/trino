@@ -57,11 +57,6 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitWhenClause(WhenClause node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitInPredicate(InPredicate node, C context)
     {
         return visitExpression(node, context);
