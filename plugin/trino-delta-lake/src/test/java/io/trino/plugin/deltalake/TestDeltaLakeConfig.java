@@ -33,6 +33,7 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakeConfig
 {
@@ -64,6 +65,9 @@ public class TestDeltaLakeConfig
                 .setDeleteSchemaLocationsFallback(false)
                 .setParquetTimeZone(TimeZone.getDefault().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
+                .setStoreTableMetadataEnabled(true)
+                .setStoreTableMetadataThreads(5)
+                .setStoreTableMetadataInterval(new Duration(10, SECONDS))
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
                 .setIdleWriterMinFileSize(DataSize.of(16, MEGABYTE))
                 .setUniqueTableLocation(true)
@@ -99,6 +103,9 @@ public class TestDeltaLakeConfig
                 .put("delta.compression-codec", "GZIP")
                 .put("delta.per-transaction-metastore-cache-maximum-size", "500")
                 .put("delta.delete-schema-locations-fallback", "true")
+                .put("delta.metastore.store-table-metadata-enabled", "false")
+                .put("delta.metastore.store-table-metadata-threads", "1")
+                .put("delta.metastore.store-table-metadata-interval", "10m")
                 .put("delta.parquet.time-zone", nonDefaultTimeZone().getID())
                 .put("delta.target-max-file-size", "2 GB")
                 .put("delta.idle-writer-min-file-size", "1MB")
@@ -133,6 +140,9 @@ public class TestDeltaLakeConfig
                 .setDeleteSchemaLocationsFallback(true)
                 .setParquetTimeZone(nonDefaultTimeZone().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(500)
+                .setStoreTableMetadataEnabled(false)
+                .setStoreTableMetadataThreads(1)
+                .setStoreTableMetadataInterval(new Duration(10, MINUTES))
                 .setTargetMaxFileSize(DataSize.of(2, GIGABYTE))
                 .setIdleWriterMinFileSize(DataSize.of(1, MEGABYTE))
                 .setUniqueTableLocation(false)
@@ -141,5 +151,25 @@ public class TestDeltaLakeConfig
                 .setQueryPartitionFilterRequired(true);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testInvalidConfig()
+    {
+        assertThatThrownBy(() -> new DeltaLakeConfig()
+                .setStoreTableMetadataEnabled(false)
+                .setStoreTableMetadataThreads(1)
+                .setStoreTableMetadataInterval(Duration.ZERO)
+                .validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("delta.metastore.store-table-metadata-threads must be empty when delta.metastore.store-table-metadata-enabled is disabled");
+
+        assertThatThrownBy(() -> new DeltaLakeConfig()
+                .setStoreTableMetadataEnabled(false)
+                .setStoreTableMetadataThreads(0)
+                .setStoreTableMetadataInterval(new Duration(10, SECONDS))
+                .validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("delta.metastore.store-table-metadata-interval must be empty when delta.metastore.store-table-metadata-enabled is disabled");
     }
 }

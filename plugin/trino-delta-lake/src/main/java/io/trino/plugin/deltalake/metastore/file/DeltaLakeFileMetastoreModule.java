@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
+import io.trino.plugin.deltalake.TableParameterLengthLimit;
 import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
 
 public class DeltaLakeFileMetastoreModule
@@ -27,5 +28,6 @@ public class DeltaLakeFileMetastoreModule
     {
         install(new FileMetastoreModule());
         binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(true);
+        binder.bind(Key.get(int.class, TableParameterLengthLimit.class)).toInstance(Integer.MAX_VALUE);
     }
 }

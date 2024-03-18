@@ -19,6 +19,7 @@ import com.google.inject.Key;
 import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
+import io.trino.plugin.deltalake.TableParameterLengthLimit;
 import io.trino.plugin.deltalake.metastore.glue.DeltaLakeGlueMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.v1.ForGlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.v1.GlueMetastoreModule;
@@ -41,5 +42,7 @@ public class DeltaLakeGlueV1MetastoreModule
 
         install(new GlueMetastoreModule());
         binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(true);
+        // Limit per Glue API docs (https://docs.aws.amazon.com/glue/latest/webapi/API_TableInput.html#Glue-Type-TableInput-Parameters as of this writing)
+        binder.bind(Key.get(int.class, TableParameterLengthLimit.class)).toInstance(512000);
     }
 }

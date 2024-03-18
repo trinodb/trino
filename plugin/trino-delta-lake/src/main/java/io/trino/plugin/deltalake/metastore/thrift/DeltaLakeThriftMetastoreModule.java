@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
+import io.trino.plugin.deltalake.TableParameterLengthLimit;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
 
 public class DeltaLakeThriftMetastoreModule
@@ -27,5 +28,11 @@ public class DeltaLakeThriftMetastoreModule
     {
         install(new ThriftMetastoreModule());
         binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(false);
+        // Limit per Hive metastore code (https://github.com/apache/hive/tree/master/metastore/scripts/upgrade as of this writing)
+        // - MySQL: mediumtext (16777215)
+        // - SQL Server: nvarchar(max) (2147483647)
+        // - Oracle: clob (4294967295)
+        // - PostgreSQL: text (unlimited)
+        binder.bind(Key.get(int.class, TableParameterLengthLimit.class)).toInstance(16777215);
     }
 }

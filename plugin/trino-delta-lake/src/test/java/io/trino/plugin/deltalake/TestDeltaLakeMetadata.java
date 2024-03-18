@@ -188,11 +188,11 @@ public class TestDeltaLakeMetadata
                 .put("hive.metastore.catalog.dir", temporaryCatalogDirectory.getPath())
                 .buildOrThrow();
 
+        ConnectorContext context = new TestingConnectorContext();
         Bootstrap app = new Bootstrap(
                 // connector dependencies
                 new JsonModule(),
                 binder -> {
-                    ConnectorContext context = new TestingConnectorContext();
                     binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                     binder.bind(CatalogName.class).toInstance(new CatalogName("test"));
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
