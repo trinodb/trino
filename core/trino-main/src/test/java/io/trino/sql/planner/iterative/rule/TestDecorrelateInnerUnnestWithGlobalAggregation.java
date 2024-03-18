@@ -20,7 +20,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.IsNullPredicate;
@@ -42,7 +42,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MODULUS;
-import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -376,7 +375,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("negate"))), ImmutableList.of(BIGINT))
                                         .source(p.project(
                                                 Assignments.builder()
-                                                        .put(p.symbol("negate"), new ArithmeticUnaryExpression(MINUS, new SymbolReference("max")))
+                                                        .put(p.symbol("negate"), new ArithmeticNegation(new SymbolReference("max")))
                                                         .build(),
                                                 p.aggregation(groupedBuilder -> groupedBuilder
                                                         .singleGroupingSet(p.symbol("group"))
@@ -407,7 +406,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                 Optional.empty(),
                                                 SINGLE,
                                                 project(
-                                                        ImmutableMap.of("negated", expression(new ArithmeticUnaryExpression(MINUS, new SymbolReference("max")))),
+                                                        ImmutableMap.of("negated", expression(new ArithmeticNegation(new SymbolReference("max")))),
                                                         aggregation(
                                                                 singleGroupingSet("groups", "numbers", "unique", "mask", "group"),
                                                                 ImmutableMap.of(Optional.of("max"), aggregationFunction("max", ImmutableList.of("modulo"))),

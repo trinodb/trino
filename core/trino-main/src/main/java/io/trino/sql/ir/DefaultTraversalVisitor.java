@@ -157,7 +157,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitArithmeticUnary(ArithmeticUnaryExpression node, C context)
+    protected Void visitArithmeticNegation(ArithmeticNegation node, C context)
     {
         process(node.getValue(), context);
         return null;

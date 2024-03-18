@@ -98,7 +98,7 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitArithmeticUnary(ArithmeticUnaryExpression node, Context<C> context)
+        protected Expression visitArithmeticNegation(ArithmeticNegation node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
                 Expression result = rewriter.rewriteArithmeticUnary(node, context.get(), ExpressionTreeRewriter.this);
@@ -109,7 +109,7 @@ public final class ExpressionTreeRewriter<C>
 
             Expression child = rewrite(node.getValue(), context.get());
             if (child != node.getValue()) {
-                return new ArithmeticUnaryExpression(node.getSign(), child);
+                return new ArithmeticNegation(child);
             }
 
             return node;

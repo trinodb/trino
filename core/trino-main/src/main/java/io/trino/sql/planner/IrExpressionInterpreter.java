@@ -36,7 +36,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.Array;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.BindExpression;
@@ -100,7 +100,6 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
-import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
@@ -495,7 +494,7 @@ public class IrExpressionInterpreter
         }
 
         @Override
-        protected Object visitArithmeticUnary(ArithmeticUnaryExpression node, Object context)
+        protected Object visitArithmeticNegation(ArithmeticNegation node, Object context)
         {
             Object value = processWithExceptionHandling(node.getValue(), context);
             if (value == null) {
@@ -503,37 +502,27 @@ public class IrExpressionInterpreter
             }
             if (value instanceof Expression) {
                 Expression valueExpression = toExpression(value, type(node.getValue()));
-                return switch (node.getSign()) {
-                    case PLUS -> valueExpression;
-                    case MINUS -> {
-                        if (valueExpression instanceof ArithmeticUnaryExpression && ((ArithmeticUnaryExpression) valueExpression).getSign().equals(MINUS)) {
-                            yield ((ArithmeticUnaryExpression) valueExpression).getValue();
-                        }
-                        yield new ArithmeticUnaryExpression(MINUS, valueExpression);
-                    }
-                };
+                if (valueExpression instanceof ArithmeticNegation argument) {
+                    return argument.getValue();
+                }
+                return new ArithmeticNegation(valueExpression);
             }
 
-            return switch (node.getSign()) {
-                case PLUS -> value;
-                case MINUS -> {
-                    ResolvedFunction resolvedOperator = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
-                    InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NEVER_NULL), FAIL_ON_NULL, true, false);
-                    MethodHandle handle = plannerContext.getFunctionManager().getScalarFunctionImplementation(resolvedOperator, invocationConvention).getMethodHandle();
+            ResolvedFunction resolvedOperator = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
+            InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NEVER_NULL), FAIL_ON_NULL, true, false);
+            MethodHandle handle = plannerContext.getFunctionManager().getScalarFunctionImplementation(resolvedOperator, invocationConvention).getMethodHandle();
 
-                    if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
-                        handle = handle.bindTo(connectorSession);
-                    }
-                    try {
-                        yield handle.invokeWithArguments(value);
-                    }
-                    catch (Throwable throwable) {
-                        throwIfInstanceOf(throwable, RuntimeException.class);
-                        throwIfInstanceOf(throwable, Error.class);
-                        throw new RuntimeException(throwable.getMessage(), throwable);
-                    }
-                }
-            };
+            if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
+                handle = handle.bindTo(connectorSession);
+            }
+            try {
+                return handle.invokeWithArguments(value);
+            }
+            catch (Throwable throwable) {
+                throwIfInstanceOf(throwable, RuntimeException.class);
+                throwIfInstanceOf(throwable, Error.class);
+                throw new RuntimeException(throwable.getMessage(), throwable);
+            }
         }
 
         @Override

@@ -29,7 +29,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.CoalesceExpression;
@@ -62,7 +62,6 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.SUBTRACT;
-import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
@@ -209,7 +208,7 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(26)
                                 .nullsFraction(0.0));
 
-        assertExpression(new ComparisonExpression(GREATER_THAN, new ArithmeticUnaryExpression(MINUS, new SymbolReference("x")), new Constant(DOUBLE, -3.0)))
+        assertExpression(new ComparisonExpression(GREATER_THAN, new ArithmeticNegation(new SymbolReference("x")), new Constant(DOUBLE, -3.0)))
                 .outputRowsCount(lessThan3Rows);
 
         for (Expression minusThree : ImmutableList.of(
