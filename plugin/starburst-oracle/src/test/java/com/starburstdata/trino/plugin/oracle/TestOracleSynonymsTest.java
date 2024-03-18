@@ -16,11 +16,13 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.SharedResource.Lease;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Isolated // TestingStarburstOracleServer is shared across test classes
 public class TestOracleSynonymsTest
         extends AbstractTestQueryFramework
 {
