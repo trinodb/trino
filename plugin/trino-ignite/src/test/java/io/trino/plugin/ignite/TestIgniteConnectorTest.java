@@ -392,13 +392,47 @@ public class TestIgniteConnectorTest
     public void testDropAndAddColumnWithSameName()
     {
         // Override because Ignite can access old data after dropping and adding a column with same name
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "AS SELECT 1 x, 2 y, 3 z")) {
-            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
+        executeExclusively(() -> {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "AS SELECT 1 x, 2 y, 3 z")) {
+                assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
+                assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
 
-            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3, 2)");
-        }
+                assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
+                assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3, 2)");
+            }
+        });
+    }
+
+    @Test
+    @Override
+    public void testAddColumn()
+    {
+        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/16671
+        executeExclusively(super::testAddColumn);
+    }
+
+    @Test
+    @Override
+    public void testDropColumn()
+    {
+        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/16671
+        executeExclusively(super::testDropColumn);
+    }
+
+    @Test
+    @Override
+    public void testAlterTableAddLongColumnName()
+    {
+        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/16671
+        executeExclusively(super::testAlterTableAddLongColumnName);
+    }
+
+    @Test
+    @Override
+    public void testAddAndDropColumnName()
+    {
+        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/16671
+        executeExclusively(super::testAddAndDropColumnName);
     }
 
     @Override
