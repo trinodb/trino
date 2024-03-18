@@ -23,7 +23,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
@@ -35,7 +34,6 @@ import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullIfExpression;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
-import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.type.FunctionType;
@@ -320,8 +318,7 @@ public class TestEqualityInference
                 new NullIfExpression(nameReference("b"), number(1)),
                 new InPredicate(nameReference("b"), ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))),
                 new SearchedCaseExpression(ImmutableList.of(new WhenClause(new NotExpression(new IsNullPredicate(nameReference("b"))), new Constant(UnknownType.UNKNOWN, null))), Optional.empty()),
-                new SimpleCaseExpression(nameReference("b"), ImmutableList.of(new WhenClause(number(1), new Constant(UnknownType.UNKNOWN, null))), Optional.empty()),
-                new SubscriptExpression(new Array(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))), nameReference("b")));
+                new SimpleCaseExpression(nameReference("b"), ImmutableList.of(new WhenClause(number(1), new Constant(UnknownType.UNKNOWN, null))), Optional.empty()));
 
         for (Expression candidate : candidates) {
             EqualityInference inference = new EqualityInference(

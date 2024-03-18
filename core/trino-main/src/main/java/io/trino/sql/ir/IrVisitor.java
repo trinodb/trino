@@ -107,11 +107,6 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitArray(Array node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitSubscriptExpression(SubscriptExpression node, C context)
     {
         return visitExpression(node, context);
