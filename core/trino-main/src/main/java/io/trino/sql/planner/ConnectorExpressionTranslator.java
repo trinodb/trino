@@ -47,7 +47,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NodeRef;
@@ -338,7 +337,7 @@ public final class ConnectorExpressionTranslator
         {
             Optional<Expression> translatedArgument = translate(argument);
             if (translatedArgument.isPresent()) {
-                return Optional.of(new IsNotNullPredicate(translatedArgument.get()));
+                return Optional.of(new NotExpression(new IsNullPredicate(translatedArgument.get())));
             }
 
             return Optional.empty();
@@ -746,18 +745,6 @@ public final class ConnectorExpressionTranslator
             Optional<ConnectorExpression> translatedValue = process(node.getValue());
             if (translatedValue.isPresent()) {
                 return Optional.of(new Call(BOOLEAN, IS_NULL_FUNCTION_NAME, ImmutableList.of(translatedValue.get())));
-            }
-            return Optional.empty();
-        }
-
-        @Override
-        protected Optional<ConnectorExpression> visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
-        {
-            // IS NOT NULL is translated to $not($is_null(..))
-            Optional<ConnectorExpression> translatedValue = process(node.getValue());
-            if (translatedValue.isPresent()) {
-                Call isNullCall = new Call(typeOf(node), IS_NULL_FUNCTION_NAME, List.of(translatedValue.get()));
-                return Optional.of(new Call(BOOLEAN, NOT_FUNCTION_NAME, List.of(isNullCall)));
             }
             return Optional.empty();
         }

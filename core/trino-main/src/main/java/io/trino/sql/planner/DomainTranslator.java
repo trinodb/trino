@@ -47,7 +47,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NodeRef;
@@ -1152,22 +1151,6 @@ public final class DomainTranslator
             Symbol symbol = Symbol.from(node.getValue());
             Type columnType = checkedTypeLookup(symbol);
             Domain domain = complementIfNecessary(Domain.onlyNull(columnType), complement);
-            return new ExtractionResult(
-                    TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)),
-                    TRUE_LITERAL);
-        }
-
-        @Override
-        protected ExtractionResult visitIsNotNullPredicate(IsNotNullPredicate node, Boolean complement)
-        {
-            if (!(node.getValue() instanceof SymbolReference)) {
-                return super.visitIsNotNullPredicate(node, complement);
-            }
-
-            Symbol symbol = Symbol.from(node.getValue());
-            Type columnType = checkedTypeLookup(symbol);
-
-            Domain domain = complementIfNecessary(Domain.notNull(columnType), complement);
             return new ExtractionResult(
                     TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)),
                     TRUE_LITERAL);

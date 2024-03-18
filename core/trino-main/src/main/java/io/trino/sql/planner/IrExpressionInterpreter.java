@@ -50,7 +50,6 @@ import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.LogicalExpression;
@@ -213,18 +212,6 @@ public class IrExpressionInterpreter
             }
 
             return value == null;
-        }
-
-        @Override
-        protected Object visitIsNotNullPredicate(IsNotNullPredicate node, Object context)
-        {
-            Object value = processWithExceptionHandling(node.getValue(), context);
-
-            if (value instanceof Expression) {
-                return new IsNotNullPredicate(toExpression(value, type(node.getValue())));
-            }
-
-            return value != null;
         }
 
         @Override
@@ -608,11 +595,11 @@ public class IrExpressionInterpreter
             Object right = processWithExceptionHandling(rightExpression, context);
 
             if (left == null && right instanceof Expression) {
-                return new IsNotNullPredicate((Expression) right);
+                return new NotExpression(new IsNullPredicate(((Expression) right)));
             }
 
             if (right == null && left instanceof Expression) {
-                return new IsNotNullPredicate((Expression) left);
+                return new NotExpression(new IsNullPredicate(((Expression) left)));
             }
 
             if (left instanceof Expression || right instanceof Expression) {

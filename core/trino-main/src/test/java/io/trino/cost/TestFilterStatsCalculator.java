@@ -38,7 +38,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.InPredicate;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
@@ -619,7 +618,7 @@ public class TestFilterStatsCalculator
     @Test
     public void testIsNotNullFilter()
     {
-        assertExpression(new IsNotNullPredicate(new SymbolReference("x")))
+        assertExpression(new NotExpression(new IsNullPredicate(new SymbolReference("x"))))
                 .outputRowsCount(750.0)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(40.0)
@@ -627,7 +626,7 @@ public class TestFilterStatsCalculator
                                 .highValue(10.0)
                                 .nullsFraction(0.0));
 
-        assertExpression(new IsNotNullPredicate(new SymbolReference("emptyRange")))
+        assertExpression(new NotExpression(new IsNullPredicate((new SymbolReference("emptyRange")))))
                 .outputRowsCount(0.0)
                 .symbolStats("emptyRange", SymbolStatsAssertion::empty);
     }

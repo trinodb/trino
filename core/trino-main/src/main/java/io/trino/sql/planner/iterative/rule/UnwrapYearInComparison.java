@@ -28,7 +28,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.InPredicate;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
@@ -171,7 +170,7 @@ public class UnwrapYearInComparison
             if (right == null) {
                 return switch (expression.getOperator()) {
                     case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Constant(BOOLEAN, null);
-                    case IS_DISTINCT_FROM -> new IsNotNullPredicate(argument);
+                    case IS_DISTINCT_FROM -> new NotExpression(new IsNullPredicate(argument));
                 };
             }
 

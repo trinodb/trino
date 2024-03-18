@@ -157,12 +157,6 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
-        {
-            return "(" + process(node.getValue(), context) + " IS NOT NULL)";
-        }
-
-        @Override
         protected String visitNullIfExpression(NullIfExpression node, Void context)
         {
             return "NULLIF(" + process(node.getFirst(), context) + ", " + process(node.getSecond(), context) + ')';
