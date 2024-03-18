@@ -70,8 +70,12 @@ public final class SimpleCaseExpression
     public List<? extends Expression> getChildren()
     {
         ImmutableList.Builder<Expression> builder = ImmutableList.<Expression>builder()
-                .add(operand)
-                .addAll(whenClauses);
+                .add(operand);
+
+        whenClauses.forEach(clause -> {
+            builder.add(clause.getOperand());
+            builder.add(clause.getResult());
+        });
 
         defaultValue.ifPresent(builder::add);
 

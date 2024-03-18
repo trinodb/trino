@@ -374,7 +374,7 @@ public final class SqlToRowExpressionTranslator
 
                 arguments.add(new SpecialForm(
                         WHEN,
-                        getType(clause),
+                        getType(clause.getResult()),
                         operand,
                         result));
             }

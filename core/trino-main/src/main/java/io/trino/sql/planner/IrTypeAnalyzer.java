@@ -210,7 +210,7 @@ public class IrTypeAnalyzer
                     .map(clause -> {
                         Type operandType = process(clause.getOperand(), context);
                         checkArgument(operandType.equals(BOOLEAN), "When clause operand must be boolean: %s", operandType);
-                        return setExpressionType(clause, process(clause.getResult(), context));
+                        return process(clause.getResult(), context);
                     })
                     .collect(Collectors.toSet());
 
@@ -233,7 +233,7 @@ public class IrTypeAnalyzer
                     .map(clause -> {
                         Type clauseOperandType = process(clause.getOperand(), context);
                         checkArgument(clauseOperandType.equals(operandType), "WHEN clause operand type must match CASE operand type: %s vs %s", clauseOperandType, operandType);
-                        return setExpressionType(clause, process(clause.getResult(), context));
+                        return process(clause.getResult(), context);
                     })
                     .collect(Collectors.toSet());
 

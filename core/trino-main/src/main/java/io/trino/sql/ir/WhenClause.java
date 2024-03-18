@@ -15,13 +15,10 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 
-import java.util.List;
 import java.util.Objects;
 
 public final class WhenClause
-        extends Expression
 {
     private final Expression operand;
     private final Expression result;
@@ -43,18 +40,6 @@ public final class WhenClause
     public Expression getResult()
     {
         return result;
-    }
-
-    @Override
-    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitWhenClause(this, context);
-    }
-
-    @Override
-    public List<? extends Expression> getChildren()
-    {
-        return ImmutableList.of(operand, result);
     }
 
     @Override
