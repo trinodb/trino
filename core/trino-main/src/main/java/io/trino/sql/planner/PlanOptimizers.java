@@ -371,7 +371,7 @@ public class PlanOptimizers
                 .addAll(new UnwrapCastInComparison(plannerContext, typeAnalyzer).rules())
                 .addAll(new UnwrapDateTruncInComparison(plannerContext, typeAnalyzer).rules())
                 .addAll(new UnwrapYearInComparison(plannerContext, typeAnalyzer).rules())
-                .addAll(new RemoveDuplicateConditions(metadata).rules())
+                .addAll(new RemoveDuplicateConditions().rules())
                 .addAll(new CanonicalizeExpressions(plannerContext, typeAnalyzer).rules())
                 .addAll(new RemoveRedundantDateTrunc(plannerContext, typeAnalyzer).rules())
                 .addAll(new ArraySortAfterArrayDistinct(plannerContext).rules())
