@@ -48,7 +48,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
@@ -818,7 +817,7 @@ class QueryPlanner
             // Build the match condition for the MERGE case
 
             // Add a boolean column which is true if a target table row was matched
-            rowBuilder.add(new IsNotNullPredicate(presentColumn.toSymbolReference()));
+            rowBuilder.add(new NotExpression(new IsNullPredicate(presentColumn.toSymbolReference())));
 
             // Add the operation number
             rowBuilder.add(new Constant(TINYINT, (long) getMergeCaseOperationNumber(mergeCase)));
@@ -857,7 +856,7 @@ class QueryPlanner
         ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
         dataColumnSchemas.forEach(columnSchema ->
                 rowBuilder.add(new Constant(columnSchema.getType(), null)));
-        rowBuilder.add(new IsNotNullPredicate(presentColumn.toSymbolReference()));
+        rowBuilder.add(new NotExpression(new IsNullPredicate(presentColumn.toSymbolReference())));
         // The operation number
         rowBuilder.add(new Constant(TINYINT, -1L));
         // The case number
@@ -901,7 +900,7 @@ class QueryPlanner
         Expression filter = new IfExpression(
                 LogicalExpression.and(
                         new NotExpression(isDistinctSymbol.toSymbolReference()),
-                        new IsNotNullPredicate(uniqueIdSymbol.toSymbolReference())),
+                        new NotExpression(new IsNullPredicate(uniqueIdSymbol.toSymbolReference()))),
                 new Cast(
                         failFunction(metadata, MERGE_TARGET_ROW_MULTIPLE_MATCHES, "One MERGE target table row matched more than one source row"),
                         BOOLEAN),

@@ -109,7 +109,8 @@ import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
@@ -651,7 +652,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                             .source(
                                     p.filter(
                                             new PlanNodeId(filterId),
-                                            new IsNotNullPredicate(new SymbolReference("filterInput")),
+                                            new NotExpression(new IsNullPredicate(new SymbolReference("filterInput"))),
                                             p.tableScan(tableScan -> tableScan
                                                     .setNodeId(new PlanNodeId(aggregationSourceId))
                                                     .setTableHandle(testTableHandle(ruleTester))
@@ -687,7 +688,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                             .source(
                                     p.filter(
                                             new PlanNodeId(filterId),
-                                            new IsNotNullPredicate(new SymbolReference("filterInput")),
+                                            new NotExpression(new IsNullPredicate(new SymbolReference("filterInput"))),
                                             p.tableScan(tableScan -> tableScan
                                                     .setNodeId(new PlanNodeId(aggregationSourceId))
                                                     .setTableHandle(testTableHandle(ruleTester))
@@ -713,7 +714,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                 Optional.empty(),
                                                 SINGLE,
                                                 filter(
-                                                        new IsNotNullPredicate(new SymbolReference("left_filterInput")),
+                                                        new NotExpression(new IsNullPredicate(new SymbolReference("left_filterInput"))),
                                                         tableScan(
                                                                 TABLE_NAME,
                                                                 ImmutableMap.of(
@@ -726,7 +727,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                 Optional.empty(),
                                                 SINGLE,
                                                 filter(
-                                                        new IsNotNullPredicate(new SymbolReference("right_filterInput")),
+                                                        new NotExpression(new IsNullPredicate(new SymbolReference("right_filterInput"))),
                                                         tableScan(
                                                                 TABLE_NAME,
                                                                 ImmutableMap.of(

@@ -112,11 +112,6 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitIsNotNullPredicate(IsNotNullPredicate node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitIsNullPredicate(IsNullPredicate node, C context)
     {
         return visitExpression(node, context);

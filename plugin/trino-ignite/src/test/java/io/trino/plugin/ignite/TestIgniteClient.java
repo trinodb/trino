@@ -29,7 +29,6 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -187,8 +186,7 @@ public class TestIgniteClient
         // c_varchar IS NOT NULL
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
-                                new IsNotNullPredicate(
-                                        new SymbolReference("c_varchar_symbol")),
+                                new NotExpression(new IsNullPredicate(new SymbolReference("c_varchar_symbol"))),
                                 Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
@@ -203,8 +201,7 @@ public class TestIgniteClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
                                 new NotExpression(
-                                        new IsNotNullPredicate(
-                                                new SymbolReference("c_varchar_symbol"))),
+                                        new NotExpression(new IsNullPredicate(new SymbolReference("c_varchar_symbol")))),
                                 Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();

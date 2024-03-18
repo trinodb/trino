@@ -460,7 +460,9 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(IsNotNullPredicate expression)
     {
-        return new io.trino.sql.ir.IsNotNullPredicate(translateExpression(expression.getValue()));
+        return new io.trino.sql.ir.NotExpression(
+                new io.trino.sql.ir.IsNullPredicate(
+                        translateExpression(expression.getValue())));
     }
 
     private io.trino.sql.ir.Expression translate(CoalesceExpression expression)

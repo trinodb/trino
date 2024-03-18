@@ -30,9 +30,6 @@ import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.IsNotNullPredicate;
-import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
@@ -119,13 +116,6 @@ public final class CanonicalizeExpressionRewriter
             }
 
             return treeRewriter.defaultRewrite(node, context);
-        }
-
-        @Override
-        public Expression rewriteIsNotNullPredicate(IsNotNullPredicate node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-        {
-            Expression value = treeRewriter.rewrite(node.getValue(), context);
-            return new NotExpression(new IsNullPredicate(value));
         }
 
         @Override
