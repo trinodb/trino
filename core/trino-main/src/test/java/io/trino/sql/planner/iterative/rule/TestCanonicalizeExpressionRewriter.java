@@ -15,7 +15,10 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
@@ -65,6 +68,10 @@ import static io.trino.transaction.InMemoryTransactionManager.createTestTransact
 
 public class TestCanonicalizeExpressionRewriter
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
+
     private static final TransactionManager TRANSACTION_MANAGER = createTestTransactionManager();
     private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
             .withTransactionManager(TRANSACTION_MANAGER)
@@ -92,20 +99,20 @@ public class TestCanonicalizeExpressionRewriter
     public void testCanonicalizeArithmetic()
     {
         assertRewritten(
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)),
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)),
+                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(ADD, new Constant(INTEGER, 1L), new SymbolReference("a")),
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new SymbolReference("a")),
+                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new Constant(INTEGER, 1L)),
-                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference("a"), new Constant(INTEGER, 1L)),
+                new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference("a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(MULTIPLY, new Constant(INTEGER, 1L), new SymbolReference("a")),
-                new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new Constant(INTEGER, 1L), new SymbolReference("a")),
+                new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference("a"), new Constant(INTEGER, 1L)));
     }
 
     @Test
@@ -190,6 +197,7 @@ public class TestCanonicalizeExpressionRewriter
                 transaction(TRANSACTION_MANAGER, PLANNER_CONTEXT.getMetadata(), ACCESS_CONTROL).execute(TEST_SESSION, transactedSession -> {
                     return rewrite(
                             from,
+                            PLANNER_CONTEXT,
                             TYPE_ANALYZER,
                                     TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
                                             .put(new Symbol("x"), BIGINT)

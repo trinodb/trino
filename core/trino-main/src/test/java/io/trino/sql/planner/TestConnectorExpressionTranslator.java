@@ -13,11 +13,13 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.JsonPath;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.expression.Call;
@@ -26,6 +28,7 @@ import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.StandardFunctions;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -195,9 +198,22 @@ public class TestConnectorExpressionTranslator
     @Test
     public void testTranslateArithmeticBinary()
     {
+        TestingFunctionResolution resolver = new TestingFunctionResolution();
         for (ArithmeticBinaryExpression.Operator operator : ArithmeticBinaryExpression.Operator.values()) {
             assertTranslationRoundTrips(
-                    new ArithmeticBinaryExpression(operator, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
+                    new ArithmeticBinaryExpression(
+                            resolver.resolveOperator(
+                                    switch (operator) {
+                                        case ADD -> OperatorType.ADD;
+                                        case SUBTRACT -> OperatorType.SUBTRACT;
+                                        case MULTIPLY -> OperatorType.MULTIPLY;
+                                        case DIVIDE -> OperatorType.DIVIDE;
+                                        case MODULUS -> OperatorType.MODULUS;
+                                    },
+                                    ImmutableList.of(BIGINT, BIGINT)),
+                            operator,
+                            new SymbolReference("double_symbol_1"),
+                            new SymbolReference("double_symbol_2")),
                     new Call(
                             DOUBLE,
                             ConnectorExpressionTranslator.functionNameForArithmeticBinaryOperator(operator),

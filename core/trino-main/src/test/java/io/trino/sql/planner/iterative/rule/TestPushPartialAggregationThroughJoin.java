@@ -17,6 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.SymbolStatsEstimate;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -30,6 +33,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
@@ -50,6 +54,9 @@ public class TestPushPartialAggregationThroughJoin
 {
     private static final PlanNodeId JOIN_ID = new PlanNodeId("join_id");
     private static final PlanNodeId CHILD_ID = new PlanNodeId("child_id");
+
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
 
     @Test
     public void testPushesPartialAggregationThroughJoinToLeftChildWithoutProjection()
@@ -173,7 +180,7 @@ public class TestPushPartialAggregationThroughJoin
                         .source(
                                 p.project(
                                         Assignments.builder()
-                                                .put(p.symbol("LEFT_AGGR_PRJ"), new ArithmeticBinaryExpression(ADD, new SymbolReference("LEFT_AGGR"), new SymbolReference("LEFT_AGGR")))
+                                                .put(p.symbol("LEFT_AGGR_PRJ"), new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("LEFT_AGGR"), new SymbolReference("LEFT_AGGR")))
                                                 .putIdentity(p.symbol("LEFT_GROUP_BY"))
                                                 .putIdentity(p.symbol("LEFT_EQUI"))
                                                 .putIdentity(p.symbol("LEFT_NON_EQUI"))
@@ -328,7 +335,7 @@ public class TestPushPartialAggregationThroughJoin
                         .source(
                                 p.project(
                                         Assignments.builder()
-                                                .put(p.symbol("LEFT_AGGR_PRJ"), new ArithmeticBinaryExpression(ADD, new SymbolReference("LEFT_AGGR"), new SymbolReference("LEFT_AGGR")))
+                                                .put(p.symbol("LEFT_AGGR_PRJ"), new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("LEFT_AGGR"), new SymbolReference("LEFT_AGGR")))
                                                 .putIdentity(p.symbol("LEFT_GROUP_BY"))
                                                 .putIdentity(p.symbol("LEFT_EQUI"))
                                                 .putIdentity(p.symbol("LEFT_NON_EQUI"))
@@ -359,7 +366,7 @@ public class TestPushPartialAggregationThroughJoin
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 project(
-                                                        ImmutableMap.of("LEFT_AGGR_PRJ", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("LEFT_AGGR"), new SymbolReference("LEFT_AGGR")))),
+                                                        ImmutableMap.of("LEFT_AGGR_PRJ", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("LEFT_AGGR"), new SymbolReference("LEFT_AGGR")))),
                                                         values("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_AGGR"))))
                                 .right(
                                         project(

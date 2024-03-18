@@ -15,6 +15,7 @@ package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -34,6 +35,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
@@ -326,11 +328,22 @@ public class TestPostgreSqlClient
     @Test
     public void testConvertArithmeticBinary()
     {
+        TestingFunctionResolution resolver = new TestingFunctionResolution();
+
         for (ArithmeticBinaryExpression.Operator operator : ArithmeticBinaryExpression.Operator.values()) {
             ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                             SESSION,
                             translateToConnectorExpression(
                                     new ArithmeticBinaryExpression(
+                                            resolver.resolveOperator(
+                                                    switch (operator) {
+                                                        case ADD -> OperatorType.ADD;
+                                                        case SUBTRACT -> OperatorType.SUBTRACT;
+                                                        case MULTIPLY -> OperatorType.MULTIPLY;
+                                                        case DIVIDE -> OperatorType.DIVIDE;
+                                                        case MODULUS -> OperatorType.MODULUS;
+                                                    },
+                                                    ImmutableList.of(BIGINT, BIGINT)),
                                             operator,
                                             new SymbolReference("c_bigint_symbol"),
                                             new Constant(BIGINT, 42L)),

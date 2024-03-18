@@ -379,7 +379,7 @@ public class PlanOptimizers
                 .addAll(new UnwrapDateTruncInComparison(plannerContext, typeAnalyzer).rules())
                 .addAll(new UnwrapYearInComparison(plannerContext, typeAnalyzer).rules())
                 .addAll(new RemoveDuplicateConditions(metadata).rules())
-                .addAll(new CanonicalizeExpressions(typeAnalyzer).rules())
+                .addAll(new CanonicalizeExpressions(plannerContext, typeAnalyzer).rules())
                 .addAll(new RemoveRedundantDateTrunc(plannerContext, typeAnalyzer).rules())
                 .addAll(new ArraySortAfterArrayDistinct(plannerContext).rules())
                 .add(new RemoveTrivialFilters())
@@ -414,7 +414,7 @@ public class PlanOptimizers
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
-                                .addAll(new CanonicalizeExpressions(typeAnalyzer).rules())
+                                .addAll(new CanonicalizeExpressions(plannerContext, typeAnalyzer).rules())
                                 .add(new OptimizeRowPattern())
                                 .build()),
                 new IterativeOptimizer(

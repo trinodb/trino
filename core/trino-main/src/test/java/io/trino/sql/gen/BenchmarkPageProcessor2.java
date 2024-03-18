@@ -28,6 +28,7 @@ import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.RecordSet;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
@@ -95,6 +96,8 @@ public class BenchmarkPageProcessor2
 
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction CONCAT = FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR));
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
 
     private static final Map<String, Type> TYPE_MAP = ImmutableMap.of("bigint", BIGINT, "varchar", VARCHAR);
     private static final IrTypeAnalyzer TYPE_ANALYZER = new IrTypeAnalyzer(PLANNER_CONTEXT);
@@ -167,10 +170,10 @@ public class BenchmarkPageProcessor2
     private RowExpression getFilter(Type type)
     {
         if (type == VARCHAR) {
-            return rowExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new Cast(new SymbolReference("varchar0"), BIGINT), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)));
+            return rowExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new Cast(new SymbolReference("varchar0"), BIGINT), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)));
         }
         if (type == BIGINT) {
-            return rowExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("bigint0"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)));
+            return rowExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new SymbolReference("bigint0"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)));
         }
         throw new IllegalArgumentException("filter not supported for type : " + type);
     }
@@ -180,7 +183,7 @@ public class BenchmarkPageProcessor2
         ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
         if (type == BIGINT) {
             for (int i = 0; i < columnCount; i++) {
-                builder.add(rowExpression(new ArithmeticBinaryExpression(ADD, new SymbolReference("bigint" + i), new Constant(INTEGER, 5L))));
+                builder.add(rowExpression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("bigint" + i), new Constant(BIGINT, 5L))));
             }
         }
         else if (type == VARCHAR) {

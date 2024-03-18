@@ -16,6 +16,9 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
@@ -80,6 +83,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimplifyExpressions
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction DIVIDE_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.DIVIDE, ImmutableList.of(DOUBLE, DOUBLE));
+    private static final ResolvedFunction DIVIDE_REAL = FUNCTIONS.resolveOperator(OperatorType.DIVIDE, ImmutableList.of(REAL, REAL));
+
     @Test
     public void testPushesDownNegations()
     {
@@ -486,7 +493,7 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(DOUBLE, -0.0), createVarcharType(4)),
                 new Constant(createVarcharType(4), Slices.utf8Slice("-0E0")));
         assertSimplifies(
-                new Cast(new ArithmeticBinaryExpression(DIVIDE, new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 0.0)), createVarcharType(3)),
+                new Cast(new ArithmeticBinaryExpression(DIVIDE_DOUBLE, DIVIDE, new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 0.0)), createVarcharType(3)),
                 new Constant(createVarcharType(3), Slices.utf8Slice("NaN")));
         assertSimplifies(
                 new Cast(new Constant(DOUBLE, Double.POSITIVE_INFINITY), createVarcharType(8)),
@@ -527,7 +534,7 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(REAL, Reals.toReal(-0.0f)), createVarcharType(4)),
                 new Constant(createVarcharType(4), Slices.utf8Slice("-0E0")));
         assertSimplifies(
-                new Cast(new ArithmeticBinaryExpression(DIVIDE, new Constant(REAL, Reals.toReal(0.0f)), new Constant(REAL, Reals.toReal(0.0f))), createVarcharType(3)),
+                new Cast(new ArithmeticBinaryExpression(DIVIDE_REAL, DIVIDE, new Constant(REAL, Reals.toReal(0.0f)), new Constant(REAL, Reals.toReal(0.0f))), createVarcharType(3)),
                 new Constant(createVarcharType(3), Slices.utf8Slice("NaN")));
         assertSimplifies(
                 new Cast(new Constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(8)),

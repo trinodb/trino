@@ -46,6 +46,7 @@ import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TableProperties;
 import io.trino.metadata.TableSchema;
 import io.trino.metadata.TableVersion;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewInfo;
 import io.trino.plugin.tpch.TpchColumnHandle;
@@ -175,6 +176,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
     private static final String GROUPING_KEY2_COLUMN = "comment";
     private static final ColumnHandle GROUPING_KEY2_COLUMN_HANDLE = new TpchColumnHandle(GROUPING_KEY2_COLUMN, VARCHAR);
     private static final String TABLE_NAME = "lineitem";
+
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
 
     private RuleTester ruleTester = tester(true);
 
@@ -565,7 +569,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                             Assignments.builder()
                                                     .putIdentity(input1Symbol)
                                                     .putIdentity(input2Symbol)
-                                                    .put(groupingKey, new ArithmeticBinaryExpression(ADD, new SymbolReference("projectionInput1"), new Cast(new SymbolReference("projectionInput2"), BIGINT)))
+                                                    .put(groupingKey, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("projectionInput1"), new Cast(new SymbolReference("projectionInput2"), BIGINT)))
                                                     .build(),
                                             p.tableScan(tableScan -> tableScan
                                                     .setNodeId(new PlanNodeId(aggregationSourceId))
@@ -602,7 +606,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                             .source(
                                     p.project(
                                             Assignments.builder()
-                                                    .put(input1Symbol, new ArithmeticBinaryExpression(ADD, new SymbolReference("projectionInput1"), new Cast(new SymbolReference("projectionInput2"), BIGINT)))
+                                                    .put(input1Symbol, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("projectionInput1"), new Cast(new SymbolReference("projectionInput2"), BIGINT)))
                                                     .putIdentity(input2Symbol)
                                                     .putIdentity(groupingKey)
                                                     .build(),

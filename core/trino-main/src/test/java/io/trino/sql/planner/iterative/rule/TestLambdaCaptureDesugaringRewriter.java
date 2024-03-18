@@ -15,6 +15,9 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
@@ -27,12 +30,16 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter.rewrite;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLambdaCaptureDesugaringRewriter
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+
     @Test
     public void testRewriteBasicLambda()
     {
@@ -41,13 +48,13 @@ public class TestLambdaCaptureDesugaringRewriter
 
         assertThat(
                 rewrite(
-                        new LambdaExpression(ImmutableList.of("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("x"))),
+                        new LambdaExpression(ImmutableList.of("x"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a"), new SymbolReference("x"))),
                         allocator.getTypes(),
                         allocator))
                 .isEqualTo(new BindExpression(
                         ImmutableList.of(new SymbolReference("a")),
                         new LambdaExpression(
                                 ImmutableList.of("a_0", "x"),
-                                new ArithmeticBinaryExpression(ADD, new SymbolReference("a_0"), new SymbolReference("x")))));
+                                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a_0"), new SymbolReference("x")))));
     }
 }

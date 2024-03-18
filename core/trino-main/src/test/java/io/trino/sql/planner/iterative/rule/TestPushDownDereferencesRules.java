@@ -16,10 +16,13 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
@@ -95,6 +98,8 @@ public class TestPushDownDereferencesRules
         extends BaseRuleTest
 {
     private static final RowType ROW_TYPE = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BIGINT)));
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
 
     @Test
     public void testDoesNotFire()
@@ -203,14 +208,14 @@ public class TestPushDownDereferencesRules
                                 p.join(INNER,
                                         p.values(p.symbol("msg1", ROW_TYPE)),
                                         p.values(p.symbol("msg2", ROW_TYPE)),
-                                        new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD, new SubscriptExpression(new SymbolReference("msg1"), new Constant(INTEGER, 1L)), new SubscriptExpression(new SymbolReference("msg2"), new Constant(INTEGER, 2L))), new Constant(BIGINT, 10L)))))
+                                        new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SubscriptExpression(new SymbolReference("msg1"), new Constant(INTEGER, 1L)), new SubscriptExpression(new SymbolReference("msg2"), new Constant(INTEGER, 2L))), new Constant(BIGINT, 10L)))))
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "expr", expression(new SymbolReference("msg1_x")),
                                         "expr_2", expression(new SymbolReference("msg2"))),
                                 join(INNER, builder -> builder
-                                        .filter(new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD, new SymbolReference("msg1_x"), new SubscriptExpression(new SymbolReference("msg2"), new Constant(INTEGER, 2L))), new Constant(BIGINT, 10L)))
+                                        .filter(new ComparisonExpression(GREATER_THAN, new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("msg1_x"), new SubscriptExpression(new SymbolReference("msg2"), new Constant(INTEGER, 2L))), new Constant(BIGINT, 10L)))
                                         .left(
                                                 strictProject(
                                                         ImmutableMap.of(
@@ -729,7 +734,7 @@ public class TestPushDownDereferencesRules
                         p.project(
                                 Assignments.of(
                                         p.symbol("expr_1"), new SubscriptExpression(new SymbolReference("a"), new Constant(INTEGER, 1L)),
-                                        p.symbol("expr_2"), new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(ADD, new SubscriptExpression(new SubscriptExpression(new SymbolReference("a"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)), new Constant(INTEGER, 2L)), new SubscriptExpression(new SubscriptExpression(new SymbolReference("b"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L))), new SubscriptExpression(new SubscriptExpression(new SymbolReference("b"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 2L)))),
+                                        p.symbol("expr_2"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SubscriptExpression(new SubscriptExpression(new SymbolReference("a"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)), new Constant(INTEGER, 2L)), new SubscriptExpression(new SubscriptExpression(new SymbolReference("b"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L))), new SubscriptExpression(new SubscriptExpression(new SymbolReference("b"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 2L)))),
                                 p.project(
                                         Assignments.identity(ImmutableList.of(p.symbol("a", complexType), p.symbol("b", complexType))),
                                         p.values(p.symbol("a", complexType), p.symbol("b", complexType)))))
@@ -737,7 +742,7 @@ public class TestPushDownDereferencesRules
                         strictProject(
                                 ImmutableMap.of(
                                         "expr_1", expression(new SymbolReference("a_f1")),
-                                        "expr_2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(ADD, new ArithmeticBinaryExpression(ADD, new SubscriptExpression(new SymbolReference("a_f1"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 2L)), new SymbolReference("b_f1_f1")), new SymbolReference("b_f1_f2")))),
+                                        "expr_2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SubscriptExpression(new SymbolReference("a_f1"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 2L)), new SymbolReference("b_f1_f1")), new SymbolReference("b_f1_f2")))),
                                 strictProject(
                                         ImmutableMap.of(
                                                 "a", expression(new SymbolReference("a")),

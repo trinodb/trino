@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
@@ -59,6 +60,7 @@ public class TestRecursiveCte
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction FAIL = FUNCTIONS.resolveFunction("fail", fromTypes(INTEGER, VARCHAR));
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
 
     @Override
     protected PlanTester createPlanTester()
@@ -88,7 +90,7 @@ public class TestRecursiveCte
                                         values()))),
                                 // first recursion step
                                 project(project(project(
-                                        ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), new Constant(INTEGER, 2L)))),
+                                        ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("expr"), new Constant(INTEGER, 2L)))),
                                         filter(
                                                 new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new Constant(INTEGER, 6L)),
                                                 project(project(project(
@@ -105,13 +107,13 @@ public class TestRecursiveCte
                                                                 "count",
                                                                 windowFunction("count", ImmutableList.of(), DEFAULT_FRAME)),
                                                 project(project(project(
-                                                        ImmutableMap.of("expr_1", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), new Constant(INTEGER, 2L)))),
+                                                        ImmutableMap.of("expr_1", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("expr"), new Constant(INTEGER, 2L)))),
                                                         filter(
                                                                 new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new Constant(INTEGER, 6L)),
                                                                 project(
                                                                         ImmutableMap.of("expr", expression(new SymbolReference("expr_0"))),
                                                                         project(project(project(
-                                                                                ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("expr"), new Constant(INTEGER, 2L)))),
+                                                                                ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("expr"), new Constant(INTEGER, 2L)))),
                                                                                 filter(
                                                                                         new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new Constant(INTEGER, 6L)),
                                                                                         project(project(project(
