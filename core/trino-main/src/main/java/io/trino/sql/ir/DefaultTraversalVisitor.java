@@ -183,13 +183,6 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitIsNotNullPredicate(IsNotNullPredicate node, C context)
-    {
-        process(node.getValue(), context);
-        return null;
-    }
-
-    @Override
     protected Void visitIsNullPredicate(IsNullPredicate node, C context)
     {
         process(node.getValue(), context);

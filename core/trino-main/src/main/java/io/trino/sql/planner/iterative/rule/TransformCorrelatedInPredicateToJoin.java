@@ -23,7 +23,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SearchedCaseExpression;
@@ -277,7 +276,7 @@ public class TransformCorrelatedInPredicateToJoin
 
     private static Expression isNotNull(Symbol symbol)
     {
-        return new IsNotNullPredicate(symbol.toSymbolReference());
+        return new NotExpression(new IsNullPredicate(symbol.toSymbolReference()));
     }
 
     private static Expression bigint(long value)

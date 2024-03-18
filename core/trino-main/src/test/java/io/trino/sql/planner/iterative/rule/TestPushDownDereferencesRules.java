@@ -31,8 +31,9 @@ import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -335,7 +336,7 @@ public class TestPushDownDereferencesRules
                                 new LogicalExpression(AND, ImmutableList.of(
                                         new ComparisonExpression(NOT_EQUAL, new SubscriptExpression(new SubscriptExpression(new SymbolReference("a"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)), new Constant(INTEGER, 5L)),
                                         new ComparisonExpression(EQUAL, new SubscriptExpression(new SymbolReference("b"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 2L)),
-                                        new IsNotNullPredicate(new Cast(new SubscriptExpression(new SymbolReference("a"), new Constant(INTEGER, 1L)), JSON)))),
+                                        new NotExpression(new IsNullPredicate(new Cast(new SubscriptExpression(new SymbolReference("a"), new Constant(INTEGER, 1L)), JSON))))),
                                 p.tableScan(
                                         testTable,
                                         ImmutableList.of(p.symbol("a", nestedRowType), p.symbol("b", ROW_TYPE)),
@@ -344,7 +345,7 @@ public class TestPushDownDereferencesRules
                                                 p.symbol("b", ROW_TYPE), new TpchColumnHandle("b", ROW_TYPE)))))
                 .matches(project(
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("expr"), new Constant(INTEGER, 5L)), new ComparisonExpression(EQUAL, new SymbolReference("expr_0"), new Constant(INTEGER, 2L)), new IsNotNullPredicate(new Cast(new SymbolReference("expr_1"), JSON)))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("expr"), new Constant(INTEGER, 5L)), new ComparisonExpression(EQUAL, new SymbolReference("expr_0"), new Constant(INTEGER, 2L)), new NotExpression(new IsNullPredicate(new Cast(new SymbolReference("expr_1"), JSON))))),
                                 strictProject(
                                         ImmutableMap.of(
                                                 "expr", PlanMatchPattern.expression(new SubscriptExpression(new SubscriptExpression(new SymbolReference("a"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L))),
@@ -370,7 +371,7 @@ public class TestPushDownDereferencesRules
                                         p.symbol("expr", BIGINT), new SubscriptExpression(new SymbolReference("msg"), new Constant(INTEGER, 1L)),
                                         p.symbol("expr_2", BIGINT), new SubscriptExpression(new SymbolReference("msg2"), new Constant(INTEGER, 1L))),
                                 p.filter(
-                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SubscriptExpression(new SymbolReference("msg"), new Constant(INTEGER, 1L)), new Constant(createVarcharType(3), Slices.utf8Slice("foo"))), new IsNotNullPredicate(new SymbolReference("msg2")))),
+                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SubscriptExpression(new SymbolReference("msg"), new Constant(INTEGER, 1L)), new Constant(createVarcharType(3), Slices.utf8Slice("foo"))), new NotExpression(new IsNullPredicate(new SymbolReference("msg2"))))),
                                         p.values(p.symbol("msg", ROW_TYPE), p.symbol("msg2", ROW_TYPE)))))
                 .matches(
                         strictProject(
@@ -378,7 +379,7 @@ public class TestPushDownDereferencesRules
                                         "expr", expression(new SymbolReference("msg_x")),
                                         "expr_2", expression(new SubscriptExpression(new SymbolReference("msg2"), new Constant(INTEGER, 1L)))), // not pushed down since predicate contains msg2 reference
                                 filter(
-                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("msg_x"), new Constant(createVarcharType(3), Slices.utf8Slice("foo"))), new IsNotNullPredicate(new SymbolReference("msg2")))),
+                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("msg_x"), new Constant(createVarcharType(3), Slices.utf8Slice("foo"))), new NotExpression(new IsNullPredicate(new SymbolReference("msg2"))))),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         "msg_x", expression(new SubscriptExpression(new SymbolReference("msg"), new Constant(INTEGER, 1L))),

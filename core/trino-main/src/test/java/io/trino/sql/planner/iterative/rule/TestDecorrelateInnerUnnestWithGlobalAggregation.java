@@ -23,8 +23,9 @@ import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -142,7 +143,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         Optional.empty(),
                                         SINGLE,
                                         project(
-                                                ImmutableMap.of("mask", expression(new IsNotNullPredicate(new SymbolReference("ordinality")))),
+                                                ImmutableMap.of("mask", expression(new NotExpression(new IsNullPredicate(new SymbolReference("ordinality"))))),
                                                 unnest(
                                                         ImmutableList.of("corr", "unique"),
                                                         ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
@@ -181,7 +182,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         project(
                                                 ImmutableMap.of("new_mask", expression(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("old_mask"), new SymbolReference("mask"))))),
                                                 project(
-                                                        ImmutableMap.of("mask", expression(new IsNotNullPredicate(new SymbolReference("ordinality")))),
+                                                        ImmutableMap.of("mask", expression(new NotExpression(new IsNullPredicate(new SymbolReference("ordinality"))))),
                                                         unnest(
                                                                 ImmutableList.of("corr", "old_masks", "unique"),
                                                                 ImmutableList.of(
@@ -218,7 +219,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         Optional.empty(),
                                         SINGLE,
                                         project(
-                                                ImmutableMap.of("mask", expression(new IsNotNullPredicate(new SymbolReference("ordinality")))),
+                                                ImmutableMap.of("mask", expression(new NotExpression(new IsNullPredicate(new SymbolReference("ordinality"))))),
                                                 unnest(
                                                         ImmutableList.of("corr", "unique"),
                                                         ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
@@ -265,7 +266,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                 Optional.empty(),
                                                 SINGLE,
                                                 project(
-                                                        ImmutableMap.of("mask", expression(new IsNotNullPredicate(new SymbolReference("ordinality")))),
+                                                        ImmutableMap.of("mask", expression(new NotExpression(new IsNullPredicate(new SymbolReference("ordinality"))))),
                                                         unnest(
                                                                 ImmutableList.of("corr", "unique"),
                                                                 ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
@@ -304,7 +305,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                 Optional.empty(),
                                                 SINGLE,
                                                 project(
-                                                        ImmutableMap.of("mask", expression(new IsNotNullPredicate(new SymbolReference("ordinality")))),
+                                                        ImmutableMap.of("mask", expression(new NotExpression(new IsNullPredicate(new SymbolReference("ordinality"))))),
                                                         unnest(
                                                                 ImmutableList.of("corr", "unique"),
                                                                 ImmutableList.of(unnestMapping("corr", ImmutableList.of("unnested_corr"))),
@@ -348,7 +349,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                         Optional.empty(),
                                         SINGLE,
                                         project(
-                                                ImmutableMap.of("mask", expression(new IsNotNullPredicate(new SymbolReference("ordinality")))),
+                                                ImmutableMap.of("mask", expression(new NotExpression(new IsNullPredicate(new SymbolReference("ordinality"))))),
                                                 unnest(
                                                         ImmutableList.of("corr", "unique", "char_array"),
                                                         ImmutableList.of(unnestMapping("char_array", ImmutableList.of("unnested_corr"))),
@@ -417,7 +418,7 @@ public class TestDecorrelateInnerUnnestWithGlobalAggregation
                                                                 project(
                                                                         ImmutableMap.of("modulo", expression(new ArithmeticBinaryExpression(MODULUS_INTEGER, MODULUS, new SymbolReference("number"), new Constant(INTEGER, 10L)))),
                                                                         project(
-                                                                                ImmutableMap.of("mask", expression(new IsNotNullPredicate(new SymbolReference("ordinality")))),
+                                                                                ImmutableMap.of("mask", expression(new NotExpression(new IsNullPredicate(new SymbolReference("ordinality"))))),
                                                                                 unnest(
                                                                                         ImmutableList.of("groups", "numbers", "unique"),
                                                                                         ImmutableList.of(

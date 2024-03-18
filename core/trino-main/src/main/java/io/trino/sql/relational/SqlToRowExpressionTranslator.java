@@ -36,7 +36,6 @@ import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.LogicalExpression;
@@ -472,14 +471,6 @@ public final class SqlToRowExpressionTranslator
                     .build();
 
             return new SpecialForm(IN, BOOLEAN, arguments.build(), functionDependencies);
-        }
-
-        @Override
-        protected RowExpression visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
-        {
-            RowExpression expression = process(node.getValue(), context);
-
-            return notExpression(new SpecialForm(IS_NULL, BOOLEAN, ImmutableList.of(expression)));
         }
 
         @Override
