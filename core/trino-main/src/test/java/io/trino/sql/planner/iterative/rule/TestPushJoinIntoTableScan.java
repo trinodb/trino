@@ -19,7 +19,9 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -31,6 +33,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
@@ -74,6 +77,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPushJoinIntoTableScan
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
+
     private static final String SCHEMA = "test_schema";
     private static final String TABLE_A = "test_table_a";
     private static final String TABLE_B = "test_table_b";
@@ -271,7 +277,7 @@ public class TestPushJoinIntoTableScan
                                 right,
                                 new ComparisonExpression(
                                         ComparisonExpression.Operator.GREATER_THAN,
-                                        new ArithmeticBinaryExpression(MULTIPLY, new Constant(BIGINT, 44L), columnA1Symbol.toSymbolReference()),
+                                        new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new Constant(BIGINT, 44L), columnA1Symbol.toSymbolReference()),
                                         columnB1Symbol.toSymbolReference()));
                     })
                     .matches(

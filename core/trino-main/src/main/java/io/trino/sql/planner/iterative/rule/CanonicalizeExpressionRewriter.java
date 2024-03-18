@@ -15,10 +15,12 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
@@ -47,14 +49,14 @@ import static java.util.Objects.requireNonNull;
 
 public final class CanonicalizeExpressionRewriter
 {
-    public static Expression canonicalizeExpression(Expression expression, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+    public static Expression canonicalizeExpression(Expression expression, IrTypeAnalyzer typeAnalyzer, PlannerContext plannerContext, TypeProvider types)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(typeAnalyzer, types), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer, types), expression);
     }
 
     private CanonicalizeExpressionRewriter() {}
 
-    public static Expression rewrite(Expression expression, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+    public static Expression rewrite(Expression expression, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
@@ -62,17 +64,19 @@ public final class CanonicalizeExpressionRewriter
             return expression;
         }
 
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(typeAnalyzer, types), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer, types), expression);
     }
 
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
+        private final PlannerContext plannerContext;
         private final IrTypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
 
-        public Visitor(IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+        public Visitor(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
         {
+            this.plannerContext = plannerContext;
             this.typeAnalyzer = typeAnalyzer;
             this.types = types;
         }
@@ -98,7 +102,19 @@ public final class CanonicalizeExpressionRewriter
                 // if we have a operation of the form <constant> [+|*] <expr>, normalize it to
                 // <expr> [+|*] <constant>
                 if (isConstant(node.getLeft()) && !isConstant(node.getRight())) {
-                    node = new ArithmeticBinaryExpression(node.getOperator(), node.getRight(), node.getLeft());
+                    node = new ArithmeticBinaryExpression(
+                            plannerContext.getMetadata().resolveOperator(
+                                    switch (node.getOperator()) {
+                                        case ADD -> OperatorType.ADD;
+                                        case MULTIPLY -> OperatorType.MULTIPLY;
+                                        default -> throw new IllegalStateException("Unexpected value: " + node.getOperator());
+                                    },
+                                    ImmutableList.of(
+                                            node.getFunction().getSignature().getArgumentType(1),
+                                            node.getFunction().getSignature().getArgumentType(0))),
+                            node.getOperator(),
+                            node.getRight(),
+                            node.getLeft());
                 }
             }
 

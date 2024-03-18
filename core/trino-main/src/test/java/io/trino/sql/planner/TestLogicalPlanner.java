@@ -196,6 +196,11 @@ public class TestLogicalPlanner
         extends BasePlanTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction SUBTRACT_BIGINT = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
+
     private static final ResolvedFunction FAIL = FUNCTIONS.resolveFunction("fail", fromTypes(INTEGER, VARCHAR));
     private static final ResolvedFunction LOWER = FUNCTIONS.resolveFunction("lower", fromTypes(VARCHAR));
     private static final ResolvedFunction COMBINE_HASH = FUNCTIONS.resolveFunction("combine_hash", fromTypes(BIGINT, BIGINT));
@@ -523,10 +528,10 @@ public class TestLogicalPlanner
                 anyTree(
                         // predicate above outer join is not pushed to build side
                         filter(
-                                new ComparisonExpression(LESS_THAN, new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("O_CUSTKEY"), new Constant(BIGINT, 24L)), new CoalesceExpression(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("L_PARTKEY"), new Constant(BIGINT, 24L)), new Constant(BIGINT, 0L))),
+                                new ComparisonExpression(LESS_THAN, new ArithmeticBinaryExpression(SUBTRACT_BIGINT, SUBTRACT, new SymbolReference("O_CUSTKEY"), new Constant(BIGINT, 24L)), new CoalesceExpression(new ArithmeticBinaryExpression(SUBTRACT_BIGINT, SUBTRACT, new SymbolReference("L_PARTKEY"), new Constant(BIGINT, 24L)), new Constant(BIGINT, 0L))),
                                 join(LEFT, builder -> builder
                                         .equiCriteria("O_ORDERKEY", "L_ORDERKEY")
-                                        .filter(new ComparisonExpression(LESS_THAN, new ArithmeticBinaryExpression(ADD, new SymbolReference("O_CUSTKEY"), new Constant(BIGINT, 42L)), new SymbolReference("EXPR")))
+                                        .filter(new ComparisonExpression(LESS_THAN, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("O_CUSTKEY"), new Constant(BIGINT, 42L)), new SymbolReference("EXPR")))
                                         .left(
                                                 tableScan(
                                                         "orders",
@@ -536,7 +541,7 @@ public class TestLogicalPlanner
                                         .right(
                                                 anyTree(
                                                         project(
-                                                                ImmutableMap.of("EXPR", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("L_PARTKEY"), new Constant(BIGINT, 42L)))),
+                                                                ImmutableMap.of("EXPR", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("L_PARTKEY"), new Constant(BIGINT, 42L)))),
                                                                 tableScan(
                                                                         "lineitem",
                                                                         ImmutableMap.of(
@@ -2410,9 +2415,9 @@ public class TestLogicalPlanner
                         project(
                                 ImmutableMap.of(
                                         "output1", expression(new SymbolReference("id")),
-                                        "output2", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("value"), new Constant(INTEGER, 2L))),
+                                        "output2", expression(new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference("value"), new Constant(INTEGER, 2L))),
                                         "output3", expression(new FunctionCall(LOWER, ImmutableList.of(new SymbolReference("label")))),
-                                        "output4", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("min"), new Constant(INTEGER, 1L)))),
+                                        "output4", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("min"), new Constant(INTEGER, 1L)))),
                                 project(
                                         ImmutableMap.of(
                                                 "id", expression(new SymbolReference("id")),

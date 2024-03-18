@@ -16,6 +16,9 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.SymbolReference;
@@ -38,6 +41,7 @@ import static io.trino.cost.PlanNodeStatsEstimate.unknown;
 import static io.trino.cost.StatsAndCosts.empty;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.PLUS;
@@ -55,6 +59,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPushProjectionThroughJoin
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+
     @Test
     public void testPushesProjectionThroughJoin()
     {
@@ -125,7 +132,7 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        c, new ArithmeticBinaryExpression(ADD, a.toSymbolReference(), b.toSymbolReference())),
+                        c, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, a.toSymbolReference(), b.toSymbolReference())),
                 p.join(
                         INNER,
                         p.values(a),

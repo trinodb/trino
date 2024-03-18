@@ -19,7 +19,10 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.RetryPolicy;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.BetweenPredicate;
@@ -77,6 +80,10 @@ import static io.trino.sql.planner.plan.JoinType.INNER;
 public class TestAddDynamicFilterSource
         extends BasePlanTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction SUBTRACT_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MODULUS_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+
     public TestAddDynamicFilterSource()
     {
         super(ImmutableMap.of(
@@ -167,7 +174,7 @@ public class TestAddDynamicFilterSource
                                                                     DynamicFilterSourceNode.class,
                                                                     project(
                                                                             filter(
-                                                                                    new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("Z"), new Constant(INTEGER, 4L)), new Constant(INTEGER, 0L)),
+                                                                                    new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_INTEGER, MODULUS, new SymbolReference("Z"), new Constant(INTEGER, 4L)), new Constant(INTEGER, 0L)),
                                                                                     tableScan("lineitem", ImmutableMap.of("Y", "orderkey", "Z", "linenumber")))))))))));
         }
     }
@@ -267,7 +274,7 @@ public class TestAddDynamicFilterSource
                                                 exchange(
                                                         LOCAL,
                                                         project(
-                                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("L_PARTKEY"), new Constant(BIGINT, 1L)))),
+                                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(SUBTRACT_BIGINT, SUBTRACT, new SymbolReference("L_PARTKEY"), new Constant(BIGINT, 1L)))),
                                                                 exchange(
                                                                         REMOTE,
                                                                         tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey"))))))))));

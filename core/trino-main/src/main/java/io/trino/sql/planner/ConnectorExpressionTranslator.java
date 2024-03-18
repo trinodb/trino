@@ -31,6 +31,7 @@ import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.StandardFunctions;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -425,9 +426,18 @@ public final class ConnectorExpressionTranslator
 
         private Optional<Expression> translateArithmeticBinary(ArithmeticBinaryExpression.Operator operator, ConnectorExpression left, ConnectorExpression right)
         {
+            OperatorType operatorType = switch (operator) {
+                case ADD -> OperatorType.ADD;
+                case SUBTRACT -> OperatorType.SUBTRACT;
+                case MULTIPLY -> OperatorType.MULTIPLY;
+                case DIVIDE -> OperatorType.DIVIDE;
+                case MODULUS -> OperatorType.MODULUS;
+            };
+            ResolvedFunction function = plannerContext.getMetadata().resolveOperator(operatorType, ImmutableList.of(left.getType(), right.getType()));
+
             return translate(left).flatMap(leftTranslated ->
                     translate(right).map(rightTranslated ->
-                            new ArithmeticBinaryExpression(operator, leftTranslated, rightTranslated)));
+                            new ArithmeticBinaryExpression(function, operator, leftTranslated, rightTranslated)));
         }
 
         private Optional<ArithmeticBinaryExpression.Operator> arithmeticBinaryOperatorForFunctionName(FunctionName functionName)

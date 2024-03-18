@@ -15,6 +15,9 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
@@ -45,6 +48,10 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 public class TestMergeProjectWithValues
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction ADD_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(DOUBLE, DOUBLE));
+
     @Test
     public void testDoesNotFireOnNonRowType()
     {
@@ -210,7 +217,7 @@ public class TestMergeProjectWithValues
 
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("rand"), new SymbolReference("rand"))),
+                        Assignments.of(p.symbol("x"), new ArithmeticBinaryExpression(ADD_DOUBLE, ADD, new SymbolReference("rand"), new SymbolReference("rand"))),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand")),
                                 ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
@@ -223,11 +230,11 @@ public class TestMergeProjectWithValues
         // correlation symbol in projection (note: the resulting plan is not yet supported in execution)
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("corr"))),
+                        Assignments.of(p.symbol("x"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a"), new SymbolReference("corr"))),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L)))))))
-                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(ADD, new Constant(INTEGER, 1L), new SymbolReference("corr"))))));
+                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new SymbolReference("corr"))))));
 
         // correlation symbol in values (note: the resulting plan is not yet supported in execution)
         tester().assertThat(new MergeProjectWithValues())

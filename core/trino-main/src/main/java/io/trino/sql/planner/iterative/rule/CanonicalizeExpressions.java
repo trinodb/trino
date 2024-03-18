@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.IrTypeAnalyzer;
 
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
@@ -20,8 +21,8 @@ import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter
 public class CanonicalizeExpressions
         extends ExpressionRewriteRuleSet
 {
-    public CanonicalizeExpressions(IrTypeAnalyzer typeAnalyzer)
+    public CanonicalizeExpressions(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
-        super((expression, context) -> rewrite(expression, typeAnalyzer, context.getSymbolAllocator().getTypes()));
+        super((expression, context) -> rewrite(expression, plannerContext, typeAnalyzer, context.getSymbolAllocator().getTypes()));
     }
 }

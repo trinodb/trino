@@ -15,6 +15,9 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.BooleanLiteral;
@@ -43,6 +46,9 @@ import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 public class TestPushTopNThroughProject
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+
     private static final RowType rowType = RowType.from(ImmutableList.of(
             new RowType.Field(Optional.of("x"), BIGINT),
             new RowType.Field(Optional.of("y"), BIGINT)));
@@ -84,14 +90,14 @@ public class TestPushTopNThroughProject
                             p.project(
                                     Assignments.of(
                                             projectedA, new SymbolReference("a"),
-                                            projectedC, new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("b"))),
+                                            projectedC, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("a"), new SymbolReference("b"))),
                                     p.values(a, b)));
                 })
                 .matches(
                         project(
                                 ImmutableMap.of(
                                         "projectedA", expression(new SymbolReference("a")),
-                                        "projectedC", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("b")))),
+                                        "projectedC", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("a"), new SymbolReference("b")))),
                                 topN(1, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a", "b"))));
     }
 

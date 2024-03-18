@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
@@ -54,6 +55,9 @@ public class TestPushDownProjectionsFromPatternRecognition
         extends BaseRuleTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
+
     private static final ResolvedFunction CONCAT = FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR));
     private static final ResolvedFunction MAX_BY = createTestMetadataManager().resolveBuiltinFunction("max_by", fromTypes(BIGINT, BIGINT));
 
@@ -77,7 +81,7 @@ public class TestPushDownProjectionsFromPatternRecognition
                         .addVariableDefinition(
                                 new IrLabel("X"),
                                 new ComparisonExpression(GREATER_THAN, new FunctionCall(MAX_BY, ImmutableList.of(
-                                        new ArithmeticBinaryExpression(ADD, new Constant(INTEGER, 1L), new SymbolReference("match")),
+                                        new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new SymbolReference("match")),
                                         new FunctionCall(CONCAT, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("x")), new SymbolReference("classifier"))))),
                                         new Constant(INTEGER, 5L)),
                                 ImmutableMap.of(
@@ -113,7 +117,7 @@ public class TestPushDownProjectionsFromPatternRecognition
                                 ImmutableMap.of("agg", new AggregationValuePointer(
                                         maxBy,
                                         new AggregatedSetDescriptor(ImmutableSet.of(), true),
-                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new Constant(INTEGER, 2L))),
+                                        ImmutableList.of(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)), new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference("b"), new Constant(INTEGER, 2L))),
                                         Optional.empty(),
                                         Optional.empty())))
                         .source(p.values(p.symbol("a"), p.symbol("b")))))
@@ -131,8 +135,8 @@ public class TestPushDownProjectionsFromPatternRecognition
                                                         Optional.empty()))),
                                 project(
                                         ImmutableMap.of(
-                                                "expr_1", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Constant(INTEGER, 1L))),
-                                                "expr_2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("b"), new Constant(INTEGER, 2L))),
+                                                "expr_1", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a"), new Constant(INTEGER, 1L))),
+                                                "expr_2", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference("b"), new Constant(INTEGER, 2L))),
                                                 "a", PlanMatchPattern.expression(new SymbolReference("a")),
                                                 "b", PlanMatchPattern.expression(new SymbolReference("b"))),
                                         values("a", "b"))));

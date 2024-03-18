@@ -19,10 +19,13 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.metadata.AbstractMockMetadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -49,6 +52,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 
 public class TestPushMergeWriterUpdateIntoConnector
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
+
     private static final String TEST_SCHEMA = "test_schema";
     private static final String TEST_TABLE = "test_table";
     private static final SchemaTableName SCHEMA_TABLE_NAME = new SchemaTableName(TEST_SCHEMA, TEST_TABLE);
@@ -104,7 +110,7 @@ public class TestPushMergeWriterUpdateIntoConnector
                         Symbol rowCount = p.symbol("row_count");
                         // set arithmetic expression which we don't support yet
                         Expression updateMergeRowExpression = new Row(ImmutableList.of(p.symbol("column_1").toSymbolReference(),
-                                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, p.symbol("col1").toSymbolReference(), new Constant(INTEGER, 5L))));
+                                new ArithmeticBinaryExpression(MULTIPLY_INTEGER, ArithmeticBinaryExpression.Operator.MULTIPLY, p.symbol("col1").toSymbolReference(), new Constant(INTEGER, 5L))));
 
                         return p.tableFinish(
                                 p.merge(

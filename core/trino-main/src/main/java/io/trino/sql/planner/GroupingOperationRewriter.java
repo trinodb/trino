@@ -13,6 +13,9 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.metadata.Metadata;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.Type;
@@ -43,7 +46,13 @@ public final class GroupingOperationRewriter
 {
     private GroupingOperationRewriter() {}
 
-    public static Expression rewriteGroupingOperation(GroupingOperation expression, Type type, List<Set<Integer>> groupingSets, Map<NodeRef<io.trino.sql.tree.Expression>, ResolvedField> columnReferenceFields, Optional<Symbol> groupIdSymbol)
+    public static Expression rewriteGroupingOperation(
+            GroupingOperation expression,
+            Type type,
+            List<Set<Integer>> groupingSets,
+            Map<NodeRef<io.trino.sql.tree.Expression>, ResolvedField> columnReferenceFields,
+            Optional<Symbol> groupIdSymbol,
+            Metadata metadata)
     {
         requireNonNull(groupIdSymbol, "groupIdSymbol is null");
 
@@ -83,7 +92,11 @@ public final class GroupingOperationRewriter
         // It is necessary to add a 1 to the groupId because the underlying array is indexed starting at 1
         return new SubscriptExpression(
                 new Array(groupingResults),
-                new ArithmeticBinaryExpression(ADD, groupIdSymbol.get().toSymbolReference(), new Constant(BIGINT, 1L)));
+                new ArithmeticBinaryExpression(
+                        metadata.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT)),
+                        ADD,
+                        groupIdSymbol.get().toSymbolReference(),
+                        new Constant(BIGINT, 1L)));
     }
 
     private static int translateFieldToInteger(FieldId fieldId, RelationId requiredOriginRelationId)

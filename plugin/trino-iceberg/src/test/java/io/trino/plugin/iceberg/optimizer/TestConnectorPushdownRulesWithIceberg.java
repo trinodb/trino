@@ -19,7 +19,9 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.ScalarStatsCalculator;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -31,6 +33,7 @@ import io.trino.plugin.iceberg.IcebergPlugin;
 import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.TestingIcebergConnectorFactory;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
@@ -84,6 +87,9 @@ import static java.util.Arrays.asList;
 public class TestConnectorPushdownRulesWithIceberg
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+
     private static final String SCHEMA_NAME = "test_schema";
 
     private static final Type ROW_TYPE = RowType.from(asList(field("a", BIGINT), field("b", BIGINT)));
@@ -412,7 +418,7 @@ public class TestConnectorPushdownRulesWithIceberg
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p -> {
                     SubscriptExpression subscript = new SubscriptExpression(p.symbol("struct_of_bigint", ROW_TYPE).toSymbolReference(), new Constant(INTEGER, 1L));
-                    Expression sum = new ArithmeticBinaryExpression(ADD, subscript, new Constant(INTEGER, 2L));
+                    Expression sum = new ArithmeticBinaryExpression(ADD_INTEGER, ADD, subscript, new Constant(INTEGER, 2L));
                     return p.project(
                             Assignments.of(
                                     // The subscript expression instance is part of both the assignments
@@ -426,7 +432,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 .matches(project(
                         ImmutableMap.of(
                                 "expr_deref", expression(new SymbolReference("struct_of_bigint#a")),
-                                "expr_deref_2", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("struct_of_bigint#a"), new Constant(INTEGER, 2L)))),
+                                "expr_deref_2", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("struct_of_bigint#a"), new Constant(INTEGER, 2L)))),
                         tableScan(
                                 icebergTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
                                 TupleDomain.all(),

@@ -15,6 +15,9 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
@@ -41,6 +44,9 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 public class TestFilterProjectAggregationStatsRule
         extends BaseStatsCalculatorTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+
     private static final SymbolStatsEstimate SYMBOL_STATS_ESTIMATE_X = SymbolStatsEstimate.builder()
             .setLowValue(0)
             .setHighValue(100)
@@ -139,7 +145,7 @@ public class TestFilterProjectAggregationStatsRule
                             return pb.filter(
                                     new ComparisonExpression(GREATER_THAN, new SymbolReference("count_on_x"), new Constant(INTEGER, 0L)),
                                     // Non-narrowing projection
-                                    pb.project(Assignments.of(pb.symbol("x_1"), new ArithmeticBinaryExpression(ADD, new SymbolReference("x"), new Constant(INTEGER, 1L)), aggregatedOutput, aggregatedOutput.toSymbolReference()),
+                                    pb.project(Assignments.of(pb.symbol("x_1"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("x"), new Constant(INTEGER, 1L)), aggregatedOutput, aggregatedOutput.toSymbolReference()),
                                             pb.aggregation(ab -> ab
                                                     .addAggregation(aggregatedOutput, aggregation("count", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
                                                     .singleGroupingSet(pb.symbol("y", BIGINT))

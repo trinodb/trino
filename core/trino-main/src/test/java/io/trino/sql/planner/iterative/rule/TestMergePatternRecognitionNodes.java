@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
@@ -69,6 +71,10 @@ import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 public class TestMergePatternRecognitionNodes
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
+
     private static final WindowNode.Frame ROWS_CURRENT_TO_UNBOUNDED = new WindowNode.Frame(
             ROWS,
             CURRENT_ROW,
@@ -283,7 +289,7 @@ public class TestMergePatternRecognitionNodes
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(new IrLabel("X"), TRUE_LITERAL)
                         .source(p.project(
-                                Assignments.of(p.symbol("projected"), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new SymbolReference("measure"))),
+                                Assignments.of(p.symbol("projected"), new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference("a"), new SymbolReference("measure"))),
                                 p.patternRecognition(childBuilder -> childBuilder
                                         .addMeasure(
                                                 p.symbol("measure"),
@@ -447,7 +453,7 @@ public class TestMergePatternRecognitionNodes
                         .source(p.project(
                                 Assignments.of(
                                         p.symbol("a"), new SymbolReference("a"),
-                                        p.symbol("expression"), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new SymbolReference("b"))),
+                                        p.symbol("expression"), new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference("a"), new SymbolReference("b"))),
                                 p.patternRecognition(childBuilder -> childBuilder
                                         .addMeasure(
                                                 p.symbol("child_measure"),
@@ -472,7 +478,7 @@ public class TestMergePatternRecognitionNodes
                                                 "b", expression(new SymbolReference("b")),
                                                 "parent_measure", expression(new SymbolReference("parent_measure")),
                                                 "child_measure", expression(new SymbolReference("child_measure")),
-                                                "expression", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new SymbolReference("b")))),
+                                                "expression", expression(new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference("a"), new SymbolReference("b")))),
                                         patternRecognition(builder -> builder
                                                         .addMeasure(
                                                                 "parent_measure",
@@ -510,7 +516,7 @@ public class TestMergePatternRecognitionNodes
                         .source(p.project(
                                 Assignments.of(
                                         p.symbol("a"), new SymbolReference("a"),
-                                        p.symbol("expression"), new ArithmeticBinaryExpression(MULTIPLY, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new SymbolReference("b")), new SymbolReference("child_measure"))),
+                                        p.symbol("expression"), new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference("a"), new SymbolReference("b")), new SymbolReference("child_measure"))),
                                 p.patternRecognition(childBuilder -> childBuilder
                                         .addMeasure(
                                                 p.symbol("child_measure"),
@@ -535,7 +541,7 @@ public class TestMergePatternRecognitionNodes
                                                 "b", expression(new SymbolReference("b")),
                                                 "parent_measure", expression(new SymbolReference("parent_measure")),
                                                 "child_measure", expression(new SymbolReference("child_measure")),
-                                                "expression", expression(new ArithmeticBinaryExpression(MULTIPLY, new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new SymbolReference("b")), new SymbolReference("child_measure")))),
+                                                "expression", expression(new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference("a"), new SymbolReference("b")), new SymbolReference("child_measure")))),
                                         patternRecognition(builder -> builder
                                                         .addMeasure(
                                                                 "parent_measure",
@@ -578,8 +584,8 @@ public class TestMergePatternRecognitionNodes
                         .source(p.project(
                                 Assignments.builder()
                                         .put(p.symbol("a"), new SymbolReference("a"))
-                                        .put(p.symbol("expression_1"), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new SymbolReference("b")))
-                                        .put(p.symbol("expression_2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("b")))
+                                        .put(p.symbol("expression_1"), new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference("a"), new SymbolReference("b")))
+                                        .put(p.symbol("expression_2"), new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("a"), new SymbolReference("b")))
                                         .build(),
                                 p.patternRecognition(childBuilder -> childBuilder
                                         .addMeasure(
@@ -607,7 +613,7 @@ public class TestMergePatternRecognitionNodes
                                                 .put("parent_measure", expression(new SymbolReference("parent_measure")))
                                                 .put("child_measure", expression(new SymbolReference("child_measure")))
                                                 .put("expression_1", expression(new SymbolReference("expression_1")))
-                                                .put("expression_2", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("b"))))
+                                                .put("expression_2", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("a"), new SymbolReference("b"))))
                                                 .buildOrThrow(),
                                         patternRecognition(builder -> builder
                                                         .addMeasure(
@@ -631,7 +637,7 @@ public class TestMergePatternRecognitionNodes
                                                         ImmutableMap.of(
                                                                 "a", expression(new SymbolReference("a")),
                                                                 "b", expression(new SymbolReference("b")),
-                                                                "expression_1", expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new SymbolReference("b")))),
+                                                                "expression_1", expression(new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference("a"), new SymbolReference("b")))),
                                                         values("a", "b"))))));
     }
 
@@ -659,8 +665,8 @@ public class TestMergePatternRecognitionNodes
                                 Assignments.builder()
                                         .put(p.symbol("a"), new SymbolReference("a"))
                                         .put(p.symbol("child_measure"), new SymbolReference("child_measure"))
-                                        .put(p.symbol("expression_1"), new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new SymbolReference("a")))
-                                        .put(p.symbol("expression_2"), new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("a")))
+                                        .put(p.symbol("expression_1"), new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference("a"), new SymbolReference("a")))
+                                        .put(p.symbol("expression_2"), new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("a"), new SymbolReference("a")))
                                         .build(),
                                 p.patternRecognition(childBuilder -> childBuilder
                                         .partitionBy(ImmutableList.of(p.symbol("a")))
@@ -685,7 +691,7 @@ public class TestMergePatternRecognitionNodes
                                                 "a", expression(new SymbolReference("a")),
                                                 "parent_measure", expression(new SymbolReference("parent_measure")),
                                                 "child_measure", expression(new SymbolReference("child_measure")),
-                                                "expression_2", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new SymbolReference("a")))),
+                                                "expression_2", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("a"), new SymbolReference("a")))),
                                         patternRecognition(builder -> builder
                                                         .specification(specification(ImmutableList.of("a"), ImmutableList.of(), ImmutableMap.of()))
                                                         .addMeasure(
@@ -709,7 +715,7 @@ public class TestMergePatternRecognitionNodes
                                                         ImmutableMap.of(
                                                                 "a", expression(new SymbolReference("a")),
                                                                 "b", expression(new SymbolReference("b")),
-                                                                "expression_1", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY, new SymbolReference("a"), new SymbolReference("a")))),
+                                                                "expression_1", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference("a"), new SymbolReference("a")))),
                                                         values("a", "b"))))));
     }
 
