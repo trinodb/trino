@@ -25,7 +25,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticNegation;
-import io.trino.sql.ir.Array;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.BindExpression;
 import io.trino.sql.ir.Cast;
@@ -59,7 +58,6 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -293,21 +291,6 @@ public class IrTypeAnalyzer
                         case MapType mapType -> mapType.getValueType();
                         default -> throw new IllegalStateException("Unexpected type: " + baseType);
                     });
-        }
-
-        @Override
-        protected Type visitArray(Array node, Context context)
-        {
-            Set<Type> types = node.getValues().stream()
-                    .map(entry -> process(entry, context))
-                    .collect(Collectors.toSet());
-
-            if (types.isEmpty()) {
-                return setExpressionType(node, new ArrayType(UNKNOWN));
-            }
-
-            checkArgument(types.size() == 1, "All entries must have the same type: %s", types);
-            return setExpressionType(node, new ArrayType(types.iterator().next()));
         }
 
         @Override
