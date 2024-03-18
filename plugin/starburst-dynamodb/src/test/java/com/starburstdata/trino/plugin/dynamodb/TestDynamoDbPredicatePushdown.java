@@ -41,6 +41,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -90,13 +91,13 @@ public class TestDynamoDbPredicatePushdown
                                 ImmutableMap.of(
                                         "row_id", AttributeValue.builder().s("c").build(),
                                         "col2", AttributeValue.builder().bool(Boolean.TRUE).build())))) {
-            assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+            assertEventually(() -> assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .isEqualTo("""
                         CREATE TABLE dynamodb.amazondynamodb.%s (
                            row_id varchar NOT NULL COMMENT 'Dynamic Column.',
                            col1 boolean COMMENT 'Dynamic Column.',
                            col2 boolean COMMENT 'Dynamic Column.'
-                        )""".formatted(tableName));
+                        )""".formatted(tableName)));
 
             assertQuery(
                     "SELECT row_id, col1, col2 FROM " + tableName,
@@ -179,13 +180,13 @@ public class TestDynamoDbPredicatePushdown
                                 ImmutableMap.of(
                                         primaryKey, AttributeValue.builder().s("c").build(),
                                         col2, AttributeValue.builder().n("33333").build())))) {
-            assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+            assertEventually(() -> assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .isEqualTo("""
                             CREATE TABLE dynamodb.amazondynamodb.%s (
                                %s varchar NOT NULL COMMENT 'Dynamic Column.',
                                %s integer COMMENT 'Dynamic Column.',
                                %s integer COMMENT 'Dynamic Column.'
-                            )""".formatted(tableName, primaryKey, col1, col2));
+                            )""".formatted(tableName, primaryKey, col1, col2)));
 
             assertQuery(
                     "SELECT row_id, col1, col2 FROM " + tableName,
@@ -398,13 +399,13 @@ public class TestDynamoDbPredicatePushdown
                         ImmutableMap.of(
                                 primaryKey, AttributeValue.builder().s("c").build(),
                                 col2, AttributeValue.builder().n("9223372036854775804").build())))) {
-            assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+            assertEventually(() -> assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .isEqualTo("""
                             CREATE TABLE dynamodb.amazondynamodb.%s (
                                %s varchar NOT NULL COMMENT 'Dynamic Column.',
                                %s bigint COMMENT 'Dynamic Column.',
                                %s bigint COMMENT 'Dynamic Column.'
-                            )""".formatted(tableName, primaryKey, col1, col2));
+                            )""".formatted(tableName, primaryKey, col1, col2)));
 
             assertQuery(
                     "SELECT row_id, col1, col2 FROM " + tableName,
@@ -626,14 +627,14 @@ public class TestDynamoDbPredicatePushdown
                                         primaryKey, AttributeValue.builder().s("c").build(),
                                         sortKey, AttributeValue.builder().s("ccc").build(),
                                         col2, AttributeValue.builder().s("value3").build())))) {
-            assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+            assertEventually(() -> assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                 .isEqualTo("""
                         CREATE TABLE dynamodb.amazondynamodb.%s (
                            %s varchar NOT NULL COMMENT 'Dynamic Column.',
                            %s varchar NOT NULL COMMENT 'Dynamic Column.',
                            %s varchar COMMENT 'Dynamic Column.',
                            %s varchar COMMENT 'Dynamic Column.'
-                        )""".formatted(tableName, sortKey, primaryKey, col1, col2));
+                        )""".formatted(tableName, sortKey, primaryKey, col1, col2)));
             assertQuery(
                 "SELECT row_id, sort_key, col1, col2 FROM " + tableName,
                 "VALUES ('a', 'aaa', 'value1', null), ('b', 'bbb', 'value2', null), ('c', 'ccc', null, 'value3')");
