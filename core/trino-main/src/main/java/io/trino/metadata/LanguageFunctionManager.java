@@ -30,7 +30,6 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencies;
-import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
@@ -158,7 +157,7 @@ public class LanguageFunctionManager
         return getQueryFunctions(session).getFunctionMetadata(functionId);
     }
 
-    public FunctionDependencyDeclaration getDependencies(Session session, FunctionId functionId, AccessControl accessControl)
+    public Set<ResolvedFunction> getDependencies(Session session, FunctionId functionId, AccessControl accessControl)
     {
         return getQueryFunctions(session).getDependencies(functionId, accessControl);
     }
@@ -266,7 +265,7 @@ public class LanguageFunctionManager
             return getFunctionListing(catalogHandle, name).getFunctions(languageFunctionLoader, identityLoader);
         }
 
-        public FunctionDependencyDeclaration getDependencies(FunctionId functionId, AccessControl accessControl)
+        public Set<ResolvedFunction> getDependencies(FunctionId functionId, AccessControl accessControl)
         {
             LanguageFunctionImplementation function = implementationsById.get(functionId);
             checkArgument(function != null, "Unknown function implementation: %s", functionId);
@@ -300,10 +299,7 @@ public class LanguageFunctionManager
         public List<LanguageScalarFunctionData> serializeFunctionsForWorkers()
         {
             return implementationsByResolvedFunction.entrySet().stream()
-                    .map(entry -> new LanguageScalarFunctionData(
-                            entry.getKey(),
-                            entry.getValue().getFunctionDependencies(),
-                            entry.getValue().getRoutine()))
+                    .map(entry -> new LanguageScalarFunctionData(entry.getKey(), entry.getValue().getRoutine()))
                     .collect(toImmutableList());
         }
 
@@ -383,7 +379,7 @@ public class LanguageFunctionManager
             private final Optional<String> owner;
             private final Optional<RunAsIdentityLoader> identityLoader;
             private SqlRoutineAnalysis analysis;
-            private FunctionDependencyDeclaration dependencies;
+            private Set<ResolvedFunction> dependencies;
             private IrRoutine routine;
             private boolean analyzing;
 
@@ -421,27 +417,15 @@ public class LanguageFunctionManager
                 FunctionContext context = functionContext(accessControl);
                 analysis = analyzer.analyze(context.session(), context.accessControl(), functionSpecification);
 
-                FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder dependencies = FunctionDependencyDeclaration.builder();
-                for (ResolvedFunction resolvedFunction : analysis.analysis().getResolvedFunctions()) {
-                    dependencies.addFunction(resolvedFunction.toCatalogSchemaFunctionName(), resolvedFunction.getSignature().getArgumentTypes());
-                }
-                this.dependencies = dependencies.build();
+                dependencies = analysis.analysis().getResolvedFunctions();
 
                 routine = planner.planSqlFunction(session, functionSpecification, analysis);
                 analyzing = false;
             }
 
-            public synchronized FunctionDependencyDeclaration getFunctionDependencies(AccessControl accessControl)
+            public synchronized Set<ResolvedFunction> getFunctionDependencies(AccessControl accessControl)
             {
                 analyzeAndPlan(accessControl);
-                return dependencies;
-            }
-
-            public synchronized FunctionDependencyDeclaration getFunctionDependencies()
-            {
-                if (dependencies == null) {
-                    throw new IllegalStateException("Function not analyzed: " + functionMetadata.getSignature());
-                }
                 return dependencies;
             }
 
