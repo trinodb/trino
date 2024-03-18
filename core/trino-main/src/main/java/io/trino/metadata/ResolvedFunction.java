@@ -151,13 +151,6 @@ public class ResolvedFunction
     }
 
     @Deprecated
-    public QualifiedName toQualifiedName()
-    {
-        CatalogSchemaFunctionName name = toCatalogSchemaFunctionName();
-        return QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getFunctionName());
-    }
-
-    @Deprecated
     public CatalogSchemaFunctionName toCatalogSchemaFunctionName()
     {
         return ResolvedFunctionDecoder.toCatalogSchemaFunctionName(this);
@@ -221,11 +214,7 @@ public class ResolvedFunction
 
         public Optional<ResolvedFunction> fromCatalogSchemaFunctionName(CatalogSchemaFunctionName name)
         {
-            return fromQualifiedName(QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getFunctionName()));
-        }
-
-        public Optional<ResolvedFunction> fromQualifiedName(QualifiedName qualifiedName)
-        {
+            QualifiedName qualifiedName = QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getFunctionName());
             if (!isResolved(qualifiedName)) {
                 return Optional.empty();
             }

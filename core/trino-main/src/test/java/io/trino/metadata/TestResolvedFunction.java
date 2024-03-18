@@ -47,7 +47,7 @@ public class TestResolvedFunction
     {
         ResolvedFunction resolvedFunction = createResolvedFunction("top", 3);
         ResolvedFunctionDecoder decoder = new ResolvedFunctionDecoder(TestResolvedFunction::varcharTypeLoader);
-        Optional<ResolvedFunction> copy = decoder.fromQualifiedName(resolvedFunction.toQualifiedName());
+        Optional<ResolvedFunction> copy = decoder.fromCatalogSchemaFunctionName(resolvedFunction.toCatalogSchemaFunctionName());
         assertThat(copy.isPresent()).isTrue();
         assertThat(copy.get()).isEqualTo(resolvedFunction);
     }

@@ -53,7 +53,6 @@ class BuiltinFunctionResolver
     private final TypeManager typeManager;
     private final GlobalFunctionCatalog globalFunctionCatalog;
     private final FunctionBinder functionBinder;
-    private final ResolvedFunction.ResolvedFunctionDecoder functionDecoder;
 
     private final NonEvictableCache<OperatorCacheKey, ResolvedFunction> operatorCache;
     private final NonEvictableCache<CoercionCacheKey, ResolvedFunction> coercionCache;
@@ -63,7 +62,6 @@ class BuiltinFunctionResolver
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
-        this.functionDecoder = new ResolvedFunction.ResolvedFunctionDecoder(typeManager::getType);
         this.functionBinder = new FunctionBinder(metadata, typeManager);
 
         operatorCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
@@ -137,7 +135,6 @@ class BuiltinFunctionResolver
                 metadata,
                 typeManager,
                 functionBinder,
-                functionDecoder,
                 GlobalSystemConnector.CATALOG_HANDLE,
                 functionBinding.functionBinding(),
                 functionBinding.functionMetadata(),
