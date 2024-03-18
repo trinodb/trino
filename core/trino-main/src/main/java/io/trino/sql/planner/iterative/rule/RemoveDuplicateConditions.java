@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.LogicalExpression;
@@ -33,30 +32,23 @@ import static io.trino.sql.ir.IrUtils.extractPredicates;
 public class RemoveDuplicateConditions
         extends ExpressionRewriteRuleSet
 {
-    public RemoveDuplicateConditions(Metadata metadata)
+    public RemoveDuplicateConditions()
     {
-        super(createRewrite(metadata));
+        super(createRewrite());
     }
 
-    private static ExpressionRewriter createRewrite(Metadata metadata)
+    private static ExpressionRewriter createRewrite()
     {
-        return (expression, context) -> ExpressionTreeRewriter.rewriteWith(new Visitor(metadata), expression);
+        return (expression, context) -> ExpressionTreeRewriter.rewriteWith(new Visitor(), expression);
     }
 
     private static class Visitor
             extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
-        private final Metadata metadata;
-
-        public Visitor(Metadata metadata)
-        {
-            this.metadata = metadata;
-        }
-
         @Override
         public Expression rewriteLogicalExpression(LogicalExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            return combinePredicates(metadata, node.getOperator(), extractPredicates(node));
+            return combinePredicates(node.getOperator(), extractPredicates(node));
         }
     }
 }
