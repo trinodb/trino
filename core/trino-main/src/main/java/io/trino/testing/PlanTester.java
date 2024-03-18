@@ -117,6 +117,7 @@ import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
+import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
@@ -309,6 +310,7 @@ public class PlanTester
     private final ExpressionCompiler expressionCompiler;
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
     private final JoinCompiler joinCompiler;
+    private final FlatHashStrategyCompiler hashStrategyCompiler;
     private final CatalogFactory catalogFactory;
     private final CoordinatorDynamicCatalogManager catalogManager;
     private final PluginManager pluginManager;
@@ -383,7 +385,8 @@ public class PlanTester
                 typeManager));
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.joinCompiler = new JoinCompiler(typeOperators);
-        PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
+        this.hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
+        PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(hashStrategyCompiler);
         EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig());
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
@@ -790,6 +793,7 @@ public class PlanTester
                 unsupportedPartitioningSpillerFactory(),
                 new PagesIndex.TestingFactory(false),
                 joinCompiler,
+                hashStrategyCompiler,
                 new OrderingCompiler(plannerContext.getTypeOperators()),
                 new DynamicFilterConfig(),
                 blockTypeOperators,

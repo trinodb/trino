@@ -13,8 +13,12 @@
  */
 package io.trino.operator;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.DynamicClassLoader;
@@ -26,6 +30,7 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
+import io.airlift.jmx.CacheStatsMBean;
 import io.trino.operator.scalar.CombineHashFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -33,6 +38,9 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.CallSiteBinder;
+import org.assertj.core.util.VisibleForTesting;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -62,6 +70,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
@@ -78,8 +87,31 @@ import static io.trino.util.CompilerUtils.makeClassName;
 
 public final class FlatHashStrategyCompiler
 {
-    private FlatHashStrategyCompiler() {}
+    private final LoadingCache<List<Type>, FlatHashStrategy> flatHashStrategies;
 
+    @Inject
+    public FlatHashStrategyCompiler(TypeOperators typeOperators)
+    {
+        this.flatHashStrategies = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .recordStats()
+                        .maximumSize(1000),
+                CacheLoader.from(key -> compileFlatHashStrategy(key, typeOperators)));
+    }
+
+    public FlatHashStrategy getFlatHashStrategy(List<Type> types)
+    {
+        return flatHashStrategies.getUnchecked(ImmutableList.copyOf(types));
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getFlatHashStrategiesStats()
+    {
+        return new CacheStatsMBean(flatHashStrategies);
+    }
+
+    @VisibleForTesting
     public static FlatHashStrategy compileFlatHashStrategy(List<Type> types, TypeOperators typeOperators)
     {
         List<KeyField> keyFields = new ArrayList<>();
