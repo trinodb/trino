@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.TestingHiveConnectorFactory;
@@ -26,6 +28,7 @@ import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
@@ -72,6 +75,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestHiveProjectionPushdownIntoTableScan
         extends BasePushdownPlanTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+
     private static final String HIVE_CATALOG_NAME = "hive";
     private static final String SCHEMA_NAME = "test_schema";
 
@@ -172,7 +178,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 format("SELECT col0.x FROM %s WHERE col0.x = col1 + 3 and col0.y = 2", testTable),
                 anyTree(
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("col0_y"), new Constant(BIGINT, 2L)), new ComparisonExpression(EQUAL, new SymbolReference("col0_x"), new Cast(new ArithmeticBinaryExpression(ADD, new SymbolReference("col1"), new Constant(INTEGER, 3L)), BIGINT)))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("col0_y"), new Constant(BIGINT, 2L)), new ComparisonExpression(EQUAL, new SymbolReference("col0_x"), new Cast(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("col1"), new Constant(INTEGER, 3L)), BIGINT)))),
                                 tableScan(
                                         table -> {
                                             HiveTableHandle hiveTableHandle = (HiveTableHandle) table;

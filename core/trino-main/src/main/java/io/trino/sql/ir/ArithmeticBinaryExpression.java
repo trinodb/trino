@@ -16,6 +16,7 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.ResolvedFunction;
 
 import java.util.List;
 import java.util.Objects;
@@ -46,13 +47,21 @@ public final class ArithmeticBinaryExpression
     private final Operator operator;
     private final Expression left;
     private final Expression right;
+    private final ResolvedFunction function;
 
     @JsonCreator
-    public ArithmeticBinaryExpression(Operator operator, Expression left, Expression right)
+    public ArithmeticBinaryExpression(ResolvedFunction function, Operator operator, Expression left, Expression right)
     {
+        this.function = function;
         this.operator = operator;
         this.left = left;
         this.right = right;
+    }
+
+    @JsonProperty
+    public ResolvedFunction getFunction()
+    {
+        return function;
     }
 
     @JsonProperty

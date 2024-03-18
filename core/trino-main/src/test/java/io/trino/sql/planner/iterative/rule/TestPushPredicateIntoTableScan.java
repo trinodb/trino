@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
@@ -33,6 +34,7 @@ import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
@@ -73,6 +75,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestPushPredicateIntoTableScan
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MODULUS_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(INTEGER, INTEGER));
+
     private static final String MOCK_CATALOG = "mock_catalog";
     private static final ConnectorTableHandle CONNECTOR_PARTITIONED_TABLE_HANDLE =
             new MockConnectorTableHandle(new SchemaTableName("schema", "partitioned"));
@@ -226,6 +232,7 @@ public class TestPushPredicateIntoTableScan
                                                 new ComparisonExpression(
                                                         EQUAL,
                                                         new ArithmeticBinaryExpression(
+                                                                MODULUS_BIGINT,
                                                                 MODULUS,
                                                                 new SymbolReference("nationkey"),
                                                                 new Constant(BIGINT, 17L)),
@@ -257,6 +264,7 @@ public class TestPushPredicateIntoTableScan
                                         new ComparisonExpression(
                                                 EQUAL,
                                                 new ArithmeticBinaryExpression(
+                                                        MODULUS_BIGINT,
                                                         MODULUS,
                                                         new SymbolReference("nationkey"),
                                                         new Constant(BIGINT, 17L)),
@@ -292,7 +300,7 @@ public class TestPushPredicateIntoTableScan
     {
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new Constant(INTEGER, 17L)), new Constant(BIGINT, 44L)), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS, new SymbolReference("nationkey"), new Constant(INTEGER, 15L)), new Constant(BIGINT, 43L)))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_INTEGER, MODULUS, new SymbolReference("nationkey"), new Constant(INTEGER, 17L)), new Constant(BIGINT, 44L)), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_INTEGER, MODULUS, new SymbolReference("nationkey"), new Constant(INTEGER, 15L)), new Constant(BIGINT, 43L)))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),

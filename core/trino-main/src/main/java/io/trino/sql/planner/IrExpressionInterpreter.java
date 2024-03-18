@@ -562,10 +562,10 @@ public class IrExpressionInterpreter
             }
 
             if (hasUnresolvedValue(left, right)) {
-                return new ArithmeticBinaryExpression(node.getOperator(), toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
+                return new ArithmeticBinaryExpression(node.getFunction(), node.getOperator(), toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
             }
 
-            return invokeOperator(OperatorType.valueOf(node.getOperator().name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
+            return functionInvoker.invoke(node.getFunction(), connectorSession, ImmutableList.of(left, right));
         }
 
         @Override

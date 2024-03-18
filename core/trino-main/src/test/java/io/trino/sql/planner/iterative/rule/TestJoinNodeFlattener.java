@@ -15,6 +15,9 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticUnaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
@@ -77,6 +80,10 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestJoinNodeFlattener
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction SUBTRACT_INTEGER = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
+
     private static final int DEFAULT_JOIN_LIMIT = 10;
 
     private QueryRunner queryRunner;
@@ -208,7 +215,7 @@ public class TestJoinNodeFlattener
         JoinNode joinNode = p.join(
                 INNER,
                 p.project(
-                        Assignments.of(d, new ArithmeticBinaryExpression(SUBTRACT, a.toSymbolReference(), b.toSymbolReference())),
+                        Assignments.of(d, new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, a.toSymbolReference(), b.toSymbolReference())),
                         p.join(
                                 INNER,
                                 valuesA,
@@ -289,7 +296,7 @@ public class TestJoinNodeFlattener
                 new ComparisonExpression(GREATER_THAN, b2.toSymbolReference(), c2.toSymbolReference()));
         ComparisonExpression abcFilter = new ComparisonExpression(
                 LESS_THAN,
-                new ArithmeticBinaryExpression(ADD, a1.toSymbolReference(), c1.toSymbolReference()),
+                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, a1.toSymbolReference(), c1.toSymbolReference()),
                 b1.toSymbolReference());
         JoinNode joinNode = p.join(
                 INNER,

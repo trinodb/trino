@@ -15,6 +15,9 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
@@ -49,6 +52,10 @@ import static io.trino.sql.planner.plan.JoinType.INNER;
 public class TestTransformCorrelatedGroupedAggregationWithProjection
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction SUBTRACT_INTEGER = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
+
     @Test
     public void doesNotFireOnUncorrelated()
     {
@@ -87,8 +94,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                         TRUE_LITERAL,
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new Constant(INTEGER, 1L)),
-                                        p.symbol("expr_count"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_sum"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("sum"), new Constant(INTEGER, 1L)),
+                                        p.symbol("expr_count"), new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new SymbolReference("count"), new Constant(INTEGER, 1L))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
@@ -99,8 +106,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of(
                                         "corr", expression(new SymbolReference("corr")),
-                                        "expr_sum", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("sum_agg"), new Constant(INTEGER, 1L))),
-                                        "expr_count", expression(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count_agg"), new Constant(INTEGER, 1L)))),
+                                        "expr_sum", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("sum_agg"), new Constant(INTEGER, 1L))),
+                                        "expr_count", expression(new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new SymbolReference("count_agg"), new Constant(INTEGER, 1L)))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "a"),
                                         ImmutableMap.of(Optional.of("sum_agg"), aggregationFunction("sum", ImmutableList.of("a")), Optional.of("count_agg"), aggregationFunction("count", ImmutableList.of())),
@@ -129,8 +136,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                         TRUE_LITERAL,
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new Constant(INTEGER, 1L)),
-                                        p.symbol("expr_count"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_sum"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("sum"), new Constant(INTEGER, 1L)),
+                                        p.symbol("expr_count"), new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new SymbolReference("count"), new Constant(INTEGER, 1L))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
@@ -143,8 +150,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of(
                                 "corr", expression(new SymbolReference("corr")),
-                                        "expr_sum", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("sum_agg"), new Constant(INTEGER, 1L))),
-                                        "expr_count", expression(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count_agg"), new Constant(INTEGER, 1L)))),
+                                        "expr_sum", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("sum_agg"), new Constant(INTEGER, 1L))),
+                                        "expr_count", expression(new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new SymbolReference("count_agg"), new Constant(INTEGER, 1L)))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "a"),
                                         ImmutableMap.of(Optional.of("sum_agg"), aggregationFunction("sum", ImmutableList.of("a")), Optional.of("count_agg"), aggregationFunction("count", ImmutableList.of())),
@@ -180,8 +187,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                         TRUE_LITERAL,
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum"), new ArithmeticBinaryExpression(ADD, new SymbolReference("sum"), new Constant(INTEGER, 1L)),
-                                        p.symbol("expr_count"), new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_sum"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("sum"), new Constant(INTEGER, 1L)),
+                                        p.symbol("expr_count"), new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new SymbolReference("count"), new Constant(INTEGER, 1L))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
@@ -194,8 +201,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of(
                                         "corr", expression(new SymbolReference("corr")),
-                                        "expr_sum", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("sum_agg"), new Constant(INTEGER, 1L))),
-                                        "expr_count", expression(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count_agg"), new Constant(INTEGER, 1L)))),
+                                        "expr_sum", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("sum_agg"), new Constant(INTEGER, 1L))),
+                                        "expr_count", expression(new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new SymbolReference("count_agg"), new Constant(INTEGER, 1L)))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "a"),
                                         ImmutableMap.of(Optional.of("sum_agg"), aggregationFunction("sum", ImmutableList.of("a")), Optional.of("count_agg"), aggregationFunction("count", ImmutableList.of())),

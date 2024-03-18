@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
@@ -54,6 +55,7 @@ public class TestImplementExceptAll
         extends BaseRuleTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction SUBTRACT_BIGINT = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT));
     private static final ResolvedFunction GREATEST = FUNCTIONS.resolveFunction("GREATEST", fromTypes(BIGINT, BIGINT));
 
     @Test
@@ -94,7 +96,7 @@ public class TestImplementExceptAll
                                         "a", expression(new SymbolReference("a")),
                                         "b", expression(new SymbolReference("b"))),
                                 filter(
-                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new FunctionCall(GREATEST, ImmutableList.of(new ArithmeticBinaryExpression(SUBTRACT, new SymbolReference("count_1"), new SymbolReference("count_2")), new Constant(BIGINT, 0L)))),
+                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new FunctionCall(GREATEST, ImmutableList.of(new ArithmeticBinaryExpression(SUBTRACT_BIGINT, SUBTRACT, new SymbolReference("count_1"), new SymbolReference("count_2")), new Constant(BIGINT, 0L)))),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         "a", expression(new SymbolReference("a")),

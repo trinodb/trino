@@ -14,6 +14,9 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
@@ -51,6 +54,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 public class TestSimplifyFilterPredicate
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+
     @Test
     public void testSimplifyIfExpression()
     {
@@ -403,7 +409,7 @@ public class TestSimplifyFilterPredicate
                                         new SymbolReference("a"),
                                         ImmutableList.of(
                                                 new WhenClause(new SymbolReference("b"), TRUE_LITERAL),
-                                                new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(INTEGER, 1L)), FALSE_LITERAL)),
+                                                new WhenClause(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("b"), new Constant(INTEGER, 1L)), FALSE_LITERAL)),
                                         Optional.of(TRUE_LITERAL)),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
@@ -444,8 +450,8 @@ public class TestSimplifyFilterPredicate
                         new SimpleCaseExpression(
                                 new SymbolReference("a"),
                                 ImmutableList.of(
-                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(INTEGER, 1L)), TRUE_LITERAL),
-                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(INTEGER, 2L)), TRUE_LITERAL)),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("b"), new Constant(INTEGER, 1L)), TRUE_LITERAL),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("b"), new Constant(INTEGER, 2L)), TRUE_LITERAL)),
                                 Optional.of(TRUE_LITERAL)),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -459,8 +465,8 @@ public class TestSimplifyFilterPredicate
                         new SimpleCaseExpression(
                                 new SymbolReference("a"),
                                 ImmutableList.of(
-                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(INTEGER, 1L)), FALSE_LITERAL),
-                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(INTEGER, 2L)), new Constant(UnknownType.UNKNOWN, null))),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("b"), new Constant(INTEGER, 1L)), FALSE_LITERAL),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("b"), new Constant(INTEGER, 2L)), new Constant(UnknownType.UNKNOWN, null))),
                                 Optional.of(FALSE_LITERAL)),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -474,8 +480,8 @@ public class TestSimplifyFilterPredicate
                         new SimpleCaseExpression(
                                 new SymbolReference("a"),
                                 ImmutableList.of(
-                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(INTEGER, 1L)), FALSE_LITERAL),
-                                        new WhenClause(new ArithmeticBinaryExpression(ADD, new SymbolReference("b"), new Constant(INTEGER, 2L)), new Constant(UnknownType.UNKNOWN, null))),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("b"), new Constant(INTEGER, 1L)), FALSE_LITERAL),
+                                        new WhenClause(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("b"), new Constant(INTEGER, 2L)), new Constant(UnknownType.UNKNOWN, null))),
                                 Optional.empty()),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(

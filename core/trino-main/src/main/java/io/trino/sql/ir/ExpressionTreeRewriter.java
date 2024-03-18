@@ -129,7 +129,7 @@ public final class ExpressionTreeRewriter<C>
             Expression right = rewrite(node.getRight(), context.get());
 
             if (left != node.getLeft() || right != node.getRight()) {
-                return new ArithmeticBinaryExpression(node.getOperator(), left, right);
+                return new ArithmeticBinaryExpression(node.getFunction(), node.getOperator(), left, right);
             }
 
             return node;

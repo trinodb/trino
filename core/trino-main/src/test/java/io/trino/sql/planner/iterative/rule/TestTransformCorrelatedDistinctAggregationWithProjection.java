@@ -15,6 +15,9 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
@@ -44,6 +47,9 @@ import static io.trino.sql.planner.plan.JoinType.LEFT;
 public class TestTransformCorrelatedDistinctAggregationWithProjection
         extends BaseRuleTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+
     @Test
     public void doesNotFireOnUncorrelated()
     {
@@ -80,7 +86,7 @@ public class TestTransformCorrelatedDistinctAggregationWithProjection
                         JoinType.LEFT,
                         TRUE_LITERAL,
                         p.project(
-                                Assignments.of(p.symbol("x"), new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Constant(INTEGER, 100L))),
+                                Assignments.of(p.symbol("x"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a"), new Constant(INTEGER, 100L))),
                                 p.aggregation(innerBuilder -> innerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .source(p.filter(
@@ -89,7 +95,7 @@ public class TestTransformCorrelatedDistinctAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of(
                                         "corr", expression(new SymbolReference("corr")),
-                                        "x", expression(new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Constant(INTEGER, 100L)))),
+                                        "x", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a"), new Constant(INTEGER, 100L)))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "a"),
                                         ImmutableMap.of(),

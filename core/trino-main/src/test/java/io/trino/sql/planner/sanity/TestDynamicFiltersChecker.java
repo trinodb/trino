@@ -18,10 +18,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
@@ -60,6 +63,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestDynamicFiltersChecker
         extends BasePlanTest
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+
     private Metadata metadata;
     private PlanBuilder builder;
     private Symbol lineitemOrderKeySymbol;
@@ -221,7 +227,7 @@ public class TestDynamicFiltersChecker
                 builder.join(
                         INNER,
                         builder.filter(
-                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, new ArithmeticBinaryExpression(ADD, new SymbolReference("LINEITEM_OK"), new Constant(BIGINT, 1L))),
+                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("LINEITEM_OK"), new Constant(BIGINT, 1L))),
                                 lineitemTableScanNode),
                         ordersTableScanNode,
                         ImmutableList.of(new JoinNode.EquiJoinClause(lineitemOrderKeySymbol, ordersOrderKeySymbol)),

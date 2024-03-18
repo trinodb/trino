@@ -18,6 +18,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
@@ -103,7 +104,11 @@ public class ImplementExceptAll
             count = new FunctionCall(
                     greatest,
                     ImmutableList.of(
-                            new ArithmeticBinaryExpression(SUBTRACT, count, result.getCountSymbols().get(i).toSymbolReference()),
+                            new ArithmeticBinaryExpression(
+                                    metadata.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT)),
+                                    SUBTRACT,
+                                    count,
+                                    result.getCountSymbols().get(i).toSymbolReference()),
                             new Constant(BIGINT, 0L)));
         }
 
