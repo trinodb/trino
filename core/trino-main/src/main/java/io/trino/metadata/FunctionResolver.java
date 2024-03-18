@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.Session;
@@ -129,19 +130,32 @@ public class FunctionResolver
 
     private ResolvedFunction resolve(Session session, CatalogFunctionBinding functionBinding, AccessControl accessControl)
     {
-        FunctionDependencyDeclaration dependencies;
         if (isTrinoSqlLanguageFunction(functionBinding.functionBinding().getFunctionId())) {
-            dependencies = languageFunctionManager.getDependencies(session, functionBinding.functionBinding().getFunctionId(), accessControl);
-        }
-        else {
-            dependencies = metadata.getFunctionDependencies(
-                    session,
+            Set<ResolvedFunction> dependencies = languageFunctionManager.getDependencies(session, functionBinding.functionBinding().getFunctionId(), accessControl);
+
+            ResolvedFunction resolvedFunction = new ResolvedFunction(
+                    functionBinding.functionBinding().getBoundSignature(),
                     functionBinding.catalogHandle(),
                     functionBinding.functionBinding().getFunctionId(),
-                    functionBinding.functionBinding().getBoundSignature());
+                    functionBinding.functionMetadata().getKind(),
+                    functionBinding.functionMetadata().isDeterministic(),
+                    functionBinding.functionMetadata().getFunctionNullability(),
+                    ImmutableMap.of(),
+                    dependencies);
+
+            // For SQL language functions, register the resolved function with the function manager,
+            // allowing the resolved function to be used later to retrieve the implementation.
+            languageFunctionManager.registerResolvedFunction(session, resolvedFunction);
+            return resolvedFunction;
         }
 
-        ResolvedFunction resolvedFunction = resolveFunctionBinding(
+        FunctionDependencyDeclaration dependencies = metadata.getFunctionDependencies(
+                session,
+                functionBinding.catalogHandle(),
+                functionBinding.functionBinding().getFunctionId(),
+                functionBinding.functionBinding().getBoundSignature());
+
+        return resolveFunctionBinding(
                 metadata,
                 typeManager,
                 functionBinder,
@@ -151,14 +165,6 @@ public class FunctionResolver
                 dependencies,
                 catalogSchemaFunctionName -> metadata.getFunctions(session, catalogSchemaFunctionName),
                 catalogFunctionBinding -> resolve(session, catalogFunctionBinding, accessControl));
-
-        // For SQL language functions, register the resolved function with the function manager,
-        // allowing the resolved function to be used later to retrieve the implementation.
-        if (isTrinoSqlLanguageFunction(resolvedFunction.getFunctionId())) {
-            languageFunctionManager.registerResolvedFunction(session, resolvedFunction);
-        }
-
-        return resolvedFunction;
     }
 
     private CatalogFunctionBinding bindFunction(
