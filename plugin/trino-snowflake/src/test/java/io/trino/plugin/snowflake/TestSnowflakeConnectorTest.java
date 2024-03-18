@@ -66,10 +66,8 @@ public class TestSnowflakeConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_AGGREGATION_PUSHDOWN -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                     SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
                     SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
                     SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                     SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
@@ -79,7 +77,8 @@ public class TestSnowflakeConnectorTest
                     SUPPORTS_COMMENT_ON_TABLE,
                     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                     SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
-                    SUPPORTS_PREDICATE_PUSHDOWN,
+                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
+                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
                     SUPPORTS_ROW_TYPE,
                     SUPPORTS_SET_COLUMN_TYPE -> false;
             default -> super.hasBehavior(connectorBehavior);
@@ -203,20 +202,6 @@ public class TestSnowflakeConnectorTest
                 .hasMessageContaining("For query")
                 .hasMessageContaining("Actual rows")
                 .hasMessageContaining("Expected rows");
-    }
-
-    @Test
-    @Override
-    public void testCountDistinctWithStringTypes()
-    {
-        abort("TODO");
-    }
-
-    @Test
-    @Override
-    public void testDistinctAggregationPushdown()
-    {
-        abort("TODO");
     }
 
     @Override
