@@ -1,0 +1,528 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+  -->
+
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
+    <xsl:include href="templates/templates.xsl" />
+    <xsl:output method="text" encoding="utf-8" indent="no" />
+
+    <xsl:template match="Object">
+        <xsl:variable name="num_counters">
+            <xsl:value-of select="count(//Counter)" />
+        </xsl:variable>
+        <xsl:variable name="need_buffer">
+            <xsl:if test="attribute::need_buffer = 'true'">
+                <xsl:text>true</xsl:text>
+            </xsl:if>
+            <xsl:if test="attribute::need_buffer = 'false'">
+                <xsl:text>false</xsl:text>
+            </xsl:if>
+        </xsl:variable>
+        <xsl:variable name="id_method">
+            <xsl:call-template name="generateIdMethod" />
+        </xsl:variable>
+        <!-- output license -->
+        <xsl:call-template name="License" />
+        <!-- output package, class header  and imports -->
+        <xsl:text>package io.trino.plugin.warp.gen.stats;&#10;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import com.fasterxml.jackson.annotation.JsonCreator;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import com.fasterxml.jackson.annotation.JsonProperty;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import io.trino.plugin.varada.metrics.VaradaNativeStatsBase;&#10;</xsl:text>
+        <xsl:text>import java.nio.ByteBuffer;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import java.nio.LongBuffer;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import java.util.HashMap;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import java.util.Map;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import java.util.StringJoiner;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import org.weakref.jmx.Managed;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import io.trino.plugin.varada.metrics.VaradaStatsBase;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>public class </xsl:text>
+        <xsl:call-template name="GenerateMetricClassName">
+            <xsl:with-param name="fileName">
+                <xsl:value-of select="@Name" />
+            </xsl:with-param>
+        </xsl:call-template>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>        extends VaradaNativeStatsBase</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>{</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    /* This class file is auto-generated from </xsl:text><xsl:value-of select="@Name" />
+        <xsl:text> xml file for statistics and counters */</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <!-- output class members -->
+
+        <xsl:call-template name="AddKeyFields" />
+        <xsl:call-template name="addPersistentFields" />
+        <xsl:call-template name="AddDeserializePersistFields" />
+        <!-- output JSON creator CTOR -->
+        <xsl:text>    @JsonCreator</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    public </xsl:text>
+        <xsl:call-template name="GenerateMetricClassName">
+            <xsl:with-param name="fileName">
+                <xsl:value-of select="@Name" />
+            </xsl:with-param>
+        </xsl:call-template>
+        <xsl:text>(</xsl:text>
+        <xsl:for-each select="Key">
+            <xsl:text>@JsonProperty("</xsl:text>
+            <xsl:value-of select="@Name" />
+            <xsl:text>") </xsl:text>
+            <xsl:call-template name="declareParam">
+                <!--<xsl:call-template name="appendMethodParam">-->
+                <xsl:with-param name="type">
+                    <xsl:value-of select="@Type" />
+                </xsl:with-param>
+                <xsl:with-param name="paramName">
+                    <xsl:value-of select="@Name" />
+                </xsl:with-param>
+            </xsl:call-template>
+            <xsl:text>, </xsl:text>
+        </xsl:for-each>
+        <xsl:for-each select="Counter">
+            <xsl:call-template name="AddPersistParams" />
+        </xsl:for-each>
+        <xsl:text>)&#10;    {&#10;</xsl:text>
+        <xsl:text>        super(</xsl:text><xsl:value-of select="$need_buffer" /><xsl:text>, new StringJoiner(".")</xsl:text>
+        <xsl:for-each select="Key">
+            <xsl:call-template name="appendJoinedParam">
+                <xsl:with-param name="type">
+                    <xsl:value-of select="@Type" />
+                </xsl:with-param>
+                <xsl:with-param name="paramName">
+                    <xsl:value-of select="@Name" />
+                </xsl:with-param>
+            </xsl:call-template>
+        </xsl:for-each>
+        <xsl:text>.toString());</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:for-each select="Key">
+            <xsl:text>        this.</xsl:text>
+            <xsl:value-of select="@Name" />
+            <xsl:text> = </xsl:text>
+            <xsl:value-of select="@Name" />
+            <xsl:text>;</xsl:text>
+            <xsl:call-template name="NewLine" />
+        </xsl:for-each>
+        <xsl:call-template name="AddPersistSetterParams" />
+        <xsl:text>    }</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+
+        <!-- output CTOR -->
+        <xsl:text>    public </xsl:text>
+        <xsl:call-template name="GenerateMetricClassName">
+            <xsl:with-param name="fileName">
+                <xsl:value-of select="@Name" />
+            </xsl:with-param>
+        </xsl:call-template>
+        <xsl:text>(LongBuffer buffer, </xsl:text>
+        <xsl:for-each select="Key">
+            <xsl:call-template name="appendMethodParam">
+                <xsl:with-param name="type">
+                    <xsl:value-of select="@Type" />
+                </xsl:with-param>
+                <xsl:with-param name="paramName">
+                    <xsl:value-of select="@Name" />
+                </xsl:with-param>
+                <xsl:with-param name="pos">
+                    <xsl:value-of select="position()" />
+                </xsl:with-param>
+            </xsl:call-template>
+        </xsl:for-each>
+        <xsl:text>)&#10;    {&#10;</xsl:text>
+        <xsl:text>        super(</xsl:text><xsl:value-of select="$need_buffer" /><xsl:text>, new StringJoiner(".")</xsl:text>
+        <xsl:for-each select="Key">
+            <xsl:call-template name="appendJoinedParam">
+                <xsl:with-param name="type">
+                    <xsl:value-of select="@Type" />
+                </xsl:with-param>
+                <xsl:with-param name="paramName">
+                    <xsl:value-of select="@Name" />
+                </xsl:with-param>
+            </xsl:call-template>
+        </xsl:for-each>
+        <xsl:text>.toString());</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>        this.buffer = buffer;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:for-each select="Key">
+            <xsl:text>        this.</xsl:text>
+            <xsl:value-of select="@Name" />
+            <xsl:text> = </xsl:text>
+            <xsl:value-of select="@Name" />
+            <xsl:text>;</xsl:text>
+            <xsl:call-template name="NewLine" />
+        </xsl:for-each>
+        <xsl:text>    }&#10;</xsl:text>
+
+        <!-- output the managed getter methods -->
+
+        <xsl:call-template name="NewLine" />
+        <xsl:for-each select="Key">
+            <xsl:call-template name="OutputKeysManaged" />
+        </xsl:for-each>
+        <xsl:for-each select="Counter">
+            <xsl:call-template name="OutputCounterManaged">
+                <xsl:with-param name="Offset">
+                    <xsl:value-of select="0" />
+                </xsl:with-param>
+                <xsl:with-param name="num_counters">
+                    <xsl:value-of select="$num_counters" />
+                </xsl:with-param>
+                <xsl:with-param name="id_method">
+                    <xsl:value-of select="$id_method" />
+                </xsl:with-param>
+            </xsl:call-template>
+        </xsl:for-each>
+        <!-- output native initalizer -->
+        <xsl:text>    static native ByteBuffer initNative(long limit);</xsl:text>
+        <xsl:call-template name="NewLine" />
+
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="createResetMethod">
+            <xsl:with-param name="num_counters">
+                <xsl:value-of select="$num_counters" />
+            </xsl:with-param>
+            <xsl:with-param name="id_method">
+                <xsl:value-of select="$id_method" />
+            </xsl:with-param>
+        </xsl:call-template>
+
+        <xsl:call-template name="createMergeMethod">
+            <xsl:with-param name="num_counters">
+                <xsl:value-of select="$num_counters" />
+            </xsl:with-param>
+            <xsl:with-param name="id_method">
+                <xsl:value-of select="$id_method" />
+            </xsl:with-param>
+        </xsl:call-template>
+        <!--    <xsl:call-template name="createMergeStatsMethod">
+                <xsl:with-param name="suffix"><xsl:text>_json</xsl:text></xsl:with-param>
+            </xsl:call-template> -->
+
+        <xsl:call-template name="createHasPersistentMethod" />
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="createGetDeserializeParam" />
+        <xsl:call-template name="createMergeWithBufferMethod" />
+        <xsl:call-template name="statsLoggerMapperMethod" />
+        <xsl:call-template name="createNumOfMetricsMethod">
+            <xsl:with-param name="num_counters">
+                <xsl:value-of select="$num_counters" />
+            </xsl:with-param>
+        </xsl:call-template>
+        <!-- end -->
+        <xsl:text>}</xsl:text>
+        <xsl:call-template name="NewLine" />
+    </xsl:template>
+
+    <xsl:template name="addPersistentFields">
+        <xsl:for-each select="Counter">
+            <xsl:if test="attribute::persistent = 'true'">
+                <xsl:text>    @JsonProperty</xsl:text>
+                <xsl:call-template name="NewLine" />
+                <xsl:text>    private long </xsl:text><xsl:value-of select="@Name" />
+                <xsl:text>;</xsl:text>
+                <xsl:call-template name="NewLine" />
+            </xsl:if>
+        </xsl:for-each>
+        <xsl:call-template name="NewLine" />
+    </xsl:template>
+
+    <xsl:template name="createMergeMethod">
+        <xsl:param name="num_counters" />
+        <xsl:param name="id_method" />
+
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    @Override</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    public void merge(VaradaStatsBase varadaStatsBase)</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    {</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>       if (varadaStatsBase == null) {</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>           return;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>       }</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+        <xsl:text>       if (!needBuffer()) {</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>           mergeWithBuffer(varadaStatsBase);</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>           return;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>       }</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>       if (buffer == null) {</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>           this.buffer = VaradaStatsNativeInstanceFactory.getBuffer(this.getClass());</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>       }</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+        <xsl:text>       </xsl:text>
+        <xsl:call-template name="GenerateMetricClassName">
+            <xsl:with-param name="fileName">
+                <xsl:value-of select="@Name" />
+            </xsl:with-param>
+        </xsl:call-template>
+        <xsl:text> other = (</xsl:text>
+        <xsl:call-template name="GenerateMetricClassName">
+            <xsl:with-param name="fileName">
+                <xsl:value-of select="@Name" />
+            </xsl:with-param>
+        </xsl:call-template>
+        <xsl:text>) varadaStatsBase;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:for-each select="Counter">
+            <xsl:if test="attribute::persistent = 'true'">
+                <xsl:text>       buffer.put(</xsl:text>
+                <xsl:value-of select="$id_method" />
+                <xsl:if test="$num_counters > 1">
+                    <xsl:text> * </xsl:text>
+                    <xsl:value-of select="$num_counters" />
+                    <xsl:text> + </xsl:text>
+                    <xsl:value-of select="position() - 1" />
+                </xsl:if>
+                <xsl:text>, get</xsl:text>
+                <xsl:value-of select="@Name" />
+                <xsl:text>() + </xsl:text>
+                <xsl:text>other.get</xsl:text>
+                <xsl:value-of select="@Name" /><xsl:text>_json());</xsl:text>
+                <xsl:call-template name="NewLine" />
+            </xsl:if>
+        </xsl:for-each>
+        <xsl:text>    }</xsl:text>
+        <xsl:call-template name="NewLine" />
+    </xsl:template>
+    <xsl:template name="OutputCounterManaged">
+        <xsl:param name="Offset" />
+        <xsl:param name="num_counters" />
+        <xsl:param name="id_method" />
+        <xsl:choose>
+            <xsl:when test="@Type='long'">
+                <xsl:if test="attribute::persistent = 'true'">
+                    <xsl:text>    @JsonProperty</xsl:text>
+                    <xsl:call-template name="NewLine" />
+                </xsl:if>
+                <xsl:text>    @Managed</xsl:text>
+                <xsl:call-template name="NewLine" />
+                <xsl:text>    public </xsl:text>
+                <xsl:value-of select="@Type" /><xsl:text> get</xsl:text><xsl:value-of select="@Name" />
+                <xsl:text>()&#10;    {&#10; </xsl:text>
+                <xsl:if test="attribute::persistent = 'true'">
+                    <xsl:text>       if (buffer == null) {</xsl:text>
+                    <xsl:call-template name="NewLine" />
+                    <xsl:text>            return get</xsl:text>
+                    <xsl:value-of select="@Name" /><xsl:text>_json();</xsl:text>
+                    <xsl:call-template name="NewLine" />
+                    <xsl:text>        }</xsl:text>
+                    <xsl:call-template name="NewLine" />
+                </xsl:if>
+                <xsl:if test="not (@persistent) or attribute::persistent = 'false'">
+                    <xsl:text>        if(buffer == null){</xsl:text>
+                    <xsl:call-template name="NewLine" />
+                    <xsl:text>          return 0;</xsl:text>
+                    <xsl:call-template name="NewLine" />
+                    <xsl:text>         }</xsl:text>
+                    <xsl:call-template name="NewLine" />
+                </xsl:if>
+                <xsl:text>        return </xsl:text>
+                <xsl:text>buffer.get(</xsl:text>
+                <xsl:value-of select="$id_method" />
+                <xsl:if test="$num_counters > 1">
+                    <xsl:text> * </xsl:text>
+                    <xsl:value-of select="$num_counters" />
+                    <xsl:text> + </xsl:text>
+                    <xsl:value-of select="$Offset + position() - 1" />
+                </xsl:if>
+                <xsl:text>);&#10;    }&#10;&#10;</xsl:text>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:message terminate="yes">
+                    <xsl:text>ERROR wrong Type </xsl:text><xsl:value-of select="@Type" /><xsl:text> in Counter </xsl:text>
+                    <xsl:value-of select="@Name" /><xsl:text>&#13;&#10;</xsl:text>
+                </xsl:message>
+            </xsl:otherwise>
+        </xsl:choose>
+    </xsl:template>
+    <xsl:template name="createResetMethod">
+        <xsl:param name="num_counters" />
+        <xsl:param name="id_method" />
+
+        <xsl:text>    @Override</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    public void reset()</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    {</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>        if (buffer != null) {</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:for-each select="Counter">
+            <xsl:call-template name="reset">
+                <xsl:with-param name="Offset">
+                    <xsl:value-of select="0" />
+                </xsl:with-param>
+                <xsl:with-param name="num_counters">
+                    <xsl:value-of select="$num_counters" />
+                </xsl:with-param>
+                <xsl:with-param name="id_method">
+                    <xsl:value-of select="$id_method" />
+                </xsl:with-param>
+            </xsl:call-template>
+        </xsl:for-each>
+        <xsl:text>        }</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>        else {</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:for-each select="Counter">
+            <xsl:if test="attribute::persistent = 'true'">
+                <xsl:text>            </xsl:text>
+                <xsl:value-of select="@Name" /><xsl:text>_json = 0;</xsl:text>
+                <xsl:call-template name="NewLine" />
+            </xsl:if>
+        </xsl:for-each>
+        <xsl:text>        }</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    }</xsl:text>
+    </xsl:template>
+    <xsl:template name="reset">
+        <xsl:param name="Offset" />
+        <xsl:param name="num_counters" />
+        <xsl:param name="id_method" />
+        <xsl:choose>
+            <xsl:when test="@Type='long'">
+                <xsl:text>            buffer.put(</xsl:text>
+                <xsl:value-of select="$id_method" />
+                <xsl:if test="$num_counters > 1">
+                    <xsl:text> * </xsl:text>
+                    <xsl:value-of select="$num_counters" />
+                    <xsl:text> + </xsl:text>
+                    <xsl:value-of select="$Offset + position() - 1" />
+                </xsl:if>
+                <xsl:text>, 0);</xsl:text>
+                <xsl:call-template name="NewLine" />
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:message terminate="yes">
+                    <xsl:text>ERROR wrong Type </xsl:text><xsl:value-of select="@Type" /><xsl:text> in Counter </xsl:text>
+                    <xsl:value-of select="@Name" /><xsl:text>&#13;&#10;</xsl:text>
+                </xsl:message>
+            </xsl:otherwise>
+        </xsl:choose>
+    </xsl:template>
+    <xsl:template name="generateIdMethod">
+        <xsl:for-each select="Key">
+            <xsl:if test="@Id">
+                <xsl:text>get</xsl:text>
+                <xsl:call-template name="Capitalize">
+                    <xsl:with-param name="s">
+                        <xsl:value-of select="substring(@Name, 1, 1)" />
+                    </xsl:with-param>
+                </xsl:call-template>
+                <xsl:value-of select="substring(@Name, 2)" />
+                <xsl:text>()</xsl:text>
+            </xsl:if>
+        </xsl:for-each>
+    </xsl:template>
+    <xsl:template name="AddPersistParams">
+        <xsl:text>@JsonProperty("</xsl:text><xsl:value-of select="@Name" /><xsl:text>") </xsl:text>
+        <xsl:value-of select="@Type" /><xsl:text> </xsl:text>
+        <xsl:value-of select="@Name" />
+        <xsl:if test="position() != count(//Counter)">,</xsl:if>
+    </xsl:template>
+    <xsl:template name="AddDeserializePersistFields">
+        <xsl:for-each select="Counter">
+            <xsl:text>    private long </xsl:text>
+            <xsl:value-of select="@Name" /><xsl:text>_json;</xsl:text>
+            <xsl:call-template name="NewLine" />
+        </xsl:for-each>
+    </xsl:template>
+    <xsl:template name="AddPersistSetterParams">
+        <xsl:for-each select="Counter">
+            <xsl:if test="attribute::persistent = 'true'">
+                <xsl:text>        this.</xsl:text><xsl:value-of select="@Name" /><xsl:text>_json </xsl:text>
+                <xsl:text>= </xsl:text><xsl:value-of select="@Name" /><xsl:text>;</xsl:text>
+                <xsl:call-template name="NewLine" />
+            </xsl:if>
+        </xsl:for-each>
+    </xsl:template>
+    <xsl:template name="createGetDeserializeParam">
+        <xsl:for-each select="Counter">
+            <xsl:text>    public long get</xsl:text>
+            <xsl:value-of select="@Name" /><xsl:text>_json()</xsl:text>
+            <xsl:call-template name="NewLine" />
+            <xsl:text>    {</xsl:text>
+            <xsl:call-template name="NewLine" />
+            <xsl:text>          return </xsl:text><xsl:value-of select="@Name" /><xsl:text>_json;</xsl:text>
+            <xsl:call-template name="NewLine" />
+            <xsl:text>    }</xsl:text>
+            <xsl:call-template name="NewLine" />
+            <xsl:call-template name="NewLine" />
+        </xsl:for-each>
+    </xsl:template>
+    <xsl:template name="createMergeWithBufferMethod">
+        <xsl:text>    @Override</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    public void mergeWithBuffer(VaradaStatsBase varadaStatsBase)</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    {</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>       if (varadaStatsBase == null) {</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>           return;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>       }</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>        </xsl:text>
+        <xsl:call-template name="GenerateMetricClassName">
+            <xsl:with-param name="fileName">
+                <xsl:value-of select="@Name" />
+            </xsl:with-param>
+        </xsl:call-template>
+        <xsl:text> other = (</xsl:text>
+        <xsl:call-template name="GenerateMetricClassName">
+            <xsl:with-param name="fileName">
+                <xsl:value-of select="@Name" />
+            </xsl:with-param>
+        </xsl:call-template>
+        <xsl:text>) varadaStatsBase;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:for-each select="Counter">
+            <xsl:text>        </xsl:text><xsl:value-of select="@Name" /><xsl:text>_json = </xsl:text>
+            <xsl:text>get</xsl:text><xsl:value-of select="@Name" /><xsl:text>_json()</xsl:text>
+            <xsl:text> + </xsl:text>
+            <xsl:text>other.get</xsl:text><xsl:value-of select="@Name" /><xsl:text>();</xsl:text>
+            <xsl:call-template name="NewLine" />
+        </xsl:for-each>
+        <xsl:text>    }</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+    </xsl:template>
+</xsl:stylesheet>
+

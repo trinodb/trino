@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+  -->
+
+<Object Name="fastwarming">
+    <Counter Name="import_stats_num_bufs_histogram_1" Type="long" />
+    <Counter Name="import_stats_num_bufs_histogram_2" Type="long" />
+    <Counter Name="import_stats_num_bufs_histogram_3" Type="long" />
+    <Counter Name="import_stats_num_bufs_histogram_4plus" Type="long" />
+    <Counter Name="import_stats_no_space_chunk_repo" Type="long" />
+    <Counter Name="import_stats_no_space_chunk_header" Type="long" />
+    <Counter Name="import_stats_no_space_chunk" Type="long" />
+    <Counter Name="export_stats_num_bufs_histogram_1" Type="long" />
+    <Counter Name="export_stats_num_bufs_histogram_2" Type="long" />
+    <Counter Name="export_stats_num_bufs_histogram_3" Type="long" />
+    <Counter Name="export_stats_num_bufs_histogram_4plus" Type="long" />
+    <Counter Name="export_error_no_space_chunk_repo" Type="long" />
+    <Counter Name="export_error_no_space_chunk_header" Type="long" />
+    <Counter Name="export_error_no_space_chunk" Type="long" />
+</Object>

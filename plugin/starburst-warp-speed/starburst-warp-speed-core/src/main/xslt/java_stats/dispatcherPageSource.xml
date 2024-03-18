@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+  -->
+
+<Object Name="dispatcherPageSource" VaradaStatType="Worker">
+    <Key Name="group" Type="String" Param="true" />
+    <Counter Name="cold_varada_success_files" Type="long" Print="delta" />
+    <Counter Name="cold_varada_failed_files" Type="long" Print="delta" />
+    <Counter Name="cached_files" Type="long" Print="delta" />
+    <Counter Name="df_splits" Type="long" Print="delta" />
+    <Counter Name="cached_varada_success_files" Type="long" Print="delta" />
+    <Counter Name="cached_varada_failed_files" Type="long" Print="delta" />
+    <Counter Name="cached_varada_failed_pages" Type="long" Print="delta" />
+    <Counter Name="cached_proxied_files" Type="long" Print="delta" />
+    <Counter Name="cached_proxied_files_failure" Type="long" Print="delta" />
+    <Counter Name="cached_total_rows" Type="long" Print="delta" />
+    <Counter Name="cached_read_rows" Type="long" Print="delta" />
+    <Counter Name="varada_match_columns" Type="long" Print="delta" />
+    <Counter Name="varada_match_on_simplified_domain" Type="long" Print="delta" />
+    <Counter Name="varada_collect_columns" Type="long" Print="delta" />
+    <Counter Name="varada_match_collect_columns" Type="long" Print="delta" />
+    <Counter Name="varada_mapped_match_collect_columns" Type="long" Print="delta" />
+    <Counter Name="prefilled_collect_columns" Type="long" Print="delta" />
+    <Counter Name="empty_collect_columns" Type="long" Print="delta" />
+    <Counter Name="external_match_columns" Type="long" Print="delta" />
+    <Counter Name="external_collect_columns" Type="long" Print="delta" />
+    <Counter Name="prefilled_collect_bytes" Type="long" Print="delta" />
+    <Counter Name="filtered_by_predicate" Type="long" Print="delta" />
+    <Counter Name="non_trivial_alternative_chosen" Type="long" Print="delta" />
+    <Counter Name="empty_row_group" Type="long" Print="delta" />
+    <Counter Name="transformed_column" Type="long" Print="delta" />
+    <Counter Name="empty_page_source" Type="long" Print="delta" />
+    <Counter Name="locked_row_group" Type="long" Print="delta" />
+    <Counter Name="warp_cache_manager" Type="long" Print="delta" />
+    <Counter Name="skip_warp_cache_manager" Type="long" Print="delta" />
+    <Counter Name="proxied_pages" Type="long"/>
+    <Counter Name="proxied_time" Type="long"/>
+    <Counter Name="proxied_loaded_pages" Type="long"/>
+    <Counter Name="proxied_loaded_pages_time" Type="long"/>
+    <Counter Name="proxied_loaded_pages_bytes" Type="long"/>
+    <Average Name="lucene_execution_time" Type="long" />
+    <Average Name="execution_time" Type="long" />
+</Object>

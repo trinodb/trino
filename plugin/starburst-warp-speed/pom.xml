@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
+        <version>444-cork-1-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>starburst-warp-speed</artifactId>
+    <packaging>pom</packaging>
+    <description>Starburst Enterprise - Warp Speed</description>
+
+    <modules>
+        <module>starburst-warp-speed-core</module>
+        <module>starburst-warp-speed-extensions</module>
+        <module>starburst-warp-speed-plugin</module>
+    </modules>
+
+    <properties>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <!-- enable-preview is needed since warp-speed is using memory segments https://openjdk.org/jeps/442 -->
+        <air.compiler.enable-preview>true</air.compiler.enable-preview>
+        <dep.lucene.version>9.10.0</dep.lucene.version>
+        <dep.warp-speed-native.version>5</dep.warp-speed-native.version>
+        <jvm.enable-preview>--enable-preview</jvm.enable-preview>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>aopalliance</groupId>
+                <artifactId>aopalliance</artifactId>
+                <version>1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>net.jodah</groupId>
+                <artifactId>failsafe</artifactId>
+                <version>2.2.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-collections4</artifactId>
+                <version>4.4</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.lucene</groupId>
+                <artifactId>lucene-analysis-common</artifactId>
+                <version>${dep.lucene.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.lucene</groupId>
+                <artifactId>lucene-core</artifactId>
+                <version>${dep.lucene.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-core</artifactId>
+                <version>5.2.0</version>
+            </dependency>
+            <dependency>
+                <groupId>org.opentest4j</groupId>
+                <artifactId>opentest4j</artifactId>
+                <version>1.2.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>1.1.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>build-helper-maven-plugin</artifactId>
+                    <version>3.0.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <compilerArgs combine.self="append">
+                            <!-- workaround for https://youtrack.jetbrains.com/issue/IDEA-296303/Support-for-Maven-Compiler-Plugin-enablePreview-parameter -->
+                            <arg>${jvm.enable-preview}</arg>
+                        </compilerArgs>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <configuration>
+                        <!-- TODO should be handled by airbase when air.compiler.enable-preview=true (e.g. https://github.com/airlift/airbase/pull/404) -->
+                        <additionalOptions>${jvm.enable-preview}</additionalOptions>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+    <profiles>
+        <!-- delete or update this profile according to used jdk support       -->
+        <profile>
+            <id>java22</id>
+            <activation>
+                <jdk>[22,)</jdk>
+            </activation>
+            <properties>
+                <air.compiler.enable-preview>false</air.compiler.enable-preview>
+                <project.build.sourceJdk>22</project.build.sourceJdk>
+                <project.build.targetJdk>22</project.build.targetJdk>
+                <jvm.enable-preview />
+            </properties>
+        </profile>
+    </profiles>
+</project>

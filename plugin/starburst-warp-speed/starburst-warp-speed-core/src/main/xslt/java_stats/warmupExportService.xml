@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+  -->
+
+<Object Name="warmupExportService" VaradaStatType="Worker">
+    <Key Name="group" Type="String" Param="true" />
+    <Counter Name="empty_column_list" Type="long" Print="delta" />
+    <Counter Name="export_row_group_scheduled" Type="long" Print="delta" />
+    <Counter Name="export_row_group_started" Type="long" Print="delta" />
+    <Counter Name="export_row_group_finished" Type="long" Print="delta" />
+    <Counter Name="export_row_group_accomplished" Type="long" Print="delta" />
+    <Counter Name="export_row_group_failed" Type="long" Print="delta" />
+    <Counter Name="export_row_group_1st_footer_validation" Type="long" Print="delta" />
+    <Counter Name="export_row_group_2nd_footer_validation" Type="long" Print="delta" />
+    <Counter Name="export_row_group_failed_due_local_sparse" Type="long" Print="delta" />
+    <Counter Name="export_skipped_due_demoter" Type="long" Print="delta" />
+    <Counter Name="export_skipped_due_row_group" Type="long" Print="delta" />
+    <Counter Name="export_skipped_due_key_conflict" Type="long" Print="delta" />
+    <Counter Name="export_skipped_due_key_demoted_row_group" Type="long" Print="delta" />
+    <Average Name="export_time" Type="long" />
+</Object>

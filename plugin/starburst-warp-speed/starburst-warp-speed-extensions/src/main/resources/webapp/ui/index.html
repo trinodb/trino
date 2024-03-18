@@ -1,0 +1,63 @@
+<!-- HTML for static distribution bundle build -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Swagger UI</title>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700|Source+Code+Pro:300,600|Titillium+Web:400,600,700" rel="stylesheet">
+    <link href="./swagger-ui.css" rel="stylesheet" type="text/css">
+    <link href="./favicon-32x32.png" rel="icon" sizes="32x32" type="image/png"/>
+    <link href="./favicon-16x16.png" rel="icon" sizes="16x16" type="image/png"/>
+    <style>
+      html
+      {
+        box-sizing: border-box;
+        overflow: -moz-scrollbars-vertical;
+        overflow-y: scroll;
+      }
+
+      *,
+      *:before,
+      *:after
+      {
+        box-sizing: inherit;
+      }
+
+      body
+      {
+        margin:0;
+        background: #fafafa;
+      }
+
+      .download-url-wrapper {
+        display: none !important;
+      }
+
+    </style>
+</head>
+
+<body>
+<div id="swagger-ui"></div>
+
+<script src="./swagger-ui-bundle.js"></script>
+<script src="./swagger-ui-standalone-preset.js"></script>
+<script>
+    window.onload = function() {
+
+      // Build a system
+      window.ui = SwaggerUIBundle({
+          url: "/openapi.json",
+          dom_id: '#swagger-ui',
+          deepLinking: true,
+          validatorUrl: null,
+          presets: [
+              SwaggerUIBundle.presets.apis,
+              SwaggerUIStandalonePreset
+          ],
+          layout: "StandaloneLayout"
+      });
+    }
+
+</script>
+</body>
+</html>

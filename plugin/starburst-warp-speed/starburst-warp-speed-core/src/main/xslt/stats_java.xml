@@ -1,0 +1,471 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+  -->
+
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
+    <xsl:include href="templates/templates.xsl" />
+    <xsl:output method="text" encoding="utf-8" indent="no" />
+
+    <xsl:template match="Object">
+        <xsl:call-template name="License" />
+
+        <xsl:variable name="num_counters">
+            <xsl:value-of select="count(//Counter)" />
+        </xsl:variable>
+        <!-- output package, class header  and imports -->
+        <xsl:text>package io.trino.plugin.warp.gen.stats;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import com.fasterxml.jackson.annotation.JsonAutoDetect;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import com.fasterxml.jackson.annotation.JsonCreator;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import com.fasterxml.jackson.annotation.JsonIgnore;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import com.fasterxml.jackson.annotation.JsonProperty;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import io.trino.plugin.varada.metrics.VaradaStatType;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import io.trino.plugin.varada.metrics.VaradaStatsBase;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import org.weakref.jmx.Managed;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import java.util.HashMap;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import java.util.Map;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import java.util.StringJoiner;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>import java.util.concurrent.atomic.LongAdder;</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+
+        <xsl:text>@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY, getterVisibility = JsonAutoDetect.Visibility.ANY, setterVisibility = JsonAutoDetect.Visibility.ANY)</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>@SuppressWarnings({"checkstyle:MemberName", "checkstyle:ParameterName"})</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>public final class </xsl:text>
+        <xsl:call-template name="GenerateMetricClassName">
+            <xsl:with-param name="fileName">
+                <xsl:value-of select="@Name" />
+            </xsl:with-param>
+        </xsl:call-template>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>        extends VaradaStatsBase</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>{</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    /* This class file is auto-generated from </xsl:text><xsl:value-of select="@Name" />
+        <xsl:text> xml file for statistics and counters */</xsl:text>
+        <xsl:call-template name="NewLine" />
+
+        <!-- output class members -->
+        <xsl:call-template name="AddKeyFields" />
+        <xsl:for-each select="Counter">
+            <xsl:text>    private final LongAdder </xsl:text>
+            <xsl:value-of select="@Name" />
+            <xsl:text> = new LongAdder();</xsl:text>
+            <xsl:call-template name="NewLine" />
+        </xsl:for-each>
+        <xsl:for-each select="Average">
+            <xsl:text>    private final LongAdder </xsl:text>
+            <xsl:value-of select="@Name" />
+            <xsl:text>_Count = new LongAdder();</xsl:text>
+            <xsl:call-template name="NewLine" />
+            <xsl:text>    private final LongAdder </xsl:text>
+            <xsl:value-of select="@Name" />
+            <xsl:text> = new LongAdder();</xsl:text>
+            <xsl:call-template name="NewLine" />
+        </xsl:for-each>
+
+        <!-- output CTOR -->
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    @JsonCreator</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    public </xsl:text>
+        <xsl:call-template name="GenerateMetricClassName">
+            <xsl:with-param name="fileName">
+                <xsl:value-of select="@Name" />
+            </xsl:with-param>
+        </xsl:call-template>
+        <xsl:text>(</xsl:text>
+        <xsl:for-each select="Key">
+            <xsl:text>@JsonProperty("</xsl:text>
+            <xsl:value-of select="@Name" />
+            <xsl:text>") </xsl:text>
+            <xsl:call-template name="declareParam">
+                <!--<xsl:call-template name="appendMethodParam">-->
+                <xsl:with-param name="type">
+                    <xsl:value-of select="@Type" />
+                </xsl:with-param>
+                <xsl:with-param name="paramName">
+                    <xsl:value-of select="@Name" />
+                </xsl:with-param>
+            </xsl:call-template>
+            <xsl:if test="position() != count(//Key)">, </xsl:if>
+        </xsl:for-each>
+        <xsl:text>)&#10;    {&#10;</xsl:text>
+        <xsl:text>        super(createKey(</xsl:text>
+        <xsl:for-each select="child::Key">
+            <xsl:if test="@Param = 'true'">
+                <xsl:call-template name="appendMethodCallParam">
+                    <xsl:with-param name="paramName">
+                        <xsl:value-of select="@Name" />
+                    </xsl:with-param>
+                    <xsl:with-param name="pos">
+                        <xsl:value-of select="position()" />
+                    </xsl:with-param>
+                </xsl:call-template>
+            </xsl:if>
+        </xsl:for-each>
+        <xsl:text>), VaradaStatType.</xsl:text>
+        <xsl:value-of select="@VaradaStatType" />
+        <xsl:text>);</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+
+        <xsl:for-each select="Key">
+            <xsl:text>        this.</xsl:text>
+            <xsl:value-of select="@Name" />
+            <xsl:text> = </xsl:text>
+            <xsl:value-of select="@Name" />
+            <xsl:text>;</xsl:text>
+            <xsl:call-template name="NewLine" />
+        </xsl:for-each>
+
+        <xsl:text>    }&#10;</xsl:text>
+
+        <!-- output the managed getter methods -->
+        <xsl:call-template name="NewLine" />
+        <xsl:for-each select="Key">
+            <xsl:call-template name="OutputKeysManaged" />
+        </xsl:for-each>
+        <xsl:for-each select="Counter">
+            <xsl:call-template name="OutputCounterManaged" />
+            <xsl:call-template name="IncCounterMethod" />
+            <xsl:call-template name="AddCounterMethod" />
+            <xsl:call-template name="SetCounterMethod" />
+        </xsl:for-each>
+        <xsl:for-each select="Average">
+            <xsl:call-template name="OutputAverageCounterManaged" />
+            <xsl:call-template name="OutputCounterManaged" />
+            <xsl:call-template name="AddAverageCounterMethod" />
+        </xsl:for-each>
+
+        <xsl:call-template name="createFactoryMethod" />
+        <xsl:call-template name="createKeyFactoryMethod" />
+        <xsl:call-template name="createMergeMethod" />
+        <xsl:call-template name="getCountersMethod" />
+        <xsl:call-template name="createMergeStatsMethod">
+            <xsl:with-param name="suffix" />
+        </xsl:call-template>
+
+        <xsl:call-template name="createResetMethod" />
+        <xsl:call-template name="createHasPersistentMethod" />
+        <xsl:call-template name="statsCounterMapperMethod" />
+        <xsl:call-template name="statsLoggerMapperMethod" />
+        <xsl:call-template name="createNumOfMetricsMethod">
+            <xsl:with-param name="num_counters">
+                <xsl:value-of select="$num_counters" />
+            </xsl:with-param>
+        </xsl:call-template>
+
+        <!-- end -->
+        <xsl:text>}</xsl:text>
+        <xsl:call-template name="NewLine" />
+    </xsl:template>
+
+    <xsl:template name="OutputCounterManaged">
+        <xsl:choose>
+            <xsl:when test="@Type='long' or @Type='double'">
+                <xsl:choose>
+                    <xsl:when test="not (@persistent) or attribute::persistent = 'false'">
+                        <xsl:text>    @JsonIgnore</xsl:text>
+                        <xsl:call-template name="NewLine" />
+                    </xsl:when>
+                </xsl:choose>
+                <xsl:text>    @Managed&#10;    public </xsl:text>
+                <xsl:value-of select="@Type" />
+                <xsl:text> get</xsl:text><xsl:value-of select="@Name" />
+                <xsl:text>()&#10;    {&#10;        return </xsl:text>
+                <xsl:value-of select="@Name" /><xsl:text>.longValue();</xsl:text>
+                <xsl:call-template name="NewLine" />
+                <xsl:text>    }</xsl:text>
+                <xsl:call-template name="NewLine" />
+                <xsl:call-template name="NewLine" />
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:message terminate="yes">
+                    <xsl:text>ERROR wrong Type </xsl:text><xsl:value-of select="@Type" /><xsl:text> in Counter </xsl:text>
+                    <xsl:value-of select="@Name" /><xsl:text>&#13;&#10;</xsl:text>
+                </xsl:message>
+            </xsl:otherwise>
+        </xsl:choose>
+    </xsl:template>
+    <xsl:template name="OutputAverageCounterManaged">
+        <xsl:choose>
+            <xsl:when test="@Type='long' or @Type='double'">
+                <xsl:choose>
+                    <xsl:when test="not (@persistent) or attribute::persistent = 'false'">
+                        <xsl:text>    @JsonIgnore</xsl:text>
+                        <xsl:call-template name="NewLine" />
+                    </xsl:when>
+                </xsl:choose>
+                <xsl:text>    @Managed&#10;    public </xsl:text>
+                <xsl:value-of select="@Type" />
+                <xsl:text> get</xsl:text><xsl:value-of select="@Name" />
+                <xsl:text>_Count()&#10;    {&#10;        return </xsl:text>
+                <xsl:value-of select="@Name" /><xsl:text>_Count.longValue();</xsl:text>
+                <xsl:call-template name="NewLine" />
+                <xsl:text>    }</xsl:text>
+                <xsl:call-template name="NewLine" />
+                <xsl:call-template name="NewLine" />
+                <xsl:text>    @Managed&#10;    public </xsl:text>
+                <xsl:value-of select="@Type" />
+                <xsl:text> get</xsl:text><xsl:value-of select="@Name" />
+                <xsl:text>_Average()&#10;    {</xsl:text>
+                <xsl:call-template name="NewLine" />
+                <xsl:text>        </xsl:text>
+                <xsl:text>if (</xsl:text><xsl:value-of select="@Name" /><xsl:text>_Count.longValue() == 0) {</xsl:text>
+                <xsl:call-template name="NewLine" />
+                <xsl:text>            return 0;</xsl:text>
+                <xsl:call-template name="NewLine" />
+                <xsl:text>        }</xsl:text>
+                <xsl:call-template name="NewLine" />
+                <xsl:text>        return </xsl:text>
+                <xsl:value-of select="@Name" /><xsl:text>.longValue() / </xsl:text><xsl:value-of select="@Name" /><xsl:text>_Count.longValue();</xsl:text>
+                <xsl:call-template name="NewLine" />
+                <xsl:text>    }</xsl:text>
+                <xsl:call-template name="NewLine" />
+                <xsl:call-template name="NewLine" />
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:message terminate="yes">
+                    <xsl:text>ERROR wrong Type </xsl:text><xsl:value-of select="@Type" /><xsl:text> in Counter </xsl:text>
+                    <xsl:value-of select="@Name" /><xsl:text>&#13;&#10;</xsl:text>
+                </xsl:message>
+            </xsl:otherwise>
+        </xsl:choose>
+    </xsl:template>
+    <xsl:template name="IncCounterMethod">
+        <xsl:text>    public void inc</xsl:text>
+        <xsl:value-of select="@Name" />
+        <xsl:text>()&#10;    {&#10;        </xsl:text>
+        <xsl:value-of select="@Name" /><xsl:text>.increment();</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    }</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+    </xsl:template>
+    <xsl:template name="AddCounterMethod">
+        <xsl:text>    public void add</xsl:text>
+        <xsl:value-of select="@Name" />
+        <xsl:text>(long val)&#10;    {&#10;        </xsl:text>
+        <xsl:value-of select="@Name" /><xsl:text>.add(val);</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    }</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+    </xsl:template>
+    <xsl:template name="AddAverageCounterMethod">
+        <xsl:text>    public void add</xsl:text>
+        <xsl:value-of select="@Name" />
+        <xsl:text>(long val)&#10;    {&#10;        </xsl:text>
+        <xsl:value-of select="@Name" /><xsl:text>.add(val);</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>        </xsl:text><xsl:value-of select="@Name" /><xsl:text>_Count.add(1);</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    }</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+    </xsl:template>
+    <xsl:template name="SetCounterMethod">
+        <xsl:text>    public void set</xsl:text>
+        <xsl:value-of select="@Name" />
+        <xsl:text>(long val)&#10;    {&#10;        </xsl:text>
+        <xsl:value-of select="@Name" /><xsl:text>.reset();</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>        add</xsl:text><xsl:value-of select="@Name" /><xsl:text>(val);</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    }</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+    </xsl:template>
+
+    <xsl:template name="createFactoryMethod">
+        <xsl:text>    public static </xsl:text>
+        <xsl:call-template name="GenerateMetricClassName">
+            <xsl:with-param name="fileName">
+                <xsl:value-of select="@Name" />
+            </xsl:with-param>
+        </xsl:call-template>
+        <xsl:text> create(</xsl:text>
+        <xsl:for-each select="child::Key">
+            <xsl:call-template name="appendMethodParam">
+                <xsl:with-param name="type">
+                    <xsl:value-of select="@Type" />
+                </xsl:with-param>
+                <xsl:with-param name="paramName">
+                    <xsl:value-of select="@Name" />
+                </xsl:with-param>
+                <xsl:with-param name="pos">
+                    <xsl:value-of select="position()" />
+                </xsl:with-param>
+            </xsl:call-template>
+        </xsl:for-each>
+        <xsl:text>)</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    {</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>        return new </xsl:text>
+        <xsl:call-template name="GenerateMetricClassName">
+            <xsl:with-param name="fileName">
+                <xsl:value-of select="@Name" />
+            </xsl:with-param>
+        </xsl:call-template>
+        <xsl:text>(</xsl:text>
+        <xsl:for-each select="child::Key">
+            <xsl:call-template name="appendMethodCallParam">
+                <xsl:with-param name="paramName">
+                    <xsl:value-of select="@Name" />
+                </xsl:with-param>
+                <xsl:with-param name="pos">
+                    <xsl:value-of select="position()" />
+                </xsl:with-param>
+            </xsl:call-template>
+        </xsl:for-each>
+        <xsl:text>);</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    }</xsl:text>
+    </xsl:template>
+
+    <xsl:template name="createKeyFactoryMethod">
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    public static String createKey(</xsl:text>
+        <xsl:for-each select="child::Key">
+            <xsl:if test="@Param = 'true'">
+                <xsl:call-template name="appendMethodParam">
+                    <xsl:with-param name="type">
+                        <xsl:value-of select="@Type" />
+                    </xsl:with-param>
+                    <xsl:with-param name="paramName">
+                        <xsl:value-of select="@Name" />
+                    </xsl:with-param>
+                    <xsl:with-param name="pos">
+                        <xsl:value-of select="position()" />
+                    </xsl:with-param>
+                </xsl:call-template>
+            </xsl:if>
+        </xsl:for-each>
+        <xsl:text>)</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    {</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>        return new StringJoiner(".")</xsl:text>
+        <xsl:for-each select="Key">
+            <xsl:if test="@Param = 'true'">
+                <xsl:call-template name="appendJoinedParam">
+                    <xsl:with-param name="type">
+                        <xsl:value-of select="@Type" />
+                    </xsl:with-param>
+                    <xsl:with-param name="paramName">
+                        <xsl:value-of select="@Name" />
+                    </xsl:with-param>
+                </xsl:call-template>
+            </xsl:if>
+        </xsl:for-each>
+        <xsl:text>.toString();</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    }</xsl:text>
+    </xsl:template>
+    <xsl:template name="createMergeMethod">
+        <xsl:call-template name="NewLine" />
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    @Override</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    public void merge(VaradaStatsBase varadaStatsBase)</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    {</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:variable name="countItems" select="count(//Counter[@persistent='true'])"/>
+        <xsl:if test="$countItems > 0">
+            <xsl:text>        if (varadaStatsBase != null) {</xsl:text>
+            <xsl:call-template name="NewLine" />
+
+            <xsl:text>            </xsl:text>
+            <xsl:call-template name="GenerateMetricClassName">
+                <xsl:with-param name="fileName">
+                    <xsl:value-of select="@Name" />
+                </xsl:with-param>
+            </xsl:call-template>
+            <xsl:text> other = (</xsl:text>
+            <xsl:call-template name="GenerateMetricClassName">
+                <xsl:with-param name="fileName">
+                    <xsl:value-of select="@Name" />
+                </xsl:with-param>
+            </xsl:call-template>
+            <xsl:text>) varadaStatsBase;</xsl:text>
+            <xsl:call-template name="NewLine" />
+            <xsl:for-each select="Counter">
+                <xsl:if test="attribute::persistent = 'true'">
+                    <xsl:text>            add</xsl:text>
+                    <xsl:value-of select="@Name" />
+                    <xsl:text>(other.get</xsl:text>
+                    <xsl:value-of select="@Name" />
+                    <xsl:text>());</xsl:text>
+                    <xsl:call-template name="NewLine" />
+                </xsl:if>
+            </xsl:for-each>
+            <xsl:text>        }</xsl:text>
+            <xsl:call-template name="NewLine" />
+        </xsl:if>
+        <xsl:text>    }</xsl:text>
+        <xsl:call-template name="NewLine" />
+    </xsl:template>
+    <xsl:template name="createResetMethod">
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    @Override</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    public void reset()</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:text>    {</xsl:text>
+        <xsl:call-template name="NewLine" />
+        <xsl:for-each select="Counter">
+            <xsl:text>        </xsl:text>
+            <xsl:value-of select="@Name" /><xsl:text>.reset();</xsl:text>
+            <xsl:call-template name="NewLine" />
+        </xsl:for-each>
+        <xsl:for-each select="Average">
+            <xsl:text>        </xsl:text>
+            <xsl:value-of select="@Name" /><xsl:text>.reset();</xsl:text>
+            <xsl:call-template name="NewLine" />
+            <xsl:text>        </xsl:text>
+            <xsl:value-of select="@Name" /><xsl:text>_Count.reset();</xsl:text>
+            <xsl:call-template name="NewLine" />
+        </xsl:for-each>
+        <xsl:text>    }</xsl:text>
+        <xsl:call-template name="NewLine" />
+    </xsl:template>
+    <xsl:template name="appendMethodCallParam">
+        <xsl:param name="paramName" />
+        <xsl:param name="pos" />
+
+        <xsl:if test="$pos != 1">, </xsl:if>
+        <xsl:value-of select="$paramName" />
+    </xsl:template>
+
+</xsl:stylesheet>
+

@@ -332,6 +332,15 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/warp-speed">
+        <artifact id="${project.groupId}:starburst-warp-speed-plugin:zip:${project.version}">
+            <unpack />
+        </artifact>
+        <artifact id="${project.groupId}:trino-hdfs:zip:${project.version}">
+            <unpack useRoot="true" />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/teradata-functions">
         <artifact id="${project.groupId}:trino-teradata-functions:zip:${project.version}">
             <unpack />

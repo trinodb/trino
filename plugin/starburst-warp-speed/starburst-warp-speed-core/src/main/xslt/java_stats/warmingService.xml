@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+  -->
+
+<Object Name="warmingService" VaradaStatType="Coordinator">
+    <Key Name="group" Type="String" Param="true" />
+    <Counter Name="warming_disabled" Type="long" Print="delta" />
+    <Counter Name="empty_column_list" Type="long" />
+    <Counter Name="warm_scheduled" Type="long" />
+    <Counter Name="warm_started" Type="long" Print="delta" />
+    <Counter Name="warm_finished" Type="long" />
+    <Counter Name="warm_accomplished" Type="long" Print="delta" />
+    <Counter Name="warm_failed" Type="long" Print="delta" />
+    <Counter Name="warm_skipped_due_demoter" Type="long" Print="delta" />
+    <Counter Name="warm_skipped_due_loaders_exceeded" Type="long" Print="delta" />
+    <Counter Name="warm_skipped_due_reaching_threshold" Type="long" Print="delta" />
+    <Counter Name="warm_skipped_due_queue_size" Type="long" Print="delta" />
+    <Counter Name="warm_skipped_due_key_conflict" Type="long" Print="delta" />
+    <Counter Name="warm_skip_permanent_failed_warmup_element" Type="long" Print="delta" />
+    <Counter Name="warm_skip_temporary_failed_warmup_element" Type="long" Print="delta" />
+    <Counter Name="warm_begin_retry_warmup_element" Type="long" Print="delta" />
+    <Counter Name="warm_success_retry_warmup_element" Type="long" Print="delta" />
+    <Counter Name="all_elements_warmed_or_skipped" Type="long" />
+    <Counter Name="row_group_count" Type="long" Print="delta" />
+    <Counter Name="warm_warp_cache_started" Type="long" Print="delta" />
+    <Counter Name="warm_warp_cache_accomplished" Type="long" Print="delta" />
+    <Counter Name="warm_warp_cache_failed" Type="long" Print="delta" />
+    <Counter Name="warm_warp_cache_invalid_type" Type="long" Print="delta" />
+    <Counter Name="warmup_elements_count" Type="long" Print="delta" />
+    <Counter Name="empty_row_group" Type="long" Print="delta" />
+    <Counter Name="deleted_warmup_elements_count" Type="long" Print="delta" />
+    <Counter Name="deleted_row_group_count" Type="long" Print="delta" />
+    <Average Name="waiting_for_lock_nano" Type="long" />
+    <Average Name="execution_time_nano" Type="long" />
+    <Counter Name="failed_fetching_rules" Type="long" />
+</Object>

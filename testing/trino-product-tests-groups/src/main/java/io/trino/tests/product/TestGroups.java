@@ -65,6 +65,8 @@ public final class TestGroups
     public static final String POSTGRESQL = "postgresql";
     public static final String SQLSERVER = "sqlserver";
     public static final String STARBURST_SNOWFLAKE = "starburst_snowflake";
+    public static final String WARP_SPEED = "warp_speed";
+    public static final String WARP_SPEED_MINIO = "warp_speed_minio";
     public static final String SYNAPSE = "synapse";
     public static final String SAP_HANA = "sap-hana";
     public static final String LDAP = "ldap";

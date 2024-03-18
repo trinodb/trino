@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+  -->
+
+<error-codes>
+    <error-code name="ENV_EXCEPTION_UNRECOVERABLE" code="0" message="native storage engine unrecoverable error" unrecoverable="true" />
+    <error-code name="ENV_EXCEPTION_INITIALIZATION" code="1" message="native storage engine failed to initialize" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_WRITE_FLOW_ERROR" code="2" message="native storage engine: failure in data write flow" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_READ_FLOW_ERROR" code="3" message="native storage engine: failure in data read flow" unrecoverable="true" />
+    <error-code name="ENV_EXCEPTION_UNKNOWN_TYPE" code="4" message="native storage engine: unknown type in switch" unrecoverable="true" />
+    <error-code name="ENV_EXCEPTION_ALLOC_FAILED" code="5" message="native storage engine: failed to allocate memory" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_ILLEGAL_PARAMS" code="6" message="native storage engine: illegal parameters passed to method" unrecoverable="true" />
+    <error-code name="ENV_EXCEPTION_ILLEGAL_STATE" code="7" message="native storage engine: illegal state reached" unrecoverable="true" />
+    <error-code name="ENV_EXCEPTION_HA_ERROR" code="8" message="native storage engine: max submissions reached error" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_CACHE_ERROR" code="9" message="native storage engine: cache error" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_IO_ERROR" code="10" message="native storage engine: error in io path" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_STORAGE_CFG_ERROR" code="11" message="native storage engine: error in storage layer config" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_NO_RESOURCES" code="12" message="native storage engine: lack of resources" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_STORAGE_ERROR" code="13" message="native storage engine: aborted tx called allocate or free storage page" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_LUCENE_ERROR" code="14" message="native storage engine: lucene match error" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_INLINE_ERROR" code="15" message="native storage engine: inline error" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_BLOOM_ERROR" code="16" message="native storage engine: bloom error" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_STORAGE_TEMPORARY_ERROR" code="17" message="native storage engine: temporary error in storage layer" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_STORAGE_PERMANENT_ERROR" code="18" message="native storage engine: permanent error in storage layer" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_STORAGE_TIMEOUT_ERROR" code="19" message="native storage engine: timeout in storage layer" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_STORAGE_READ_OUT_OF_BOUNDS" code="20" message="native storage engine: read out of bounds" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_ALWAYS_THROW" code="100" message="native storage engine: always throw min code, should not be used directly" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_OUT_OF_SPACE" code="101" message="native storage engine: out of disk space" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_LUCENE_FILE_TOO_BIG" code="102" message="native storage engine: lucene file is too big" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_WARM_FILE_TOO_MANY_ROWS" code="103" message="native storage engine: warm file has too many rows" unrecoverable="false" />
+    <error-code name="ENV_EXCEPTION_FAILED_TO_INIT_LIBAIO" code="104" message="native storage engine: aio_max_nr was not set properly" unrecoverable="true" />
+    <error-code name="ENV_EXCEPTION_DISK_ACCESS_PERMISSONS" code="105" message="native storage engine: failed in file system operation (open/close/etc) probably due to disk access permissions" unrecoverable="true" />
+</error-codes>
+

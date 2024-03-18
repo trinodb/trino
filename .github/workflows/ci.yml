@@ -160,6 +160,8 @@ jobs:
           secret-id: ${{ vars.SEP_SECRETS_AWS_ID }}
       - uses: ./.github/actions/setup
         with:
+          # Warp build with Java 22 cannot be run with Java 21
+          java-version: 21
           cache: 'restore'
           cleanup-node: 'true'
       - name: "Login to ECR pull-through cache"
@@ -581,6 +583,9 @@ jobs:
             !:trino-mysql,
             !:trino-opensearch,
             !:trino-oracle,
+            !:starburst-warp-speed-core,
+            !:starburst-warp-speed-extensions,
+            !:starburst-warp-speed-plugin,
             !:trino-orc,
             !:trino-parquet,
             !:trino-phoenix5,
@@ -661,6 +666,10 @@ jobs:
                 - lib/trino-filesystem-manager
                 - lib/trino-filesystem-s3
                 - lib/trino-hdfs
+            - modules:
+                - plugin/starburst-warp-speed/starburst-warp-speed-core
+                - plugin/starburst-warp-speed/starburst-warp-speed-extensions
+                - plugin/starburst-warp-speed/starburst-warp-speed-plugin
             - { modules: core/trino-main }
             - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
             - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
@@ -1253,6 +1262,10 @@ jobs:
             # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
             - config: apache-hive3
               suite: suite-hms-only
+            - config: default
+              suite: suite-warp-speed
+              runners: [ self-hosted, sep-cicd, gha-fleet-large ]
+
           EOF
       - name: Build PT matrix (all)
         if: |
@@ -1312,7 +1325,7 @@ jobs:
           echo "matrix=$(cat matrix.json)" >> $GITHUB_OUTPUT
 
   pt:
-    runs-on: [self-hosted, sep-cicd, gha-fleet-small]
+    runs-on: ${{ matrix.runners != null && matrix.runners || fromJSON('["self-hosted",  "sep-cicd", "gha-fleet-small" ]') }}
     # explicitly define the name to avoid adding the value of the `ignore exclusion if` matrix item
     name: pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
     if: needs.build-pt.outputs.matrix != '{}'
@@ -1360,6 +1373,8 @@ jobs:
           ABFS_CONTAINER: ${{ vars.AZURE_ABFS_HIERARCHICAL_CONTAINER }}
           ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_HIERARCHICAL_ACCOUNT }}
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           TRINO_AWS_ACCESS_KEY_ID: ${{ vars.GALAXY_TRINO_DATABRICKS_AWS_ACCESS_KEY_ID }}

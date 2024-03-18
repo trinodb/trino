@@ -70,6 +70,7 @@
         <module>plugin/starburst-sqlserver</module>
         <module>plugin/starburst-stargate</module>
         <module>plugin/starburst-synapse</module>
+        <module>plugin/starburst-warp-speed</module>
         <module>plugin/trino-accumulo</module>
         <module>plugin/trino-accumulo-iterators</module>
         <module>plugin/trino-atop</module>

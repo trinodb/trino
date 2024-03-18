@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+  -->
+
+<Object Name="warmupDemoter" VaradaStatType="Worker">
+    <Key Name="group" Type="String" Param="true" />
+    <Counter Name="number_of_runs" Type="long" Print="delta" />
+    <Counter Name="number_of_runs_fail" Type="long" Print="delta" />
+    <Counter Name="number_of_calls" Type="long" Print="delta" />
+    <Counter Name="not_executed_due_threshold" Type="long" Print="delta" />
+    <Counter Name="not_executed_due_is_already_executing" Type="long" Print="delta" />
+    <Counter Name="not_executed_due_sync_demote_start_rejected" Type="long" Print="delta" />
+    <Average Name="dead_objects_deleted" Type="long" Print="delta" />
+    <Average Name="failed_objects_deleted" Type="long" Print="delta" />
+    <Average Name="deleted_by_low_priority" Type="long" Print="delta" />
+    <Average Name="waiting_for_lock_nano" Type="long" />
+    <Average Name="execution_time_nano" Type="long" />
+    <Average Name="number_of_cycles" Type="long" Print="delta" />
+    <Average Name="number_fail_acquire" Type="long" Print="delta" />
+    <Counter Name="currentUsage" Type="long" Print="delta" />
+    <Counter Name="totalUsage" Type="long" />
+    <Counter Name="reserved_tx" Type="long" Print="delta" />
+    <Counter Name="failed_row_group_data" Type="long" Print="delta" />
+</Object>
