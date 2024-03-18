@@ -25,7 +25,6 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.testing.TestingSession;
 import org.junit.jupiter.api.Test;
 
@@ -64,7 +63,7 @@ class TestFlatHashStrategy
     private static final int VARIABLE_CHUNK_OFFSET = 17;
 
     private final TypeOperators typeOperators = new TypeOperators();
-    private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
+    private final FlatHashStrategyCompiler compiler = new FlatHashStrategyCompiler(typeOperators);
 
     @Test
     void test()
@@ -72,7 +71,7 @@ class TestFlatHashStrategy
         List<Type> bigTypeSet = createTestingTypes(typeOperators);
         for (int typeCount : List.of(1, 500, 501, 999, 1000, 1001, 2000, 2001)) {
             List<Type> types = bigTypeSet.subList(0, typeCount);
-            FlatHashStrategy flatHashStrategy = joinCompiler.getFlatHashStrategy(types);
+            FlatHashStrategy flatHashStrategy = compiler.getFlatHashStrategy(types);
             assertThat(flatHashStrategy.isAnyVariableWidth()).isEqualTo(types.stream().anyMatch(Type::isFlatVariableWidth));
             int flatFixedLength = flatHashStrategy.getTotalFlatFixedLength();
             assertThat(flatFixedLength).isEqualTo(types.stream().mapToInt(Type::getFlatFixedSize).sum() + types.size());
@@ -107,7 +106,7 @@ class TestFlatHashStrategy
     void testBatchedRawHashesZeroLength()
     {
         List<Type> types = createTestingTypes(typeOperators);
-        FlatHashStrategy flatHashStrategy = joinCompiler.getFlatHashStrategy(types);
+        FlatHashStrategy flatHashStrategy = compiler.getFlatHashStrategy(types);
 
         int positionCount = 10;
         // Attempting to touch any of the blocks would result in a NullPointerException
@@ -118,7 +117,7 @@ class TestFlatHashStrategy
     void testBatchedRawHashesMatchSinglePositionHashes()
     {
         List<Type> types = createTestingTypes(typeOperators);
-        FlatHashStrategy flatHashStrategy = joinCompiler.getFlatHashStrategy(types);
+        FlatHashStrategy flatHashStrategy = compiler.getFlatHashStrategy(types);
 
         int positionCount = 1024;
         Block[] blocks = createRandomData(types, positionCount, 0.25f);

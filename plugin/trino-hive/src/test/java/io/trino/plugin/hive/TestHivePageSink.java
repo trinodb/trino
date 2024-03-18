@@ -24,6 +24,7 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
+import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -41,7 +42,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingNodeManager;
 import io.trino.tpch.LineItem;
@@ -390,7 +390,7 @@ public class TestHivePageSink
                 HDFS_FILE_SYSTEM_FACTORY,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastore),
-                new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators())),
+                new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators())),
                 TESTING_TYPE_MANAGER,
                 config,
                 sortingFileWriterConfig,

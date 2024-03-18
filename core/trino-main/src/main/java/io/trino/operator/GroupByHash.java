@@ -19,7 +19,6 @@ import io.trino.annotation.NotThreadSafe;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
 
 import java.util.List;
 
@@ -34,11 +33,11 @@ public interface GroupByHash
             List<Type> types,
             boolean hasPrecomputedHash,
             int expectedSize,
-            JoinCompiler joinCompiler,
+            FlatHashStrategyCompiler hashStrategyCompiler,
             UpdateMemory updateMemory)
     {
         boolean dictionaryAggregationEnabled = isDictionaryAggregationEnabled(session);
-        return createGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, joinCompiler, updateMemory);
+        return createGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, hashStrategyCompiler, updateMemory);
     }
 
     static GroupByHash createGroupByHash(
@@ -46,13 +45,13 @@ public interface GroupByHash
             boolean hasPrecomputedHash,
             int expectedSize,
             boolean dictionaryAggregationEnabled,
-            JoinCompiler joinCompiler,
+            FlatHashStrategyCompiler hashStrategyCompiler,
             UpdateMemory updateMemory)
     {
         if (types.size() == 1 && types.get(0).equals(BIGINT)) {
             return new BigintGroupByHash(hasPrecomputedHash, expectedSize, updateMemory);
         }
-        return new FlatGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, joinCompiler, updateMemory);
+        return new FlatGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, hashStrategyCompiler, updateMemory);
     }
 
     long getEstimatedSize();
