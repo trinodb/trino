@@ -257,9 +257,4 @@ public final class ExpressionFormatter
                     .collect(joining(", "));
         }
     }
-
-    static String formatStringLiteral(String s)
-    {
-        return "'" + s.replace("'", "''") + "'";
-    }
 }
