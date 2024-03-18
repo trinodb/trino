@@ -13,20 +13,15 @@
  */
 package io.trino.metadata;
 
-import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.sql.routine.ir.IrRoutine;
 
 import static java.util.Objects.requireNonNull;
 
-public record LanguageScalarFunctionData(
-        ResolvedFunction resolvedFunction,
-        FunctionDependencyDeclaration functionDependencies,
-        IrRoutine routine)
+public record LanguageScalarFunctionData(ResolvedFunction resolvedFunction, IrRoutine routine)
 {
     public LanguageScalarFunctionData
     {
         requireNonNull(resolvedFunction, "resolvedFunction is null");
-        requireNonNull(functionDependencies, "functionDependencies is null");
         requireNonNull(routine, "routine is null");
     }
 }
