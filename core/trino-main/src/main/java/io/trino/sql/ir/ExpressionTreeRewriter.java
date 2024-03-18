@@ -272,25 +272,6 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitIsNotNullPredicate(IsNotNullPredicate node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteIsNotNullPredicate(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            Expression value = rewrite(node.getValue(), context.get());
-
-            if (value != node.getValue()) {
-                return new IsNotNullPredicate(value);
-            }
-
-            return node;
-        }
-
-        @Override
         protected Expression visitNullIfExpression(NullIfExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

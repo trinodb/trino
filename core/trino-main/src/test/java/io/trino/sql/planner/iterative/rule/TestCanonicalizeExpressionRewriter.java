@@ -28,7 +28,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.IfExpression;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SearchedCaseExpression;
@@ -83,7 +82,7 @@ public class TestCanonicalizeExpressionRewriter
     public void testRewriteIsNotNullPredicate()
     {
         assertRewritten(
-                new IsNotNullPredicate(new SymbolReference("x")),
+                new NotExpression(new IsNullPredicate(new SymbolReference("x"))),
                 new NotExpression(new IsNullPredicate(new SymbolReference("x"))));
     }
 

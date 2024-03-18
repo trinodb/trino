@@ -41,7 +41,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.InPredicate;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
@@ -291,7 +290,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateIsNotNull()
     {
         assertTranslationRoundTrips(
-                new IsNotNullPredicate(new SymbolReference("varchar_symbol_1")),
+                new NotExpression(new IsNullPredicate(new SymbolReference("varchar_symbol_1"))),
                 new Call(
                         BOOLEAN,
                         NOT_FUNCTION_NAME,

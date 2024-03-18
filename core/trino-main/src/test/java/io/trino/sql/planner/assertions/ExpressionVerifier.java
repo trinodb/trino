@@ -25,7 +25,6 @@ import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.LogicalExpression;
@@ -132,16 +131,6 @@ public final class ExpressionVerifier
     protected Boolean visitIsNullPredicate(IsNullPredicate actual, Expression expectedExpression)
     {
         if (!(expectedExpression instanceof IsNullPredicate expected)) {
-            return false;
-        }
-
-        return process(actual.getValue(), expected.getValue());
-    }
-
-    @Override
-    protected Boolean visitIsNotNullPredicate(IsNotNullPredicate actual, Expression expectedExpression)
-    {
-        if (!(expectedExpression instanceof IsNotNullPredicate expected)) {
             return false;
         }
 

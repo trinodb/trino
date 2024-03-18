@@ -28,7 +28,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NodeRef;
@@ -161,8 +160,16 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitNotExpression(NotExpression node, Void context)
         {
-            if (node.getValue() instanceof IsNullPredicate) {
-                return process(new IsNotNullPredicate(((IsNullPredicate) node.getValue()).getValue()));
+            if (node.getValue() instanceof IsNullPredicate inner) {
+                if (inner.getValue() instanceof SymbolReference) {
+                    Symbol symbol = Symbol.from(inner.getValue());
+                    SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
+                    PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
+                    result.setOutputRowCount(input.getOutputRowCount() * (1 - symbolStats.getNullsFraction()));
+                    result.addSymbolStatistics(symbol, symbolStats.mapNullsFraction(x -> 0.0));
+                    return result.build();
+                }
+                return PlanNodeStatsEstimate.unknown();
             }
             return subtractSubsetStats(input, process(node.getValue()));
         }
@@ -280,20 +287,6 @@ public class FilterStatsCalculator
         }
 
         @Override
-        protected PlanNodeStatsEstimate visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
-        {
-            if (node.getValue() instanceof SymbolReference) {
-                Symbol symbol = Symbol.from(node.getValue());
-                SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
-                PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
-                result.setOutputRowCount(input.getOutputRowCount() * (1 - symbolStats.getNullsFraction()));
-                result.addSymbolStatistics(symbol, symbolStats.mapNullsFraction(x -> 0.0));
-                return result.build();
-            }
-            return PlanNodeStatsEstimate.unknown();
-        }
-
-        @Override
         protected PlanNodeStatsEstimate visitIsNullPredicate(IsNullPredicate node, Void context)
         {
             if (node.getValue() instanceof SymbolReference) {
@@ -400,7 +393,7 @@ public class FilterStatsCalculator
             }
 
             if (left instanceof SymbolReference && left.equals(right)) {
-                return process(new IsNotNullPredicate(left));
+                return process(new NotExpression(new IsNullPredicate(left)));
             }
 
             SymbolStatsEstimate leftStats = getExpressionStats(left);
