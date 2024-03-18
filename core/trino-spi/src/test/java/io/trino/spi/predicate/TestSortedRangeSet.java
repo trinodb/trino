@@ -878,6 +878,13 @@ public class TestSortedRangeSet
         }
     }
 
+    @Test
+    public void testRangeSetHashcode()
+    {
+        assertThat(ValueSet.ofRanges(Range.lessThan(INTEGER, 0L)).hashCode()).isNotEqualTo(ValueSet.ofRanges(Range.greaterThan(INTEGER, 0L)).hashCode());
+        assertThat(ValueSet.ofRanges(Range.lessThan(INTEGER, 1L)).hashCode()).isNotEqualTo(ValueSet.ofRanges(Range.range(INTEGER, 0L, false, 1L, false)).hashCode());
+    }
+
     private void assertUnion(SortedRangeSet first, SortedRangeSet second, SortedRangeSet expected)
     {
         assertThat(first.union(second)).isEqualTo(expected);

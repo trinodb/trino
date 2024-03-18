@@ -1079,8 +1079,9 @@ public final class SortedRangeSet
         if (hash == 0) {
             hash = Objects.hash(type, Arrays.hashCode(inclusive));
             for (int position = 0; position < sortedRanges.getPositionCount(); position++) {
-                if (sortedRanges.isNull(position)) {
-                    hash = hash * 31;
+                boolean positionIsNull = sortedRanges.isNull(position);
+                hash = hash * 31 + Boolean.hashCode(positionIsNull);
+                if (positionIsNull) {
                     continue;
                 }
                 try {
