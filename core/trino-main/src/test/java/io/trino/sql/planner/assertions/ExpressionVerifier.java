@@ -244,7 +244,7 @@ public final class ExpressionVerifier
         }
 
         return process(actual.getOperand(), expected.getOperand()) &&
-                process(actual.getWhenClauses(), expected.getWhenClauses()) &&
+                processWhenClauses(actual.getWhenClauses(), expected.getWhenClauses()) &&
                 process(actual.getDefaultValue(), expected.getDefaultValue());
     }
 
@@ -255,7 +255,7 @@ public final class ExpressionVerifier
             return false;
         }
 
-        if (!process(actual.getWhenClauses(), expectedCase.getWhenClauses())) {
+        if (!processWhenClauses(actual.getWhenClauses(), expectedCase.getWhenClauses())) {
             return false;
         }
 
@@ -266,13 +266,21 @@ public final class ExpressionVerifier
         return process(actual.getDefaultValue(), expectedCase.getDefaultValue());
     }
 
-    @Override
-    protected Boolean visitWhenClause(WhenClause actual, Expression expectedExpression)
+    private boolean processWhenClauses(List<WhenClause> actual, List<WhenClause> expected)
     {
-        if (!(expectedExpression instanceof WhenClause expected)) {
+        if (actual.size() != expected.size()) {
             return false;
         }
+        for (int i = 0; i < actual.size(); i++) {
+            if (!process(actual.get(i), expected.get(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
 
+    private boolean process(WhenClause actual, WhenClause expected)
+    {
         return process(actual.getOperand(), expected.getOperand()) &&
                 process(actual.getResult(), expected.getResult());
     }

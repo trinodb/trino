@@ -42,14 +42,13 @@ import java.util.List;
         @JsonSubTypes.Type(value = SimpleCaseExpression.class, name = "simpleCase"),
         @JsonSubTypes.Type(value = SubscriptExpression.class, name = "subscript"),
         @JsonSubTypes.Type(value = SymbolReference.class, name = "symbol"),
-        @JsonSubTypes.Type(value = WhenClause.class, name = "when"),
 })
 public abstract sealed class Expression
         permits ArithmeticBinaryExpression, ArithmeticNegation, BetweenPredicate, CanonicalAggregation,
         BindExpression, Cast, CoalesceExpression, ComparisonExpression, FunctionCall, InPredicate,
         IsNullPredicate, LambdaExpression, Constant, LogicalExpression,
         NotExpression, NullIfExpression, Row, SearchedCaseExpression, SimpleCaseExpression,
-        SubscriptExpression, SymbolReference, WhenClause
+        SubscriptExpression, SymbolReference
 {
     /**
      * Accessible for {@link IrVisitor}, use {@link IrVisitor#process(Expression, Object)} instead.

@@ -196,7 +196,7 @@ public final class ExpressionFormatter
             ImmutableList.Builder<String> parts = ImmutableList.builder();
             parts.add("CASE");
             for (WhenClause whenClause : node.getWhenClauses()) {
-                parts.add(process(whenClause, context));
+                parts.add(format(whenClause, context));
             }
 
             node.getDefaultValue()
@@ -216,7 +216,7 @@ public final class ExpressionFormatter
                     .add(process(node.getOperand(), context));
 
             for (WhenClause whenClause : node.getWhenClauses()) {
-                parts.add(process(whenClause, context));
+                parts.add(format(whenClause, context));
             }
 
             node.getDefaultValue()
@@ -227,8 +227,7 @@ public final class ExpressionFormatter
             return "(" + Joiner.on(' ').join(parts.build()) + ")";
         }
 
-        @Override
-        protected String visitWhenClause(WhenClause node, Void context)
+        protected String format(WhenClause node, Void context)
         {
             return "WHEN " + process(node.getOperand(), context) + " THEN " + process(node.getResult(), context);
         }
