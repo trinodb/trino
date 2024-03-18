@@ -137,6 +137,7 @@ import static io.trino.SystemSessionProperties.isUseSubPlanAlternatives;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
@@ -299,8 +300,7 @@ public class LogicalPlanner
                 root = cacheCommonSubqueries.cacheSubqueries(root);
             }
             catch (Throwable t) {
-                LOG.error(t, "SUBQUERY CACHE: planning exception");
-                throw t;
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "SUBQUERY CACHE: create driver exception", t);
             }
 
             if (isUseSubPlanAlternatives(session)) {

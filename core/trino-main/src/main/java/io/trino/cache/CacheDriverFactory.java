@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
@@ -33,6 +32,7 @@ import io.trino.operator.DriverFactory;
 import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSourceProvider;
 import io.trino.plugin.base.cache.CacheUtils;
 import io.trino.plugin.base.metrics.TDigestHistogram;
+import io.trino.spi.TrinoException;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheManager.SplitCache;
 import io.trino.spi.cache.CacheSplitId;
@@ -58,6 +58,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.cache.CacheCommonSubqueries.LOAD_PAGES_ALTERNATIVE;
 import static io.trino.cache.CacheCommonSubqueries.ORIGINAL_PLAN_ALTERNATIVE;
 import static io.trino.cache.CacheCommonSubqueries.STORE_PAGES_ALTERNATIVE;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -66,7 +67,6 @@ public class CacheDriverFactory
 {
     static final int MAX_UNENFORCED_PREDICATE_VALUE_COUNT = 1_000_000;
     static final double DYNAMIC_FILTER_VALUES_HEURISTIC = 0.05;
-    private static final Logger LOG = Logger.get(CacheDriverFactory.class);
 
     public static final float THRASHING_CACHE_THRESHOLD = 0.7f;
     public static final int MIN_PROCESSED_SPLITS = 16;
@@ -128,8 +128,7 @@ public class CacheDriverFactory
             driverFactory = chooseDriverFactory(split, cacheSplitIdOptional);
         }
         catch (Throwable t) {
-            LOG.error(t, "SUBQUERY CACHE: create driver exception");
-            throw t;
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "SUBQUERY CACHE: create driver exception", t);
         }
         long lookupDurationNanos = ticker.read() - lookupStartNanos;
         cacheStats.getCacheLookupTime().addNanos(lookupDurationNanos);
