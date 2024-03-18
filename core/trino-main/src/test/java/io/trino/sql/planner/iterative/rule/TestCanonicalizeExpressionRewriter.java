@@ -43,7 +43,6 @@ import java.util.Optional;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
@@ -170,28 +169,6 @@ public class TestCanonicalizeExpressionRewriter
     }
 
     @Test
-    public void testTypedLiteral()
-    {
-        // typed literals are encoded as Cast(Literal) in current IR
-
-        assertRewritten(
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2))),
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2))));
-
-        assertRewritten(
-                new ComparisonExpression(EQUAL, new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2)), new SymbolReference("a")),
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2))));
-
-        assertRewritten(
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2))),
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2))));
-
-        assertRewritten(
-                new ArithmeticBinaryExpression(ADD, new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2)), new SymbolReference("a")),
-                new ArithmeticBinaryExpression(ADD, new SymbolReference("a"), new Cast(new Constant(INTEGER, 1L), createDecimalType(5, 2))));
-    }
-
-    @Test
     public void testCanonicalizeRewriteDateFunctionToCast()
     {
         assertCanonicalizedDate(createTimestampType(3), "ts");
@@ -213,8 +190,6 @@ public class TestCanonicalizeExpressionRewriter
                 transaction(TRANSACTION_MANAGER, PLANNER_CONTEXT.getMetadata(), ACCESS_CONTROL).execute(TEST_SESSION, transactedSession -> {
                     return rewrite(
                             from,
-                            transactedSession,
-                            PLANNER_CONTEXT,
                             TYPE_ANALYZER,
                                     TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
                                             .put(new Symbol("x"), BIGINT)

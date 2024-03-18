@@ -102,8 +102,6 @@ import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
-import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
-import static io.trino.sql.planner.IrExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
@@ -121,9 +119,9 @@ public final class ConnectorExpressionTranslator
                 .orElseThrow(() -> new UnsupportedOperationException("Expression is not supported: " + expression.toString()));
     }
 
-    public static Optional<ConnectorExpression> translate(Session session, Expression expression, TypeProvider types, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    public static Optional<ConnectorExpression> translate(Session session, Expression expression, TypeProvider types, IrTypeAnalyzer typeAnalyzer)
     {
-        return new SqlToConnectorExpressionTranslator(session, typeAnalyzer.getTypes(types, expression), plannerContext)
+        return new SqlToConnectorExpressionTranslator(session, typeAnalyzer.getTypes(types, expression))
                 .process(expression);
     }
 
@@ -131,14 +129,12 @@ public final class ConnectorExpressionTranslator
             Session session,
             Expression expression,
             TypeProvider types,
-            PlannerContext plannerContext,
             IrTypeAnalyzer typeAnalyzer)
     {
         Map<NodeRef<Expression>, Type> remainingExpressionTypes = typeAnalyzer.getTypes(types, expression);
         SqlToConnectorExpressionTranslator translator = new SqlToConnectorExpressionTranslator(
                 session,
-                remainingExpressionTypes,
-                plannerContext);
+                remainingExpressionTypes);
 
         List<Expression> conjuncts = extractConjuncts(expression);
         List<Expression> remaining = new ArrayList<>();
@@ -537,13 +533,11 @@ public final class ConnectorExpressionTranslator
     {
         private final Session session;
         private final Map<NodeRef<Expression>, Type> types;
-        private final PlannerContext plannerContext;
 
-        public SqlToConnectorExpressionTranslator(Session session, Map<NodeRef<Expression>, Type> types, PlannerContext plannerContext)
+        public SqlToConnectorExpressionTranslator(Session session, Map<NodeRef<Expression>, Type> types)
         {
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         }
 
         @Override
@@ -632,8 +626,11 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitCast(Cast node, Void context)
         {
-            if (isEffectivelyLiteral(plannerContext, session, node)) {
-                return Optional.of(constantFor(typeOf(node), evaluateConstantExpression(node, plannerContext, session)));
+            if (isSpecialType(typeOf(node))) {
+                // We don't want to expose some internal types to connectors.
+                // These should be constant-folded (if appropriate) separately and
+                // handled by the regular visitConstant path
+                return Optional.empty();
             }
 
             if (node.isSafe()) {
@@ -658,10 +655,6 @@ public final class ConnectorExpressionTranslator
         {
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
-            }
-
-            if (isEffectivelyLiteral(plannerContext, session, node)) {
-                return Optional.of(constantFor(typeOf(node), evaluateConstantExpression(node, plannerContext, session)));
             }
 
             CatalogSchemaFunctionName functionName = node.getFunction().getName();
@@ -707,9 +700,8 @@ public final class ConnectorExpressionTranslator
             arguments.add(value.get());
 
             Expression patternArgument = node.getArguments().get(1);
-            if (isEffectivelyLiteral(plannerContext, session, patternArgument)) {
-                // the pattern argument has been constant folded, so extract the underlying pattern and escape
-                LikePattern matcher = (LikePattern) evaluateConstantExpression(patternArgument, plannerContext, session);
+            if (patternArgument instanceof Constant constant) {
+                LikePattern matcher = (LikePattern) constant.getValue();
 
                 arguments.add(new io.trino.spi.expression.Constant(Slices.utf8Slice(matcher.getPattern()), createVarcharType(matcher.getPattern().length())));
                 if (matcher.getEscape().isPresent()) {
@@ -768,6 +760,13 @@ public final class ConnectorExpressionTranslator
                 return Optional.of(new Call(BOOLEAN, NOT_FUNCTION_NAME, List.of(translatedValue.get())));
             }
             return Optional.empty();
+        }
+
+        private boolean isSpecialType(Type type)
+        {
+            return type.equals(JONI_REGEXP) ||
+                    type instanceof Re2JRegexpType ||
+                    type instanceof JsonPathType;
         }
 
         private ConnectorExpression constantFor(Type type, Object value)

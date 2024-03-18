@@ -111,8 +111,8 @@ public class PushProjectionIntoTableScan
                                 expression.getValue(),
                                 session,
                                 typeAnalyzer,
-                                context.getSymbolAllocator().getTypes(),
-                                plannerContext).entrySet().stream())
+                                context.getSymbolAllocator().getTypes()
+                        ).entrySet().stream())
                 // Filter out constant expressions. Constant expressions should not be pushed to the connector.
                 .filter(entry -> !(entry.getValue() instanceof io.trino.spi.expression.Constant))
                 // Avoid duplicates

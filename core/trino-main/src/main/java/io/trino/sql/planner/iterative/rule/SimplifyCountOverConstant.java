@@ -21,6 +21,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
@@ -34,11 +35,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 
-import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
-import static io.trino.sql.planner.IrExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -80,7 +78,7 @@ public class SimplifyCountOverConstant
             Symbol symbol = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
 
-            if (isCountOverConstant(context, aggregation, child.getAssignments())) {
+            if (isCountOverConstant(aggregation, child.getAssignments())) {
                 changed = true;
                 aggregations.put(symbol, new AggregationNode.Aggregation(
                         countFunction,
@@ -103,7 +101,7 @@ public class SimplifyCountOverConstant
                 .build());
     }
 
-    private boolean isCountOverConstant(Context context, AggregationNode.Aggregation aggregation, Assignments inputs)
+    private boolean isCountOverConstant(AggregationNode.Aggregation aggregation, Assignments inputs)
     {
         BoundSignature signature = aggregation.getResolvedFunction().getSignature();
         if (!signature.getName().equals(COUNT_NAME) || signature.getArgumentTypes().size() != 1) {
@@ -115,12 +113,6 @@ public class SimplifyCountOverConstant
             argument = inputs.get(Symbol.from(argument));
         }
 
-        if (isEffectivelyLiteral(plannerContext, context.getSession(), argument)) {
-            Object value = evaluateConstantExpression(argument, plannerContext, context.getSession());
-            verify(!(value instanceof Expression));
-            return value != null;
-        }
-
-        return false;
+        return argument instanceof Constant constant && constant.getValue() != null;
     }
 }

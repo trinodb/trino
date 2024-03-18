@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
+import io.trino.operator.scalar.JsonPath;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
@@ -441,19 +442,31 @@ public class TestConnectorExpressionTranslator
     @Test
     void testTranslateJsonPath()
     {
+        Call connectorExpression = new Call(
+                VARCHAR_TYPE,
+                new FunctionName("json_extract_scalar"),
+                List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                        new io.trino.spi.expression.Constant(utf8Slice("$.path"), createVarcharType(6))));
+
         // JSON path type is considered implementation detail of the engine and is not exposed to connectors
         // within ConnectorExpression. Instead, it is replaced with a varchar pattern.
-        assertTranslationRoundTrips(
+        assertTranslationToConnectorExpression(
+                TEST_SESSION,
+                BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
+                        .setName("json_extract_scalar")
+                        .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                        .addArgument(JSON_PATH, new Constant(JSON_PATH, new JsonPath("$.path")))
+                        .build(),
+                Optional.of(connectorExpression));
+
+        assertTranslationFromConnectorExpression(
+                TEST_SESSION,
+                connectorExpression,
                 BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
                         .setName("json_extract_scalar")
                         .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
                         .addArgument(JSON_PATH, new Cast(new Constant(createVarcharType(6), utf8Slice("$.path")), JSON_PATH))
-                        .build(),
-                new Call(
-                        VARCHAR_TYPE,
-                        new FunctionName("json_extract_scalar"),
-                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                new io.trino.spi.expression.Constant(utf8Slice("$.path"), createVarcharType(6)))));
+                        .build());
     }
 
     @Test
@@ -493,7 +506,7 @@ public class TestConnectorExpressionTranslator
 
     private void assertTranslationToConnectorExpression(Session session, Expression expression, Optional<ConnectorExpression> connectorExpression)
     {
-        Optional<ConnectorExpression> translation = translate(session, expression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER);
+        Optional<ConnectorExpression> translation = translate(session, expression, TYPE_PROVIDER, TYPE_ANALYZER);
         assertThat(connectorExpression.isPresent()).isEqualTo(translation.isPresent());
         translation.ifPresent(value -> assertThat(value).isEqualTo(connectorExpression.get()));
     }

@@ -23,7 +23,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
@@ -72,15 +71,13 @@ public class PushMergeWriterUpdateIntoConnector
                                     project().capturedAs(PROJECT_NODE_CAPTURE).with(source().matching(
                                             tableScan().capturedAs(TABLE_SCAN)))))))));
 
-    public PushMergeWriterUpdateIntoConnector(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, Metadata metadata)
+    public PushMergeWriterUpdateIntoConnector(IrTypeAnalyzer typeAnalyzer, Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
     private final Metadata metadata;
-    private final PlannerContext plannerContext;
     private final IrTypeAnalyzer typeAnalyzer;
 
     @Override
@@ -136,7 +133,6 @@ public class PushMergeWriterUpdateIntoConnector
                         context.getSession(),
                         field,
                         context.getSymbolAllocator().getTypes(),
-                        plannerContext,
                         typeAnalyzer);
 
                 // we don't support any expressions in update statements yet, only constants
