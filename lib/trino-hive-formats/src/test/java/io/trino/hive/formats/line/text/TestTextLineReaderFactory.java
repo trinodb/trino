@@ -23,11 +23,20 @@ import org.junit.jupiter.api.Test;
 import java.nio.charset.StandardCharsets;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.hive.formats.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTextLineReaderFactory
 {
+    @Test
+    public void testSymlinkInputFormatIsValidInputFormat()
+    {
+        // Regression test for https://github.com/trinodb/trino/issues/21072
+        TextLineReaderFactory readerFactory = new TextLineReaderFactory(1024, 1024, 8096);
+        assertThat(readerFactory.getHiveInputFormatClassNames()).contains(SYMLINK_TEXT_INPUT_FORMAT_CLASS);
+    }
+
     @Test
     public void testHeaderFooterConstraints()
             throws Exception
