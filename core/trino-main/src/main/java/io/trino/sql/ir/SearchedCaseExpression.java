@@ -60,9 +60,11 @@ public final class SearchedCaseExpression
     @Override
     public List<? extends Expression> getChildren()
     {
-        ImmutableList.Builder<Expression> builder = ImmutableList.<Expression>builder()
-                .addAll(whenClauses);
-
+        ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+        whenClauses.forEach(clause -> {
+            builder.add(clause.getOperand());
+            builder.add(clause.getResult());
+        });
         defaultValue.ifPresent(builder::add);
 
         return builder.build();

@@ -284,7 +284,7 @@ public final class ExpressionTreeRewriter<C>
 
             ImmutableList.Builder<WhenClause> builder = ImmutableList.builder();
             for (WhenClause expression : node.getWhenClauses()) {
-                builder.add(rewrite(expression, context.get()));
+                builder.add(rewriteWhenClause(expression, context));
             }
 
             Optional<Expression> defaultValue = node.getDefaultValue()
@@ -311,7 +311,7 @@ public final class ExpressionTreeRewriter<C>
 
             ImmutableList.Builder<WhenClause> builder = ImmutableList.builder();
             for (WhenClause expression : node.getWhenClauses()) {
-                builder.add(rewrite(expression, context.get()));
+                builder.add(rewriteWhenClause(expression, context));
             }
 
             Optional<Expression> defaultValue = node.getDefaultValue()
@@ -326,16 +326,8 @@ public final class ExpressionTreeRewriter<C>
             return node;
         }
 
-        @Override
-        protected Expression visitWhenClause(WhenClause node, Context<C> context)
+        protected WhenClause rewriteWhenClause(WhenClause node, Context<C> context)
         {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteWhenClause(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
             Expression operand = rewrite(node.getOperand(), context.get());
             Expression result = rewrite(node.getResult(), context.get());
 

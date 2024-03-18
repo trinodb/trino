@@ -103,7 +103,6 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
-import io.trino.sql.tree.WhenClause;
 import io.trino.type.FunctionType;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
@@ -347,7 +346,6 @@ public class TranslationMap
                 case InPredicate expression -> translate(expression);
                 case SimpleCaseExpression expression -> translate(expression);
                 case SearchedCaseExpression expression -> translate(expression);
-                case WhenClause expression -> translate(expression);
                 case NullIfExpression expression -> translate(expression);
                 default -> throw new IllegalArgumentException("Unsupported expression (%s): %s".formatted(expr.getClass().getName(), expr));
             };
@@ -386,18 +384,13 @@ public class TranslationMap
                 });
     }
 
-    private io.trino.sql.ir.WhenClause translate(WhenClause expression)
-    {
-        return new io.trino.sql.ir.WhenClause(
-                translateExpression(expression.getOperand()),
-                translateExpression(expression.getResult()));
-    }
-
     private io.trino.sql.ir.Expression translate(SearchedCaseExpression expression)
     {
         return new io.trino.sql.ir.SearchedCaseExpression(
                 expression.getWhenClauses().stream()
-                        .map(this::translate)
+                        .map(clause -> new io.trino.sql.ir.WhenClause(
+                                translateExpression(clause.getOperand()),
+                                translateExpression(clause.getResult())))
                         .collect(toImmutableList()),
                 expression.getDefaultValue().map(this::translateExpression));
     }
@@ -407,7 +400,9 @@ public class TranslationMap
         return new io.trino.sql.ir.SimpleCaseExpression(
                 translateExpression(expression.getOperand()),
                 expression.getWhenClauses().stream()
-                        .map(this::translate)
+                        .map(clause -> new io.trino.sql.ir.WhenClause(
+                                translateExpression(clause.getOperand()),
+                                translateExpression(clause.getResult())))
                         .collect(toImmutableList()),
                 expression.getDefaultValue().map(this::translateExpression));
     }
