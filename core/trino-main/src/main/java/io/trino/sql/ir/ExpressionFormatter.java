@@ -121,7 +121,7 @@ public final class ExpressionFormatter
         {
             StringBuilder builder = new StringBuilder();
 
-            builder.append("\"$INTERNAL$BIND\"(");
+            builder.append("\"$bind\"(");
             for (Expression value : node.getValues()) {
                 builder.append(process(value, context))
                         .append(", ");

@@ -49,7 +49,6 @@ import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
-import io.trino.sql.tree.BindExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
@@ -350,7 +349,6 @@ public class TranslationMap
                 case SearchedCaseExpression expression -> translate(expression);
                 case WhenClause expression -> translate(expression);
                 case NullIfExpression expression -> translate(expression);
-                case BindExpression expression -> translate(expression);
                 default -> throw new IllegalArgumentException("Unsupported expression (%s): %s".formatted(expr.getClass().getName(), expr));
             };
         }
@@ -358,15 +356,6 @@ public class TranslationMap
         // Don't add a coercion for the top-level expression. That depends on the context
         // the expression is used and it's the responsibility of the caller.
         return isRoot ? result : QueryPlanner.coerceIfNecessary(analysis, expr, result);
-    }
-
-    private io.trino.sql.ir.Expression translate(BindExpression expression)
-    {
-        return new io.trino.sql.ir.BindExpression(
-                expression.getValues().stream()
-                        .map(this::translateExpression)
-                        .collect(toImmutableList()),
-                translateExpression(expression.getFunction()));
     }
 
     private io.trino.sql.ir.Expression translate(NullIfExpression expression)
