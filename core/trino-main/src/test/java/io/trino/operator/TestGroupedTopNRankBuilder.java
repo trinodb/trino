@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
 import org.junit.jupiter.api.Test;
 
@@ -262,7 +261,7 @@ public class TestGroupedTopNRankBuilder
                 false,
                 1,
                 false,
-                new JoinCompiler(typeOperators),
+                new FlatHashStrategyCompiler(typeOperators),
                 updateMemory);
     }
 

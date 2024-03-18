@@ -85,6 +85,7 @@ import io.trino.metadata.TypeRegistry;
 import io.trino.operator.DirectExchangeClientConfig;
 import io.trino.operator.DirectExchangeClientFactory;
 import io.trino.operator.DirectExchangeClientSupplier;
+import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.ForExchange;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.PagesIndex;
@@ -340,6 +341,8 @@ public class ServerMainModule
         newExporter(binder).export(JoinFilterFunctionCompiler.class).withGeneratedName();
         binder.bind(JoinCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(JoinCompiler.class).withGeneratedName();
+        binder.bind(FlatHashStrategyCompiler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(FlatHashStrategyCompiler.class).withGeneratedName();
         binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
