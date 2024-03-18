@@ -137,7 +137,7 @@ class BuiltinFunctionResolver
                 functionBinder,
                 GlobalSystemConnector.CATALOG_HANDLE,
                 functionBinding.functionBinding(),
-                functionBinding.functionMetadata(),
+                functionBinding.boundFunctionMetadata(),
                 dependencies,
                 catalogSchemaFunctionName -> {
                     // builtin functions can only depend on other builtin functions
