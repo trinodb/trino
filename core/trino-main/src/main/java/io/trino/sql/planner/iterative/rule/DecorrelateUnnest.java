@@ -24,7 +24,6 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.IfExpression;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -60,6 +59,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.iterative.rule.ImplementLimitWithTies.rewriteLimitWithTiesWithPartitioning;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
@@ -259,7 +259,7 @@ public class DecorrelateUnnest
             for (Symbol subquerySymbol : correlatedJoinNode.getSubquery().getOutputSymbols()) {
                 assignments.put(
                         subquerySymbol,
-                        new IfExpression(
+                        ifExpression(
                                 new IsNullPredicate(ordinalitySymbol.toSymbolReference()),
                                 new Constant(context.getSymbolAllocator().getTypes().get(subquerySymbol), null),
                                 subquerySymbol.toSymbolReference()));
@@ -400,7 +400,7 @@ public class DecorrelateUnnest
                         Optional.of(2),
                         Optional.empty());
             }
-            Expression predicate = new IfExpression(
+            Expression predicate = ifExpression(
                     new ComparisonExpression(
                             GREATER_THAN,
                             rowNumberSymbol.toSymbolReference(),
