@@ -53,8 +53,8 @@ public class SimplifyExpressions
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes);
         Object optimized = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
-        return optimized instanceof Expression optimizedExpresion ?
-                optimizedExpresion :
+        return optimized instanceof Expression optimizedExpression ?
+                optimizedExpression :
                 new Constant(expressionTypes.get(NodeRef.of(expression)), optimized);
     }
 
