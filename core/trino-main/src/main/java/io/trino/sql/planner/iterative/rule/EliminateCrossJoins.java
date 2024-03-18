@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -56,12 +55,10 @@ public class EliminateCrossJoins
         implements Rule<JoinNode>
 {
     private static final Pattern<JoinNode> PATTERN = join();
-    private final PlannerContext plannerContext;
     private final IrTypeAnalyzer typeAnalyzer;
 
-    public EliminateCrossJoins(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    public EliminateCrossJoins(IrTypeAnalyzer typeAnalyzer)
     {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
@@ -82,7 +79,7 @@ public class EliminateCrossJoins
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        JoinGraph joinGraph = JoinGraph.buildFrom(plannerContext, node, context.getLookup(), context.getIdAllocator(), context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
+        JoinGraph joinGraph = JoinGraph.buildFrom(node, context.getLookup(), context.getIdAllocator(), context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
         if (joinGraph.size() < 3 || !joinGraph.isContainsCrossJoin()) {
             return Result.empty();
         }

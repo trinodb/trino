@@ -670,6 +670,6 @@ public class TestReorderJoins
 
     private RuleBuilder assertReorderJoins()
     {
-        return tester.assertThat(new ReorderJoins(PLANNER_CONTEXT, new CostComparator(1, 1, 1), new IrTypeAnalyzer(PLANNER_CONTEXT)));
+        return tester.assertThat(new ReorderJoins(new CostComparator(1, 1, 1), new IrTypeAnalyzer(PLANNER_CONTEXT)));
     }
 }

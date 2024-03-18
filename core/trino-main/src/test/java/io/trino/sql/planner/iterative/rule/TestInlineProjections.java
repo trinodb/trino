@@ -48,7 +48,7 @@ public class TestInlineProjections
     @Test
     public void test()
     {
-        tester().assertThat(new InlineProjections(tester().getPlannerContext(), tester().getTypeAnalyzer()))
+        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -98,7 +98,7 @@ public class TestInlineProjections
     @Test
     public void testInlineEffectivelyLiteral()
     {
-        tester().assertThat(new InlineProjections(tester().getPlannerContext(), tester().getTypeAnalyzer()))
+        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -121,7 +121,7 @@ public class TestInlineProjections
     @Test
     public void testEliminatesIdentityProjection()
     {
-        tester().assertThat(new InlineProjections(tester().getPlannerContext(), tester().getTypeAnalyzer()))
+        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -141,7 +141,7 @@ public class TestInlineProjections
     public void testIdentityProjections()
     {
         // projection renaming symbol
-        tester().assertThat(new InlineProjections(tester().getPlannerContext(), tester().getTypeAnalyzer()))
+        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("output"), new SymbolReference("value")),
@@ -151,7 +151,7 @@ public class TestInlineProjections
                 .doesNotFire();
 
         // identity projection
-        tester().assertThat(new InlineProjections(tester().getPlannerContext(), tester().getTypeAnalyzer()))
+        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.identity(p.symbol("x")),
@@ -167,7 +167,7 @@ public class TestInlineProjections
     @Test
     public void testSubqueryProjections()
     {
-        tester().assertThat(new InlineProjections(tester().getPlannerContext(), tester().getTypeAnalyzer()))
+        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.identity(p.symbol("fromOuterScope"), p.symbol("value")),
@@ -180,7 +180,7 @@ public class TestInlineProjections
                                 // ImmutableMap.of("fromOuterScope", PlanMatchPattern.expression("fromOuterScope"), "value", PlanMatchPattern.expression("value")),
                                 values(ImmutableMap.of("value", 0))));
 
-        tester().assertThat(new InlineProjections(tester().getPlannerContext(), tester().getTypeAnalyzer()))
+        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.identity(p.symbol("fromOuterScope"), p.symbol("value_1")),

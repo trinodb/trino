@@ -17,23 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.graph.SuccessorsFunction;
 import com.google.common.graph.Traverser;
-import io.trino.Session;
 import io.trino.metadata.Metadata;
-import io.trino.spi.type.Type;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DeterminismEvaluator;
-import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.TypeProvider;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -253,33 +245,6 @@ public final class IrUtils
 
             return or(resultDisjunct.build());
         };
-    }
-
-    /**
-     * Returns whether expression is effectively literal. An effectively literal expression is a simple constant value, or null,
-     * in either {@link Literal} form, or other form returned by {@link LiteralEncoder}. In particular, other constant expressions
-     * like a deterministic function call with constant arguments are not considered effectively literal.
-     */
-    public static boolean isEffectivelyLiteral(PlannerContext plannerContext, Session session, Expression expression)
-    {
-        if (expression instanceof Constant) {
-            return true;
-        }
-        if (expression instanceof Cast cast) {
-            return cast.getExpression() instanceof Constant
-                    // a Cast(Literal(...)) can fail, so this requires verification
-                    && constantExpressionEvaluatesSuccessfully(plannerContext, session, expression);
-        }
-
-        return false;
-    }
-
-    private static boolean constantExpressionEvaluatesSuccessfully(PlannerContext plannerContext, Session session, Expression constantExpression)
-    {
-        Map<NodeRef<Expression>, Type> types = new IrTypeAnalyzer(plannerContext).getTypes(TypeProvider.empty(), constantExpression);
-        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(constantExpression, plannerContext, session, types);
-        Object literalValue = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-        return !(literalValue instanceof Expression);
     }
 
     /**

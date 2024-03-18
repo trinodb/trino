@@ -361,7 +361,7 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.of(
-                        new InlineProjections(plannerContext, typeAnalyzer),
+                        new InlineProjections(typeAnalyzer),
                         new RemoveRedundantIdentityProjections()));
 
         Set<Rule<?>> simplifyOptimizerRules = ImmutableSet.<Rule<?>>builder()
@@ -372,7 +372,7 @@ public class PlanOptimizers
                 .addAll(new UnwrapDateTruncInComparison(plannerContext, typeAnalyzer).rules())
                 .addAll(new UnwrapYearInComparison(plannerContext, typeAnalyzer).rules())
                 .addAll(new RemoveDuplicateConditions(metadata).rules())
-                .addAll(new CanonicalizeExpressions(plannerContext, typeAnalyzer).rules())
+                .addAll(new CanonicalizeExpressions(typeAnalyzer).rules())
                 .addAll(new RemoveRedundantDateTrunc(plannerContext, typeAnalyzer).rules())
                 .addAll(new ArraySortAfterArrayDistinct(plannerContext).rules())
                 .add(new RemoveTrivialFilters())
@@ -407,7 +407,7 @@ public class PlanOptimizers
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
-                                .addAll(new CanonicalizeExpressions(plannerContext, typeAnalyzer).rules())
+                                .addAll(new CanonicalizeExpressions(typeAnalyzer).rules())
                                 .add(new OptimizeRowPattern())
                                 .build()),
                 new IterativeOptimizer(
@@ -418,6 +418,7 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(columnPruningRules)
                                 .addAll(projectionPushdownRules)
+                                .addAll(simplifyOptimizerRules)
                                 .addAll(new UnwrapRowSubscript().rules())
                                 .addAll(new PushCastIntoRow().rules())
                                 .addAll(ImmutableSet.of(
@@ -427,7 +428,7 @@ public class PlanOptimizers
                                         new EvaluateEmptyIntersect(),
                                         new RemoveEmptyExceptBranches(),
                                         new MergeFilters(),
-                                        new InlineProjections(plannerContext, typeAnalyzer),
+                                        new InlineProjections(typeAnalyzer),
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
                                         new EvaluateZeroSample(),
@@ -480,7 +481,7 @@ public class PlanOptimizers
                                         new MergeLimitWithSort(),
                                         new MergeLimitOverProjectWithSort(),
                                         new MergeLimitWithTopN(),
-                                        new InlineProjections(plannerContext, typeAnalyzer),
+                                        new InlineProjections(typeAnalyzer),
                                         new RemoveRedundantIdentityProjections()))
                                 .build()),
                 new IterativeOptimizer(
@@ -571,7 +572,7 @@ public class PlanOptimizers
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.of(
-                                new InlineProjections(plannerContext, typeAnalyzer),
+                                new InlineProjections(typeAnalyzer),
                                 new RemoveRedundantIdentityProjections(),
                                 new TransformCorrelatedSingleRowSubqueryToProject(),
                                 new RemoveAggregationInSemiJoin(),
@@ -601,7 +602,7 @@ public class PlanOptimizers
                                 .add(new InlineProjectIntoFilter())
                                 .add(new SimplifyFilterPredicate())
                                 .addAll(columnPruningRules)
-                                .add(new InlineProjections(plannerContext, typeAnalyzer))
+                                .add(new InlineProjections(typeAnalyzer))
                                 .addAll(new PushFilterThroughCountAggregation(plannerContext).rules()) // must run after PredicatePushDown and after TransformFilteringSemiJoinToInnerJoin
                                 .build()));
 
@@ -746,7 +747,7 @@ public class PlanOptimizers
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.of(
-                                new EliminateCrossJoins(plannerContext, typeAnalyzer), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
+                                new EliminateCrossJoins(typeAnalyzer), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
                                 new RemoveRedundantJoin())),
                 new StatsRecordingPlanOptimizer(
                         optimizerStats,
@@ -790,7 +791,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(new ReorderJoins(plannerContext, costComparator, typeAnalyzer))));
+                        ImmutableSet.of(new ReorderJoins(costComparator, typeAnalyzer))));
 
         builder.add(new OptimizeMixedDistinctAggregations(metadata));
         builder.add(new IterativeOptimizer(
@@ -812,7 +813,7 @@ public class PlanOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         .add(new RemoveRedundantIdentityProjections())
                         .addAll(new ExtractSpatialJoins(plannerContext, splitManager, pageSourceManager, typeAnalyzer).rules())
-                        .add(new InlineProjections(plannerContext, typeAnalyzer))
+                        .add(new InlineProjections(typeAnalyzer))
                         .build()));
 
         builder.add(new IterativeOptimizer(
@@ -823,7 +824,7 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         // Must run before AddExchanges
                         new PushMergeWriterDeleteIntoConnector(metadata),
-                        new PushMergeWriterUpdateIntoConnector(plannerContext, typeAnalyzer, metadata),
+                        new PushMergeWriterUpdateIntoConnector(typeAnalyzer, metadata),
                         new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator),
                         // Must run after join reordering because join reordering creates
                         // new join nodes without JoinNode.maySkipOutputDuplicates flag set
@@ -950,7 +951,7 @@ public class PlanOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         .add(new RemoveRedundantIdentityProjections())
                         .add(new PushRemoteExchangeThroughAssignUniqueId())
-                        .add(new InlineProjections(plannerContext, typeAnalyzer))
+                        .add(new InlineProjections(typeAnalyzer))
                         .build()));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.

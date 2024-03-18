@@ -219,7 +219,6 @@ public class TestIgniteClient
                         expression,
                         TypeProvider.viewOf(symbolTypes.entrySet().stream()
                                 .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))),
-                        PLANNER_CONTEXT,
                         new IrTypeAnalyzer(PLANNER_CONTEXT))
                 .orElseThrow();
     }

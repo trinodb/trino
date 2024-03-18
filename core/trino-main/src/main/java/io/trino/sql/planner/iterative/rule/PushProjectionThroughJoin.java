@@ -15,8 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
-import io.trino.Session;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -48,11 +46,9 @@ import static io.trino.sql.planner.plan.JoinType.INNER;
 public final class PushProjectionThroughJoin
 {
     public static Optional<PlanNode> pushProjectionThroughJoin(
-            PlannerContext plannerContext,
             ProjectNode projectNode,
             Lookup lookup,
             PlanNodeIdAllocator planNodeIdAllocator,
-            Session session,
             IrTypeAnalyzer typeAnalyzer,
             TypeProvider types)
     {
@@ -116,17 +112,13 @@ public final class PushProjectionThroughJoin
                 joinNode.getId(),
                 joinNode.getType(),
                 inlineProjections(
-                        plannerContext,
                         new ProjectNode(planNodeIdAllocator.getNextId(), leftChild, leftAssignments),
                         lookup,
-                        session,
                         typeAnalyzer,
                         types),
                 inlineProjections(
-                        plannerContext,
                         new ProjectNode(planNodeIdAllocator.getNextId(), rightChild, rightAssignments),
                         lookup,
-                        session,
                         typeAnalyzer,
                         types),
                 joinNode.getCriteria(),
@@ -143,10 +135,8 @@ public final class PushProjectionThroughJoin
     }
 
     private static PlanNode inlineProjections(
-            PlannerContext plannerContext,
             ProjectNode parentProjection,
             Lookup lookup,
-            Session session,
             IrTypeAnalyzer typeAnalyzer,
             TypeProvider types)
     {
@@ -155,8 +145,8 @@ public final class PushProjectionThroughJoin
             return parentProjection;
         }
 
-        return InlineProjections.inlineProjections(plannerContext, parentProjection, childProjection, session, typeAnalyzer, types)
-                .map(node -> inlineProjections(plannerContext, node, lookup, session, typeAnalyzer, types))
+        return InlineProjections.inlineProjections(parentProjection, childProjection, typeAnalyzer, types)
+                .map(node -> inlineProjections(node, lookup, typeAnalyzer, types))
                 .orElse(parentProjection);
     }
 

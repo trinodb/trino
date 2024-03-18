@@ -42,7 +42,6 @@ import java.util.Map;
 import java.util.OptionalDouble;
 
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
-import static io.trino.sql.ir.IrUtils.isEffectivelyLiteral;
 import static io.trino.util.MoreMath.max;
 import static io.trino.util.MoreMath.min;
 import static java.lang.Double.NaN;
@@ -126,7 +125,7 @@ public class ScalarStatsCalculator
                 return nullStatsEstimate();
             }
 
-            if (value instanceof Expression && !isEffectivelyLiteral(plannerContext, session, (Expression) value)) {
+            if (value instanceof Expression) {
                 // value is not a constant
                 return SymbolStatsEstimate.unknown();
             }
