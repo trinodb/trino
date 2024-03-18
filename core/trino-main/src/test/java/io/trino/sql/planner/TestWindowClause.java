@@ -20,7 +20,7 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
@@ -37,7 +37,6 @@ import java.util.Optional;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.ir.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -143,7 +142,7 @@ public class TestWindowClause
                                 any(project(
                                         ImmutableMap.of("order_by_window_sortkey", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("minus_a"), new Constant(INTEGER, 1L)))),
                                         project(
-                                                ImmutableMap.of("minus_a", expression(new ArithmeticUnaryExpression(MINUS, new SymbolReference("a")))),
+                                                ImmutableMap.of("minus_a", expression(new ArithmeticNegation(new SymbolReference("a")))),
                                                 window(
                                                         windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(specification(

@@ -23,7 +23,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.BindExpression;
 import io.trino.sql.ir.Cast;
@@ -244,20 +244,12 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitArithmeticUnary(ArithmeticUnaryExpression node, Void context)
+        protected RowExpression visitArithmeticNegation(ArithmeticNegation node, Void context)
         {
             RowExpression expression = process(node.getValue(), context);
-
-            switch (node.getSign()) {
-                case PLUS:
-                    return expression;
-                case MINUS:
-                    return call(
-                            metadata.resolveOperator(NEGATION, ImmutableList.of(expression.getType())),
-                            expression);
-            }
-
-            throw new UnsupportedOperationException("Unsupported unary operator: " + node.getSign());
+            return call(
+                    metadata.resolveOperator(NEGATION, ImmutableList.of(expression.getType())),
+                    expression);
         }
 
         @Override

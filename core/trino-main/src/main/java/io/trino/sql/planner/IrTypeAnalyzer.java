@@ -24,7 +24,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.Array;
 import io.trino.sql.ir.BetweenPredicate;
 import io.trino.sql.ir.BindExpression;
@@ -277,7 +277,7 @@ public class IrTypeAnalyzer
         }
 
         @Override
-        protected Type visitArithmeticUnary(ArithmeticUnaryExpression node, Context context)
+        protected Type visitArithmeticNegation(ArithmeticNegation node, Context context)
         {
             return setExpressionType(node, process(node.getValue(), context));
         }
