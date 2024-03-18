@@ -147,8 +147,7 @@ public class ResolvedFunction
 
     public CatalogSchemaFunctionName getName()
     {
-        QualifiedName qualifiedName = toQualifiedName();
-        return SerializedResolvedFunction.fromSerializedName(qualifiedName).functionName();
+        return getSignature().getName();
     }
 
     @Deprecated
