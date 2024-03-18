@@ -667,27 +667,6 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitBindExpression(BindExpression node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteBindExpression(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            List<Expression> values = node.getValues().stream()
-                    .map(value -> rewrite(value, context.get()))
-                    .collect(toImmutableList());
-            Expression function = rewrite(node.getFunction(), context.get());
-
-            if (!sameElements(values, node.getValues()) || (function != node.getFunction())) {
-                return new BindExpression(values, function);
-            }
-            return node;
-        }
-
-        @Override
         public Expression visitLikePredicate(LikePredicate node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

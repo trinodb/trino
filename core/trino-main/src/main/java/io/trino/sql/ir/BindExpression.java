@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 import static java.util.Objects.requireNonNull;
 
 /**
- * "$INTERNAL$BIND"(value, targetFunction)
+ * Bind(value, targetFunction)
  * <p>
  * When invoked, the returned function inserts the given value as
  * the leading argument to the targetFunction.  The other arguments are
