@@ -2455,7 +2455,7 @@ public final class MetadataManager
             ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
             ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
             functions.addAll(metadata.listFunctions(connectorSession, schema.getSchemaName()));
-            functions.addAll(languageFunctionManager.listFunctions(metadata.listLanguageFunctions(connectorSession, schema.getSchemaName())));
+            functions.addAll(languageFunctionManager.listFunctions(session, metadata.listLanguageFunctions(connectorSession, schema.getSchemaName())));
         });
         return functions.build();
     }

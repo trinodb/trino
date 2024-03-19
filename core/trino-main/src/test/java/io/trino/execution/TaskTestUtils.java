@@ -117,7 +117,7 @@ public final class TaskTestUtils
                     .withBucketToPartition(Optional.of(new int[1])),
             StatsAndCosts.empty(),
             ImmutableList.of(),
-            ImmutableList.of(),
+            ImmutableMap.of(),
             Optional.empty());
 
     public static final DynamicFilterId DYNAMIC_FILTER_SOURCE_ID = new DynamicFilterId("filter");
@@ -142,7 +142,7 @@ public final class TaskTestUtils
                     .withBucketToPartition(Optional.of(new int[1])),
             StatsAndCosts.empty(),
             ImmutableList.of(),
-            ImmutableList.of(),
+            ImmutableMap.of(),
             Optional.empty());
 
     public static LocalExecutionPlanner createTestingPlanner()
