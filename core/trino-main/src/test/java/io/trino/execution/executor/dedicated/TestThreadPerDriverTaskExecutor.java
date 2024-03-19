@@ -24,6 +24,7 @@ import io.trino.execution.SplitRunner;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.executor.ExecutionPriority;
 import io.trino.execution.executor.TaskHandle;
 import io.trino.execution.executor.scheduler.FairScheduler;
 import org.junit.jupiter.api.Test;
@@ -34,13 +35,25 @@ import java.util.OptionalInt;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.scheduleAsync;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
+import static io.airlift.units.Duration.succinctDuration;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.util.EmbedVersion.testingVersionEmbedder;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestThreadPerDriverTaskExecutor
@@ -157,6 +170,102 @@ public class TestThreadPerDriverTaskExecutor
         finally {
             executor.stop();
         }
+    }
+
+    @Test
+    @Timeout(60)
+    public void testLowPriorityTask()
+            throws ExecutionException, InterruptedException
+    {
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(new TaskManagerConfig().setMaxWorkerThreads("1"), noopTracer(), testingVersionEmbedder());
+        executor.start();
+
+        try (ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1, daemonThreadsNamed("thread-per-driver-executor-test"))) {
+            TaskHandle normalPriorityTask = executor.addTask(new TaskId(new StageId("normal", 1), 1, 1),
+                    ExecutionPriority.NORMAL,
+                    () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            TaskHandle lowPriorityTask = executor.addTask(new TaskId(new StageId("low", 1), 1, 1),
+                    ExecutionPriority.fromResourcePercentage(0.01),
+                    () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            List<SplitRunner> normalPrioritySplits = splits(scheduledExecutorService, 20, 100);
+            SplitRunner lowPrioritySplit = split(scheduledExecutorService, 20);
+
+            ListenableFuture<Void> lowPrioritySplitDone = executor.enqueueSplits(lowPriorityTask, false, ImmutableList.of(lowPrioritySplit)).get(0);
+            List<ListenableFuture<Void>> normalPrioritySplitsDone = executor.enqueueSplits(normalPriorityTask, false, normalPrioritySplits);
+
+            for (ListenableFuture<Void> normalPrioritySplitDone : normalPrioritySplitsDone) {
+                normalPrioritySplitDone.get();
+            }
+            for (SplitRunner normalPrioritySplit : normalPrioritySplits) {
+                assertThat(normalPrioritySplit.isFinished()).isTrue();
+            }
+            assertThat(lowPrioritySplit.isFinished()).isFalse();
+
+            lowPrioritySplitDone.get();
+            assertThat(lowPrioritySplit.isFinished()).isTrue();
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(20)
+    public void testLowPriorityTaskSplitQueue()
+    {
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(
+                new TaskManagerConfig().setMaxWorkerThreads("8").setMinDrivers(16),
+                noopTracer(),
+                testingVersionEmbedder());
+        executor.start();
+
+        try (ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(17, daemonThreadsNamed("thread-per-driver-executor-test"))) {
+            TaskHandle normalPriorityTask = executor.addTask(new TaskId(new StageId("normal", 1), 1, 1),
+                    ExecutionPriority.NORMAL,
+                    () -> 0, 16, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            TaskHandle lowPriorityTask = executor.addTask(new TaskId(new StageId("low", 1), 1, 1),
+                    ExecutionPriority.fromResourcePercentage(0.01),
+                    () -> 0, 16, new Duration(1, MILLISECONDS), OptionalInt.empty());
+
+            List<ListenableFuture<Void>> normalPrioritySplitsFutures = executor.enqueueSplits(normalPriorityTask, false, splits(scheduledExecutorService, 60, 20));
+
+            List<SplitRunner> lowPrioritySplits = splits(scheduledExecutorService, 50, 20);
+            executor.enqueueSplits(lowPriorityTask, false, lowPrioritySplits);
+            AtomicInteger normalSplitsDoneCount = new AtomicInteger(0);
+            for (ListenableFuture<Void> normalPrioritySplitsFuture : normalPrioritySplitsFutures) {
+                normalPrioritySplitsFuture.addListener(normalSplitsDoneCount::incrementAndGet, scheduledExecutorService);
+            }
+            // Wait for at least 50 normal priority splits to finish. Last 10 are left to block low priority splits from running while we do the assertions
+            assertEventually(
+                    succinctDuration(30, SECONDS),
+                    succinctDuration(10, MILLISECONDS),
+                    () -> assertThat(normalSplitsDoneCount).hasValueGreaterThanOrEqualTo(50));
+            assertThat(lowPrioritySplits.stream().filter(SplitRunner::isFinished).count()).isLessThanOrEqualTo(35);
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    private static List<SplitRunner> splits(ScheduledExecutorService scheduledExecutorService, int splitCount, int invocations)
+    {
+        return IntStream.range(0, splitCount)
+                .mapToObj(_ -> split(scheduledExecutorService, invocations))
+                .collect(toImmutableList());
+    }
+
+    private static TestingSplitRunner split(ScheduledExecutorService scheduledExecutorService, int invocations)
+    {
+        return new TestingSplitRunner(IntStream.range(0, invocations)
+                .mapToObj(_ -> (Function<Duration, ListenableFuture<Void>>) _ -> {
+                    sleepUninterruptibly(10, MILLISECONDS);
+                    // return blocked future to make sure the split yields
+                    return scheduleAsync(Futures::immediateVoidFuture, 10, MICROSECONDS, scheduledExecutorService);
+                })
+                .collect(toImmutableList()));
     }
 
     private static class TestFuture

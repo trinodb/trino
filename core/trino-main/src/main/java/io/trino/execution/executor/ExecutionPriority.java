@@ -40,4 +40,12 @@ public record ExecutionPriority(double normalPriorityResourceUsageMultiplier)
         double normalToLowPriorityResourceRatio = (1 / resourcePercentage) - 1;
         return new ExecutionPriority(normalToLowPriorityResourceRatio);
     }
+
+    public long toTaskWeight(long elapsed)
+    {
+        // elapsed is nanoseconds and in extreme case the multiplication can produce
+        // a `double` value bigger than Long.MAX_VALUE but the cast to long
+        // will truncate it to the Long.MAX_VALUE
+        return (long) (elapsed * normalPriorityResourceUsageMultiplier);
+    }
 }

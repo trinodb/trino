@@ -135,6 +135,7 @@ public class ThreadPerDriverTaskExecutor
         checkArgument(!closed, "Executor is already closed");
         TaskEntry task = new TaskEntry(
                 taskId,
+                taskExecutionPriority,
                 scheduler,
                 versionEmbedder,
                 tracer,

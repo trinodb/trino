@@ -15,6 +15,7 @@ package io.trino.execution.executor.scheduler;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.annotation.NotThreadSafe;
+import io.trino.execution.executor.ExecutionPriority;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.trino.execution.executor.ExecutionPriority.NORMAL;
 import static io.trino.execution.executor.scheduler.State.BLOCKED;
 import static io.trino.execution.executor.scheduler.State.RUNNABLE;
 import static io.trino.execution.executor.scheduler.State.RUNNING;
@@ -117,9 +119,14 @@ final class SchedulingQueue<G, T>
 
     public void startGroup(G group)
     {
+        startGroup(group, NORMAL);
+    }
+
+    public void startGroup(G group, ExecutionPriority priority)
+    {
         checkArgument(!groups.containsKey(group), "Group already started: %s", group);
 
-        SchedulingGroup<T> info = new SchedulingGroup<>();
+        SchedulingGroup<T> info = new SchedulingGroup<>(priority);
         groups.put(group, info);
     }
 
@@ -165,11 +172,11 @@ final class SchedulingQueue<G, T>
 
         if (newState == RUNNABLE) {
             runnableQueue.addOrReplace(group, info.weight());
-            baselineWeights.addOrReplace(group, info.weight());
+            baselineWeights.addOrReplace(group, info.baseWeight());
         }
         else if (newState == RUNNING) {
             runnableQueue.removeIfPresent(group);
-            baselineWeights.addOrReplace(group, info.weight());
+            baselineWeights.addOrReplace(group, info.baseWeight());
         }
         else if (newState == BLOCKED && previousState != BLOCKED) {
             info.addWeight(-baselineWeight());
@@ -197,7 +204,7 @@ final class SchedulingQueue<G, T>
         }
 
         runnableQueue.addOrReplace(group, info.weight());
-        baselineWeights.addOrReplace(group, info.weight());
+        baselineWeights.addOrReplace(group, info.baseWeight());
 
         verifyState(group);
     }
@@ -228,7 +235,7 @@ final class SchedulingQueue<G, T>
         T task = info.dequeue(expectedWeight);
         verify(task != null);
 
-        baselineWeights.addOrReplace(group, info.weight());
+        baselineWeights.addOrReplace(group, info.baseWeight());
         if (info.state() == RUNNABLE) {
             runnableQueue.add(group, info.weight());
         }
@@ -285,11 +292,11 @@ final class SchedulingQueue<G, T>
     {
         if (newState == RUNNABLE) {
             runnableQueue.addOrReplace(group, info.weight());
-            baselineWeights.addOrReplace(group, info.weight());
+            baselineWeights.addOrReplace(group, info.baseWeight());
         }
         else if (newState == RUNNING) {
             runnableQueue.removeIfPresent(group);
-            baselineWeights.addOrReplace(group, info.weight());
+            baselineWeights.addOrReplace(group, info.baseWeight());
         }
         else if (newState == BLOCKED && previousState != BLOCKED) {
             info.addWeight(-baselineWeight());
