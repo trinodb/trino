@@ -147,6 +147,10 @@ The following provides a good starting point for creating `etc/jvm.config`:
 -XX:GCLockerRetryAllocationCount=32
 # Allow loading dynamic agent used by JOL
 -XX:+EnableDynamicAgentLoading
+# Trino server behavior does generally not depend on locale settings.
+# Use en_US as this is what Trino is tested with.
+-Duser.language=en
+-Duser.region=US
 ```
 
 You must adjust the value for the memory used by Trino, specified with `-Xmx`
