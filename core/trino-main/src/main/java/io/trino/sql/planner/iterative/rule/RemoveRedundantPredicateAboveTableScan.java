@@ -37,9 +37,13 @@ import io.trino.sql.planner.plan.ValuesNode;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.spi.predicate.Domain.notNull;
+import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.predicate.TupleDomain.intersect;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
@@ -61,9 +65,7 @@ public class RemoveRedundantPredicateAboveTableScan
 
     private static final Pattern<FilterNode> PATTERN =
             filter().with(source().matching(
-                    tableScan().capturedAs(TABLE_SCAN)
-                            // avoid extra computations if table scan doesn't have any enforced predicate
-                            .matching(node -> !node.getEnforcedConstraint().isAll())));
+                    tableScan().capturedAs(TABLE_SCAN)));
 
     private final PlannerContext plannerContext;
     private final DomainTranslator domainTranslator;
@@ -114,14 +116,28 @@ public class RemoveRedundantPredicateAboveTableScan
             return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
 
+        Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
+        Set<ColumnHandle> notNullColumns = assignments.keySet().stream()
+                .filter(column -> !plannerContext.getMetadata().getColumnMetadata(session, node.getTable(), column).isNullable())
+                .collect(toImmutableSet());
+
         Map<ColumnHandle, Domain> enforcedColumnDomains = node.getEnforcedConstraint().getDomains().orElseThrow(); // is not NONE
 
         TupleDomain<ColumnHandle> unenforcedDomain = predicateDomain.transformDomains((columnHandle, predicateColumnDomain) -> {
             Type type = predicateColumnDomain.getType();
+            boolean isNotNullColumn = notNullColumns.contains(columnHandle);
             Domain enforcedColumnDomain = Optional.ofNullable(enforcedColumnDomains.get(columnHandle)).orElseGet(() -> Domain.all(type));
             if (predicateColumnDomain.contains(enforcedColumnDomain)) {
                 // full enforced
                 return Domain.all(type);
+            }
+            if (isNotNullColumn) {
+                if (predicateColumnDomain.equals(notNull(type))) {
+                    return Domain.all(type);
+                }
+                if (predicateColumnDomain.equals(onlyNull(type))) {
+                    return Domain.none(type);
+                }
             }
             return predicateColumnDomain.intersect(enforcedColumnDomain);
         });
@@ -131,7 +147,6 @@ public class RemoveRedundantPredicateAboveTableScan
             return Result.empty();
         }
 
-        Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
         Expression resultingPredicate = createResultingPredicate(
                 plannerContext,
                 session,

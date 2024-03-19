@@ -23,7 +23,6 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.plan.ExchangeNode;
 import org.junit.jupiter.api.Test;
@@ -35,7 +34,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -123,7 +121,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                 "SELECT customer.name, orders.orderdate " +
                         "FROM orders " +
                         "LEFT JOIN customer ON orders.custkey = customer.custkey " +
-                        "WHERE customer.name IS NOT NULL",
+                        "WHERE customer.name = 'test'",
                 disableJoinReordering,
                 anyTree(
                         join(INNER, builder -> builder
@@ -133,7 +131,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(VARCHAR, "c_name"))),
+                                                        new Comparison(EQUAL, new Reference(createVarcharType(25), "c_name"), new Constant(createVarcharType(25), Slices.utf8Slice("test"))),
                                                         tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
 
         // nested joins
@@ -142,7 +140,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                         "FROM lineitem " +
                         "LEFT JOIN orders ON lineitem.orderkey = orders.orderkey " +
                         "LEFT JOIN customer ON orders.custkey = customer.custkey " +
-                        "WHERE customer.name IS NOT NULL",
+                        "WHERE customer.name = 'test'",
                 disableJoinReordering,
                 anyTree(
                         join(INNER, builder -> builder
@@ -159,7 +157,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(VARCHAR, "c_name"))),
+                                                        new Comparison(EQUAL, new Reference(createVarcharType(25), "c_name"), new Constant(createVarcharType(25), Slices.utf8Slice("test"))),
                                                         tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
     }
 

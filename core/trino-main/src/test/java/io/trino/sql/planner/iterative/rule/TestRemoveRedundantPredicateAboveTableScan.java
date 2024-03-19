@@ -32,6 +32,7 @@ import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -40,6 +41,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -51,6 +53,7 @@ import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.BuiltinFunctionCallBuilder.resolve;
@@ -156,6 +159,44 @@ public class TestRemoveRedundantPredicateAboveTableScan
     }
 
     @Test
+    public void consumesIsNullOnNonNullColumn()
+    {
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
+                .on(p -> p.filter(
+                        new IsNull(new Reference(BIGINT, "nationkey")),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.fromFixedValues(ImmutableMap.of()))))
+                .matches(filter(
+                        new Constant(BOOLEAN, false),
+                        constrainedTableScanWithTableLayout(
+                                "nation",
+                                ImmutableMap.of(),
+                                ImmutableMap.of("nationkey", "nationkey"))));
+    }
+
+    @Test
+    public void consumesIsNotNullOnNonNullColumn()
+    {
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
+                .on(p -> p.filter(
+                        not(tester().getMetadata(), new IsNull(new Reference(BIGINT, "nationkey"))),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.fromFixedValues(ImmutableMap.of()))))
+                .matches(constrainedTableScanWithTableLayout(
+                        "nation",
+                        ImmutableMap.of(),
+                        ImmutableMap.of("nationkey", "nationkey")));
+    }
+
+    @Test
     public void doesNotConsumeRemainingPredicateIfNewDomainIsWider()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
@@ -241,7 +282,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
     {
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new Comparison(EQUAL, new Reference(VARCHAR, "orderstatus"), new Constant(VARCHAR, Slices.utf8Slice("F"))),
+                        new Comparison(EQUAL, new Reference(createVarcharType(1), "orderstatus"), new Constant(createVarcharType(1), Slices.utf8Slice("F"))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
@@ -255,7 +296,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 3L)), new Comparison(GREATER_THAN, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 0L)))), new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 3L)), new Comparison(LESS_THAN, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 1L)))))),
+                        new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 3L)), new Comparison(GREATER_THAN, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 0L)))), new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 3L)), new Comparison(LESS_THAN, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 1L)))))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
