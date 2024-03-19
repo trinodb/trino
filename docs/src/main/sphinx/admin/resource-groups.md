@@ -187,6 +187,9 @@ documentation](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java
 
 - `group` (required): the group these queries will run in.
 
+All rules within a single selector are combined using a logical `AND`. Therefore
+all rules must match for a selector to be applied.
+
 Selectors are processed sequentially and the first one that matches will be used.
 
 ## Global properties
