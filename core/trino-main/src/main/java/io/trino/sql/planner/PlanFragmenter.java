@@ -25,7 +25,6 @@ import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.LanguageFunctionManager;
-import io.trino.metadata.LanguageScalarFunctionData;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProperties.TablePartitioning;
@@ -34,6 +33,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
+import io.trino.spi.function.FunctionId;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -57,6 +57,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.routine.ir.IrRoutine;
 import io.trino.transaction.TransactionManager;
 
 import java.util.ArrayList;
@@ -145,7 +146,7 @@ public class PlanFragmenter
                 .map(CatalogInfo::getCatalogHandle)
                 .flatMap(catalogHandle -> catalogManager.getCatalogProperties(catalogHandle).stream())
                 .collect(toImmutableList());
-        List<LanguageScalarFunctionData> languageScalarFunctions = languageFunctionManager.serializeFunctionsForWorkers(session);
+        Map<FunctionId, IrRoutine> languageScalarFunctions = languageFunctionManager.serializeFunctionsForWorkers(session);
         Fragmenter fragmenter = new Fragmenter(
                 session,
                 metadata,
@@ -247,7 +248,7 @@ public class PlanFragmenter
         private final FunctionManager functionManager;
         private final StatsAndCosts statsAndCosts;
         private final List<CatalogProperties> activeCatalogs;
-        private final List<LanguageScalarFunctionData> languageFunctions;
+        private final Map<FunctionId, IrRoutine> languageFunctions;
         private final PlanFragmentIdAllocator idAllocator;
         private final Map<ExchangeSourceId, SubPlan> unchangedSubPlans;
         private final PlanFragmentId rootFragmentID;
@@ -258,7 +259,7 @@ public class PlanFragmenter
                 FunctionManager functionManager,
                 StatsAndCosts statsAndCosts,
                 List<CatalogProperties> activeCatalogs,
-                List<LanguageScalarFunctionData> languageFunctions,
+                Map<FunctionId, IrRoutine> languageFunctions,
                 PlanFragmentIdAllocator idAllocator,
                 Map<ExchangeSourceId, SubPlan> unchangedSubPlans)
         {
@@ -267,7 +268,7 @@ public class PlanFragmenter
             this.functionManager = requireNonNull(functionManager, "functionManager is null");
             this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
             this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
-            this.languageFunctions = requireNonNull(languageFunctions, "languageFunctions is null");
+            this.languageFunctions = ImmutableMap.copyOf(languageFunctions);
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.unchangedSubPlans = ImmutableMap.copyOf(requireNonNull(unchangedSubPlans, "unchangedSubPlans is null"));
             this.rootFragmentID = idAllocator.getNextId();

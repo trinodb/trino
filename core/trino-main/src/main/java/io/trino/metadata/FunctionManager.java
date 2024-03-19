@@ -100,13 +100,12 @@ public class FunctionManager
 
     private ScalarFunctionImplementation getScalarFunctionImplementationInternal(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
-        FunctionDependencies functionDependencies = getFunctionDependencies(resolvedFunction);
-
         ScalarFunctionImplementation scalarFunctionImplementation;
         if (isTrinoSqlLanguageFunction(resolvedFunction.getFunctionId())) {
-            scalarFunctionImplementation = languageFunctionProvider.specialize(this, resolvedFunction, functionDependencies, invocationConvention);
+            scalarFunctionImplementation = languageFunctionProvider.specialize(resolvedFunction.getFunctionId(), invocationConvention, this);
         }
         else {
+            FunctionDependencies functionDependencies = getFunctionDependencies(resolvedFunction);
             scalarFunctionImplementation = getFunctionProvider(resolvedFunction).getScalarFunctionImplementation(
                     resolvedFunction.getFunctionId(),
                     resolvedFunction.getSignature(),

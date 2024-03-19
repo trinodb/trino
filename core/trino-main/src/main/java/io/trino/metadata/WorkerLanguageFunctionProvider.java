@@ -15,28 +15,25 @@ package io.trino.metadata;
 
 import io.trino.execution.TaskId;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
-import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.sql.routine.SqlRoutineCompiler;
+import io.trino.sql.routine.ir.IrRoutine;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
-
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public class WorkerLanguageFunctionProvider
         implements LanguageFunctionProvider
 {
-    private final Map<TaskId, Map<ResolvedFunction, LanguageScalarFunctionData>> queryFunctions = new ConcurrentHashMap<>();
+    private final Map<TaskId, Map<FunctionId, IrRoutine>> queryFunctions = new ConcurrentHashMap<>();
 
     @Override
-    public void registerTask(TaskId taskId, List<LanguageScalarFunctionData> functions)
+    public void registerTask(TaskId taskId, Map<FunctionId, IrRoutine> functions)
     {
-        queryFunctions.computeIfAbsent(taskId, ignored -> functions.stream().collect(toImmutableMap(LanguageScalarFunctionData::resolvedFunction, Function.identity())));
+        queryFunctions.computeIfAbsent(taskId, ignored -> functions);
     }
 
     @Override
@@ -46,18 +43,17 @@ public class WorkerLanguageFunctionProvider
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionManager functionManager, ResolvedFunction resolvedFunction, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation specialize(FunctionId functionId, InvocationConvention invocationConvention, FunctionManager functionManager)
     {
-        LanguageScalarFunctionData functionData = queryFunctions.values().stream()
-                .map(queryFunctions -> queryFunctions.get(resolvedFunction))
+        IrRoutine routine = queryFunctions.values().stream()
+                .map(queryFunctions -> queryFunctions.get(functionId))
                 .filter(Objects::nonNull)
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Unknown function implementation: " + resolvedFunction.getFunctionId()));
+                .orElseThrow(() -> new IllegalStateException("Unknown function implementation: " + functionId));
 
         // Recompile every time this function is called as the function dependencies may have changed.
         // The caller caches, so this should not be a problem.
-        // TODO: compiler should use function dependencies instead of function manager
-        SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager).compile(functionData.routine());
+        SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager).compile(routine);
         return function.getScalarFunctionImplementation(invocationConvention);
     }
 }
