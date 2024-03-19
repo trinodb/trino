@@ -139,7 +139,7 @@ public class TestRemoteSourceStatsRule
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(new Symbol(UNKNOWN, "col_c"))),
                 statsAndCosts,
                 ImmutableList.of(),
-                ImmutableList.of(),
+                ImmutableMap.of(),
                 Optional.empty());
     }
 
