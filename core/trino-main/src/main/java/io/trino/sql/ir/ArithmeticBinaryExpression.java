@@ -13,15 +13,16 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
 
 import java.util.List;
-import java.util.Objects;
 
-public final class ArithmeticBinaryExpression
+import static java.util.Objects.requireNonNull;
+
+@JsonSerialize
+public record ArithmeticBinaryExpression(ResolvedFunction function, Operator operator, Expression left, Expression right)
         implements Expression
 {
     public enum Operator
@@ -44,39 +45,33 @@ public final class ArithmeticBinaryExpression
         }
     }
 
-    private final Operator operator;
-    private final Expression left;
-    private final Expression right;
-    private final ResolvedFunction function;
-
-    @JsonCreator
-    public ArithmeticBinaryExpression(ResolvedFunction function, Operator operator, Expression left, Expression right)
+    public ArithmeticBinaryExpression
     {
-        this.function = function;
-        this.operator = operator;
-        this.left = left;
-        this.right = right;
+        requireNonNull(function, "function is null");
+        requireNonNull(operator, "operator is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
     }
 
-    @JsonProperty
+    @Deprecated
     public ResolvedFunction getFunction()
     {
         return function;
     }
 
-    @JsonProperty
+    @Deprecated
     public Operator getOperator()
     {
         return operator;
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getLeft()
     {
         return left;
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getRight()
     {
         return right;
@@ -92,28 +87,6 @@ public final class ArithmeticBinaryExpression
     public List<? extends Expression> getChildren()
     {
         return ImmutableList.of(left, right);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        ArithmeticBinaryExpression that = (ArithmeticBinaryExpression) o;
-        return (operator == that.operator) &&
-                Objects.equals(left, that.left) &&
-                Objects.equals(right, that.right);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(operator, left, right);
     }
 
     @Override

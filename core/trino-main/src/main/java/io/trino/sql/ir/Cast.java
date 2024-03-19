@@ -13,51 +13,42 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class Cast
+@JsonSerialize
+public record Cast(Expression expression, Type type, boolean safe)
         implements Expression
 {
-    private final Expression expression;
-    private final Type type;
-    private final boolean safe;
-
     public Cast(Expression expression, Type type)
     {
         this(expression, type, false);
     }
 
-    @JsonCreator
-    public Cast(Expression expression, Type type, boolean safe)
+    public Cast
     {
         requireNonNull(expression, "expression is null");
-
-        this.expression = expression;
-        this.type = type;
-        this.safe = safe;
+        requireNonNull(type, "type is null");
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getExpression()
     {
         return expression;
     }
 
-    @JsonProperty
+    @Deprecated
     public Type getType()
     {
         return type;
     }
 
-    @JsonProperty
+    @Deprecated
     public boolean isSafe()
     {
         return safe;
@@ -73,27 +64,6 @@ public final class Cast
     public List<? extends Expression> getChildren()
     {
         return ImmutableList.of(expression);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Cast cast = (Cast) o;
-        return safe == cast.safe &&
-                expression.equals(cast.expression) &&
-                type.equals(cast.type);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(expression, type, safe);
     }
 
     @Override

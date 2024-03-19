@@ -13,28 +13,23 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class IsNullPredicate
+@JsonSerialize
+public record IsNullPredicate(Expression value)
         implements Expression
 {
-    private final Expression value;
-
-    @JsonCreator
-    public IsNullPredicate(Expression value)
+    public IsNullPredicate
     {
         requireNonNull(value, "value is null");
-        this.value = value;
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getValue()
     {
         return value;
@@ -50,31 +45,5 @@ public final class IsNullPredicate
     public List<? extends Expression> getChildren()
     {
         return ImmutableList.of(value);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        IsNullPredicate that = (IsNullPredicate) o;
-        return Objects.equals(value, that.value);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return value.hashCode();
-    }
-
-    @Override
-    public String toString()
-    {
-        return "IsNull(%s)".formatted(value);
     }
 }

@@ -13,6 +13,7 @@
  */
 package io.trino.sql.ir;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.errorprone.annotations.Immutable;
@@ -58,5 +59,6 @@ public sealed interface Expression
         return visitor.visitExpression(this, context);
     }
 
+    @JsonIgnore
     List<? extends Expression> getChildren();
 }
