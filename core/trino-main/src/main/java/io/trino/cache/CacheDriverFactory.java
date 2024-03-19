@@ -300,7 +300,7 @@ public class CacheDriverFactory
         }
 
         if (originalPredicate.getDomains().get().size() > commonPredicate.getDomains().get().size() ||
-                        getTupleDomainValueCount(originalPredicate) < getTupleDomainValueCount(commonPredicate) * DYNAMIC_FILTER_VALUES_HEURISTIC) {
+                getTupleDomainValueCount(originalPredicate) < getTupleDomainValueCount(commonPredicate) * DYNAMIC_FILTER_VALUES_HEURISTIC) {
             // prefer original DF when it contains more domains or original DF size is much smaller
             return originalDynamicFilter;
         }
