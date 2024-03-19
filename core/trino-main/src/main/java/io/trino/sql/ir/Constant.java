@@ -29,7 +29,7 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 
 public final class Constant
-        extends Expression
+        implements Expression
 {
     private final Type type;
     private final Object value;

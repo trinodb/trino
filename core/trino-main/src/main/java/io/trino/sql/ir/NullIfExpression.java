@@ -24,7 +24,7 @@ import java.util.Objects;
  * NULLIF(V1,V2): CASE WHEN V1=V2 THEN NULL ELSE V1 END
  */
 public final class NullIfExpression
-        extends Expression
+        implements Expression
 {
     private final Expression first;
     private final Expression second;

@@ -23,7 +23,7 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 public final class BetweenPredicate
-        extends Expression
+        implements Expression
 {
     private final Expression value;
     private final Expression min;

@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 import static java.util.Objects.requireNonNull;
 
 public final class SimpleCaseExpression
-        extends Expression
+        implements Expression
 {
     private final Expression operand;
     private final List<WhenClause> whenClauses;
