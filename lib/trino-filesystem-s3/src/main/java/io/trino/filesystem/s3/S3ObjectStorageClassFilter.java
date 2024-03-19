@@ -24,7 +24,7 @@ import java.util.function.Function;
 public enum S3ObjectStorageClassFilter {
     READ_ALL(o -> true),
     READ_NON_GLACIER(S3ObjectStorageClassFilter::isNotGlacierObject),
-    READ_NON_GLACIER_AND_RESTORED(S3ObjectStorageClassFilter::isCompletedRestoredObject);
+    READ_NON_GLACIER_AND_RESTORED(S3ObjectStorageClassFilter::isNonGlacierOrCompletedRestoredObject);
 
     private static final Set<ObjectStorageClass> GLACIER_STORAGE_CLASSES = Set.of(
             ObjectStorageClass.GLACIER, ObjectStorageClass.DEEP_ARCHIVE);
@@ -54,16 +54,11 @@ public enum S3ObjectStorageClassFilter {
      * @param object s3 object
      * @return if the s3 object is completely restored
      */
-    private static boolean isCompletedRestoredObject(S3Object object)
+    private static boolean isNonGlacierOrCompletedRestoredObject(S3Object object)
     {
         return isNotGlacierObject(object) || Optional.ofNullable(object.restoreStatus())
                 .map(RestoreStatus::restoreExpiryDate)
                 .isPresent();
-    }
-
-    public Function<S3Object, Boolean> getFilter()
-    {
-        return filter;
     }
 
     public boolean getFilter(S3Object object)
@@ -71,7 +66,7 @@ public enum S3ObjectStorageClassFilter {
         return switch (this) {
             case READ_ALL -> true;
             case READ_NON_GLACIER -> isNotGlacierObject(object);
-            case READ_NON_GLACIER_AND_RESTORED -> isCompletedRestoredObject(object);
+            case READ_NON_GLACIER_AND_RESTORED -> isNonGlacierOrCompletedRestoredObject(object);
         };
     }
 }
