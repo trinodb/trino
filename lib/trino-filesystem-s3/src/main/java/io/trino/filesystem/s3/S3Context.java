@@ -23,7 +23,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String sseKmsKeyId, Optional<AwsCredentialsProvider> credentialsProviderOverride)
+record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String sseKmsKeyId, Optional<AwsCredentialsProvider> credentialsProviderOverride, S3ObjectStorageClassFilter s3ObjectStorageClassFilter)
 {
     private static final int MIN_PART_SIZE = 5 * 1024 * 1024; // S3 requirement
 
@@ -33,6 +33,7 @@ record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String 
         requireNonNull(sseType, "sseType is null");
         checkArgument((sseType != S3SseType.KMS) || (sseKmsKeyId != null), "sseKmsKeyId is null for SSE-KMS");
         requireNonNull(credentialsProviderOverride, "credentialsProviderOverride is null");
+        requireNonNull(s3ObjectStorageClassFilter, "s3ObjectStorageClassFilter is null");
     }
 
     public RequestPayer requestPayer()
@@ -47,7 +48,8 @@ record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String 
                 requesterPays,
                 sseType,
                 sseKmsKeyId,
-                Optional.of(credentialsProviderOverride));
+                Optional.of(credentialsProviderOverride),
+                s3ObjectStorageClassFilter);
     }
 
     public void applyCredentialProviderOverride(AwsRequestOverrideConfiguration.Builder builder)
