@@ -46,6 +46,9 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.DISCRETE;
+import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.NON_DISCRETE;
+import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.UNKNOWN;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -79,10 +82,19 @@ public final class SortedRangeSet
 
     private final boolean[] inclusive;
     private final Block sortedRanges;
+    private volatile DiscreteSetMarker discreteSetMarker;
 
     private int lazyHash;
 
-    private SortedRangeSet(Type type, boolean[] inclusive, Block sortedRanges)
+    public enum DiscreteSetMarker
+    {
+        DISCRETE,
+        // empty set is also considered non discrete
+        NON_DISCRETE,
+        UNKNOWN
+    }
+
+    private SortedRangeSet(Type type, boolean[] inclusive, Block sortedRanges, DiscreteSetMarker discreteSetMarker)
     {
         requireNonNull(type, "type is null");
         if (!type.isOrderable()) {
@@ -116,6 +128,7 @@ public final class SortedRangeSet
         }
         this.inclusive = inclusive;
         this.sortedRanges = sortedRanges;
+        this.discreteSetMarker = requireNonNull(discreteSetMarker, "discreteSetMarker is null");
     }
 
     static SortedRangeSet none(Type type)
@@ -124,7 +137,9 @@ public final class SortedRangeSet
                 type,
                 new boolean[0],
                 // TODO This can perhaps use an empty block singleton
-                type.createBlockBuilder(null, 0).build());
+                type.createBlockBuilder(null, 0).build(),
+                // empty => no discrete set
+                NON_DISCRETE);
     }
 
     static SortedRangeSet all(Type type)
@@ -136,7 +151,8 @@ public final class SortedRangeSet
                 type.createBlockBuilder(null, 2)
                         .appendNull()
                         .appendNull()
-                        .build());
+                        .build(),
+                NON_DISCRETE);
     }
 
     @JsonCreator
@@ -145,12 +161,13 @@ public final class SortedRangeSet
     public static SortedRangeSet fromJson(
             @JsonProperty("type") Type type,
             @JsonProperty("inclusive") boolean[] inclusive,
-            @JsonProperty("sortedRanges") Block sortedRanges)
+            @JsonProperty("sortedRanges") Block sortedRanges,
+            @JsonProperty("discreteSetMarker") DiscreteSetMarker discreteSetMarker)
     {
         if (sortedRanges instanceof BlockBuilder) {
             throw new IllegalArgumentException("sortedRanges must be a block: " + sortedRanges);
         }
-        return new SortedRangeSet(type, inclusive.clone(), sortedRanges);
+        return new SortedRangeSet(type, inclusive.clone(), sortedRanges, discreteSetMarker);
     }
 
     /**
@@ -227,7 +244,8 @@ public final class SortedRangeSet
         return new SortedRangeSet(
                 type,
                 inclusive,
-                DictionaryBlock.create(dictionaryIndex, block, dictionary));
+                DictionaryBlock.create(dictionaryIndex, block, dictionary),
+                DISCRETE);
     }
 
     /**
@@ -260,7 +278,8 @@ public final class SortedRangeSet
         return new SortedRangeSet(
                 type,
                 new boolean[] {true, true},
-                RunLengthEncodedBlock.create(block, 2));
+                RunLengthEncodedBlock.create(block, 2),
+                DISCRETE);
     }
 
     static SortedRangeSet copyOf(Type type, Collection<Range> ranges)
@@ -342,8 +361,23 @@ public final class SortedRangeSet
         throw new IllegalStateException("SortedRangeSet does not have just a single value");
     }
 
+    // Used for serialization purpose only
+    @JsonProperty("discreteSetMarker")
+    public DiscreteSetMarker getDiscreteSetMarker()
+    {
+        return discreteSetMarker;
+    }
+
     @Override
     public boolean isDiscreteSet()
+    {
+        if (discreteSetMarker == UNKNOWN) {
+            discreteSetMarker = computeIsDiscreteSet() ? DISCRETE : NON_DISCRETE;
+        }
+        return discreteSetMarker == DISCRETE;
+    }
+
+    private boolean computeIsDiscreteSet()
     {
         for (int i = 0; i < getRangeCount(); i++) {
             if (!getRangeView(i).isSingleValue()) {
@@ -565,7 +599,7 @@ public final class SortedRangeSet
             inclusive = Arrays.copyOf(inclusive, resultRangeIndex * 2);
         }
 
-        return new SortedRangeSet(type, inclusive, blockBuilder.build());
+        return new SortedRangeSet(type, inclusive, blockBuilder.build(), intersectIsDiscreteSet(that, resultRangeIndex > 0));
     }
 
     // visible for testing
@@ -669,7 +703,18 @@ public final class SortedRangeSet
             inclusive = Arrays.copyOf(inclusive, resultIndex * 2);
         }
 
-        return new SortedRangeSet(type, inclusive, blockBuilder.build());
+        return new SortedRangeSet(type, inclusive, blockBuilder.build(), intersectIsDiscreteSet(that, resultIndex > 0));
+    }
+
+    private DiscreteSetMarker intersectIsDiscreteSet(SortedRangeSet that, boolean nonEmpty)
+    {
+        // intersected set will be discrete if either input set is discrete
+        if (nonEmpty && (discreteSetMarker == DISCRETE || that.discreteSetMarker == DISCRETE)) {
+            return DISCRETE;
+        }
+
+        // otherwise we need to check if each range is single value
+        return UNKNOWN;
     }
 
     private static void copyValueBlock(BlockBuilder blockBuilder, boolean[] inclusive, SortedRangeSet source, int sourceOffset, int destinationOffset, int size)
@@ -930,7 +975,20 @@ public final class SortedRangeSet
             inclusive = Arrays.copyOf(inclusive, resultRangeIndex * 2);
         }
 
-        return new SortedRangeSet(type, inclusive, blockBuilder.build());
+        return new SortedRangeSet(type, inclusive, blockBuilder.build(), unionIsDiscreteSet(that, resultRangeIndex > 0));
+    }
+
+    private DiscreteSetMarker unionIsDiscreteSet(SortedRangeSet that, boolean nonEmpty)
+    {
+        // union set will be discrete if all input sets are discrete
+        if (nonEmpty
+                && (isNone() || discreteSetMarker == DISCRETE)
+                && (that.isNone() || that.discreteSetMarker == DISCRETE)) {
+            return DISCRETE;
+        }
+
+        // otherwise we need to check if each range is single value
+        return UNKNOWN;
     }
 
     @Override
@@ -1033,7 +1091,8 @@ public final class SortedRangeSet
         return new SortedRangeSet(
                 type,
                 inclusive,
-                blockBuilder.build());
+                blockBuilder.build(),
+                UNKNOWN);
     }
 
     private SortedRangeSet checkCompatibility(ValueSet other)
@@ -1317,7 +1376,7 @@ public final class SortedRangeSet
             writeRange(type, blockBuilder, inclusive, rangeIndex, range);
         }
 
-        return new SortedRangeSet(type, inclusive, blockBuilder.build());
+        return new SortedRangeSet(type, inclusive, blockBuilder.build(), UNKNOWN);
     }
 
     private static void writeRange(Type type, BlockBuilder blockBuilder, boolean[] inclusive, int rangeIndex, Range range)
