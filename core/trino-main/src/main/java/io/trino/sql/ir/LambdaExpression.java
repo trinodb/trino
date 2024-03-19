@@ -13,35 +13,30 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class LambdaExpression
+@JsonSerialize
+public record LambdaExpression(List<String> arguments, Expression body)
         implements Expression
 {
-    private final List<String> arguments;
-    private final Expression body;
-
-    @JsonCreator
-    public LambdaExpression(List<String> arguments, Expression body)
+    public LambdaExpression
     {
-        this.arguments = requireNonNull(arguments, "arguments is null");
-        this.body = requireNonNull(body, "body is null");
+        requireNonNull(arguments, "arguments is null");
+        requireNonNull(body, "body is null");
     }
 
-    @JsonProperty
+    @Deprecated
     public List<String> getArguments()
     {
         return arguments;
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getBody()
     {
         return body;
@@ -57,26 +52,6 @@ public final class LambdaExpression
     public List<? extends Expression> getChildren()
     {
         return ImmutableList.of(body);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        LambdaExpression that = (LambdaExpression) obj;
-        return Objects.equals(arguments, that.arguments) &&
-                Objects.equals(body, that.body);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(arguments, body);
     }
 
     @Override

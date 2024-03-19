@@ -13,16 +13,15 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class ComparisonExpression
+@JsonSerialize
+public record ComparisonExpression(Operator operator, Expression left, Expression right)
         implements Expression
 {
     public enum Operator
@@ -83,35 +82,26 @@ public final class ComparisonExpression
         }
     }
 
-    private final Operator operator;
-    private final Expression left;
-    private final Expression right;
-
-    @JsonCreator
-    public ComparisonExpression(Operator operator, Expression left, Expression right)
+    public ComparisonExpression
     {
         requireNonNull(operator, "operator is null");
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
-
-        this.operator = operator;
-        this.left = left;
-        this.right = right;
     }
 
-    @JsonProperty
+    @Deprecated
     public Operator getOperator()
     {
         return operator;
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getLeft()
     {
         return left;
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getRight()
     {
         return right;
@@ -127,28 +117,6 @@ public final class ComparisonExpression
     public List<? extends Expression> getChildren()
     {
         return ImmutableList.of(left, right);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        ComparisonExpression that = (ComparisonExpression) o;
-        return (operator == that.operator) &&
-                Objects.equals(left, that.left) &&
-                Objects.equals(right, that.right);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(operator, left, right);
     }
 
     @Override

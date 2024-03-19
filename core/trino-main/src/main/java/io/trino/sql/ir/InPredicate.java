@@ -13,34 +13,27 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
-public final class InPredicate
+@JsonSerialize
+public record InPredicate(Expression value, List<Expression> valueList)
         implements Expression
 {
-    private final Expression value;
-    private final List<Expression> valueList;
-
-    @JsonCreator
-    public InPredicate(Expression value, List<Expression> valueList)
+    public InPredicate
     {
-        this.value = value;
-        this.valueList = valueList;
+        valueList = ImmutableList.copyOf(valueList);
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getValue()
     {
         return value;
     }
 
-    @JsonProperty
+    @Deprecated
     public List<Expression> getValueList()
     {
         return valueList;
@@ -59,36 +52,5 @@ public final class InPredicate
                 .add(value)
                 .addAll(valueList)
                 .build();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        InPredicate that = (InPredicate) o;
-        return Objects.equals(value, that.value) &&
-                Objects.equals(valueList, that.valueList);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(value, valueList);
-    }
-
-    @Override
-    public String toString()
-    {
-        return "In(%s, [%s])".formatted(
-                value,
-                valueList.stream()
-                        .map(Expression::toString)
-                        .collect(Collectors.joining(", ")));
     }
 }

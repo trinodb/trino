@@ -13,39 +13,32 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
-public final class SearchedCaseExpression
+@JsonSerialize
+public record SearchedCaseExpression(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
         implements Expression
 {
-    private final List<WhenClause> whenClauses;
-    private final Optional<Expression> defaultValue;
-
-    @JsonCreator
-    public SearchedCaseExpression(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    public SearchedCaseExpression
     {
+        whenClauses = ImmutableList.copyOf(whenClauses);
         requireNonNull(defaultValue, "defaultValue is null");
-
-        this.whenClauses = ImmutableList.copyOf(whenClauses);
-        this.defaultValue = defaultValue;
     }
 
-    @JsonProperty
+    @Deprecated
     public List<WhenClause> getWhenClauses()
     {
         return whenClauses;
     }
 
-    @JsonProperty
+    @Deprecated
     public Optional<Expression> getDefaultValue()
     {
         return defaultValue;
@@ -68,27 +61,6 @@ public final class SearchedCaseExpression
         defaultValue.ifPresent(builder::add);
 
         return builder.build();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        SearchedCaseExpression that = (SearchedCaseExpression) o;
-        return Objects.equals(whenClauses, that.whenClauses) &&
-                Objects.equals(defaultValue, that.defaultValue);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(whenClauses, defaultValue);
     }
 
     @Override

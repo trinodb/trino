@@ -14,12 +14,10 @@
 
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
@@ -46,28 +44,23 @@ import static java.util.Objects.requireNonNull;
  * Lambda capturing is implemented through desugaring in Trino.
  * This expression facilitates desugaring.
  */
-public final class BindExpression
+@JsonSerialize
+public record BindExpression(List<Expression> values, Expression function)
         implements Expression
 {
-    private final List<Expression> values;
-    // Function expression must be of function type.
-    // It is not necessarily a lambda. For example, it can be another bind expression.
-    private final Expression function;
-
-    @JsonCreator
-    public BindExpression(List<Expression> values, Expression function)
+    public BindExpression
     {
-        this.values = requireNonNull(values, "values is null");
-        this.function = requireNonNull(function, "function is null");
+        requireNonNull(function, "function is null");
+        values = ImmutableList.copyOf(values);
     }
 
-    @JsonProperty
+    @Deprecated
     public List<Expression> getValues()
     {
         return values;
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getFunction()
     {
         return function;
@@ -86,26 +79,6 @@ public final class BindExpression
                 .addAll(values)
                 .add(function)
                 .build();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        BindExpression that = (BindExpression) o;
-        return Objects.equals(values, that.values) &&
-                Objects.equals(function, that.function);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(values, function);
     }
 
     @Override

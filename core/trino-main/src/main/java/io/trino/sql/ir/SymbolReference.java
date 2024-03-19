@@ -13,25 +13,23 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 
-public final class SymbolReference
+import static java.util.Objects.requireNonNull;
+
+@JsonSerialize
+public record SymbolReference(String name)
         implements Expression
 {
-    private final String name;
-
-    @JsonCreator
-    public SymbolReference(String name)
+    public SymbolReference
     {
-        this.name = name;
+        requireNonNull(name, "name is null");
     }
 
-    @JsonValue
+    @Deprecated
     public String getName()
     {
         return name;
@@ -47,30 +45,5 @@ public final class SymbolReference
     public List<? extends Expression> getChildren()
     {
         return ImmutableList.of();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        SymbolReference that = (SymbolReference) o;
-        return Objects.equals(name, that.name);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(name);
-    }
-
-    @Override
-    public String toString()
-    {
-        return name;
     }
 }

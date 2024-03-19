@@ -14,46 +14,38 @@
 package io.trino.sql.ir;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class BetweenPredicate
+@JsonSerialize
+public record BetweenPredicate(Expression value, Expression min, Expression max)
         implements Expression
 {
-    private final Expression value;
-    private final Expression min;
-    private final Expression max;
-
     @JsonCreator
-    public BetweenPredicate(Expression value, Expression min, Expression max)
+    public BetweenPredicate
     {
         requireNonNull(value, "value is null");
         requireNonNull(min, "min is null");
         requireNonNull(max, "max is null");
-
-        this.value = value;
-        this.min = min;
-        this.max = max;
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getValue()
     {
         return value;
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getMin()
     {
         return min;
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getMax()
     {
         return max;
@@ -69,28 +61,6 @@ public final class BetweenPredicate
     public List<? extends Expression> getChildren()
     {
         return ImmutableList.of(value, min, max);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        BetweenPredicate that = (BetweenPredicate) o;
-        return Objects.equals(value, that.value) &&
-                Objects.equals(min, that.min) &&
-                Objects.equals(max, that.max);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(value, min, max);
     }
 
     @Override

@@ -14,6 +14,7 @@
 package io.trino.sql.ir;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
@@ -23,17 +24,13 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Objects;
 
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 
-public final class Constant
+public record Constant(Type type, @JsonIgnore Object value)
         implements Expression
 {
-    private final Type type;
-    private final Object value;
-
     @JsonCreator
     @DoNotCall // For JSON deserialization only
     public static Constant fromJson(
@@ -43,15 +40,14 @@ public final class Constant
         return new Constant(type, readNativeValue(type, valueAsBlock, 0));
     }
 
-    public Constant(Type type, Object value)
+    public Constant
     {
         if (value != null && !Primitives.wrap(type.getJavaType()).isAssignableFrom(value.getClass())) {
             throw new IllegalArgumentException("Improper Java type (%s) for type '%s'".formatted(value.getClass().getName(), type));
         }
-        this.type = type;
-        this.value = value;
     }
 
+    @Deprecated
     @JsonProperty
     public Type getType()
     {
@@ -81,25 +77,6 @@ public final class Constant
     public List<? extends Expression> getChildren()
     {
         return ImmutableList.of();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Constant that = (Constant) o;
-        return Objects.equals(type, that.type) && Objects.equals(value, that.value);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(type, value);
     }
 
     @Override
