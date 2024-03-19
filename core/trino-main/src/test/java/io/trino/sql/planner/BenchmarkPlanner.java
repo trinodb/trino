@@ -36,13 +36,11 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.io.IOException;
 import java.net.URL;
@@ -72,7 +70,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Warmup(iterations = 5)
 @Fork(1)
-@Measurement(iterations = 20)
+@Measurement(iterations = 5)
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkPlanner
 {
@@ -82,9 +80,9 @@ public class BenchmarkPlanner
     @State(Scope.Benchmark)
     public static class BenchmarkData
     {
-        @Param({"OPTIMIZED", "CREATED"})
+//        @Param({"OPTIMIZED", "CREATED"})
         private Stage stage = OPTIMIZED;
-        @Param
+//        @Param
         private Queries queries = TPCH;
 
         private PlanTester planTester;
@@ -220,6 +218,6 @@ public class BenchmarkPlanner
             data.tearDown();
         }
 
-        benchmark(BenchmarkPlanner.class, WarmupMode.BULK).run();
+        benchmark(BenchmarkPlanner.class).run();
     }
 }

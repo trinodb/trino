@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.ir.IrExpressions.row;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
@@ -32,6 +33,6 @@ public class TestHaving
     {
         assertPlan(
                 "SELECT 'a' FROM (VALUES 1, 1, 2) t(a) HAVING true",
-                output(values(List.of("a_symbol"), List.of(List.of(new Constant(createVarcharType(1), Slices.utf8Slice("a")))))));
+                output(values(List.of("a_symbol"), List.of(row(new Constant(createVarcharType(1), Slices.utf8Slice("a")))))));
     }
 }

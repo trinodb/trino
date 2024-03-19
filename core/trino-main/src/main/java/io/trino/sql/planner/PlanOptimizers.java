@@ -47,6 +47,7 @@ import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.DetermineTableScanNodePartitioning;
 import io.trino.sql.planner.iterative.rule.EliminateCrossJoins;
+import io.trino.sql.planner.iterative.rule.EvaluateConstantValues;
 import io.trino.sql.planner.iterative.rule.EvaluateEmptyIntersect;
 import io.trino.sql.planner.iterative.rule.EvaluateZeroSample;
 import io.trino.sql.planner.iterative.rule.ExtractDereferencesFromFilterAboveScan;
@@ -376,6 +377,7 @@ public class PlanOptimizers
                 .addAll(new RemoveRedundantDateTrunc(plannerContext, typeAnalyzer).rules())
                 .addAll(new ArraySortAfterArrayDistinct(plannerContext).rules())
                 .add(new RemoveTrivialFilters())
+                .add(new EvaluateConstantValues(plannerContext, typeAnalyzer))
                 .build();
         IterativeOptimizer simplifyOptimizer = new IterativeOptimizer(
                 plannerContext,

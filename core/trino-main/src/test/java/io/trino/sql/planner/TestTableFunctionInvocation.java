@@ -30,6 +30,7 @@ import io.trino.spi.function.table.Descriptor;
 import io.trino.spi.function.table.Descriptor.Field;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
@@ -46,6 +47,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.IrExpressions.row;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -131,7 +133,7 @@ public class TestTableFunctionInvocation
                                 .addCopartitioning(ImmutableList.of("INPUT_1", "INPUT_3"))
                                 .properOutputs(ImmutableList.of("OUTPUT")),
                         anyTree(project(ImmutableMap.of("c1", expression(new Constant(createVarcharType(1), Slices.utf8Slice("a")))), values(1))),
-                        anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L))))),
+                        anyTree(values(ImmutableList.of("c2"), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L)))))),
                         anyTree(project(ImmutableMap.of("c3", expression(new Constant(createVarcharType(1), Slices.utf8Slice("b")))), values(1))))));
     }
 
@@ -161,8 +163,8 @@ public class TestTableFunctionInvocation
                                 .addCopartitioning(ImmutableList.of("INPUT1", "INPUT2"))
                                 .properOutputs(ImmutableList.of("COLUMN")),
                         project(ImmutableMap.of("c1_coerced", expression(new Cast(new SymbolReference("c1"), INTEGER))),
-                                anyTree(values(ImmutableList.of("c1"), ImmutableList.of(ImmutableList.of(new Constant(SMALLINT, 1L)))))),
-                        anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 2L))))))));
+                                anyTree(values(ImmutableList.of("c1"), ImmutableList.of(new Row(ImmutableList.of(new Constant(SMALLINT, 1L))))))),
+                        anyTree(values(ImmutableList.of("c2"), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 2L)))))))));
     }
 
     @Test
@@ -214,7 +216,7 @@ public class TestTableFunctionInvocation
                                         .passThroughSymbols(ImmutableList.of(ImmutableList.of("a", "b")))
                                         .requiredSymbols(ImmutableList.of(ImmutableList.of("a")))
                                         .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())),
-                                values(ImmutableList.of("a", "b"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), TRUE_LITERAL))))));
+                                values(ImmutableList.of("a", "b"), ImmutableList.of(row(new Constant(INTEGER, 1L), TRUE_LITERAL))))));
 
         // no table function outputs are referenced. All pass-through symbols are pruned from the TableFunctionProcessorNode. The unused symbol "b" is pruned from the source values node.
         assertPlan("SELECT 'constant' c FROM TABLE(mock.system.pass_through_function(input => TABLE(SELECT 1, true) t(a, b)))",
@@ -229,7 +231,7 @@ public class TestTableFunctionInvocation
                                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of()))
                                                 .requiredSymbols(ImmutableList.of(ImmutableList.of("a")))
                                                 .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of())),
-                                        values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L))))))));
+                                        values(ImmutableList.of("a"), ImmutableList.of(row(new Constant(INTEGER, 1L))))))));
     }
 
     @Test
@@ -284,7 +286,7 @@ public class TestTableFunctionInvocation
                                         project(
                                                 rowNumber(
                                                         builder -> builder.partitionBy(ImmutableList.of()),
-                                                        values(ImmutableList.of("c"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 2L)))))
+                                                        values(ImmutableList.of("c"), ImmutableList.of(row(new Constant(INTEGER, 2L)))))
                                                         .withAlias("input_2_row_number", new RowNumberSymbolMatcher()))))));
     }
 }

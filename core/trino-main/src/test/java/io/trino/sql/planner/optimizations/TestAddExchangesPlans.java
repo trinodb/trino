@@ -67,6 +67,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MODULUS;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.IrExpressions.row;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -151,7 +152,7 @@ public class TestAddExchangesPlans
                                         anyTree(
                                                 exchange(REMOTE, REPARTITION,
                                                         anyTree(
-                                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L)))))))))));
+                                                                values(ImmutableList.of("expr"), ImmutableList.of(row(new Constant(BIGINT, 1L)))))))))));
     }
 
     @Test
@@ -191,7 +192,7 @@ public class TestAddExchangesPlans
                                                         anyTree(
                                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
                                                 exchange(REMOTE, REPARTITION,
-                                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L)))))))
+                                                        values(ImmutableList.of("expr"), ImmutableList.of(row(new Constant(BIGINT, 1L)))))))
                                 .right(
                                         anyTree(
                                                 exchange(REMOTE, REPARTITION,
@@ -275,11 +276,11 @@ public class TestAddExchangesPlans
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1", "partition2"),
                                                 values(
                                                         ImmutableList.of("field", "partition2", "partition1"),
-                                                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L), new Constant(INTEGER, 1L))))),
+                                                        ImmutableList.of(row(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L), new Constant(INTEGER, 1L))))),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3"),
                                                 values(
                                                         ImmutableList.of("partition3", "partition4", "field_0"),
-                                                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 3L), new Constant(INTEGER, 4L), new Constant(INTEGER, 1L)))))))));
+                                                        ImmutableList.of(row(new Constant(INTEGER, 3L), new Constant(INTEGER, 4L), new Constant(INTEGER, 1L)))))))));
 
         assertDistributedPlan(
                 query,
@@ -293,11 +294,11 @@ public class TestAddExchangesPlans
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition1"),
                                                 values(
                                                         ImmutableList.of("field", "partition2", "partition1"),
-                                                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L), new Constant(INTEGER, 1L))))),
+                                                        ImmutableList.of(row(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L), new Constant(INTEGER, 1L))))),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partition3"),
                                                 values(
                                                         ImmutableList.of("partition3", "partition4", "field_0"),
-                                                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 3L), new Constant(INTEGER, 4L), new Constant(INTEGER, 1L)))))))));
+                                                        ImmutableList.of(row(new Constant(INTEGER, 3L), new Constant(INTEGER, 4L), new Constant(INTEGER, 1L)))))))));
     }
 
     @Test
@@ -480,7 +481,7 @@ public class TestAddExchangesPlans
         assertPlan(
                 "SELECT 10, a FROM (VALUES 1) t(a)",
                 anyTree(
-                        values(ImmutableList.of("a", "expr"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 10L))))));
+                        values(ImmutableList.of("a", "expr"), ImmutableList.of(row(new Constant(INTEGER, 1L), new Constant(INTEGER, 10L))))));
 
         assertPlan(
                 "SELECT 1 UNION ALL SELECT 1",
@@ -488,8 +489,8 @@ public class TestAddExchangesPlans
                         exchange(
                                 LOCAL,
                                 REPARTITION,
-                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L)))),
-                                values(ImmutableList.of("expr_0"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L)))))));
+                                values(ImmutableList.of("expr"), ImmutableList.of(row(new Constant(INTEGER, 1L)))),
+                                values(ImmutableList.of("expr_0"), ImmutableList.of(row(new Constant(INTEGER, 1L)))))));
     }
 
     @Test

@@ -110,9 +110,9 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                         project(
                                 ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a"))),
                                 values(ImmutableList.of("a"), ImmutableList.of(
-                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
+                                        new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))),
+                                        new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))),
+                                        new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))))));
 
         tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p -> {
@@ -131,9 +131,9 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         "b", PlanMatchPattern.expression(new SymbolReference("b")),
                                         "c", PlanMatchPattern.expression(new Constant(INTEGER, 1L))),
                                 values(ImmutableList.of("a", "b"), ImmutableList.of(
-                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null))))));
+                                        new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null))),
+                                        new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null))),
+                                        new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null)))))));
     }
 
     @Test
@@ -154,9 +154,9 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         "a", PlanMatchPattern.expression(new SymbolReference("a")),
                                         "b", PlanMatchPattern.expression(new Constant(UnknownType.UNKNOWN, null))),
                                 values(ImmutableList.of("a"), ImmutableList.of(
-                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
+                                        new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))),
+                                        new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))),
+                                        new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))))));
     }
 
     @Test

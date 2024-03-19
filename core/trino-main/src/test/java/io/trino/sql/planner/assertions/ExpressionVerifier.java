@@ -13,6 +13,9 @@
  */
 package io.trino.sql.planner.assertions;
 
+import io.trino.spi.block.SqlRow;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.BetweenPredicate;
@@ -39,6 +42,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -82,8 +86,31 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return Objects.equals(actual.getValue(), expected.getValue()) &&
-                actual.getType().equals(expected.getType());
+        if (!actual.getType().equals(expected.getType())) {
+            return false;
+        }
+
+        if (actual.getType() instanceof RowType type && rowsEqual(type, (SqlRow) expected.getValue(), (SqlRow) actual.getValue())) {
+            return false;
+        }
+
+        return Objects.equals(actual.getValue(), expected.getValue());
+    }
+
+    /**
+     * Compare two rows for representational equality
+     */
+    public static boolean rowsEqual(RowType type, SqlRow expectedRow, SqlRow actualRow)
+    {
+        for (int i = 0; i < type.getFields().size(); i++) {
+            Type fieldType = type.getFields().get(i).getType();
+            Object expectedField = readNativeValue(fieldType, expectedRow.getRawFieldBlock(i), expectedRow.getRawIndex());
+            Object actualField = readNativeValue(fieldType, actualRow.getRawFieldBlock(i), actualRow.getRawIndex());
+            if (!Objects.equals(expectedField, actualField)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override

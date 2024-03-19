@@ -55,17 +55,6 @@ public class TestLocalExecutionPlanner
     }
 
     @Test
-    public void testProjectionCompilerFailure()
-    {
-        String inner = "(" + Joiner.on(" + ").join(nCopies(100, "rand()")) + ")";
-        String outer = "x + x + " + Joiner.on(" + ").join(nCopies(100, inner));
-
-        assertTrinoExceptionThrownBy(() -> runner.execute("SELECT " + outer + " FROM (VALUES rand()) t(x)"))
-                .hasErrorCode(COMPILER_ERROR)
-                .hasMessage("Query exceeded maximum columns. Please reduce the number of columns referenced and re-run the query.");
-    }
-
-    @Test
     public void testFilterCompilerFailure()
     {
         // Filter Query

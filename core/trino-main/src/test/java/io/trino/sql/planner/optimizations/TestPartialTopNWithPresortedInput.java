@@ -45,6 +45,7 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.IrExpressions.row;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -189,8 +190,8 @@ public class TestPartialTopNWithPresortedInput
                                                         values(
                                                                 ImmutableList.of("id"),
                                                                 ImmutableList.of(
-                                                                        ImmutableList.of(new Constant(INTEGER, 1L)),
-                                                                        ImmutableList.of(new Constant(INTEGER, 1L))))))))));
+                                                                        row(new Constant(INTEGER, 1L)),
+                                                                        row(new Constant(INTEGER, 1L))))))))));
     }
 
     @Test

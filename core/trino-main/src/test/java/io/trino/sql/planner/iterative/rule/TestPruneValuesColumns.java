@@ -54,8 +54,8 @@ public class TestPruneValuesColumns
                                 values(
                                         ImmutableList.of("x"),
                                         ImmutableList.of(
-                                                ImmutableList.of(new Constant(INTEGER, 2L)),
-                                                ImmutableList.of(new Constant(INTEGER, 4L))))));
+                                                new Row(ImmutableList.of(new Constant(INTEGER, 2L))),
+                                                new Row(ImmutableList.of(new Constant(INTEGER, 4L)))))));
     }
 
     @Test

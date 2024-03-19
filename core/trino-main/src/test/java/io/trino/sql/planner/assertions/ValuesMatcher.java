@@ -18,6 +18,9 @@ import com.google.common.collect.Maps;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
+import io.trino.spi.block.SqlRow;
+import io.trino.spi.type.RowType;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -28,6 +31,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.sql.planner.assertions.ExpressionVerifier.rowsEqual;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static java.util.Objects.requireNonNull;
@@ -67,8 +71,15 @@ public class ValuesMatcher
                 return NO_MATCH;
             }
             if (outputSymbolAliases.size() > 0) {
-                if (!expectedRows.equals(valuesNode.getRows())) {
-                    return NO_MATCH;
+                for (int i = 0; i < expectedRows.get().size(); i++) {
+                    if (expectedRows.get().get(i) instanceof Constant expected && valuesNode.getRows().get().get(i) instanceof Constant actual) {
+                        if (!rowsEqual((RowType) expected.getType(), (SqlRow) expected.getValue(), (SqlRow) actual.getValue())) {
+                            return NO_MATCH;
+                        }
+                    }
+                    else if (!expectedRows.get().get(i).equals(valuesNode.getRows().get().get(i))) {
+                        return NO_MATCH;
+                    }
                 }
             }
         }

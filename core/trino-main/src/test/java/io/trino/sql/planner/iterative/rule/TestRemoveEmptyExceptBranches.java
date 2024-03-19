@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -84,8 +85,8 @@ public class TestRemoveEmptyExceptBranches
                 })
                 .matches(
                         except(
-                                values(List.of("input1"), List.of(List.of(new Constant(UnknownType.UNKNOWN, null)))),
-                                values(List.of("input3"), List.of(List.of(new Constant(UnknownType.UNKNOWN, null)), List.of(new Constant(UnknownType.UNKNOWN, null))))));
+                                values(List.of("input1"), List.of(new Row(List.of(new Constant(UnknownType.UNKNOWN, null))))),
+                                values(List.of("input3"), List.of(new Row(List.of(new Constant(UnknownType.UNKNOWN, null))), new Row(List.of(new Constant(UnknownType.UNKNOWN, null)))))));
     }
 
     @Test
@@ -110,7 +111,7 @@ public class TestRemoveEmptyExceptBranches
                 .matches(
                         project(
                                 ImmutableMap.of("output", expression(new SymbolReference("input1"))),
-                                values(ImmutableList.of("input1"), ImmutableList.of(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
+                                values(ImmutableList.of("input1"), ImmutableList.of(new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))))));
     }
 
     @Test
@@ -140,7 +141,7 @@ public class TestRemoveEmptyExceptBranches
                                 Step.SINGLE,
                                 project(
                                         ImmutableMap.of("output", expression(new SymbolReference("input1"))),
-                                        values(ImmutableList.of("input1"), ImmutableList.of(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))))));
+                                        values(ImmutableList.of("input1"), ImmutableList.of(new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))))));
     }
 
     @Test

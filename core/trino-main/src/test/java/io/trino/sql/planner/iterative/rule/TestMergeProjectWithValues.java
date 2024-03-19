@@ -126,8 +126,8 @@ public class TestMergeProjectWithValues
                 .matches(values(
                         ImmutableList.of("a", "b"),
                         ImmutableList.of(
-                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL),
-                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL))));
+                                new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL)),
+                                new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL)))));
 
         // ValuesNode has no rows
         tester().assertThat(new MergeProjectWithValues())
@@ -156,7 +156,7 @@ public class TestMergeProjectWithValues
                 .matches(
                         values(
                                 ImmutableList.of("rand"),
-                                ImmutableList.of(ImmutableList.of(randomFunction))));
+                                ImmutableList.of(new Row(ImmutableList.of(randomFunction)))));
 
         // ValuesNode has multiple rows
         tester().assertThat(new MergeProjectWithValues())
@@ -172,9 +172,9 @@ public class TestMergeProjectWithValues
                         values(
                                 ImmutableList.of("output"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(randomFunction),
-                                        ImmutableList.of(new ArithmeticNegation(randomFunction)))));
+                                        new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))),
+                                        new Row(ImmutableList.of(randomFunction)),
+                                        new Row(ImmutableList.of(new ArithmeticNegation(randomFunction))))));
 
         // ValuesNode has multiple non-deterministic outputs
         tester().assertThat(new MergeProjectWithValues())
@@ -192,9 +192,9 @@ public class TestMergeProjectWithValues
                         values(
                                 ImmutableList.of("x", "y"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new ArithmeticNegation(new Constant(DOUBLE, 1e0)), randomFunction),
-                                        ImmutableList.of(new ArithmeticNegation(randomFunction), new Constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(new ArithmeticNegation(new ArithmeticNegation(randomFunction)), new Constant(UnknownType.UNKNOWN, null)))));
+                                        new Row(ImmutableList.of(new ArithmeticNegation(new Constant(DOUBLE, 1e0)), randomFunction)),
+                                        new Row(ImmutableList.of(new ArithmeticNegation(randomFunction), new Constant(UnknownType.UNKNOWN, null))),
+                                        new Row(ImmutableList.of(new ArithmeticNegation(new ArithmeticNegation(randomFunction)), new Constant(UnknownType.UNKNOWN, null))))));
     }
 
     @Test
@@ -233,7 +233,7 @@ public class TestMergeProjectWithValues
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L)))))))
-                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new SymbolReference("corr"))))));
+                .matches(values(ImmutableList.of("x"), ImmutableList.of(new Row(ImmutableList.of(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new SymbolReference("corr")))))));
 
         // correlation symbol in values (note: the resulting plan is not yet supported in execution)
         tester().assertThat(new MergeProjectWithValues())
@@ -242,7 +242,7 @@ public class TestMergeProjectWithValues
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(new Row(ImmutableList.of(new SymbolReference("corr")))))))
-                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new SymbolReference("corr")))));
+                .matches(values(ImmutableList.of("x"), ImmutableList.of(new Row(ImmutableList.of(new SymbolReference("corr"))))));
 
         // correlation symbol is not present in the resulting expression
         tester().assertThat(new MergeProjectWithValues())
@@ -251,7 +251,7 @@ public class TestMergeProjectWithValues
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(new Row(ImmutableList.of(new SymbolReference("corr")))))))
-                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L)))));
+                .matches(values(ImmutableList.of("x"), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L))))));
     }
 
     @Test
@@ -265,7 +265,7 @@ public class TestMergeProjectWithValues
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L)))))))
-                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(failFunction))));
+                .matches(values(ImmutableList.of("x"), ImmutableList.of(new Row(ImmutableList.of(failFunction)))));
     }
 
     @Test
@@ -296,9 +296,9 @@ public class TestMergeProjectWithValues
                 .matches(values(
                         ImmutableList.of("a", "d", "e", "f"),
                         ImmutableList.of(
-                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL, new IsNullPredicate(new Constant(createCharType(1), Slices.utf8Slice("x"))), new Constant(INTEGER, 1L)),
-                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("y")), FALSE_LITERAL, new IsNullPredicate(new Constant(createCharType(1), Slices.utf8Slice("y"))), new Constant(INTEGER, 1L)),
-                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("z")), TRUE_LITERAL, new IsNullPredicate(new Constant(createCharType(1), Slices.utf8Slice("z"))), new Constant(INTEGER, 1L)))));
+                                new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL, new IsNullPredicate(new Constant(createCharType(1), Slices.utf8Slice("x"))), new Constant(INTEGER, 1L))),
+                                new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("y")), FALSE_LITERAL, new IsNullPredicate(new Constant(createCharType(1), Slices.utf8Slice("y"))), new Constant(INTEGER, 1L))),
+                                new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("z")), TRUE_LITERAL, new IsNullPredicate(new Constant(createCharType(1), Slices.utf8Slice("z"))), new Constant(INTEGER, 1L))))));
 
         // ValuesNode has no rows
         tester().assertThat(new MergeProjectWithValues())

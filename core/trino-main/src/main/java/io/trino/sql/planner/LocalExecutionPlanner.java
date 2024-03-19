@@ -154,7 +154,6 @@ import io.trino.plugin.base.MappedRecordSet;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorIndex;
@@ -189,6 +188,7 @@ import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.LambdaExpression;
@@ -2144,16 +2144,14 @@ public class LocalExecutionPlanner
                 pageBuilder.declarePosition();
                 // evaluate values for non-empty rows
                 if (node.getRows().isPresent()) {
-                    Expression row = node.getRows().get().get(i);
-                    Map<NodeRef<Expression>, Type> types = typeAnalyzer.getTypes(TypeProvider.empty(), row);
-                    checkState(types.get(NodeRef.of(row)) instanceof RowType, "unexpected type of Values row: %s", types);
-                    // evaluate the literal value
-                    SqlRow result = (SqlRow) new IrExpressionInterpreter(row, plannerContext, session, types).evaluate();
-                    int rawIndex = result.getRawIndex();
+                    Constant row = (Constant) node.getRows().get().get(i);
+                    SqlRow result = (SqlRow) row.getValue();
                     for (int j = 0; j < outputTypes.size(); j++) {
                         // divide row into fields
-                        Block fieldBlock = result.getRawFieldBlock(j);
-                        writeNativeValue(outputTypes.get(j), pageBuilder.getBlockBuilder(j), readNativeValue(outputTypes.get(j), fieldBlock, rawIndex));
+                        writeNativeValue(
+                                outputTypes.get(j),
+                                pageBuilder.getBlockBuilder(j),
+                                readNativeValue(outputTypes.get(j), result.getRawFieldBlock(j), result.getRawIndex()));
                     }
                 }
             }

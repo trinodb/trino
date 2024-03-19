@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Row;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
@@ -55,8 +56,8 @@ public class TestRemoveRedundantOffset
                         values(
                                 ImmutableList.of("a"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new Constant(INTEGER, 1L)),
-                                        ImmutableList.of(new Constant(INTEGER, 2L)))));
+                                        new Row(ImmutableList.of(new Constant(INTEGER, 1L))),
+                                        new Row(ImmutableList.of(new Constant(INTEGER, 2L))))));
     }
 
     @Test

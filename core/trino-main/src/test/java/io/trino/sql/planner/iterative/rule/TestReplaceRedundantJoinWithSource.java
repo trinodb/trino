@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -122,7 +123,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(10, p.symbol("a")),
                                 p.values(1)))
                 .matches(
-                        values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))));
+                        values(ImmutableList.of("a"), nCopies(10, new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
@@ -131,7 +132,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(1),
                                 p.values(10, p.symbol("b"))))
                 .matches(
-                        values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))));
+                        values(ImmutableList.of("b"), nCopies(10, new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
     }
 
     @Test
@@ -147,7 +148,7 @@ public class TestReplaceRedundantJoinWithSource
                 .matches(
                         filter(
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 0L)),
-                                values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
+                                values(ImmutableList.of("a"), nCopies(10, new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))))));
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
@@ -159,7 +160,7 @@ public class TestReplaceRedundantJoinWithSource
                 .matches(
                         filter(
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L)),
-                                values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
+                                values(ImmutableList.of("b"), nCopies(10, new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))))));
     }
 
     @Test
@@ -172,7 +173,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(10, p.symbol("a")),
                                 p.values(1)))
                 .matches(
-                        values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))));
+                        values(ImmutableList.of("a"), nCopies(10, new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
 
         // in case of outer join, filter does not affect the result
         tester().assertThat(new ReplaceRedundantJoinWithSource())
@@ -183,7 +184,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(1),
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 0L))))
                 .matches(
-                        values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))));
+                        values(ImmutableList.of("a"), nCopies(10, new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
     }
 
     @Test
@@ -196,7 +197,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(1),
                                 p.values(10, p.symbol("b"))))
                 .matches(
-                        values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))));
+                        values(ImmutableList.of("b"), nCopies(10, new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
 
         // in case of outer join, filter does not affect the result
         tester().assertThat(new ReplaceRedundantJoinWithSource())
@@ -207,7 +208,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(10, p.symbol("b")),
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L))))
                 .matches(
-                        values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))));
+                        values(ImmutableList.of("b"), nCopies(10, new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
     }
 
     @Test
@@ -220,7 +221,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(10, p.symbol("a")),
                                 p.values(1)))
                 .matches(
-                        values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))));
+                        values(ImmutableList.of("a"), nCopies(10, new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
@@ -229,7 +230,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(1),
                                 p.values(10, p.symbol("b"))))
                 .matches(
-                        values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))));
+                        values(ImmutableList.of("b"), nCopies(10, new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
 
         // in case of outer join, filter does not affect the result
         tester().assertThat(new ReplaceRedundantJoinWithSource())
@@ -240,7 +241,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(10, p.symbol("b")),
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L))))
                 .matches(
-                        values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))));
+                        values(ImmutableList.of("b"), nCopies(10, new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
 
         // Right source is scalar with no outputs. Left source cannot be determined to be at least scalar.
         // In such case, FULL join cannot be replaced with left source. The result would be incorrect
@@ -288,7 +289,7 @@ public class TestReplaceRedundantJoinWithSource
                 .matches(
                         project(
                                 ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a"))),
-                                values(ImmutableList.of("a", "b"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null))))));
+                                values(ImmutableList.of("a", "b"), nCopies(10, new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null)))))));
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p -> {
@@ -308,6 +309,6 @@ public class TestReplaceRedundantJoinWithSource
                                 ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a"))),
                                 filter(
                                         new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new SymbolReference("b")),
-                                        values(ImmutableList.of("a", "b"), nCopies(10, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null)))))));
+                                        values(ImmutableList.of("a", "b"), nCopies(10, new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null))))))));
     }
 }

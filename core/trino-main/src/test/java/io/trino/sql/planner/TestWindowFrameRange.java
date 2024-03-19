@@ -25,6 +25,7 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -111,8 +112,8 @@ public class TestWindowFrameRange
                                                                         values(
                                                                                 ImmutableList.of("key", "x"),
                                                                                 ImmutableList.of(
-                                                                                        ImmutableList.of(new Constant(INTEGER, 1L), new Constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("1.1")))),
-                                                                                        ImmutableList.of(new Constant(INTEGER, 2L), new Constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("2.2")))))))))))));
+                                                                                        new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("1.1"))))),
+                                                                                        new Row(ImmutableList.of(new Constant(INTEGER, 2L), new Constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("2.2"))))))))))))));
 
         assertPlan(sql, CREATED, pattern);
     }
@@ -159,8 +160,8 @@ public class TestWindowFrameRange
                                                                         values(
                                                                                 ImmutableList.of("key", "x"),
                                                                                 ImmutableList.of(
-                                                                                        ImmutableList.of(new Constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("1.1"))), new Constant(INTEGER, 1L)),
-                                                                                        ImmutableList.of(new Constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("2.2"))), new Constant(INTEGER, 2L)))))))))));
+                                                                                        new Row(ImmutableList.of(new Constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("1.1"))), new Constant(INTEGER, 1L))),
+                                                                                        new Row(ImmutableList.of(new Constant(createDecimalType(2, 1), Decimals.valueOfShort(new BigDecimal("2.2"))), new Constant(INTEGER, 2L))))))))))));
 
         assertPlan(sql, CREATED, pattern);
     }
@@ -210,8 +211,8 @@ public class TestWindowFrameRange
                                                                         values(
                                                                                 ImmutableList.of("key", "x", "y"),
                                                                                 ImmutableList.of(
-                                                                                        ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 1L), new Constant(INTEGER, 1L)),
-                                                                                        ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 2L), new Constant(INTEGER, 2L)))))))))));
+                                                                                        new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 1L), new Constant(INTEGER, 1L))),
+                                                                                        new Row(ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 2L), new Constant(INTEGER, 2L))))))))))));
 
         assertPlan(sql, CREATED, pattern);
     }

@@ -123,6 +123,7 @@ import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.IrExpressions.row;
 import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
@@ -314,51 +315,6 @@ public class TestLogicalPlanner
                                                                         "max_name", aggregationFunction("max", ImmutableList.of("NAME"))),
                                                                 PARTIAL,
                                                                 tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey")))))))));
-    }
-
-    @Test
-    public void testAllFieldsDereferenceFromNonDeterministic()
-    {
-        FunctionCall randomFunction = new FunctionCall(
-                getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction("rand", ImmutableList.of()),
-                ImmutableList.of());
-
-        assertPlan("SELECT (x, x).* FROM (SELECT rand()) T(x)",
-                any(
-                        project(
-                                ImmutableMap.of(
-                                        "output_1", expression(new SubscriptExpression(new SymbolReference("row"), new Constant(INTEGER, 1L))),
-                                        "output_2", expression(new SubscriptExpression(new SymbolReference("row"), new Constant(INTEGER, 2L)))),
-                                project(
-                                        ImmutableMap.of("row", expression(new Row(ImmutableList.of(new SymbolReference("rand"), new SymbolReference("rand"))))),
-                                        values(
-                                                ImmutableList.of("rand"),
-                                                ImmutableList.of(ImmutableList.of(randomFunction)))))));
-
-        assertPlan("SELECT (rand(), rand()).* FROM (VALUES 1) t(x)",
-                any(
-                        project(
-                                ImmutableMap.of(
-                                        "output_1", expression(new SubscriptExpression(new SymbolReference("r"), new Constant(INTEGER, 1L))),
-                                        "output_2", expression(new SubscriptExpression(new SymbolReference("r"), new Constant(INTEGER, 2L)))),
-                                values(
-                                        ImmutableList.of("r"),
-                                        ImmutableList.of(ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))))))));
-
-        // Ensure the calls to rand() are not duplicated by the ORDER BY clause
-        assertPlan("SELECT (rand(), rand()).* FROM (VALUES 1, 2) t(x) ORDER BY 1",
-                anyTree(
-                        node(SortNode.class,
-                                any(
-                                        project(
-                                                ImmutableMap.of(
-                                                        "output_1", expression(new SubscriptExpression(new SymbolReference("row"), new Constant(INTEGER, 1L))),
-                                                        "output_2", expression(new SubscriptExpression(new SymbolReference("row"), new Constant(INTEGER, 2L)))),
-                                                values(
-                                                        ImmutableList.of("row"),
-                                                        ImmutableList.of(
-                                                                ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))),
-                                                                ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))))))))));
     }
 
     @Test
@@ -1256,7 +1212,7 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT count(*) FROM (SELECT sum(orderkey) FROM orders)",
                 output(
-                        values(ImmutableList.of("_col0"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L))))));
+                        values(ImmutableList.of("_col0"), ImmutableList.of(row(new Constant(BIGINT, 1L))))));
         assertPlan(
                 "SELECT count(s) FROM (SELECT sum(orderkey) AS s FROM orders)",
                 anyTree(
@@ -1467,37 +1423,37 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT count(*) FROM (SELECT count(*) FROM nation)",
                 output(
-                        values(List.of("c"), List.of(List.of(new Constant(BIGINT, 1L))))));
+                        values(List.of("c"), List.of(row(new Constant(BIGINT, 1L))))));
 
         // unused aggregation result over values
         assertPlan(
                 "SELECT count(*) FROM (SELECT count(*) FROM (VALUES 1,2,3,4,5,6,7))",
                 output(
-                        values(List.of("c"), List.of(List.of(new Constant(BIGINT, 1L))))));
+                        values(List.of("c"), List.of(row(new Constant(BIGINT, 1L))))));
 
         // unused aggregation result over unnest
         assertPlan(
                 "SELECT count(*) FROM (SELECT count(*) FROM UNNEST(sequence(1, 10)))",
                 output(
-                        values(List.of("c"), List.of(List.of(new Constant(BIGINT, 1L))))));
+                        values(List.of("c"), List.of(row(new Constant(BIGINT, 1L))))));
 
         // no aggregate function at all over a table
         assertPlan(
                 "SELECT 1 FROM nation GROUP BY GROUPING SETS (())",
                 output(
-                        values(List.of("c"), List.of(List.of(new Constant(INTEGER, 1L))))));
+                        values(List.of("c"), List.of(row(new Constant(INTEGER, 1L))))));
 
         // no aggregate function at all over values
         assertPlan(
                 "SELECT 1 FROM (VALUES 1,2,3,4,5,6,7) GROUP BY GROUPING SETS (())",
                 output(
-                        values(List.of("c"), List.of(List.of(new Constant(INTEGER, 1L))))));
+                        values(List.of("c"), List.of(row(new Constant(INTEGER, 1L))))));
 
         // no aggregate function at all over unnest
         assertPlan(
                 "SELECT 1 FROM UNNEST(sequence(1, 10)) GROUP BY GROUPING SETS (())",
                 output(
-                        values(List.of("c"), List.of(List.of(new Constant(INTEGER, 1L))))));
+                        values(List.of("c"), List.of(row(new Constant(INTEGER, 1L))))));
     }
 
     @Test
@@ -1949,7 +1905,7 @@ public class TestLogicalPlanner
                                                 new InPredicate(new SymbolReference("expr"), ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("F")), new Constant(createVarcharType(1), utf8Slice("O")))),
                                                 values(
                                                         ImmutableList.of("expr"),
-                                                        ImmutableList.of(ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("O"))), ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("F"))))))))));
+                                                        ImmutableList.of(row(new Constant(createVarcharType(1), utf8Slice("O"))), row(new Constant(createVarcharType(1), utf8Slice("F"))))))))));
     }
 
     @Test
@@ -2014,9 +1970,9 @@ public class TestLogicalPlanner
                                 .right(
                                         values(ImmutableList.of("a"),
                                                 ImmutableList.of(
-                                                        ImmutableList.of(new Constant(INTEGER, 2L)),
-                                                        ImmutableList.of(new Constant(INTEGER, 4L)),
-                                                        ImmutableList.of(new Constant(INTEGER, 6L))))))));
+                                                        row(new Constant(INTEGER, 2L)),
+                                                        row(new Constant(INTEGER, 4L)),
+                                                        row(new Constant(INTEGER, 6L))))))));
 
         // Constraint is enforced on table scan, based on constant value in the other branch of the join.
         // The scalar constant branch of the join becomes obsolete, and join is removed.
@@ -2050,7 +2006,7 @@ public class TestLogicalPlanner
                                 .right(
                                         filter(
                                                 new InPredicate(new SymbolReference("expr"), ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("F")), new Constant(createVarcharType(1), utf8Slice("O")))),
-                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("O"))), ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("F"))))))))));
+                                                values(ImmutableList.of("expr"), ImmutableList.of(row(new Constant(createVarcharType(1), utf8Slice("O"))), row(new Constant(createVarcharType(1), utf8Slice("F"))))))))));
 
         // Constraint for the table is derived, based on constant values in the other branch of the join.
         // It is not accepted by the connector, and remains in form of a filter over TableScan.
@@ -2072,7 +2028,7 @@ public class TestLogicalPlanner
                                 .right(
                                         filter(
                                                 new InPredicate(new SymbolReference("expr"), ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))),
-                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L)), ImmutableList.of(new Constant(BIGINT, 2L)))))))));
+                                                values(ImmutableList.of("expr"), ImmutableList.of(row(new Constant(BIGINT, 1L)), row(new Constant(BIGINT, 2L)))))))));
     }
 
     @Test
@@ -2191,8 +2147,8 @@ public class TestLogicalPlanner
                         values(
                                 ImmutableList.of("field"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new Cast(new Constant(TINYINT, 1L), REAL)),
-                                        ImmutableList.of(new Constant(REAL, Reals.toReal(1f)))))));
+                                        new Row(ImmutableList.of(new Cast(new Constant(TINYINT, 1L), REAL))),
+                                        new Row(ImmutableList.of(new Constant(REAL, Reals.toReal(1f))))))));
 
         // rows coerced by field
         assertPlan("VALUES (TINYINT '1', REAL '1'), (DOUBLE '2', SMALLINT '2')",
@@ -2201,8 +2157,8 @@ public class TestLogicalPlanner
                         values(
                                 ImmutableList.of("field", "field0"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new Cast(new Constant(TINYINT, 1L), DOUBLE), new Constant(REAL, Reals.toReal(1f))),
-                                        ImmutableList.of(new Constant(DOUBLE, 2.0), new Cast(new Constant(SMALLINT, 2L), REAL))))));
+                                        new Row(ImmutableList.of(new Cast(new Constant(TINYINT, 1L), DOUBLE), new Constant(REAL, Reals.toReal(1f)))),
+                                        new Row(ImmutableList.of(new Constant(DOUBLE, 2.0), new Cast(new Constant(SMALLINT, 2L), REAL)))))));
 
         // entry of type other than Row coerced as a whole
         assertPlan("VALUES DOUBLE '1', CAST(ROW(2) AS row(bigint))",
@@ -2252,7 +2208,7 @@ public class TestLogicalPlanner
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
                                                 ImmutableList.of("id", "value"),
-                                                ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 90L))))))));
+                                                ImmutableList.of(row(new Constant(INTEGER, 1L), new Constant(INTEGER, 90L))))))));
 
         // row pattern measure `label` is not referenced
         assertPlan("SELECT min(value) OVER w " +
@@ -2278,7 +2234,7 @@ public class TestLogicalPlanner
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
                                                 ImmutableList.of("id", "value"),
-                                                ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 90L))))))));
+                                                ImmutableList.of(row(new Constant(INTEGER, 1L), new Constant(INTEGER, 90L))))))));
     }
 
     @Test
@@ -2309,7 +2265,7 @@ public class TestLogicalPlanner
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
                                                 ImmutableList.of("id", "value"),
-                                                ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 90L))))))));
+                                                ImmutableList.of(row(new Constant(INTEGER, 1L), new Constant(INTEGER, 90L))))))));
     }
 
     @Test
@@ -2346,7 +2302,7 @@ public class TestLogicalPlanner
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
                                                 ImmutableList.of("id", "value"),
-                                                ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 90L))))))));
+                                                ImmutableList.of(row(new Constant(INTEGER, 1L), new Constant(INTEGER, 90L))))))));
     }
 
     @Test
@@ -2392,7 +2348,7 @@ public class TestLogicalPlanner
                                                 .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                         values(
                                                 ImmutableList.of("id", "value"),
-                                                ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 90L))))))));
+                                                ImmutableList.of(row(new Constant(INTEGER, 1L), new Constant(INTEGER, 90L))))))));
     }
 
     @Test
@@ -2449,7 +2405,7 @@ public class TestLogicalPlanner
                                                         .addVariableDefinition(new IrLabel("A"), TRUE_LITERAL),
                                                 values(
                                                         ImmutableList.of("id", "input1", "input2"),
-                                                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L), new Constant(INTEGER, 3L)))))))));
+                                                        ImmutableList.of(row(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L), new Constant(INTEGER, 3L)))))))));
     }
 
     @Test
@@ -2486,9 +2442,9 @@ public class TestLogicalPlanner
         assertPlan("SELECT * FROM (VALUES 1, 2, 3) t(a), LATERAL (VALUES a * 3)",
                 output(
                         values(ImmutableList.of("a", "expr"), ImmutableList.of(
-                                ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 3L)),
-                                ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 6L)),
-                                ImmutableList.of(new Constant(INTEGER, 3L), new Constant(INTEGER, 9L))))));
+                                row(new Constant(INTEGER, 1L), new Constant(INTEGER, 3L)),
+                                row(new Constant(INTEGER, 2L), new Constant(INTEGER, 6L)),
+                                row(new Constant(INTEGER, 3L), new Constant(INTEGER, 9L))))));
     }
 
     @Test

@@ -37,6 +37,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.IrExpressions.row;
 import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -73,7 +74,7 @@ public class TestDereferencePushDown
                                 join(INNER, builder -> builder
                                         .left(values("a_msg"))
                                         .right(
-                                                values(ImmutableList.of("b_msg_y"), ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2e0)), ImmutableList.of(new Constant(DOUBLE, 4e0)))))))));
+                                                values(ImmutableList.of("b_msg_y"), ImmutableList.of(row(new Constant(DOUBLE, 2e0)), row(new Constant(DOUBLE, 4e0)))))))));
     }
 
     @Test
@@ -91,7 +92,7 @@ public class TestDereferencePushDown
                                         new ComparisonExpression(EQUAL, new SymbolReference("a_y"), new SymbolReference("b_y")),
                                         values(
                                                 ImmutableList.of("b_x", "b_y", "a_y"),
-                                                ImmutableList.of(ImmutableList.of(
+                                                ImmutableList.of(row(
                                                         new Constant(BIGINT, 1L),
                                                         new Constant(DOUBLE, 2e0),
                                                         new Constant(DOUBLE, 2e0))))))));
@@ -112,13 +113,13 @@ public class TestDereferencePushDown
                                 .left(
                                         project(filter(
                                                 new ComparisonExpression(EQUAL, new SymbolReference("a_y"), new Constant(DOUBLE, 2.0)),
-                                                values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2e0)))))))
+                                                values(ImmutableList.of("a_y"), ImmutableList.of(row(new Constant(DOUBLE, 2e0)))))))
                                 .right(
                                         project(filter(
                                                 new ComparisonExpression(EQUAL, new SymbolReference("b_y"), new Constant(DOUBLE, 2.0)),
                                                 values(
                                                         ImmutableList.of("b_y", "b_x"),
-                                                        ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2.0), new Constant(BIGINT, 1L))))))))));
+                                                        ImmutableList.of(row(new Constant(DOUBLE, 2.0), new Constant(BIGINT, 1L))))))))));
     }
 
     @Test
@@ -138,7 +139,7 @@ public class TestDereferencePushDown
                                                 new FunctionCall(IS_FINITE, ImmutableList.of(new SymbolReference("b_y"))))),
                                         values(
                                                 ImmutableList.of("b_x", "b_y", "a_y", "a_x"),
-                                                ImmutableList.of(ImmutableList.of(
+                                                ImmutableList.of(row(
                                                         new Constant(BIGINT, 1L),
                                                         new Constant(DOUBLE, 2.0),
                                                         new Constant(DOUBLE, 2.0),
@@ -154,7 +155,7 @@ public class TestDereferencePushDown
                 anyTree(
                         values(
                                 ImmutableList.of("x", "y"),
-                                ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2.0), new Constant(BIGINT, 1L))))));
+                                ImmutableList.of(row(new Constant(DOUBLE, 2.0), new Constant(BIGINT, 1L))))));
 
         assertPlanWithSession(
                 "WITH t(msg1, msg2, msg3, msg4, msg5) AS (VALUES " +
@@ -240,7 +241,7 @@ public class TestDereferencePushDown
                                                 new ComparisonExpression(EQUAL, new SymbolReference("a_y"), new SymbolReference("b_y")),
                                                 values(
                                                         ImmutableList.of("b_x", "b_y", "a_y"),
-                                                        ImmutableList.of(ImmutableList.of(
+                                                        ImmutableList.of(row(
                                                                 new Constant(BIGINT, 1L),
                                                                 new Constant(DOUBLE, 2e0),
                                                                 new Constant(DOUBLE, 2e0)))))))));
@@ -262,13 +263,13 @@ public class TestDereferencePushDown
                                 .left(
                                         project(filter(
                                                 new ComparisonExpression(EQUAL, new SymbolReference("a_y"), new Constant(DOUBLE, 2.0)),
-                                                values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2e0)))))))
+                                                values(ImmutableList.of("a_y"), ImmutableList.of(row(new Constant(DOUBLE, 2e0)))))))
                                 .right(
                                         project(filter(
                                                 new ComparisonExpression(EQUAL, new SymbolReference("b_y"), new Constant(DOUBLE, 2.0)),
                                                 values(
                                                         ImmutableList.of("b_y", "b_x"),
-                                                        ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2.0), new Constant(BIGINT, 1L))))))))));
+                                                        ImmutableList.of(row(new Constant(DOUBLE, 2.0), new Constant(BIGINT, 1L))))))))));
     }
 
     @Test
@@ -292,6 +293,6 @@ public class TestDereferencePushDown
                                                         project(
                                                                 filter(
                                                                         new ComparisonExpression(EQUAL, new SymbolReference("b_y"), new Constant(DOUBLE, 2.0)),
-                                                                        values(ImmutableList.of("b_y"), ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2e0))))))))))));
+                                                                        values(ImmutableList.of("b_y"), ImmutableList.of(row(new Constant(DOUBLE, 2e0))))))))))));
     }
 }

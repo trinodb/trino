@@ -20,6 +20,9 @@ import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.spi.block.SqlRow;
+import io.trino.spi.type.RowType;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
@@ -40,6 +43,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.isMergeProjectWithValues;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.plan.Patterns.project;
@@ -129,10 +133,11 @@ public class MergeProjectWithValues
         // do not proceed if ValuesNode contains a non-deterministic expression and it is referenced more than once by the projection
         Set<Symbol> nonDeterministicValuesOutputs = new HashSet<>();
         for (Expression rowExpression : valuesNode.getRows().get()) {
-            Row row = (Row) rowExpression;
-            for (int i = 0; i < valuesNode.getOutputSymbols().size(); i++) {
-                if (!isDeterministic(row.getItems().get(i))) {
-                    nonDeterministicValuesOutputs.add(valuesNode.getOutputSymbols().get(i));
+            if (rowExpression instanceof Row row) {
+                for (int i = 0; i < valuesNode.getOutputSymbols().size(); i++) {
+                    if (!isDeterministic(row.getItems().get(i))) {
+                        nonDeterministicValuesOutputs.add(valuesNode.getOutputSymbols().get(i));
+                    }
                 }
             }
         }
@@ -150,7 +155,27 @@ public class MergeProjectWithValues
         // inline values expressions into projection's assignments
         ImmutableList.Builder<Expression> projectedRows = ImmutableList.builder();
         for (Expression rowExpression : valuesNode.getRows().get()) {
-            Map<SymbolReference, Expression> mapping = buildMappings(valuesNode.getOutputSymbols(), (Row) rowExpression);
+            List<Expression> fieldValues;
+            if (rowExpression instanceof Constant constantRow) {
+                SqlRow rowValue = (SqlRow) constantRow.getValue();
+
+                List<RowType.Field> fields = ((RowType) constantRow.getType()).getFields();
+                ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+                for (int j = 0; j < fields.size(); j++) {
+                    // divide row into fields
+                    Object value = readNativeValue(
+                            fields.get(j).getType(),
+                            rowValue.getRawFieldBlock(j),
+                            rowValue.getRawIndex());
+                    builder.add(new Constant(fields.get(j).getType(), value));
+                }
+                fieldValues = builder.build();
+            }
+            else {
+                fieldValues = ((Row) rowExpression).getItems();
+            }
+
+            Map<SymbolReference, Expression> mapping = buildMappings(valuesNode.getOutputSymbols(), fieldValues);
             Row projectedRow = new Row(expressions.stream()
                     .map(expression -> replaceExpression(expression, mapping))
                     .collect(toImmutableList()));
@@ -161,14 +186,16 @@ public class MergeProjectWithValues
 
     private static boolean isSupportedValues(ValuesNode valuesNode)
     {
-        return valuesNode.getRows().isEmpty() || valuesNode.getRows().get().stream().allMatch(Row.class::isInstance);
+        return valuesNode.getRows().isEmpty() ||
+                valuesNode.getRows().get().stream()
+                        .allMatch(row -> row instanceof Row || row instanceof Constant);
     }
 
-    private Map<SymbolReference, Expression> buildMappings(List<Symbol> symbols, Row row)
+    private Map<SymbolReference, Expression> buildMappings(List<Symbol> symbols, List<Expression> values)
     {
         ImmutableMap.Builder<SymbolReference, Expression> mappingBuilder = ImmutableMap.builder();
-        for (int i = 0; i < row.getItems().size(); i++) {
-            mappingBuilder.put(symbols.get(i).toSymbolReference(), row.getItems().get(i));
+        for (int i = 0; i < values.size(); i++) {
+            mappingBuilder.put(symbols.get(i).toSymbolReference(), values.get(i));
         }
         return mappingBuilder.buildOrThrow();
     }

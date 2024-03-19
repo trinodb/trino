@@ -67,6 +67,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.IrExpressions.row;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -341,7 +342,7 @@ public class TestMaterializedViews
         // No-op REFRESH
         assertPlan("REFRESH MATERIALIZED VIEW materialized_view_with_casts",
                 output(
-                        values(List.of("rows"), List.of(List.of(new Constant(BIGINT, 0L))))));
+                        values(List.of("rows"), List.of(row(new Constant(BIGINT, 0L))))));
     }
 
     @Test

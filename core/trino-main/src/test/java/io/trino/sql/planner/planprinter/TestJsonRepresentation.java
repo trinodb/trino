@@ -115,7 +115,7 @@ public class TestJsonRepresentation
                                 "Values",
                                 ImmutableMap.of(),
                                 ImmutableList.of(typedSymbol("field", INTEGER)),
-                                ImmutableList.of("(integer '1')", "(integer '2')"),
+                                ImmutableList.of("row(integer) '[1]'", "row(integer) '[2]'"),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(2, 10, 0, 0, 0)),
                                 ImmutableList.of())))));
 

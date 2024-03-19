@@ -14,6 +14,7 @@
 package io.trino.sql.query;
 
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -244,5 +245,42 @@ public class TestSelectAll
         assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t2.b from (VALUES 2), LATERAL (SELECT t.*) t2(b))")).matches("VALUES (0, 0), (1, 1)");
         assertThat(assertions.query("SELECT * FROM (VALUES 0) t(a), LATERAL (SELECT t2.* from (VALUES 1, 2), LATERAL (SELECT t.*) t2(b))")).failure().hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
         assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT * from (VALUES 2), LATERAL (SELECT t.*))")).matches("VALUES (0, 2, 0), (1, 2, 1)");
+    }
+
+    @Test
+    void testFromNonDeterministic()
+    {
+        assertThat(assertions.query("SELECT (x, x).* FROM (SELECT rand()) T(x)"))
+                .result()
+                .satisfies(result -> {
+                    assertThat(result.getRowCount()).isEqualTo(1);
+
+                    MaterializedRow row = result.getMaterializedRows().getFirst();
+                    assertThat(row.getFieldCount()).isEqualTo(2);
+
+                    assertThat(row.getField(0)).isEqualTo(row.getField(1));
+                });
+
+        assertThat(assertions.query("SELECT (rand(), rand()).* FROM (VALUES 1) t(x)"))
+                .result()
+                .satisfies(result -> {
+                    assertThat(result.getRowCount()).isEqualTo(1);
+
+                    MaterializedRow row = result.getMaterializedRows().getFirst();
+                    assertThat(row.getFieldCount()).isEqualTo(2);
+
+                    assertThat(row.getField(0)).isNotEqualTo(row.getField(1));
+                });
+
+        // Ensure the calls to rand() are not duplicated by the ORDER BY clause
+        assertThat(assertions.query("SELECT (rand(), rand()).* FROM (VALUES 1, 2) t(x) ORDER BY 1"))
+                .result()
+                .satisfies(result -> {
+                    assertThat(result.getRowCount()).isEqualTo(2);
+
+                    MaterializedRow row1 = result.getMaterializedRows().get(0);
+                    MaterializedRow row2 = result.getMaterializedRows().get(1);
+                    assertThat((double) row1.getField(0)).isLessThanOrEqualTo((double) row2.getField(0));
+                });
     }
 }

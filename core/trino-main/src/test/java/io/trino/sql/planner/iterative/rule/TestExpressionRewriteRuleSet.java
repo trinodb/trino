@@ -125,7 +125,7 @@ public class TestExpressionRewriteRuleSet
                         ImmutableList.<Symbol>of(p.symbol("a")),
                         ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L)))))
                 .matches(
-                        values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 0L)))));
+                        values(ImmutableList.of("a"), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 0L))))));
     }
 
     @Test

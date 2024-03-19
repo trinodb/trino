@@ -758,14 +758,12 @@ public final class PlanMatchPattern
         return node(ValuesNode.class).with(new ValuesMatcher(aliasToIndex, expectedOutputSymbolCount, expectedRows));
     }
 
-    private static PlanMatchPattern values(List<String> aliases, Optional<List<List<Expression>>> expectedRows)
+    private static PlanMatchPattern values(List<String> aliases, Optional<List<Expression>> expectedRows)
     {
         return values(
                 aliasToIndex(aliases),
                 Optional.of(aliases.size()),
-                expectedRows.map(list -> list.stream()
-                        .map(Row::new)
-                        .collect(toImmutableList())));
+                expectedRows);
     }
 
     public static Map<String, Integer> aliasToIndex(List<String> aliases)
@@ -785,10 +783,10 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern values(int rowCount)
     {
-        return values(ImmutableList.of(), nCopies(rowCount, ImmutableList.of()));
+        return values(ImmutableList.of(), nCopies(rowCount, new Row(ImmutableList.of())));
     }
 
-    public static PlanMatchPattern values(List<String> aliases, List<List<Expression>> expectedRows)
+    public static PlanMatchPattern values(List<String> aliases, List<Expression> expectedRows)
     {
         return values(aliases, Optional.of(expectedRows));
     }

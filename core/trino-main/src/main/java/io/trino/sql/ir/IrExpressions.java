@@ -14,8 +14,13 @@
 package io.trino.sql.ir;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.RowType;
 
+import java.util.Arrays;
 import java.util.Optional;
+
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 
 public class IrExpressions
 {
@@ -29,5 +34,15 @@ public class IrExpressions
     public static Expression ifExpression(Expression condition, Expression trueCase, Expression falseCase)
     {
         return new SearchedCaseExpression(ImmutableList.of(new WhenClause(condition, trueCase)), Optional.of(falseCase));
+    }
+
+    public static Constant row(Constant... values)
+    {
+        RowType type = RowType.anonymous(Arrays.stream(values).map(Constant::getType).toList());
+        return new Constant(type, buildRowValue(type, fields -> {
+            for (int i = 0; i < values.length; ++i) {
+                writeNativeValue(values[i].getType(), fields.get(i), values[i].getValue());
+            }
+        }));
     }
 }
