@@ -16,19 +16,22 @@ package io.trino.sql.planner;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.cost.StatsAndCosts;
-import io.trino.metadata.LanguageScalarFunctionData;
 import io.trino.spi.catalog.CatalogProperties;
+import io.trino.spi.function.FunctionId;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.routine.ir.IrRoutine;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -53,7 +56,7 @@ public class PlanFragment
     private final PartitioningScheme outputPartitioningScheme;
     private final StatsAndCosts statsAndCosts;
     private final List<CatalogProperties> activeCatalogs;
-    private final List<LanguageScalarFunctionData> languageFunctions;
+    private final Map<FunctionId, IrRoutine> languageFunctions;
     private final Optional<String> jsonRepresentation;
     private final boolean containsTableScanNode;
 
@@ -72,7 +75,7 @@ public class PlanFragment
             PartitioningScheme outputPartitioningScheme,
             StatsAndCosts statsAndCosts,
             List<CatalogProperties> activeCatalogs,
-            List<LanguageScalarFunctionData> languageFunctions)
+            Map<FunctionId, IrRoutine> languageFunctions)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -87,7 +90,7 @@ public class PlanFragment
         this.outputPartitioningScheme = requireNonNull(outputPartitioningScheme, "outputPartitioningScheme is null");
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
-        this.languageFunctions = requireNonNull(languageFunctions, "languageFunctions is null");
+        this.languageFunctions = ImmutableMap.copyOf(languageFunctions);
         this.jsonRepresentation = Optional.empty();
         this.containsTableScanNode = partitionedSourceNodes.stream().anyMatch(TableScanNode.class::isInstance);
     }
@@ -103,7 +106,7 @@ public class PlanFragment
             @JsonProperty("outputPartitioningScheme") PartitioningScheme outputPartitioningScheme,
             @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
             @JsonProperty("activeCatalogs") List<CatalogProperties> activeCatalogs,
-            @JsonProperty("languageFunctions") List<LanguageScalarFunctionData> languageFunctions,
+            @JsonProperty("languageFunctions") Map<FunctionId, IrRoutine> languageFunctions,
             @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
     {
         this.id = requireNonNull(id, "id is null");
@@ -115,7 +118,7 @@ public class PlanFragment
         this.partitionedSourcesSet = ImmutableSet.copyOf(partitionedSources);
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
-        this.languageFunctions = requireNonNull(languageFunctions, "languageFunctions is null");
+        this.languageFunctions = ImmutableMap.copyOf(languageFunctions);
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
         checkArgument(
@@ -200,7 +203,7 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public List<LanguageScalarFunctionData> getLanguageFunctions()
+    public Map<FunctionId, IrRoutine> getLanguageFunctions()
     {
         return languageFunctions;
     }

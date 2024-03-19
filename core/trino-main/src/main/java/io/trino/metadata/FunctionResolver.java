@@ -31,6 +31,7 @@ import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionDependencyDeclaration.CastDependency;
 import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependency;
 import io.trino.spi.function.FunctionDependencyDeclaration.OperatorDependency;
+import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.type.Type;
@@ -131,22 +132,20 @@ public class FunctionResolver
     private ResolvedFunction resolve(Session session, CatalogFunctionBinding functionBinding, AccessControl accessControl)
     {
         if (isTrinoSqlLanguageFunction(functionBinding.functionBinding().getFunctionId())) {
-            Set<ResolvedFunction> dependencies = languageFunctionManager.getDependencies(session, functionBinding.functionBinding().getFunctionId(), accessControl);
+            FunctionId resolvedFunctionId = languageFunctionManager.analyzeAndPlan(
+                    session,
+                    functionBinding.functionBinding().getFunctionId(),
+                    accessControl);
 
-            ResolvedFunction resolvedFunction = new ResolvedFunction(
+            return new ResolvedFunction(
                     functionBinding.functionBinding().getBoundSignature(),
                     functionBinding.catalogHandle(),
-                    functionBinding.functionBinding().getFunctionId(),
+                    resolvedFunctionId,
                     functionBinding.boundFunctionMetadata().getKind(),
                     functionBinding.boundFunctionMetadata().isDeterministic(),
                     functionBinding.boundFunctionMetadata().getFunctionNullability(),
                     ImmutableMap.of(),
-                    dependencies);
-
-            // For SQL language functions, register the resolved function with the function manager,
-            // allowing the resolved function to be used later to retrieve the implementation.
-            languageFunctionManager.registerResolvedFunction(session, resolvedFunction);
-            return resolvedFunction;
+                    ImmutableSet.of());
         }
 
         FunctionDependencyDeclaration dependencies = metadata.getFunctionDependencies(
