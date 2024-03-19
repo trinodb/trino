@@ -19,6 +19,7 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.PartitioningScheme;
@@ -155,6 +156,21 @@ public class SymbolMapper
             {
                 Symbol canonical = map(Symbol.from(node));
                 return canonical.toSymbolReference();
+            }
+
+            @Override
+            public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                List<String> arguments = node.getArguments().stream()
+                        .map(name -> map(new Symbol(name)).getName())
+                        .collect(toImmutableList());
+
+                Expression body = treeRewriter.rewrite(node.getBody(), context);
+                if (body != node.getBody()) {
+                    return new LambdaExpression(arguments, body);
+                }
+
+                return node;
             }
         }, expression);
     }
