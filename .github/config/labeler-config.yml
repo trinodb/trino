@@ -40,7 +40,8 @@ release-notes:
     - any-glob-to-any-file: ['docs/src/main/sphinx/release/**', 'docs/src/main/sphinx/release.rst']
 
 salesforce:
-  - plugin/*salesforce/**
+  - changed-files:
+    - any-glob-to-any-file: ['plugin/*salesforce/**']
 
 ui:
   - changed-files:
