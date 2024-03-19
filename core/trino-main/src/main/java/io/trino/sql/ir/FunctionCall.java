@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 import static java.util.Objects.requireNonNull;
 
 public final class FunctionCall
-        extends Expression
+        implements Expression
 {
     private final ResolvedFunction function;
     private final List<Expression> arguments;

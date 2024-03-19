@@ -23,7 +23,7 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 public final class ComparisonExpression
-        extends Expression
+        implements Expression
 {
     public enum Operator
     {

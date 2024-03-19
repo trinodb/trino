@@ -23,7 +23,7 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 public final class LambdaExpression
-        extends Expression
+        implements Expression
 {
     private final List<String> arguments;
     private final Expression body;

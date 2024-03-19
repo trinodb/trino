@@ -43,7 +43,7 @@ import java.util.List;
         @JsonSubTypes.Type(value = SubscriptExpression.class, name = "subscript"),
         @JsonSubTypes.Type(value = SymbolReference.class, name = "symbol"),
 })
-public abstract sealed class Expression
+public sealed interface Expression
         permits ArithmeticBinaryExpression, ArithmeticNegation, BetweenPredicate,
         BindExpression, Cast, CoalesceExpression, ComparisonExpression, FunctionCall, InPredicate,
         IsNullPredicate, LambdaExpression, Constant, LogicalExpression,
@@ -53,10 +53,10 @@ public abstract sealed class Expression
     /**
      * Accessible for {@link IrVisitor}, use {@link IrVisitor#process(Expression, Object)} instead.
      */
-    protected <R, C> R accept(IrVisitor<R, C> visitor, C context)
+    default <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
         return visitor.visitExpression(this, context);
     }
 
-    public abstract List<? extends Expression> getChildren();
+    List<? extends Expression> getChildren();
 }
