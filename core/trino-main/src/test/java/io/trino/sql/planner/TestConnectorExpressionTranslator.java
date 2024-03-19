@@ -209,7 +209,7 @@ public class TestConnectorExpressionTranslator
                                         case DIVIDE -> OperatorType.DIVIDE;
                                         case MODULUS -> OperatorType.MODULUS;
                                     },
-                                    ImmutableList.of(BIGINT, BIGINT)),
+                                    ImmutableList.of(DOUBLE, DOUBLE)),
                             operator,
                             new SymbolReference("double_symbol_1"),
                             new SymbolReference("double_symbol_2")),
