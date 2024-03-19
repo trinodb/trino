@@ -25,7 +25,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class CoalesceExpression
-        extends Expression
+        implements Expression
 {
     private final List<Expression> operands;
 

@@ -23,7 +23,7 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 public final class SubscriptExpression
-        extends Expression
+        implements Expression
 {
     private final Expression base;
     private final Expression index;

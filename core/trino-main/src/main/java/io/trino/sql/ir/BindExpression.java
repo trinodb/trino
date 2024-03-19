@@ -47,7 +47,7 @@ import static java.util.Objects.requireNonNull;
  * This expression facilitates desugaring.
  */
 public final class BindExpression
-        extends Expression
+        implements Expression
 {
     private final List<Expression> values;
     // Function expression must be of function type.

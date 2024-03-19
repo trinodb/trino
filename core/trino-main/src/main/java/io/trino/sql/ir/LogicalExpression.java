@@ -25,7 +25,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class LogicalExpression
-        extends Expression
+        implements Expression
 {
     public enum Operator
     {

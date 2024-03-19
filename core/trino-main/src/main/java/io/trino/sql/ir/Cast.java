@@ -24,7 +24,7 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 public final class Cast
-        extends Expression
+        implements Expression
 {
     private final Expression expression;
     private final Type type;

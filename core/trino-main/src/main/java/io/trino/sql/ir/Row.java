@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 import static java.util.Objects.requireNonNull;
 
 public final class Row
-        extends Expression
+        implements Expression
 {
     private final List<Expression> items;
 
