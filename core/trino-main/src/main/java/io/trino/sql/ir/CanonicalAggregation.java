@@ -24,7 +24,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public final class CanonicalAggregation
-        extends Expression
+        implements Expression
 {
     private final ResolvedFunction resolvedFunction;
     private final Optional<Symbol> mask;
@@ -59,7 +59,7 @@ public final class CanonicalAggregation
     }
 
     @Override
-    protected <R, C> R accept(IrVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
         return visitor.visitCanonicalAggregation(this, context);
     }

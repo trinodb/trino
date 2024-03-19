@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 import static java.util.Objects.requireNonNull;
 
 public final class SearchedCaseExpression
-        extends Expression
+        implements Expression
 {
     private final List<WhenClause> whenClauses;
     private final Optional<Expression> defaultValue;

@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Objects;
 
 public final class ArithmeticBinaryExpression
-        extends Expression
+        implements Expression
 {
     public enum Operator
     {

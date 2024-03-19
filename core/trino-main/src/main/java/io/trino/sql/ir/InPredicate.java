@@ -22,7 +22,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 public final class InPredicate
-        extends Expression
+        implements Expression
 {
     private final Expression value;
     private final List<Expression> valueList;
