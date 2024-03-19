@@ -13,29 +13,24 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
-public final class Row
+@JsonSerialize
+public record Row(List<Expression> items)
         implements Expression
 {
-    private final List<Expression> items;
-
-    @JsonCreator
-    public Row(List<Expression> items)
+    public Row
     {
         requireNonNull(items, "items is null");
-        this.items = ImmutableList.copyOf(items);
+        items = ImmutableList.copyOf(items);
     }
 
-    @JsonProperty
+    @Deprecated
     public List<Expression> getItems()
     {
         return items;
@@ -51,33 +46,5 @@ public final class Row
     public List<? extends Expression> getChildren()
     {
         return items;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(items);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        Row other = (Row) obj;
-        return Objects.equals(this.items, other.items);
-    }
-
-    @Override
-    public String toString()
-    {
-        return "Row[%s]".formatted(
-                items.stream()
-                        .map(Expression::toString)
-                        .collect(Collectors.joining(", ")));
     }
 }

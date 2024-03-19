@@ -13,36 +13,33 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * NULLIF(V1,V2): CASE WHEN V1=V2 THEN NULL ELSE V1 END
  */
-public final class NullIfExpression
+@JsonSerialize
+public record NullIfExpression(Expression first, Expression second)
         implements Expression
 {
-    private final Expression first;
-    private final Expression second;
-
-    @JsonCreator
-    public NullIfExpression(Expression first, Expression second)
+    public NullIfExpression
     {
-        this.first = first;
-        this.second = second;
+        requireNonNull(first, "first is null");
+        requireNonNull(second, "second is null");
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getFirst()
     {
         return first;
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getSecond()
     {
         return second;
@@ -58,27 +55,6 @@ public final class NullIfExpression
     public List<? extends Expression> getChildren()
     {
         return ImmutableList.of(first, second);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        NullIfExpression that = (NullIfExpression) o;
-        return Objects.equals(first, that.first) &&
-                Objects.equals(second, that.second);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(first, second);
     }
 
     @Override

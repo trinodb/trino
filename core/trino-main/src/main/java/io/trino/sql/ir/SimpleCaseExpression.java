@@ -13,48 +13,38 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
-public final class SimpleCaseExpression
+@JsonSerialize
+public record SimpleCaseExpression(Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
         implements Expression
 {
-    private final Expression operand;
-    private final List<WhenClause> whenClauses;
-    private final Optional<Expression> defaultValue;
-
-    @JsonCreator
-    public SimpleCaseExpression(Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    public SimpleCaseExpression
     {
         requireNonNull(operand, "operand is null");
-        requireNonNull(whenClauses, "whenClauses is null");
-
-        this.operand = operand;
-        this.whenClauses = ImmutableList.copyOf(whenClauses);
-        this.defaultValue = defaultValue;
+        whenClauses = ImmutableList.copyOf(whenClauses);
+        requireNonNull(defaultValue, "defaultValue is null");
     }
 
-    @JsonProperty
+    @Deprecated
     public Expression getOperand()
     {
         return operand;
     }
 
-    @JsonProperty
+    @Deprecated
     public List<WhenClause> getWhenClauses()
     {
         return whenClauses;
     }
 
-    @JsonProperty
+    @Deprecated
     public Optional<Expression> getDefaultValue()
     {
         return defaultValue;
@@ -80,38 +70,5 @@ public final class SimpleCaseExpression
         defaultValue.ifPresent(builder::add);
 
         return builder.build();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        SimpleCaseExpression that = (SimpleCaseExpression) o;
-        return Objects.equals(operand, that.operand) &&
-                Objects.equals(whenClauses, that.whenClauses) &&
-                Objects.equals(defaultValue, that.defaultValue);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(operand, whenClauses, defaultValue);
-    }
-
-    @Override
-    public String toString()
-    {
-        return "SimpleCase(%s, %s, %s)".formatted(
-                operand,
-                whenClauses.stream()
-                        .map(WhenClause::toString)
-                        .collect(Collectors.joining(", ")),
-                defaultValue.map(Expression::toString).orElse("null"));
     }
 }
