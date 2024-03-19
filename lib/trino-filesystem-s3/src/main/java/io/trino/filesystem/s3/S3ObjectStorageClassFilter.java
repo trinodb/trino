@@ -61,7 +61,7 @@ public enum S3ObjectStorageClassFilter {
                 .isPresent();
     }
 
-    public boolean getFilter(S3Object object)
+    public boolean shouldReadObject(S3Object object)
     {
         return switch (this) {
             case READ_ALL -> true;
