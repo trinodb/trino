@@ -129,7 +129,7 @@ public final class TestingPlannerContext
 
             BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager);
 
-            LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(new SqlParser(), typeManager, user -> ImmutableSet.of());
+            LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(new SqlParser(), typeManager, user -> ImmutableSet.of(), blockEncodingSerde);
 
             Metadata metadata = this.metadata;
             if (metadata == null) {

@@ -13,11 +13,13 @@
  */
 package io.trino.sql.routine;
 
+import com.google.common.hash.Hashing;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
@@ -532,6 +534,9 @@ class TestSqlFunctions
 
         SqlRoutinePlanner planner = new SqlRoutinePlanner(PLANNER_CONTEXT);
         IrRoutine routine = planner.planSqlFunction(session, function, analysis);
+
+        // verify routine hash does not fail
+        SqlRoutineHash.hash(routine, Hashing.sha256().newHasher(), new TestingBlockEncodingSerde());
 
         SqlRoutineCompiler compiler = new SqlRoutineCompiler(createTestingFunctionManager());
         SpecializedSqlScalarFunction sqlScalarFunction = compiler.compile(routine);
