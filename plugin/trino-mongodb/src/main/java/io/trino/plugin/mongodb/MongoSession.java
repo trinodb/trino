@@ -20,9 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Streams;
-import com.google.common.primitives.Primitives;
-import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.DBRef;
 import com.mongodb.MongoNamespace;
@@ -38,7 +35,6 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.log.Logger;
-import io.airlift.slice.Slice;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
@@ -50,11 +46,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.CharType;
-import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
-import io.trino.spi.type.Int128;
-import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.StandardTypes;
@@ -62,17 +53,12 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
-import io.trino.spi.type.VarcharType;
 import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -97,30 +83,13 @@ import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.Chars.padSpaces;
-import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
-import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
-import static io.trino.spi.type.Timestamps.roundDiv;
-import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.floorDiv;
-import static java.lang.Math.floorMod;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -619,7 +588,7 @@ public class MongoSession
         List<Document> disjuncts = new ArrayList<>();
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             if (range.isSingleValue()) {
-                Optional<Object> translated = translateValue(range.getSingleValue(), type);
+                Optional<Object> translated = TypeUtils.translateValue(range.getSingleValue(), type);
                 if (translated.isEmpty()) {
                     return Optional.empty();
                 }
@@ -628,14 +597,14 @@ public class MongoSession
             else {
                 Document rangeConjuncts = new Document();
                 if (!range.isLowUnbounded()) {
-                    Optional<Object> translated = translateValue(range.getLowBoundedValue(), type);
+                    Optional<Object> translated = TypeUtils.translateValue(range.getLowBoundedValue(), type);
                     if (translated.isEmpty()) {
                         return Optional.empty();
                     }
                     rangeConjuncts.put(range.isLowInclusive() ? GTE_OP : GT_OP, translated.get());
                 }
                 if (!range.isHighUnbounded()) {
-                    Optional<Object> translated = translateValue(range.getHighBoundedValue(), type);
+                    Optional<Object> translated = TypeUtils.translateValue(range.getHighBoundedValue(), type);
                     if (translated.isEmpty()) {
                         return Optional.empty();
                     }
@@ -662,87 +631,6 @@ public class MongoSession
         return Optional.of(orPredicate(disjuncts.stream()
                 .map(disjunct -> new Document(name, disjunct))
                 .collect(toImmutableList())));
-    }
-
-    private static Optional<Object> translateValue(Object trinoNativeValue, Type type)
-    {
-        requireNonNull(trinoNativeValue, "trinoNativeValue is null");
-        requireNonNull(type, "type is null");
-        checkArgument(Primitives.wrap(type.getJavaType()).isInstance(trinoNativeValue), "%s (%s) is not a valid representation for %s", trinoNativeValue, trinoNativeValue.getClass(), type);
-
-        if (type == BOOLEAN) {
-            return Optional.of(trinoNativeValue);
-        }
-
-        if (type == TINYINT) {
-            return Optional.of((long) SignedBytes.checkedCast(((Long) trinoNativeValue)));
-        }
-
-        if (type == SMALLINT) {
-            return Optional.of((long) Shorts.checkedCast(((Long) trinoNativeValue)));
-        }
-
-        if (type == IntegerType.INTEGER) {
-            return Optional.of((long) toIntExact(((Long) trinoNativeValue)));
-        }
-
-        if (type == BIGINT) {
-            return Optional.of(trinoNativeValue);
-        }
-
-        if (type == REAL) {
-            return Optional.of(intBitsToFloat(toIntExact((long) trinoNativeValue)));
-        }
-
-        if (type == DOUBLE) {
-            return Optional.of(trinoNativeValue);
-        }
-
-        if (type instanceof DecimalType decimalType) {
-            if (decimalType.isShort()) {
-                return Optional.of(Decimal128.parse(Decimals.toString((long) trinoNativeValue, decimalType.getScale())));
-            }
-            return Optional.of(Decimal128.parse(Decimals.toString((Int128) trinoNativeValue, decimalType.getScale())));
-        }
-
-        if (type instanceof ObjectIdType) {
-            return Optional.of(new ObjectId(((Slice) trinoNativeValue).getBytes()));
-        }
-
-        if (type instanceof CharType charType) {
-            Slice slice = padSpaces(((Slice) trinoNativeValue), charType);
-            return Optional.of(slice.toStringUtf8());
-        }
-
-        if (type instanceof VarcharType) {
-            return Optional.of(((Slice) trinoNativeValue).toStringUtf8());
-        }
-
-        if (type == DATE) {
-            long days = (long) trinoNativeValue;
-            return Optional.of(LocalDate.ofEpochDay(days));
-        }
-
-        if (type == TIME_MILLIS) {
-            long picos = (long) trinoNativeValue;
-            return Optional.of(LocalTime.ofNanoOfDay(roundDiv(picos, PICOSECONDS_PER_NANOSECOND)));
-        }
-
-        if (type == TIMESTAMP_MILLIS) {
-            long epochMicros = (long) trinoNativeValue;
-            long epochSecond = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
-            int nanoFraction = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
-            Instant instant = Instant.ofEpochSecond(epochSecond, nanoFraction);
-            return Optional.of(LocalDateTime.ofInstant(instant, UTC));
-        }
-
-        if (type == TIMESTAMP_TZ_MILLIS) {
-            long millisUtc = unpackMillisUtc((long) trinoNativeValue);
-            Instant instant = Instant.ofEpochMilli(millisUtc);
-            return Optional.of(LocalDateTime.ofInstant(instant, UTC));
-        }
-
-        return Optional.empty();
     }
 
     private static Document documentOf(String key, Object value)
