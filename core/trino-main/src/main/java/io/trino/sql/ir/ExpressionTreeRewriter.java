@@ -384,15 +384,9 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            List<String> arguments = node.getArguments().stream()
-                    .map(SymbolReference::new)
-                    .map(expression -> rewrite(expression, context.get()))
-                    .map(SymbolReference::getName)
-                    .collect(toImmutableList());
-
             Expression body = rewrite(node.getBody(), context.get());
             if (body != node.getBody()) {
-                return new LambdaExpression(arguments, body);
+                return new LambdaExpression(node.arguments(), body);
             }
 
             return node;
