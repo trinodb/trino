@@ -68,7 +68,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                 .put("fs.cache.enabled", "true")
                 .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                 .put("fs.cache.max-sizes", "100MB")
-                .put("fs.cache.denylist", "uncacheable")
+                .put("fs.cache.skip-paths", ".*uncacheable.*")
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", metastoreDirectory.toUri().toString())
                 .put("delta.enable-non-concurrent-writes", "true")
@@ -173,15 +173,15 @@ public class TestDeltaLakeAlluxioCacheFileOperations
     }
 
     @Test
-    public void testCacheFileOperationsWithDenylist()
+    public void testCacheFileOperationsWithSkipPaths()
     {
-        assertUpdate("DROP TABLE IF EXISTS test_cache_file_operations_with_denylist");
-        assertUpdate("CREATE TABLE test_cache_file_operations_with_denylist(key varchar, data varchar) with (partitioned_by=ARRAY['key'])");
-        assertUpdate("INSERT INTO test_cache_file_operations_with_denylist VALUES ('p1', '1-abc')", 1);
-        assertUpdate("INSERT INTO test_cache_file_operations_with_denylist VALUES ('p2', '2-xyz')", 1);
-        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_cache_file_operations_with_denylist')");
+        assertUpdate("DROP TABLE IF EXISTS test_cache_file_operations_with_skip_paths");
+        assertUpdate("CREATE TABLE test_cache_file_operations_with_skip_paths(key varchar, data varchar) with (partitioned_by=ARRAY['key'])");
+        assertUpdate("INSERT INTO test_cache_file_operations_with_skip_paths VALUES ('p1', '1-abc')", 1);
+        assertUpdate("INSERT INTO test_cache_file_operations_with_skip_paths VALUES ('p2', '2-xyz')", 1);
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_cache_file_operations_with_skip_paths')");
         assertFileSystemAccesses(
-                "SELECT * FROM test_cache_file_operations_with_denylist",
+                "SELECT * FROM test_cache_file_operations_with_skip_paths",
                 ImmutableMultiset.<CacheOperation>builder()
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 757))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 636))
@@ -196,7 +196,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.writeCache", "key=p2/", 0, 218))
                         .build());
         assertFileSystemAccesses(
-                "SELECT * FROM test_cache_file_operations_with_denylist",
+                "SELECT * FROM test_cache_file_operations_with_skip_paths",
                 ImmutableMultiset.<CacheOperation>builder()
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 757))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 636))
@@ -204,11 +204,11 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 218))
                         .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 218))
                         .build());
-        assertUpdate("INSERT INTO test_cache_file_operations_with_denylist VALUES ('uncacheable-p3', '3-xyz')", 1);
-        assertUpdate("INSERT INTO test_cache_file_operations_with_denylist VALUES ('uncacheable-p4', '4-xyz')", 1);
-        assertUpdate("INSERT INTO test_cache_file_operations_with_denylist VALUES ('p5', '5-xyz')", 1);
+        assertUpdate("INSERT INTO test_cache_file_operations_with_skip_paths VALUES ('uncacheable-p3', '3-xyz')", 1);
+        assertUpdate("INSERT INTO test_cache_file_operations_with_skip_paths VALUES ('uncacheable-p4', '4-xyz')", 1);
+        assertUpdate("INSERT INTO test_cache_file_operations_with_skip_paths VALUES ('p5', '5-xyz')", 1);
         assertFileSystemAccesses(
-                "SELECT * FROM test_cache_file_operations_with_denylist",
+                "SELECT * FROM test_cache_file_operations_with_skip_paths",
                 ImmutableMultiset.<CacheOperation>builder()
                         // Uncacheable keys won't show up in here at all, as they bypass Alluxio entirely
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 757))
@@ -226,7 +226,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.writeCache", "key=p5/", 0, 218))
                         .build());
         assertFileSystemAccesses(
-                "SELECT * FROM test_cache_file_operations_with_denylist",
+                "SELECT * FROM test_cache_file_operations_with_skip_paths",
                 ImmutableMultiset.<CacheOperation>builder()
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 757))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 636))

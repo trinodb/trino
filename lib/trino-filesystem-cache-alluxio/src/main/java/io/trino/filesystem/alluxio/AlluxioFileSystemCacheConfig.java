@@ -41,7 +41,7 @@ public class AlluxioFileSystemCacheConfig
     static final String CACHE_MAX_PERCENTAGES = "fs.cache.max-disk-usage-percentages";
 
     private List<String> cacheDirectories;
-    private List<String> denylist = ImmutableList.of();
+    private List<String> skipPaths = ImmutableList.of();
     private List<DataSize> maxCacheSizes = ImmutableList.of();
     private Optional<Duration> cacheTTL = Optional.of(Duration.valueOf("7d"));
     private List<Integer> maxCacheDiskUsagePercentages = ImmutableList.of();
@@ -95,16 +95,16 @@ public class AlluxioFileSystemCacheConfig
     }
 
     @NotNull
-    public List<String> getDenylist()
+    public List<String> getSkipPaths()
     {
-        return denylist;
+        return skipPaths;
     }
 
-    @Config("fs.cache.denylist")
-    @ConfigDescription("Comma-separated list of file name patterns that will not be cached")
-    public AlluxioFileSystemCacheConfig setDenylist(String denylistParam)
+    @Config("fs.cache.skip-paths")
+    @ConfigDescription("Comma-separated list of path patterns that will not be cached")
+    public AlluxioFileSystemCacheConfig setSkipPaths(String skipPathsParam)
     {
-        this.denylist = denylistParam == null ? ImmutableList.of() : SPLITTER.splitToList(denylistParam);
+        this.skipPaths = skipPathsParam == null ? ImmutableList.of() : SPLITTER.splitToList(skipPathsParam);
         return this;
     }
 

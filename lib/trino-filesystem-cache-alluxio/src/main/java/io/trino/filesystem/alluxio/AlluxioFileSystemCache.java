@@ -45,7 +45,7 @@ public class AlluxioFileSystemCache
     private final CacheManager cacheManager;
     private final AlluxioConfiguration config;
     private final AlluxioCacheStats statistics;
-    private final List<String> denylist;
+    private final List<String> skipPaths;
     private final HashFunction hashFunction = Hashing.murmur3_128();
 
     @Inject
@@ -55,7 +55,7 @@ public class AlluxioFileSystemCache
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.config = AlluxioConfigurationFactory.create(requireNonNull(config, "config is null"));
         this.pageSize = config.getCachePageSize();
-        this.denylist = config.getDenylist();
+        this.skipPaths = config.getSkipPaths();
         this.cacheManager = CacheManager.Factory.create(this.config);
         this.statistics = requireNonNull(statistics, "statistics is null");
     }
@@ -106,7 +106,7 @@ public class AlluxioFileSystemCache
 
     private boolean uncacheable(TrinoInputFile file)
     {
-        return denylist.stream()
-                .anyMatch(deny -> file.location().path().contains(deny));
+        return skipPaths.stream()
+                .anyMatch(pattern -> file.location().path().matches(pattern));
     }
 }

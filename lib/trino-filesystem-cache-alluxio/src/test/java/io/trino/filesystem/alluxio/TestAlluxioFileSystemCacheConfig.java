@@ -68,7 +68,7 @@ class TestAlluxioFileSystemCacheConfig
                 .setMaxCacheSizes(null)
                 .setMaxCacheDiskUsagePercentages(null)
                 .setCacheTTL(Duration.valueOf("7d"))
-                .setDenylist(""));
+                .setSkipPaths(""));
     }
 
     @Test
@@ -83,7 +83,7 @@ class TestAlluxioFileSystemCacheConfig
                 .put("fs.cache.max-sizes", "1GB")
                 .put("fs.cache.max-disk-usage-percentages", "50")
                 .put("fs.cache.ttl", "1d")
-                .put("fs.cache.denylist", "foo_table")
+                .put("fs.cache.skip-paths", "foo_table")
                 .buildOrThrow();
 
         AlluxioFileSystemCacheConfig expected = new AlluxioFileSystemCacheConfig()
@@ -92,7 +92,7 @@ class TestAlluxioFileSystemCacheConfig
                 .setMaxCacheSizes("1GB")
                 .setMaxCacheDiskUsagePercentages("50")
                 .setCacheTTL(Duration.valueOf("1d"))
-                .setDenylist("foo_table");
+                .setSkipPaths("foo_table");
 
         assertFullMapping(properties, expected);
     }
