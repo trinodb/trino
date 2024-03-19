@@ -22,6 +22,7 @@ import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.CaseSensitivity;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -82,6 +83,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -89,6 +91,8 @@ import java.util.TimeZone;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
@@ -147,6 +151,7 @@ public class SnowflakeClient
                         .add(new ImplementSum(SnowflakeClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
+                        .add(new ImplementAvgBigint())
                         .build());
     }
 
@@ -183,7 +188,7 @@ public class SnowflakeClient
                 .put("timestampntz", handle -> Optional.of(timestampColumnMapping(handle.getRequiredDecimalDigits())))
                 .put("timestamptz", handle -> Optional.of(timestampTZColumnMapping(handle.getRequiredDecimalDigits())))
                 .put("date", handle -> Optional.of(ColumnMapping.longMapping(DateType.DATE, (resultSet, columnIndex) -> LocalDate.ofEpochDay(resultSet.getLong(columnIndex)).toEpochDay(), snowFlakeDateWriter())))
-                .put("varchar", handle -> Optional.of(varcharColumnMapping(handle.getRequiredColumnSize())))
+                .put("varchar", handle -> Optional.of(varcharColumnMapping(handle.getRequiredColumnSize(), typeHandle.getCaseSensitivity())))
                 .put("number", handle -> {
                     int decimalDigits = handle.getRequiredDecimalDigits();
                     int precision = handle.getRequiredColumnSize() + Math.max(-decimalDigits, 0);
@@ -252,6 +257,13 @@ public class SnowflakeClient
     {
         // TODO support complex ConnectorExpressions
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+    }
+
+    @Override
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
+    {
+        // Remote database can be case insensitive.
+        return preventTextualTypeAggregationPushdown(groupingSets);
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
@@ -413,13 +425,10 @@ public class SnowflakeClient
         };
     }
 
-    private static ColumnMapping varcharColumnMapping(int varcharLength)
+    private static ColumnMapping varcharColumnMapping(int varcharLength, Optional<CaseSensitivity> caseSensitivity)
     {
         VarcharType varcharType = varcharLength <= VarcharType.MAX_LENGTH ? createVarcharType(varcharLength) : createUnboundedVarcharType();
-        return ColumnMapping.sliceMapping(
-                varcharType,
-                StandardColumnMappings.varcharReadFunction(varcharType),
-                StandardColumnMappings.varcharWriteFunction());
+        return StandardColumnMappings.varcharColumnMapping(varcharType, caseSensitivity.orElse(CASE_INSENSITIVE) == CASE_SENSITIVE);
     }
 
     private static ObjectWriteFunction longTimestampWithTzWriteFunction()
