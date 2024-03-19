@@ -13,9 +13,13 @@
  */
 package io.trino.plugin.hive.fs;
 
+import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.NoSuchElementException;
+import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
 
@@ -23,23 +27,48 @@ public class TrinoFileStatusRemoteIterator
         implements RemoteIterator<TrinoFileStatus>
 {
     private final FileIterator iterator;
+    private final Predicate<FileEntry> filterPredicate;
+    @Nullable
+    private TrinoFileStatus nextElement;
 
-    public TrinoFileStatusRemoteIterator(FileIterator iterator)
+    public TrinoFileStatusRemoteIterator(FileIterator iterator, Predicate<FileEntry> filterPredicate)
+            throws IOException
     {
         this.iterator = requireNonNull(iterator, "iterator is null");
+        this.filterPredicate = requireNonNull(filterPredicate, "filterPredicate is null");
+        this.nextElement = findNextElement();
     }
 
     @Override
     public boolean hasNext()
             throws IOException
     {
-        return iterator.hasNext();
+        return nextElement != null;
     }
 
     @Override
     public TrinoFileStatus next()
             throws IOException
     {
-        return new TrinoFileStatus(iterator.next());
+        if (!hasNext()) {
+            throw new NoSuchElementException();
+        }
+
+        TrinoFileStatus thisElement = nextElement;
+        this.nextElement = findNextElement();
+        return thisElement;
+    }
+
+    private TrinoFileStatus findNextElement()
+            throws IOException
+    {
+        while (iterator.hasNext()) {
+            FileEntry candidate = iterator.next();
+
+            if (filterPredicate.test(candidate)) {
+                return new TrinoFileStatus(candidate);
+            }
+        }
+        return null;
     }
 }

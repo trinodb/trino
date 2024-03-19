@@ -20,6 +20,7 @@ import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.cache.EvictableCacheBuilder;
+import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.HiveConfig;
@@ -35,6 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -52,14 +54,16 @@ public class CachingDirectoryLister
     // to deal more efficiently with cache invalidation scenarios for partitioned tables.
     private final Cache<Location, ValueHolder> cache;
     private final List<SchemaTablePrefix> tablePrefixes;
+    private final Predicate<FileEntry> filterPredicate;
 
     @Inject
     public CachingDirectoryLister(HiveConfig hiveClientConfig)
     {
-        this(hiveClientConfig.getFileStatusCacheExpireAfterWrite(), hiveClientConfig.getFileStatusCacheMaxRetainedSize(), hiveClientConfig.getFileStatusCacheTables());
+        this(hiveClientConfig.getFileStatusCacheExpireAfterWrite(), hiveClientConfig.getFileStatusCacheMaxRetainedSize(),
+                hiveClientConfig.getFileStatusCacheTables(), hiveClientConfig.getS3StorageClassFilter().toFileEntryPredicate());
     }
 
-    public CachingDirectoryLister(Duration expireAfterWrite, DataSize maxSize, List<String> tables)
+    public CachingDirectoryLister(Duration expireAfterWrite, DataSize maxSize, List<String> tables, Predicate<FileEntry> filterPredicate)
     {
         this.cache = EvictableCacheBuilder.newBuilder()
                 .maximumWeight(maxSize.toBytes())
@@ -71,6 +75,7 @@ public class CachingDirectoryLister
         this.tablePrefixes = tables.stream()
                 .map(CachingDirectoryLister::parseTableName)
                 .collect(toImmutableList());
+        this.filterPredicate = filterPredicate;
     }
 
     private static SchemaTablePrefix parseTableName(String tableName)
@@ -93,7 +98,7 @@ public class CachingDirectoryLister
             throws IOException
     {
         if (!isCacheEnabledFor(table.getSchemaTableName())) {
-            return new TrinoFileStatusRemoteIterator(fs.listFiles(location));
+            return new TrinoFileStatusRemoteIterator(fs.listFiles(location), filterPredicate);
         }
 
         return listInternal(fs, location);
@@ -107,13 +112,13 @@ public class CachingDirectoryLister
             return new SimpleRemoteIterator(cachedValueHolder.getFiles().get().iterator());
         }
 
-        return cachingRemoteIterator(cachedValueHolder, createListingRemoteIterator(fs, location), location);
+        return cachingRemoteIterator(cachedValueHolder, createListingRemoteIterator(fs, location, filterPredicate), location);
     }
 
-    private static RemoteIterator<TrinoFileStatus> createListingRemoteIterator(TrinoFileSystem fs, Location location)
+    private static RemoteIterator<TrinoFileStatus> createListingRemoteIterator(TrinoFileSystem fs, Location location, Predicate<FileEntry> filterPredicate)
             throws IOException
     {
-        return new TrinoFileStatusRemoteIterator(fs.listFiles(location));
+        return new TrinoFileStatusRemoteIterator(fs.listFiles(location), filterPredicate);
     }
 
     @Override

@@ -15,12 +15,22 @@ package io.trino.filesystem.s3;
 
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
+import io.trino.filesystem.FileEntry;
+import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ObjectStorageClass;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+import java.io.IOException;
+import java.util.List;
+
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestS3FileSystemAwsS3
         extends AbstractTestS3FileSystem
@@ -67,5 +77,33 @@ public class TestS3FileSystemAwsS3
     private static String environmentVariable(String name)
     {
         return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
+    }
+
+    @Test
+    void testS3FileIteratorFileEntryTags()
+            throws IOException
+    {
+        try (S3Client s3Client = createS3Client()) {
+            String key = "test/tagsGlacier";
+            ObjectStorageClass storageClass = ObjectStorageClass.GLACIER;
+            PutObjectRequest putObjectRequestBuilder = PutObjectRequest.builder()
+                    .bucket(bucket())
+                    .key(key)
+                    .storageClass(storageClass.toString())
+                    .build();
+            s3Client.putObject(
+                    putObjectRequestBuilder,
+                    RequestBody.empty());
+
+            try {
+                List<FileEntry> listing = toList(getFileSystem().listFiles(getRootLocation().appendPath("test")));
+                FileEntry fileEntry = getOnlyElement(listing);
+
+                assertThat(fileEntry.tags().contains("s3:glacier")).isTrue();
+            }
+            finally {
+                s3Client.deleteObject(delete -> delete.bucket(bucket()).key(key));
+            }
+        }
     }
 }

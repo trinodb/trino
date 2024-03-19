@@ -111,6 +111,9 @@ Trino uses its own S3 filesystem for the URI prefixes
 * - `hive.s3.sts.region`
   - Optional override for the sts region given that IAM role based
     authentication via sts is used.
+* - `hive.s3.storage-class-filter`
+  - Filter based on storage class of S3 object, defaults to `READ_ALL`.
+  
 :::
 
 (hive-s3-credentials)=
