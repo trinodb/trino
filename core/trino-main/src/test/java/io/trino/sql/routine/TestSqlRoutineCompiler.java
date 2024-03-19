@@ -14,8 +14,10 @@
 package io.trino.sql.routine;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.hash.Hashing;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.relational.InputReferenceExpression;
@@ -277,6 +279,9 @@ public class TestSqlRoutineCompiler
     private MethodHandle compile(IrRoutine routine)
             throws Throwable
     {
+        // verify routine hash does not fail
+        SqlRoutineHash.hash(routine, Hashing.sha256().newHasher(), new TestingBlockEncodingSerde());
+
         Class<?> clazz = compiler.compileClass(routine);
 
         MethodHandle handle = stream(clazz.getMethods())
