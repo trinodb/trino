@@ -116,7 +116,8 @@ public class TestHiveConfig
                 .setDeltaLakeCatalogName(null)
                 .setHudiCatalogName(null)
                 .setAutoPurge(false)
-                .setPartitionProjectionEnabled(false));
+                .setPartitionProjectionEnabled(false)
+                .setS3StorageClassFilter(S3StorageClassFilter.READ_ALL));
     }
 
     @Test
@@ -201,6 +202,7 @@ public class TestHiveConfig
                 .put("hive.hudi-catalog-name", "hudi")
                 .put("hive.auto-purge", "true")
                 .put(CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED, "true")
+                .put("hive.s3.storage-class-filter", "READ_NON_GLACIER_AND_RESTORED")
                 .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
@@ -281,7 +283,8 @@ public class TestHiveConfig
                 .setDeltaLakeCatalogName("delta")
                 .setHudiCatalogName("hudi")
                 .setAutoPurge(true)
-                .setPartitionProjectionEnabled(true);
+                .setPartitionProjectionEnabled(true)
+                .setS3StorageClassFilter(S3StorageClassFilter.READ_NON_GLACIER_AND_RESTORED);
 
         assertFullMapping(properties, expected);
     }

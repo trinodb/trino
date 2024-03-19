@@ -13,19 +13,38 @@
  */
 package io.trino.plugin.hive.fs;
 
+import com.google.inject.Inject;
+import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.Table;
 
 import java.io.IOException;
+import java.util.function.Predicate;
+
+import static java.util.Objects.requireNonNull;
 
 public class FileSystemDirectoryLister
         implements DirectoryLister
 {
+    private final Predicate<FileEntry> filterPredicate;
+
+    @Inject
+    public FileSystemDirectoryLister(HiveConfig hiveClientConfig)
+    {
+        this(hiveClientConfig.getS3StorageClassFilter().toFileEntryPredicate());
+    }
+
+    public FileSystemDirectoryLister(Predicate<FileEntry> filterPredicate)
+    {
+        this.filterPredicate = requireNonNull(filterPredicate, "filterPredicate is null");
+    }
+
     @Override
     public RemoteIterator<TrinoFileStatus> listFilesRecursively(TrinoFileSystem fs, Table table, Location location)
             throws IOException
     {
-        return new TrinoFileStatusRemoteIterator(fs.listFiles(location));
+        return new TrinoFileStatusRemoteIterator(fs.listFiles(location), filterPredicate);
     }
 }

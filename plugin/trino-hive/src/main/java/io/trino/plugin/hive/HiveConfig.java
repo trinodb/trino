@@ -176,6 +176,8 @@ public class HiveConfig
 
     private boolean partitionProjectionEnabled;
 
+    private S3StorageClassFilter s3StorageClassFilter = S3StorageClassFilter.READ_ALL;
+
     public boolean isSingleStatementWritesOnly()
     {
         return singleStatementWritesOnly;
@@ -1250,6 +1252,19 @@ public class HiveConfig
     public HiveConfig setPartitionProjectionEnabled(boolean enabledAthenaPartitionProjection)
     {
         this.partitionProjectionEnabled = enabledAthenaPartitionProjection;
+        return this;
+    }
+
+    public S3StorageClassFilter getS3StorageClassFilter()
+    {
+        return s3StorageClassFilter;
+    }
+
+    @Config("hive.s3.storage-class-filter")
+    @ConfigDescription("Filter based on storage class of S3 object")
+    public HiveConfig setS3StorageClassFilter(S3StorageClassFilter s3StorageClassFilter)
+    {
+        this.s3StorageClassFilter = s3StorageClassFilter;
         return this;
     }
 }
