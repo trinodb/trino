@@ -13,22 +13,17 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
-public final class CoalesceExpression
+@JsonSerialize
+public record CoalesceExpression(List<Expression> operands)
         implements Expression
 {
-    private final List<Expression> operands;
-
     public CoalesceExpression(Expression first, Expression second, Expression... additional)
     {
         this(ImmutableList.<Expression>builder()
@@ -37,16 +32,13 @@ public final class CoalesceExpression
                 .build());
     }
 
-    @JsonCreator
-    public CoalesceExpression(List<Expression> operands)
+    public CoalesceExpression
     {
-        requireNonNull(operands, "operands is null");
         checkArgument(operands.size() >= 2, "must have at least two operands");
-
-        this.operands = ImmutableList.copyOf(operands);
+        operands = ImmutableList.copyOf(operands);
     }
 
-    @JsonProperty
+    @Deprecated
     public List<Expression> getOperands()
     {
         return operands;
@@ -62,34 +54,5 @@ public final class CoalesceExpression
     public List<? extends Expression> getChildren()
     {
         return operands;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        CoalesceExpression that = (CoalesceExpression) o;
-        return Objects.equals(operands, that.operands);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return operands.hashCode();
-    }
-
-    @Override
-    public String toString()
-    {
-        return "Coalesce(%s)".formatted(
-                operands.stream()
-                        .map(Expression::toString)
-                        .collect(Collectors.joining(", ")));
     }
 }

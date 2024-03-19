@@ -13,37 +13,32 @@
  */
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
-public final class FunctionCall
+@JsonSerialize
+public record FunctionCall(ResolvedFunction function, List<Expression> arguments)
         implements Expression
 {
-    private final ResolvedFunction function;
-    private final List<Expression> arguments;
-
-    @JsonCreator
-    public FunctionCall(ResolvedFunction function, List<Expression> arguments)
+    public FunctionCall
     {
-        this.function = requireNonNull(function, "function is null");
-        this.arguments = ImmutableList.copyOf(arguments);
+        requireNonNull(function, "function is null");
+        arguments = ImmutableList.copyOf(arguments);
     }
 
-    @JsonProperty
+    @Deprecated
     public ResolvedFunction getFunction()
     {
         return function;
     }
 
-    @JsonProperty
+    @Deprecated
     public List<Expression> getArguments()
     {
         return arguments;
@@ -59,26 +54,6 @@ public final class FunctionCall
     public List<? extends Expression> getChildren()
     {
         return arguments;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-        FunctionCall o = (FunctionCall) obj;
-        return Objects.equals(function, o.function) &&
-                Objects.equals(arguments, o.arguments);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(function, arguments);
     }
 
     @Override
