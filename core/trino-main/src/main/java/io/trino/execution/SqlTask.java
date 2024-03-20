@@ -372,15 +372,13 @@ public class SqlTask
             fullGcTime = taskContext.getFullGcTime();
             dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
         }
-        else {
-            if (state == FINISHED) {
-                // if task FINISHED successfully but taskHolder is not yet updated with SqlTaskExecution or FinalTaskInfo
-                // we are masking the state and return RUNNING. This is important so coordinator would not consider incomplete
-                // task information (e.g. missing proper dynamicFiltersVersion as final).
-                // This covers only short time window between call to SqlTaskExecution.start() and updating taskHolder reference in tryCreateSqlTaskExecution,
-                // so it will not add any noticable delays.
-                state = RUNNING;
-            }
+        else if (state == FINISHED) {
+            // if task FINISHED successfully but taskHolder is not yet updated with SqlTaskExecution or FinalTaskInfo
+            // we are masking the state and return RUNNING. This is important so coordinator would not consider incomplete
+            // task information (e.g. missing proper dynamicFiltersVersion as final).
+            // This covers only short time window between call to SqlTaskExecution.start() and updating taskHolder reference in tryCreateSqlTaskExecution,
+            // so it will not add any noticable delays.
+            state = RUNNING;
         }
 
         return new TaskStatus(
