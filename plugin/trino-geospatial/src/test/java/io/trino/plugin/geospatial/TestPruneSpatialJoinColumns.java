@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialJoin;
@@ -65,9 +66,9 @@ public class TestPruneSpatialJoinColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a"))),
+                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference(GEOMETRY, "a"))),
                                 spatialJoin(
-                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), new SymbolReference("r")),
+                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new SymbolReference(GEOMETRY, "a"), new SymbolReference(GEOMETRY, "b"))), new SymbolReference(DOUBLE, "r")),
                                         Optional.empty(),
                                         Optional.of(ImmutableList.of("a")),
                                         values("a"),
@@ -89,7 +90,7 @@ public class TestPruneSpatialJoinColumns
                                     p.values(a),
                                     p.values(b, r),
                                     ImmutableList.of(a, b, r),
-                                    new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), new SymbolReference("r"))));
+                                    new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new SymbolReference(GEOMETRY, "a"), new SymbolReference(GEOMETRY, "b"))), new SymbolReference(DOUBLE, "r"))));
                 })
                 .doesNotFire();
     }

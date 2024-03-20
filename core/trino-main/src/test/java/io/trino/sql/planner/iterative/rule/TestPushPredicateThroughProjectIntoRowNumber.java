@@ -59,7 +59,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)),
+                            new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)),
                             p.project(
                                     Assignments.identity(a),
                                     p.rowNumber(
@@ -79,7 +79,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(BIGINT, 1L)),
+                            new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "a"), new Constant(BIGINT, 1L)),
                             p.project(
                                     Assignments.identity(a, rowNumber),
                                     p.rowNumber(
@@ -99,7 +99,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(BIGINT, 1L)), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), new Constant(BIGINT, -10L)))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "a"), new Constant(BIGINT, 1L)), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number"), new Constant(BIGINT, -10L)))),
                             p.project(
                                     Assignments.identity(a, rowNumber),
                                     p.rowNumber(
@@ -119,7 +119,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new Constant(BIGINT, 2L)), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), new Constant(BIGINT, 5L)))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "row_number"), new Constant(BIGINT, 2L)), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number"), new Constant(BIGINT, 5L)))),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -129,9 +129,9 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new Constant(BIGINT, 2L)), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), new Constant(BIGINT, 5L)))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "row_number"), new Constant(BIGINT, 2L)), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number"), new Constant(BIGINT, 5L)))),
                         project(
-                                ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SymbolReference("row_number"))),
+                                ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SymbolReference(BIGINT, "row_number"))),
                                 rowNumber(
                                         pattern -> pattern
                                                 .maxRowCountPerPartition(Optional.of(4)),
@@ -147,7 +147,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number"), new Constant(BIGINT, 2L)), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), new Constant(BIGINT, 5L)))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "row_number"), new Constant(BIGINT, 2L)), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number"), new Constant(BIGINT, 5L)))),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -167,7 +167,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), new Constant(BIGINT, 5L)),
+                            new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number"), new Constant(BIGINT, 5L)),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -177,7 +177,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(project(
-                        ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SymbolReference("row_number"))),
+                        ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SymbolReference(BIGINT, "row_number"))),
                         rowNumber(
                                 pattern -> pattern
                                         .maxRowCountPerPartition(Optional.of(3)),
@@ -189,7 +189,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), new Constant(BIGINT, 3L)),
+                            new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number"), new Constant(BIGINT, 3L)),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -199,7 +199,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(project(
-                        ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SymbolReference("row_number"))),
+                        ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SymbolReference(BIGINT, "row_number"))),
                         rowNumber(
                                 pattern -> pattern
                                         .maxRowCountPerPartition(Optional.of(2)),
@@ -215,7 +215,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), new Constant(BIGINT, 5L)), new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(BIGINT, 0L)))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number"), new Constant(BIGINT, 5L)), new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "a"), new Constant(BIGINT, 0L)))),
                             p.project(
                                     Assignments.identity(rowNumber, a),
                                     p.rowNumber(
@@ -225,9 +225,9 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(filter(
-                        new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(BIGINT, 0L)),
+                        new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "a"), new Constant(BIGINT, 0L)),
                         project(
-                                ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SymbolReference("row_number")), "a", expression(new SymbolReference("a"))),
+                                ImmutableMap.of("row_number", expression(new SymbolReference(BIGINT, "row_number")), "a", expression(new SymbolReference(BIGINT, "a"))),
                                 rowNumber(
                                         pattern -> pattern
                                                 .maxRowCountPerPartition(Optional.of(3)),
@@ -239,7 +239,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("row_number"), new Constant(BIGINT, 5L)), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_INTEGER, MODULUS, new SymbolReference("row_number"), new Constant(INTEGER, 2L)), new Constant(BIGINT, 0L)))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number"), new Constant(BIGINT, 5L)), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_INTEGER, MODULUS, new SymbolReference(INTEGER, "row_number"), new Constant(INTEGER, 2L)), new Constant(BIGINT, 0L)))),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -249,9 +249,9 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(filter(
-                        new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_INTEGER, MODULUS, new SymbolReference("row_number"), new Constant(INTEGER, 2L)), new Constant(BIGINT, 0L)),
+                        new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_INTEGER, MODULUS, new SymbolReference(INTEGER, "row_number"), new Constant(INTEGER, 2L)), new Constant(BIGINT, 0L)),
                         project(
-                                ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SymbolReference("row_number"))),
+                                ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SymbolReference(BIGINT, "row_number"))),
                                 rowNumber(
                                         pattern -> pattern
                                                 .maxRowCountPerPartition(Optional.of(3)),

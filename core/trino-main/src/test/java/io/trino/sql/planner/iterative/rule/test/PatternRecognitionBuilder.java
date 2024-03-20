@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule.test;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -82,19 +81,19 @@ public class PatternRecognitionBuilder
         return this;
     }
 
-    public PatternRecognitionBuilder addMeasure(Symbol symbol, Expression expression, Map<String, ValuePointer> pointers, Type type)
+    public PatternRecognitionBuilder addMeasure(Symbol symbol, Expression expression, Map<String, ValuePointer> pointers)
     {
         List<ExpressionAndValuePointers.Assignment> assignments = pointers.entrySet().stream()
-                .map(entry -> new ExpressionAndValuePointers.Assignment(new Symbol(entry.getKey()), entry.getValue()))
+                .map(entry -> new ExpressionAndValuePointers.Assignment(new Symbol(symbol.getType(), entry.getKey()), entry.getValue()))
                 .toList();
 
-        this.measures.put(symbol, new Measure(new ExpressionAndValuePointers(expression, assignments), type));
+        this.measures.put(symbol, new Measure(new ExpressionAndValuePointers(expression, assignments), symbol.getType()));
         return this;
     }
 
-    public PatternRecognitionBuilder addMeasure(Symbol symbol, Expression expression, Type type)
+    public PatternRecognitionBuilder addMeasure(Symbol symbol, Expression expression)
     {
-        return addMeasure(symbol, expression, ImmutableMap.of(), type);
+        return addMeasure(symbol, expression, ImmutableMap.of());
     }
 
     public PatternRecognitionBuilder frame(WindowNode.Frame frame)
@@ -140,10 +139,10 @@ public class PatternRecognitionBuilder
         return this;
     }
 
-    public PatternRecognitionBuilder addVariableDefinition(IrLabel name, Expression expression, Map<String, ValuePointer> pointers)
+    public PatternRecognitionBuilder addVariableDefinition(IrLabel name, Expression expression, Map<Symbol, ValuePointer> pointers)
     {
         List<ExpressionAndValuePointers.Assignment> assignments = pointers.entrySet().stream()
-                .map(entry -> new ExpressionAndValuePointers.Assignment(new Symbol(entry.getKey()), entry.getValue()))
+                .map(entry -> new ExpressionAndValuePointers.Assignment(entry.getKey(), entry.getValue()))
                 .toList();
 
         this.variableDefinitions.put(name, new ExpressionAndValuePointers(expression, assignments));

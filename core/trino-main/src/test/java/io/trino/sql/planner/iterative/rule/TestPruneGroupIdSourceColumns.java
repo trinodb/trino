@@ -20,6 +20,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -49,7 +50,7 @@ public class TestPruneGroupIdSourceColumns
                                 ImmutableList.of("a"),
                                 "group_id",
                                 strictProject(
-                                        ImmutableMap.of("a", expression(new SymbolReference("a")), "k", expression(new SymbolReference("k"))),
+                                        ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a")), "k", expression(new SymbolReference(BIGINT, "k"))),
                                         values("a", "b", "k"))));
     }
 
@@ -77,7 +78,7 @@ public class TestPruneGroupIdSourceColumns
                                 ImmutableList.of("a"),
                                 "group_id",
                                 strictProject(
-                                        ImmutableMap.of("a", expression(new SymbolReference("a")), "k", expression(new SymbolReference("k"))),
+                                        ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a")), "k", expression(new SymbolReference(BIGINT, "k"))),
                                         values("a", "b", "k"))));
     }
 

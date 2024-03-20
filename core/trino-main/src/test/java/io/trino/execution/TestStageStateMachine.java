@@ -385,7 +385,7 @@ public class TestStageStateMachine
 
     private static PlanFragment createValuesPlan()
     {
-        Symbol symbol = new Symbol("column");
+        Symbol symbol = new Symbol(VARCHAR, "column");
         PlanNodeId valuesNodeId = new PlanNodeId("plan");
         PlanFragment planFragment = new PlanFragment(
                 new PlanFragmentId("plan"),

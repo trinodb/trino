@@ -65,9 +65,7 @@ public final class LambdaCaptureDesugaringRewriter
             LinkedHashSet<Symbol> referencedSymbols = new LinkedHashSet<>();
             Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), context.withReferencedSymbols(referencedSymbols));
 
-            List<Symbol> lambdaArguments = node.getArguments().stream()
-                    .map(Symbol::new)
-                    .collect(toImmutableList());
+            List<Symbol> lambdaArguments = node.getArguments();
 
             Set<Symbol> captureSymbols = Sets.difference(referencedSymbols, ImmutableSet.copyOf(lambdaArguments));
 
@@ -75,11 +73,11 @@ public final class LambdaCaptureDesugaringRewriter
             // "Bind"(captureSymbol, (extraSymbol, x) -> f(x, extraSymbol))
 
             ImmutableMap.Builder<Symbol, Symbol> captureSymbolToExtraSymbol = ImmutableMap.builder();
-            ImmutableList.Builder<String> newLambdaArguments = ImmutableList.builder();
+            ImmutableList.Builder<Symbol> newLambdaArguments = ImmutableList.builder();
             for (Symbol captureSymbol : captureSymbols) {
                 Symbol extraSymbol = symbolAllocator.newSymbol(captureSymbol.getName(), symbolTypes.get(captureSymbol));
                 captureSymbolToExtraSymbol.put(captureSymbol, extraSymbol);
-                newLambdaArguments.add(extraSymbol.getName());
+                newLambdaArguments.add(extraSymbol);
             }
             newLambdaArguments.addAll(node.getArguments());
 
@@ -89,7 +87,7 @@ public final class LambdaCaptureDesugaringRewriter
 
             if (captureSymbols.size() != 0) {
                 List<Expression> capturedValues = captureSymbols.stream()
-                        .map(symbol -> new SymbolReference(symbol.getName()))
+                        .map(symbol -> new SymbolReference(symbolTypes.get(symbol), symbol.getName()))
                         .collect(toImmutableList());
                 rewrittenExpression = new BindExpression(capturedValues, rewrittenExpression);
             }
@@ -101,7 +99,7 @@ public final class LambdaCaptureDesugaringRewriter
         @Override
         public Expression rewriteSymbolReference(SymbolReference node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
         {
-            context.getReferencedSymbols().add(new Symbol(node.getName()));
+            context.getReferencedSymbols().add(new Symbol(node.type(), node.getName()));
             return null;
         }
     }

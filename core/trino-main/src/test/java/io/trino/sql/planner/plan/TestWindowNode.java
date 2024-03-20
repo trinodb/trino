@@ -27,6 +27,7 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,7 @@ public class TestWindowNode
         // dependencies copied from ServerMainModule.java to avoid depending on whole ServerMainModule here
         ObjectMapperProvider provider = new ObjectMapperProvider();
         provider.setKeyDeserializers(ImmutableMap.of(
+                Symbol.class, new SymbolKeyDeserializer(new TestingTypeManager()),
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));
 
         provider.setJsonDeserializers(ImmutableMap.of(

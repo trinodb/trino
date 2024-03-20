@@ -54,7 +54,7 @@ public class TestValuesNodeStats
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(3)
                                 .addSymbolStatistics(
-                                        new Symbol("a"),
+                                        new Symbol(UNKNOWN, "a"),
                                         SymbolStatsEstimate.builder()
                                                 .setNullsFraction(0)
                                                 .setLowValue(6)
@@ -62,7 +62,7 @@ public class TestValuesNodeStats
                                                 .setDistinctValuesCount(2)
                                                 .build())
                                 .addSymbolStatistics(
-                                        new Symbol("b"),
+                                        new Symbol(UNKNOWN, "b"),
                                         SymbolStatsEstimate.builder()
                                                 .setNullsFraction(0.33333333333333333)
                                                 .setLowValue(13.5)
@@ -82,7 +82,7 @@ public class TestValuesNodeStats
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(4)
                                 .addSymbolStatistics(
-                                        new Symbol("v"),
+                                        new Symbol(UNKNOWN, "v"),
                                         SymbolStatsEstimate.builder()
                                                 .setNullsFraction(0.25)
                                                 .setDistinctValuesCount(3)
@@ -105,7 +105,7 @@ public class TestValuesNodeStats
     {
         PlanNodeStatsEstimate nullAStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(1)
-                .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.zero())
+                .addSymbolStatistics(new Symbol(UNKNOWN, "a"), SymbolStatsEstimate.zero())
                 .build();
 
         tester().assertStatsFor(pb -> pb
@@ -136,7 +136,7 @@ public class TestValuesNodeStats
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(0)
-                                .addSymbolStatistics(new Symbol("a"), SymbolStatsEstimate.zero())
+                                .addSymbolStatistics(new Symbol(UNKNOWN, "a"), SymbolStatsEstimate.zero())
                                 .build()));
     }
 }

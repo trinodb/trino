@@ -155,7 +155,7 @@ public class PushProjectionIntoTableScan
                     Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
-                    Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(context.getSymbolAllocator().getTypes(), translated);
+                    Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(translated);
                     Object optimized = new IrExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
                             .optimize(NoOpSymbolResolver.INSTANCE);
 
@@ -190,7 +190,7 @@ public class PushProjectionIntoTableScan
                 }
                 String resultVariableName = ((Variable) resultConnectorExpression).getName();
                 Expression inputExpression = ConnectorExpressionTranslator.translate(session, inputConnectorExpression, plannerContext, inputVariableMappings);
-                SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, session, context.getSymbolAllocator().getTypes());
+                SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, session);
                 builder.addSymbolStatistics(variableMappings.get(resultVariableName), symbolStatistics);
             }
             return builder.build();

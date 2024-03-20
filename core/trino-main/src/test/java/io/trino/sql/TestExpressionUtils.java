@@ -19,6 +19,7 @@ import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.SymbolReference;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.LogicalExpression.Operator.AND;
@@ -29,11 +30,11 @@ public class TestExpressionUtils
     @Test
     public void testAnd()
     {
-        Expression a = new SymbolReference("a");
-        Expression b = new SymbolReference("b");
-        Expression c = new SymbolReference("c");
-        Expression d = new SymbolReference("d");
-        Expression e = new SymbolReference("e");
+        Expression a = new SymbolReference(BOOLEAN, "a");
+        Expression b = new SymbolReference(BOOLEAN, "b");
+        Expression c = new SymbolReference(BOOLEAN, "c");
+        Expression d = new SymbolReference(BOOLEAN, "d");
+        Expression e = new SymbolReference(BOOLEAN, "e");
 
         assertThat(and(a, b, c, d, e)).isEqualTo(new LogicalExpression(AND, ImmutableList.of(a, b, c, d, e)));
 

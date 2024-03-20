@@ -83,8 +83,8 @@ public class ExpressionEquivalence
             symbolInput.put(entry.getKey(), inputId);
             inputId++;
         }
-        RowExpression leftRowExpression = toRowExpression(session, leftExpression, symbolInput, types);
-        RowExpression rightRowExpression = toRowExpression(session, rightExpression, symbolInput, types);
+        RowExpression leftRowExpression = toRowExpression(session, leftExpression, symbolInput);
+        RowExpression rightRowExpression = toRowExpression(session, rightExpression, symbolInput);
 
         RowExpression canonicalizedLeft = leftRowExpression.accept(canonicalizationVisitor, null);
         RowExpression canonicalizedRight = rightRowExpression.accept(canonicalizationVisitor, null);
@@ -92,11 +92,11 @@ public class ExpressionEquivalence
         return canonicalizedLeft.equals(canonicalizedRight);
     }
 
-    private RowExpression toRowExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, TypeProvider types)
+    private RowExpression toRowExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput)
     {
         return translate(
                 expression,
-                typeAnalyzer.getTypes(types, expression),
+                typeAnalyzer.getTypes(expression),
                 symbolInput,
                 metadata,
                 functionManager,
@@ -190,7 +190,7 @@ public class ExpressionEquivalence
         @Override
         public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
         {
-            return new LambdaDefinitionExpression(lambda.getArgumentTypes(), lambda.getArguments(), lambda.getBody().accept(this, context));
+            return new LambdaDefinitionExpression(lambda.getArguments(), lambda.getBody().accept(this, context));
         }
 
         @Override
@@ -284,13 +284,9 @@ public class ExpressionEquivalence
 
                 return ComparisonChain.start()
                         .compare(
-                                leftLambda.getArgumentTypes(),
-                                rightLambda.getArgumentTypes(),
-                                new ListComparator<>(Comparator.comparing(Object::toString)))
-                        .compare(
                                 leftLambda.getArguments(),
                                 rightLambda.getArguments(),
-                                new ListComparator<>(Comparator.<String>naturalOrder()))
+                                new ListComparator<>(Comparator.<Symbol>naturalOrder()))
                         .compare(leftLambda.getBody(), rightLambda.getBody(), this)
                         .result();
             }

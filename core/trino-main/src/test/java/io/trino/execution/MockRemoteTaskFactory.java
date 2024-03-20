@@ -85,6 +85,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.Failures.toFailures;
 import static java.lang.Math.addExact;
 import static java.util.Objects.requireNonNull;
@@ -105,7 +106,7 @@ public class MockRemoteTaskFactory
 
     public MockRemoteTask createTableScanTask(TaskId taskId, InternalNode newNode, List<Split> splits, PartitionedSplitCountTracker partitionedSplitCountTracker)
     {
-        Symbol symbol = new Symbol("column");
+        Symbol symbol = new Symbol(UNKNOWN, "column");
         PlanNodeId sourceId = new PlanNodeId("sourceId");
         PlanFragment testFragment = new PlanFragment(
                 new PlanFragmentId("test"),

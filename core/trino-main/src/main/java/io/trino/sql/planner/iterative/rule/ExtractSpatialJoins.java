@@ -381,8 +381,8 @@ public class ExtractSpatialJoins
         Expression secondArgument = arguments.get(1);
 
         Type sphericalGeographyType = plannerContext.getTypeManager().getType(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
-        if (typeAnalyzer.getType(context.getSymbolAllocator().getTypes(), firstArgument).equals(sphericalGeographyType)
-                || typeAnalyzer.getType(context.getSymbolAllocator().getTypes(), secondArgument).equals(sphericalGeographyType)) {
+        if (typeAnalyzer.getType(firstArgument).equals(sphericalGeographyType)
+                || typeAnalyzer.getType(secondArgument).equals(sphericalGeographyType)) {
             return Result.empty();
         }
 

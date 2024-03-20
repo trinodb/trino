@@ -43,9 +43,9 @@ public class TestCounterBasedAnonymizer
     public void testSymbolReferenceAnonymization()
     {
         LogicalExpression expression = new LogicalExpression(AND, ImmutableList.of(
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 1L)),
-                new ComparisonExpression(LESS_THAN, new SymbolReference("b"), new Constant(INTEGER, 2L)),
-                new ComparisonExpression(EQUAL, new SymbolReference("c"), new Constant(INTEGER, 3L))));
+                new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(LESS_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 2L)),
+                new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "c"), new Constant(INTEGER, 3L))));
         CounterBasedAnonymizer anonymizer = new CounterBasedAnonymizer();
         assertThat(anonymizer.anonymize(expression))
                 .isEqualTo("((\"symbol_1\" > 'integer_literal_1') AND (\"symbol_2\" < 'integer_literal_2') AND (\"symbol_3\" = 'integer_literal_3'))");

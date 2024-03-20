@@ -43,6 +43,7 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
@@ -210,7 +211,7 @@ public class TestMergeWindows
                                                         .specification(specificationB)
                                                         .addFunction(windowFunction("nth_value", ImmutableList.of(QUANTITY_ALIAS, "ONE"), COMMON_FRAME)),
                                                 project(
-                                                        ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), BIGINT))),
+                                                        ImmutableMap.of("ONE", expression(new Cast(new SymbolReference(INTEGER, "expr"), BIGINT))),
                                                         project(
                                                                 ImmutableMap.of("expr", expression(new Constant(INTEGER, 1L))),
                                                                 LINEITEM_TABLESCAN_DOQSS)))))));
@@ -242,7 +243,7 @@ public class TestMergeWindows
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(specificationB)
                                                         .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), COMMON_FRAME)),
-                                                filter(new NotExpression(new IsNullPredicate(new SymbolReference(SHIPDATE_ALIAS))),
+                                                filter(new NotExpression(new IsNullPredicate(new SymbolReference(VARCHAR, SHIPDATE_ALIAS))),
                                                         project(
                                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                                 .specification(specificationA)
@@ -266,7 +267,7 @@ public class TestMergeWindows
                                         .addFunction(windowFunction("sum", ImmutableList.of(DISCOUNT_ALIAS), COMMON_FRAME))
                                         .addFunction(windowFunction("nth_value", ImmutableList.of(QUANTITY_ALIAS, "ONE"), COMMON_FRAME))
                                         .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), COMMON_FRAME)),
-                                project(ImmutableMap.of("ONE", expression(new Cast(new SymbolReference("expr"), BIGINT))),
+                                project(ImmutableMap.of("ONE", expression(new Cast(new SymbolReference(INTEGER, "expr"), BIGINT))),
                                         project(ImmutableMap.of("expr", expression(new Constant(INTEGER, 1L))),
                                                 LINEITEM_TABLESCAN_DOQS)))));
     }
@@ -293,7 +294,7 @@ public class TestMergeWindows
                                         .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), COMMON_FRAME))
                                         .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), COMMON_FRAME)),
                                 project(
-                                        filter(new NotExpression(new IsNullPredicate(new SymbolReference(SHIPDATE_ALIAS))),
+                                        filter(new NotExpression(new IsNullPredicate(new SymbolReference(VARCHAR, SHIPDATE_ALIAS))),
                                                 project(
                                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                                         .specification(specificationA)
@@ -461,7 +462,7 @@ public class TestMergeWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        filter(new ComparisonExpression(EQUAL, new SymbolReference("SUM"), new SymbolReference("AVG")),
+                        filter(new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "SUM"), new SymbolReference(BIGINT, "AVG")),
                                 join(INNER, builder -> builder
                                         .left(
                                                 any(

@@ -50,7 +50,7 @@ public class TestPruneTableWriterSourceColumns
                                 ImmutableList.of("a"),
                                 ImmutableList.of("column_a"),
                                 strictProject(
-                                        ImmutableMap.of("a", expression(new SymbolReference("a"))),
+                                        ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a"))),
                                         values("a", "b"))));
     }
 
@@ -106,7 +106,7 @@ public class TestPruneTableWriterSourceColumns
                             Optional.empty(),
                             Optional.of(
                                     p.statisticAggregations(
-                                            ImmutableMap.of(aggregation, p.aggregation(PlanBuilder.aggregation("avg", ImmutableList.of(new SymbolReference("argument"))), ImmutableList.of(BIGINT))),
+                                            ImmutableMap.of(aggregation, p.aggregation(PlanBuilder.aggregation("avg", ImmutableList.of(new SymbolReference(BIGINT, "argument"))), ImmutableList.of(BIGINT))),
                                             ImmutableList.of(group))),
                             Optional.of(StatisticAggregationsDescriptor.empty()),
                             p.values(a, group, argument));

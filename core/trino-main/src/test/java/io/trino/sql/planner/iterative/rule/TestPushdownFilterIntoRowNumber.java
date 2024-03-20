@@ -47,7 +47,7 @@ public class TestPushdownFilterIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     return p.filter(
-                            new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Constant(BIGINT, 100L)),
+                            new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number_1"), new Constant(BIGINT, 100L)),
                             p.rowNumber(
                                     ImmutableList.of(a),
                                     Optional.empty(),
@@ -65,7 +65,7 @@ public class TestPushdownFilterIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     return p.filter(
-                            new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Constant(BIGINT, 100L)),
+                            new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number_1"), new Constant(BIGINT, 100L)),
                             p.rowNumber(
                                     ImmutableList.of(a),
                                     Optional.of(10),
@@ -83,7 +83,7 @@ public class TestPushdownFilterIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new Constant(BIGINT, 3L), new SymbolReference("row_number_1")), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Constant(BIGINT, 5L)))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new Constant(BIGINT, 3L), new SymbolReference(BIGINT, "row_number_1")), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number_1"), new Constant(BIGINT, 5L)))),
                             p.rowNumber(
                                     ImmutableList.of(a),
                                     Optional.of(10),
@@ -92,7 +92,7 @@ public class TestPushdownFilterIntoRowNumber
                 })
                 .matches(
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new Constant(BIGINT, 3L), new SymbolReference("row_number_1")), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Constant(BIGINT, 5L)))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new Constant(BIGINT, 3L), new SymbolReference(BIGINT, "row_number_1")), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number_1"), new Constant(BIGINT, 5L)))),
                                 rowNumber(rowNumber -> rowNumber
                                                 .maxRowCountPerPartition(Optional.of(4))
                                                 .partitionBy(ImmutableList.of("a")),
@@ -104,7 +104,7 @@ public class TestPushdownFilterIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Constant(BIGINT, 5L)), new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(BIGINT, 1L)))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number_1"), new Constant(BIGINT, 5L)), new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "a"), new Constant(BIGINT, 1L)))),
                             p.rowNumber(
                                     ImmutableList.of(a),
                                     Optional.of(10),
@@ -113,7 +113,7 @@ public class TestPushdownFilterIntoRowNumber
                 })
                 .matches(
                         filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(BIGINT, 1L)),
+                                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "a"), new Constant(BIGINT, 1L)),
                                 rowNumber(rowNumber -> rowNumber
                                                 .maxRowCountPerPartition(Optional.of(4))
                                                 .partitionBy(ImmutableList.of("a")),
@@ -128,7 +128,7 @@ public class TestPushdownFilterIntoRowNumber
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     return p.filter(
-                            new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Constant(BIGINT, -100L)),
+                            new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number_1"), new Constant(BIGINT, -100L)),
                             p.rowNumber(ImmutableList.of(p.symbol("a")), Optional.empty(), rowNumberSymbol,
                                     p.values(p.symbol("a"))));
                 })
@@ -142,7 +142,7 @@ public class TestPushdownFilterIntoRowNumber
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     return p.filter(
-                            new ComparisonExpression(LESS_THAN, new SymbolReference("not_row_number"), new Cast(new Constant(INTEGER, 100L), BIGINT)),
+                            new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "not_row_number"), new Cast(new Constant(INTEGER, 100L), BIGINT)),
                             p.rowNumber(ImmutableList.of(p.symbol("a")), Optional.empty(), rowNumberSymbol,
                                     p.values(p.symbol("a"), p.symbol("not_row_number"))));
                 })
@@ -152,7 +152,7 @@ public class TestPushdownFilterIntoRowNumber
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     return p.filter(
-                            new ComparisonExpression(GREATER_THAN, new SymbolReference("row_number_1"), new Cast(new Constant(INTEGER, 100L), BIGINT)),
+                            new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "row_number_1"), new Cast(new Constant(INTEGER, 100L), BIGINT)),
                             p.rowNumber(ImmutableList.of(p.symbol("a")), Optional.empty(), rowNumberSymbol,
                                     p.values(p.symbol("a"))));
                 })
@@ -163,7 +163,7 @@ public class TestPushdownFilterIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new Cast(new Constant(INTEGER, 3L), BIGINT), new SymbolReference("row_number_1")), new ComparisonExpression(LESS_THAN, new SymbolReference("row_number_1"), new Cast(new Constant(INTEGER, 5L), BIGINT)))),
+                            new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new Cast(new Constant(INTEGER, 3L), BIGINT), new SymbolReference(BIGINT, "row_number_1")), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "row_number_1"), new Cast(new Constant(INTEGER, 5L), BIGINT)))),
                             p.rowNumber(
                                     ImmutableList.of(a),
                                     Optional.of(4),

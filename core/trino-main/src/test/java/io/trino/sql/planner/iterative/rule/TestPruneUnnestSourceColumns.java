@@ -21,6 +21,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.UnnestNode.Mapping;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -49,7 +50,7 @@ public class TestPruneUnnestSourceColumns
                                 ImmutableList.of("replicate_symbol"),
                                 ImmutableList.of(unnestMapping("unnest_symbol", ImmutableList.of("unnested_symbol"))),
                                 strictProject(
-                                        ImmutableMap.of("replicate_symbol", expression(new SymbolReference("replicate_symbol")), "unnest_symbol", expression(new SymbolReference("unnest_symbol"))),
+                                        ImmutableMap.of("replicate_symbol", expression(new SymbolReference(BIGINT, "replicate_symbol")), "unnest_symbol", expression(new SymbolReference(BIGINT, "unnest_symbol"))),
                                         values("replicate_symbol", "unnest_symbol", "unused_symbol"))));
     }
 

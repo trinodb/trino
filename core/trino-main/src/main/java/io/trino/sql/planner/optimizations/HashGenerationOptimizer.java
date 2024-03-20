@@ -865,7 +865,7 @@ public class HashGenerationOptimizer
         for (Symbol symbol : symbols) {
             Expression hashField = BuiltinFunctionCallBuilder.resolve(metadata)
                     .setName(HASH_CODE)
-                    .addArgument(symbolAllocator.getTypes().get(symbol), new SymbolReference(symbol.getName()))
+                    .addArgument(symbolAllocator.getTypes().get(symbol), new SymbolReference(BIGINT, symbol.getName()))
                     .build();
 
             hashField = new CoalesceExpression(hashField, new Constant(BIGINT, (long) NULL_HASH_CODE));

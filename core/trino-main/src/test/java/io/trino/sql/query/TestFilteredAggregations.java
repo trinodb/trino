@@ -126,7 +126,7 @@ public class TestFilteredAggregations
                 "SELECT sum(totalprice) FILTER(WHERE totalprice > 0), sum(custkey) FILTER(WHERE custkey > 0) FROM orders",
                 anyTree(
                         filter(
-                                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("totalprice"), new Constant(DOUBLE, 0.0)), new ComparisonExpression(GREATER_THAN, new SymbolReference("custkey"), new Constant(BIGINT, 0L)))),
+                                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "totalprice"), new Constant(DOUBLE, 0.0)), new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "custkey"), new Constant(BIGINT, 0L)))),
                                 source)));
     }
 

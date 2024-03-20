@@ -140,6 +140,8 @@ import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.RuleStatsRecorder;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.tracing.ForTracing;
 import io.trino.tracing.TracingMetadata;
 import io.trino.type.BlockTypeOperators;
@@ -407,6 +409,7 @@ public class ServerMainModule
         // type
         binder.bind(IrTypeAnalyzer.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+        jsonBinder(binder).addKeyDeserializerBinding(Symbol.class).to(SymbolKeyDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
         jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);

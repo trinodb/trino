@@ -29,6 +29,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
@@ -47,11 +48,11 @@ public class TestPruneLimitColumns
                 .on(p -> buildProjectedLimit(p, symbol -> symbol.getName().equals("b")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                 limit(
                                         1,
                                         strictProject(
-                                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                                 values("a", "b")))));
     }
 
@@ -81,7 +82,7 @@ public class TestPruneLimitColumns
                                         1,
                                         ImmutableList.of(sort("a", ASCENDING, FIRST)),
                                         strictProject(
-                                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
+                                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a"))),
                                                 values("a", "b")))));
     }
 
@@ -106,7 +107,7 @@ public class TestPruneLimitColumns
                                         false,
                                         ImmutableList.of("a"),
                                         strictProject(
-                                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
+                                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a"))),
                                                 values("a", "b")))));
     }
 

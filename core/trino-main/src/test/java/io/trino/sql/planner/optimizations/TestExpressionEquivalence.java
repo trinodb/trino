@@ -47,6 +47,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -94,8 +95,8 @@ public class TestExpressionEquivalence
                 new Constant(BIGINT, null),
                 new Constant(BIGINT, null));
         assertEquivalent(
-                new ComparisonExpression(LESS_THAN, new SymbolReference("a_bigint"), new SymbolReference("b_double")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("b_double"), new SymbolReference("a_bigint")));
+                new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(DOUBLE, "b_double")),
+                new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "b_double"), new SymbolReference(BIGINT, "a_bigint")));
         assertEquivalent(
                 TRUE_LITERAL,
                 TRUE_LITERAL);
@@ -142,18 +143,18 @@ public class TestExpressionEquivalence
                 new FunctionCall(MOD, ImmutableList.of(new Constant(INTEGER, 4L), new Constant(INTEGER, 5L))));
 
         assertEquivalent(
-                new SymbolReference("a_bigint"),
-                new SymbolReference("a_bigint"));
+                new SymbolReference(BIGINT, "a_bigint"),
+                new SymbolReference(BIGINT, "a_bigint"));
         assertEquivalent(
-                new ComparisonExpression(EQUAL, new SymbolReference("a_bigint"), new SymbolReference("b_bigint")),
-                new ComparisonExpression(EQUAL, new SymbolReference("b_bigint"), new SymbolReference("a_bigint")));
+                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")),
+                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "a_bigint")));
         assertEquivalent(
-                new ComparisonExpression(LESS_THAN, new SymbolReference("a_bigint"), new SymbolReference("b_bigint")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("b_bigint"), new SymbolReference("a_bigint")));
+                new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")),
+                new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "a_bigint")));
 
         assertEquivalent(
-                new ComparisonExpression(LESS_THAN, new SymbolReference("a_bigint"), new SymbolReference("b_double")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("b_double"), new SymbolReference("a_bigint")));
+                new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(DOUBLE, "b_double")),
+                new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "b_double"), new SymbolReference(BIGINT, "a_bigint")));
 
         assertEquivalent(
                 new LogicalExpression(AND, ImmutableList.of(TRUE_LITERAL, FALSE_LITERAL)),
@@ -165,11 +166,11 @@ public class TestExpressionEquivalence
                 new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
                 new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)))));
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a_bigint"), new SymbolReference("b_bigint")), new ComparisonExpression(LESS_THAN, new SymbolReference("c_bigint"), new SymbolReference("d_bigint")))),
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("d_bigint"), new SymbolReference("c_bigint")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("b_bigint"), new SymbolReference("a_bigint")))));
+                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "c_bigint"), new SymbolReference(BIGINT, "d_bigint")))),
+                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "d_bigint"), new SymbolReference(BIGINT, "c_bigint")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "a_bigint")))));
         assertEquivalent(
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a_bigint"), new SymbolReference("b_bigint")), new ComparisonExpression(LESS_THAN, new SymbolReference("c_bigint"), new SymbolReference("d_bigint")))),
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("d_bigint"), new SymbolReference("c_bigint")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("b_bigint"), new SymbolReference("a_bigint")))));
+                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "c_bigint"), new SymbolReference(BIGINT, "d_bigint")))),
+                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "d_bigint"), new SymbolReference(BIGINT, "c_bigint")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "a_bigint")))));
 
         assertEquivalent(
                 new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)))),
@@ -192,22 +193,22 @@ public class TestExpressionEquivalence
                 new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 2L)))));
 
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a_boolean"), new SymbolReference("b_boolean"), new SymbolReference("c_boolean"))),
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference("c_boolean"), new SymbolReference("b_boolean"), new SymbolReference("a_boolean"))));
+                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "a_boolean"), new SymbolReference(BOOLEAN, "b_boolean"), new SymbolReference(BOOLEAN, "c_boolean"))),
+                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "c_boolean"), new SymbolReference(BOOLEAN, "b_boolean"), new SymbolReference(BOOLEAN, "a_boolean"))));
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a_boolean"), new SymbolReference("b_boolean"))), new SymbolReference("c_boolean"))),
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("c_boolean"), new SymbolReference("b_boolean"))), new SymbolReference("a_boolean"))));
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "a_boolean"), new SymbolReference(BOOLEAN, "b_boolean"))), new SymbolReference(BOOLEAN, "c_boolean"))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "c_boolean"), new SymbolReference(BOOLEAN, "b_boolean"))), new SymbolReference(BOOLEAN, "a_boolean"))));
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a_boolean"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("b_boolean"), new SymbolReference("c_boolean"))))),
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a_boolean"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("c_boolean"), new SymbolReference("b_boolean"))), new SymbolReference("a_boolean"))));
+                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "a_boolean"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "b_boolean"), new SymbolReference(BOOLEAN, "c_boolean"))))),
+                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "a_boolean"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "c_boolean"), new SymbolReference(BOOLEAN, "b_boolean"))), new SymbolReference(BOOLEAN, "a_boolean"))));
 
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("a_boolean"), new SymbolReference("b_boolean"), new SymbolReference("c_boolean"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("d_boolean"), new SymbolReference("e_boolean"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("f_boolean"), new SymbolReference("g_boolean"), new SymbolReference("h_boolean"))))),
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("h_boolean"), new SymbolReference("g_boolean"), new SymbolReference("f_boolean"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("b_boolean"), new SymbolReference("a_boolean"), new SymbolReference("c_boolean"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("e_boolean"), new SymbolReference("d_boolean"))))));
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "a_boolean"), new SymbolReference(BOOLEAN, "b_boolean"), new SymbolReference(BOOLEAN, "c_boolean"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "d_boolean"), new SymbolReference(BOOLEAN, "e_boolean"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "f_boolean"), new SymbolReference(BOOLEAN, "g_boolean"), new SymbolReference(BOOLEAN, "h_boolean"))))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "h_boolean"), new SymbolReference(BOOLEAN, "g_boolean"), new SymbolReference(BOOLEAN, "f_boolean"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "b_boolean"), new SymbolReference(BOOLEAN, "a_boolean"), new SymbolReference(BOOLEAN, "c_boolean"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "e_boolean"), new SymbolReference(BOOLEAN, "d_boolean"))))));
 
         assertEquivalent(
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a_boolean"), new SymbolReference("b_boolean"), new SymbolReference("c_boolean"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("d_boolean"), new SymbolReference("e_boolean"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("f_boolean"), new SymbolReference("g_boolean"), new SymbolReference("h_boolean"))))),
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("h_boolean"), new SymbolReference("g_boolean"), new SymbolReference("f_boolean"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("b_boolean"), new SymbolReference("a_boolean"), new SymbolReference("c_boolean"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("e_boolean"), new SymbolReference("d_boolean"))))));
+                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "a_boolean"), new SymbolReference(BOOLEAN, "b_boolean"), new SymbolReference(BOOLEAN, "c_boolean"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "d_boolean"), new SymbolReference(BOOLEAN, "e_boolean"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "f_boolean"), new SymbolReference(BOOLEAN, "g_boolean"), new SymbolReference(BOOLEAN, "h_boolean"))))),
+                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "h_boolean"), new SymbolReference(BOOLEAN, "g_boolean"), new SymbolReference(BOOLEAN, "f_boolean"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "b_boolean"), new SymbolReference(BOOLEAN, "a_boolean"), new SymbolReference(BOOLEAN, "c_boolean"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "e_boolean"), new SymbolReference(BOOLEAN, "d_boolean"))))));
     }
 
     private static void assertEquivalent(Expression leftExpression, Expression rightExpression)
@@ -267,18 +268,18 @@ public class TestExpressionEquivalence
                 new FunctionCall(MOD, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 4L))));
 
         assertNotEquivalent(
-                new SymbolReference("a_bigint"),
-                new SymbolReference("b_bigint"));
+                new SymbolReference(BIGINT, "a_bigint"),
+                new SymbolReference(BIGINT, "b_bigint"));
         assertNotEquivalent(
-                new ComparisonExpression(EQUAL, new SymbolReference("a_bigint"), new SymbolReference("b_bigint")),
-                new ComparisonExpression(EQUAL, new SymbolReference("b_bigint"), new SymbolReference("c_bigint")));
+                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")),
+                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "c_bigint")));
         assertNotEquivalent(
-                new ComparisonExpression(LESS_THAN, new SymbolReference("a_bigint"), new SymbolReference("b_bigint")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("b_bigint"), new SymbolReference("c_bigint")));
+                new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")),
+                new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "c_bigint")));
 
         assertNotEquivalent(
-                new ComparisonExpression(LESS_THAN, new SymbolReference("a_bigint"), new SymbolReference("b_double")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("b_double"), new SymbolReference("c_bigint")));
+                new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(DOUBLE, "b_double")),
+                new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "b_double"), new SymbolReference(BIGINT, "c_bigint")));
 
         assertNotEquivalent(
                 new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
@@ -287,11 +288,11 @@ public class TestExpressionEquivalence
                 new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
                 new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)))));
         assertNotEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a_bigint"), new SymbolReference("b_bigint")), new ComparisonExpression(LESS_THAN, new SymbolReference("c_bigint"), new SymbolReference("d_bigint")))),
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("d_bigint"), new SymbolReference("c_bigint")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("b_bigint"), new SymbolReference("c_bigint")))));
+                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "c_bigint"), new SymbolReference(BIGINT, "d_bigint")))),
+                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "d_bigint"), new SymbolReference(BIGINT, "c_bigint")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "c_bigint")))));
         assertNotEquivalent(
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a_bigint"), new SymbolReference("b_bigint")), new ComparisonExpression(LESS_THAN, new SymbolReference("c_bigint"), new SymbolReference("d_bigint")))),
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("d_bigint"), new SymbolReference("c_bigint")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("b_bigint"), new SymbolReference("c_bigint")))));
+                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "c_bigint"), new SymbolReference(BIGINT, "d_bigint")))),
+                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "d_bigint"), new SymbolReference(BIGINT, "c_bigint")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "c_bigint")))));
 
         assertNotEquivalent(
                 new Cast(new Constant(createTimeWithTimeZoneType(3), DateTimes.parseTimeWithTimeZone(3, "12:34:56.123 +00:00")), VARCHAR),

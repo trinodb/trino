@@ -41,7 +41,6 @@ import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import io.trino.testing.TestingSession;
@@ -76,6 +75,7 @@ import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MODULUS;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 
@@ -128,7 +128,7 @@ public class BenchmarkPageProcessor2
         Type type = TYPE_MAP.get(this.type);
 
         for (int i = 0; i < columnCount; i++) {
-            Symbol symbol = new Symbol(type.getDisplayName().toLowerCase(ENGLISH) + i);
+            Symbol symbol = new Symbol(UNKNOWN, type.getDisplayName().toLowerCase(ENGLISH) + i);
             symbolTypes.put(symbol, type);
             sourceLayout.put(symbol, i);
         }
@@ -168,10 +168,10 @@ public class BenchmarkPageProcessor2
     private RowExpression getFilter(Type type)
     {
         if (type == VARCHAR) {
-            return rowExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new Cast(new SymbolReference("varchar0"), BIGINT), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)));
+            return rowExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new Cast(new SymbolReference(VARCHAR, "varchar0"), BIGINT), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)));
         }
         if (type == BIGINT) {
-            return rowExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new SymbolReference("bigint0"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)));
+            return rowExpression(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new SymbolReference(INTEGER, "bigint0"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)));
         }
         throw new IllegalArgumentException("filter not supported for type : " + type);
     }
@@ -181,14 +181,14 @@ public class BenchmarkPageProcessor2
         ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
         if (type == BIGINT) {
             for (int i = 0; i < columnCount; i++) {
-                builder.add(rowExpression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("bigint" + i), new Constant(BIGINT, 5L))));
+                builder.add(rowExpression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "bigint" + i), new Constant(BIGINT, 5L))));
             }
         }
         else if (type == VARCHAR) {
             for (int i = 0; i < columnCount; i++) {
                 // alternatively use identity expression rowExpression("varchar" + i, type) or
                 // rowExpression("substr(varchar" + i + ", 1, 1)", type)
-                builder.add(rowExpression(new FunctionCall(CONCAT, ImmutableList.of(new SymbolReference("varchar" + i), new Constant(VARCHAR, Slices.utf8Slice("foo"))))));
+                builder.add(rowExpression(new FunctionCall(CONCAT, ImmutableList.of(new SymbolReference(VARCHAR, "varchar" + i), new Constant(VARCHAR, Slices.utf8Slice("foo"))))));
             }
         }
         return builder.build();
@@ -196,7 +196,7 @@ public class BenchmarkPageProcessor2
 
     private RowExpression rowExpression(Expression expression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = TYPE_ANALYZER.getTypes(TypeProvider.copyOf(symbolTypes), expression);
+        Map<NodeRef<Expression>, Type> expressionTypes = TYPE_ANALYZER.getTypes(expression);
         return SqlToRowExpressionTranslator.translate(
                 expression,
                 expressionTypes,

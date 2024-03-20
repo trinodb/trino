@@ -283,8 +283,8 @@ public class PredicatePushDown
 
             List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
                     .map(entry -> inlineSymbols(node.getAssignments().getMap(), entry))
-                    .map(conjunct -> canonicalizeExpression(conjunct, typeAnalyzer, plannerContext, types)) // normalize expressions to a form that unwrapCasts understands
-                    .map(conjunct -> unwrapCasts(session, plannerContext, typeAnalyzer, types, conjunct))
+                    .map(conjunct -> canonicalizeExpression(conjunct, typeAnalyzer, plannerContext)) // normalize expressions to a form that unwrapCasts understands
+                    .map(conjunct -> unwrapCasts(session, plannerContext, typeAnalyzer, conjunct))
                     .collect(Collectors.toList());
 
             PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(inlinedDeterministicConjuncts));
@@ -816,7 +816,7 @@ public class PredicatePushDown
                 return Symbol.from(expression);
             }
 
-            return symbolAllocator.newSymbol(expression, typeAnalyzer.getType(symbolAllocator.getTypes(), expression));
+            return symbolAllocator.newSymbol(expression, typeAnalyzer.getType(expression));
         }
 
         private OuterJoinPushDownResult processLimitedOuterJoin(
@@ -1187,7 +1187,7 @@ public class PredicatePushDown
         // Temporary implementation for joins because the SimplifyExpressions optimizers cannot run properly on join clauses
         private Expression simplifyExpression(Expression expression)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(symbolAllocator.getTypes(), expression);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(expression);
             IrExpressionInterpreter optimizer = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes);
             Object object = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
 
@@ -1206,7 +1206,7 @@ public class PredicatePushDown
          */
         private Object nullInputEvaluator(Collection<Symbol> nullSymbols, Expression expression)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(symbolAllocator.getTypes(), expression);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(expression);
             return new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes)
                     .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
         }
@@ -1226,8 +1226,8 @@ public class PredicatePushDown
                 }
                 comparison = (ComparisonExpression) notExpression.getValue();
                 Set<Type> expressionTypes = ImmutableSet.of(
-                        typeAnalyzer.getType(types, comparison.getLeft()),
-                        typeAnalyzer.getType(types, comparison.getRight()));
+                        typeAnalyzer.getType(comparison.getLeft()),
+                        typeAnalyzer.getType(comparison.getRight()));
                 // Dynamic filtering is not supported with IS NOT DISTINCT FROM clause on REAL or DOUBLE types to avoid dealing with NaN values
                 if (expressionTypes.contains(REAL) || expressionTypes.contains(DOUBLE)) {
                     return false;

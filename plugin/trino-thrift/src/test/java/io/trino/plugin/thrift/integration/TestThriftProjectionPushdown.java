@@ -47,6 +47,7 @@ import java.util.Optional;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.thrift.integration.ThriftQueryRunner.driftServerPort;
 import static io.trino.plugin.thrift.integration.ThriftQueryRunner.startThriftServers;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -185,7 +186,7 @@ public class TestThriftProjectionPushdown
                                     ImmutableMap.of(orderStatusSymbol, columnHandle)));
                 })
                 .matches(project(
-                        ImmutableMap.of("expr_2", expression(new SymbolReference(columnName))),
+                        ImmutableMap.of("expr_2", expression(new SymbolReference(VARCHAR, columnName))),
                         tableScan(
                                 projectedThriftHandle::equals,
                                 TupleDomain.all(),
@@ -218,7 +219,7 @@ public class TestThriftProjectionPushdown
                                             .buildOrThrow()));
                 })
                 .matches(project(
-                        ImmutableMap.of("expr", expression(new SymbolReference(nationKeyColumn.getColumnName()))),
+                        ImmutableMap.of("expr", expression(new SymbolReference(BIGINT, nationKeyColumn.getColumnName()))),
                         tableScan(
                                 new ThriftTableHandle(
                                         TINY_SCHEMA,

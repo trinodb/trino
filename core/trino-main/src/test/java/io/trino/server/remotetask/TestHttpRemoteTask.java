@@ -78,6 +78,7 @@ import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingSplit;
@@ -557,6 +558,7 @@ public class TestHttpRemoteTask
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
                         jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
                         jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);
+                        jsonBinder(binder).addKeyDeserializerBinding(Symbol.class).to(SymbolKeyDeserializer.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
                         jsonCodecBinder(binder).bindJsonCodec(VersionedDynamicFilterDomains.class);
                         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);

@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
@@ -51,7 +52,7 @@ public class TestMergeLimitOverProjectWithSort
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                 topN(
                                         1,
                                         ImmutableList.of(sort("a", ASCENDING, FIRST)),
@@ -95,7 +96,7 @@ public class TestMergeLimitOverProjectWithSort
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                 topN(
                                         1,
                                         ImmutableList.of(sort("a", ASCENDING, FIRST)),

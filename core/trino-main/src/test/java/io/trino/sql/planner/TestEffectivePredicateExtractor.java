@@ -52,6 +52,7 @@ import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
@@ -120,14 +121,14 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD)
 public class TestEffectivePredicateExtractor
 {
-    private static final Symbol A = new Symbol("a");
-    private static final Symbol B = new Symbol("b");
-    private static final Symbol C = new Symbol("c");
-    private static final Symbol D = new Symbol("d");
-    private static final Symbol E = new Symbol("e");
-    private static final Symbol F = new Symbol("f");
-    private static final Symbol G = new Symbol("g");
-    private static final Symbol R = new Symbol("r");
+    private static final Symbol A = new Symbol(BIGINT, "a");
+    private static final Symbol B = new Symbol(BIGINT, "b");
+    private static final Symbol C = new Symbol(DOUBLE, "c");
+    private static final Symbol D = new Symbol(REAL, "d");
+    private static final Symbol E = new Symbol(UNKNOWN, "e");
+    private static final Symbol F = new Symbol(UNKNOWN, "f");
+    private static final Symbol G = new Symbol(BOGUS, "g");
+    private static final Symbol R = new Symbol(RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)), "r");
     private static final Expression AE = A.toSymbolReference();
     private static final Expression BE = B.toSymbolReference();
     private static final Expression CE = C.toSymbolReference();
@@ -617,17 +618,17 @@ public class TestEffectivePredicateExtractor
                 SESSION,
                 new ValuesNode(
                         newId(),
-                        ImmutableList.of(D),
+                        ImmutableList.of(new Symbol(DOUBLE, "c")),
                         ImmutableList.of(new Row(ImmutableList.of(doubleLiteral(Double.NaN))))),
                 types,
-                typeAnalyzer)).isEqualTo(new NotExpression(new IsNullPredicate(DE)));
+                typeAnalyzer)).isEqualTo(new NotExpression(new IsNullPredicate(new SymbolReference(DOUBLE, "c"))));
 
         // NaN and NULL
         assertThat(effectivePredicateExtractor.extract(
                 SESSION,
                 new ValuesNode(
                         newId(),
-                        ImmutableList.of(D),
+                        ImmutableList.of(new Symbol(DOUBLE, "c")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(new Constant(DOUBLE, null))),
                                 new Row(ImmutableList.of(doubleLiteral(Double.NaN))))),
@@ -639,12 +640,12 @@ public class TestEffectivePredicateExtractor
                 SESSION,
                 new ValuesNode(
                         newId(),
-                        ImmutableList.of(D),
+                        ImmutableList.of(new Symbol(DOUBLE, "x")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(doubleLiteral(42.))),
                                 new Row(ImmutableList.of(doubleLiteral(Double.NaN))))),
                 types,
-                typeAnalyzer)).isEqualTo(new NotExpression(new IsNullPredicate(DE)));
+                typeAnalyzer)).isEqualTo(new NotExpression(new IsNullPredicate(new SymbolReference(DOUBLE, "x"))));
 
         // Real NaN
         assertThat(effectivePredicateExtractor.extract(

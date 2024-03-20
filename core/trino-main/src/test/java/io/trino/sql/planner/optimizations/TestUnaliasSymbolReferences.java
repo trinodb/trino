@@ -105,8 +105,8 @@ public class TestUnaliasSymbolReferences
                 },
                 join(INNER, builder -> builder
                         .dynamicFilter(ImmutableMap.of(
-                                new SymbolReference("probeColumn1"), "column",
-                                new SymbolReference("probeColumn2"), "column"))
+                                new SymbolReference(BIGINT, "probeColumn1"), "column",
+                                new SymbolReference(BIGINT, "probeColumn2"), "column"))
                         .left(
                                 filter(
                                         TRUE_LITERAL,

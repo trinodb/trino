@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionFormatter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -37,7 +38,7 @@ public class ExpressionMatcher
     ExpressionMatcher(Expression expression)
     {
         this.expression = requireNonNull(expression, "expression is null");
-        this.sql = expression.toString();
+        this.sql = ExpressionFormatter.formatExpression(expression);
     }
 
     @Override

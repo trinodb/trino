@@ -101,14 +101,13 @@ public class TestConnectorExpressionTranslator
     private static final ArrayType VARCHAR_ARRAY_TYPE = new ArrayType(VARCHAR_TYPE);
 
     private static final Map<Symbol, Type> symbols = ImmutableMap.<Symbol, Type>builder()
-            .put(new Symbol("double_symbol_1"), DOUBLE)
-            .put(new Symbol("double_symbol_2"), DOUBLE)
-            .put(new Symbol("row_symbol_1"), ROW_TYPE)
-            .put(new Symbol("varchar_symbol_1"), VARCHAR_TYPE)
-            .put(new Symbol("boolean_symbol_1"), BOOLEAN)
+            .put(new Symbol(DOUBLE, "double_symbol_1"), DOUBLE)
+            .put(new Symbol(DOUBLE, "double_symbol_2"), DOUBLE)
+            .put(new Symbol(ROW_TYPE, "row_symbol_1"), ROW_TYPE)
+            .put(new Symbol(VARCHAR_TYPE, "varchar_symbol_1"), VARCHAR_TYPE)
+            .put(new Symbol(BOOLEAN, "boolean_symbol_1"), BOOLEAN)
             .buildOrThrow();
 
-    private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(symbols);
     private static final Map<String, Symbol> variableMappings = symbols.entrySet().stream()
             .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getKey));
 
@@ -140,7 +139,7 @@ public class TestConnectorExpressionTranslator
     @Test
     public void testTranslateSymbol()
     {
-        assertTranslationRoundTrips(new SymbolReference("double_symbol_1"), new Variable("double_symbol_1", DOUBLE));
+        assertTranslationRoundTrips(new SymbolReference(DOUBLE, "double_symbol_1"), new Variable("double_symbol_1", DOUBLE));
     }
 
     @Test
@@ -148,7 +147,7 @@ public class TestConnectorExpressionTranslator
     {
         assertTranslationRoundTrips(
                 new SubscriptExpression(
-                        new SymbolReference("row_symbol_1"),
+                        new SymbolReference(ROW_TYPE, "row_symbol_1"),
                         new Constant(INTEGER, 1L)),
                 new FieldDereference(
                         INTEGER,
@@ -164,8 +163,8 @@ public class TestConnectorExpressionTranslator
                     new LogicalExpression(
                             operator,
                             List.of(
-                                    new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
-                                    new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")))),
+                                    new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, new SymbolReference(DOUBLE, "double_symbol_1"), new SymbolReference(DOUBLE, "double_symbol_2")),
+                                    new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new SymbolReference(DOUBLE, "double_symbol_1"), new SymbolReference(DOUBLE, "double_symbol_2")))),
                     new Call(
                             BOOLEAN,
                             operator == LogicalExpression.Operator.AND ? StandardFunctions.AND_FUNCTION_NAME : StandardFunctions.OR_FUNCTION_NAME,
@@ -186,7 +185,7 @@ public class TestConnectorExpressionTranslator
     {
         for (ComparisonExpression.Operator operator : ComparisonExpression.Operator.values()) {
             assertTranslationRoundTrips(
-                    new ComparisonExpression(operator, new SymbolReference("double_symbol_1"), new SymbolReference("double_symbol_2")),
+                    new ComparisonExpression(operator, new SymbolReference(DOUBLE, "double_symbol_1"), new SymbolReference(DOUBLE, "double_symbol_2")),
                     new Call(
                             BOOLEAN,
                             ConnectorExpressionTranslator.functionNameForComparisonOperator(operator),
@@ -211,8 +210,8 @@ public class TestConnectorExpressionTranslator
                                     },
                                     ImmutableList.of(DOUBLE, DOUBLE)),
                             operator,
-                            new SymbolReference("double_symbol_1"),
-                            new SymbolReference("double_symbol_2")),
+                            new SymbolReference(DOUBLE, "double_symbol_1"),
+                            new SymbolReference(DOUBLE, "double_symbol_2")),
                     new Call(
                             DOUBLE,
                             ConnectorExpressionTranslator.functionNameForArithmeticBinaryOperator(operator),
@@ -224,7 +223,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateArithmeticUnaryMinus()
     {
         assertTranslationRoundTrips(
-                new ArithmeticNegation(new SymbolReference("double_symbol_1")),
+                new ArithmeticNegation(new SymbolReference(DOUBLE, "double_symbol_1")),
                 new Call(DOUBLE, NEGATE_FUNCTION_NAME, List.of(new Variable("double_symbol_1", DOUBLE))));
     }
 
@@ -234,9 +233,9 @@ public class TestConnectorExpressionTranslator
         assertTranslationToConnectorExpression(
                 TEST_SESSION,
                 new BetweenPredicate(
-                        new SymbolReference("double_symbol_1"),
+                        new SymbolReference(DOUBLE, "double_symbol_1"),
                         new Constant(DOUBLE, 1.2),
-                        new SymbolReference("double_symbol_2")),
+                        new SymbolReference(DOUBLE, "double_symbol_2")),
                 new Call(
                         BOOLEAN,
                         AND_FUNCTION_NAME,
@@ -259,7 +258,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateIsNull()
     {
         assertTranslationRoundTrips(
-                new IsNullPredicate(new SymbolReference("varchar_symbol_1")),
+                new IsNullPredicate(new SymbolReference(VARCHAR, "varchar_symbol_1")),
                 new Call(
                         BOOLEAN,
                         IS_NULL_FUNCTION_NAME,
@@ -270,7 +269,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateNotExpression()
     {
         assertTranslationRoundTrips(
-                new NotExpression(new SymbolReference("boolean_symbol_1")),
+                new NotExpression(new SymbolReference(BOOLEAN, "boolean_symbol_1")),
                 new Call(
                         BOOLEAN,
                         NOT_FUNCTION_NAME,
@@ -281,7 +280,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateIsNotNull()
     {
         assertTranslationRoundTrips(
-                new NotExpression(new IsNullPredicate(new SymbolReference("varchar_symbol_1"))),
+                new NotExpression(new IsNullPredicate(new SymbolReference(VARCHAR, "varchar_symbol_1"))),
                 new Call(
                         BOOLEAN,
                         NOT_FUNCTION_NAME,
@@ -292,7 +291,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateCast()
     {
         assertTranslationRoundTrips(
-                new Cast(new SymbolReference("varchar_symbol_1"), VARCHAR_TYPE),
+                new Cast(new SymbolReference(VARCHAR, "varchar_symbol_1"), VARCHAR_TYPE),
                 new Call(
                         VARCHAR_TYPE,
                         CAST_FUNCTION_NAME,
@@ -302,7 +301,7 @@ public class TestConnectorExpressionTranslator
         assertTranslationToConnectorExpression(
                 TEST_SESSION,
                 new Cast(
-                        new SymbolReference("varchar_symbol_1"),
+                        new SymbolReference(VARCHAR, "varchar_symbol_1"),
                         BIGINT,
                         true),
                 Optional.empty());
@@ -325,8 +324,7 @@ public class TestConnectorExpressionTranslator
                     assertTranslationToConnectorExpression(
                             transactionSession,
                             BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
-                                    .setName(LikeFunctions.LIKE_FUNCTION_NAME)
-                                    .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                                    .setName(LikeFunctions.LIKE_FUNCTION_NAME).addArgument(VARCHAR_TYPE, new SymbolReference(VARCHAR_TYPE, "varchar_symbol_1"))
                                     .addArgument(LIKE_PATTERN, new Constant(LIKE_PATTERN, likePattern(utf8Slice(pattern))))
                                     .build(),
                             Optional.of(translated));
@@ -335,8 +333,7 @@ public class TestConnectorExpressionTranslator
                             transactionSession,
                             translated,
                             BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
-                                    .setName(LikeFunctions.LIKE_FUNCTION_NAME)
-                                    .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                                    .setName(LikeFunctions.LIKE_FUNCTION_NAME).addArgument(VARCHAR_TYPE, new SymbolReference(VARCHAR_TYPE, "varchar_symbol_1"))
                                     .addArgument(LIKE_PATTERN,
                                             BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
                                                     .setName(LikeFunctions.LIKE_PATTERN_FUNCTION_NAME)
@@ -355,8 +352,7 @@ public class TestConnectorExpressionTranslator
                     assertTranslationToConnectorExpression(
                             transactionSession,
                             BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
-                                    .setName(LikeFunctions.LIKE_FUNCTION_NAME)
-                                    .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                                    .setName(LikeFunctions.LIKE_FUNCTION_NAME).addArgument(VARCHAR_TYPE, new SymbolReference(VARCHAR_TYPE, "varchar_symbol_1"))
                                     .addArgument(LIKE_PATTERN, new Constant(LIKE_PATTERN, likePattern(utf8Slice(pattern), utf8Slice(escape))))
                                     .build(),
                             Optional.of(translated));
@@ -365,8 +361,7 @@ public class TestConnectorExpressionTranslator
                             transactionSession,
                             translated,
                             BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
-                                    .setName(LikeFunctions.LIKE_FUNCTION_NAME)
-                                    .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                                    .setName(LikeFunctions.LIKE_FUNCTION_NAME).addArgument(VARCHAR_TYPE, new SymbolReference(VARCHAR_TYPE, "varchar_symbol_1"))
                                     .addArgument(LIKE_PATTERN,
                                             BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
                                                     .setName(LikeFunctions.LIKE_PATTERN_FUNCTION_NAME)
@@ -382,8 +377,8 @@ public class TestConnectorExpressionTranslator
     {
         assertTranslationRoundTrips(
                 new NullIfExpression(
-                        new SymbolReference("varchar_symbol_1"),
-                        new SymbolReference("varchar_symbol_1")),
+                        new SymbolReference(VARCHAR, "varchar_symbol_1"),
+                        new SymbolReference(VARCHAR, "varchar_symbol_1")),
                 new Call(
                         VARCHAR_TYPE,
                         NULLIF_FUNCTION_NAME,
@@ -402,8 +397,7 @@ public class TestConnectorExpressionTranslator
                     assertTranslationRoundTrips(
                             transactionSession,
                             BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
-                                    .setName("lower")
-                                    .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                                    .setName("lower").addArgument(VARCHAR_TYPE, new SymbolReference(VARCHAR_TYPE, "varchar_symbol_1"))
                                     .build(),
                             new Call(VARCHAR_TYPE,
                                     new FunctionName("lower"),
@@ -423,8 +417,7 @@ public class TestConnectorExpressionTranslator
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
                     FunctionCall input = BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
-                            .setName("regexp_like")
-                            .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                            .setName("regexp_like").addArgument(VARCHAR_TYPE, new SymbolReference(VARCHAR_TYPE, "varchar_symbol_1"))
                             .addArgument(new Constant(JONI_REGEXP, joniRegexp(utf8Slice("a+"))))
                             .build();
                     Call translated = new Call(
@@ -434,8 +427,7 @@ public class TestConnectorExpressionTranslator
                                     new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                     new io.trino.spi.expression.Constant(utf8Slice("a+"), createVarcharType(2))));
                     FunctionCall translatedBack = BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
-                            .setName("regexp_like")
-                            .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                            .setName("regexp_like").addArgument(VARCHAR_TYPE, new SymbolReference(VARCHAR_TYPE, "varchar_symbol_1"))
                             // Note: The result is not an optimized expression
                             .addArgument(JONI_REGEXP, new Cast(new Constant(createVarcharType(2), utf8Slice("a+")), JONI_REGEXP))
                             .build();
@@ -459,8 +451,7 @@ public class TestConnectorExpressionTranslator
         assertTranslationToConnectorExpression(
                 TEST_SESSION,
                 BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
-                        .setName("json_extract_scalar")
-                        .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                        .setName("json_extract_scalar").addArgument(VARCHAR_TYPE, new SymbolReference(VARCHAR_TYPE, "varchar_symbol_1"))
                         .addArgument(JSON_PATH, new Constant(JSON_PATH, new JsonPath("$.path")))
                         .build(),
                 Optional.of(connectorExpression));
@@ -469,8 +460,7 @@ public class TestConnectorExpressionTranslator
                 TEST_SESSION,
                 connectorExpression,
                 BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
-                        .setName("json_extract_scalar")
-                        .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                        .setName("json_extract_scalar").addArgument(VARCHAR_TYPE, new SymbolReference(VARCHAR_TYPE, "varchar_symbol_1"))
                         .addArgument(JSON_PATH, new Cast(new Constant(createVarcharType(6), utf8Slice("$.path")), JSON_PATH))
                         .build());
     }
@@ -481,8 +471,8 @@ public class TestConnectorExpressionTranslator
         String value = "value_1";
         assertTranslationRoundTrips(
                 new InPredicate(
-                        new SymbolReference("varchar_symbol_1"),
-                        List.of(new SymbolReference("varchar_symbol_1"), new Constant(VARCHAR, utf8Slice(value)))),
+                        new SymbolReference(VARCHAR, "varchar_symbol_1"),
+                        List.of(new SymbolReference(VARCHAR, "varchar_symbol_1"), new Constant(VARCHAR, utf8Slice(value)))),
                 new Call(
                     BOOLEAN,
                     StandardFunctions.IN_PREDICATE_FUNCTION_NAME,
@@ -512,7 +502,7 @@ public class TestConnectorExpressionTranslator
 
     private void assertTranslationToConnectorExpression(Session session, Expression expression, Optional<ConnectorExpression> connectorExpression)
     {
-        Optional<ConnectorExpression> translation = translate(session, expression, TYPE_PROVIDER, TYPE_ANALYZER);
+        Optional<ConnectorExpression> translation = translate(session, expression, TYPE_ANALYZER);
         assertThat(connectorExpression.isPresent()).isEqualTo(translation.isPresent());
         translation.ifPresent(value -> assertThat(value).isEqualTo(connectorExpression.get()));
     }

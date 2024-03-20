@@ -79,12 +79,12 @@ public class TestPushLimitThroughProject
                             1,
                             ImmutableList.of(projectedA),
                             p.project(
-                                    Assignments.of(projectedA, new SymbolReference("a"), projectedB, new SymbolReference("b")),
+                                    Assignments.of(projectedA, new SymbolReference(BIGINT, "a"), projectedB, new SymbolReference(BIGINT, "b")),
                                     p.values(a, b)));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("projectedA", expression(new SymbolReference("a")), "projectedB", expression(new SymbolReference("b"))),
+                                ImmutableMap.of("projectedA", expression(new SymbolReference(BIGINT, "a")), "projectedB", expression(new SymbolReference(BIGINT, "b"))),
                                 limit(1, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a", "b"))));
     }
 
@@ -102,15 +102,15 @@ public class TestPushLimitThroughProject
                             ImmutableList.of(projectedA),
                             p.project(
                                     Assignments.of(
-                                            projectedA, new SymbolReference("a"),
-                                            projectedC, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("a"), new SymbolReference("b"))),
+                                            projectedA, new SymbolReference(BIGINT, "a"),
+                                            projectedC, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "a"), new SymbolReference(BIGINT, "b"))),
                                     p.values(a, b)));
                 })
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "projectedA", expression(new SymbolReference("a")),
-                                        "projectedC", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("a"), new SymbolReference("b")))),
+                                        "projectedA", expression(new SymbolReference(BIGINT, "a")),
+                                        "projectedC", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "a"), new SymbolReference(BIGINT, "b")))),
                                 limit(1, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a", "b"))));
     }
 
@@ -128,8 +128,8 @@ public class TestPushLimitThroughProject
                             ImmutableList.of(projectedC),
                             p.project(
                                     Assignments.of(
-                                            projectedA, new SymbolReference("a"),
-                                            projectedC, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("a"), new SymbolReference("b"))),
+                                            projectedA, new SymbolReference(BIGINT, "a"),
+                                            projectedC, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "a"), new SymbolReference(BIGINT, "b"))),
                                     p.values(a, b)));
                 })
                 .doesNotFire();
@@ -182,8 +182,8 @@ public class TestPushLimitThroughProject
                             ImmutableList.of(projectedC),
                             p.project(
                                     Assignments.of(
-                                            projectedA, new SymbolReference("a"),
-                                            projectedC, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("a"), new SymbolReference("b"))),
+                                            projectedA, new SymbolReference(BIGINT, "a"),
+                                            projectedC, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "a"), new SymbolReference(BIGINT, "b"))),
                                     p.values(a, b)));
                 })
                 .doesNotFire();
@@ -201,13 +201,13 @@ public class TestPushLimitThroughProject
                             ImmutableList.of(projectedA),
                             p.project(
                                     Assignments.of(
-                                            projectedA, new SymbolReference("a"),
-                                            projectedC, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("a"), new SymbolReference("b"))),
+                                            projectedA, new SymbolReference(BIGINT, "a"),
+                                            projectedC, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "a"), new SymbolReference(BIGINT, "b"))),
                                     p.values(a, b)));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("projectedA", expression(new SymbolReference("a")), "projectedC", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("a"), new SymbolReference("b")))),
+                                ImmutableMap.of("projectedA", expression(new SymbolReference(BIGINT, "a")), "projectedC", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "a"), new SymbolReference(BIGINT, "b")))),
                                 limit(1, ImmutableList.of(), true, ImmutableList.of("a"), values("a", "b"))));
     }
 
@@ -228,7 +228,7 @@ public class TestPushLimitThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference("a"), new Constant(INTEGER, 1L))), "c", expression(new SymbolReference("a"))),
+                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference(rowType, "a"), new Constant(INTEGER, 1L))), "c", expression(new SymbolReference(rowType, "a"))),
                                 limit(1,
                                         values("a"))));
     }

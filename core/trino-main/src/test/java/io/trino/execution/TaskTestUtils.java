@@ -87,7 +87,7 @@ public final class TaskTestUtils
 
     public static final ImmutableList<SplitAssignment> EMPTY_SPLIT_ASSIGNMENTS = ImmutableList.of();
 
-    public static final Symbol SYMBOL = new Symbol("column");
+    public static final Symbol SYMBOL = new Symbol(BIGINT, "column");
 
     public static final PlanFragment PLAN_FRAGMENT = new PlanFragment(
             new PlanFragmentId("fragment"),

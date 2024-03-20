@@ -51,7 +51,7 @@ public class TestMergeLimitWithDistinct
                         p.limit(
                                 1,
                                 p.aggregation(builder -> builder
-                                        .addAggregation(p.symbol("c"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("foo"))), ImmutableList.of(BIGINT))
+                                        .addAggregation(p.symbol("c"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "foo"))), ImmutableList.of(BIGINT))
                                         .globalGrouping()
                                         .source(p.values(p.symbol("foo"))))))
                 .doesNotFire();

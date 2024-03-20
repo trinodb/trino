@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
@@ -126,7 +127,7 @@ public class TestPruneTopNRankingColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", expression(new SymbolReference("a")), "ranking", expression(new SymbolReference("ranking"))),
+                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a")), "ranking", expression(new SymbolReference(BIGINT, "ranking"))),
                                 topNRanking(
                                         pattern -> pattern
                                                 .specification(
@@ -136,7 +137,7 @@ public class TestPruneTopNRankingColumns
                                                 .rankingType(ROW_NUMBER)
                                                 .maxRankingPerPartition(5),
                                         strictProject(
-                                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
+                                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a"))),
                                                 values("a", "b")))
                                         .withAlias("ranking", new TopNRankingSymbolMatcher())));
     }

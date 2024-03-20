@@ -32,6 +32,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
+import io.trino.spi.type.RowType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
@@ -133,8 +134,8 @@ public class TestHiveProjectionPushdownIntoTableScan
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "expr", expression(new SubscriptExpression(new SymbolReference("col0"), new Constant(INTEGER, 1L))),
-                                        "expr_2", expression(new SubscriptExpression(new SymbolReference("col0"), new Constant(INTEGER, 2L)))),
+                                        "expr", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), new Constant(INTEGER, 1L))),
+                                        "expr_2", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), new Constant(INTEGER, 2L)))),
                                 tableScan(testTable, ImmutableMap.of("col0", "col0")))));
     }
 
@@ -178,7 +179,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 format("SELECT col0.x FROM %s WHERE col0.x = col1 + 3 and col0.y = 2", testTable),
                 anyTree(
                         filter(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("col0_y"), new Constant(BIGINT, 2L)), new ComparisonExpression(EQUAL, new SymbolReference("col0_x"), new Cast(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("col1"), new Constant(INTEGER, 3L)), BIGINT)))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "col0_y"), new Constant(BIGINT, 2L)), new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "col0_x"), new Cast(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "col1"), new Constant(INTEGER, 3L)), BIGINT)))),
                                 tableScan(
                                         table -> {
                                             HiveTableHandle hiveTableHandle = (HiveTableHandle) table;
@@ -195,7 +196,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 format("SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5", testTable),
                 anyTree(
                         filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference("col0_x"), new Constant(BIGINT, 5L)),
+                                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "col0_x"), new Constant(BIGINT, 5L)),
                                 tableScan(
                                         table -> {
                                             HiveTableHandle hiveTableHandle = (HiveTableHandle) table;
@@ -213,15 +214,15 @@ public class TestHiveProjectionPushdownIntoTableScan
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference("expr_0"), new Constant(INTEGER, 1L))),
-                                        "expr_0", expression(new SymbolReference("expr_0")),
-                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference("expr_0"), new Constant(INTEGER, 2L)))),
+                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "expr_0"), new Constant(INTEGER, 1L))),
+                                        "expr_0", expression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "expr_0")),
+                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "expr_0"), new Constant(INTEGER, 2L)))),
                                 join(INNER, builder -> builder
                                         .equiCriteria("t_expr_1", "s_expr_1")
                                         .left(
                                                 anyTree(
                                                         filter(
-                                                                new ComparisonExpression(EQUAL, new SymbolReference("expr_0_x"), new Constant(BIGINT, 2L)),
+                                                                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "expr_0_x"), new Constant(BIGINT, 2L)),
                                                                 tableScan(
                                                                         table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
                                                                                 .equals(ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L))),

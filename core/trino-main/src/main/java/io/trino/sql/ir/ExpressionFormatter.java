@@ -15,6 +15,7 @@ package io.trino.sql.ir;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 import java.util.Optional;
@@ -91,7 +92,9 @@ public final class ExpressionFormatter
         protected String visitLambdaExpression(LambdaExpression node, Void context)
         {
             return "(" +
-                    String.join(", ", node.getArguments()) +
+                    node.arguments().stream()
+                            .map(Symbol::getName)
+                            .collect(joining(", ")) +
                     ") -> " +
                     process(node.getBody(), context);
         }

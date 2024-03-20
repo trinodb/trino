@@ -39,6 +39,7 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -58,6 +59,7 @@ import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestWindowFrameRange
         extends BasePlanTest
@@ -91,20 +93,20 @@ public class TestWindowFrameRange
                                                         new WindowNode.Frame(
                                                                 RANGE,
                                                                 PRECEDING,
-                                                                Optional.of(new Symbol("frame_start_value")),
-                                                                Optional.of(new Symbol("key_for_frame_start_comparison")),
+                                                                Optional.of(new Symbol(UNKNOWN, "frame_start_value")),
+                                                                Optional.of(new Symbol(UNKNOWN, "key_for_frame_start_comparison")),
                                                                 CURRENT_ROW,
                                                                 Optional.empty(),
                                                                 Optional.empty()))),
                                 project(// coerce sort key to compare sort key values with frame start values
-                                        ImmutableMap.of("key_for_frame_start_comparison", expression(new Cast(new SymbolReference("key"), createDecimalType(12, 1)))),
+                                        ImmutableMap.of("key_for_frame_start_comparison", expression(new Cast(new SymbolReference(INTEGER, "key"), createDecimalType(12, 1)))),
                                         project(// calculate frame start value (sort key - frame offset)
-                                                ImmutableMap.of("frame_start_value", expression(new FunctionCall(SUBTRACT_DECIMAL_10_0, ImmutableList.of(new SymbolReference("key_for_frame_start_calculation"), new SymbolReference("x"))))),
+                                                ImmutableMap.of("frame_start_value", expression(new FunctionCall(SUBTRACT_DECIMAL_10_0, ImmutableList.of(new SymbolReference(INTEGER, "key_for_frame_start_calculation"), new SymbolReference(DOUBLE, "x"))))),
                                                 project(// coerce sort key to calculate frame start values
-                                                        ImmutableMap.of("key_for_frame_start_calculation", expression(new Cast(new SymbolReference("key"), createDecimalType(10, 0)))),
+                                                        ImmutableMap.of("key_for_frame_start_calculation", expression(new Cast(new SymbolReference(INTEGER, "key"), createDecimalType(10, 0)))),
                                                         filter(// validate offset values
                                                                 ifExpression(
-                                                                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), new Constant(createDecimalType(2, 1), 0L)),
+                                                                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(createDecimalType(2, 1), "x"), new Constant(createDecimalType(2, 1), 0L)),
                                                                         TRUE_LITERAL,
                                                                         new Cast(new FunctionCall(FAIL, ImmutableList.of(new Constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                                 anyTree(
@@ -142,19 +144,19 @@ public class TestWindowFrameRange
                                                                 Optional.empty(),
                                                                 Optional.empty(),
                                                                 FOLLOWING,
-                                                                Optional.of(new Symbol("frame_end_value")),
-                                                                Optional.of(new Symbol("key_for_frame_end_comparison"))))),
+                                                                Optional.of(new Symbol(UNKNOWN, "frame_end_value")),
+                                                                Optional.of(new Symbol(UNKNOWN, "key_for_frame_end_comparison"))))),
                                 project(// coerce sort key to compare sort key values with frame end values
-                                        ImmutableMap.of("key_for_frame_end_comparison", expression(new Cast(new SymbolReference("key"), createDecimalType(12, 1)))),
+                                        ImmutableMap.of("key_for_frame_end_comparison", expression(new Cast(new SymbolReference(INTEGER, "key"), createDecimalType(12, 1)))),
                                         project(// calculate frame end value (sort key + frame offset)
-                                                ImmutableMap.of("frame_end_value", expression(new FunctionCall(ADD_DECIMAL_10_0, ImmutableList.of(new SymbolReference("key"), new SymbolReference("offset"))))),
+                                                ImmutableMap.of("frame_end_value", expression(new FunctionCall(ADD_DECIMAL_10_0, ImmutableList.of(new SymbolReference(INTEGER, "key"), new SymbolReference(INTEGER, "offset"))))),
                                                 filter(// validate offset values
                                                         ifExpression(
-                                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("offset"), new Constant(createDecimalType(10, 0), 0L)),
+                                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(createDecimalType(10, 0), "offset"), new Constant(createDecimalType(10, 0), 0L)),
                                                                 TRUE_LITERAL,
                                                                 new Cast(new FunctionCall(FAIL, ImmutableList.of(new Constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                         project(// coerce offset value to calculate frame end values
-                                                                ImmutableMap.of("offset", expression(new Cast(new SymbolReference("x"), createDecimalType(10, 0)))),
+                                                                ImmutableMap.of("offset", expression(new Cast(new SymbolReference(DOUBLE, "x"), createDecimalType(10, 0)))),
                                                                 anyTree(
                                                                         values(
                                                                                 ImmutableList.of("key", "x"),
@@ -187,23 +189,23 @@ public class TestWindowFrameRange
                                                         new WindowNode.Frame(
                                                                 RANGE,
                                                                 PRECEDING,
-                                                                Optional.of(new Symbol("frame_start_value")),
-                                                                Optional.of(new Symbol("key")),
+                                                                Optional.of(new Symbol(UNKNOWN, "frame_start_value")),
+                                                                Optional.of(new Symbol(UNKNOWN, "key")),
                                                                 FOLLOWING,
-                                                                Optional.of(new Symbol("frame_end_value")),
-                                                                Optional.of(new Symbol("key"))))),
+                                                                Optional.of(new Symbol(UNKNOWN, "frame_end_value")),
+                                                                Optional.of(new Symbol(UNKNOWN, "key"))))),
                                 project(// calculate frame end value (sort key + frame end offset)
-                                        ImmutableMap.of("frame_end_value", expression(new FunctionCall(ADD_INTEGER, ImmutableList.of(new SymbolReference("key"), new SymbolReference("y"))))),
+                                        ImmutableMap.of("frame_end_value", expression(new FunctionCall(ADD_INTEGER, ImmutableList.of(new SymbolReference(INTEGER, "key"), new SymbolReference(INTEGER, "y"))))),
                                         filter(// validate frame end offset values
                                                 ifExpression(
-                                                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("y"), new Constant(INTEGER, 0L)),
+                                                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(INTEGER, "y"), new Constant(INTEGER, 0L)),
                                                         TRUE_LITERAL,
                                                         new Cast(new FunctionCall(FAIL, ImmutableList.of(new Constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                 project(// calculate frame start value (sort key - frame start offset)
-                                                        ImmutableMap.of("frame_start_value", expression(new FunctionCall(SUBTRACT_INTEGER, ImmutableList.of(new SymbolReference("key"), new SymbolReference("x"))))),
+                                                        ImmutableMap.of("frame_start_value", expression(new FunctionCall(SUBTRACT_INTEGER, ImmutableList.of(new SymbolReference(INTEGER, "key"), new SymbolReference(INTEGER, "x"))))),
                                                         filter(// validate frame start offset values
                                                                 ifExpression(
-                                                                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("x"), new Constant(INTEGER, 0L)),
+                                                                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(INTEGER, "x"), new Constant(INTEGER, 0L)),
                                                                         TRUE_LITERAL,
                                                                         new Cast(new FunctionCall(FAIL, ImmutableList.of(new Constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
                                                                 anyTree(

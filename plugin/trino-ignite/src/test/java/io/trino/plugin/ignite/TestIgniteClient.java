@@ -27,15 +27,12 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
-import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
@@ -43,11 +40,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -172,8 +169,7 @@ public class TestIgniteClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
                                 new IsNullPredicate(
-                                        new SymbolReference("c_varchar_symbol")),
-                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                                        new SymbolReference(VARCHAR, "c_varchar_symbol"))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(`c_varchar`) IS NULL");
@@ -186,8 +182,7 @@ public class TestIgniteClient
         // c_varchar IS NOT NULL
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
-                                new NotExpression(new IsNullPredicate(new SymbolReference("c_varchar_symbol"))),
-                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                                new NotExpression(new IsNullPredicate(new SymbolReference(VARCHAR, "c_varchar_symbol")))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(`c_varchar`) IS NOT NULL");
@@ -201,21 +196,18 @@ public class TestIgniteClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
                                 new NotExpression(
-                                        new NotExpression(new IsNullPredicate(new SymbolReference("c_varchar_symbol")))),
-                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                                        new NotExpression(new IsNullPredicate(new SymbolReference(VARCHAR, "c_varchar_symbol"))))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("NOT ((`c_varchar`) IS NOT NULL)");
         assertThat(converted.parameters()).isEmpty();
     }
 
-    private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)
+    private ConnectorExpression translateToConnectorExpression(Expression expression)
     {
         return ConnectorExpressionTranslator.translate(
                         TEST_SESSION,
                         expression,
-                        TypeProvider.viewOf(symbolTypes.entrySet().stream()
-                                .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))),
                         new IrTypeAnalyzer(PLANNER_CONTEXT))
                 .orElseThrow();
     }

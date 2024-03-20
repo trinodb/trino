@@ -36,7 +36,6 @@ import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 
 import java.util.Map;
 import java.util.OptionalDouble;
@@ -62,9 +61,9 @@ public class ScalarStatsCalculator
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
-    public SymbolStatsEstimate calculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, Session session, TypeProvider types)
+    public SymbolStatsEstimate calculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, Session session)
     {
-        return new Visitor(inputStatistics, session, types).process(scalarExpression);
+        return new Visitor(inputStatistics, session).process(scalarExpression);
     }
 
     private class Visitor
@@ -72,13 +71,11 @@ public class ScalarStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
-        private final TypeProvider types;
 
-        Visitor(PlanNodeStatsEstimate input, Session session, TypeProvider types)
+        Visitor(PlanNodeStatsEstimate input, Session session)
         {
             this.input = input;
             this.session = session;
-            this.types = types;
         }
 
         @Override
@@ -117,7 +114,7 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitFunctionCall(FunctionCall node, Void context)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, node);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(node);
             IrExpressionInterpreter interpreter = new IrExpressionInterpreter(node, plannerContext, session, expressionTypes);
             Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
@@ -147,7 +144,7 @@ public class ScalarStatsCalculator
             double lowValue = sourceStats.getLowValue();
             double highValue = sourceStats.getHighValue();
 
-            if (isIntegralType(typeAnalyzer.getType(types, node))) {
+            if (isIntegralType(typeAnalyzer.getType(node))) {
                 // todo handle low/high value changes if range gets narrower due to cast (e.g. BIGINT -> SMALLINT)
                 if (isFinite(lowValue)) {
                     lowValue = Math.round(lowValue);

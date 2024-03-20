@@ -55,7 +55,6 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -78,15 +77,15 @@ import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
-import static java.util.function.Function.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionInterpreter
 {
     private static final TypeProvider SYMBOL_TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-            .put(new Symbol("bound_value"), INTEGER)
-            .put(new Symbol("unbound_value"), INTEGER)
+            .put(new Symbol(UNKNOWN, "bound_value"), INTEGER)
+            .put(new Symbol(UNKNOWN, "unbound_value"), INTEGER)
             .buildOrThrow());
 
     private static final SymbolResolver INPUTS = symbol -> {
@@ -194,10 +193,10 @@ public class TestExpressionInterpreter
                 new ComparisonExpression(EQUAL, new Constant(UnknownType.UNKNOWN, null), new Constant(VARCHAR, Slices.utf8Slice("a"))),
                 new Constant(UnknownType.UNKNOWN, null));
         assertOptimizedEquals(
-                new ComparisonExpression(EQUAL, new SymbolReference("bound_value"), new Constant(INTEGER, 1234L)),
+                new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "bound_value"), new Constant(INTEGER, 1234L)),
                 TRUE_LITERAL);
         assertOptimizedEquals(
-                new ComparisonExpression(EQUAL, new SymbolReference("bound_value"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "bound_value"), new Constant(INTEGER, 1L)),
                 FALSE_LITERAL);
     }
 
@@ -222,14 +221,14 @@ public class TestExpressionInterpreter
                 TRUE_LITERAL);
 
         assertOptimizedMatches(
-                new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("unbound_value"), new Constant(INTEGER, 1L)),
-                new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("unbound_value"), new Constant(INTEGER, 1L)));
+                new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
         assertOptimizedMatches(
-                new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("unbound_value"), new Constant(UnknownType.UNKNOWN, null)),
-                new NotExpression(new IsNullPredicate(new SymbolReference("unbound_value"))));
+                new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(UnknownType.UNKNOWN, "unbound_value"), new Constant(UnknownType.UNKNOWN, null)),
+                new NotExpression(new IsNullPredicate(new SymbolReference(INTEGER, "unbound_value"))));
         assertOptimizedMatches(
-                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(UnknownType.UNKNOWN, null), new SymbolReference("unbound_value")),
-                new NotExpression(new IsNullPredicate(new SymbolReference("unbound_value"))));
+                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(UnknownType.UNKNOWN, null), new SymbolReference(INTEGER, "unbound_value")),
+                new NotExpression(new IsNullPredicate(new SymbolReference(INTEGER, "unbound_value"))));
     }
 
     @Test
@@ -276,8 +275,8 @@ public class TestExpressionInterpreter
                 new NullIfExpression(new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(UnknownType.UNKNOWN, null)),
                 new Constant(VARCHAR, Slices.utf8Slice("a")));
         assertOptimizedEquals(
-                new NullIfExpression(new SymbolReference("unbound_value"), new Constant(INTEGER, 1L)),
-                new NullIfExpression(new SymbolReference("unbound_value"), new Constant(INTEGER, 1L)));
+                new NullIfExpression(new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)),
+                new NullIfExpression(new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
     }
 
     @Test
@@ -287,8 +286,8 @@ public class TestExpressionInterpreter
                 new ArithmeticNegation(new Constant(INTEGER, 1L)),
                 new Constant(INTEGER, -1L));
         assertOptimizedEquals(
-                new ArithmeticNegation(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("unbound_value"), new Constant(INTEGER, 1L))),
-                new ArithmeticNegation(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("unbound_value"), new Constant(INTEGER, 1L))));
+                new ArithmeticNegation(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))),
+                new ArithmeticNegation(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))));
     }
 
     @Test
@@ -304,8 +303,8 @@ public class TestExpressionInterpreter
                 new NotExpression(new Constant(UnknownType.UNKNOWN, null)),
                 new Constant(UnknownType.UNKNOWN, null));
         assertOptimizedEquals(
-                new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference("unbound_value"), new Constant(INTEGER, 1L))),
-                new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference("unbound_value"), new Constant(INTEGER, 1L))));
+                new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))),
+                new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))));
     }
 
     @Test
@@ -315,8 +314,8 @@ public class TestExpressionInterpreter
                 new FunctionCall(ABS, ImmutableList.of(new Constant(INTEGER, 5L))),
                 new Constant(INTEGER, 5L));
         assertOptimizedEquals(
-                new FunctionCall(ABS, ImmutableList.of(new SymbolReference("unbound_value"))),
-                new FunctionCall(ABS, ImmutableList.of(new SymbolReference("unbound_value"))));
+                new FunctionCall(ABS, ImmutableList.of(new SymbolReference(INTEGER, "unbound_value"))),
+                new FunctionCall(ABS, ImmutableList.of(new SymbolReference(INTEGER, "unbound_value"))));
     }
 
     @Test
@@ -353,10 +352,10 @@ public class TestExpressionInterpreter
                 FALSE_LITERAL);
 
         assertOptimizedEquals(
-                new BetweenPredicate(new SymbolReference("bound_value"), new Constant(INTEGER, 1000L), new Constant(INTEGER, 2000L)),
+                new BetweenPredicate(new SymbolReference(INTEGER, "bound_value"), new Constant(INTEGER, 1000L), new Constant(INTEGER, 2000L)),
                 TRUE_LITERAL);
         assertOptimizedEquals(
-                new BetweenPredicate(new SymbolReference("bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
+                new BetweenPredicate(new SymbolReference(INTEGER, "bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
                 FALSE_LITERAL);
     }
 
@@ -381,24 +380,24 @@ public class TestExpressionInterpreter
                 new Constant(UnknownType.UNKNOWN, null));
 
         assertOptimizedEquals(
-                new InPredicate(new SymbolReference("bound_value"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 1234L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
+                new InPredicate(new SymbolReference(INTEGER, "bound_value"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 1234L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
                 TRUE_LITERAL);
         assertOptimizedEquals(
-                new InPredicate(new SymbolReference("bound_value"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
+                new InPredicate(new SymbolReference(INTEGER, "bound_value"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
                 FALSE_LITERAL);
         assertOptimizedEquals(
-                new InPredicate(new Constant(INTEGER, 1234L), ImmutableList.of(new Constant(INTEGER, 2L), new SymbolReference("bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
+                new InPredicate(new Constant(INTEGER, 1234L), ImmutableList.of(new Constant(INTEGER, 2L), new SymbolReference(INTEGER, "bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
                 TRUE_LITERAL);
         assertOptimizedEquals(
-                new InPredicate(new Constant(INTEGER, 99L), ImmutableList.of(new Constant(INTEGER, 2L), new SymbolReference("bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
+                new InPredicate(new Constant(INTEGER, 99L), ImmutableList.of(new Constant(INTEGER, 2L), new SymbolReference(INTEGER, "bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
                 FALSE_LITERAL);
         assertOptimizedEquals(
-                new InPredicate(new SymbolReference("bound_value"), ImmutableList.of(new Constant(INTEGER, 2L), new SymbolReference("bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
+                new InPredicate(new SymbolReference(INTEGER, "bound_value"), ImmutableList.of(new Constant(INTEGER, 2L), new SymbolReference(INTEGER, "bound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
                 TRUE_LITERAL);
 
         assertOptimizedEquals(
-                new InPredicate(new SymbolReference("unbound_value"), ImmutableList.of(new Constant(INTEGER, 1L))),
-                new ComparisonExpression(EQUAL, new SymbolReference("unbound_value"), new Constant(INTEGER, 1L)));
+                new InPredicate(new SymbolReference(INTEGER, "unbound_value"), ImmutableList.of(new Constant(INTEGER, 1L))),
+                new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
 
         assertOptimizedEquals(
                 new InPredicate(new Constant(INTEGER, 3L), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L), new Constant(INTEGER, 3L), new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 5L), new Constant(INTEGER, 0L)))),
@@ -433,11 +432,11 @@ public class TestExpressionInterpreter
     public void testCastOptimization()
     {
         assertOptimizedEquals(
-                new Cast(new SymbolReference("bound_value"), VARCHAR),
+                new Cast(new SymbolReference(INTEGER, "bound_value"), VARCHAR),
                 new Constant(VARCHAR, Slices.utf8Slice("1234")));
         assertOptimizedMatches(
-                new Cast(new SymbolReference("unbound_value"), INTEGER),
-                new SymbolReference("unbound_value"));
+                new Cast(new SymbolReference(INTEGER, "unbound_value"), INTEGER),
+                new SymbolReference(INTEGER, "unbound_value"));
     }
 
     @Test
@@ -473,24 +472,24 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals(
                 new SearchedCaseExpression(ImmutableList.of(
-                        new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("bound_value"), new Constant(INTEGER, 1234L)), new Constant(INTEGER, 33L))),
+                        new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "bound_value"), new Constant(INTEGER, 1234L)), new Constant(INTEGER, 33L))),
                         Optional.empty()),
                 new Constant(INTEGER, 33L));
         assertOptimizedEquals(
                 new SearchedCaseExpression(ImmutableList.of(
-                        new WhenClause(TRUE_LITERAL, new SymbolReference("bound_value"))),
+                        new WhenClause(TRUE_LITERAL, new SymbolReference(INTEGER, "bound_value"))),
                         Optional.empty()),
                 new Constant(INTEGER, 1234L));
         assertOptimizedEquals(
                 new SearchedCaseExpression(ImmutableList.of(
                         new WhenClause(FALSE_LITERAL, new Constant(INTEGER, 1L))),
-                        Optional.of(new SymbolReference("bound_value"))),
+                        Optional.of(new SymbolReference(INTEGER, "bound_value"))),
                 new Constant(INTEGER, 1234L));
 
         assertOptimizedEquals(
                 new SearchedCaseExpression(ImmutableList.of(
-                        new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("bound_value"), new Constant(INTEGER, 1234L)), new Constant(INTEGER, 33L))),
-                        Optional.of(new SymbolReference("unbound_value"))),
+                        new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "bound_value"), new Constant(INTEGER, 1234L)), new Constant(INTEGER, 33L))),
+                        Optional.of(new SymbolReference(INTEGER, "unbound_value"))),
                 new Constant(INTEGER, 33L));
 
         assertOptimizedMatches(
@@ -582,14 +581,14 @@ public class TestExpressionInterpreter
                                 new WhenClause(new Constant(INTEGER, null), new Constant(INTEGER, 1L))),
                         Optional.of(new Constant(INTEGER, 33L))),
                 new SimpleCaseExpression(
-                        new SymbolReference("bound_value"),
+                        new SymbolReference(INTEGER, "bound_value"),
                         ImmutableList.of(
                                 new WhenClause(new Constant(INTEGER, 1234L), new Constant(INTEGER, 33L))),
                         Optional.empty()),
                 new SimpleCaseExpression(
                         new Constant(INTEGER, 1234L),
                         ImmutableList.of(
-                                new WhenClause(new SymbolReference("bound_value"), new Constant(INTEGER, 33L))),
+                                new WhenClause(new SymbolReference(INTEGER, "bound_value"), new Constant(INTEGER, 33L))),
                         Optional.empty()))) {
             assertOptimizedEquals(
                     simpleCaseExpression,
@@ -600,7 +599,7 @@ public class TestExpressionInterpreter
                 new SimpleCaseExpression(
                         TRUE_LITERAL,
                         ImmutableList.of(
-                                new WhenClause(TRUE_LITERAL, new SymbolReference("bound_value"))),
+                                new WhenClause(TRUE_LITERAL, new SymbolReference(INTEGER, "bound_value"))),
                         Optional.empty()),
                 new Constant(INTEGER, 1234L));
         assertOptimizedEquals(
@@ -608,20 +607,20 @@ public class TestExpressionInterpreter
                         TRUE_LITERAL,
                         ImmutableList.of(
                                 new WhenClause(FALSE_LITERAL, new Constant(INTEGER, 1L))),
-                        Optional.of(new SymbolReference("bound_value"))),
+                        Optional.of(new SymbolReference(INTEGER, "bound_value"))),
                 new Constant(INTEGER, 1234L));
 
         assertOptimizedEquals(
                 new SimpleCaseExpression(
                         TRUE_LITERAL,
                         ImmutableList.of(
-                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("unbound_value"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)),
                                 new WhenClause(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L)), new Constant(INTEGER, 2L))),
                         Optional.of(new Constant(INTEGER, 33L))),
                 new SimpleCaseExpression(
                         TRUE_LITERAL,
                         ImmutableList.of(
-                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("unbound_value"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)),
+                                new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)),
                                 new WhenClause(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L)), new Constant(INTEGER, 2L))),
                         Optional.of(new Constant(INTEGER, 33L))));
 
@@ -742,13 +741,13 @@ public class TestExpressionInterpreter
     public void testCoalesce()
     {
         assertOptimizedEquals(
-                new CoalesceExpression(new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference("unbound_value"), new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new Constant(INTEGER, 2L), new Constant(INTEGER, 3L))), new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new Constant(INTEGER, 1L), new Constant(INTEGER, 1L)), new Constant(INTEGER, null)),
-                new CoalesceExpression(new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference("unbound_value"), new Constant(INTEGER, 6L)), new Constant(INTEGER, 0L)));
+                new CoalesceExpression(new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference(INTEGER, "unbound_value"), new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new Constant(INTEGER, 2L), new Constant(INTEGER, 3L))), new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new Constant(INTEGER, 1L), new Constant(INTEGER, 1L)), new Constant(INTEGER, null)),
+                new CoalesceExpression(new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 6L)), new Constant(INTEGER, 0L)));
         assertOptimizedMatches(
-                new CoalesceExpression(new SymbolReference("unbound_value"), new SymbolReference("unbound_value")),
-                new SymbolReference("unbound_value"));
+                new CoalesceExpression(new SymbolReference(INTEGER, "unbound_value"), new SymbolReference(INTEGER, "unbound_value")),
+                new SymbolReference(INTEGER, "unbound_value"));
         assertOptimizedEquals(
-                new CoalesceExpression(new Constant(INTEGER, 6L), new SymbolReference("unbound_value")),
+                new CoalesceExpression(new Constant(INTEGER, 6L), new SymbolReference(INTEGER, "unbound_value")),
                 new Constant(INTEGER, 6L));
         assertOptimizedMatches(
                 new CoalesceExpression(new FunctionCall(RANDOM, ImmutableList.of()), new FunctionCall(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 5.0)),
@@ -897,17 +896,21 @@ public class TestExpressionInterpreter
     {
         Expression actualOptimized = (Expression) optimize(actual);
 
-        SymbolAliases.Builder aliases = SymbolAliases.builder()
-                .putAll(SYMBOL_TYPES.allTypes().keySet().stream()
-                        .map(Symbol::getName)
-                        .collect(toImmutableMap(identity(), SymbolReference::new)));
+        ImmutableMap.Builder<String, SymbolReference> builder = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Type> entry : SYMBOL_TYPES.allTypes().entrySet()) {
+            builder.put(entry.getKey().getName(), new SymbolReference(entry.getValue(), entry.getKey().getName()));
+        }
 
-        assertExpressionEquals(actualOptimized, expected, aliases.build());
+        SymbolAliases aliases = SymbolAliases.builder()
+                .putAll(builder.buildOrThrow())
+                .build();
+
+        assertExpressionEquals(actualOptimized, expected, aliases);
     }
 
     static Object optimize(Expression parsedExpression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(SYMBOL_TYPES, parsedExpression);
+        Map<NodeRef<Expression>, Type> expressionTypes = new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(parsedExpression);
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
         return interpreter.optimize(INPUTS);
     }
@@ -919,7 +922,7 @@ public class TestExpressionInterpreter
 
     private static Object evaluate(Expression expression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(SYMBOL_TYPES, expression);
+        Map<NodeRef<Expression>, Type> expressionTypes = new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(expression);
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
 
         return interpreter.evaluate(INPUTS);

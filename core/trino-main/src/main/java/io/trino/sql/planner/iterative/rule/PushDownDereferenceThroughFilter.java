@@ -88,7 +88,7 @@ public class PushDownDereferenceThroughFilter
                 .build();
 
         // Extract dereferences from project node assignments for pushdown
-        Set<SubscriptExpression> dereferences = extractRowSubscripts(expressions, false, typeAnalyzer, context.getSymbolAllocator().getTypes());
+        Set<SubscriptExpression> dereferences = extractRowSubscripts(expressions, false, typeAnalyzer);
 
         if (dereferences.isEmpty()) {
             return Result.empty();

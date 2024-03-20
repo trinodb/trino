@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -46,7 +47,7 @@ public class TestPruneJoinColumns
                 .on(p -> buildProjectedJoin(p, symbol -> symbol.getName().equals("rightValue")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("rightValue", expression(new SymbolReference("rightValue"))),
+                                ImmutableMap.of("rightValue", expression(new SymbolReference(BIGINT, "rightValue"))),
                                 join(INNER, builder -> builder
                                         .equiCriteria("leftKey", "rightKey")
                                         .left(values(ImmutableList.of("leftKey", "leftValue")))

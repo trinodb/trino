@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -45,8 +46,8 @@ public class TestPruneSemiJoinFilteringSourceColumns
                                 values("leftKey"),
                                 strictProject(
                                         ImmutableMap.of(
-                                                "rightKey", expression(new SymbolReference("rightKey")),
-                                                "rightKeyHash", expression(new SymbolReference("rightKeyHash"))),
+                                                "rightKey", expression(new SymbolReference(BIGINT, "rightKey")),
+                                                "rightKeyHash", expression(new SymbolReference(BIGINT, "rightKeyHash"))),
                                         values("rightKey", "rightKeyHash", "rightValue"))));
     }
 
