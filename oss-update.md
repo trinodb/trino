@@ -49,7 +49,7 @@ export PATH="/usr/local/opt/findutils/libexec/gnubin:$PATH"
 git fetch --jobs 8 --all --prune --tags
 
 # Make sure the local master branch is up to date
-git checkout master && git pull --ff-only
+git checkout master && git reset --hard '@{u}'
 ```
 
 ### prepare
