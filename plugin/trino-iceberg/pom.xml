@@ -615,7 +615,7 @@
         <dependency>
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-core</artifactId>
-            <version>23.0.3</version>
+            <version>24.0.1</version>
             <scope>test</scope>
         </dependency>
 
