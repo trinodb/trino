@@ -88,10 +88,10 @@ public class ValuesNode
             }
         }
         else {
-            checkArgument(outputSymbols.size() == 0, "missing rows specification for Values with non-empty output symbols");
+            checkArgument(outputSymbols.isEmpty(), "missing rows specification for Values with non-empty output symbols");
         }
 
-        if (outputSymbols.size() == 0) {
+        if (outputSymbols.isEmpty()) {
             this.rows = Optional.empty();
         }
         else {
