@@ -45,42 +45,42 @@ public class TestInlineProjectIntoFilter
     {
         tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        new SymbolReference("a"),
+                        new SymbolReference(INTEGER, "a"),
                         p.project(
-                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L))),
-                                p.values(p.symbol("b")))))
+                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                                p.values(p.symbol("b", INTEGER)))))
                 .matches(
                         project(
                                 ImmutableMap.of("a", expression(TRUE_LITERAL)),
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 0L)),
                                         project(
-                                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                                ImmutableMap.of("b", expression(new SymbolReference(INTEGER, "b"))),
                                                 values("b")))));
 
         tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol c = p.symbol("c");
-                    Symbol d = p.symbol("d");
+                    Symbol a = p.symbol("a", INTEGER);
+                    Symbol b = p.symbol("b", INTEGER);
+                    Symbol c = p.symbol("c", INTEGER);
+                    Symbol d = p.symbol("d", INTEGER);
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("c")))),
+                            new LogicalExpression(AND, ImmutableList.of(new SymbolReference(INTEGER, "a"), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new SymbolReference(INTEGER, "c")))),
                             p.project(
                                     Assignments.builder()
-                                            .put(a, new IsNullPredicate(new SymbolReference("d")))
-                                            .put(b, new SymbolReference("b"))
-                                            .put(c, new SymbolReference("c"))
+                                            .put(a, new IsNullPredicate(new SymbolReference(INTEGER, "d")))
+                                            .put(b, new SymbolReference(INTEGER, "b"))
+                                            .put(c, new SymbolReference(INTEGER, "c"))
                                             .build(),
                                     p.values(b, c, d)));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression(new SymbolReference("b")), "c", expression(new SymbolReference("c")), "a", expression(TRUE_LITERAL)),
+                                ImmutableMap.of("b", expression(new SymbolReference(INTEGER, "b")), "c", expression(new SymbolReference(INTEGER, "c")), "a", expression(TRUE_LITERAL)),
                                 filter(
-                                        new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference("d")), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("c")))),
+                                        new LogicalExpression(AND, ImmutableList.of(new IsNullPredicate(new SymbolReference(INTEGER, "d")), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new SymbolReference(INTEGER, "c")))),
                                         project(
-                                                ImmutableMap.of("d", expression(new SymbolReference("d")), "b", expression(new SymbolReference("b")), "c", expression(new SymbolReference("c"))),
+                                                ImmutableMap.of("d", expression(new SymbolReference(INTEGER, "d")), "b", expression(new SymbolReference(INTEGER, "b")), "c", expression(new SymbolReference(INTEGER, "c"))),
                                                 values("b", "c", "d")))));
     }
 
@@ -89,9 +89,9 @@ public class TestInlineProjectIntoFilter
     {
         tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        new LogicalExpression(OR, ImmutableList.of(new SymbolReference("a"), FALSE_LITERAL)),
+                        new LogicalExpression(OR, ImmutableList.of(new SymbolReference(INTEGER, "a"), FALSE_LITERAL)),
                         p.project(
-                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L))),
+                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 0L))),
                                 p.values(p.symbol("b")))))
                 .doesNotFire();
     }
@@ -101,17 +101,17 @@ public class TestInlineProjectIntoFilter
     {
         tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new SymbolReference("a"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(INTEGER, "a"), new SymbolReference(INTEGER, "a"))),
                         p.project(
-                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L))),
+                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 0L))),
                                 p.values(p.symbol("b")))))
                 .doesNotFire();
 
         tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("a"), FALSE_LITERAL)))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(INTEGER, "a"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(INTEGER, "a"), FALSE_LITERAL)))),
                         p.project(
-                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L))),
+                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 0L))),
                                 p.values(p.symbol("b")))))
                 .doesNotFire();
     }
@@ -121,18 +121,18 @@ public class TestInlineProjectIntoFilter
     {
         tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(INTEGER, "a"), new SymbolReference(INTEGER, "b"))),
                         p.project(
                                 Assignments.of(
-                                        p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new Constant(INTEGER, 0L)),
-                                        p.symbol("b"), new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new Constant(INTEGER, 5L))),
-                                p.values(p.symbol("c")))))
+                                        p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "c"), new Constant(INTEGER, 0L)),
+                                        p.symbol("b"), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "c"), new Constant(INTEGER, 5L))),
+                                p.values(p.symbol("c", INTEGER)))))
                 .matches(
                         project(
                                 filter(
-                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new Constant(INTEGER, 0L)), new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new Constant(INTEGER, 5L)))),
+                                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "c"), new Constant(INTEGER, 0L)), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "c"), new Constant(INTEGER, 5L)))),
                                         project(
-                                                ImmutableMap.of("c", expression(new SymbolReference("c"))),
+                                                ImmutableMap.of("c", expression(new SymbolReference(INTEGER, "c"))),
                                                 values("c")))));
     }
 
@@ -141,21 +141,21 @@ public class TestInlineProjectIntoFilter
     {
         tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new SymbolReference("a"), new SymbolReference("b"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(INTEGER, "a"), new SymbolReference(INTEGER, "a"), new SymbolReference(INTEGER, "b"))),
                         p.project(
                                 Assignments.of(
-                                        p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new Constant(INTEGER, 0L)),
-                                        p.symbol("b"), new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new Constant(INTEGER, 5L))),
-                                p.values(p.symbol("c")))))
+                                        p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "c"), new Constant(INTEGER, 0L)),
+                                        p.symbol("b"), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "c"), new Constant(INTEGER, 5L))),
+                                p.values(p.symbol("c", INTEGER)))))
                 .matches(
                         project(
-                                ImmutableMap.of("a", expression(new SymbolReference("a")), "b", expression(TRUE_LITERAL)),
+                                ImmutableMap.of("a", expression(new SymbolReference(INTEGER, "a")), "b", expression(TRUE_LITERAL)),
                                 filter(
-                                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new Constant(INTEGER, 5L)))), // combineConjuncts() removed duplicate conjunct `a`. The predicate is now eligible for further inlining.
+                                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(INTEGER, "a"), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "c"), new Constant(INTEGER, 5L)))), // combineConjuncts() removed duplicate conjunct `a`. The predicate is now eligible for further inlining.
                                         project(
                                                 ImmutableMap.of(
-                                                        "a", expression(new ComparisonExpression(GREATER_THAN, new SymbolReference("c"), new Constant(INTEGER, 0L))),
-                                                        "c", expression(new SymbolReference("c"))),
+                                                        "a", expression(new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "c"), new Constant(INTEGER, 0L))),
+                                                        "c", expression(new SymbolReference(INTEGER, "c"))),
                                                 values("c")))));
     }
 
@@ -165,18 +165,18 @@ public class TestInlineProjectIntoFilter
         // identity projection
         tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        new SymbolReference("a"),
+                        new SymbolReference(INTEGER, "a"),
                         p.project(
-                                Assignments.of(p.symbol("a"), new SymbolReference("a")),
+                                Assignments.of(p.symbol("a"), new SymbolReference(INTEGER, "a")),
                                 p.values(p.symbol("a")))))
                 .doesNotFire();
 
         // renaming projection
         tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        new SymbolReference("a"),
+                        new SymbolReference(INTEGER, "a"),
                         p.project(
-                                Assignments.of(p.symbol("a"), new SymbolReference("b")),
+                                Assignments.of(p.symbol("a"), new SymbolReference(INTEGER, "b")),
                                 p.values(p.symbol("b")))))
                 .doesNotFire();
     }
@@ -186,9 +186,9 @@ public class TestInlineProjectIntoFilter
     {
         tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        new SymbolReference("corr"),
+                        new SymbolReference(INTEGER, "corr"),
                         p.project(
-                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 0L))),
+                                Assignments.of(p.symbol("a"), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 0L))),
                                 p.values(p.symbol("b")))))
                 .doesNotFire();
     }

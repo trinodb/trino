@@ -50,7 +50,7 @@ public class TestEvaluateZeroSample
                                 0,
                                 Type.BERNOULLI,
                                 p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 5L)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 5L)),
                                         p.values(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 ImmutableList.of(

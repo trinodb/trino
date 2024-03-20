@@ -12,22 +12,22 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [d_date])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter ([ss_item_sk], await [ss_sold_date_sk])
+                                                        dynamic filter ([SymbolReference[type=bigint, name=ss_item_sk]], await [SymbolReference[type=bigint, name=ss_sold_date_sk]])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (unestimatable [i_item_id, i_item_id])
+                                                                dynamic filter (unestimatable [SymbolReference[type=varchar, name=i_item_id], SymbolReference[type=varchar, name=i_item_id]])
                                                                     scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (unestimatable [d_date])
+                                                            dynamic filter (unestimatable [SymbolReference[type=date, name=d_date]])
                                                                 scan date_dim
                                             final aggregation over (d_date_6)
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [d_date_6])
                                                         partial aggregation over (d_date_6)
                                                             join (INNER, REPLICATED, can skip output duplicates):
-                                                                dynamic filter (await [d_week_seq_8])
+                                                                dynamic filter (await [SymbolReference[type=integer, name=d_week_seq_8]])
                                                                     scan date_dim
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -42,22 +42,22 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [d_date_94])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter ([cs_item_sk], await [cs_sold_date_sk])
+                                                        dynamic filter ([SymbolReference[type=bigint, name=cs_item_sk]], await [SymbolReference[type=bigint, name=cs_sold_date_sk]])
                                                             scan catalog_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (unestimatable [i_item_id_69])
+                                                                dynamic filter (unestimatable [SymbolReference[type=varchar, name=i_item_id_69]])
                                                                     scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (unestimatable [d_date_94])
+                                                            dynamic filter (unestimatable [SymbolReference[type=date, name=d_date_94]])
                                                                 scan date_dim
                                             final aggregation over (d_date_126)
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [d_date_126])
                                                         partial aggregation over (d_date_126)
                                                             join (INNER, REPLICATED, can skip output duplicates):
-                                                                dynamic filter (await [d_week_seq_128])
+                                                                dynamic filter (await [SymbolReference[type=integer, name=d_week_seq_128]])
                                                                     scan date_dim
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -72,21 +72,21 @@ local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [d_date_216])
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter ([ws_item_sk], await [ws_sold_date_sk])
+                                                    dynamic filter ([SymbolReference[type=bigint, name=ws_item_sk]], await [SymbolReference[type=bigint, name=ws_sold_date_sk]])
                                                         scan web_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan item
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        dynamic filter (unestimatable [d_date_216])
+                                                        dynamic filter (unestimatable [SymbolReference[type=date, name=d_date_216]])
                                                             scan date_dim
                                         final aggregation over (d_date_248)
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [d_date_248])
                                                     partial aggregation over (d_date_248)
                                                         join (INNER, REPLICATED, can skip output duplicates):
-                                                            dynamic filter (await [d_week_seq_250])
+                                                            dynamic filter (await [SymbolReference[type=integer, name=d_week_seq_250]])
                                                                 scan date_dim
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])

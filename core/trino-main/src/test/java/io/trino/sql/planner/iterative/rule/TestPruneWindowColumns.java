@@ -49,6 +49,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestPruneWindowColumns
         extends BaseRuleTest
@@ -62,20 +63,20 @@ public class TestPruneWindowColumns
     private static final WindowNode.Frame FRAME1 = new WindowNode.Frame(
             RANGE,
             UNBOUNDED_PRECEDING,
-            Optional.of(new Symbol("startValue1")),
-            Optional.of(new Symbol("orderKey")),
+            Optional.of(new Symbol(UNKNOWN, "startValue1")),
+            Optional.of(new Symbol(UNKNOWN, "orderKey")),
             CURRENT_ROW,
-            Optional.of(new Symbol("endValue1")),
-            Optional.of(new Symbol("orderKey")));
+            Optional.of(new Symbol(UNKNOWN, "endValue1")),
+            Optional.of(new Symbol(UNKNOWN, "orderKey")));
 
     private static final WindowNode.Frame FRAME2 = new WindowNode.Frame(
             RANGE,
             UNBOUNDED_PRECEDING,
-            Optional.of(new Symbol("startValue2")),
-            Optional.of(new Symbol("orderKey")),
+            Optional.of(new Symbol(UNKNOWN, "startValue2")),
+            Optional.of(new Symbol(UNKNOWN, "orderKey")),
             CURRENT_ROW,
-            Optional.of(new Symbol("endValue2")),
-            Optional.of(new Symbol("orderKey")));
+            Optional.of(new Symbol(UNKNOWN, "endValue2")),
+            Optional.of(new Symbol(UNKNOWN, "orderKey")));
 
     @Test
     public void testWindowNotNeeded()
@@ -84,7 +85,7 @@ public class TestPruneWindowColumns
                 .on(p -> buildProjectedWindow(p, symbol -> inputSymbolNameSet.contains(symbol.getName()), alwaysTrue()))
                 .matches(
                         strictProject(
-                                Maps.asMap(inputSymbolNameSet, symbol -> expression(new SymbolReference(symbol))),
+                                Maps.asMap(inputSymbolNameSet, symbol -> expression(new SymbolReference(BIGINT, symbol))),
                                 values(inputSymbolNameList)));
     }
 
@@ -98,8 +99,8 @@ public class TestPruneWindowColumns
                 .matches(
                         strictProject(
                                 ImmutableMap.of(
-                                        "output2", expression(new SymbolReference("output2")),
-                                        "unused", expression(new SymbolReference("unused"))),
+                                        "output2", expression(new SymbolReference(BIGINT, "output2")),
+                                        "unused", expression(new SymbolReference(BIGINT, "unused"))),
                                 window(windowBuilder -> windowBuilder
                                                 .prePartitionedInputs(ImmutableSet.of())
                                                 .specification(
@@ -112,7 +113,7 @@ public class TestPruneWindowColumns
                                         strictProject(
                                                 Maps.asMap(
                                                         Sets.difference(inputSymbolNameSet, ImmutableSet.of("input1", "startValue1", "endValue1")),
-                                                        symbol -> expression(new SymbolReference(symbol))),
+                                                        symbol -> expression(new SymbolReference(BIGINT, symbol))),
                                                 values(inputSymbolNameList)))));
     }
 
@@ -150,8 +151,8 @@ public class TestPruneWindowColumns
                 .matches(
                         strictProject(
                                 ImmutableMap.of(
-                                        "output1", expression(new SymbolReference("output1")),
-                                        "output2", expression(new SymbolReference("output2"))),
+                                        "output1", expression(new SymbolReference(BIGINT, "output1")),
+                                        "output2", expression(new SymbolReference(BIGINT, "output2"))),
                                 window(windowBuilder -> windowBuilder
                                                 .prePartitionedInputs(ImmutableSet.of())
                                                 .specification(
@@ -165,7 +166,7 @@ public class TestPruneWindowColumns
                                         strictProject(
                                                 Maps.asMap(
                                                         Sets.filter(inputSymbolNameSet, symbolName -> !symbolName.equals("unused")),
-                                                        symbol -> expression(new SymbolReference(symbol))),
+                                                        symbol -> expression(new SymbolReference(BIGINT, symbol))),
                                                 values(inputSymbolNameList)))));
     }
 

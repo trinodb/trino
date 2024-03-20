@@ -11,11 +11,11 @@ remote exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [orderkey_0])
                                             alternatives
                                                 partial aggregation over (orderkey_0)
-                                                    dynamic filter ([orderkey_0])
+                                                    dynamic filter ([SymbolReference[type=bigint, name=orderkey_0]])
                                                         scan lineitem
                                                 cache data
                                                     partial aggregation over (orderkey_0)
-                                                        dynamic filter ([orderkey_0])
+                                                        dynamic filter ([SymbolReference[type=bigint, name=orderkey_0]])
                                                             scan lineitem
                                                 load from cache
                                 local exchange (GATHER, SINGLE, [])

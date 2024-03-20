@@ -7,7 +7,7 @@ remote exchange (GATHER, SINGLE, [])
                         partial aggregation over (shipmode)
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, [orderkey])
-                                    dynamic filter ([orderkey])
+                                    dynamic filter ([SymbolReference[type=bigint, name=orderkey]])
                                         scan orders
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [orderkey_0])

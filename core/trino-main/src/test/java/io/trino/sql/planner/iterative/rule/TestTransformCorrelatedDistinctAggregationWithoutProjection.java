@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -75,17 +76,17 @@ public class TestTransformCorrelatedDistinctAggregationWithoutProjection
                         p.aggregation(innerBuilder -> innerBuilder
                                 .singleGroupingSet(p.symbol("a"))
                                 .source(p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("corr")),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "b"), new SymbolReference(BIGINT, "corr")),
                                         p.values(p.symbol("a"), p.symbol("b")))))))
                 .matches(
-                        project(ImmutableMap.of("corr", expression(new SymbolReference("corr")), "a", expression(new SymbolReference("a"))),
+                        project(ImmutableMap.of("corr", expression(new SymbolReference(BIGINT, "corr")), "a", expression(new SymbolReference(BIGINT, "a"))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "a"),
                                         ImmutableMap.of(),
                                         Optional.empty(),
                                         SINGLE,
                                         join(LEFT, builder -> builder
-                                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("corr")))
+                                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "b"), new SymbolReference(BIGINT, "corr")))
                                                 .left(
                                                         assignUniqueId(
                                                                 "unique",

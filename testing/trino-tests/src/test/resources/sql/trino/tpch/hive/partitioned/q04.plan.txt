@@ -6,7 +6,7 @@ remote exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, [orderpriority])
                         partial aggregation over (orderpriority)
                             join (INNER, REPLICATED):
-                                dynamic filter ([orderkey])
+                                dynamic filter ([SymbolReference[type=bigint, name=orderkey]])
                                     scan orders
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])

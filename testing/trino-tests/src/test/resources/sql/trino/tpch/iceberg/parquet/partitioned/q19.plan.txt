@@ -4,7 +4,7 @@ final aggregation over ()
             partial aggregation over ()
                 join (INNER, PARTITIONED):
                     remote exchange (REPARTITION, HASH, [partkey])
-                        dynamic filter ([partkey])
+                        dynamic filter ([SymbolReference[type=bigint, name=partkey]])
                             scan lineitem
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [partkey_0])

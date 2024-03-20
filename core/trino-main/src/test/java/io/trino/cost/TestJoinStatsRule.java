@@ -43,6 +43,7 @@ import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Double.NaN;
 
 public class TestJoinStatsRule
@@ -96,12 +97,12 @@ public class TestJoinStatsRule
             NORMALIZER,
             1.0);
     private static final TypeProvider TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-            .put(new Symbol(LEFT_JOIN_COLUMN), BIGINT)
-            .put(new Symbol(LEFT_JOIN_COLUMN_2), DOUBLE)
-            .put(new Symbol(RIGHT_JOIN_COLUMN), BIGINT)
-            .put(new Symbol(RIGHT_JOIN_COLUMN_2), DOUBLE)
-            .put(new Symbol(LEFT_OTHER_COLUMN), DOUBLE)
-            .put(new Symbol(RIGHT_OTHER_COLUMN), BIGINT)
+            .put(new Symbol(UNKNOWN, LEFT_JOIN_COLUMN), BIGINT)
+            .put(new Symbol(UNKNOWN, LEFT_JOIN_COLUMN_2), DOUBLE)
+            .put(new Symbol(UNKNOWN, RIGHT_JOIN_COLUMN), BIGINT)
+            .put(new Symbol(UNKNOWN, RIGHT_JOIN_COLUMN_2), DOUBLE)
+            .put(new Symbol(UNKNOWN, LEFT_OTHER_COLUMN), DOUBLE)
+            .put(new Symbol(UNKNOWN, RIGHT_OTHER_COLUMN), BIGINT)
             .buildOrThrow());
 
     @Test
@@ -234,7 +235,7 @@ public class TestJoinStatsRule
                 LEFT_OTHER_COLUMN_STATS);
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
-                ImmutableList.of(new EquiJoinClause(new Symbol(LEFT_JOIN_COLUMN), new Symbol(RIGHT_JOIN_COLUMN))),
+                ImmutableList.of(new EquiJoinClause(new Symbol(UNKNOWN, LEFT_JOIN_COLUMN), new Symbol(UNKNOWN, RIGHT_JOIN_COLUMN))),
                 LEFT_STATS,
                 RIGHT_STATS,
                 TYPES);
@@ -252,7 +253,7 @@ public class TestJoinStatsRule
                 TYPES);
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
-                ImmutableList.of(new EquiJoinClause(new Symbol(RIGHT_JOIN_COLUMN), new Symbol(LEFT_JOIN_COLUMN))),
+                ImmutableList.of(new EquiJoinClause(new Symbol(UNKNOWN, RIGHT_JOIN_COLUMN), new Symbol(UNKNOWN, LEFT_JOIN_COLUMN))),
                 RIGHT_STATS,
                 LEFT_STATS,
                 TYPES);
@@ -282,7 +283,7 @@ public class TestJoinStatsRule
                 .mapOutputRowCount(rowCount -> rowCount / UNKNOWN_FILTER_COEFFICIENT);
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
-                ImmutableList.of(new EquiJoinClause(new Symbol(LEFT_JOIN_COLUMN), new Symbol(RIGHT_JOIN_COLUMN)), new EquiJoinClause(new Symbol(LEFT_OTHER_COLUMN), new Symbol(RIGHT_OTHER_COLUMN))),
+                ImmutableList.of(new EquiJoinClause(new Symbol(UNKNOWN, LEFT_JOIN_COLUMN), new Symbol(UNKNOWN, RIGHT_JOIN_COLUMN)), new EquiJoinClause(new Symbol(UNKNOWN, LEFT_OTHER_COLUMN), new Symbol(UNKNOWN, RIGHT_OTHER_COLUMN))),
                 LEFT_STATS,
                 RIGHT_STATS,
                 TYPES);
@@ -426,7 +427,7 @@ public class TestJoinStatsRule
     private static SymbolStatistics symbolStatistics(String symbolName, double low, double high, double nullsFraction, double ndv)
     {
         return new SymbolStatistics(
-                new Symbol(symbolName),
+                new Symbol(UNKNOWN, symbolName),
                 SymbolStatsEstimate.builder()
                         .setLowValue(low)
                         .setHighValue(high)
@@ -442,7 +443,7 @@ public class TestJoinStatsRule
 
         SymbolStatistics(String symbolName, SymbolStatsEstimate estimate)
         {
-            this(new Symbol(symbolName), estimate);
+            this(new Symbol(UNKNOWN, symbolName), estimate);
         }
 
         SymbolStatistics(Symbol symbol, SymbolStatsEstimate estimate)

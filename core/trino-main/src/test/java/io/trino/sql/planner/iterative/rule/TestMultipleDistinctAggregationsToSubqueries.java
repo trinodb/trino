@@ -214,7 +214,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     Symbol inputSymbol = p.symbol("inputSymbol");
                     return p.aggregation(builder -> builder
                             .globalGrouping()
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("inputSymbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "inputSymbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(
                                             testTableHandle(ruleTester),
@@ -230,8 +230,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     Symbol input1Symbol = p.symbol("input1Symbol");
                     return p.aggregation(builder -> builder
                             .globalGrouping()
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(
                                             testTableHandle(ruleTester),
@@ -249,8 +249,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     Symbol input2Symbol = p.symbol("input2Symbol");
                     return p.aggregation(builder -> builder
                             .globalGrouping()
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .hashSymbol(p.symbol("hashSymbol"))
                             .source(
                                     p.tableScan(
@@ -270,9 +270,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     Symbol input2Symbol = p.symbol("input2Symbol");
                     return p.aggregation(builder -> builder
                             .globalGrouping()
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output3"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output3"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(
                                             testTableHandle(ruleTester),
@@ -291,8 +291,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     Symbol input2Symbol = p.symbol("input2Symbol");
                     return p.aggregation(builder -> builder
                             .groupingSets(groupingSets(ImmutableList.of(), 2, ImmutableSet.of(0, 1)))
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(
                                             testTableHandle(ruleTester),
@@ -311,8 +311,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     Symbol input2Symbol = p.symbol("input2Symbol");
                     return p.aggregation(builder -> builder
                             .globalGrouping()
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.join(
                                             INNER,
@@ -337,8 +337,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     Symbol input2Symbol = p.symbol("input2Symbol");
                     return p.aggregation(builder -> builder
                             .globalGrouping()
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.filter(
                                             TRUE_LITERAL,
@@ -367,8 +367,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     Symbol input2Symbol = p.symbol("input2Symbol");
                     return p.aggregation(builder -> builder
                             .globalGrouping()
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(
                                             testTableHandle(ruleTesterNotObjectStore),
@@ -387,8 +387,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     Symbol input2Symbol = p.symbol("input2Symbol");
                     return p.aggregation(builder -> builder
                             .globalGrouping()
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(
                                             testTableHandle(ruleTester),
@@ -404,14 +404,14 @@ public class TestMultipleDistinctAggregationsToSubqueries
         ruleTester.assertThat(newMultipleDistinctAggregationsToSubqueries(ruleTester))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
                 .overrideStats(aggregationSourceId, PlanNodeStatsEstimate.builder().addSymbolStatistics(
-                        new Symbol("groupingKey"), SymbolStatsEstimate.builder().setDistinctValuesCount(1_000_000).build()).build())
+                        new Symbol(BIGINT, "groupingKey"), SymbolStatsEstimate.builder().setDistinctValuesCount(1_000_000).build()).build())
                 .on(p -> {
                     Symbol input1Symbol = p.symbol("input1Symbol");
                     Symbol input2Symbol = p.symbol("input2Symbol");
                     return p.aggregation(builder -> builder
                             .singleGroupingSet(p.symbol("groupingKey"))
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(tableScan -> tableScan
                                             .setNodeId(new PlanNodeId(aggregationSourceId))
@@ -432,14 +432,14 @@ public class TestMultipleDistinctAggregationsToSubqueries
         ruleTester.assertThat(newMultipleDistinctAggregationsToSubqueries(ruleTester))
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
                 .overrideStats(aggregationSourceId, PlanNodeStatsEstimate.builder().addSymbolStatistics(
-                        new Symbol("groupingKey"), SymbolStatsEstimate.builder().setDistinctValuesCount(1_000_000).build()).build())
+                        new Symbol(BIGINT, "groupingKey"), SymbolStatsEstimate.builder().setDistinctValuesCount(1_000_000).build()).build())
                 .on(p -> {
                     Symbol input1Symbol = p.symbol("input1Symbol");
                     Symbol input2Symbol = p.symbol("input2Symbol");
                     return p.aggregation(builder -> builder
                             .singleGroupingSet(p.symbol("groupingKey"))
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(tableScan -> tableScan
                                             .setNodeId(new PlanNodeId(aggregationSourceId))
@@ -456,15 +456,15 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
                 .overrideStats(aggregationSourceId, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol("groupingKey"), SymbolStatsEstimate.builder().setDistinctValuesCount(10).build()).build())
+                        .addSymbolStatistics(new Symbol(BIGINT, "groupingKey"), SymbolStatsEstimate.builder().setDistinctValuesCount(10).build()).build())
                 .on(p -> {
                     Symbol input1Symbol = p.symbol("input1Symbol");
                     Symbol input2Symbol = p.symbol("input2Symbol");
                     Symbol groupingKey = p.symbol("groupingKey");
                     return p.aggregation(builder -> builder
                             .singleGroupingSet(groupingKey)
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(tableScan -> tableScan
                                             .setNodeId(new PlanNodeId(aggregationSourceId))
@@ -477,9 +477,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
-                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2")),
-                                "group_by_key", PlanMatchPattern.expression(new SymbolReference("left_groupingKey"))),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output2")),
+                                "group_by_key", PlanMatchPattern.expression(new SymbolReference(BIGINT, "left_groupingKey"))),
                         join(
                                 INNER,
                                 builder -> builder
@@ -511,8 +511,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
                 .overrideStats(aggregationSourceId, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol("groupingKey"), SymbolStatsEstimate.builder().setDistinctValuesCount(10).build())
-                        .addSymbolStatistics(new Symbol("groupingKey2"), SymbolStatsEstimate.builder().setAverageRowSize(1_000_000).build())
+                        .addSymbolStatistics(new Symbol(BIGINT, "groupingKey"), SymbolStatsEstimate.builder().setDistinctValuesCount(10).build())
+                        .addSymbolStatistics(new Symbol(BIGINT, "groupingKey2"), SymbolStatsEstimate.builder().setAverageRowSize(1_000_000).build())
                         .build())
                 .overrideStats(aggregationId, PlanNodeStatsEstimate.builder().setOutputRowCount(10).build())
                 .on(p -> {
@@ -523,8 +523,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     return p.aggregation(builder -> builder
                             .nodeId(new PlanNodeId(aggregationId))
                             .singleGroupingSet(groupingKey, groupingKey2)
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(tableScan -> tableScan
                                             .setNodeId(new PlanNodeId(aggregationSourceId))
@@ -549,8 +549,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
                 .overrideStats(aggregationSourceId, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol("projectionInput1"), SymbolStatsEstimate.builder().setDistinctValuesCount(10).build())
-                        .addSymbolStatistics(new Symbol("projectionInput2"), SymbolStatsEstimate.builder().setAverageRowSize(1_000_000).build())
+                        .addSymbolStatistics(new Symbol(BIGINT, "projectionInput1"), SymbolStatsEstimate.builder().setDistinctValuesCount(10).build())
+                        .addSymbolStatistics(new Symbol(BIGINT, "projectionInput2"), SymbolStatsEstimate.builder().setAverageRowSize(1_000_000).build())
                         .build())
                 .overrideStats(aggregationId, PlanNodeStatsEstimate.builder().setOutputRowCount(10).build())
                 .on(p -> {
@@ -562,14 +562,14 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     return p.aggregation(builder -> builder
                             .nodeId(new PlanNodeId(aggregationId))
                             .singleGroupingSet(groupingKey)
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.project(
                                             Assignments.builder()
                                                     .putIdentity(input1Symbol)
                                                     .putIdentity(input2Symbol)
-                                                    .put(groupingKey, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("projectionInput1"), new Cast(new SymbolReference("projectionInput2"), BIGINT)))
+                                                    .put(groupingKey, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "projectionInput1"), new Cast(new SymbolReference(BIGINT, "projectionInput2"), BIGINT)))
                                                     .build(),
                                             p.tableScan(tableScan -> tableScan
                                                     .setNodeId(new PlanNodeId(aggregationSourceId))
@@ -588,8 +588,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
                 .overrideStats(aggregationSourceId, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol("projectionInput1"), SymbolStatsEstimate.builder().setDistinctValuesCount(10).build())
-                        .addSymbolStatistics(new Symbol("projectionInput2"), SymbolStatsEstimate.builder().setAverageRowSize(1_000_000).build())
+                        .addSymbolStatistics(new Symbol(BIGINT, "projectionInput1"), SymbolStatsEstimate.builder().setDistinctValuesCount(10).build())
+                        .addSymbolStatistics(new Symbol(BIGINT, "projectionInput2"), SymbolStatsEstimate.builder().setAverageRowSize(1_000_000).build())
                         .build())
                 .overrideStats(aggregationId, PlanNodeStatsEstimate.builder().setOutputRowCount(10).build())
                 .on(p -> {
@@ -601,12 +601,12 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     return p.aggregation(builder -> builder
                             .nodeId(new PlanNodeId(aggregationId))
                             .singleGroupingSet(groupingKey)
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.project(
                                             Assignments.builder()
-                                                    .put(input1Symbol, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("projectionInput1"), new Cast(new SymbolReference("projectionInput2"), BIGINT)))
+                                                    .put(input1Symbol, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "projectionInput1"), new Cast(new SymbolReference(BIGINT, "projectionInput2"), BIGINT)))
                                                     .putIdentity(input2Symbol)
                                                     .putIdentity(groupingKey)
                                                     .build(),
@@ -634,7 +634,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
                 .overrideStats(aggregationSourceId, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol("filterInput"), SymbolStatsEstimate.builder().setAverageRowSize(1).build())
+                        .addSymbolStatistics(new Symbol(VARCHAR, "filterInput"), SymbolStatsEstimate.builder().setAverageRowSize(1).build())
                         .build())
                 .overrideStats(filterId, PlanNodeStatsEstimate.builder().setOutputRowCount(1).build())
                 .overrideStats(aggregationId, PlanNodeStatsEstimate.builder().setOutputRowCount(1).build())
@@ -647,12 +647,12 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     return p.aggregation(builder -> builder
                             .nodeId(new PlanNodeId(aggregationId))
                             .singleGroupingSet(groupingKey)
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.filter(
                                             new PlanNodeId(filterId),
-                                            new NotExpression(new IsNullPredicate(new SymbolReference("filterInput"))),
+                                            new NotExpression(new IsNullPredicate(new SymbolReference(VARCHAR, "filterInput"))),
                                             p.tableScan(tableScan -> tableScan
                                                     .setNodeId(new PlanNodeId(aggregationSourceId))
                                                     .setTableHandle(testTableHandle(ruleTester))
@@ -670,7 +670,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
                 .overrideStats(aggregationSourceId, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol("filterInput"), SymbolStatsEstimate.builder().setAverageRowSize(1).build())
+                        .addSymbolStatistics(new Symbol(VARCHAR, "filterInput"), SymbolStatsEstimate.builder().setAverageRowSize(1).build())
                         .build())
                 .overrideStats(filterId, PlanNodeStatsEstimate.builder().setOutputRowCount(100).build())
                 .overrideStats(aggregationId, PlanNodeStatsEstimate.builder().setOutputRowCount(100).build())
@@ -683,12 +683,12 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     return p.aggregation(builder -> builder
                             .nodeId(new PlanNodeId(aggregationId))
                             .singleGroupingSet(groupingKey)
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.filter(
                                             new PlanNodeId(filterId),
-                                            new NotExpression(new IsNullPredicate(new SymbolReference("filterInput"))),
+                                            new NotExpression(new IsNullPredicate(new SymbolReference(VARCHAR, "filterInput"))),
                                             p.tableScan(tableScan -> tableScan
                                                     .setNodeId(new PlanNodeId(aggregationSourceId))
                                                     .setTableHandle(testTableHandle(ruleTester))
@@ -701,9 +701,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
-                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2")),
-                                "group_by_key", PlanMatchPattern.expression(new SymbolReference("left_groupingKey"))),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output2")),
+                                "group_by_key", PlanMatchPattern.expression(new SymbolReference(BIGINT, "left_groupingKey"))),
                         join(
                                 INNER,
                                 builder -> builder
@@ -714,7 +714,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                 Optional.empty(),
                                                 SINGLE,
                                                 filter(
-                                                        new NotExpression(new IsNullPredicate(new SymbolReference("left_filterInput"))),
+                                                        new NotExpression(new IsNullPredicate(new SymbolReference(BIGINT, "left_filterInput"))),
                                                         tableScan(
                                                                 TABLE_NAME,
                                                                 ImmutableMap.of(
@@ -727,7 +727,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                 Optional.empty(),
                                                 SINGLE,
                                                 filter(
-                                                        new NotExpression(new IsNullPredicate(new SymbolReference("right_filterInput"))),
+                                                        new NotExpression(new IsNullPredicate(new SymbolReference(BIGINT, "right_filterInput"))),
                                                         tableScan(
                                                                 TABLE_NAME,
                                                                 ImmutableMap.of(
@@ -747,7 +747,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
                 .overrideStats(aggregationSourceId, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol("filterInput"), SymbolStatsEstimate.builder().setAverageRowSize(1).build())
+                        .addSymbolStatistics(new Symbol(VARCHAR, "filterInput"), SymbolStatsEstimate.builder().setAverageRowSize(1).build())
                         .build())
                 .overrideStats(filterId, PlanNodeStatsEstimate.builder().setOutputRowCount(100).build())
                 .overrideStats(aggregationId, PlanNodeStatsEstimate.builder().setOutputRowCount(100).build())
@@ -765,8 +765,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     return p.aggregation(builder -> builder
                             .nodeId(new PlanNodeId(aggregationId))
                             .singleGroupingSet(groupingKey)
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.union(
                                             ImmutableListMultimap.<Symbol, Symbol>builder()
@@ -779,7 +779,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                     .build(),
                                             ImmutableList.of(
                                                     p.filter(
-                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1Symbol"), new Constant(BIGINT, 0L)),
+                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "input1_1Symbol"), new Constant(BIGINT, 0L)),
                                                             p.tableScan(
                                                                     testTableHandle(ruleTester),
                                                                     ImmutableList.of(input11Symbol, input21Symbol, groupingKey1),
@@ -788,7 +788,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                             input21Symbol, COLUMN_2_HANDLE,
                                                                             groupingKey1, GROUPING_KEY_COLUMN_HANDLE))),
                                                     p.filter(
-                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2Symbol"), new Constant(BIGINT, 2L)),
+                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "input2_2Symbol"), new Constant(BIGINT, 2L)),
                                                             p.tableScan(
                                                                     testTableHandle(ruleTester),
                                                                     ImmutableList.of(input12Symbol, input22Symbol, groupingKey2),
@@ -810,8 +810,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     Symbol input2Symbol = p.symbol("input2Symbol");
                     return p.aggregation(builder -> builder
                             .globalGrouping()
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(
                                             testTableHandle(ruleTester),
@@ -822,8 +822,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
-                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2"))),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output2"))),
                         join(
                                 INNER,
                                 builder -> builder
@@ -846,9 +846,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     Symbol input3Symbol = p.symbol("input3Symbol");
                     return p.aggregation(builder -> builder
                             .globalGrouping()
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output3"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input3Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output3"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input3Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(
                                             testTableHandle(ruleTester),
@@ -860,9 +860,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
-                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2")),
-                                "final_output3", PlanMatchPattern.expression(new SymbolReference("output3"))),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output2")),
+                                "final_output3", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output3"))),
                         join(
                                 INNER,
                                 join -> join
@@ -893,10 +893,10 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     Symbol input4Symbol = p.symbol("input4Symbol");
                     return p.aggregation(builder -> builder
                             .globalGrouping()
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output3"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input3Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output4"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input4Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output3"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input3Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output4"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input4Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(
                                             testTableHandle(ruleTester),
@@ -909,10 +909,10 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
-                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2")),
-                                "final_output3", PlanMatchPattern.expression(new SymbolReference("output3")),
-                                "final_output4", PlanMatchPattern.expression(new SymbolReference("output4"))),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output2")),
+                                "final_output3", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output3")),
+                                "final_output4", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output4"))),
                         join(
                                 INNER,
                                 join -> join
@@ -946,9 +946,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     Symbol input2Symbol = p.symbol("input2Symbol");
                     return p.aggregation(builder -> builder
                             .globalGrouping()
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output3"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output3"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(
                                             testTableHandle(ruleTester),
@@ -959,9 +959,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
-                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2")),
-                                "final_output3", PlanMatchPattern.expression(new SymbolReference("output3"))),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output2")),
+                                "final_output3", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output3"))),
                         join(
                                 INNER,
                                 builder -> builder
@@ -989,8 +989,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     return p.aggregation(builder -> builder
                             .nodeId(new PlanNodeId(aggregationNodeId))
                             .singleGroupingSet(groupingKey)
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.tableScan(
                                             testTableHandle(ruleTester),
@@ -1002,9 +1002,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
-                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2")),
-                                "group_by_key", PlanMatchPattern.expression(new SymbolReference("left_groupingKey"))),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output2")),
+                                "group_by_key", PlanMatchPattern.expression(new SymbolReference(BIGINT, "left_groupingKey"))),
                         join(
                                 INNER,
                                 builder -> builder
@@ -1052,8 +1052,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     return p.aggregation(builder -> builder
                             .nodeId(new PlanNodeId(aggregationNodeId))
                             .singleGroupingSet(groupingKey)
-                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference("input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference("input2Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new SymbolReference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new SymbolReference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.union(
                                             ImmutableListMultimap.<Symbol, Symbol>builder()
@@ -1066,7 +1066,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                     .build(),
                                             ImmutableList.of(
                                                     p.filter(
-                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1Symbol"), new Constant(BIGINT, 0L)),
+                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "input1_1Symbol"), new Constant(BIGINT, 0L)),
                                                             p.tableScan(
                                                                     testTableHandle(ruleTester),
                                                                     ImmutableList.of(input11Symbol, input21Symbol, groupingKey1),
@@ -1075,7 +1075,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                             input21Symbol, COLUMN_2_HANDLE,
                                                                             groupingKey1, GROUPING_KEY_COLUMN_HANDLE))),
                                                     p.filter(
-                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2Symbol"), new Constant(BIGINT, 2L)),
+                                                            new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "input2_2Symbol"), new Constant(BIGINT, 2L)),
                                                             p.tableScan(
                                                                     testTableHandle(ruleTester),
                                                                     ImmutableList.of(input12Symbol, input22Symbol, groupingKey2),
@@ -1086,9 +1086,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new SymbolReference("output1")),
-                                "final_output2", PlanMatchPattern.expression(new SymbolReference("output2")),
-                                "group_by_key", PlanMatchPattern.expression(new SymbolReference("left_groupingKey"))),
+                                "final_output1", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output1")),
+                                "final_output2", PlanMatchPattern.expression(new SymbolReference(BIGINT, "output2")),
+                                "group_by_key", PlanMatchPattern.expression(new SymbolReference(BIGINT, "left_groupingKey"))),
                         join(
                                 INNER,
                                 builder -> builder
@@ -1100,7 +1100,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                 SINGLE,
                                                 union(
                                                         filter(
-                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1_1Symbol"), new Constant(BIGINT, 0L)),
+                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "input1_1_1Symbol"), new Constant(BIGINT, 0L)),
                                                                 tableScan(
                                                                         TABLE_NAME,
                                                                         ImmutableMap.of(
@@ -1108,7 +1108,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                                 "input2_1_1Symbol", COLUMN_2,
                                                                                 "left_groupingKey1", GROUPING_KEY_COLUMN))),
                                                         filter(
-                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2_1Symbol"), new Constant(BIGINT, 2L)),
+                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "input2_2_1Symbol"), new Constant(BIGINT, 2L)),
                                                                 tableScan(
                                                                         TABLE_NAME,
                                                                         ImmutableMap.of(
@@ -1125,7 +1125,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                 SINGLE,
                                                 union(
                                                         filter(
-                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input1_1_2Symbol"), new Constant(BIGINT, 0L)),
+                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "input1_1_2Symbol"), new Constant(BIGINT, 0L)),
                                                                 tableScan(
                                                                         TABLE_NAME,
                                                                         ImmutableMap.of(
@@ -1133,7 +1133,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                                 "input2_1_2Symbol", COLUMN_2,
                                                                                 "right_groupingKey1", GROUPING_KEY_COLUMN))),
                                                         filter(
-                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference("input2_2_2Symbol"), new Constant(BIGINT, 2L)),
+                                                                new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "input2_2_2Symbol"), new Constant(BIGINT, 2L)),
                                                                 tableScan(
                                                                         TABLE_NAME,
                                                                         ImmutableMap.of(

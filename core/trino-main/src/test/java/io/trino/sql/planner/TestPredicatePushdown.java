@@ -74,17 +74,17 @@ public class TestPredicatePushdown
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("t_k", "u_k")
-                                .dynamicFilter("t_k", "u_k")
+                                .dynamicFilter(BIGINT, "t_k", "u_k")
                                 .left(
                                         project(
                                                 filter(
-                                                        new ComparisonExpression(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference("t_v"), createVarcharType(4))),
+                                                        new ComparisonExpression(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference(createVarcharType(4), "t_v"), createVarcharType(4))),
                                                         tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
                                                 project(
                                                         filter(
-                                                                new ComparisonExpression(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference("u_v"), createVarcharType(4))),
+                                                                new ComparisonExpression(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference(createVarcharType(4), "u_v"), createVarcharType(4))),
                                                                 tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))))));
 
         // values have different types (varchar(4) vs varchar(5)) in each table
@@ -98,17 +98,17 @@ public class TestPredicatePushdown
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("t_k", "u_k")
-                                .dynamicFilter("t_k", "u_k")
+                                .dynamicFilter(BIGINT, "t_k", "u_k")
                                 .left(
                                         project(
                                                 filter(
-                                                        new ComparisonExpression(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference("t_v"), createVarcharType(4))),
+                                                        new ComparisonExpression(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new SymbolReference(createVarcharType(4), "t_v"), createVarcharType(4))),
                                                         tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
                                                 project(
                                                         filter(
-                                                                new ComparisonExpression(EQUAL, new Constant(createVarcharType(5), Slices.utf8Slice("x")), new Cast(new SymbolReference("u_v"), createVarcharType(5))),
+                                                                new ComparisonExpression(EQUAL, new Constant(createVarcharType(5), Slices.utf8Slice("x")), new Cast(new SymbolReference(createVarcharType(5), "u_v"), createVarcharType(5))),
                                                                 tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name")))))))));
     }
 
@@ -135,7 +135,7 @@ public class TestPredicatePushdown
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        new NotExpression(new IsNullPredicate(new SymbolReference("c_name"))),
+                                                        new NotExpression(new IsNullPredicate(new SymbolReference(VARCHAR, "c_name"))),
                                                         tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
 
         // nested joins
@@ -162,7 +162,7 @@ public class TestPredicatePushdown
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        new NotExpression(new IsNullPredicate(new SymbolReference("c_name"))),
+                                                        new NotExpression(new IsNullPredicate(new SymbolReference(VARCHAR, "c_name"))),
                                                         tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
     }
 
@@ -178,7 +178,7 @@ public class TestPredicatePushdown
                                                 "LINE_ORDER_KEY", "orderkey"))),
                                 node(ExchangeNode.class,
                                         filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("ORDERS_ORDER_KEY"), new Cast(new FunctionCall(RANDOM, ImmutableList.of(new Constant(INTEGER, 5L))), BIGINT)),
+                                                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "ORDERS_ORDER_KEY"), new Cast(new FunctionCall(RANDOM, ImmutableList.of(new Constant(INTEGER, 5L))), BIGINT)),
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 
@@ -192,7 +192,7 @@ public class TestPredicatePushdown
                                 .equiCriteria("LINEITEM_OK", "ORDERS_OK")
                                 .left(
                                         filter(
-                                                new ComparisonExpression(EQUAL, new Cast(new SymbolReference("LINEITEM_LINENUMBER"), VARCHAR), new Constant(VARCHAR, Slices.utf8Slice("2"))),
+                                                new ComparisonExpression(EQUAL, new Cast(new SymbolReference(INTEGER, "LINEITEM_LINENUMBER"), VARCHAR), new Constant(VARCHAR, Slices.utf8Slice("2"))),
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINEITEM_OK", "orderkey",
                                                         "LINEITEM_LINENUMBER", "linenumber"))))

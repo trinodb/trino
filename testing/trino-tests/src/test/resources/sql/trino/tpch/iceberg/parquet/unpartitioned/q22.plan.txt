@@ -8,7 +8,7 @@ remote exchange (GATHER, SINGLE, [])
                             join (LEFT, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, [custkey])
                                     cross join:
-                                        dynamic filter ([acctbal])
+                                        dynamic filter ([SymbolReference[type=decimal(12,2), name=acctbal]])
                                             scan customer
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])

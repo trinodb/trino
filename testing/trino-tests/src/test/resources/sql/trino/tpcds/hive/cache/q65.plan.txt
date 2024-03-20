@@ -10,10 +10,10 @@ local exchange (GATHER, SINGLE, [])
                                     partial aggregation over (ss_item_sk_11, ss_store_sk_16)
                                         join (INNER, REPLICATED):
                                             alternatives
-                                                dynamic filter ([ss_item_sk_11, ss_store_sk_16], await [ss_sold_date_sk_9])
+                                                dynamic filter ([SymbolReference[type=bigint, name=ss_item_sk_11], SymbolReference[type=bigint, name=ss_store_sk_16]], await [SymbolReference[type=bigint, name=ss_sold_date_sk_9]])
                                                     scan store_sales
                                                 cache data
-                                                    dynamic filter ([ss_item_sk_11, ss_store_sk_16], await [ss_sold_date_sk_9])
+                                                    dynamic filter ([SymbolReference[type=bigint, name=ss_item_sk_11], SymbolReference[type=bigint, name=ss_store_sk_16]], await [SymbolReference[type=bigint, name=ss_sold_date_sk_9]])
                                                         scan store_sales
                                                 load from cache
                                             local exchange (GATHER, SINGLE, [])
@@ -28,10 +28,10 @@ local exchange (GATHER, SINGLE, [])
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, [s_store_sk])
                                         alternatives
-                                            dynamic filter ([s_store_sk])
+                                            dynamic filter ([SymbolReference[type=bigint, name=s_store_sk]])
                                                 scan store
                                             cache data
-                                                dynamic filter ([s_store_sk])
+                                                dynamic filter ([SymbolReference[type=bigint, name=s_store_sk]])
                                                     scan store
                                             load from cache
                                     final aggregation over (ss_store_sk)
@@ -44,10 +44,10 @@ local exchange (GATHER, SINGLE, [])
                                                                 partial aggregation over (ss_item_sk, ss_store_sk)
                                                                     join (INNER, REPLICATED):
                                                                         alternatives
-                                                                            dynamic filter (await [ss_sold_date_sk])
+                                                                            dynamic filter (await [SymbolReference[type=bigint, name=ss_sold_date_sk]])
                                                                                 scan store_sales
                                                                             cache data
-                                                                                dynamic filter (await [ss_sold_date_sk])
+                                                                                dynamic filter (await [SymbolReference[type=bigint, name=ss_sold_date_sk]])
                                                                                     scan store_sales
                                                                             load from cache
                                                                         local exchange (GATHER, SINGLE, [])

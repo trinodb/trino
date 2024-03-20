@@ -11,10 +11,10 @@ local exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 alternatives
-                                                    dynamic filter ([inv_item_sk], await [inv_date_sk, inv_warehouse_sk])
+                                                    dynamic filter ([SymbolReference[type=bigint, name=inv_item_sk]], await [SymbolReference[type=bigint, name=inv_date_sk], SymbolReference[type=bigint, name=inv_warehouse_sk]])
                                                         scan inventory
                                                     cache data
-                                                        dynamic filter ([inv_item_sk], await [inv_date_sk, inv_warehouse_sk])
+                                                        dynamic filter ([SymbolReference[type=bigint, name=inv_item_sk]], await [SymbolReference[type=bigint, name=inv_date_sk], SymbolReference[type=bigint, name=inv_warehouse_sk]])
                                                             scan inventory
                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])

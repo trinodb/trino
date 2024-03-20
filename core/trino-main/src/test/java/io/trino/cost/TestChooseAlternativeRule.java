@@ -40,22 +40,22 @@ class TestChooseAlternativeRule
                         .chooseAlternative(
                                 List.of(
                                         pb.filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("i1"), new Constant(BIGINT, 5L)),
+                                                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "i1"), new Constant(BIGINT, 5L)),
                                                 pb.values(pb.symbol("i1"), pb.symbol("i2"))),
                                         pb.filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("i1"), new Constant(BIGINT, 10L)),
+                                                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "i1"), new Constant(BIGINT, 10L)),
                                                 pb.values(pb.symbol("i1"), pb.symbol("i2")))),
                                 new FilteredTableScan(pb.tableScan(List.of(pb.symbol("i1"), pb.symbol("i2")), false), Optional.empty())))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(new Symbol("i1"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(BIGINT, "i1"), SymbolStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
                                 .setAverageRowSize(NaN)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i2"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(BIGINT, "i2"), SymbolStatsEstimate.builder()
                                 .setLowValue(0)
                                 .setHighValue(3)
                                 .setAverageRowSize(25)
@@ -65,14 +65,14 @@ class TestChooseAlternativeRule
                         .build())
                 .withSourceStats(1, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(5)
-                        .addSymbolStatistics(new Symbol("i1"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(BIGINT, "i1"), SymbolStatsEstimate.builder()
                                 .setLowValue(7)
                                 .setHighValue(9)
                                 .setAverageRowSize(3)
                                 .setDistinctValuesCount(NaN)
                                 .setNullsFraction(0.2)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i2"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(BIGINT, "i2"), SymbolStatsEstimate.builder()
                                 .setLowValue(-5)
                                 .setHighValue(12)
                                 .setAverageRowSize(NaN)

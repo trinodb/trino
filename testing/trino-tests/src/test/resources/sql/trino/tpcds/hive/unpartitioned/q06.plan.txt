@@ -12,12 +12,12 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [ss_customer_sk])
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter ([ss_customer_sk, ss_item_sk, ss_sold_date_sk])
+                                                        dynamic filter ([SymbolReference[type=bigint, name=ss_customer_sk], SymbolReference[type=bigint, name=ss_item_sk], SymbolReference[type=bigint, name=ss_sold_date_sk]])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter (await [d_month_seq])
+                                                                    dynamic filter (await [SymbolReference[type=integer, name=d_month_seq]])
                                                                         scan date_dim
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -32,7 +32,7 @@ local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [c_customer_sk])
                                                         join (INNER, PARTITIONED):
                                                             remote exchange (REPARTITION, HASH, [c_current_addr_sk])
-                                                                dynamic filter ([c_current_addr_sk])
+                                                                dynamic filter ([SymbolReference[type=bigint, name=c_current_addr_sk]])
                                                                     scan customer
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, [ca_address_sk])

@@ -9,10 +9,10 @@ local exchange (GATHER, SINGLE, [])
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, [i_item_sk])
                                         alternatives
-                                            dynamic filter ([i_item_sk])
+                                            dynamic filter ([SymbolReference[type=bigint, name=i_item_sk]])
                                                 scan item
                                             cache data
-                                                dynamic filter ([i_item_sk])
+                                                dynamic filter ([SymbolReference[type=bigint, name=i_item_sk]])
                                                     scan item
                                             load from cache
                                     partial aggregation over (cs_item_sk, s_store_id, s_store_name)
@@ -22,10 +22,10 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
                                                             alternatives
-                                                                dynamic filter ([cs_bill_customer_sk, cs_item_sk], await [cs_sold_date_sk])
+                                                                dynamic filter ([SymbolReference[type=bigint, name=cs_bill_customer_sk], SymbolReference[type=bigint, name=cs_item_sk]], await [SymbolReference[type=bigint, name=cs_sold_date_sk]])
                                                                     scan catalog_sales
                                                                 cache data
-                                                                    dynamic filter ([cs_bill_customer_sk, cs_item_sk], await [cs_sold_date_sk])
+                                                                    dynamic filter ([SymbolReference[type=bigint, name=cs_bill_customer_sk], SymbolReference[type=bigint, name=cs_item_sk]], await [SymbolReference[type=bigint, name=cs_sold_date_sk]])
                                                                         scan catalog_sales
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])
@@ -34,10 +34,10 @@ local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPARTITION, HASH, [ss_customer_sk, ss_item_sk, ss_ticket_number])
                                                                             join (INNER, REPLICATED):
                                                                                 alternatives
-                                                                                    dynamic filter ([ss_customer_sk, ss_item_sk, ss_ticket_number], await [ss_sold_date_sk, ss_store_sk])
+                                                                                    dynamic filter ([SymbolReference[type=bigint, name=ss_customer_sk], SymbolReference[type=bigint, name=ss_item_sk], SymbolReference[type=bigint, name=ss_ticket_number]], await [SymbolReference[type=bigint, name=ss_sold_date_sk], SymbolReference[type=bigint, name=ss_store_sk]])
                                                                                         scan store_sales
                                                                                     cache data
-                                                                                        dynamic filter ([ss_customer_sk, ss_item_sk, ss_ticket_number], await [ss_sold_date_sk, ss_store_sk])
+                                                                                        dynamic filter ([SymbolReference[type=bigint, name=ss_customer_sk], SymbolReference[type=bigint, name=ss_item_sk], SymbolReference[type=bigint, name=ss_ticket_number]], await [SymbolReference[type=bigint, name=ss_sold_date_sk], SymbolReference[type=bigint, name=ss_store_sk]])
                                                                                             scan store_sales
                                                                                     load from cache
                                                                                 local exchange (GATHER, SINGLE, [])
@@ -51,10 +51,10 @@ local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPARTITION, HASH, [sr_customer_sk, sr_item_sk, sr_ticket_number])
                                                                                 join (INNER, REPLICATED):
                                                                                     alternatives
-                                                                                        dynamic filter (await [sr_returned_date_sk])
+                                                                                        dynamic filter (await [SymbolReference[type=bigint, name=sr_returned_date_sk]])
                                                                                             scan store_returns
                                                                                         cache data
-                                                                                            dynamic filter (await [sr_returned_date_sk])
+                                                                                            dynamic filter (await [SymbolReference[type=bigint, name=sr_returned_date_sk]])
                                                                                                 scan store_returns
                                                                                         load from cache
                                                                                     local exchange (GATHER, SINGLE, [])

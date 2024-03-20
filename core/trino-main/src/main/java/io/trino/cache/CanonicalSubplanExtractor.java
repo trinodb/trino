@@ -47,6 +47,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
+import io.trino.type.UnknownType;
 
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -105,7 +106,8 @@ public final class CanonicalSubplanExtractor
     public static Symbol columnIdToSymbol(CacheColumnId columnId)
     {
         requireNonNull(columnId, "columnId is null");
-        return new Symbol(columnId.toString());
+        // todo[https://github.com/starburstdata/cork/issues/517] use proper type
+        return new Symbol(UnknownType.UNKNOWN, columnId.toString());
     }
 
     private static class Visitor

@@ -25,6 +25,7 @@ import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.apply;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.setExpression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestPruneApplyCorrelation
         extends BaseRuleTest
@@ -47,7 +48,7 @@ public class TestPruneApplyCorrelation
                 .matches(
                         apply(
                                 ImmutableList.of(),
-                                ImmutableMap.of("in_result", setExpression(new ApplyNode.In(new Symbol("a"), new Symbol("subquery_symbol")))),
+                                ImmutableMap.of("in_result", setExpression(new ApplyNode.In(new Symbol(UNKNOWN, "a"), new Symbol(UNKNOWN, "subquery_symbol")))),
                                 values("a", "input_symbol"),
                                 values("subquery_symbol")));
     }

@@ -196,7 +196,7 @@ public class TestConnectorPushdownRulesWithIceberg
                                         ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
                 .matches(
                         project(
-                                ImmutableMap.of("expr", expression(new SymbolReference("col"))),
+                                ImmutableMap.of("expr", expression(new SymbolReference(INTEGER, "col"))),
                                 tableScan(
                                         icebergTable.withProjectedColumns(ImmutableSet.of(fullColumn))::equals,
                                         TupleDomain.all(),
@@ -227,7 +227,7 @@ public class TestConnectorPushdownRulesWithIceberg
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
                                         ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
                 .matches(project(
-                        ImmutableMap.of("expr_deref", expression(new SymbolReference("struct_of_int#a"))),
+                        ImmutableMap.of("expr_deref", expression(new SymbolReference(INTEGER, "struct_of_int#a"))),
                         tableScan(
                                 icebergTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
                                 TupleDomain.all(),
@@ -272,13 +272,13 @@ public class TestConnectorPushdownRulesWithIceberg
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p ->
                         p.filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(INTEGER, 5L)),
+                                new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                                 p.tableScan(
                                         table,
                                         ImmutableList.of(p.symbol("a", INTEGER)),
                                         ImmutableMap.of(p.symbol("a", INTEGER), column))))
                 .matches(filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(INTEGER, 5L)),
+                        new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                         tableScan(
                                 tableHandle -> ((IcebergTableHandle) tableHandle).getUnenforcedPredicate().getDomains().get()
                                         .equals(ImmutableMap.of(column, Domain.singleValue(INTEGER, 5L))),
@@ -336,7 +336,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("expr", expression(new SymbolReference("COLA"))),
+                                ImmutableMap.of("expr", expression(new SymbolReference(INTEGER, "COLA"))),
                                 tableScan(
                                         icebergTable.withProjectedColumns(ImmutableSet.of(columnA))::equals,
                                         TupleDomain.all(),
@@ -406,8 +406,8 @@ public class TestConnectorPushdownRulesWithIceberg
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "column_ref", expression(new SymbolReference("just_bigint_0")),
-                                "negated_column_ref", expression(new ArithmeticNegation(new SymbolReference("just_bigint_0")))),
+                                "column_ref", expression(new SymbolReference(BIGINT, "just_bigint_0")),
+                                "negated_column_ref", expression(new ArithmeticNegation(new SymbolReference(BIGINT, "just_bigint_0")))),
                         tableScan(
                                 icebergTable.withProjectedColumns(ImmutableSet.of(bigintColumn))::equals,
                                 TupleDomain.all(),
@@ -430,8 +430,8 @@ public class TestConnectorPushdownRulesWithIceberg
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "expr_deref", expression(new SymbolReference("struct_of_bigint#a")),
-                                "expr_deref_2", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("struct_of_bigint#a"), new Constant(INTEGER, 2L)))),
+                                "expr_deref", expression(new SymbolReference(INTEGER, "struct_of_bigint#a")),
+                                "expr_deref_2", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "struct_of_bigint#a"), new Constant(INTEGER, 2L)))),
                         tableScan(
                                 icebergTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
                                 TupleDomain.all(),

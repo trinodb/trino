@@ -294,7 +294,7 @@ public class PreAggregateCaseAggregations
 
                             // Cast pre-projection if needed to match aggregation input type.
                             // This is because entire "CASE WHEN" expression could be wrapped in CAST.
-                            Type preProjectionType = getType(context, preProjection);
+                            Type preProjectionType = getType(preProjection);
                             Type aggregationInputType = getOnlyElement(key.getFunction().getSignature().getArgumentTypes());
                             if (!preProjectionType.equals(aggregationInputType)) {
                                 preProjection = new Cast(preProjection, aggregationInputType);
@@ -387,7 +387,7 @@ public class PreAggregateCaseAggregations
 
         Optional<Expression> cumulativeAggregationDefaultValue = Optional.empty();
         if (caseExpression.getDefaultValue().isPresent()) {
-            Type defaultType = getType(context, caseExpression.getDefaultValue().get());
+            Type defaultType = getType(caseExpression.getDefaultValue().get());
             Object defaultValue = optimizeExpression(caseExpression.getDefaultValue().get(), context);
             if (defaultValue != null) {
                 if (!name.equals(SUM)) {
@@ -425,14 +425,14 @@ public class PreAggregateCaseAggregations
                 cumulativeAggregationDefaultValue));
     }
 
-    private Type getType(Context context, Expression expression)
+    private Type getType(Expression expression)
     {
-        return typeAnalyzer.getType(context.getSymbolAllocator().getTypes(), expression);
+        return typeAnalyzer.getType(expression);
     }
 
     private Object optimizeExpression(Expression expression, Context context)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(context.getSymbolAllocator().getTypes(), expression);
+        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(expression);
         IrExpressionInterpreter expressionInterpreter = new IrExpressionInterpreter(expression, plannerContext, context.getSession(), expressionTypes);
         return expressionInterpreter.optimize(Symbol::toSymbolReference);
     }

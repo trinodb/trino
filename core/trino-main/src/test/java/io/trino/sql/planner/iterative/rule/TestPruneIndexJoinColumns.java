@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.indexJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.indexJoinEquiClause;
@@ -54,7 +55,7 @@ public class TestPruneIndexJoinColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", expression(new SymbolReference("a")), "b", expression(new SymbolReference("b"))),
+                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a")), "b", expression(new SymbolReference(BIGINT, "b"))),
                                 indexJoin(
                                         INNER,
                                         ImmutableList.of(indexJoinEquiClause("a", "b")),
@@ -62,7 +63,7 @@ public class TestPruneIndexJoinColumns
                                         Optional.empty(),
                                         values("a"),
                                         strictProject(
-                                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                                 values("b", "c")))));
 
         tester().assertThat(new PruneIndexJoinColumns())
@@ -83,17 +84,17 @@ public class TestPruneIndexJoinColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", expression(new SymbolReference("a")), "c", expression(new SymbolReference("c"))),
+                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a")), "c", expression(new SymbolReference(BIGINT, "c"))),
                                 indexJoin(
                                         INNER,
                                         ImmutableList.of(indexJoinEquiClause("a", "c")),
                                         Optional.empty(),
                                         Optional.empty(),
                                         strictProject(
-                                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
+                                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a"))),
                                                 values("a", "b")),
                                         strictProject(
-                                                ImmutableMap.of("c", expression(new SymbolReference("c"))),
+                                                ImmutableMap.of("c", expression(new SymbolReference(BIGINT, "c"))),
                                                 values("c", "d")))));
     }
 

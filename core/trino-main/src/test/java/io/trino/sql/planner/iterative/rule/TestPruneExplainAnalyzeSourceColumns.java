@@ -21,6 +21,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -45,7 +46,7 @@ public class TestPruneExplainAnalyzeSourceColumns
                 .matches(
                         node(ExplainAnalyzeNode.class,
                                 strictProject(
-                                        ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                        ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                         values("a", "b"))));
     }
 

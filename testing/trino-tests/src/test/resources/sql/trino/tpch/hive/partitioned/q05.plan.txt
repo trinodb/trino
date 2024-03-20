@@ -8,17 +8,17 @@ remote exchange (GATHER, SINGLE, [])
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, [nationkey_14, orderkey_5])
                                     join (INNER, REPLICATED):
-                                        dynamic filter ([orderkey_5, suppkey])
+                                        dynamic filter ([SymbolReference[type=bigint, name=orderkey_5], SymbolReference[type=bigint, name=suppkey]])
                                             scan lineitem
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter ([nationkey_14], await [nationkey_14])
+                                                    dynamic filter ([SymbolReference[type=bigint, name=nationkey_14]], await [SymbolReference[type=bigint, name=nationkey_14]])
                                                         scan supplier
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             join (INNER, REPLICATED):
-                                                                dynamic filter ([nationkey_21], await [regionkey])
+                                                                dynamic filter ([SymbolReference[type=bigint, name=nationkey_21]], await [SymbolReference[type=bigint, name=regionkey]])
                                                                     scan nation
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -27,7 +27,7 @@ remote exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [nationkey, orderkey])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [custkey_0])
-                                                dynamic filter ([custkey_0])
+                                                dynamic filter ([SymbolReference[type=bigint, name=custkey_0]])
                                                     scan orders
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [custkey])

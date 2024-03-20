@@ -13,20 +13,20 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [ss_customer_sk])
                                                     join (INNER, REPLICATED):
                                                         alternatives
-                                                            dynamic filter ([ss_customer_sk, ss_item_sk, ss_sold_date_sk])
+                                                            dynamic filter ([SymbolReference[type=bigint, name=ss_customer_sk], SymbolReference[type=bigint, name=ss_item_sk], SymbolReference[type=bigint, name=ss_sold_date_sk]])
                                                                 scan store_sales
                                                             cache data
-                                                                dynamic filter ([ss_customer_sk, ss_item_sk, ss_sold_date_sk])
+                                                                dynamic filter ([SymbolReference[type=bigint, name=ss_customer_sk], SymbolReference[type=bigint, name=ss_item_sk], SymbolReference[type=bigint, name=ss_sold_date_sk]])
                                                                     scan store_sales
                                                             load from cache
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 join (INNER, REPLICATED):
                                                                     alternatives
-                                                                        dynamic filter (await [d_month_seq])
+                                                                        dynamic filter (await [SymbolReference[type=integer, name=d_month_seq]])
                                                                             scan date_dim
                                                                         cache data
-                                                                            dynamic filter (await [d_month_seq])
+                                                                            dynamic filter (await [SymbolReference[type=integer, name=d_month_seq]])
                                                                                 scan date_dim
                                                                         load from cache
                                                                     local exchange (GATHER, SINGLE, [])
@@ -47,10 +47,10 @@ local exchange (GATHER, SINGLE, [])
                                                         join (INNER, PARTITIONED):
                                                             remote exchange (REPARTITION, HASH, [c_current_addr_sk])
                                                                 alternatives
-                                                                    dynamic filter ([c_current_addr_sk])
+                                                                    dynamic filter ([SymbolReference[type=bigint, name=c_current_addr_sk]])
                                                                         scan customer
                                                                     cache data
-                                                                        dynamic filter ([c_current_addr_sk])
+                                                                        dynamic filter ([SymbolReference[type=bigint, name=c_current_addr_sk]])
                                                                             scan customer
                                                                     load from cache
                                                             local exchange (GATHER, SINGLE, [])

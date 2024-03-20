@@ -43,11 +43,13 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
 import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
 public class PatternRecognitionMatcher
@@ -209,7 +211,7 @@ public class PatternRecognitionMatcher
         public Builder addMeasure(String outputAlias, Expression expression, Map<String, ValuePointer> pointers, Type type)
         {
             List<Assignment> assignments = pointers.entrySet().stream()
-                    .map(entry -> new Assignment(new Symbol(entry.getKey()), entry.getValue()))
+                    .map(entry -> new Assignment(new Symbol(UNKNOWN, entry.getKey()), entry.getValue()))
                     .toList();
 
             measures.put(outputAlias, new TypedExpressionAndPointers(new ExpressionAndValuePointers(expression, assignments), type));
@@ -277,7 +279,7 @@ public class PatternRecognitionMatcher
         public Builder addVariableDefinition(IrLabel name, Expression expression, Map<String, ValuePointer> pointers)
         {
             List<ExpressionAndValuePointers.Assignment> assignments = pointers.entrySet().stream()
-                    .map(entry -> new ExpressionAndValuePointers.Assignment(new Symbol(entry.getKey()), entry.getValue()))
+                    .map(entry -> new Assignment(new Symbol(BOOLEAN, entry.getKey()), entry.getValue()))
                     .toList();
 
             this.variableDefinitions.put(name, new ExpressionAndValuePointers(expression, assignments));

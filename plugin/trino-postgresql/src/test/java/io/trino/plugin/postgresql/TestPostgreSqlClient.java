@@ -37,7 +37,6 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.session.PropertyMetadata;
-import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.ComparisonExpression;
@@ -51,23 +50,20 @@ import io.trino.sql.ir.NullIfExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -231,17 +227,8 @@ public class TestPostgreSqlClient
                                 new LogicalExpression(
                                         LogicalExpression.Operator.OR,
                                         List.of(
-                                                new ComparisonExpression(
-                                                        ComparisonExpression.Operator.EQUAL,
-                                                        new SymbolReference("c_bigint_symbol"),
-                                                        new Constant(BIGINT, 42L)),
-                                                new ComparisonExpression(
-                                                        ComparisonExpression.Operator.EQUAL,
-                                                        new SymbolReference("c_bigint_symbol_2"),
-                                                        new Constant(BIGINT, 415L)))),
-                                Map.of(
-                                        "c_bigint_symbol", BIGINT,
-                                        "c_bigint_symbol_2", BIGINT)),
+                                                new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new SymbolReference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 42L)),
+                                                new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new SymbolReference(BIGINT, "c_bigint_symbol_2"), new Constant(BIGINT, 415L))))),
                         Map.of(
                                 "c_bigint_symbol", BIGINT_COLUMN,
                                 "c_bigint_symbol_2", BIGINT_COLUMN))
@@ -261,24 +248,12 @@ public class TestPostgreSqlClient
                                 new LogicalExpression(
                                         LogicalExpression.Operator.OR,
                                         List.of(
-                                                new ComparisonExpression(
-                                                        ComparisonExpression.Operator.EQUAL,
-                                                        new SymbolReference("c_bigint_symbol"),
-                                                        new Constant(BIGINT, 42L)),
+                                                new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new SymbolReference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 42L)),
                                                 new LogicalExpression(
                                                         LogicalExpression.Operator.AND,
                                                         List.of(
-                                                                new ComparisonExpression(
-                                                                        ComparisonExpression.Operator.EQUAL,
-                                                                        new SymbolReference("c_bigint_symbol"),
-                                                                        new Constant(BIGINT, 43L)),
-                                                                new ComparisonExpression(
-                                                                        ComparisonExpression.Operator.EQUAL,
-                                                                        new SymbolReference("c_bigint_symbol_2"),
-                                                                        new Constant(BIGINT, 44L)))))),
-                                Map.of(
-                                        "c_bigint_symbol", BIGINT,
-                                        "c_bigint_symbol_2", BIGINT)),
+                                                                new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new SymbolReference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 43L)),
+                                                                new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new SymbolReference(BIGINT, "c_bigint_symbol_2"), new Constant(BIGINT, 44L))))))),
                         Map.of(
                                 "c_bigint_symbol", BIGINT_COLUMN,
                                 "c_bigint_symbol_2", BIGINT_COLUMN))
@@ -297,11 +272,7 @@ public class TestPostgreSqlClient
             Optional<ParameterizedExpression> converted = JDBC_CLIENT.convertPredicate(
                     SESSION,
                     translateToConnectorExpression(
-                            new ComparisonExpression(
-                                    operator,
-                                    new SymbolReference("c_bigint_symbol"),
-                                    new Constant(BIGINT, 42L)),
-                            Map.of("c_bigint_symbol", BIGINT)),
+                            new ComparisonExpression(operator, new SymbolReference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 42L))),
                     Map.of("c_bigint_symbol", BIGINT_COLUMN));
 
             switch (operator) {
@@ -333,20 +304,15 @@ public class TestPostgreSqlClient
             ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                             SESSION,
                             translateToConnectorExpression(
-                                    new ArithmeticBinaryExpression(
-                                            resolver.resolveOperator(
-                                                    switch (operator) {
-                                                        case ADD -> OperatorType.ADD;
-                                                        case SUBTRACT -> OperatorType.SUBTRACT;
-                                                        case MULTIPLY -> OperatorType.MULTIPLY;
-                                                        case DIVIDE -> OperatorType.DIVIDE;
-                                                        case MODULUS -> OperatorType.MODULUS;
-                                                    },
-                                                    ImmutableList.of(BIGINT, BIGINT)),
-                                            operator,
-                                            new SymbolReference("c_bigint_symbol"),
-                                            new Constant(BIGINT, 42L)),
-                                    Map.of("c_bigint_symbol", BIGINT)),
+                                    new ArithmeticBinaryExpression(resolver.resolveOperator(
+                                            switch (operator) {
+                                                case ADD -> OperatorType.ADD;
+                                                case SUBTRACT -> OperatorType.SUBTRACT;
+                                                case MULTIPLY -> OperatorType.MULTIPLY;
+                                                case DIVIDE -> OperatorType.DIVIDE;
+                                                case MODULUS -> OperatorType.MODULUS;
+                                            },
+                                            ImmutableList.of(BIGINT, BIGINT)), operator, new SymbolReference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 42L))),
                             Map.of("c_bigint_symbol", BIGINT_COLUMN))
                     .orElseThrow();
 
@@ -361,8 +327,7 @@ public class TestPostgreSqlClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
                         translateToConnectorExpression(
-                                new ArithmeticNegation(new SymbolReference("c_bigint_symbol")),
-                                Map.of("c_bigint_symbol", BIGINT)),
+                                new ArithmeticNegation(new SymbolReference(BIGINT, "c_bigint_symbol"))),
                         Map.of("c_bigint_symbol", BIGINT_COLUMN))
                 .orElseThrow();
 
@@ -377,8 +342,7 @@ public class TestPostgreSqlClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
                                 new IsNullPredicate(
-                                        new SymbolReference("c_varchar_symbol")),
-                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                                        new SymbolReference(VARCHAR, "c_varchar_symbol"))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(\"c_varchar\") IS NULL");
@@ -391,8 +355,7 @@ public class TestPostgreSqlClient
         // c_varchar IS NOT NULL
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
-                                new NotExpression(new IsNullPredicate(new SymbolReference("c_varchar_symbol"))),
-                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                                new NotExpression(new IsNullPredicate(new SymbolReference(VARCHAR, "c_varchar_symbol")))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(\"c_varchar\") IS NOT NULL");
@@ -406,9 +369,8 @@ public class TestPostgreSqlClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
                                 new NullIfExpression(
-                                        new SymbolReference("a_varchar_symbol"),
-                                        new SymbolReference("b_varchar_symbol")),
-                                ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN.getColumnType(), "b_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                                        new SymbolReference(VARCHAR, "a_varchar_symbol"),
+                                        new SymbolReference(VARCHAR, "b_varchar_symbol"))),
                         ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN, "b_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("NULLIF((\"c_varchar\"), (\"c_varchar\"))");
@@ -422,8 +384,7 @@ public class TestPostgreSqlClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
                                 new NotExpression(
-                                        new NotExpression(new IsNullPredicate(new SymbolReference("c_varchar_symbol")))),
-                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
+                                        new NotExpression(new IsNullPredicate(new SymbolReference(VARCHAR, "c_varchar_symbol"))))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("NOT ((\"c_varchar\") IS NOT NULL)");
@@ -437,12 +398,11 @@ public class TestPostgreSqlClient
                         SESSION,
                         translateToConnectorExpression(
                                 new InPredicate(
-                                        new SymbolReference("c_varchar"),
+                                        new SymbolReference(createVarcharType(10), "c_varchar"),
                                         List.of(
                                                 new Constant(VARCHAR_COLUMN.getColumnType(), utf8Slice("value1")),
                                                 new Constant(VARCHAR_COLUMN.getColumnType(), utf8Slice("value2")),
-                                                new SymbolReference("c_varchar2"))),
-                                Map.of("c_varchar", VARCHAR_COLUMN.getColumnType(), "c_varchar2", VARCHAR_COLUMN2.getColumnType())),
+                                                new SymbolReference(createVarcharType(10), "c_varchar2")))),
                         Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(\"c_varchar\") IN (?, ?, \"c_varchar2\")");
@@ -451,13 +411,11 @@ public class TestPostgreSqlClient
                 new QueryParameter(createVarcharType(10), Optional.of(utf8Slice("value2")))));
     }
 
-    private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)
+    private ConnectorExpression translateToConnectorExpression(Expression expression)
     {
         return ConnectorExpressionTranslator.translate(
                         TEST_SESSION,
                         expression,
-                        TypeProvider.viewOf(symbolTypes.entrySet().stream()
-                                .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Entry::getValue))),
                         new IrTypeAnalyzer(PLANNER_CONTEXT))
                 .orElseThrow();
     }

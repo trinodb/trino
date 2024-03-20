@@ -1465,7 +1465,7 @@ public class PlanPrinter
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
                 Symbol symbol = node.getOutputSymbols().get(i);
-                if (!name.equals(symbol.toString())) {
+                if (!name.equals(symbol.getName())) {
                     nodeOutput.appendDetails("%s := %s", anonymizer.anonymizeColumn(name), anonymizer.anonymize(symbol));
                 }
             }
@@ -2243,7 +2243,7 @@ public class PlanPrinter
                     rootNode.getClass().getSimpleName(),
                     descriptor,
                     rootNode.getOutputSymbols().stream()
-                            .map(s -> new TypedSymbol(new Symbol(anonymizer.anonymize(s)), getTypes(context).get(s)))
+                            .map(s -> new TypedSymbol(new Symbol(getTypes(context).get(s), anonymizer.anonymize(s)), getTypes(context).get(s)))
                             .collect(toImmutableList()),
                     stats.map(s -> s.get(rootNode.getId())),
                     estimatedStats,

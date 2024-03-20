@@ -160,7 +160,7 @@ public class TestExtractSpatialLeftJoin
                 })
                 .matches(
                         spatialLeftJoin(
-                                new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))),
+                                new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference(GEOMETRY, "a"), new SymbolReference(GEOMETRY, "b"))),
                                 values(ImmutableMap.of("a", 0)),
                                 values(ImmutableMap.of("b", 0))));
 
@@ -181,7 +181,7 @@ public class TestExtractSpatialLeftJoin
                 })
                 .matches(
                         spatialLeftJoin(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("name_1"), new SymbolReference("name_2")), new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference(VARCHAR, "name_1"), new SymbolReference(VARCHAR, "name_2")), new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference(GEOMETRY, "a"), new SymbolReference(GEOMETRY, "b"))))),
                                 values(ImmutableMap.of("a", 0, "name_1", 1)),
                                 values(ImmutableMap.of("b", 0, "name_2", 1))));
 
@@ -202,7 +202,7 @@ public class TestExtractSpatialLeftJoin
                 })
                 .matches(
                         spatialLeftJoin(
-                                new LogicalExpression(AND, ImmutableList.of(new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference("a1"), new SymbolReference("b1"))), new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference("a2"), new SymbolReference("b2"))))),
+                                new LogicalExpression(AND, ImmutableList.of(new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference(GEOMETRY, "a1"), new SymbolReference(GEOMETRY, "b1"))), new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference(GEOMETRY, "a2"), new SymbolReference(GEOMETRY, "b2"))))),
                                 values(ImmutableMap.of("a1", 0, "a2", 1)),
                                 values(ImmutableMap.of("b1", 0, "b2", 1))));
     }
@@ -222,8 +222,8 @@ public class TestExtractSpatialLeftJoin
                 })
                 .matches(
                         spatialLeftJoin(
-                                new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("point"))),
-                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new SymbolReference("wkt"))))),
+                                new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference(GEOMETRY, "st_geometryfromtext"), new SymbolReference(GEOMETRY, "point"))),
+                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new SymbolReference(VARCHAR, "wkt"))))),
                                         values(ImmutableMap.of("wkt", 0))),
                                 values(ImmutableMap.of("point", 0))));
 
@@ -255,9 +255,9 @@ public class TestExtractSpatialLeftJoin
                 })
                 .matches(
                         spatialLeftJoin(
-                                new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference("polygon"), new SymbolReference("st_point"))),
+                                new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference(GEOMETRY, "polygon"), new SymbolReference(GEOMETRY, "st_point"))),
                                 values(ImmutableMap.of("polygon", 0)),
-                                project(ImmutableMap.of("st_point", expression(new FunctionCall(ST_POINT, ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
+                                project(ImmutableMap.of("st_point", expression(new FunctionCall(ST_POINT, ImmutableList.of(new SymbolReference(DOUBLE, "lng"), new SymbolReference(DOUBLE, "lat"))))),
                                         values(ImmutableMap.of("lat", 0, "lng", 1)))));
 
         assertRuleApplication()
@@ -289,10 +289,10 @@ public class TestExtractSpatialLeftJoin
                 })
                 .matches(
                         spatialLeftJoin(
-                                new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))),
-                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new SymbolReference("wkt"))))),
+                                new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference(GEOMETRY, "st_geometryfromtext"), new SymbolReference(GEOMETRY, "st_point"))),
+                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new SymbolReference(VARCHAR, "wkt"))))),
                                         values(ImmutableMap.of("wkt", 0))),
-                                project(ImmutableMap.of("st_point", expression(new FunctionCall(ST_POINT, ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
+                                project(ImmutableMap.of("st_point", expression(new FunctionCall(ST_POINT, ImmutableList.of(new SymbolReference(DOUBLE, "lng"), new SymbolReference(DOUBLE, "lat"))))),
                                         values(ImmutableMap.of("lat", 0, "lng", 1)))));
     }
 
@@ -312,9 +312,9 @@ public class TestExtractSpatialLeftJoin
                 })
                 .matches(
                         spatialLeftJoin(
-                                new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))),
-                                project(ImmutableMap.of("st_point", expression(new FunctionCall(ST_POINT, ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))), values(ImmutableMap.of("lat", 0, "lng", 1))),
-                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new SymbolReference("wkt"))))),
+                                new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference(GEOMETRY, "st_geometryfromtext"), new SymbolReference(GEOMETRY, "st_point"))),
+                                project(ImmutableMap.of("st_point", expression(new FunctionCall(ST_POINT, ImmutableList.of(new SymbolReference(DOUBLE, "lng"), new SymbolReference(DOUBLE, "lat"))))), values(ImmutableMap.of("lat", 0, "lng", 1))),
+                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new SymbolReference(VARCHAR, "wkt"))))),
                                         values(ImmutableMap.of("wkt", 0)))));
     }
 
@@ -338,10 +338,10 @@ public class TestExtractSpatialLeftJoin
                 })
                 .matches(
                         spatialLeftJoin(
-                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("name_1"), new SymbolReference("name_2")), new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("st_point"))))),
-                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new SymbolReference("wkt"))))),
+                                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference(VARCHAR, "name_1"), new SymbolReference(VARCHAR, "name_2")), new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference(GEOMETRY, "st_geometryfromtext"), new SymbolReference(GEOMETRY, "st_point"))))),
+                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new SymbolReference(VARCHAR, "wkt"))))),
                                         values(ImmutableMap.of("wkt", 0, "name_1", 1))),
-                                project(ImmutableMap.of("st_point", expression(new FunctionCall(ST_POINT, ImmutableList.of(new SymbolReference("lng"), new SymbolReference("lat"))))),
+                                project(ImmutableMap.of("st_point", expression(new FunctionCall(ST_POINT, ImmutableList.of(new SymbolReference(DOUBLE, "lng"), new SymbolReference(DOUBLE, "lat"))))),
                                         values(ImmutableMap.of("lat", 0, "lng", 1, "name_2", 2)))));
 
         // Multiple spatial functions - only the first one is being processed
@@ -361,8 +361,8 @@ public class TestExtractSpatialLeftJoin
                 })
                 .matches(
                         spatialLeftJoin(
-                                new LogicalExpression(AND, ImmutableList.of(new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference("st_geometryfromtext"), new SymbolReference("geometry1"))), new FunctionCall(ST_CONTAINS, ImmutableList.of(new FunctionCall(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new SymbolReference("wkt2"))), new SymbolReference("geometry2"))))),
-                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new SymbolReference("wkt1"))))),
+                                new LogicalExpression(AND, ImmutableList.of(new FunctionCall(ST_CONTAINS, ImmutableList.of(new SymbolReference(GEOMETRY, "st_geometryfromtext"), new SymbolReference(GEOMETRY, "geometry1"))), new FunctionCall(ST_CONTAINS, ImmutableList.of(new FunctionCall(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new SymbolReference(GEOMETRY, "wkt2"))), new SymbolReference(GEOMETRY, "geometry2"))))),
+                                project(ImmutableMap.of("st_geometryfromtext", expression(new FunctionCall(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new SymbolReference(GEOMETRY, "wkt1"))))),
                                         values(ImmutableMap.of("wkt1", 0, "wkt2", 1))),
                                 values(ImmutableMap.of("geometry1", 0, "geometry2", 1))));
     }

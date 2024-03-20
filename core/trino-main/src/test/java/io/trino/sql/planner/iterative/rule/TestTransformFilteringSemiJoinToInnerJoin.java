@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
@@ -47,11 +49,11 @@ public class TestTransformFilteringSemiJoinToInnerJoin
     {
         tester().assertThat(new TransformFilteringSemiJoinToInnerJoin())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol aInB = p.symbol("a_in_b");
+                    Symbol a = p.symbol("a", BIGINT);
+                    Symbol b = p.symbol("b", BIGINT);
+                    Symbol aInB = p.symbol("a_in_b", BOOLEAN);
                     return p.filter(
-                            new LogicalExpression(AND, ImmutableList.of(new SymbolReference("a_in_b"), new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 5L)))),
+                            new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "a_in_b"), new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "a"), new Constant(BIGINT, 5L)))),
                             p.semiJoin(
                                     p.values(a),
                                     p.values(b),
@@ -63,10 +65,12 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                                     Optional.empty()));
                 })
                 .matches(project(
-                        ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a")), "a_in_b", PlanMatchPattern.expression(TRUE_LITERAL)),
+                        ImmutableMap.of(
+                                "a", PlanMatchPattern.expression(new SymbolReference(BIGINT, "a")),
+                                "a_in_b", PlanMatchPattern.expression(TRUE_LITERAL)),
                         join(INNER, builder -> builder
                                 .equiCriteria("a", "b")
-                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 5L)))
+                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "a"), new Constant(BIGINT, 5L)))
                                 .left(values("a"))
                                 .right(
                                         aggregation(
@@ -82,11 +86,11 @@ public class TestTransformFilteringSemiJoinToInnerJoin
     {
         tester().assertThat(new TransformFilteringSemiJoinToInnerJoin())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol aInB = p.symbol("a_in_b");
+                    Symbol a = p.symbol("a", BIGINT);
+                    Symbol b = p.symbol("b", BIGINT);
+                    Symbol aInB = p.symbol("a_in_b", BOOLEAN);
                     return p.filter(
-                            new SymbolReference("a_in_b"),
+                            new SymbolReference(BOOLEAN, "a_in_b"),
                             p.semiJoin(
                                     p.values(a),
                                     p.values(b),
@@ -98,7 +102,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                                     Optional.empty()));
                 })
                 .matches(project(
-                        ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a")), "a_in_b", PlanMatchPattern.expression(TRUE_LITERAL)),
+                        ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference(BIGINT, "a")), "a_in_b", PlanMatchPattern.expression(TRUE_LITERAL)),
                         join(INNER, builder -> builder
                                 .equiCriteria("a", "b")
                                 .left(values("a"))
@@ -120,7 +124,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                     Symbol b = p.symbol("b");
                     Symbol aInB = p.symbol("a_in_b");
                     return p.filter(
-                            new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 5L)),
+                            new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                             p.semiJoin(
                                     p.values(a),
                                     p.values(b),
@@ -143,7 +147,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                     Symbol b = p.symbol("b");
                     Symbol aInB = p.symbol("a_in_b");
                     return p.filter(
-                            new SymbolReference("a_in_b"),
+                            new SymbolReference(BOOLEAN, "a_in_b"),
                             p.semiJoin(
                                     p.tableScan(
                                             ImmutableList.of(a),
@@ -165,10 +169,10 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                     Symbol c = p.symbol("c");
                     Symbol aInB = p.symbol("a_in_b");
                     return p.filter(
-                            new SymbolReference("a_in_b"),
+                            new SymbolReference(BOOLEAN, "a_in_b"),
                             p.semiJoin(
                                     p.project(
-                                            Assignments.of(a, new SymbolReference("c")),
+                                            Assignments.of(a, new SymbolReference(BIGINT, "c")),
                                             p.tableScan(
                                                     ImmutableList.of(c),
                                                     true)),

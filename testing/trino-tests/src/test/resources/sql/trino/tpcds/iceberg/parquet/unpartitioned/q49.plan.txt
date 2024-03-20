@@ -15,7 +15,7 @@ local exchange (GATHER, SINGLE, [])
                                                         join (INNER, REPLICATED):
                                                             join (INNER, PARTITIONED):
                                                                 remote exchange (REPARTITION, HASH, [ws_item_sk, ws_order_number])
-                                                                    dynamic filter ([ws_item_sk, ws_order_number], await [ws_sold_date_sk])
+                                                                    dynamic filter ([SymbolReference[type=bigint, name=ws_item_sk], SymbolReference[type=bigint, name=ws_order_number]], await [SymbolReference[type=bigint, name=ws_sold_date_sk]])
                                                                         scan web_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, [wr_item_sk, wr_order_number])
@@ -34,7 +34,7 @@ local exchange (GATHER, SINGLE, [])
                                                         join (INNER, REPLICATED):
                                                             join (INNER, PARTITIONED):
                                                                 remote exchange (REPARTITION, HASH, [cs_item_sk, cs_order_number])
-                                                                    dynamic filter ([cs_item_sk, cs_order_number], await [cs_sold_date_sk])
+                                                                    dynamic filter ([SymbolReference[type=bigint, name=cs_item_sk], SymbolReference[type=bigint, name=cs_order_number]], await [SymbolReference[type=bigint, name=cs_sold_date_sk]])
                                                                         scan catalog_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, [cr_item_sk, cr_order_number])
@@ -53,7 +53,7 @@ local exchange (GATHER, SINGLE, [])
                                                         join (INNER, REPLICATED):
                                                             join (INNER, PARTITIONED):
                                                                 remote exchange (REPARTITION, HASH, [ss_item_sk, ss_ticket_number])
-                                                                    dynamic filter ([ss_item_sk, ss_ticket_number], await [ss_sold_date_sk])
+                                                                    dynamic filter ([SymbolReference[type=bigint, name=ss_item_sk], SymbolReference[type=bigint, name=ss_ticket_number]], await [SymbolReference[type=bigint, name=ss_sold_date_sk]])
                                                                         scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, [sr_item_sk, sr_ticket_number])

@@ -5,10 +5,10 @@ final aggregation over ()
                 join (INNER, PARTITIONED):
                     remote exchange (REPARTITION, HASH, [partkey])
                         alternatives
-                            dynamic filter ([partkey])
+                            dynamic filter ([SymbolReference[type=bigint, name=partkey]])
                                 scan lineitem
                             cache data
-                                dynamic filter ([partkey])
+                                dynamic filter ([SymbolReference[type=bigint, name=partkey]])
                                     scan lineitem
                             load from cache
                     local exchange (GATHER, SINGLE, [])

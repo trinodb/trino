@@ -73,8 +73,8 @@ public class PushLimitThroughProject
         // undoing of PushDownDereferencesThroughLimit. We still push limit in the case of overlapping dereferences since
         // it enables PushDownDereferencesThroughLimit rule to push optimal dereferences.
         Set<Expression> projections = ImmutableSet.copyOf(projectNode.getAssignments().getExpressions());
-        if (!extractRowSubscripts(projections, false, typeAnalyzer, context.getSymbolAllocator().getTypes()).isEmpty()
-                && exclusiveDereferences(projections, typeAnalyzer, context.getSymbolAllocator().getTypes())) {
+        if (!extractRowSubscripts(projections, false, typeAnalyzer).isEmpty()
+                && exclusiveDereferences(projections, typeAnalyzer)) {
             return Result.empty();
         }
 

@@ -10,7 +10,7 @@ local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [i_product_name])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                dynamic filter ([inv_item_sk], await [inv_date_sk])
+                                                dynamic filter ([SymbolReference[type=bigint, name=inv_item_sk]], await [SymbolReference[type=bigint, name=inv_date_sk]])
                                                     scan inventory
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])

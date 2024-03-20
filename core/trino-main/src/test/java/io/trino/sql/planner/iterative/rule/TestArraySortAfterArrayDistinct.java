@@ -22,6 +22,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
@@ -60,11 +61,11 @@ public class TestArraySortAfterArrayDistinct
                 new FunctionCall(DISTINCT, ImmutableList.of(
                         new FunctionCall(SORT_WITH_LAMBDA, ImmutableList.of(
                                 new FunctionCall(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))),
-                                new LambdaExpression(ImmutableList.of("a", "b"), new Constant(INTEGER, 1L)))))),
+                                new LambdaExpression(ImmutableList.of(new Symbol(INTEGER, "a"), new Symbol(INTEGER, "b")), new Constant(INTEGER, 1L)))))),
                 new FunctionCall(SORT_WITH_LAMBDA, ImmutableList.of(
                         new FunctionCall(DISTINCT, ImmutableList.of(
                                 new FunctionCall(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))),
-                        new LambdaExpression(ImmutableList.of("a", "b"), new Constant(INTEGER, 1L)))));
+                        new LambdaExpression(ImmutableList.of(new Symbol(INTEGER, "a"), new Symbol(INTEGER, "b")), new Constant(INTEGER, 1L)))));
     }
 
     private void test(Expression original, Expression rewritten)

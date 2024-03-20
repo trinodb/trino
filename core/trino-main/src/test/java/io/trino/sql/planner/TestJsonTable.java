@@ -108,7 +108,7 @@ public class TestJsonTable
                         ImmutableList.of("json_col", "int_col", "bigint_col", "formatted_varchar_col"),
                         anyTree(
                                 project(
-                                        ImmutableMap.of("formatted_varchar_col", expression(new FunctionCall(JSON_TO_VARCHAR, ImmutableList.of(new SymbolReference("varchar_col"), new Constant(TINYINT, 1L), FALSE_LITERAL)))),
+                                        ImmutableMap.of("formatted_varchar_col", expression(new FunctionCall(JSON_TO_VARCHAR, ImmutableList.of(new SymbolReference(VARCHAR, "varchar_col"), new Constant(TINYINT, 1L), FALSE_LITERAL)))),
                                         tableFunction(builder -> builder
                                                         .name("$json_table")
                                                         .addTableArgument(
@@ -120,14 +120,14 @@ public class TestJsonTable
                                                         .properOutputs(ImmutableList.of("bigint_col", "varchar_col")),
                                                 project(
                                                         ImmutableMap.of(
-                                                                "context_item", expression(new FunctionCall(VARCHAR_TO_JSON, ImmutableList.of(new SymbolReference("json_col_coerced"), FALSE_LITERAL))), // apply input function to context item
-                                                                "parameters_row", expression(new Cast(new Row(ImmutableList.of(new SymbolReference("int_col"), new FunctionCall(VARCHAR_TO_JSON, ImmutableList.of(new SymbolReference("name_coerced"), FALSE_LITERAL)))), rowType(field("id", INTEGER), field("name", JSON_2016))))), // apply input function to formatted path parameter and gather path parameters in a row
+                                                                "context_item", expression(new FunctionCall(VARCHAR_TO_JSON, ImmutableList.of(new SymbolReference(VARCHAR, "json_col_coerced"), FALSE_LITERAL))), // apply input function to context item
+                                                                "parameters_row", expression(new Cast(new Row(ImmutableList.of(new SymbolReference(INTEGER, "int_col"), new FunctionCall(VARCHAR_TO_JSON, ImmutableList.of(new SymbolReference(VARCHAR, "name_coerced"), FALSE_LITERAL)))), rowType(field("id", INTEGER), field("name", JSON_2016))))), // apply input function to formatted path parameter and gather path parameters in a row
                                                         project(// coerce context item, path parameters and default expressions
                                                                 ImmutableMap.of(
-                                                                        "name_coerced", expression(new Cast(new SymbolReference("name"), VARCHAR)), // cast formatted path parameter to VARCHAR for the input function
-                                                                        "default_value_coerced", expression(new Cast(new SymbolReference("default_value"), BIGINT)), // cast default value to BIGINT to match declared return type for the column
-                                                                        "json_col_coerced", expression(new Cast(new SymbolReference("json_col"), VARCHAR)), // cast context item to VARCHAR for the input function
-                                                                        "int_col_coerced", expression(new Cast(new SymbolReference("int_col"), BIGINT))), // cast default value to BIGINT to match declared return type for the column
+                                                                        "name_coerced", expression(new Cast(new SymbolReference(createVarcharType(5), "name"), VARCHAR)), // cast formatted path parameter to VARCHAR for the input function
+                                                                        "default_value_coerced", expression(new Cast(new SymbolReference(INTEGER, "default_value"), BIGINT)), // cast default value to BIGINT to match declared return type for the column
+                                                                        "json_col_coerced", expression(new Cast(new SymbolReference(createVarcharType(9), "json_col"), VARCHAR)), // cast context item to VARCHAR for the input function
+                                                                        "int_col_coerced", expression(new Cast(new SymbolReference(INTEGER, "int_col"), BIGINT))), // cast default value to BIGINT to match declared return type for the column
                                                                 project(// pre-project context item, path parameters and default expressions
                                                                         ImmutableMap.of(
                                                                                 "name", expression(new Constant(createVarcharType(5), Slices.utf8Slice("[ala]"))),

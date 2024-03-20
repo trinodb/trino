@@ -66,6 +66,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -232,7 +233,7 @@ public class TestSqlStage
         PlanNode planNode = new RemoteSourceNode(
                 new PlanNodeId("exchange"),
                 ImmutableList.of(new PlanFragmentId("source")),
-                ImmutableList.of(new Symbol("column")),
+                ImmutableList.of(new Symbol(UNKNOWN, "column")),
                 Optional.empty(),
                 REPARTITION,
                 RetryPolicy.NONE);

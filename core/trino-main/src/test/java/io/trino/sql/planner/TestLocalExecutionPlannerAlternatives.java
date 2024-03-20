@@ -97,8 +97,8 @@ public class TestLocalExecutionPlannerAlternatives
     public void planChooseAlternative()
     {
         PlanNodeId chooseAlternativeNodeId = new PlanNodeId("chooseAlternativeNodeId");
-        Symbol symbol1 = new Symbol("symbol1");
-        Symbol symbol2 = new Symbol("symbol2");
+        Symbol symbol1 = new Symbol(BIGINT, "symbol1");
+        Symbol symbol2 = new Symbol(BIGINT, "symbol2");
         ImmutableMap<Symbol, ColumnHandle> symbolMapping = ImmutableMap.of(
                 symbol1, new TestingColumnHandle("col1"),
                 symbol2, new TestingColumnHandle("col2"));
@@ -134,8 +134,8 @@ public class TestLocalExecutionPlannerAlternatives
     public void chooseAlternativePipelineGetsDifferentPipelineId()
     {
         PlanNodeId chooseAlternativeNodeId = new PlanNodeId("chooseAlternativeNodeId");
-        Symbol symbol1 = new Symbol("symbol1");
-        Symbol symbol2 = new Symbol("symbol2");
+        Symbol symbol1 = new Symbol(BIGINT, "symbol1");
+        Symbol symbol2 = new Symbol(BIGINT, "symbol2");
         ImmutableMap<Symbol, ColumnHandle> symbolMapping = ImmutableMap.of(
                 symbol1, new TestingColumnHandle("col1"),
                 symbol2, new TestingColumnHandle("col2"));

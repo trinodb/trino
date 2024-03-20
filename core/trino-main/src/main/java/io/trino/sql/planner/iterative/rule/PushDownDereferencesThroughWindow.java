@@ -96,8 +96,7 @@ public class PushDownDereferencesThroughWindow
                                 .collect(toImmutableList()))
                         .build(),
                 false,
-                typeAnalyzer,
-                context.getSymbolAllocator().getTypes());
+                typeAnalyzer);
 
         DataOrganizationSpecification specification = windowNode.getSpecification();
         dereferences = dereferences.stream()

@@ -13,7 +13,7 @@ final aggregation over ()
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter ([cs_order_number, cs_ship_addr_sk], await [cs_call_center_sk, cs_ship_date_sk])
+                                                            dynamic filter ([SymbolReference[type=bigint, name=cs_order_number], SymbolReference[type=bigint, name=cs_ship_addr_sk]], await [SymbolReference[type=bigint, name=cs_call_center_sk], SymbolReference[type=bigint, name=cs_ship_date_sk]])
                                                                 scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])

@@ -6,7 +6,7 @@ cross join:
                     join (INNER, REPLICATED):
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
-                                dynamic filter (await [ws_ship_hdemo_sk, ws_sold_time_sk, ws_web_page_sk])
+                                dynamic filter (await [SymbolReference[type=bigint, name=ws_ship_hdemo_sk], SymbolReference[type=bigint, name=ws_sold_time_sk], SymbolReference[type=bigint, name=ws_web_page_sk]])
                                     scan web_sales
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -24,7 +24,7 @@ cross join:
                     join (INNER, REPLICATED):
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
-                                dynamic filter (await [ws_ship_hdemo_sk_18, ws_sold_time_sk_9, ws_web_page_sk_20])
+                                dynamic filter (await [SymbolReference[type=bigint, name=ws_ship_hdemo_sk_18], SymbolReference[type=bigint, name=ws_sold_time_sk_9], SymbolReference[type=bigint, name=ws_web_page_sk_20]])
                                     scan web_sales
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])

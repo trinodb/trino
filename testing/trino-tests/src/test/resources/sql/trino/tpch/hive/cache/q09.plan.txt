@@ -14,28 +14,28 @@ remote exchange (GATHER, SINGLE, [])
                                                     join (INNER, PARTITIONED):
                                                         remote exchange (REPARTITION, HASH, [partkey_5])
                                                             alternatives
-                                                                dynamic filter ([orderkey, partkey_5, partkey_5, suppkey_6, suppkey_6])
+                                                                dynamic filter ([SymbolReference[type=bigint, name=orderkey], SymbolReference[type=bigint, name=partkey_5], SymbolReference[type=bigint, name=partkey_5], SymbolReference[type=bigint, name=suppkey_6], SymbolReference[type=bigint, name=suppkey_6]])
                                                                     scan lineitem
                                                                 cache data
-                                                                    dynamic filter ([orderkey, partkey_5, partkey_5, suppkey_6, suppkey_6])
+                                                                    dynamic filter ([SymbolReference[type=bigint, name=orderkey], SymbolReference[type=bigint, name=partkey_5], SymbolReference[type=bigint, name=partkey_5], SymbolReference[type=bigint, name=suppkey_6], SymbolReference[type=bigint, name=suppkey_6]])
                                                                         scan lineitem
                                                                 load from cache
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, [partkey])
                                                                 alternatives
-                                                                    dynamic filter ([partkey])
+                                                                    dynamic filter ([SymbolReference[type=bigint, name=partkey]])
                                                                         scan part
                                                                     cache data
-                                                                        dynamic filter ([partkey])
+                                                                        dynamic filter ([SymbolReference[type=bigint, name=partkey]])
                                                                             scan part
                                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [suppkey])
                                                         alternatives
-                                                            dynamic filter ([suppkey], await [nationkey])
+                                                            dynamic filter ([SymbolReference[type=bigint, name=suppkey]], await [SymbolReference[type=bigint, name=nationkey]])
                                                                 scan supplier
                                                             cache data
-                                                                dynamic filter ([suppkey], await [nationkey])
+                                                                dynamic filter ([SymbolReference[type=bigint, name=suppkey]], await [SymbolReference[type=bigint, name=nationkey]])
                                                                     scan supplier
                                                             load from cache
                                             local exchange (GATHER, SINGLE, [])

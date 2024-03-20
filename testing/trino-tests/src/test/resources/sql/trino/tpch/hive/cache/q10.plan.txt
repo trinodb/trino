@@ -9,10 +9,10 @@ local exchange (GATHER, SINGLE, [])
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, [custkey_5])
                                         alternatives
-                                            dynamic filter ([custkey_5], await [nationkey])
+                                            dynamic filter ([SymbolReference[type=bigint, name=custkey_5]], await [SymbolReference[type=bigint, name=nationkey]])
                                                 scan customer
                                             cache data
-                                                dynamic filter ([custkey_5], await [nationkey])
+                                                dynamic filter ([SymbolReference[type=bigint, name=custkey_5]], await [SymbolReference[type=bigint, name=nationkey]])
                                                     scan customer
                                             load from cache
                                     local exchange (GATHER, SINGLE, [])
@@ -20,10 +20,10 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [orderkey])
                                                     alternatives
-                                                        dynamic filter ([orderkey])
+                                                        dynamic filter ([SymbolReference[type=bigint, name=orderkey]])
                                                             scan lineitem
                                                         cache data
-                                                            dynamic filter ([orderkey])
+                                                            dynamic filter ([SymbolReference[type=bigint, name=orderkey]])
                                                                 scan lineitem
                                                         load from cache
                                                 local exchange (GATHER, SINGLE, [])

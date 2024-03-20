@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -50,13 +51,13 @@ public class TestPruneJoinChildrenColumns
                 .matches(
                         join(INNER, builder -> builder
                                 .equiCriteria("leftKey", "rightKey")
-                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference("leftValue"), new Constant(INTEGER, 5L)))
+                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "leftValue"), new Constant(INTEGER, 5L)))
                                 .left(values("leftKey", "leftKeyHash", "leftValue"))
                                 .right(
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "rightKey", PlanMatchPattern.expression(new SymbolReference("rightKey")),
-                                                        "rightKeyHash", PlanMatchPattern.expression(new SymbolReference("rightKeyHash"))),
+                                                        "rightKey", PlanMatchPattern.expression(new SymbolReference(BIGINT, "rightKey")),
+                                                        "rightKeyHash", PlanMatchPattern.expression(new SymbolReference(BIGINT, "rightKeyHash"))),
                                                 values("rightKey", "rightKeyHash", "rightValue")))));
     }
 
@@ -116,7 +117,7 @@ public class TestPruneJoinChildrenColumns
                 rightOutputs.stream()
                         .filter(joinOutputFilter)
                         .collect(toImmutableList()),
-                Optional.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("leftValue"), new Constant(INTEGER, 5L))),
+                Optional.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "leftValue"), new Constant(INTEGER, 5L))),
                 Optional.of(leftKeyHash),
                 Optional.of(rightKeyHash));
     }

@@ -9,11 +9,11 @@ local exchange (GATHER, SINGLE, [])
                                 join (INNER, REPLICATED, can skip output duplicates):
                                     alternatives
                                         partial aggregation over (cs_item_sk)
-                                            dynamic filter ([cs_item_sk])
+                                            dynamic filter ([SymbolReference[type=bigint, name=cs_item_sk]])
                                                 scan catalog_sales
                                         cache data
                                             partial aggregation over (cs_item_sk)
-                                                dynamic filter ([cs_item_sk])
+                                                dynamic filter ([SymbolReference[type=bigint, name=cs_item_sk]])
                                                     scan catalog_sales
                                         load from cache
                                     local exchange (GATHER, SINGLE, [])
@@ -21,10 +21,10 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, REPLICATED, can skip output duplicates):
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     alternatives
-                                                        dynamic filter (await [inv_date_sk, inv_item_sk])
+                                                        dynamic filter (await [SymbolReference[type=bigint, name=inv_date_sk], SymbolReference[type=bigint, name=inv_item_sk]])
                                                             scan inventory
                                                         cache data
-                                                            dynamic filter (await [inv_date_sk, inv_item_sk])
+                                                            dynamic filter (await [SymbolReference[type=bigint, name=inv_date_sk], SymbolReference[type=bigint, name=inv_item_sk]])
                                                                 scan inventory
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])

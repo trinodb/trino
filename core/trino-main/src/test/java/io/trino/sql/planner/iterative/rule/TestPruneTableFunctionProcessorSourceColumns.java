@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
@@ -81,12 +82,12 @@ public class TestPruneTableFunctionProcessorSourceColumns
                                 .hashSymbol("hash"),
                         project(
                                 ImmutableMap.of(
-                                        "a", expression(new SymbolReference("a")),
-                                        "b", expression(new SymbolReference("b")),
-                                        "c", expression(new SymbolReference("c")),
-                                        "d", expression(new SymbolReference("d")),
-                                        "hash", expression(new SymbolReference("hash")),
-                                        "marker", expression(new SymbolReference("marker"))),
+                                        "a", expression(new SymbolReference(BIGINT, "a")),
+                                        "b", expression(new SymbolReference(BIGINT, "b")),
+                                        "c", expression(new SymbolReference(BIGINT, "c")),
+                                        "d", expression(new SymbolReference(BIGINT, "d")),
+                                        "hash", expression(new SymbolReference(BIGINT, "hash")),
+                                        "marker", expression(new SymbolReference(BIGINT, "marker"))),
                                 values("a", "b", "c", "d", "unreferenced", "hash", "marker"))));
     }
 
@@ -167,15 +168,15 @@ public class TestPruneTableFunctionProcessorSourceColumns
                                         "f", "marker3")),
                         project(
                                 ImmutableMap.of(
-                                        "a", expression(new SymbolReference("a")),
-                                        "b", expression(new SymbolReference("b")),
-                                        "c", expression(new SymbolReference("c")),
-                                        "d", expression(new SymbolReference("d")),
-                                        "e", expression(new SymbolReference("e")),
-                                        "f", expression(new SymbolReference("f")),
-                                        "marker1", expression(new SymbolReference("marker1")),
-                                        "marker2", expression(new SymbolReference("marker2")),
-                                        "marker3", expression(new SymbolReference("marker3"))),
+                                        "a", expression(new SymbolReference(BIGINT, "a")),
+                                        "b", expression(new SymbolReference(BIGINT, "b")),
+                                        "c", expression(new SymbolReference(BIGINT, "c")),
+                                        "d", expression(new SymbolReference(BIGINT, "d")),
+                                        "e", expression(new SymbolReference(BIGINT, "e")),
+                                        "f", expression(new SymbolReference(BIGINT, "f")),
+                                        "marker1", expression(new SymbolReference(BIGINT, "marker1")),
+                                        "marker2", expression(new SymbolReference(BIGINT, "marker2")),
+                                        "marker3", expression(new SymbolReference(BIGINT, "marker3"))),
                                 values("a", "b", "c", "d", "e", "f", "marker1", "marker2", "marker3", "unreferenced"))));
     }
 

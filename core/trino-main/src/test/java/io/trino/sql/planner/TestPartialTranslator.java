@@ -21,6 +21,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Constant;
@@ -50,6 +51,7 @@ import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.PartialTranslator.extractPartialTranslations;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPartialTranslator
@@ -62,11 +64,11 @@ public class TestPartialTranslator
             .build();
     private static final IrTypeAnalyzer TYPE_ANALYZER = new IrTypeAnalyzer(PLANNER_CONTEXT);
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-            .put(new Symbol("double_symbol_1"), DOUBLE)
-            .put(new Symbol("double_symbol_2"), DOUBLE)
-            .put(new Symbol("bigint_symbol_1"), BIGINT)
-            .put(new Symbol("timestamp3_symbol_1"), TIMESTAMP_MILLIS)
-            .put(new Symbol("row_symbol_1"), rowType(
+            .put(new Symbol(UNKNOWN, "double_symbol_1"), DOUBLE)
+            .put(new Symbol(UNKNOWN, "double_symbol_2"), DOUBLE)
+            .put(new Symbol(UNKNOWN, "bigint_symbol_1"), BIGINT)
+            .put(new Symbol(UNKNOWN, "timestamp3_symbol_1"), TIMESTAMP_MILLIS)
+            .put(new Symbol(UNKNOWN, "row_symbol_1"), rowType(
                     field("int_symbol_1", INTEGER),
                     field("varchar_symbol_1", createVarcharType(5)),
                     field("timestamptz3_field_1", TIMESTAMP_TZ_MILLIS)))
@@ -75,11 +77,11 @@ public class TestPartialTranslator
     @Test
     public void testPartialTranslator()
     {
-        Expression rowSymbolReference = new SymbolReference("row_symbol_1");
+        Expression rowSymbolReference = new SymbolReference(RowType.anonymousRow(INTEGER, INTEGER), "row_symbol_1");
         Expression dereferenceExpression1 = new SubscriptExpression(rowSymbolReference, new Constant(INTEGER, 1L));
         Expression dereferenceExpression2 = new SubscriptExpression(rowSymbolReference, new Constant(INTEGER, 2L));
         Expression stringLiteral = new Constant(VARCHAR, Slices.utf8Slice("abcd"));
-        Expression symbolReference1 = new SymbolReference("double_symbol_1");
+        Expression symbolReference1 = new SymbolReference(DOUBLE, "double_symbol_1");
 
         assertFullTranslation(symbolReference1);
         assertFullTranslation(dereferenceExpression1);
@@ -96,6 +98,6 @@ public class TestPartialTranslator
     {
         Map<NodeRef<Expression>, ConnectorExpression> translation = extractPartialTranslations(expression, TEST_SESSION, TYPE_ANALYZER, TYPE_PROVIDER);
         assertThat(getOnlyElement(translation.keySet())).isEqualTo(NodeRef.of(expression));
-        assertThat(getOnlyElement(translation.values())).isEqualTo(translate(TEST_SESSION, expression, TYPE_PROVIDER, TYPE_ANALYZER).get());
+        assertThat(getOnlyElement(translation.values())).isEqualTo(translate(TEST_SESSION, expression, TYPE_ANALYZER).get());
     }
 }

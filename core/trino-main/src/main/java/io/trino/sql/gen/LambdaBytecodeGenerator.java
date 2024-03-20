@@ -32,6 +32,7 @@ import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.metadata.FunctionManager;
 import io.trino.operator.aggregation.AccumulatorCompiler;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.relational.InputReferenceExpression;
@@ -120,8 +121,9 @@ public final class LambdaBytecodeGenerator
 
         parameters.add(arg("session", ConnectorSession.class));
         for (int i = 0; i < lambdaExpression.getArguments().size(); i++) {
-            Class<?> type = Primitives.wrap(lambdaExpression.getArgumentTypes().get(i).getJavaType());
-            String argumentName = lambdaExpression.getArguments().get(i);
+            Symbol argument = lambdaExpression.getArguments().get(i);
+            Class<?> type = Primitives.wrap(argument.getType().getJavaType());
+            String argumentName = argument.getName();
             Parameter arg = arg("lambda_" + i + "_" + BytecodeUtils.sanitizeName(argumentName), type);
             parameters.add(arg);
             parameterMapBuilder.put(argumentName, new ParameterAndType(arg, type));

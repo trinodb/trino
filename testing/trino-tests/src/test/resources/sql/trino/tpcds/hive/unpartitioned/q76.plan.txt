@@ -9,7 +9,7 @@ local exchange (GATHER, SINGLE, [])
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         partial aggregation over (expr_142, expr_143, ss_item_sk, ss_sold_date_sk)
-                                            dynamic filter ([ss_item_sk], await [ss_sold_date_sk])
+                                            dynamic filter ([SymbolReference[type=bigint, name=ss_item_sk]], await [SymbolReference[type=bigint, name=ss_sold_date_sk]])
                                                 scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -21,13 +21,13 @@ local exchange (GATHER, SINGLE, [])
                             partial aggregation over (d_qoy_55, d_year_51, expr_148, expr_149, i_category_32)
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, [i_item_sk_20])
-                                        dynamic filter ([i_item_sk_20])
+                                        dynamic filter ([SymbolReference[type=bigint, name=i_item_sk_20]])
                                             scan item
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [ws_item_sk])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [ws_sold_date_sk])
-                                                    dynamic filter (await [ws_sold_date_sk])
+                                                    dynamic filter (await [SymbolReference[type=bigint, name=ws_sold_date_sk]])
                                                         scan web_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [d_date_sk_45])
@@ -37,7 +37,7 @@ local exchange (GATHER, SINGLE, [])
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         partial aggregation over (cs_item_sk, cs_sold_date_sk, expr_139, expr_141)
-                                            dynamic filter ([cs_item_sk], await [cs_sold_date_sk])
+                                            dynamic filter ([SymbolReference[type=bigint, name=cs_item_sk]], await [SymbolReference[type=bigint, name=cs_sold_date_sk]])
                                                 scan catalog_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])

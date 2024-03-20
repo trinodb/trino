@@ -13,18 +13,18 @@ local exchange (GATHER, SINGLE, [])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter ([cs_item_sk], await [cs_call_center_sk, cs_sold_date_sk])
+                                                            dynamic filter ([SymbolReference[type=bigint, name=cs_item_sk]], await [SymbolReference[type=bigint, name=cs_call_center_sk], SymbolReference[type=bigint, name=cs_sold_date_sk]])
                                                                 scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    dynamic filter (unestimatable [i_brand, i_brand, i_category, i_category])
+                                                                    dynamic filter (unestimatable [SymbolReference[type=varchar, name=i_brand], SymbolReference[type=varchar, name=i_brand], SymbolReference[type=varchar, name=i_category], SymbolReference[type=varchar, name=i_category]])
                                                                         scan item
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (unestimatable [cc_name, cc_name])
+                                                            dynamic filter (unestimatable [SymbolReference[type=varchar, name=cc_name], SymbolReference[type=varchar, name=cc_name]])
                                                                 scan call_center
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [cc_name_102, i_brand_14, i_category_18])
@@ -35,18 +35,18 @@ local exchange (GATHER, SINGLE, [])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter ([cs_item_sk_44], await [cs_call_center_sk_40, cs_sold_date_sk_63])
+                                                            dynamic filter ([SymbolReference[type=bigint, name=cs_item_sk_44]], await [SymbolReference[type=bigint, name=cs_call_center_sk_40], SymbolReference[type=bigint, name=cs_sold_date_sk_63]])
                                                                 scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    dynamic filter (unestimatable [i_brand_14, i_category_18])
+                                                                    dynamic filter (unestimatable [SymbolReference[type=varchar, name=i_brand_14], SymbolReference[type=varchar, name=i_category_18]])
                                                                         scan item
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (unestimatable [cc_name_102])
+                                                            dynamic filter (unestimatable [SymbolReference[type=varchar, name=cc_name_102]])
                                                                 scan call_center
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [cc_name_232, i_brand_144, i_category_148])
@@ -57,7 +57,7 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter ([cs_item_sk_174], await [cs_call_center_sk_170, cs_sold_date_sk_193])
+                                                        dynamic filter ([SymbolReference[type=bigint, name=cs_item_sk_174]], await [SymbolReference[type=bigint, name=cs_call_center_sk_170], SymbolReference[type=bigint, name=cs_sold_date_sk_193]])
                                                             scan catalog_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

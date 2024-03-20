@@ -70,8 +70,8 @@ public class TestAddExchangesScaledWriters
             Partitioning.create(
                     // Scale writers is disabled for optimize command
                     FIXED_HASH_DISTRIBUTION,
-                    ImmutableList.of(new Symbol("year"))),
-            ImmutableList.of(new Symbol("customer"), new Symbol("year")));
+                    ImmutableList.of(new Symbol(INTEGER, "year"))),
+            ImmutableList.of(new Symbol(INTEGER, "customer"), new Symbol(INTEGER, "year")));
     private static final PartitioningHandle MERGE_PARTITIONING_HANDLE = new PartitioningHandle(
             Optional.empty(),
             Optional.empty(),

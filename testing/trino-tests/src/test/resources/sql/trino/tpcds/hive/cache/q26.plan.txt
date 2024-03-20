@@ -12,10 +12,10 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     alternatives
-                                                        dynamic filter ([cs_bill_cdemo_sk, cs_item_sk], await [cs_promo_sk, cs_sold_date_sk])
+                                                        dynamic filter ([SymbolReference[type=bigint, name=cs_bill_cdemo_sk], SymbolReference[type=bigint, name=cs_item_sk]], await [SymbolReference[type=bigint, name=cs_promo_sk], SymbolReference[type=bigint, name=cs_sold_date_sk]])
                                                             scan catalog_sales
                                                         cache data
-                                                            dynamic filter ([cs_bill_cdemo_sk, cs_item_sk], await [cs_promo_sk, cs_sold_date_sk])
+                                                            dynamic filter ([SymbolReference[type=bigint, name=cs_bill_cdemo_sk], SymbolReference[type=bigint, name=cs_item_sk]], await [SymbolReference[type=bigint, name=cs_promo_sk], SymbolReference[type=bigint, name=cs_sold_date_sk]])
                                                                 scan catalog_sales
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])

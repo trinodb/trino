@@ -9,7 +9,7 @@ local exchange (GATHER, SINGLE, [])
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            dynamic filter ([inv_item_sk], await [inv_date_sk, inv_warehouse_sk])
+                                            dynamic filter ([SymbolReference[type=bigint, name=inv_item_sk]], await [SymbolReference[type=bigint, name=inv_date_sk], SymbolReference[type=bigint, name=inv_warehouse_sk]])
                                                 scan inventory
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])

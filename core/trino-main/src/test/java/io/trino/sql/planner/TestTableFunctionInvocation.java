@@ -160,7 +160,7 @@ public class TestTableFunctionInvocation
                                                 .passThroughSymbols(ImmutableSet.of("c2")))
                                 .addCopartitioning(ImmutableList.of("INPUT1", "INPUT2"))
                                 .properOutputs(ImmutableList.of("COLUMN")),
-                        project(ImmutableMap.of("c1_coerced", expression(new Cast(new SymbolReference("c1"), INTEGER))),
+                        project(ImmutableMap.of("c1_coerced", expression(new Cast(new SymbolReference(SMALLINT, "c1"), INTEGER))),
                                 anyTree(values(ImmutableList.of("c1"), ImmutableList.of(ImmutableList.of(new Constant(SMALLINT, 1L)))))),
                         anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 2L))))))));
     }

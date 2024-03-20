@@ -24,6 +24,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -56,7 +57,7 @@ public class TestPruneCorrelatedJoinColumns
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a"))),
+                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference(BIGINT, "a"))),
                                 values("a", "correlationSymbol")));
 
         // retain input of LEFT join
@@ -76,7 +77,7 @@ public class TestPruneCorrelatedJoinColumns
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a"))),
+                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference(BIGINT, "a"))),
                                 values("a", "correlationSymbol")));
 
         // retain subquery of INNER join
@@ -93,7 +94,7 @@ public class TestPruneCorrelatedJoinColumns
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                 values("b")));
 
         // retain subquery of RIGHT join
@@ -112,7 +113,7 @@ public class TestPruneCorrelatedJoinColumns
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                 values("b")));
     }
 
@@ -138,12 +139,12 @@ public class TestPruneCorrelatedJoinColumns
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a"))),
+                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference(BIGINT, "a"))),
                                 correlatedJoin(
                                         ImmutableList.of("correlation_symbol"),
                                         values("a", "correlation_symbol"),
                                         project(
-                                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                                 node(
                                                         FilterNode.class,
                                                         values("b", "c"))))));
@@ -170,11 +171,11 @@ public class TestPruneCorrelatedJoinColumns
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                 correlatedJoin(
                                         ImmutableList.of("correlation_symbol"),
                                         project(
-                                                ImmutableMap.of("correlation_symbol", PlanMatchPattern.expression(new SymbolReference("correlation_symbol"))),
+                                                ImmutableMap.of("correlation_symbol", PlanMatchPattern.expression(new SymbolReference(BIGINT, "correlation_symbol"))),
                                                 values("a", "correlation_symbol")),
                                         node(
                                                 FilterNode.class,

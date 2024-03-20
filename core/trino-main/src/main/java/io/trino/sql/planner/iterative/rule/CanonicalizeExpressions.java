@@ -23,6 +23,6 @@ public class CanonicalizeExpressions
 {
     public CanonicalizeExpressions(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
-        super((expression, context) -> rewrite(expression, plannerContext, typeAnalyzer, context.getSymbolAllocator().getTypes()));
+        super((expression, context) -> rewrite(expression, plannerContext, typeAnalyzer));
     }
 }

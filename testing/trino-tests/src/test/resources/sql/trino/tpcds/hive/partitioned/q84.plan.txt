@@ -3,18 +3,18 @@ local exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 join (INNER, REPLICATED):
-                    dynamic filter ([sr_cdemo_sk])
+                    dynamic filter ([SymbolReference[type=bigint, name=sr_cdemo_sk]])
                         scan store_returns
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPLICATE, BROADCAST, [])
                             join (INNER, REPLICATED):
-                                dynamic filter ([cd_demo_sk])
+                                dynamic filter ([SymbolReference[type=bigint, name=cd_demo_sk]])
                                     scan customer_demographics
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                dynamic filter ([c_current_addr_sk], await [c_current_hdemo_sk])
+                                                dynamic filter ([SymbolReference[type=bigint, name=c_current_addr_sk]], await [SymbolReference[type=bigint, name=c_current_hdemo_sk]])
                                                     scan customer
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -22,7 +22,7 @@ local exchange (GATHER, SINGLE, [])
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (await [hd_income_band_sk])
+                                                        dynamic filter (await [SymbolReference[type=bigint, name=hd_income_band_sk]])
                                                             scan household_demographics
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

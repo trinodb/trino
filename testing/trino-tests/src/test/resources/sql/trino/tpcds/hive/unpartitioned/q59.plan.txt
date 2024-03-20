@@ -13,11 +13,11 @@ local exchange (GATHER, SINGLE, [])
                                                 intermediate aggregation over (d_day_name, d_week_seq, ss_store_sk)
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ss_sold_date_sk, ss_store_sk)
-                                                            dynamic filter ([ss_store_sk], await [ss_sold_date_sk])
+                                                            dynamic filter ([SymbolReference[type=bigint, name=ss_store_sk]], await [SymbolReference[type=bigint, name=ss_sold_date_sk]])
                                                                 scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter ([d_week_seq])
+                                                                dynamic filter ([SymbolReference[type=integer, name=d_week_seq]])
                                                                     scan date_dim
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [expr_210, s_store_sk])
@@ -35,11 +35,11 @@ local exchange (GATHER, SINGLE, [])
                                                                         intermediate aggregation over (d_day_name_89, d_week_seq_79, ss_store_sk_56)
                                                                             join (INNER, REPLICATED):
                                                                                 partial aggregation over (ss_sold_date_sk_49, ss_store_sk_56)
-                                                                                    dynamic filter (await [ss_sold_date_sk_49, ss_store_sk_56])
+                                                                                    dynamic filter (await [SymbolReference[type=bigint, name=ss_sold_date_sk_49], SymbolReference[type=bigint, name=ss_store_sk_56]])
                                                                                         scan store_sales
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                                        dynamic filter (await [d_week_seq_79])
+                                                                                        dynamic filter (await [SymbolReference[type=integer, name=d_week_seq_79]])
                                                                                             scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -51,7 +51,7 @@ local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [s_store_sk_122])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [s_store_id])
-                                                dynamic filter (await [s_store_id])
+                                                dynamic filter (await [SymbolReference[type=char(16), name=s_store_id]])
                                                     scan store
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [s_store_id_123])

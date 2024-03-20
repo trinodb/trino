@@ -34,6 +34,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Double.NaN;
 import static java.util.function.Function.identity;
 
@@ -44,7 +45,7 @@ public class TestStatsNormalizer
     @Test
     public void testNoCapping()
     {
-        Symbol a = new Symbol("a");
+        Symbol a = new Symbol(UNKNOWN, "a");
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(30)
                 .addSymbolStatistics(a, SymbolStatsEstimate.builder().setDistinctValuesCount(20).build())
@@ -57,9 +58,9 @@ public class TestStatsNormalizer
     @Test
     public void testDropNonOutputSymbols()
     {
-        Symbol a = new Symbol("a");
-        Symbol b = new Symbol("b");
-        Symbol c = new Symbol("c");
+        Symbol a = new Symbol(UNKNOWN, "a");
+        Symbol b = new Symbol(UNKNOWN, "b");
+        Symbol c = new Symbol(UNKNOWN, "c");
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(40)
                 .addSymbolStatistics(a, SymbolStatsEstimate.builder().setDistinctValuesCount(20).build())
@@ -75,9 +76,9 @@ public class TestStatsNormalizer
     @Test
     public void tesCapDistinctValuesByOutputRowCount()
     {
-        Symbol a = new Symbol("a");
-        Symbol b = new Symbol("b");
-        Symbol c = new Symbol("c");
+        Symbol a = new Symbol(UNKNOWN, "a");
+        Symbol b = new Symbol(UNKNOWN, "b");
+        Symbol c = new Symbol(UNKNOWN, "c");
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
                 .addSymbolStatistics(a, SymbolStatsEstimate.builder().setNullsFraction(0).setDistinctValuesCount(20).build())
                 .addSymbolStatistics(b, SymbolStatsEstimate.builder().setNullsFraction(0.4).setDistinctValuesCount(20).build())
@@ -126,7 +127,7 @@ public class TestStatsNormalizer
         checkArgument(Primitives.wrap(type.getJavaType()).isInstance(low), "Incorrect class of low value for %s: %s", type, low.getClass());
         checkArgument(Primitives.wrap(type.getJavaType()).isInstance(high), "Incorrect class of low value for %s: %s", type, high.getClass());
 
-        Symbol symbol = new Symbol("x");
+        Symbol symbol = new Symbol(type, "x");
         SymbolStatsEstimate symbolStats = SymbolStatsEstimate.builder()
                 .setNullsFraction(0)
                 .setDistinctValuesCount(ndv)

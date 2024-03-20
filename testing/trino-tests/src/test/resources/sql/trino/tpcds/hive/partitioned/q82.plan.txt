@@ -8,13 +8,13 @@ local exchange (GATHER, SINGLE, [])
                             intermediate aggregation over (i_current_price, i_item_desc, i_item_id)
                                 join (INNER, REPLICATED, can skip output duplicates):
                                     partial aggregation over (ss_item_sk)
-                                        dynamic filter ([ss_item_sk])
+                                        dynamic filter ([SymbolReference[type=bigint, name=ss_item_sk]])
                                             scan store_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             join (INNER, REPLICATED, can skip output duplicates):
                                                 join (INNER, REPLICATED, can skip output duplicates):
-                                                    dynamic filter (await [inv_date_sk, inv_item_sk])
+                                                    dynamic filter (await [SymbolReference[type=bigint, name=inv_date_sk], SymbolReference[type=bigint, name=inv_item_sk]])
                                                         scan inventory
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])

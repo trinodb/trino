@@ -12,10 +12,10 @@ local exchange (GATHER, SINGLE, [])
                                             partial aggregation over (cs_call_center_sk, cs_ship_mode_sk, cs_warehouse_sk)
                                                 join (INNER, REPLICATED):
                                                     alternatives
-                                                        dynamic filter (await [cs_call_center_sk, cs_ship_date_sk, cs_ship_mode_sk, cs_warehouse_sk])
+                                                        dynamic filter (await [SymbolReference[type=bigint, name=cs_call_center_sk], SymbolReference[type=bigint, name=cs_ship_date_sk], SymbolReference[type=bigint, name=cs_ship_mode_sk], SymbolReference[type=bigint, name=cs_warehouse_sk]])
                                                             scan catalog_sales
                                                         cache data
-                                                            dynamic filter (await [cs_call_center_sk, cs_ship_date_sk, cs_ship_mode_sk, cs_warehouse_sk])
+                                                            dynamic filter (await [SymbolReference[type=bigint, name=cs_call_center_sk], SymbolReference[type=bigint, name=cs_ship_date_sk], SymbolReference[type=bigint, name=cs_ship_mode_sk], SymbolReference[type=bigint, name=cs_warehouse_sk]])
                                                                 scan catalog_sales
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])

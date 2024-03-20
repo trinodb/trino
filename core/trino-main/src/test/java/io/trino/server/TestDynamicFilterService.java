@@ -97,6 +97,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1035,9 +1036,9 @@ public class TestDynamicFilterService
                                 new PlanSignatureWithPredicate(
                                         new PlanSignature(new SignatureKey("test"), Optional.empty(), ImmutableList.of(), ImmutableList.of()),
                                         TupleDomain.all()),
-                                or(and(createDynamicFilterExpression(metadata, new DynamicFilterId("0"), BIGINT, new SymbolReference("symbol0")),
-                                                createDynamicFilterExpression(metadata, new DynamicFilterId("1"), BIGINT, new SymbolReference("symbol1"))),
-                                        createDynamicFilterExpression(metadata, new DynamicFilterId("2"), BIGINT, new SymbolReference("symbol2"))),
+                                or(and(createDynamicFilterExpression(metadata, new DynamicFilterId("0"), BIGINT, new SymbolReference(BIGINT, "symbol0")),
+                                                createDynamicFilterExpression(metadata, new DynamicFilterId("1"), BIGINT, new SymbolReference(BIGINT, "symbol1"))),
+                                        createDynamicFilterExpression(metadata, new DynamicFilterId("2"), BIGINT, new SymbolReference(BIGINT, "symbol2"))),
                                 ImmutableMap.of(),
                                 ImmutableList.of()),
                         Assignments.of())))
@@ -1064,8 +1065,8 @@ public class TestDynamicFilterService
             PartitioningHandle stagePartitioning,
             ExchangeNode.Type exchangeType)
     {
-        Symbol symbol = new Symbol("column");
-        Symbol buildSymbol = new Symbol("buildColumn");
+        Symbol symbol = new Symbol(UNKNOWN, "column");
+        Symbol buildSymbol = new Symbol(UNKNOWN, "buildColumn");
 
         PlanNodeId tableScanNodeId = new PlanNodeId("plan_id");
         TableScanNode tableScan = TableScanNode.newInstance(

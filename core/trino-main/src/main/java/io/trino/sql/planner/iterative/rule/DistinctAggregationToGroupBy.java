@@ -297,7 +297,7 @@ public class DistinctAggregationToGroupBy
                     // handle 0 on empty input aggregations
                     CatalogSchemaFunctionName name = originalAggregation.getResolvedFunction().getSignature().getName();
                     if (name.equals(COUNT_NAME) || name.equals(COUNT_IF_NAME) || name.equals(APPROX_DISTINCT_NAME)) {
-                        Symbol coalesceSymbol = symbolAllocator.newSymbol("coalesce_expr", symbolAllocator.getTypes().get(origalAggregationOutputSymbol));
+                        Symbol coalesceSymbol = symbolAllocator.newSymbol("coalesce_expr", origalAggregationOutputSymbol.getType());
                         outerAggregationOutputSymbol = coalesceSymbol;
                         coalesceSymbolsBuilder.put(coalesceSymbol, origalAggregationOutputSymbol);
                     }

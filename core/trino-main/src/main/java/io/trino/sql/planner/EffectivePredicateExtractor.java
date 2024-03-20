@@ -349,7 +349,7 @@ public class EffectivePredicateExtractor
                     })
                     .collect(toImmutableList());
 
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, processedExpressions);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(processedExpressions);
 
             boolean[] hasNull = new boolean[node.getOutputSymbols().size()];
             boolean[] hasNaN = new boolean[node.getOutputSymbols().size()];

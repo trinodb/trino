@@ -99,16 +99,16 @@ public class FilterStatsCalculator
             Session session,
             TypeProvider types)
     {
-        Expression simplifiedExpression = simplifyExpression(session, predicate, types);
+        Expression simplifiedExpression = simplifyExpression(session, predicate);
         return new FilterExpressionStatsCalculatingVisitor(statsEstimate, session, types)
                 .process(simplifiedExpression);
     }
 
-    private Expression simplifyExpression(Session session, Expression predicate, TypeProvider types)
+    private Expression simplifyExpression(Session session, Expression predicate)
     {
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
 
-        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, predicate);
+        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(predicate);
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(predicate, plannerContext, session, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
@@ -435,7 +435,7 @@ public class FilterStatsCalculator
                 return requireNonNull(types.get(symbol), () -> format("No type for symbol %s", symbol));
             }
 
-            return typeAnalyzer.getType(types, expression);
+            return typeAnalyzer.getType(expression);
         }
 
         private SymbolStatsEstimate getExpressionStats(Expression expression)
@@ -444,7 +444,7 @@ public class FilterStatsCalculator
                 Symbol symbol = Symbol.from(expression);
                 return requireNonNull(input.getSymbolStatistics(symbol), () -> format("No statistics for symbol %s", symbol));
             }
-            return scalarStatsCalculator.calculate(expression, input, session, types);
+            return scalarStatsCalculator.calculate(expression, input, session);
         }
     }
 

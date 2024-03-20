@@ -72,18 +72,18 @@ public class TestPushPartialAggregationThroughJoin
                                         ImmutableList.of(new EquiJoinClause(p.symbol("LEFT_EQUI"), p.symbol("RIGHT_EQUI"))),
                                         ImmutableList.of(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR")),
                                         ImmutableList.of(),
-                                        Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("LEFT_NON_EQUI"), new SymbolReference("RIGHT_NON_EQUI")))))
-                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("AVG", ImmutableList.of(new SymbolReference("LEFT_AGGR"))), ImmutableList.of(DOUBLE))
+                                        Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "LEFT_NON_EQUI"), new SymbolReference(BIGINT, "RIGHT_NON_EQUI")))))
+                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("AVG", ImmutableList.of(new SymbolReference(BIGINT, "LEFT_AGGR"))), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"))
                         .step(PARTIAL)))
                 .matches(project(ImmutableMap.of(
-                                "LEFT_GROUP_BY", PlanMatchPattern.expression(new SymbolReference("LEFT_GROUP_BY")),
-                                "LEFT_EQUI", PlanMatchPattern.expression(new SymbolReference("LEFT_EQUI")),
-                                "LEFT_NON_EQUI", PlanMatchPattern.expression(new SymbolReference("LEFT_NON_EQUI")),
-                                "AVG", PlanMatchPattern.expression(new SymbolReference("AVG"))),
+                                "LEFT_GROUP_BY", PlanMatchPattern.expression(new SymbolReference(BIGINT, "LEFT_GROUP_BY")),
+                                "LEFT_EQUI", PlanMatchPattern.expression(new SymbolReference(BIGINT, "LEFT_EQUI")),
+                                "LEFT_NON_EQUI", PlanMatchPattern.expression(new SymbolReference(BIGINT, "LEFT_NON_EQUI")),
+                                "AVG", PlanMatchPattern.expression(new SymbolReference(DOUBLE, "AVG"))),
                         join(INNER, builder -> builder
                                 .equiCriteria("LEFT_EQUI", "RIGHT_EQUI")
-                                .filter(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("LEFT_NON_EQUI"), new SymbolReference("RIGHT_NON_EQUI")))
+                                .filter(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "LEFT_NON_EQUI"), new SymbolReference(BIGINT, "RIGHT_NON_EQUI")))
                                 .left(
                                         aggregation(
                                                 singleGroupingSet("LEFT_GROUP_BY", "LEFT_EQUI", "LEFT_NON_EQUI"),
@@ -105,18 +105,18 @@ public class TestPushPartialAggregationThroughJoin
                                         ImmutableList.of(new EquiJoinClause(p.symbol("LEFT_EQUI"), p.symbol("RIGHT_EQUI"))),
                                         ImmutableList.of(),
                                         ImmutableList.of(p.symbol("RIGHT_EQUI"), p.symbol("RIGHT_NON_EQUI"), p.symbol("RIGHT_GROUP_BY"), p.symbol("RIGHT_AGGR")),
-                                        Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("LEFT_NON_EQUI"), new SymbolReference("RIGHT_NON_EQUI")))))
-                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference("RIGHT_AGGR"))), ImmutableList.of(DOUBLE))
+                                        Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "LEFT_NON_EQUI"), new SymbolReference(BIGINT, "RIGHT_NON_EQUI")))))
+                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference(BIGINT, "RIGHT_AGGR"))), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("RIGHT_GROUP_BY"), p.symbol("RIGHT_EQUI"), p.symbol("RIGHT_NON_EQUI"))
                         .step(PARTIAL)))
                 .matches(project(ImmutableMap.of(
-                                "RIGHT_GROUP_BY", PlanMatchPattern.expression(new SymbolReference("RIGHT_GROUP_BY")),
-                                "RIGHT_EQUI", PlanMatchPattern.expression(new SymbolReference("RIGHT_EQUI")),
-                                "RIGHT_NON_EQUI", PlanMatchPattern.expression(new SymbolReference("RIGHT_NON_EQUI")),
-                                "AVG", PlanMatchPattern.expression(new SymbolReference("AVG"))),
+                                "RIGHT_GROUP_BY", PlanMatchPattern.expression(new SymbolReference(BIGINT, "RIGHT_GROUP_BY")),
+                                "RIGHT_EQUI", PlanMatchPattern.expression(new SymbolReference(BIGINT, "RIGHT_EQUI")),
+                                "RIGHT_NON_EQUI", PlanMatchPattern.expression(new SymbolReference(BIGINT, "RIGHT_NON_EQUI")),
+                                "AVG", PlanMatchPattern.expression(new SymbolReference(DOUBLE, "AVG"))),
                         join(INNER, builder -> builder
                                 .equiCriteria("LEFT_EQUI", "RIGHT_EQUI")
-                                .filter(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("LEFT_NON_EQUI"), new SymbolReference("RIGHT_NON_EQUI")))
+                                .filter(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "LEFT_NON_EQUI"), new SymbolReference(BIGINT, "RIGHT_NON_EQUI")))
                                 .left(
                                         values("LEFT_EQUI", "LEFT_NON_EQUI"))
                                 .right(
@@ -143,12 +143,12 @@ public class TestPushPartialAggregationThroughJoin
                                         ImmutableList.of(new EquiJoinClause(p.symbol("LEFT_EQUI"), p.symbol("RIGHT_EQUI"))),
                                         ImmutableList.of(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR")),
                                         ImmutableList.of(),
-                                        Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("LEFT_NON_EQUI"), new SymbolReference("RIGHT_NON_EQUI"))),
+                                        Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "LEFT_NON_EQUI"), new SymbolReference(BIGINT, "RIGHT_NON_EQUI"))),
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty(),
                                         ImmutableMap.of()))
-                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference("LEFT_AGGR"))), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference(BIGINT, "LEFT_AGGR"))), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"))
                         .step(PARTIAL)))
                 .doesNotFire();
@@ -168,8 +168,8 @@ public class TestPushPartialAggregationThroughJoin
                                         ImmutableList.of(new EquiJoinClause(p.symbol("LEFT_EQUI"), p.symbol("RIGHT_EQUI"))),
                                         ImmutableList.of(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR")),
                                         ImmutableList.of(),
-                                        Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("LEFT_NON_EQUI"), new SymbolReference("RIGHT_NON_EQUI")))))
-                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference("LEFT_AGGR"))), ImmutableList.of(DOUBLE))
+                                        Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "LEFT_NON_EQUI"), new SymbolReference(BIGINT, "RIGHT_NON_EQUI")))))
+                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference(BIGINT, "LEFT_AGGR"))), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_EQUI"))
                         .step(PARTIAL)))
                 .doesNotFire();
@@ -180,7 +180,7 @@ public class TestPushPartialAggregationThroughJoin
                         .source(
                                 p.project(
                                         Assignments.builder()
-                                                .put(p.symbol("LEFT_AGGR_PRJ"), new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("LEFT_AGGR"), new SymbolReference("LEFT_AGGR")))
+                                                .put(p.symbol("LEFT_AGGR_PRJ"), new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "LEFT_AGGR"), new SymbolReference(BIGINT, "LEFT_AGGR")))
                                                 .putIdentity(p.symbol("LEFT_GROUP_BY"))
                                                 .putIdentity(p.symbol("LEFT_EQUI"))
                                                 .putIdentity(p.symbol("LEFT_NON_EQUI"))
@@ -192,8 +192,8 @@ public class TestPushPartialAggregationThroughJoin
                                                 ImmutableList.of(new EquiJoinClause(p.symbol("LEFT_EQUI"), p.symbol("RIGHT_EQUI"))),
                                                 ImmutableList.of(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR")),
                                                 ImmutableList.of(),
-                                                Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("LEFT_NON_EQUI"), new SymbolReference("RIGHT_NON_EQUI"))))))
-                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference("LEFT_AGGR_PRJ"))), ImmutableList.of(DOUBLE))
+                                                Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "LEFT_NON_EQUI"), new SymbolReference(BIGINT, "RIGHT_NON_EQUI"))))))
+                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference(BIGINT, "LEFT_AGGR_PRJ"))), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_EQUI"))
                         .step(PARTIAL)))
                 .doesNotFire();
@@ -213,12 +213,12 @@ public class TestPushPartialAggregationThroughJoin
                                         ImmutableList.of(p.symbol("FACT_DATE_ID"), p.symbol("AMOUNT")),
                                         ImmutableList.of(p.symbol("DATE_DIM_YEAR")),
                                         Optional.empty()))
-                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference("AMOUNT"))), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference(BIGINT, "AMOUNT"))), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("DATE_DIM_YEAR"))
                         .step(PARTIAL)))
                 .matches(project(ImmutableMap.of(
-                                "DATE_DIM_YEAR", PlanMatchPattern.expression(new SymbolReference("DATE_DIM_YEAR")),
-                                "AVG", PlanMatchPattern.expression(new SymbolReference("AVG"))),
+                                "DATE_DIM_YEAR", PlanMatchPattern.expression(new SymbolReference(BIGINT, "DATE_DIM_YEAR")),
+                                "AVG", PlanMatchPattern.expression(new SymbolReference(DOUBLE, "AVG"))),
                         join(INNER, builder -> builder
                                 .equiCriteria("FACT_DATE_ID", "DATE_DIM_DATE_ID")
                                 .left(
@@ -239,7 +239,7 @@ public class TestPushPartialAggregationThroughJoin
                 .overrideStats(
                         CHILD_ID.toString(),
                         new PlanNodeStatsEstimate(10.0, ImmutableMap.of(
-                                new Symbol("FACT_DATE_ID"), new SymbolStatsEstimate(NaN, NaN, 0.0, NaN, 10.0))))
+                                new Symbol(BIGINT, "FACT_DATE_ID"), new SymbolStatsEstimate(NaN, NaN, 0.0, NaN, 10.0))))
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
@@ -250,7 +250,7 @@ public class TestPushPartialAggregationThroughJoin
                                         ImmutableList.of(p.symbol("FACT_DATE_ID"), p.symbol("AMOUNT")),
                                         ImmutableList.of(p.symbol("DATE_DIM_YEAR")),
                                         Optional.empty()))
-                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference("AMOUNT"))), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference(BIGINT, "AMOUNT"))), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("DATE_DIM_YEAR"))
                         .step(PARTIAL)))
                 .doesNotFire();
@@ -270,7 +270,7 @@ public class TestPushPartialAggregationThroughJoin
                                         ImmutableList.of(p.symbol("FACT_DATE_ID"), p.symbol("AMOUNT")),
                                         ImmutableList.of(p.symbol("DATE_DIM_YEAR")),
                                         Optional.empty()))
-                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference("AMOUNT"))), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference(BIGINT, "AMOUNT"))), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("DATE_DIM_YEAR"))
                         .step(PARTIAL)
                         .exchangeInputAggregation(true)))
@@ -281,8 +281,8 @@ public class TestPushPartialAggregationThroughJoin
                                 Optional.empty(),
                                 INTERMEDIATE,
                                 project(ImmutableMap.of(
-                                                "DATE_DIM_YEAR", PlanMatchPattern.expression(new SymbolReference("DATE_DIM_YEAR")),
-                                                "AVG", PlanMatchPattern.expression(new SymbolReference("AVG"))),
+                                                "DATE_DIM_YEAR", PlanMatchPattern.expression(new SymbolReference(BIGINT, "DATE_DIM_YEAR")),
+                                                "AVG", PlanMatchPattern.expression(new SymbolReference(DOUBLE, "AVG"))),
                                         join(INNER, builder -> builder
                                                 .equiCriteria("FACT_DATE_ID", "DATE_DIM_DATE_ID")
                                                 .left(
@@ -307,13 +307,13 @@ public class TestPushPartialAggregationThroughJoin
                                         ImmutableList.of(p.symbol("FACT_DATE_ID"), p.symbol("AMOUNT")),
                                         ImmutableList.of(p.symbol("DATE_DIM_YEAR")),
                                         Optional.empty()))
-                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference("AMOUNT"))), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference(BIGINT, "AMOUNT"))), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("FACT_DATE_ID"))
                         .step(PARTIAL)
                         .exchangeInputAggregation(true)))
                 .matches(project(ImmutableMap.of(
-                                "FACT_DATE_ID", PlanMatchPattern.expression(new SymbolReference("FACT_DATE_ID")),
-                                "AVG", PlanMatchPattern.expression(new SymbolReference("AVG"))),
+                                "FACT_DATE_ID", PlanMatchPattern.expression(new SymbolReference(BIGINT, "FACT_DATE_ID")),
+                                "AVG", PlanMatchPattern.expression(new SymbolReference(DOUBLE, "AVG"))),
                         join(INNER, builder -> builder
                                 .equiCriteria("FACT_DATE_ID", "DATE_DIM_DATE_ID")
                                 .left(
@@ -335,7 +335,7 @@ public class TestPushPartialAggregationThroughJoin
                         .source(
                                 p.project(
                                         Assignments.builder()
-                                                .put(p.symbol("LEFT_AGGR_PRJ"), new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("LEFT_AGGR"), new SymbolReference("LEFT_AGGR")))
+                                                .put(p.symbol("LEFT_AGGR_PRJ"), new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "LEFT_AGGR"), new SymbolReference(BIGINT, "LEFT_AGGR")))
                                                 .putIdentity(p.symbol("LEFT_GROUP_BY"))
                                                 .putIdentity(p.symbol("LEFT_EQUI"))
                                                 .putIdentity(p.symbol("LEFT_NON_EQUI"))
@@ -347,18 +347,18 @@ public class TestPushPartialAggregationThroughJoin
                                                 ImmutableList.of(new EquiJoinClause(p.symbol("LEFT_EQUI"), p.symbol("RIGHT_EQUI"))),
                                                 ImmutableList.of(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR")),
                                                 ImmutableList.of(),
-                                                Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("LEFT_NON_EQUI"), new SymbolReference("RIGHT_NON_EQUI"))))))
-                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference("LEFT_AGGR_PRJ"))), ImmutableList.of(DOUBLE))
+                                                Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "LEFT_NON_EQUI"), new SymbolReference(BIGINT, "RIGHT_NON_EQUI"))))))
+                        .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new SymbolReference(BIGINT, "LEFT_AGGR_PRJ"))), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"))
                         .step(PARTIAL)))
                 .matches(project(ImmutableMap.of(
-                                "LEFT_GROUP_BY", PlanMatchPattern.expression(new SymbolReference("LEFT_GROUP_BY")),
-                                "LEFT_EQUI", PlanMatchPattern.expression(new SymbolReference("LEFT_EQUI")),
-                                "LEFT_NON_EQUI", PlanMatchPattern.expression(new SymbolReference("LEFT_NON_EQUI")),
-                                "AVG", PlanMatchPattern.expression(new SymbolReference("AVG"))),
+                                "LEFT_GROUP_BY", PlanMatchPattern.expression(new SymbolReference(BIGINT, "LEFT_GROUP_BY")),
+                                "LEFT_EQUI", PlanMatchPattern.expression(new SymbolReference(BIGINT, "LEFT_EQUI")),
+                                "LEFT_NON_EQUI", PlanMatchPattern.expression(new SymbolReference(BIGINT, "LEFT_NON_EQUI")),
+                                "AVG", PlanMatchPattern.expression(new SymbolReference(DOUBLE, "AVG"))),
                         join(INNER, builder -> builder
                                 .equiCriteria("LEFT_EQUI", "RIGHT_EQUI")
-                                .filter(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("LEFT_NON_EQUI"), new SymbolReference("RIGHT_NON_EQUI")))
+                                .filter(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "LEFT_NON_EQUI"), new SymbolReference(BIGINT, "RIGHT_NON_EQUI")))
                                 .left(
                                         aggregation(
                                                 singleGroupingSet("LEFT_GROUP_BY", "LEFT_EQUI", "LEFT_NON_EQUI"),
@@ -366,7 +366,7 @@ public class TestPushPartialAggregationThroughJoin
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 project(
-                                                        ImmutableMap.of("LEFT_AGGR_PRJ", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("LEFT_AGGR"), new SymbolReference("LEFT_AGGR")))),
+                                                        ImmutableMap.of("LEFT_AGGR_PRJ", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "LEFT_AGGR"), new SymbolReference(BIGINT, "LEFT_AGGR")))),
                                                         values("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_AGGR"))))
                                 .right(
                                         project(

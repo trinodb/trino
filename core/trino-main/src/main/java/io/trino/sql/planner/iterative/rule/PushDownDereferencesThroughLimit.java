@@ -83,7 +83,7 @@ public class PushDownDereferencesThroughLimit
         LimitNode limitNode = captures.get(CHILD);
 
         // Extract dereferences from project node assignments for pushdown
-        Set<SubscriptExpression> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false, typeAnalyzer, context.getSymbolAllocator().getTypes());
+        Set<SubscriptExpression> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false, typeAnalyzer);
 
         // Exclude dereferences on symbols being used in tiesResolvingScheme and requiresPreSortedInputs
         Set<Symbol> excludedSymbols = ImmutableSet.<Symbol>builder()

@@ -24,6 +24,8 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -314,7 +316,7 @@ public abstract class BaseCostBasedPlanTest
                     node.getType(),
                     partitioning.getHandle(),
                     partitioning.getArguments().stream()
-                            .map(Object::toString)
+                            .map(BaseCostBasedPlanTest::argumentBindingToString)
                             .sorted() // Currently, order of hash columns is not deterministic
                             .collect(joining(", ", "[", "]")));
 
@@ -329,7 +331,7 @@ public abstract class BaseCostBasedPlanTest
                     "%s aggregation over (%s)",
                     node.getStep().name().toLowerCase(ENGLISH),
                     node.getGroupingKeys().stream()
-                            .map(Object::toString)
+                            .map(Symbol::getName)
                             .sorted()
                             .collect(joining(", ")));
 
@@ -404,5 +406,18 @@ public abstract class BaseCostBasedPlanTest
             String formattedMessage = format(message, args);
             result.append(format("%s%s\n", "    ".repeat(indent), formattedMessage));
         }
+    }
+
+    private static String argumentBindingToString(Partitioning.ArgumentBinding argument)
+    {
+        if (argument.getConstant() != null) {
+            return argument.getConstant().toString();
+        }
+        Expression expression = argument.getExpression();
+        requireNonNull(expression, "expression is null");
+        if (expression instanceof SymbolReference symbolReference) {
+            return symbolReference.name();
+        }
+        return expression.toString();
     }
 }

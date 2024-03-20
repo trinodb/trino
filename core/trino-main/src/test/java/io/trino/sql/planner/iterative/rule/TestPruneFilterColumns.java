@@ -46,11 +46,11 @@ public class TestPruneFilterColumns
                 .on(p -> buildProjectedFilter(p, symbol -> symbol.getName().equals("b")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                ImmutableMap.of("b", expression(new SymbolReference(INTEGER, "b"))),
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 5L)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 5L)),
                                         strictProject(
-                                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                                ImmutableMap.of("b", expression(new SymbolReference(INTEGER, "b"))),
                                                 values("a", "b")))));
     }
 
@@ -77,7 +77,7 @@ public class TestPruneFilterColumns
         return planBuilder.project(
                 Assignments.identity(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.filter(
-                        new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 5L)),
+                        new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 5L)),
                         planBuilder.values(a, b)));
     }
 }

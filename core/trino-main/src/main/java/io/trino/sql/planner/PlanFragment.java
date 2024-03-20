@@ -130,7 +130,7 @@ public class PlanFragment
                 "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputSymbols(), outputPartitioningScheme.getOutputLayout());
 
         types = outputPartitioningScheme.getOutputLayout().stream()
-                .map(symbols::get)
+                .map(Symbol::getType)
                 .collect(toImmutableList());
 
         this.partitionedSourceNodes = findSources(root, partitionedSources);

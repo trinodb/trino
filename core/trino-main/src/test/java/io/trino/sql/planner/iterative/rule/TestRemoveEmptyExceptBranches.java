@@ -21,12 +21,12 @@ import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.AggregationNode.Step;
-import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.except;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -63,11 +63,11 @@ public class TestRemoveEmptyExceptBranches
     {
         tester().assertThat(new RemoveEmptyExceptBranches())
                 .on(p -> {
-                    Symbol output = p.symbol("output");
-                    Symbol input1 = p.symbol("input1");
-                    Symbol input2 = p.symbol("input2");
-                    Symbol input3 = p.symbol("input3");
-                    Symbol input4 = p.symbol("input4");
+                    Symbol output = p.symbol("output", BIGINT);
+                    Symbol input1 = p.symbol("input1", BIGINT);
+                    Symbol input2 = p.symbol("input2", BIGINT);
+                    Symbol input3 = p.symbol("input3", BIGINT);
+                    Symbol input4 = p.symbol("input4", BIGINT);
 
                     return p.except(
                             ImmutableListMultimap.<Symbol, Symbol>builder()
@@ -84,8 +84,8 @@ public class TestRemoveEmptyExceptBranches
                 })
                 .matches(
                         except(
-                                values(List.of("input1"), List.of(List.of(new Constant(UnknownType.UNKNOWN, null)))),
-                                values(List.of("input3"), List.of(List.of(new Constant(UnknownType.UNKNOWN, null)), List.of(new Constant(UnknownType.UNKNOWN, null))))));
+                                values(List.of("input1"), List.of(List.of(new Constant(BIGINT, null)))),
+                                values(List.of("input3"), List.of(List.of(new Constant(BIGINT, null)), List.of(new Constant(BIGINT, null))))));
     }
 
     @Test
@@ -93,9 +93,9 @@ public class TestRemoveEmptyExceptBranches
     {
         tester().assertThat(new RemoveEmptyExceptBranches())
                 .on(p -> {
-                    Symbol output = p.symbol("output");
-                    Symbol input1 = p.symbol("input1");
-                    Symbol input2 = p.symbol("input2");
+                    Symbol output = p.symbol("output", BIGINT);
+                    Symbol input1 = p.symbol("input1", BIGINT);
+                    Symbol input2 = p.symbol("input2", BIGINT);
 
                     return p.except(
                             ImmutableListMultimap.<Symbol, Symbol>builder()
@@ -109,8 +109,8 @@ public class TestRemoveEmptyExceptBranches
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("output", expression(new SymbolReference("input1"))),
-                                values(ImmutableList.of("input1"), ImmutableList.of(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
+                                ImmutableMap.of("output", expression(new SymbolReference(BIGINT, "input1"))),
+                                values(ImmutableList.of("input1"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, null))))));
     }
 
     @Test
@@ -118,9 +118,9 @@ public class TestRemoveEmptyExceptBranches
     {
         tester().assertThat(new RemoveEmptyExceptBranches())
                 .on(p -> {
-                    Symbol output = p.symbol("output");
-                    Symbol input1 = p.symbol("input1");
-                    Symbol input2 = p.symbol("input2");
+                    Symbol output = p.symbol("output", BIGINT);
+                    Symbol input1 = p.symbol("input1", BIGINT);
+                    Symbol input2 = p.symbol("input2", BIGINT);
 
                     return p.except(
                             ImmutableListMultimap.<Symbol, Symbol>builder()
@@ -139,8 +139,8 @@ public class TestRemoveEmptyExceptBranches
                                 Optional.empty(),
                                 Step.SINGLE,
                                 project(
-                                        ImmutableMap.of("output", expression(new SymbolReference("input1"))),
-                                        values(ImmutableList.of("input1"), ImmutableList.of(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))))));
+                                        ImmutableMap.of("output", expression(new SymbolReference(BIGINT, "input1"))),
+                                        values(ImmutableList.of("input1"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, null)))))));
     }
 
     @Test

@@ -10,10 +10,10 @@ final aggregation over ()
                                     partial aggregation over (ws_item_sk_9)
                                         join (INNER, REPLICATED):
                                             alternatives
-                                                dynamic filter ([ws_item_sk_9], await [ws_sold_date_sk_6])
+                                                dynamic filter ([SymbolReference[type=bigint, name=ws_item_sk_9]], await [SymbolReference[type=bigint, name=ws_sold_date_sk_6]])
                                                     scan web_sales
                                                 cache data
-                                                    dynamic filter ([ws_item_sk_9], await [ws_sold_date_sk_6])
+                                                    dynamic filter ([SymbolReference[type=bigint, name=ws_item_sk_9]], await [SymbolReference[type=bigint, name=ws_sold_date_sk_6]])
                                                         scan web_sales
                                                 load from cache
                                             local exchange (GATHER, SINGLE, [])
@@ -28,10 +28,10 @@ final aggregation over ()
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         alternatives
-                                            dynamic filter (await [ws_item_sk, ws_sold_date_sk])
+                                            dynamic filter (await [SymbolReference[type=bigint, name=ws_item_sk], SymbolReference[type=bigint, name=ws_sold_date_sk]])
                                                 scan web_sales
                                             cache data
-                                                dynamic filter (await [ws_item_sk, ws_sold_date_sk])
+                                                dynamic filter (await [SymbolReference[type=bigint, name=ws_item_sk], SymbolReference[type=bigint, name=ws_sold_date_sk]])
                                                     scan web_sales
                                             load from cache
                                         local exchange (GATHER, SINGLE, [])

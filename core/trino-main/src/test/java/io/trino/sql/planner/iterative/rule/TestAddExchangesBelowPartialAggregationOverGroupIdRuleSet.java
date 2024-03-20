@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.SystemSessionProperties.USE_HIGHEST_CARDINALITY_COLUMN_FOR_REPARTITIONING_BELOW_GROUP_ID;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
@@ -67,9 +68,9 @@ public class TestAddExchangesBelowPartialAggregationOverGroupIdRuleSet
                         .builder()
                         .setOutputRowCount(100_000_000)
                         .addSymbolStatistics(ImmutableMap.of(
-                                new Symbol("groupingKey1"), SymbolStatsEstimate.builder().setDistinctValuesCount(groupingKey1NDV).build(),
-                                new Symbol("groupingKey2"), SymbolStatsEstimate.builder().setDistinctValuesCount(groupingKey2NDV).build(),
-                                new Symbol("groupingKey3"), SymbolStatsEstimate.builder().setDistinctValuesCount(groupingKey3NDV).build()))
+                                new Symbol(BIGINT, "groupingKey1"), SymbolStatsEstimate.builder().setDistinctValuesCount(groupingKey1NDV).build(),
+                                new Symbol(BIGINT, "groupingKey2"), SymbolStatsEstimate.builder().setDistinctValuesCount(groupingKey2NDV).build(),
+                                new Symbol(BIGINT, "groupingKey3"), SymbolStatsEstimate.builder().setDistinctValuesCount(groupingKey3NDV).build()))
                         .build())
                 .on(p -> {
                     Symbol groupingKey1 = p.symbol("groupingKey1");

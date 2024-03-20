@@ -12,11 +12,11 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [cs_item_sk, cs_order_number])
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        dynamic filter ([cs_item_sk], await [cs_sold_date_sk])
+                                                        dynamic filter ([SymbolReference[type=bigint, name=cs_item_sk]], await [SymbolReference[type=bigint, name=cs_sold_date_sk]])
                                                             scan catalog_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter ([i_brand_id_7, i_category_id_9, i_class_id_8, i_manufact_id_10])
+                                                                dynamic filter ([SymbolReference[type=integer, name=i_brand_id_7], SymbolReference[type=integer, name=i_category_id_9], SymbolReference[type=integer, name=i_class_id_8], SymbolReference[type=integer, name=i_manufact_id_10]])
                                                                     scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -30,11 +30,11 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ss_item_sk, ss_ticket_number])
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        dynamic filter ([ss_item_sk], await [ss_sold_date_sk])
+                                                        dynamic filter ([SymbolReference[type=bigint, name=ss_item_sk]], await [SymbolReference[type=bigint, name=ss_sold_date_sk]])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter ([i_brand_id_28, i_category_id_32, i_class_id_30, i_manufact_id_34])
+                                                                dynamic filter ([SymbolReference[type=integer, name=i_brand_id_28], SymbolReference[type=integer, name=i_category_id_32], SymbolReference[type=integer, name=i_class_id_30], SymbolReference[type=integer, name=i_manufact_id_34]])
                                                                     scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -48,11 +48,11 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ws_item_sk, ws_order_number])
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        dynamic filter ([ws_item_sk], await [ws_sold_date_sk])
+                                                        dynamic filter ([SymbolReference[type=bigint, name=ws_item_sk]], await [SymbolReference[type=bigint, name=ws_sold_date_sk]])
                                                             scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter ([i_brand_id_88, i_category_id_92, i_class_id_90, i_manufact_id_94])
+                                                                dynamic filter ([SymbolReference[type=integer, name=i_brand_id_88], SymbolReference[type=integer, name=i_category_id_92], SymbolReference[type=integer, name=i_class_id_90], SymbolReference[type=integer, name=i_manufact_id_94]])
                                                                     scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -69,7 +69,7 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [cs_item_sk_170, cs_order_number_172])
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        dynamic filter ([cs_item_sk_170], await [cs_sold_date_sk_155])
+                                                        dynamic filter ([SymbolReference[type=bigint, name=cs_item_sk_170]], await [SymbolReference[type=bigint, name=cs_sold_date_sk_155]])
                                                             scan catalog_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -86,7 +86,7 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ss_item_sk_278, ss_ticket_number_285])
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        dynamic filter ([ss_item_sk_278], await [ss_sold_date_sk_276])
+                                                        dynamic filter ([SymbolReference[type=bigint, name=ss_item_sk_278]], await [SymbolReference[type=bigint, name=ss_sold_date_sk_276]])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -103,7 +103,7 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ws_item_sk_382, ws_order_number_396])
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        dynamic filter ([ws_item_sk_382], await [ws_sold_date_sk_379])
+                                                        dynamic filter ([SymbolReference[type=bigint, name=ws_item_sk_382]], await [SymbolReference[type=bigint, name=ws_sold_date_sk_379]])
                                                             scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

@@ -78,7 +78,7 @@ public class PushDownDereferencesThroughAssignUniqueId
         AssignUniqueId assignUniqueId = captures.get(CHILD);
 
         // Extract dereferences from project node assignments for pushdown
-        Set<SubscriptExpression> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false, typeAnalyzer, context.getSymbolAllocator().getTypes());
+        Set<SubscriptExpression> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false, typeAnalyzer);
 
         // We do not need to filter dereferences on idColumn symbol since it is supposed to be of BIGINT type.
 

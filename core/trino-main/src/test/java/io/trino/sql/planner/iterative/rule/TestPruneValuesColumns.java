@@ -42,7 +42,7 @@ public class TestPruneValuesColumns
         tester().assertThat(new PruneValuesColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("y"), new SymbolReference("x")),
+                                Assignments.of(p.symbol("y"), new SymbolReference(INTEGER, "x")),
                                 p.values(
                                         ImmutableList.of(p.symbol("unused"), p.symbol("x")),
                                         ImmutableList.of(
@@ -50,7 +50,7 @@ public class TestPruneValuesColumns
                                                 ImmutableList.of(new Constant(INTEGER, 3L), new Constant(INTEGER, 4L))))))
                 .matches(
                         project(
-                                ImmutableMap.of("y", PlanMatchPattern.expression(new SymbolReference("x"))),
+                                ImmutableMap.of("y", PlanMatchPattern.expression(new SymbolReference(INTEGER, "x"))),
                                 values(
                                         ImmutableList.of("x"),
                                         ImmutableList.of(
@@ -64,7 +64,7 @@ public class TestPruneValuesColumns
         tester().assertThat(new PruneValuesColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("y"), new SymbolReference("x")),
+                                Assignments.of(p.symbol("y"), new SymbolReference(BIGINT, "x")),
                                 p.values(p.symbol("x"))))
                 .doesNotFire();
     }
@@ -105,7 +105,7 @@ public class TestPruneValuesColumns
         tester().assertThat(new PruneValuesColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), new SymbolReference("x")),
+                                Assignments.of(p.symbol("x"), new SymbolReference(INTEGER, "x")),
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("x"), p.symbol("y")),
                                         ImmutableList.of(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")))), anonymousRow(BIGINT, createCharType(2)))))))
