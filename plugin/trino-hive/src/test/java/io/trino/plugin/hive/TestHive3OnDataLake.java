@@ -2093,7 +2093,7 @@ public class TestHive3OnDataLake
                         "    comment varchar(152),  " +
                         "    nationkey bigint, " +
                         "    regionkey bigint) " +
-                        (propertiesEntries.size() < 1 ? "" : propertiesEntries
+                        (propertiesEntries.isEmpty() ? "" : propertiesEntries
                                 .stream()
                                 .collect(joining(",", "WITH (", ")"))),
                 tableName);

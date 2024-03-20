@@ -132,7 +132,7 @@ public class BinaryColumnAdapter
     @Override
     public BinaryBuffer merge(List<BinaryBuffer> buffers)
     {
-        if (buffers.size() == 0) {
+        if (buffers.isEmpty()) {
             return new BinaryBuffer(0);
         }
 
