@@ -101,7 +101,9 @@ import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.MATERIALIZED_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.isSomeKindOfAView;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.file.ColumnStatistics.fromHiveColumnStatistics;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.SchemaType.DATABASE;
@@ -109,8 +111,6 @@ import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.SchemaType.P
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.SchemaType.TABLE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VERSION_COMPATIBILITY_CONFIG;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.UNSAFE_ASSUME_COMPATIBILITY;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
