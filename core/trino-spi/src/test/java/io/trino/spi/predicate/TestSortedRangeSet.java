@@ -615,6 +615,25 @@ public class TestSortedRangeSet
                                 IntStream.rangeClosed(30, 49).mapToObj(l -> Range.range(VARCHAR, slices.get(l * 5), l % 2 == 1, slices.get((l + 1) * 5 - 1), l % 2 == 0))).toList()));
     }
 
+    @Test
+    public void testLinearDiscreteSetIntersect()
+    {
+        SortedRangeSet result = SortedRangeSet.of(BIGINT, 1L, 2L, 10L, 11L, 20L, 21L)
+                .linearDiscreteSetIntersect(SortedRangeSet.of(BIGINT, 1L, 2L, 20L, 21L, 30L));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 1L, 2L, 20L, 21L));
+        assertThat(result.isDiscreteSet()).isTrue();
+
+        result = SortedRangeSet.of(BIGINT, 1L, 2L, 10L)
+                .linearDiscreteSetIntersect(SortedRangeSet.of(BIGINT, 1L, 2L, 11L));
+        assertThat(result).isEqualTo(SortedRangeSet.of(BIGINT, 1L, 2L));
+        assertThat(result.isDiscreteSet()).isTrue();
+
+        result = SortedRangeSet.of(BIGINT, 1L, 2L, 10L)
+                .linearDiscreteSetIntersect(SortedRangeSet.of(BIGINT, 42L));
+        assertThat(result).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertThat(result.isDiscreteSet()).isFalse();
+    }
+
     private void assertIntersect(SortedRangeSet first, SortedRangeSet second, SortedRangeSet result)
     {
         assertThat(first.intersect(second)).isEqualTo(result);
