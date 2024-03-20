@@ -153,8 +153,8 @@ public class TestBlockRetainedSizeBreakdown
 
         assertThat(trackedObjects.getLong(block)).isEqualTo(1);
         assertThat(trackedObjects.getLong(copyBlock)).isEqualTo(1);
-        trackedObjects.remove(block);
-        trackedObjects.remove(copyBlock);
+        trackedObjects.remove(block, 1);
+        trackedObjects.remove(copyBlock, 1);
         for (long value : trackedObjects.values()) {
             assertThat(value).isEqualTo(getRegionCreateNewObjects ? 1 : 2);
         }
