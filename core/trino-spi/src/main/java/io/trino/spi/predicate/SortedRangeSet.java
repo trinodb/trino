@@ -19,6 +19,7 @@ import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
@@ -552,12 +553,75 @@ public final class SortedRangeSet
         int thatRangeCount = that.getRangeCount();
 
         if (max(thisRangeCount, thatRangeCount) * 0.02 < min(thisRangeCount, thatRangeCount)) {
-            return linearSearchIntersect(that);
+            if (discreteSetMarker == DISCRETE && that.discreteSetMarker == DISCRETE) {
+                return linearDiscreteSetIntersect(that);
+            }
+            else {
+                return linearSearchIntersect(that);
+            }
         }
         else {
             // Binary search is better than linear search for sets with large size difference
             return binarySearchIntersect(that);
         }
+    }
+
+    // visible for testing
+    SortedRangeSet linearDiscreteSetIntersect(SortedRangeSet that)
+    {
+        int thisRangeCount = this.getRangeCount();
+        int thatRangeCount = that.getRangeCount();
+
+        boolean[] inclusive = new boolean[2 * (thisRangeCount + thatRangeCount)];
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 2 * (thisRangeCount + thatRangeCount));
+        int resultRangeIndex = 0;
+
+        int thisNextRangeIndex = 0;
+        int thatNextRangeIndex = 0;
+
+        int currentIntersectionStart = -1;
+
+        while (thisNextRangeIndex < thisRangeCount && thatNextRangeIndex < thatRangeCount) {
+            int compare = compareValues(
+                    comparisonOperator,
+                    sortedRanges,
+                    2 * thisNextRangeIndex,
+                    that.sortedRanges,
+                    2 * thatNextRangeIndex);
+            if (compare == 0) {
+                if (currentIntersectionStart == -1) {
+                    currentIntersectionStart = thisNextRangeIndex;
+                }
+                thisNextRangeIndex++;
+                thatNextRangeIndex++;
+            }
+            else {
+                if (currentIntersectionStart != -1) {
+                    int size = thisNextRangeIndex - currentIntersectionStart;
+                    copyBlock(this, currentIntersectionStart * 2, blockBuilder, inclusive, resultRangeIndex * 2, size);
+                    resultRangeIndex += size;
+                    currentIntersectionStart = -1;
+                }
+                if (compare < 0) {
+                    thisNextRangeIndex++;
+                }
+                else {
+                    thatNextRangeIndex++;
+                }
+            }
+        }
+
+        if (currentIntersectionStart != -1) {
+            int size = thisNextRangeIndex - currentIntersectionStart;
+            copyBlock(this, currentIntersectionStart * 2, blockBuilder, inclusive, resultRangeIndex * 2, size);
+            resultRangeIndex += size;
+        }
+
+        if (resultRangeIndex * 2 < inclusive.length) {
+            inclusive = Arrays.copyOf(inclusive, resultRangeIndex * 2);
+        }
+
+        return new SortedRangeSet(type, inclusive, blockBuilder.build(), resultRangeIndex > 0 ? DISCRETE : NON_DISCRETE);
     }
 
     // visible for testing
@@ -672,25 +736,10 @@ public final class SortedRangeSet
                     probeIndex++;
                 }
                 else {
-                    Block block = probeRangeSet.getSortedRanges();
-                    if (block instanceof DictionaryBlock || block instanceof ValueBlock) {
-                        int size = intersectionEndIndex - probeIndex - 1;
-                        int offset = probeIndex * 2;
-                        if (block instanceof DictionaryBlock) {
-                            copyDictionaryBlock(blockBuilder, inclusive, probeRangeSet, offset, resultIndex, size);
-                        }
-                        else {
-                            copyValueBlock(blockBuilder, inclusive, probeRangeSet, offset, resultIndex, size);
-                        }
-                        probeIndex += size;
-                        resultIndex += size;
-                    }
-                    else {
-                        // RLE
-                        writeRange(type, blockBuilder, inclusive, resultIndex, probeRange);
-                        resultIndex++;
-                        probeIndex++;
-                    }
+                    int size = intersectionEndIndex - probeIndex - 1;
+                    copyBlock(probeRangeSet, probeIndex * 2, blockBuilder, inclusive, resultIndex * 2, size);
+                    probeIndex += size;
+                    resultIndex += size;
                 }
             }
         }
@@ -717,22 +766,37 @@ public final class SortedRangeSet
         return UNKNOWN;
     }
 
-    private static void copyValueBlock(BlockBuilder blockBuilder, boolean[] inclusive, SortedRangeSet source, int sourceOffset, int destinationOffset, int size)
+    private static void copyBlock(SortedRangeSet source, int sourceOffset, BlockBuilder destination, boolean[] destinationInclusive, int destinationOffset, int size)
     {
-        ValueBlock valueBlock = (ValueBlock) source.getSortedRanges();
-        System.arraycopy(source.getInclusive(), sourceOffset, inclusive, destinationOffset * 2, size * 2);
-        blockBuilder.appendRange(valueBlock.getUnderlyingValueBlock(), sourceOffset, size * 2);
+        Block block = source.getSortedRanges();
+        switch (block) {
+            case ValueBlock valueBlock -> copyValueBlock(source, valueBlock, sourceOffset, destination, destinationInclusive, destinationOffset, size);
+            case DictionaryBlock dictionaryBlock -> copyDictionaryBlock(source, dictionaryBlock, sourceOffset, destination, destinationInclusive, destinationOffset, size);
+            case RunLengthEncodedBlock rleBlock -> copyRleBlock(source, rleBlock, sourceOffset, destination, destinationInclusive, destinationOffset, size);
+            case LazyBlock ignored -> throw new IllegalArgumentException("Did not expect LazyBlock");
+        }
     }
 
-    private static void copyDictionaryBlock(BlockBuilder blockBuilder, boolean[] inclusive, SortedRangeSet source, int sourceOffset, int destinationOffset, int size)
+    private static void copyValueBlock(SortedRangeSet source, ValueBlock sourceBlock, int sourceOffset, BlockBuilder destination, boolean[] destinationInclusive, int destinationOffset, int size)
     {
-        DictionaryBlock dictionaryBlock = (DictionaryBlock) source.getSortedRanges();
+        System.arraycopy(source.getInclusive(), sourceOffset, destinationInclusive, destinationOffset, size * 2);
+        destination.appendRange(sourceBlock, sourceOffset, size * 2);
+    }
+
+    private static void copyDictionaryBlock(SortedRangeSet source, DictionaryBlock sourceBlock, int sourceOffset, BlockBuilder destination, boolean[] destinationInclusive, int destinationOffset, int size)
+    {
         int[] positions = new int[size * 2];
         for (int position = 0; position < size * 2; position++) {
-            positions[position] = dictionaryBlock.getUnderlyingValuePosition(position + sourceOffset);
+            positions[position] = sourceBlock.getUnderlyingValuePosition(position + sourceOffset);
         }
-        System.arraycopy(source.getInclusive(), sourceOffset, inclusive, destinationOffset * 2, positions.length);
-        blockBuilder.appendPositions(dictionaryBlock.getUnderlyingValueBlock(), positions, 0, positions.length);
+        System.arraycopy(source.getInclusive(), sourceOffset, destinationInclusive, destinationOffset, positions.length);
+        destination.appendPositions(sourceBlock.getUnderlyingValueBlock(), positions, 0, positions.length);
+    }
+
+    private static void copyRleBlock(SortedRangeSet source, RunLengthEncodedBlock sourceBlock, int sourceOffset, BlockBuilder destination, boolean[] destinationInclusive, int destinationOffset, int size)
+    {
+        System.arraycopy(source.getInclusive(), sourceOffset, destinationInclusive, destinationOffset, size * 2);
+        destination.appendRepeated(sourceBlock.getValue(), 0, size * 2);
     }
 
     @Override
