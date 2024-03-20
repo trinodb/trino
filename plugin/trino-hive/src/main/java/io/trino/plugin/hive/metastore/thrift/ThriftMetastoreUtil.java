@@ -14,16 +14,12 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
-import com.google.common.primitives.Longs;
 import com.google.common.primitives.Shorts;
-import io.airlift.compress.Compressor;
-import io.airlift.compress.zstd.ZstdCompressor;
 import io.airlift.compress.zstd.ZstdDecompressor;
 import io.airlift.json.JsonCodec;
 import io.trino.hive.thrift.metastore.BinaryColumnStatsData;
@@ -40,13 +36,11 @@ import io.trino.hive.thrift.metastore.LongColumnStatsData;
 import io.trino.hive.thrift.metastore.Order;
 import io.trino.hive.thrift.metastore.PrincipalPrivilegeSet;
 import io.trino.hive.thrift.metastore.PrivilegeGrantInfo;
-import io.trino.hive.thrift.metastore.ResourceType;
 import io.trino.hive.thrift.metastore.ResourceUri;
 import io.trino.hive.thrift.metastore.RolePrincipalGrant;
 import io.trino.hive.thrift.metastore.SerDeInfo;
 import io.trino.hive.thrift.metastore.StorageDescriptor;
 import io.trino.hive.thrift.metastore.StringColumnStatsData;
-import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
@@ -105,7 +99,6 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.io.BaseEncoding.base64Url;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.binaryStats;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.booleanStats;
@@ -138,7 +131,9 @@ import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INS
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
-import static io.trino.plugin.hive.metastore.SparkMetastoreUtil.getSparkBasicStatistics;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.toResourceUris;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -159,13 +154,8 @@ import static java.util.Objects.requireNonNull;
 public final class ThriftMetastoreUtil
 {
     private static final JsonCodec<LanguageFunction> LANGUAGE_FUNCTION_CODEC = JsonCodec.jsonCodec(LanguageFunction.class);
-    public static final String NUM_ROWS = "numRows";
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
-    private static final String NUM_FILES = "numFiles";
-    private static final String RAW_DATA_SIZE = "rawDataSize";
-    private static final String TOTAL_SIZE = "totalSize";
-    public static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
 
     private ThriftMetastoreUtil() {}
 
@@ -716,53 +706,6 @@ public final class ThriftMetastoreUtil
         };
     }
 
-    public static HiveBasicStatistics getHiveBasicStatistics(Map<String, String> parameters)
-    {
-        OptionalLong numFiles = toLong(parameters.get(NUM_FILES));
-        OptionalLong numRows = toLong(parameters.get(NUM_ROWS));
-        OptionalLong inMemoryDataSizeInBytes = toLong(parameters.get(RAW_DATA_SIZE));
-        OptionalLong onDiskDataSizeInBytes = toLong(parameters.get(TOTAL_SIZE));
-        return new HiveBasicStatistics(numFiles, numRows, inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
-    }
-
-    public static HiveBasicStatistics getBasicStatisticsWithSparkFallback(Map<String, String> parameters)
-    {
-        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(parameters);
-        // Partitioned table without statistics
-        if (basicStatistics.getRowCount().isEmpty() || basicStatistics.getRowCount().getAsLong() == 0L) {
-            HiveBasicStatistics sparkBasicStatistics = getSparkBasicStatistics(parameters);
-            if (sparkBasicStatistics.getRowCount().isPresent()) {
-                return sparkBasicStatistics;
-            }
-        }
-
-        return basicStatistics;
-    }
-
-    public static Map<String, String> updateStatisticsParameters(Map<String, String> parameters, HiveBasicStatistics statistics)
-    {
-        ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
-
-        parameters.forEach((key, value) -> {
-            if (!STATS_PROPERTIES.contains(key)) {
-                result.put(key, value);
-            }
-        });
-
-        statistics.getFileCount().ifPresent(count -> result.put(NUM_FILES, Long.toString(count)));
-        statistics.getRowCount().ifPresent(count -> result.put(NUM_ROWS, Long.toString(count)));
-        statistics.getInMemoryDataSizeInBytes().ifPresent(size -> result.put(RAW_DATA_SIZE, Long.toString(size)));
-        statistics.getOnDiskDataSizeInBytes().ifPresent(size -> result.put(TOTAL_SIZE, Long.toString(size)));
-
-        // CDH 5.16 metastore ignores stats unless STATS_GENERATED_VIA_STATS_TASK is set
-        // https://github.com/cloudera/hive/blob/cdh5.16.2-release/metastore/src/java/org/apache/hadoop/hive/metastore/MetaStoreUtils.java#L227-L231
-        if (!parameters.containsKey("STATS_GENERATED_VIA_STATS_TASK")) {
-            result.put("STATS_GENERATED_VIA_STATS_TASK", "workaround for potential lack of HIVE-12730");
-        }
-
-        return result.buildOrThrow();
-    }
-
     public static ColumnStatisticsObj createMetastoreColumnStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)
     {
         TypeInfo typeInfo = columnType.getTypeInfo();
@@ -945,26 +888,6 @@ public final class ThriftMetastoreUtil
                 .setResourceUris(toResourceUris(LANGUAGE_FUNCTION_CODEC.toJsonBytes(function)));
     }
 
-    public static String metastoreFunctionName(String functionName, String signatureToken)
-    {
-        return "trino__%s__%s".formatted(functionName, sha256().hashUnencodedChars(signatureToken));
-    }
-
-    public static List<ResourceUri> toResourceUris(byte[] input)
-    {
-        Compressor compressor = new ZstdCompressor();
-        byte[] compressed = new byte[compressor.maxCompressedLength(input.length)];
-        int outputSize = compressor.compress(input, 0, input.length, compressed, 0, compressed.length);
-
-        ImmutableList.Builder<ResourceUri> resourceUris = ImmutableList.builder();
-        for (int offset = 0; offset < outputSize; offset += 750) {
-            int length = Math.min(750, outputSize - offset);
-            String encoded = base64Url().encode(compressed, offset, length);
-            resourceUris.add(new ResourceUri(ResourceType.FILE, encoded));
-        }
-        return resourceUris.build();
-    }
-
     public static byte[] fromResourceUris(List<ResourceUri> resourceUris)
     {
         ByteArrayDataOutput bytes = ByteStreams.newDataOutput();
@@ -987,17 +910,5 @@ public final class ThriftMetastoreUtil
         catch (RuntimeException e) {
             throw new TrinoException(HIVE_INVALID_METADATA, "Failed to decode function: " + name, e);
         }
-    }
-
-    private static OptionalLong toLong(@Nullable String parameterValue)
-    {
-        if (parameterValue == null) {
-            return OptionalLong.empty();
-        }
-        Long longValue = Longs.tryParse(parameterValue);
-        if (longValue == null || longValue < 0) {
-            return OptionalLong.empty();
-        }
-        return OptionalLong.of(longValue);
     }
 }
