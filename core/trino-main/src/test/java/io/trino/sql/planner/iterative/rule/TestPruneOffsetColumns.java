@@ -27,6 +27,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.offset;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -42,11 +43,11 @@ public class TestPruneOffsetColumns
                 .on(p -> buildProjectedOffset(p, symbol -> symbol.getName().equals("b")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                 offset(
                                         1,
                                         strictProject(
-                                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                                 values("a", "b")))));
     }
 

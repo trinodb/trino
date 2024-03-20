@@ -24,6 +24,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -59,13 +60,13 @@ public class TestImplementIntersectDistinctAsUnion
                                                 union(
                                                         project(
                                                                 ImmutableMap.of(
-                                                                        "leftValue", expression(new SymbolReference("a")),
+                                                                        "leftValue", expression(new SymbolReference(BIGINT, "a")),
                                                                         "left_marker_1", expression(TRUE_LITERAL),
                                                                         "left_marker_2", expression(new Constant(BOOLEAN, null))),
                                                                 values("a")),
                                                         project(
                                                                 ImmutableMap.of(
-                                                                        "rightValue", expression(new SymbolReference("b")),
+                                                                        "rightValue", expression(new SymbolReference(BIGINT, "b")),
                                                                         "right_marker_1", expression(new Constant(BOOLEAN, null)),
                                                                         "right_marker_2", expression(TRUE_LITERAL)),
                                                                 values("b")))))));

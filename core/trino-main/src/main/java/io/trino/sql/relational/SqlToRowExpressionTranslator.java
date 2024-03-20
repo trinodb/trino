@@ -204,14 +204,9 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitLambdaExpression(LambdaExpression node, Void context)
         {
-            RowExpression body = process(node.getBody(), context);
-
-            Type type = getType(node);
-            List<Type> typeParameters = type.getTypeParameters();
-            List<Type> argumentTypes = typeParameters.subList(0, typeParameters.size() - 1);
-            List<String> argumentNames = node.getArguments();
-
-            return new LambdaDefinitionExpression(argumentTypes, argumentNames, body);
+            return new LambdaDefinitionExpression(
+                    node.arguments(),
+                    process(node.getBody(), context));
         }
 
         @Override

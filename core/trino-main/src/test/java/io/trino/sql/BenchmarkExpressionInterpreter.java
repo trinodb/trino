@@ -64,7 +64,7 @@ public class BenchmarkExpressionInterpreter
         public void setup()
         {
             expressions = ImmutableList.of(
-                    new InPredicate(new SymbolReference("bound_value"), IntStream.range(0, inValuesCount).mapToObj(i -> new Constant(INTEGER, (long) i))
+                    new InPredicate(new SymbolReference(INTEGER, "bound_value"), IntStream.range(0, inValuesCount).mapToObj(i -> new Constant(INTEGER, (long) i))
                             .collect(Collectors.toList())));
         }
     }

@@ -19,6 +19,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
+import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
@@ -255,9 +256,9 @@ public final class JoinMatcher
         }
 
         @CanIgnoreReturnValue
-        public Builder dynamicFilter(String key, String value)
+        public Builder dynamicFilter(Type type, String key, String value)
         {
-            this.dynamicFilter = Optional.of(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern(new SymbolReference(key), EQUAL, value)));
+            this.dynamicFilter = Optional.of(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern(new SymbolReference(type, key), EQUAL, value)));
 
             return this;
         }

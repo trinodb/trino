@@ -198,7 +198,6 @@ public class PushPredicateIntoTableScan
                     plannerContext,
                     typeAnalyzer,
                     session,
-                    symbolAllocator.getTypes(),
                     node.getAssignments(),
                     combineConjuncts(
                             splitExpression.getDeterministicPredicate(),
@@ -283,7 +282,7 @@ public class PushPredicateIntoTableScan
             Expression translatedExpression = ConnectorExpressionTranslator.translate(session, remainingConnectorExpression.get(), plannerContext, variableMappings);
             // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
             // by ensuring expression is optimized.
-            Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(symbolAllocator.getTypes(), translatedExpression);
+            Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(translatedExpression);
             Object optimized = new IrExpressionInterpreter(translatedExpression, plannerContext, session, translatedExpressionTypes)
                     .optimize(NoOpSymbolResolver.INSTANCE);
 

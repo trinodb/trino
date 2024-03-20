@@ -290,7 +290,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
     private Symbol symbolForExpression(Context context, Expression expression)
     {
         checkArgument(!(expression instanceof SymbolReference), "expression '%s' is a SymbolReference", expression);
-        return context.getSymbolAllocator().newSymbol(expression, typeAnalyzer.getType(context.getSymbolAllocator().getTypes(), expression));
+        return context.getSymbolAllocator().newSymbol(expression, typeAnalyzer.getType(expression));
     }
 
     private class PushFilterExpressionBelowJoinFilterRule

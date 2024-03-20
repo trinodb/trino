@@ -34,7 +34,6 @@ import io.trino.sql.ir.NotExpression;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
-import io.trino.sql.planner.TypeProvider;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -86,16 +85,15 @@ public class UnwrapYearInComparison
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> unwrapYear(context.getSession(), plannerContext, typeAnalyzer, context.getSymbolAllocator().getTypes(), expression);
+        return (expression, context) -> unwrapYear(context.getSession(), plannerContext, typeAnalyzer, expression);
     }
 
     private static Expression unwrapYear(Session session,
             PlannerContext plannerContext,
             IrTypeAnalyzer typeAnalyzer,
-            TypeProvider types,
             Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer, session, types), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer, session), expression);
     }
 
     private static class Visitor
@@ -104,14 +102,12 @@ public class UnwrapYearInComparison
         private final PlannerContext plannerContext;
         private final IrTypeAnalyzer typeAnalyzer;
         private final Session session;
-        private final TypeProvider types;
 
-        public Visitor(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
+        public Visitor(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, Session session)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
-            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -159,7 +155,7 @@ public class UnwrapYearInComparison
                 return expression;
             }
 
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, expression);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(expression);
 
             Expression argument = getOnlyElement(call.getArguments());
             Type argumentType = expressionTypes.get(NodeRef.of(argument));

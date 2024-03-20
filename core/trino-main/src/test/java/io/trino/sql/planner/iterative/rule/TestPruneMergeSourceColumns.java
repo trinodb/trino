@@ -22,6 +22,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.MergeWriterNode;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -52,8 +53,8 @@ public class TestPruneMergeSourceColumns
                                 MergeWriterNode.class,
                                 strictProject(
                                         ImmutableMap.of(
-                                                "row_id", expression(new SymbolReference("row_id")),
-                                                "merge_row", expression(new SymbolReference("merge_row"))),
+                                                "row_id", expression(new SymbolReference(BIGINT, "row_id")),
+                                                "merge_row", expression(new SymbolReference(BIGINT, "merge_row"))),
                                         values("a", "merge_row", "row_id"))));
     }
 

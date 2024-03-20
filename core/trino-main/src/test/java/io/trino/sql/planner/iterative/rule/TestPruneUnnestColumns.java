@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -54,7 +55,7 @@ public class TestPruneUnnestColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("replicate_symbol", expression(new SymbolReference("replicate_symbol")), "unnested_symbol", expression(new SymbolReference("unnested_symbol"))),
+                                ImmutableMap.of("replicate_symbol", expression(new SymbolReference(BIGINT, "replicate_symbol")), "unnested_symbol", expression(new SymbolReference(BIGINT, "unnested_symbol"))),
                                 unnest(
                                         ImmutableList.of("replicate_symbol"),
                                         ImmutableList.of(unnestMapping("unnest_symbol", ImmutableList.of("unnested_symbol"))),
@@ -83,7 +84,7 @@ public class TestPruneUnnestColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("unnested_symbol", expression(new SymbolReference("unnested_symbol")), "ordinality_symbol", expression(new SymbolReference("ordinality_symbol"))),
+                                ImmutableMap.of("unnested_symbol", expression(new SymbolReference(BIGINT, "unnested_symbol")), "ordinality_symbol", expression(new SymbolReference(BIGINT, "ordinality_symbol"))),
                                 unnest(
                                         ImmutableList.of(),
                                         ImmutableList.of(unnestMapping("unnest_symbol", ImmutableList.of("unnested_symbol"))),

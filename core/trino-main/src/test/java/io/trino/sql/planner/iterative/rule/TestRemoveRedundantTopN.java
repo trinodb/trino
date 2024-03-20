@@ -44,7 +44,7 @@ public class TestRemoveRedundantTopN
                                 10,
                                 ImmutableList.of(p.symbol("c")),
                                 p.aggregation(builder -> builder
-                                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new SymbolReference("foo"))), ImmutableList.of(BIGINT))
+                                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "foo"))), ImmutableList.of(BIGINT))
                                         .globalGrouping()
                                         .source(p.values(p.symbol("foo"))))))
                 .matches(
@@ -57,7 +57,7 @@ public class TestRemoveRedundantTopN
                                 10,
                                 ImmutableList.of(p.symbol("a")),
                                 p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 5L)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 5L)),
                                         p.values(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 ImmutableList.of(
@@ -79,7 +79,7 @@ public class TestRemoveRedundantTopN
                                 0,
                                 ImmutableList.of(p.symbol("a")),
                                 p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 5L)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 5L)),
                                         p.values(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 ImmutableList.of(
@@ -98,7 +98,7 @@ public class TestRemoveRedundantTopN
                                 10,
                                 ImmutableList.of(p.symbol("c")),
                                 p.aggregation(builder -> builder
-                                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new SymbolReference("foo"))), ImmutableList.of(BIGINT))
+                                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "foo"))), ImmutableList.of(BIGINT))
                                         .singleGroupingSet(p.symbol("foo"))
                                         .source(p.values(20, p.symbol("foo"))))))
                 .doesNotFire();

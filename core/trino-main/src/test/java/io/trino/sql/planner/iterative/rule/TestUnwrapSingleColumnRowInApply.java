@@ -37,6 +37,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.setExpression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.ApplyNode.Operator.EQUAL;
 import static io.trino.sql.planner.plan.ApplyNode.Quantifier.ALL;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Collections.emptyList;
 
 public class TestUnwrapSingleColumnRowInApply
@@ -48,8 +49,8 @@ public class TestUnwrapSingleColumnRowInApply
         tester().assertThat(new UnwrapSingleColumnRowInApply(new IrTypeAnalyzer(tester().getPlannerContext())))
                 .on(p -> p.apply(
                         ImmutableMap.<Symbol, ApplyNode.SetExpression>builder()
-                                .put(p.symbol("output1", BOOLEAN), new ApplyNode.In(new Symbol("value"), new Symbol("element")))
-                                .put(p.symbol("output2", BOOLEAN), new ApplyNode.QuantifiedComparison(EQUAL, ALL, new Symbol("value"), new Symbol("element")))
+                                .put(p.symbol("output1", BOOLEAN), new ApplyNode.In(new Symbol(UNKNOWN, "value"), new Symbol(UNKNOWN, "element")))
+                                .put(p.symbol("output2", BOOLEAN), new ApplyNode.QuantifiedComparison(EQUAL, ALL, new Symbol(UNKNOWN, "value"), new Symbol(UNKNOWN, "element")))
                                 .buildOrThrow(),
                         emptyList(),
                         p.values(p.symbol("value", INTEGER)),
@@ -63,8 +64,8 @@ public class TestUnwrapSingleColumnRowInApply
         tester().assertThat(new UnwrapSingleColumnRowInApply(new IrTypeAnalyzer(tester().getPlannerContext())))
                 .on(p -> p.apply(
                         ImmutableMap.<Symbol, ApplyNode.SetExpression>builder()
-                                .put(p.symbol("unwrapped", BOOLEAN), new ApplyNode.In(new Symbol("rowValue"), new Symbol("rowElement")))
-                                .put(p.symbol("notUnwrapped", BOOLEAN), new ApplyNode.In(new Symbol("nonRowValue"), new Symbol("nonRowElement")))
+                                .put(p.symbol("unwrapped", BOOLEAN), new ApplyNode.In(new Symbol(RowType.anonymousRow(INTEGER), "rowValue"), new Symbol(RowType.anonymousRow(INTEGER), "rowElement")))
+                                .put(p.symbol("notUnwrapped", BOOLEAN), new ApplyNode.In(new Symbol(INTEGER, "nonRowValue"), new Symbol(INTEGER, "nonRowElement")))
                                 .buildOrThrow(),
                         emptyList(),
                         p.values(
@@ -78,19 +79,19 @@ public class TestUnwrapSingleColumnRowInApply
                                 apply(
                                         List.of(),
                                         ImmutableMap.<String, SetExpressionMatcher>builder()
-                                                .put("unwrapped", setExpression(new ApplyNode.In(new Symbol("unwrappedValue"), new Symbol("unwrappedElement"))))
-                                                .put("notUnwrapped", setExpression(new ApplyNode.In(new Symbol("nonRowValue"), new Symbol("nonRowElement"))))
+                                                .put("unwrapped", setExpression(new ApplyNode.In(new Symbol(INTEGER, "unwrappedValue"), new Symbol(INTEGER, "unwrappedElement"))))
+                                                .put("notUnwrapped", setExpression(new ApplyNode.In(new Symbol(INTEGER, "nonRowValue"), new Symbol(INTEGER, "nonRowElement"))))
                                                 .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), new Constant(INTEGER, 1L))))
-                                                        .put("nonRowValue", expression(new SymbolReference("nonRowValue")))
+                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(INTEGER), "rowValue"), new Constant(INTEGER, 1L))))
+                                                        .put("nonRowValue", expression(new SymbolReference(INTEGER, "nonRowValue")))
                                                         .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), new Constant(INTEGER, 1L))))
-                                                        .put("nonRowElement", expression(new SymbolReference("nonRowElement")))
+                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(INTEGER), "rowElement"), new Constant(INTEGER, 1L))))
+                                                        .put("nonRowElement", expression(new SymbolReference(INTEGER, "nonRowElement")))
                                                         .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));
     }
@@ -101,8 +102,8 @@ public class TestUnwrapSingleColumnRowInApply
         tester().assertThat(new UnwrapSingleColumnRowInApply(new IrTypeAnalyzer(tester().getPlannerContext())))
                 .on(p -> p.apply(
                         ImmutableMap.<Symbol, ApplyNode.SetExpression>builder()
-                                .put(p.symbol("unwrapped", BOOLEAN), new ApplyNode.QuantifiedComparison(EQUAL, ALL, new Symbol("rowValue"), new Symbol("rowElement")))
-                                .put(p.symbol("notUnwrapped", BOOLEAN), new ApplyNode.QuantifiedComparison(EQUAL, ALL, new Symbol("nonRowValue"), new Symbol("nonRowElement")))
+                                .put(p.symbol("unwrapped", BOOLEAN), new ApplyNode.QuantifiedComparison(EQUAL, ALL, new Symbol(RowType.anonymousRow(INTEGER), "rowValue"), new Symbol(RowType.anonymousRow(INTEGER), "rowElement")))
+                                .put(p.symbol("notUnwrapped", BOOLEAN), new ApplyNode.QuantifiedComparison(EQUAL, ALL, new Symbol(INTEGER, "nonRowValue"), new Symbol(INTEGER, "nonRowElement")))
                                 .buildOrThrow(),
                         emptyList(),
                         p.values(
@@ -116,19 +117,19 @@ public class TestUnwrapSingleColumnRowInApply
                                 apply(
                                         List.of(),
                                         ImmutableMap.<String, SetExpressionMatcher>builder()
-                                                .put("unwrapped", setExpression(new ApplyNode.QuantifiedComparison(EQUAL, ALL, new Symbol("unwrappedValue"), new Symbol("unwrappedElement"))))
-                                                .put("notUnwrapped", setExpression(new ApplyNode.QuantifiedComparison(EQUAL, ALL, new Symbol("nonRowValue"), new Symbol("nonRowElement"))))
+                                                .put("unwrapped", setExpression(new ApplyNode.QuantifiedComparison(EQUAL, ALL, new Symbol(UNKNOWN, "unwrappedValue"), new Symbol(UNKNOWN, "unwrappedElement"))))
+                                                .put("notUnwrapped", setExpression(new ApplyNode.QuantifiedComparison(EQUAL, ALL, new Symbol(UNKNOWN, "nonRowValue"), new Symbol(UNKNOWN, "nonRowElement"))))
                                                 .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference("rowValue"), new Constant(INTEGER, 1L))))
-                                                        .put("nonRowValue", expression(new SymbolReference("nonRowValue")))
+                                                        .put("unwrappedValue", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(INTEGER), "rowValue"), new Constant(INTEGER, 1L))))
+                                                        .put("nonRowValue", expression(new SymbolReference(INTEGER, "nonRowValue")))
                                                         .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference("rowElement"), new Constant(INTEGER, 1L))))
-                                                        .put("nonRowElement", expression(new SymbolReference("nonRowElement")))
+                                                        .put("unwrappedElement", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(INTEGER), "rowElement"), new Constant(INTEGER, 1L))))
+                                                        .put("nonRowElement", expression(new SymbolReference(INTEGER, "nonRowElement")))
                                                         .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));
     }

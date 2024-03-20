@@ -45,6 +45,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictConstrainedTableScan;
@@ -75,7 +76,7 @@ public class TestPruneTableScanColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("x_", PlanMatchPattern.expression(new SymbolReference("totalprice_"))),
+                                ImmutableMap.of("x_", PlanMatchPattern.expression(new SymbolReference(DOUBLE, "totalprice_"))),
                                 strictTableScan("orders", ImmutableMap.of("totalprice_", "totalprice"))));
     }
 
@@ -102,7 +103,7 @@ public class TestPruneTableScanColumns
                 })
                 .matches(
                         strictProject(
-                                Map.of("X", PlanMatchPattern.expression(new SymbolReference("TOTALPRICE"))),
+                                Map.of("X", PlanMatchPattern.expression(new SymbolReference(DOUBLE, "TOTALPRICE"))),
                                 strictConstrainedTableScan(
                                         "orders",
                                         Map.of("TOTALPRICE", "totalprice"),
@@ -116,7 +117,7 @@ public class TestPruneTableScanColumns
         tester().assertThat(new PruneTableScanColumns(tester().getMetadata()))
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("y"), new SymbolReference("x")),
+                                Assignments.of(p.symbol("y"), new SymbolReference(BIGINT, "x")),
                                 p.tableScan(
                                         ImmutableList.of(p.symbol("x")),
                                         ImmutableMap.of(p.symbol("x"), new TestingColumnHandle("x")))))
@@ -161,7 +162,7 @@ public class TestPruneTableScanColumns
                     })
                     .matches(
                             strictProject(
-                                    ImmutableMap.of("expr", PlanMatchPattern.expression(new SymbolReference("COLB"))),
+                                    ImmutableMap.of("expr", PlanMatchPattern.expression(new SymbolReference(BIGINT, "COLB"))),
                                     tableScan(
                                             new MockConnectorTableHandle(
                                                     testSchemaTable,

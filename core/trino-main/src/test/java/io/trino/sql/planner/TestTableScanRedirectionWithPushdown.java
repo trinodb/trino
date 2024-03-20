@@ -149,7 +149,7 @@ public class TestTableScanRedirectionWithPushdown
                     output(
                             ImmutableList.of("DEST_COL"),
                             filter(
-                                    new ComparisonExpression(GREATER_THAN, new SymbolReference("DEST_COL"), new Constant(INTEGER, 0L)),
+                                    new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "DEST_COL"), new Constant(INTEGER, 0L)),
                                     tableScan(
                                             new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                             TupleDomain.all(),
@@ -206,7 +206,7 @@ public class TestTableScanRedirectionWithPushdown
                             ImmutableList.of("DEST_COL_A", "DEST_COL_B"),
                             filter(
 
-                                    new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL_A"), new Constant(INTEGER, 1L)),
+                                    new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "DEST_COL_A"), new Constant(INTEGER, 1L)),
                                     tableScan(
                                             new MockConnectorTableHandle(
                                                     DESTINATION_TABLE,
@@ -261,9 +261,9 @@ public class TestTableScanRedirectionWithPushdown
                     "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'",
                     output(
                             ImmutableList.of("DEST_COL_B"),
-                            project(ImmutableMap.of("DEST_COL_B", expression(new SymbolReference("DEST_COL_B"))),
+                            project(ImmutableMap.of("DEST_COL_B", expression(new SymbolReference(BIGINT, "DEST_COL_B"))),
                                     filter(
-                                            new ComparisonExpression(EQUAL, new Cast(new SymbolReference("DEST_COL_A"), VARCHAR), new Constant(VARCHAR, Slices.utf8Slice("foo"))),
+                                            new ComparisonExpression(EQUAL, new Cast(new SymbolReference(BIGINT, "DEST_COL_A"), VARCHAR), new Constant(VARCHAR, Slices.utf8Slice("foo"))),
                                             tableScan(
                                                     new MockConnectorTableHandle(
                                                             DESTINATION_TABLE,

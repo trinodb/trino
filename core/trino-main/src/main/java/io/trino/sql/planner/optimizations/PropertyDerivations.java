@@ -782,7 +782,7 @@ public final class PropertyDerivations
             for (Map.Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
                 Expression expression = assignment.getValue();
 
-                Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, expression);
+                Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(expression);
                 Type type = requireNonNull(expressionTypes.get(NodeRef.of(expression)));
                 IrExpressionInterpreter optimizer = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes);
                 // TODO:

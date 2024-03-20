@@ -75,9 +75,9 @@ public class IrTypeAnalyzer
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
-    public Map<NodeRef<Expression>, Type> getTypes(TypeProvider inputTypes, Iterable<Expression> expressions)
+    public Map<NodeRef<Expression>, Type> getTypes(Iterable<Expression> expressions)
     {
-        Visitor visitor = new Visitor(plannerContext, inputTypes);
+        Visitor visitor = new Visitor(plannerContext);
 
         for (Expression expression : expressions) {
             visitor.process(expression, new Context(ImmutableMap.of()));
@@ -86,28 +86,26 @@ public class IrTypeAnalyzer
         return visitor.getTypes();
     }
 
-    public Map<NodeRef<Expression>, Type> getTypes(TypeProvider inputTypes, Expression expression)
+    public Map<NodeRef<Expression>, Type> getTypes(Expression expression)
     {
-        return getTypes(inputTypes, ImmutableList.of(expression));
+        return getTypes(ImmutableList.of(expression));
     }
 
-    public Type getType(TypeProvider inputTypes, Expression expression)
+    public Type getType(Expression expression)
     {
-        return getTypes(inputTypes, expression).get(NodeRef.of(expression));
+        return getTypes(expression).get(NodeRef.of(expression));
     }
 
     private static class Visitor
             extends IrVisitor<Type, Context>
     {
         private final PlannerContext plannerContext;
-        private final TypeProvider symbolTypes;
 
         private final Map<NodeRef<Expression>, Type> expressionTypes = new LinkedHashMap<>();
 
-        public Visitor(PlannerContext plannerContext, TypeProvider symbolTypes)
+        public Visitor(PlannerContext plannerContext)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-            this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
         }
 
         public Map<NodeRef<Expression>, Type> getTypes()
@@ -149,13 +147,7 @@ public class IrTypeAnalyzer
         @Override
         protected Type visitSymbolReference(SymbolReference node, Context context)
         {
-            Symbol symbol = new Symbol(node.getName());
-            Type type = context.argumentTypes().get(symbol);
-            if (type == null) {
-                type = symbolTypes.get(symbol);
-            }
-            checkArgument(type != null, "No type for: %s", node.getName());
-            return setExpressionType(node, type);
+            return setExpressionType(node, node.type());
         }
 
         @Override
@@ -344,7 +336,7 @@ public class IrTypeAnalyzer
             ImmutableMap.Builder<Symbol, Type> typeBindings = ImmutableMap.builder();
             for (int i = 0; i < argumentTypes.size(); i++) {
                 typeBindings.put(
-                        new Symbol(lambda.getArguments().get(i)),
+                        lambda.arguments().get(i),
                         argumentTypes.get(i));
             }
 

@@ -1477,7 +1477,7 @@ public class LocalExecutionPlanner
             }
 
             // compile expression using input layout and input types
-            RowExpression rowExpression = toRowExpression(rewritten, typeAnalyzer.getTypes(TypeProvider.viewOf(inputTypes.buildOrThrow()), rewritten), inputLayout.buildOrThrow());
+            RowExpression rowExpression = toRowExpression(rewritten, typeAnalyzer.getTypes(rewritten), inputLayout.buildOrThrow());
             return pageFunctionCompiler.compileProjection(rowExpression, Optional.empty());
         }
 
@@ -1560,7 +1560,7 @@ public class LocalExecutionPlanner
                             boolean isRuntimeEvaluated = !(argument instanceof SymbolReference) || runtimeEvaluatedSymbols.contains(Symbol.from(argument));
                             if (isRuntimeEvaluated) {
                                 List<Symbol> argumentInputSymbols = ImmutableList.copyOf(SymbolsExtractor.extractUnique(argument));
-                                Supplier<PageProjection> argumentProjectionSupplier = prepareArgumentProjection(argument, argumentInputSymbols, classifierArgumentSymbol, matchNumberArgumentSymbol, context);
+                                Supplier<PageProjection> argumentProjectionSupplier = prepareArgumentProjection(argument, argumentInputSymbols);
 
                                 List<Integer> argumentInputChannels = new ArrayList<>();
                                 for (Symbol symbol : argumentInputSymbols) {
@@ -1616,26 +1616,16 @@ public class LocalExecutionPlanner
             return new ValueAccessors(valueAccessors.build(), matchAggregations.build(), matchAggregationIndex, aggregationArguments.build(), firstUnusedChannel, labelDependencies.build());
         }
 
-        private Supplier<PageProjection> prepareArgumentProjection(Expression argument, List<Symbol> inputSymbols, Optional<Symbol> classifierSymbol, Optional<Symbol> matchNumberSymbol, LocalExecutionPlanContext context)
+        private Supplier<PageProjection> prepareArgumentProjection(Expression argument, List<Symbol> inputSymbols)
         {
             // prepare input layout and type provider for compilation
-            ImmutableMap.Builder<Symbol, Type> inputTypes = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, Integer> inputLayout = ImmutableMap.builder();
             for (int i = 0; i < inputSymbols.size(); i++) {
-                if (classifierSymbol.isPresent() && inputSymbols.get(i).equals(classifierSymbol.get())) {
-                    inputTypes.put(inputSymbols.get(i), VARCHAR);
-                }
-                else if (matchNumberSymbol.isPresent() && inputSymbols.get(i).equals(matchNumberSymbol.get())) {
-                    inputTypes.put(inputSymbols.get(i), BIGINT);
-                }
-                else {
-                    inputTypes.put(inputSymbols.get(i), context.getTypes().get(inputSymbols.get(i)));
-                }
                 inputLayout.put(inputSymbols.get(i), i);
             }
 
             // compile expression using input layout and input types
-            RowExpression rowExpression = toRowExpression(argument, typeAnalyzer.getTypes(TypeProvider.viewOf(inputTypes.buildOrThrow()), argument), inputLayout.buildOrThrow());
+            RowExpression rowExpression = toRowExpression(argument, typeAnalyzer.getTypes(argument), inputLayout.buildOrThrow());
             return pageFunctionCompiler.compileProjection(rowExpression, Optional.empty());
         }
 
@@ -2020,7 +2010,6 @@ public class LocalExecutionPlanner
             }
 
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(
-                    context.getTypes(),
                     concat(staticFilters.map(ImmutableList::of).orElse(ImmutableList.of()), assignments.getExpressions()));
 
             Optional<RowExpression> translatedFilter = staticFilters.map(filter -> toRowExpression(filter, expressionTypes, sourceLayout));
@@ -2145,7 +2134,7 @@ public class LocalExecutionPlanner
                 // evaluate values for non-empty rows
                 if (node.getRows().isPresent()) {
                     Expression row = node.getRows().get().get(i);
-                    Map<NodeRef<Expression>, Type> types = typeAnalyzer.getTypes(TypeProvider.empty(), row);
+                    Map<NodeRef<Expression>, Type> types = typeAnalyzer.getTypes(row);
                     checkState(types.get(NodeRef.of(row)) instanceof RowType, "unexpected type of Values row: %s", types);
                     // evaluate the literal value
                     SqlRow result = (SqlRow) new IrExpressionInterpreter(row, plannerContext, session, types).evaluate();
@@ -2732,8 +2721,7 @@ public class LocalExecutionPlanner
                     .map(filterExpression -> compileJoinFilterFunction(
                             filterExpression,
                             probeLayout,
-                            buildLayout,
-                            context.getTypes()));
+                            buildLayout));
 
             Optional<Integer> partitionChannel = node.getRightPartitionSymbol().map(buildChannelGetter);
 
@@ -2816,8 +2804,7 @@ public class LocalExecutionPlanner
                     .map(filterExpression -> compileJoinFilterFunction(
                             filterExpression,
                             probeSource.getLayout(),
-                            buildLayout,
-                            context.getTypes()));
+                            buildLayout));
 
             Optional<SortExpressionContext> sortExpressionContext = node.getFilter()
                     .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(node.getRight().getOutputSymbols()), filter));
@@ -2833,8 +2820,7 @@ public class LocalExecutionPlanner
                             .map(searchExpression -> compileJoinFilterFunction(
                                     searchExpression,
                                     probeSource.getLayout(),
-                                    buildLayout,
-                                    context.getTypes()))
+                                    buildLayout))
                             .collect(toImmutableList()))
                     .orElse(ImmutableList.of());
 
@@ -3100,12 +3086,11 @@ public class LocalExecutionPlanner
         private JoinFilterFunctionFactory compileJoinFilterFunction(
                 Expression filterExpression,
                 Map<Symbol, Integer> probeLayout,
-                Map<Symbol, Integer> buildLayout,
-                TypeProvider types)
+                Map<Symbol, Integer> buildLayout)
         {
             Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
 
-            RowExpression translatedFilter = toRowExpression(filterExpression, typeAnalyzer.getTypes(types, filterExpression), joinSourcesLayout);
+            RowExpression translatedFilter = toRowExpression(filterExpression, typeAnalyzer.getTypes(filterExpression), joinSourcesLayout);
             return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size());
         }
 
@@ -3870,16 +3855,16 @@ public class LocalExecutionPlanner
                     verify(lambdaExpression.getArguments().size() == functionType.getArgumentTypes().size());
                     Map<Symbol, Type> lambdaArgumentSymbolTypes = new HashMap<>();
                     for (int j = 0; j < lambdaExpression.getArguments().size(); j++) {
-                        String argument = lambdaExpression.getArguments().get(j);
-                        Type type = functionType.getArgumentTypes().get(j);
-                        lambdaArgumentSymbolTypes.put(new Symbol(argument), type);
+                        lambdaArgumentSymbolTypes.put(
+                                lambdaExpression.getArguments().get(j),
+                                functionType.getArgumentTypes().get(j));
                     }
                     Map<NodeRef<Expression>, Type> expressionTypes = ImmutableMap.<NodeRef<Expression>, Type>builder()
                             // the lambda expression itself
                             .put(NodeRef.of(lambdaExpression), functionType)
                             // expressions from lambda arguments
                             // expressions from lambda body
-                            .putAll(typeAnalyzer.getTypes(TypeProvider.copyOf(lambdaArgumentSymbolTypes), lambdaExpression.getBody()))
+                            .putAll(typeAnalyzer.getTypes(lambdaExpression.getBody()))
                             .buildOrThrow();
 
                     LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) toRowExpression(lambdaExpression, expressionTypes, ImmutableMap.of());

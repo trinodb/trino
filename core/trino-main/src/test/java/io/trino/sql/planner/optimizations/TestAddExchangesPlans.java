@@ -64,6 +64,7 @@ import static io.trino.SystemSessionProperties.USE_EXACT_PARTITIONING;
 import static io.trino.SystemSessionProperties.isColocatedJoinEnabled;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MODULUS;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
@@ -309,14 +310,14 @@ public class TestAddExchangesPlans
                 "SELECT name FROM nation ORDER BY regionkey, name OFFSET 5 LIMIT 2",
                 output(
                         project(
-                                ImmutableMap.of("name", expression(new SymbolReference("name"))),
+                                ImmutableMap.of("name", expression(new SymbolReference(VARCHAR, "name"))),
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), new Constant(BIGINT, 5L)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "row_num"), new Constant(BIGINT, 5L)),
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),
                                                 project(
-                                                        ImmutableMap.of("name", expression(new SymbolReference("name"))),
+                                                        ImmutableMap.of("name", expression(new SymbolReference(VARCHAR, "name"))),
                                                         topN(
                                                                 7,
                                                                 ImmutableList.of(sort("regionkey", ASCENDING, LAST), sort("name", ASCENDING, LAST)),
@@ -334,9 +335,9 @@ public class TestAddExchangesPlans
                 "SELECT name FROM nation OFFSET 5 LIMIT 2",
                 any(
                         project(
-                                ImmutableMap.of("name", expression(new SymbolReference("name"))),
+                                ImmutableMap.of("name", expression(new SymbolReference(VARCHAR, "name"))),
                                 filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("row_num"), new Constant(BIGINT, 5L)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "row_num"), new Constant(BIGINT, 5L)),
                                         exchange(
                                                 LOCAL,
                                                 REPARTITION,
@@ -363,7 +364,7 @@ public class TestAddExchangesPlans
                                 pattern -> pattern
                                         .partitionBy(ImmutableList.of()),
                                 project(
-                                        ImmutableMap.of("name", expression(new SymbolReference("name"))),
+                                        ImmutableMap.of("name", expression(new SymbolReference(VARCHAR, "name"))),
                                         topN(
                                                 5,
                                                 ImmutableList.of(sort("nationkey", ASCENDING, LAST)),
@@ -384,9 +385,9 @@ public class TestAddExchangesPlans
                                         LOCAL,
                                         GATHER,
                                         project(
-                                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                                ImmutableMap.of("b", expression(new SymbolReference(INTEGER, "b"))),
                                                 filter(
-                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 10L)),
+                                                        new ComparisonExpression(LESS_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 10L)),
                                                         exchange(
                                                                 LOCAL,
                                                                 REPARTITION,
@@ -407,7 +408,7 @@ public class TestAddExchangesPlans
                                         ImmutableList.of(),
                                         ImmutableSet.of("regionkey"),
                                         project(
-                                                ImmutableMap.of("regionkey", expression(new SymbolReference("regionkey"))),
+                                                ImmutableMap.of("regionkey", expression(new SymbolReference(BIGINT,"regionkey"))),
                                                 topN(
                                                         5,
                                                         ImmutableList.of(sort("nationkey", ASCENDING, LAST)),
@@ -430,9 +431,9 @@ public class TestAddExchangesPlans
                                         ImmutableList.of(),
                                         ImmutableSet.of("b"),
                                         project(
-                                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                                ImmutableMap.of("b", expression(new SymbolReference(INTEGER, "b"))),
                                                 filter(
-                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 10L)),
+                                                        new ComparisonExpression(LESS_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 10L)),
                                                         exchange(
                                                                 LOCAL,
                                                                 REPARTITION,
@@ -448,7 +449,7 @@ public class TestAddExchangesPlans
                                 ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of("name"))),
                                 PARTIAL,
                                 project(
-                                        ImmutableMap.of("name", expression(new SymbolReference("name"))),
+                                        ImmutableMap.of("name", expression(new SymbolReference(VARCHAR, "name"))),
                                         exchange(
                                                 LOCAL,
                                                 REPARTITION,
@@ -469,9 +470,9 @@ public class TestAddExchangesPlans
                                 ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of("b"))),
                                 PARTIAL,
                                 project(
-                                        ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                        ImmutableMap.of("b", expression(new SymbolReference(INTEGER, "b"))),
                                         filter(
-                                                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 10L)),
+                                                new ComparisonExpression(LESS_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 10L)),
                                                 exchange(
                                                         LOCAL,
                                                         REPARTITION,
@@ -704,7 +705,7 @@ public class TestAddExchangesPlans
                                                                                 Optional.empty(),
                                                                                 PARTIAL,
                                                                                 project(
-                                                                                        ImmutableMap.of("partkey_expr", expression(new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new SymbolReference("partkey"), new Constant(BIGINT, 10L)))),
+                                                                                        ImmutableMap.of("partkey_expr", expression(new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new SymbolReference(BIGINT, "partkey"), new Constant(BIGINT, 10L)))),
                                                                                         tableScan("lineitem", ImmutableMap.of(
                                                                                                 "partkey", "partkey",
                                                                                                 "suppkey", "suppkey"))))))))))))));
@@ -734,7 +735,7 @@ public class TestAddExchangesPlans
                                                         Optional.empty(),
                                                         Step.PARTIAL,
                                                         project(
-                                                                ImmutableMap.of("orderkey_expr", expression(new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new SymbolReference("orderkey"), new Constant(BIGINT, 10000L)))),
+                                                                ImmutableMap.of("orderkey_expr", expression(new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new SymbolReference(BIGINT, "orderkey"), new Constant(BIGINT, 10000L)))),
                                                                 tableScan("lineitem", ImmutableMap.of(
                                                                         "partkey", "partkey",
                                                                         "orderkey", "orderkey",

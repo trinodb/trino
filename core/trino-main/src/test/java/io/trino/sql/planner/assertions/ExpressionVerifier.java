@@ -93,7 +93,10 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return symbolAliases.get(expected.getName()).equals(actual);
+        // TODO: verify types. This is currently hard to do because planner tests
+        //       are either missing types, have the wrong types, or they are unable to
+        //       provide types due to limitations in the matcher infrastructure
+        return symbolAliases.get(expected.getName()).name().equals(actual.name());
     }
 
     @Override

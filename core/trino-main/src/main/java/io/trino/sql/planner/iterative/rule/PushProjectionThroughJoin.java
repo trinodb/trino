@@ -145,7 +145,7 @@ public final class PushProjectionThroughJoin
             return parentProjection;
         }
 
-        return InlineProjections.inlineProjections(parentProjection, childProjection, typeAnalyzer, types)
+        return InlineProjections.inlineProjections(parentProjection, childProjection, typeAnalyzer)
                 .map(node -> inlineProjections(node, lookup, typeAnalyzer, types))
                 .orElse(parentProjection);
     }

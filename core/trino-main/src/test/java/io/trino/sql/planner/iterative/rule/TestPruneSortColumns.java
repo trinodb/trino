@@ -21,6 +21,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -57,11 +58,11 @@ public class TestPruneSortColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
+                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a"))),
                                 sort(
                                         ImmutableList.of(sort("a", ASCENDING, FIRST)),
                                         strictProject(
-                                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
+                                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a"))),
                                                 values("a", "b")))));
     }
 

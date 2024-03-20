@@ -35,7 +35,7 @@ public class TestRemoveDuplicatePredicates
                 "SELECT * FROM (VALUES 1) t(a) WHERE a = 1 AND 1 = a AND a = 1",
                 anyTree(
                         filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference("A"), new Constant(INTEGER, 1L)),
+                                new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "A"), new Constant(INTEGER, 1L)),
                                 values("A"))));
     }
 
@@ -46,7 +46,7 @@ public class TestRemoveDuplicatePredicates
                 "SELECT * FROM (VALUES 1) t(a) WHERE a = 1 OR 1 = a OR a = 1",
                 anyTree(
                         filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference("A"), new Constant(INTEGER, 1L)),
+                                new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "A"), new Constant(INTEGER, 1L)),
                                 values("A"))));
     }
 }

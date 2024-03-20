@@ -51,7 +51,7 @@ public class TestRemoveFullSample
                                 1.0,
                                 Type.BERNOULLI,
                                 p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 5L)),
+                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 5L)),
                                         p.values(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 ImmutableList.of(
@@ -59,7 +59,7 @@ public class TestRemoveFullSample
                                                         ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 11L)))))))
                 // TODO: verify contents
                 .matches(filter(
-                        new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 5L)),
+                        new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 5L)),
                         values(ImmutableMap.of("a", 0, "b", 1))));
     }
 }
