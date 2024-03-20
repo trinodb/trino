@@ -218,12 +218,9 @@ public class SqlTask
                     switch (newState) {
                         // don't close buffers for a failed query
                         // closed buffers signal to upstream tasks that everything finished cleanly
-                        case FAILED, FAILING, ABORTED, ABORTING ->
-                                outputBuffer.abort();
-                        case FINISHED, CANCELED, CANCELING ->
-                                outputBuffer.destroy();
-                        default ->
-                                throw new IllegalStateException(format("Invalid state for output buffer destruction: %s", newState));
+                        case FAILED, FAILING, ABORTED, ABORTING -> outputBuffer.abort();
+                        case FINISHED, CANCELED, CANCELING -> outputBuffer.destroy();
+                        default -> throw new IllegalStateException(format("Invalid state for output buffer destruction: %s", newState));
                     }
                 }
             }
