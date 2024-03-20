@@ -30,7 +30,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestCiWorkflow
+public class TestStarburstCiWorkflow
 {
     private static final Path CI_YML = Paths.get("../../.github/workflows/ci.yml");
 
