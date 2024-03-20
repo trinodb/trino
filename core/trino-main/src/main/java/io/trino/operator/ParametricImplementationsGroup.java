@@ -152,7 +152,7 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
                 List<T> specializedImplementations,
                 List<T> genericImplementations)
         {
-            if (specializedImplementations.size() + genericImplementations.size() == 0) {
+            if (specializedImplementations.isEmpty() && genericImplementations.isEmpty()) {
                 return getOnlyElement(exactImplementations.keySet());
             }
 
