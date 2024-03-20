@@ -25,13 +25,13 @@ import jakarta.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class SymbolAllocator
 {
-    private final Map<Symbol, Type> symbols;
+    private final Map<String, Symbol> symbols;
     private int nextId;
 
     public SymbolAllocator()
@@ -41,7 +41,8 @@ public class SymbolAllocator
 
     public SymbolAllocator(Map<Symbol, Type> initial)
     {
-        symbols = new HashMap<>(initial);
+        symbols = new HashMap<>(initial.entrySet().stream()
+                .collect(toMap(e -> e.getKey().getName(), Map.Entry::getKey)));
     }
 
     public Symbol newSymbol(Symbol symbolHint)
@@ -51,8 +52,7 @@ public class SymbolAllocator
 
     public Symbol newSymbol(Symbol symbolHint, String suffix)
     {
-        checkArgument(symbols.containsKey(symbolHint), "symbolHint not in symbols map");
-        return newSymbol(symbolHint.getName(), symbols.get(symbolHint), suffix);
+        return newSymbol(symbolHint.getName(), symbolHint.getType(), suffix);
     }
 
     public Symbol newSymbol(String nameHint, Type type)
@@ -90,9 +90,9 @@ public class SymbolAllocator
             unique = unique + "$" + suffix;
         }
 
-        Symbol symbol = new Symbol(unique);
-        while (symbols.putIfAbsent(symbol, type) != null) {
-            symbol = new Symbol(unique + "_" + nextId());
+        Symbol symbol = new Symbol(type, unique);
+        while (symbols.putIfAbsent(symbol.getName(), symbol) != null) {
+            symbol = new Symbol(type, unique + "_" + nextId());
         }
 
         return symbol;
@@ -125,7 +125,7 @@ public class SymbolAllocator
 
     public TypeProvider getTypes()
     {
-        return TypeProvider.viewOf(symbols);
+        return TypeProvider.of(symbols.values());
     }
 
     private int nextId()

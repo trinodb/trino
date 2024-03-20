@@ -72,7 +72,7 @@ public class TestTransformExistsApplyToCorrelatedJoin
                         ImmutableList.of(),
                         values(ImmutableMap.of()),
                         project(
-                                ImmutableMap.of("b", PlanMatchPattern.expression(new ComparisonExpression(GREATER_THAN, new SymbolReference("count_expr"), new Constant(BIGINT, 0L)))),
+                                ImmutableMap.of("b", PlanMatchPattern.expression(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "count_expr"), new Constant(BIGINT, 0L)))),
                                 aggregation(ImmutableMap.of("count_expr", aggregationFunction("count", ImmutableList.of())),
                                         values()))));
     }
@@ -88,10 +88,10 @@ public class TestTransformExistsApplyToCorrelatedJoin
                                 p.values(p.symbol("corr")),
                                 p.project(Assignments.of(),
                                         p.filter(
-                                                new ComparisonExpression(EQUAL, new SymbolReference("corr"), new SymbolReference("column")),
+                                                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "corr"), new SymbolReference(BIGINT, "column")),
                                                 p.values(p.symbol("column"))))))
                 .matches(
-                        project(ImmutableMap.of("b", PlanMatchPattern.expression(new CoalesceExpression(new SymbolReference("subquerytrue"), FALSE_LITERAL))),
+                        project(ImmutableMap.of("b", PlanMatchPattern.expression(new CoalesceExpression(new SymbolReference(BOOLEAN, "subquerytrue"), FALSE_LITERAL))),
                                 correlatedJoin(
                                         ImmutableList.of("corr"),
                                         values("corr"),

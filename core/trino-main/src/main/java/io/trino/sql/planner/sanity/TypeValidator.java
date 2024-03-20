@@ -116,7 +116,7 @@ public final class TypeValidator
                     verifyTypeSignature(entry.getKey(), expectedType, types.get(Symbol.from(symbolReference)));
                     continue;
                 }
-                Type actualType = typeAnalyzer.getType(types, entry.getValue());
+                Type actualType = typeAnalyzer.getType(entry.getValue());
                 verifyTypeSignature(entry.getKey(), expectedType, actualType);
             }
 
@@ -171,7 +171,7 @@ public final class TypeValidator
                 if (expectedTypeSignature instanceof FunctionType) {
                     continue;
                 }
-                Type actualTypeSignature = typeAnalyzer.getType(types, arguments.get(i));
+                Type actualTypeSignature = typeAnalyzer.getType(arguments.get(i));
                 verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
             }
         }
@@ -188,10 +188,10 @@ public final class TypeValidator
                         .map(RowType.Field::getType)
                         .toList();
 
-                checkArgument(expectedFieldType.equals(actualFieldTypes), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol, expected, actual);
+                checkArgument(expectedFieldType.equals(actualFieldTypes), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol.getName(), expected, actual);
             }
             else if (!(actual instanceof UnknownType)) { // UNKNOWN should be considered as a wildcard type, which matches all the other types
-                checkArgument(expected.equals(actual), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol, expected, actual);
+                checkArgument(expected.equals(actual), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol.getName(), expected, actual);
             }
         }
     }

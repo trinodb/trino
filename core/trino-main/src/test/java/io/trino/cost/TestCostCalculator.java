@@ -79,6 +79,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -162,7 +163,7 @@ public class TestCostCalculator
     public void testProject()
     {
         TableScanNode tableScan = tableScan("ts", "orderkey");
-        PlanNode project = project("project", tableScan, "string", new Cast(new SymbolReference("orderkey"), VARCHAR));
+        PlanNode project = project("project", tableScan, "string", new Cast(new SymbolReference(BIGINT, "orderkey"), VARCHAR));
         Map<String, PlanCostEstimate> costs = ImmutableMap.of("ts", cpuCost(1000));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "project", statsEstimate(project, 4000),
@@ -193,7 +194,7 @@ public class TestCostCalculator
     public void testFilter()
     {
         TableScanNode tableScan = tableScan("ts", "string");
-        IsNullPredicate expression = new IsNullPredicate(new SymbolReference("string"));
+        IsNullPredicate expression = new IsNullPredicate(new SymbolReference(VARCHAR, "string"));
         FilterNode filter = new FilterNode(new PlanNodeId("filter"), tableScan, expression);
         Map<String, PlanCostEstimate> costs = ImmutableMap.of("ts", cpuCost(1000));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
@@ -435,9 +436,9 @@ public class TestCostCalculator
     {
         TableScanNode ts1 = tableScan("ts1", "orderkey");
         TableScanNode ts2 = tableScan("ts2", "orderkey_0");
-        ExchangeNode remoteExchange1 = partitionedExchange(new PlanNodeId("re1"), REMOTE, ts1, ImmutableList.of(new Symbol("orderkey")), Optional.empty());
-        ExchangeNode remoteExchange2 = partitionedExchange(new PlanNodeId("re2"), REMOTE, ts2, ImmutableList.of(new Symbol("orderkey_0")), Optional.empty());
-        ExchangeNode localExchange = partitionedExchange(new PlanNodeId("le"), LOCAL, remoteExchange2, ImmutableList.of(new Symbol("orderkey_0")), Optional.empty());
+        ExchangeNode remoteExchange1 = partitionedExchange(new PlanNodeId("re1"), REMOTE, ts1, ImmutableList.of(new Symbol(UNKNOWN, "orderkey")), Optional.empty());
+        ExchangeNode remoteExchange2 = partitionedExchange(new PlanNodeId("re2"), REMOTE, ts2, ImmutableList.of(new Symbol(UNKNOWN, "orderkey_0")), Optional.empty());
+        ExchangeNode localExchange = partitionedExchange(new PlanNodeId("le"), LOCAL, remoteExchange2, ImmutableList.of(new Symbol(UNKNOWN, "orderkey_0")), Optional.empty());
 
         JoinNode join = join("join",
                 remoteExchange1,
@@ -467,7 +468,7 @@ public class TestCostCalculator
         TableScanNode ts1 = tableScan("ts1", "orderkey");
         TableScanNode ts2 = tableScan("ts2", "orderkey_0");
         ExchangeNode remoteExchange2 = replicatedExchange(new PlanNodeId("re2"), REMOTE, ts2);
-        ExchangeNode localExchange = partitionedExchange(new PlanNodeId("le"), LOCAL, remoteExchange2, ImmutableList.of(new Symbol("orderkey_0")), Optional.empty());
+        ExchangeNode localExchange = partitionedExchange(new PlanNodeId("le"), LOCAL, remoteExchange2, ImmutableList.of(new Symbol(UNKNOWN, "orderkey_0")), Optional.empty());
 
         JoinNode join = join("join",
                 ts1,
@@ -496,9 +497,9 @@ public class TestCostCalculator
         TableScanNode ts1 = tableScan("ts1", "orderkey");
         TableScanNode ts2 = tableScan("ts2", "orderkey_0");
         ImmutableListMultimap.Builder<Symbol, Symbol> outputMappings = ImmutableListMultimap.builder();
-        outputMappings.put(new Symbol("orderkey_1"), new Symbol("orderkey"));
-        outputMappings.put(new Symbol("orderkey_1"), new Symbol("orderkey_0"));
-        UnionNode union = new UnionNode(new PlanNodeId("union"), ImmutableList.of(ts1, ts2), outputMappings.build(), ImmutableList.of(new Symbol("orderkey_1")));
+        outputMappings.put(new Symbol(UNKNOWN, "orderkey_1"), new Symbol(UNKNOWN, "orderkey"));
+        outputMappings.put(new Symbol(UNKNOWN, "orderkey_1"), new Symbol(UNKNOWN, "orderkey_0"));
+        UnionNode union = new UnionNode(new PlanNodeId("union"), ImmutableList.of(ts1, ts2), outputMappings.build(), ImmutableList.of(new Symbol(UNKNOWN, "orderkey_1")));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "ts1", statsEstimate(ts1, 4000),
                 "ts2", statsEstimate(ts2, 1000),
@@ -590,7 +591,7 @@ public class TestCostCalculator
             Map<String, Type> types)
     {
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
-                .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
+                .collect(toImmutableMap(entry -> new Symbol(UNKNOWN, entry.getKey()), Map.Entry::getValue)));
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, typeProvider, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
         CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session, typeProvider);
         SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
@@ -706,13 +707,13 @@ public class TestCostCalculator
                 source -> requireNonNull(costs.apply(source), format("no cost for source: %s", source.getId())),
                 session,
                 TypeProvider.copyOf(types.entrySet().stream()
-                        .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))));
+                        .collect(toImmutableMap(entry -> new Symbol(UNKNOWN, entry.getKey()), Map.Entry::getValue))));
     }
 
     private PlanCostEstimate calculateCost(PlanNode node, CostCalculator costCalculator, StatsCalculator statsCalculator, Map<String, Type> types)
     {
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
-                .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
+                .collect(toImmutableMap(entry -> new Symbol(UNKNOWN, entry.getKey()), Map.Entry::getValue)));
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, typeProvider);
         return costProvider.getCost(node);
@@ -721,7 +722,7 @@ public class TestCostCalculator
     private PlanCostEstimate calculateCostFragmentedPlan(PlanNode node, StatsCalculator statsCalculator, Map<String, Type> types)
     {
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
-                .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
+                .collect(toImmutableMap(entry -> new Symbol(UNKNOWN, entry.getKey()), Map.Entry::getValue)));
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
         CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session, typeProvider);
         SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
@@ -795,7 +796,7 @@ public class TestCostCalculator
 
     private TableScanNode tableScan(String id, String... symbols)
     {
-        List<Symbol> symbolsList = Arrays.stream(symbols).map(Symbol::new).collect(toImmutableList());
+        List<Symbol> symbolsList = Arrays.stream(symbols).map(name -> new Symbol(UNKNOWN, name)).collect(toImmutableList());
         ImmutableMap.Builder<Symbol, ColumnHandle> assignments = ImmutableMap.builder();
 
         for (Symbol symbol : symbolsList) {
@@ -818,7 +819,7 @@ public class TestCostCalculator
         return new ProjectNode(
                 new PlanNodeId(id),
                 source,
-                Assignments.of(new Symbol(symbol), expression));
+                Assignments.of(new Symbol(UNKNOWN, symbol), expression));
     }
 
     private AggregationNode aggregation(String id, PlanNode source)
@@ -834,7 +835,7 @@ public class TestCostCalculator
         return singleAggregation(
                 new PlanNodeId(id),
                 source,
-                ImmutableMap.of(new Symbol("count"), aggregation),
+                ImmutableMap.of(new Symbol(UNKNOWN, "count"), aggregation),
                 singleGroupingSet(source.getOutputSymbols()));
     }
 
@@ -848,7 +849,7 @@ public class TestCostCalculator
         ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
 
         for (int i = 0; i < symbols.length; i += 2) {
-            criteria.add(new JoinNode.EquiJoinClause(new Symbol(symbols[i]), new Symbol(symbols[i + 1])));
+            criteria.add(new JoinNode.EquiJoinClause(new Symbol(UNKNOWN, symbols[i]), new Symbol(UNKNOWN, symbols[i + 1])));
         }
 
         return new JoinNode(

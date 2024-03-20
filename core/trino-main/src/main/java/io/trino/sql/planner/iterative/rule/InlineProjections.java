@@ -27,7 +27,6 @@ import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
@@ -78,19 +77,19 @@ public class InlineProjections
     {
         ProjectNode child = captures.get(CHILD);
 
-        return inlineProjections(parent, child, typeAnalyzer, context.getSymbolAllocator().getTypes())
+        return inlineProjections(parent, child, typeAnalyzer)
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
     }
 
-    static Optional<ProjectNode> inlineProjections(ProjectNode parent, ProjectNode child, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+    static Optional<ProjectNode> inlineProjections(ProjectNode parent, ProjectNode child, IrTypeAnalyzer typeAnalyzer)
     {
         // squash identity projections
         if (parent.isIdentity() && child.isIdentity()) {
             return Optional.of((ProjectNode) parent.replaceChildren(ImmutableList.of(child.getSource())));
         }
 
-        Set<Symbol> targets = extractInliningTargets(parent, child, typeAnalyzer, types);
+        Set<Symbol> targets = extractInliningTargets(parent, child, typeAnalyzer);
         if (targets.isEmpty()) {
             return Optional.empty();
         }
@@ -159,7 +158,7 @@ public class InlineProjections
         return inlineSymbols(mapping, expression);
     }
 
-    private static Set<Symbol> extractInliningTargets(ProjectNode parent, ProjectNode child, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+    private static Set<Symbol> extractInliningTargets(ProjectNode parent, ProjectNode child, IrTypeAnalyzer typeAnalyzer)
     {
         // candidates for inlining are
         //   1. references to simple constants or symbol references
@@ -191,7 +190,7 @@ public class InlineProjections
                     Expression assignment = child.getAssignments().get(entry.getKey());
 
                     if (assignment instanceof SubscriptExpression) {
-                        if (typeAnalyzer.getType(types, ((SubscriptExpression) assignment).getBase()) instanceof RowType) {
+                        if (typeAnalyzer.getType(((SubscriptExpression) assignment).getBase()) instanceof RowType) {
                             return false;
                         }
                     }

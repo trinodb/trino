@@ -78,6 +78,7 @@ import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -91,61 +92,61 @@ public class TestSimplifyExpressions
     public void testPushesDownNegations()
     {
         assertSimplifies(
-                new NotExpression(new SymbolReference("X")),
-                new NotExpression(new SymbolReference("X")),
+                new NotExpression(new SymbolReference(BOOLEAN, "X")),
+                new NotExpression(new SymbolReference(BOOLEAN, "X")),
                 ImmutableMap.of("X", BOOLEAN));
         assertSimplifies(
-                new NotExpression(new NotExpression(new SymbolReference("X"))),
-                new SymbolReference("X"),
+                new NotExpression(new NotExpression(new SymbolReference(BOOLEAN, "X"))),
+                new SymbolReference(BOOLEAN, "X"),
                 ImmutableMap.of("X", BOOLEAN));
         assertSimplifies(
-                new NotExpression(new NotExpression(new NotExpression(new SymbolReference("X")))),
-                new NotExpression(new SymbolReference("X")),
+                new NotExpression(new NotExpression(new NotExpression(new SymbolReference(BOOLEAN, "X")))),
+                new NotExpression(new SymbolReference(BOOLEAN, "X")),
                 ImmutableMap.of("X", BOOLEAN));
         assertSimplifies(
-                new NotExpression(new NotExpression(new NotExpression(new SymbolReference("X")))),
-                new NotExpression(new SymbolReference("X")),
+                new NotExpression(new NotExpression(new NotExpression(new SymbolReference(BOOLEAN, "X")))),
+                new NotExpression(new SymbolReference(BOOLEAN, "X")),
                 ImmutableMap.of("X", BOOLEAN));
 
         assertSimplifies(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("X"), new SymbolReference("Y"))),
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("X"), new SymbolReference("Y")),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))),
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y")),
                 ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN));
         assertSimplifies(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("X"), new NotExpression(new NotExpression(new SymbolReference("Y"))))),
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("X"), new SymbolReference("Y")),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(BOOLEAN, "X"), new NotExpression(new NotExpression(new SymbolReference(BOOLEAN, "Y"))))),
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y")),
                 ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN));
         assertSimplifies(
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("X"), new NotExpression(new NotExpression(new SymbolReference("Y")))),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("X"), new SymbolReference("Y")),
+                new ComparisonExpression(GREATER_THAN, new SymbolReference(BOOLEAN, "X"), new NotExpression(new NotExpression(new SymbolReference(BOOLEAN, "Y")))),
+                new ComparisonExpression(GREATER_THAN, new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y")),
                 ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN));
         assertSimplifies(
-                new NotExpression(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"), new NotExpression(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("Z"), new SymbolReference("V"))))))),
-                new LogicalExpression(OR, ImmutableList.of(new NotExpression(new SymbolReference("X")), new NotExpression(new SymbolReference("Y")), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("Z"), new SymbolReference("V"))))),
+                new NotExpression(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"), new NotExpression(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "Z"), new SymbolReference(BOOLEAN, "V"))))))),
+                new LogicalExpression(OR, ImmutableList.of(new NotExpression(new SymbolReference(BOOLEAN, "X")), new NotExpression(new SymbolReference(BOOLEAN, "Y")), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "Z"), new SymbolReference(BOOLEAN, "V"))))),
                 ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN, "Z", BOOLEAN, "V", BOOLEAN));
         assertSimplifies(
-                new NotExpression(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"), new NotExpression(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("Z"), new SymbolReference("V"))))))),
-                new LogicalExpression(AND, ImmutableList.of(new NotExpression(new SymbolReference("X")), new NotExpression(new SymbolReference("Y")), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("Z"), new SymbolReference("V"))))),
+                new NotExpression(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"), new NotExpression(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "Z"), new SymbolReference(BOOLEAN, "V"))))))),
+                new LogicalExpression(AND, ImmutableList.of(new NotExpression(new SymbolReference(BOOLEAN, "X")), new NotExpression(new SymbolReference(BOOLEAN, "Y")), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "Z"), new SymbolReference(BOOLEAN, "V"))))),
                 ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN, "Z", BOOLEAN, "V", BOOLEAN));
         assertSimplifies(
-                new NotExpression(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("Z"), new SymbolReference("V")))))),
-                new LogicalExpression(AND, ImmutableList.of(new NotExpression(new SymbolReference("X")), new NotExpression(new SymbolReference("Y")), new LogicalExpression(AND, ImmutableList.of(new NotExpression(new SymbolReference("Z")), new NotExpression(new SymbolReference("V")))))), ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN, "Z", BOOLEAN, "V", BOOLEAN));
+                new NotExpression(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "Z"), new SymbolReference(BOOLEAN, "V")))))),
+                new LogicalExpression(AND, ImmutableList.of(new NotExpression(new SymbolReference(BOOLEAN, "X")), new NotExpression(new SymbolReference(BOOLEAN, "Y")), new LogicalExpression(AND, ImmutableList.of(new NotExpression(new SymbolReference(BOOLEAN, "Z")), new NotExpression(new SymbolReference(BOOLEAN, "V")))))), ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN, "Z", BOOLEAN, "V", BOOLEAN));
 
         assertSimplifies(
-                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("X"), new SymbolReference("Y"))),
-                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("X"), new SymbolReference("Y"))),
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))),
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))),
                 ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN));
         assertSimplifies(
-                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("X"), new SymbolReference("Y"))),
-                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("X"), new SymbolReference("Y"))),
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))),
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))),
                 ImmutableMap.of("X", BIGINT, "Y", BIGINT));
         assertSimplifies(
-                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("X"), new SymbolReference("Y"))),
-                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("X"), new SymbolReference("Y"))),
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))),
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))),
                 ImmutableMap.of("X", DOUBLE, "Y", DOUBLE));
         assertSimplifies(
-                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("X"), new SymbolReference("Y"))),
-                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("X"), new SymbolReference("Y"))),
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))),
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))),
                 ImmutableMap.of("X", VARCHAR, "Y", VARCHAR));
     }
 
@@ -153,106 +154,106 @@ public class TestSimplifyExpressions
     public void testExtractCommonPredicates()
     {
         assertSimplifies(
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"))),
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"))),
+                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))),
+                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))),
                 ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"))),
-                new LogicalExpression(OR, ImmutableList.of(new SymbolReference("Y"), new SymbolReference("X"))),
+                new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))),
+                new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "Y"), new SymbolReference(BOOLEAN, "X"))),
                 ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference("X"), new SymbolReference("X"))),
-                new SymbolReference("X"),
+                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "X"))),
+                new SymbolReference(BOOLEAN, "X"),
                 ImmutableMap.of("X", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("X"))),
-                new SymbolReference("X"),
+                new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "X"))),
+                new SymbolReference(BOOLEAN, "X"),
                 ImmutableMap.of("X", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"))))),
-                new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))))),
+                new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))),
                 ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN));
 
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new SymbolReference("V"))), new SymbolReference("V"))),
-                new SymbolReference("V"),
+                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "V"))), new SymbolReference(BOOLEAN, "V"))),
+                new SymbolReference(BOOLEAN, "V"),
                 ImmutableMap.of("A", BOOLEAN, "V", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("V"))), new SymbolReference("V"))),
-                new SymbolReference("V"),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "V"))), new SymbolReference(BOOLEAN, "V"))),
+                new SymbolReference(BOOLEAN, "V"),
                 ImmutableMap.of("A", BOOLEAN, "V", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"), new SymbolReference("C"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"))))),
-                new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"), new SymbolReference(BOOLEAN, "C"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"))))),
+                new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"))),
                 ImmutableMap.of("A", BOOLEAN, "B", BOOLEAN, "C", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"), new SymbolReference("C"))))),
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"))),
+                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"), new SymbolReference(BOOLEAN, "C"))))),
+                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"))),
                 ImmutableMap.of("A", BOOLEAN, "B", BOOLEAN, "C", BOOLEAN));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new SymbolReference("I"), new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"), new SymbolReference("C")))))),
-                new ComparisonExpression(EQUAL, new SymbolReference("I"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B")))),
+                new ComparisonExpression(EQUAL, new SymbolReference(BOOLEAN, "I"), new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"), new SymbolReference(BOOLEAN, "C")))))),
+                new ComparisonExpression(EQUAL, new SymbolReference(BOOLEAN, "I"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B")))),
                 ImmutableMap.of("A", BOOLEAN, "B", BOOLEAN, "C", BOOLEAN, "I", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Z"))))),
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Z"))))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Z"))))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Z"))))),
                 ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN, "Z", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"), new SymbolReference("V"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"), new SymbolReference("Z"))))),
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("V"), new SymbolReference("Z"))))),
+                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"), new SymbolReference(BOOLEAN, "V"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"), new SymbolReference(BOOLEAN, "Z"))))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "V"), new SymbolReference(BOOLEAN, "Z"))))),
                 ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN, "Z", BOOLEAN, "V", BOOLEAN));
         assertSimplifies(
-                new ComparisonExpression(EQUAL, new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"), new SymbolReference("V"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"), new SymbolReference("Z"))))), new SymbolReference("I")),
-                new ComparisonExpression(EQUAL, new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("V"), new SymbolReference("Z"))))), new SymbolReference("I")),
+                new ComparisonExpression(EQUAL, new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"), new SymbolReference(BOOLEAN, "V"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"), new SymbolReference(BOOLEAN, "Z"))))), new SymbolReference(BOOLEAN, "I")),
+                new ComparisonExpression(EQUAL, new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "V"), new SymbolReference(BOOLEAN, "Z"))))), new SymbolReference(BOOLEAN, "I")),
                 ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN, "Z", BOOLEAN, "V", BOOLEAN, "I", BOOLEAN));
 
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("V"))), new SymbolReference("V"))), new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("V"))), new SymbolReference("V"))))),
-                new SymbolReference("V"),
+                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "V"))), new SymbolReference(BOOLEAN, "V"))), new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "V"))), new SymbolReference(BOOLEAN, "V"))))),
+                new SymbolReference(BOOLEAN, "V"),
                 ImmutableMap.of("X", BOOLEAN, "V", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("V"))), new SymbolReference("X"))), new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("V"))), new SymbolReference("V"))))),
-                new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("V"))),
+                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "V"))), new SymbolReference(BOOLEAN, "X"))), new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "V"))), new SymbolReference(BOOLEAN, "V"))))),
+                new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "V"))),
                 ImmutableMap.of("X", BOOLEAN, "V", BOOLEAN));
 
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("V"))), new SymbolReference("Z"))), new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("V"))), new SymbolReference("V"))))),
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("X"), new SymbolReference("V"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("Z"), new SymbolReference("V"))))),
+                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "V"))), new SymbolReference(BOOLEAN, "Z"))), new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "V"))), new SymbolReference(BOOLEAN, "V"))))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "V"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "Z"), new SymbolReference(BOOLEAN, "V"))))),
                 ImmutableMap.of("X", BOOLEAN, "V", BOOLEAN, "Z", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference("X"), new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("Y"), new SymbolReference("Z"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("Y"), new SymbolReference("V"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("Y"), new SymbolReference("X"))))))),
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference("X"), new SymbolReference("Y"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("Z"), new SymbolReference("V"), new SymbolReference("X"))))),
+                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "Y"), new SymbolReference(BOOLEAN, "Z"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "Y"), new SymbolReference(BOOLEAN, "V"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "Y"), new SymbolReference(BOOLEAN, "X"))))))),
+                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "X"), new SymbolReference(BOOLEAN, "Y"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "Z"), new SymbolReference(BOOLEAN, "V"), new SymbolReference(BOOLEAN, "X"))))),
                 ImmutableMap.of("X", BOOLEAN, "Y", BOOLEAN, "Z", BOOLEAN, "V", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"), new SymbolReference("C"), new SymbolReference("D"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"), new SymbolReference("E"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new SymbolReference("F"))))),
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("B"), new SymbolReference("C"), new SymbolReference("D"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("B"), new SymbolReference("E"))), new SymbolReference("F"))))),
+                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"), new SymbolReference(BOOLEAN, "C"), new SymbolReference(BOOLEAN, "D"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"), new SymbolReference(BOOLEAN, "E"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "F"))))),
+                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "B"), new SymbolReference(BOOLEAN, "C"), new SymbolReference(BOOLEAN, "D"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "B"), new SymbolReference(BOOLEAN, "E"))), new SymbolReference(BOOLEAN, "F"))))),
                 ImmutableMap.of("A", BOOLEAN, "B", BOOLEAN, "C", BOOLEAN, "D", BOOLEAN, "E", BOOLEAN, "F", BOOLEAN));
 
         assertSimplifies(
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new SymbolReference("C"))))), new SymbolReference("D"))),
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("B"), new SymbolReference("C"))), new SymbolReference("D"))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "C"))))), new SymbolReference(BOOLEAN, "D"))),
+                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "B"), new SymbolReference(BOOLEAN, "C"))), new SymbolReference(BOOLEAN, "D"))),
                 ImmutableMap.of("A", BOOLEAN, "B", BOOLEAN, "C", BOOLEAN, "D", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("C"))))), new SymbolReference("D"))),
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"), new SymbolReference("D"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("C"), new SymbolReference("D"))))),
+                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "C"))))), new SymbolReference(BOOLEAN, "D"))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"), new SymbolReference(BOOLEAN, "D"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "C"), new SymbolReference(BOOLEAN, "D"))))),
                 ImmutableMap.of("A", BOOLEAN, "B", BOOLEAN, "C", BOOLEAN, "D", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new SymbolReference("C"))))), new SymbolReference("D"))), new SymbolReference("E"))),
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("E"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("B"), new SymbolReference("C"), new SymbolReference("E"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("D"), new SymbolReference("E"))))),
+                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "C"))))), new SymbolReference(BOOLEAN, "D"))), new SymbolReference(BOOLEAN, "E"))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "E"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "B"), new SymbolReference(BOOLEAN, "C"), new SymbolReference(BOOLEAN, "E"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "D"), new SymbolReference(BOOLEAN, "E"))))),
                 ImmutableMap.of("A", BOOLEAN, "B", BOOLEAN, "C", BOOLEAN, "D", BOOLEAN, "E", BOOLEAN));
         assertSimplifies(
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("C"))))), new SymbolReference("D"))), new SymbolReference("E"))),
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("B"), new SymbolReference("C"))), new SymbolReference("D"))), new SymbolReference("E"))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "C"))))), new SymbolReference(BOOLEAN, "D"))), new SymbolReference(BOOLEAN, "E"))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "B"), new SymbolReference(BOOLEAN, "C"))), new SymbolReference(BOOLEAN, "D"))), new SymbolReference(BOOLEAN, "E"))),
                 ImmutableMap.of("A", BOOLEAN, "B", BOOLEAN, "C", BOOLEAN, "D", BOOLEAN, "E", BOOLEAN));
 
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("C"), new SymbolReference("D"))))),
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("C"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("A"), new SymbolReference("D"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("B"), new SymbolReference("C"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("B"), new SymbolReference("D"))))),
+                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "C"), new SymbolReference(BOOLEAN, "D"))))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "C"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "D"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "B"), new SymbolReference(BOOLEAN, "C"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "B"), new SymbolReference(BOOLEAN, "D"))))),
                 ImmutableMap.of("A", BOOLEAN, "B", BOOLEAN, "C", BOOLEAN, "D", BOOLEAN));
         // No distribution since it would add too many new terms
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("C"), new SymbolReference("D"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("E"), new SymbolReference("F"))))),
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A"), new SymbolReference("B"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("C"), new SymbolReference("D"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("E"), new SymbolReference("F"))))),
+                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "C"), new SymbolReference(BOOLEAN, "D"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "E"), new SymbolReference(BOOLEAN, "F"))))),
+                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A"), new SymbolReference(BOOLEAN, "B"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "C"), new SymbolReference(BOOLEAN, "D"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "E"), new SymbolReference(BOOLEAN, "F"))))),
                 ImmutableMap.of("A", BOOLEAN, "B", BOOLEAN, "C", BOOLEAN, "D", BOOLEAN, "E", BOOLEAN, "F", BOOLEAN));
 
         // Test overflow handling for large disjunct expressions
@@ -261,67 +262,67 @@ public class TestSimplifyExpressions
                 .collect(toImmutableMap(Function.identity(), x -> BOOLEAN));
         assertSimplifies(
                 new LogicalExpression(OR, ImmutableList.of(
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A1"), new SymbolReference("A2"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A3"), new SymbolReference("A4"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A5"), new SymbolReference("A6"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A7"), new SymbolReference("A8"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A9"), new SymbolReference("A10"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A11"), new SymbolReference("A12"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A13"), new SymbolReference("A14"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A15"), new SymbolReference("A16"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A17"), new SymbolReference("A18"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A19"), new SymbolReference("A20"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A21"), new SymbolReference("A22"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A23"), new SymbolReference("A24"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A25"), new SymbolReference("A26"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A27"), new SymbolReference("A28"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A29"), new SymbolReference("A30"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A31"), new SymbolReference("A32"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A33"), new SymbolReference("A34"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A35"), new SymbolReference("A36"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A37"), new SymbolReference("A38"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A39"), new SymbolReference("A40"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A41"), new SymbolReference("A42"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A43"), new SymbolReference("A44"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A45"), new SymbolReference("A46"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A47"), new SymbolReference("A48"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A49"), new SymbolReference("A50"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A51"), new SymbolReference("A52"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A53"), new SymbolReference("A54"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A55"), new SymbolReference("A56"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A57"), new SymbolReference("A58"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A59"), new SymbolReference("A60"))))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A1"), new SymbolReference(BOOLEAN, "A2"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A3"), new SymbolReference(BOOLEAN, "A4"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A5"), new SymbolReference(BOOLEAN, "A6"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A7"), new SymbolReference(BOOLEAN, "A8"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A9"), new SymbolReference(BOOLEAN, "A10"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A11"), new SymbolReference(BOOLEAN, "A12"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A13"), new SymbolReference(BOOLEAN, "A14"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A15"), new SymbolReference(BOOLEAN, "A16"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A17"), new SymbolReference(BOOLEAN, "A18"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A19"), new SymbolReference(BOOLEAN, "A20"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A21"), new SymbolReference(BOOLEAN, "A22"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A23"), new SymbolReference(BOOLEAN, "A24"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A25"), new SymbolReference(BOOLEAN, "A26"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A27"), new SymbolReference(BOOLEAN, "A28"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A29"), new SymbolReference(BOOLEAN, "A30"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A31"), new SymbolReference(BOOLEAN, "A32"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A33"), new SymbolReference(BOOLEAN, "A34"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A35"), new SymbolReference(BOOLEAN, "A36"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A37"), new SymbolReference(BOOLEAN, "A38"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A39"), new SymbolReference(BOOLEAN, "A40"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A41"), new SymbolReference(BOOLEAN, "A42"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A43"), new SymbolReference(BOOLEAN, "A44"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A45"), new SymbolReference(BOOLEAN, "A46"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A47"), new SymbolReference(BOOLEAN, "A48"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A49"), new SymbolReference(BOOLEAN, "A50"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A51"), new SymbolReference(BOOLEAN, "A52"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A53"), new SymbolReference(BOOLEAN, "A54"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A55"), new SymbolReference(BOOLEAN, "A56"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A57"), new SymbolReference(BOOLEAN, "A58"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A59"), new SymbolReference(BOOLEAN, "A60"))))),
                 new LogicalExpression(OR, ImmutableList.of(
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A1"), new SymbolReference("A2"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A3"), new SymbolReference("A4"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A5"), new SymbolReference("A6"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A7"), new SymbolReference("A8"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A9"), new SymbolReference("A10"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A11"), new SymbolReference("A12"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A13"), new SymbolReference("A14"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A15"), new SymbolReference("A16"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A17"), new SymbolReference("A18"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A19"), new SymbolReference("A20"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A21"), new SymbolReference("A22"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A23"), new SymbolReference("A24"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A25"), new SymbolReference("A26"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A27"), new SymbolReference("A28"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A29"), new SymbolReference("A30"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A31"), new SymbolReference("A32"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A33"), new SymbolReference("A34"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A35"), new SymbolReference("A36"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A37"), new SymbolReference("A38"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A39"), new SymbolReference("A40"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A41"), new SymbolReference("A42"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A43"), new SymbolReference("A44"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A45"), new SymbolReference("A46"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A47"), new SymbolReference("A48"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A49"), new SymbolReference("A50"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A51"), new SymbolReference("A52"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A53"), new SymbolReference("A54"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A55"), new SymbolReference("A56"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A57"), new SymbolReference("A58"))),
-                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference("A59"), new SymbolReference("A60"))))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A1"), new SymbolReference(BOOLEAN, "A2"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A3"), new SymbolReference(BOOLEAN, "A4"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A5"), new SymbolReference(BOOLEAN, "A6"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A7"), new SymbolReference(BOOLEAN, "A8"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A9"), new SymbolReference(BOOLEAN, "A10"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A11"), new SymbolReference(BOOLEAN, "A12"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A13"), new SymbolReference(BOOLEAN, "A14"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A15"), new SymbolReference(BOOLEAN, "A16"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A17"), new SymbolReference(BOOLEAN, "A18"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A19"), new SymbolReference(BOOLEAN, "A20"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A21"), new SymbolReference(BOOLEAN, "A22"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A23"), new SymbolReference(BOOLEAN, "A24"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A25"), new SymbolReference(BOOLEAN, "A26"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A27"), new SymbolReference(BOOLEAN, "A28"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A29"), new SymbolReference(BOOLEAN, "A30"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A31"), new SymbolReference(BOOLEAN, "A32"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A33"), new SymbolReference(BOOLEAN, "A34"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A35"), new SymbolReference(BOOLEAN, "A36"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A37"), new SymbolReference(BOOLEAN, "A38"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A39"), new SymbolReference(BOOLEAN, "A40"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A41"), new SymbolReference(BOOLEAN, "A42"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A43"), new SymbolReference(BOOLEAN, "A44"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A45"), new SymbolReference(BOOLEAN, "A46"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A47"), new SymbolReference(BOOLEAN, "A48"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A49"), new SymbolReference(BOOLEAN, "A50"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A51"), new SymbolReference(BOOLEAN, "A52"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A53"), new SymbolReference(BOOLEAN, "A54"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A55"), new SymbolReference(BOOLEAN, "A56"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A57"), new SymbolReference(BOOLEAN, "A58"))),
+                        new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "A59"), new SymbolReference(BOOLEAN, "A60"))))),
                 symbolTypes);
     }
 
@@ -332,15 +333,15 @@ public class TestSimplifyExpressions
                 new LogicalExpression(AND, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), FALSE_LITERAL)),
                 FALSE_LITERAL);
         assertSimplifies(
-                new LogicalExpression(AND, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
-                new LogicalExpression(AND, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
+                new LogicalExpression(AND, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new SymbolReference(BOOLEAN, "B1"))),
+                new LogicalExpression(AND, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new SymbolReference(BOOLEAN, "B1"))),
                 ImmutableMap.of("B1", BOOLEAN));
         assertSimplifies(
                 new LogicalExpression(OR, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), TRUE_LITERAL)),
                 TRUE_LITERAL);
         assertSimplifies(
-                new LogicalExpression(OR, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
-                new LogicalExpression(OR, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new SymbolReference("B1"))),
+                new LogicalExpression(OR, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new SymbolReference(BOOLEAN, "B1"))),
+                new LogicalExpression(OR, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new SymbolReference(BOOLEAN, "B1"))),
                 ImmutableMap.of("B1", BOOLEAN));
     }
 
@@ -591,7 +592,7 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifies(Expression expression, Expression expected, Map<String, Type> symbolTypes)
     {
-        Map<Symbol, Type> symbols = symbolTypes.entrySet().stream().collect(toImmutableMap(symbolTypeEntry -> new Symbol(symbolTypeEntry.getKey()), Map.Entry::getValue));
+        Map<Symbol, Type> symbols = symbolTypes.entrySet().stream().collect(toImmutableMap(symbolTypeEntry -> new Symbol(UNKNOWN, symbolTypeEntry.getKey()), Map.Entry::getValue));
         Expression simplified = normalize(rewrite(expression, TEST_SESSION, new SymbolAllocator(symbols), PLANNER_CONTEXT, new IrTypeAnalyzer(PLANNER_CONTEXT)));
         assertThat(simplified).isEqualTo(normalize(expected));
     }
@@ -600,118 +601,118 @@ public class TestSimplifyExpressions
     public void testPushesDownNegationsNumericTypes()
     {
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference("I1"), new SymbolReference("I2"))),
-                new ComparisonExpression(NOT_EQUAL, new SymbolReference("I1"), new SymbolReference("I2")));
+                new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2"))),
+                new ComparisonExpression(NOT_EQUAL, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("I1"), new SymbolReference("I2"))),
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("I1"), new SymbolReference("I2")));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2"))),
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")));
         assertSimplifiesNumericTypes(
-                new NotExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("I1"), new SymbolReference("I2")), new ComparisonExpression(GREATER_THAN, new SymbolReference("I3"), new SymbolReference("I4"))))),
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("I1"), new SymbolReference("I2")), new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("I3"), new SymbolReference("I4")))));
+                new NotExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "I3"), new SymbolReference(INTEGER, "I4"))))),
+                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")), new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(INTEGER, "I3"), new SymbolReference(INTEGER, "I4")))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new NotExpression(new NotExpression(new LogicalExpression(OR, ImmutableList.of(new NotExpression(new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference("I1"), new SymbolReference("I2")))), new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("I3"), new SymbolReference("I4")))))))),
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("I1"), new SymbolReference("I2")), new ComparisonExpression(GREATER_THAN, new SymbolReference("I3"), new SymbolReference("I4")))));
+                new NotExpression(new NotExpression(new NotExpression(new LogicalExpression(OR, ImmutableList.of(new NotExpression(new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")))), new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "I3"), new SymbolReference(INTEGER, "I4")))))))),
+                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "I3"), new SymbolReference(INTEGER, "I4")))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("I1"), new SymbolReference("I2")), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("B1"), new SymbolReference("B2"))), new NotExpression(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("B3"), new SymbolReference("B4"))))))),
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("I1"), new SymbolReference("I2")), new LogicalExpression(OR, ImmutableList.of(new NotExpression(new SymbolReference("B1")), new NotExpression(new SymbolReference("B2")))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("B3"), new SymbolReference("B4"))))));
+                new NotExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "B1"), new SymbolReference(BOOLEAN, "B2"))), new NotExpression(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "B3"), new SymbolReference(BOOLEAN, "B4"))))))),
+                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")), new LogicalExpression(OR, ImmutableList.of(new NotExpression(new SymbolReference(BOOLEAN, "B1")), new NotExpression(new SymbolReference(BOOLEAN, "B2")))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "B3"), new SymbolReference(BOOLEAN, "B4"))))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("I1"), new SymbolReference("I2"))),
-                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("I1"), new SymbolReference("I2"))));
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2"))),
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2"))));
 
         /*
          Restricted rewrite for types having NaN
          */
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference("D1"), new SymbolReference("D2"))),
-                new ComparisonExpression(NOT_EQUAL, new SymbolReference("D1"), new SymbolReference("D2")));
+                new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))),
+                new ComparisonExpression(NOT_EQUAL, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2")));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(NOT_EQUAL, new SymbolReference("D1"), new SymbolReference("D2"))),
-                new ComparisonExpression(EQUAL, new SymbolReference("D1"), new SymbolReference("D2")));
+                new NotExpression(new ComparisonExpression(NOT_EQUAL, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))),
+                new ComparisonExpression(EQUAL, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2")));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference("R1"), new SymbolReference("R2"))),
-                new ComparisonExpression(NOT_EQUAL, new SymbolReference("R1"), new SymbolReference("R2")));
+                new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))),
+                new ComparisonExpression(NOT_EQUAL, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2")));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(NOT_EQUAL, new SymbolReference("R1"), new SymbolReference("R2"))),
-                new ComparisonExpression(EQUAL, new SymbolReference("R1"), new SymbolReference("R2")));
+                new NotExpression(new ComparisonExpression(NOT_EQUAL, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))),
+                new ComparisonExpression(EQUAL, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2")));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("D1"), new SymbolReference("D2"))),
-                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("D1"), new SymbolReference("D2"))));
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))),
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("R1"), new SymbolReference("R2"))),
-                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference("R1"), new SymbolReference("R2"))));
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))),
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))));
 
         // DOUBLE: no negation pushdown for inequalities
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new SymbolReference("D2"))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new SymbolReference("D2"))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("D1"), new SymbolReference("D2"))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("D1"), new SymbolReference("D2"))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("D1"), new SymbolReference("D2"))),
-                new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("D1"), new SymbolReference("D2"))));
+                new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))),
+                new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("D1"), new SymbolReference("D2"))),
-                new NotExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("D1"), new SymbolReference("D2"))));
+                new NotExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))),
+                new NotExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))));
 
         // REAL: no negation pushdown for inequalities
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new SymbolReference("R2"))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new SymbolReference("R2"))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("R1"), new SymbolReference("R2"))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("R1"), new SymbolReference("R2"))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("R1"), new SymbolReference("R2"))),
-                new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("R1"), new SymbolReference("R2"))));
+                new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))),
+                new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("R1"), new SymbolReference("R2"))),
-                new NotExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("R1"), new SymbolReference("R2"))));
+                new NotExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))),
+                new NotExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))));
 
         // Multiple negations
         assertSimplifiesNumericTypes(
-                new NotExpression(new NotExpression(new NotExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("D1"), new SymbolReference("D2"))))),
-                new NotExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("D1"), new SymbolReference("D2"))));
+                new NotExpression(new NotExpression(new NotExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))))),
+                new NotExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new NotExpression(new NotExpression(new NotExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("D1"), new SymbolReference("D2")))))),
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("D1"), new SymbolReference("D2")));
+                new NotExpression(new NotExpression(new NotExpression(new NotExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2")))))),
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2")));
         assertSimplifiesNumericTypes(
-                new NotExpression(new NotExpression(new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new SymbolReference("R2"))))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new SymbolReference("R2"))));
+                new NotExpression(new NotExpression(new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new NotExpression(new NotExpression(new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new SymbolReference("R2")))))),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new SymbolReference("R2")));
+                new NotExpression(new NotExpression(new NotExpression(new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2")))))),
+                new ComparisonExpression(GREATER_THAN, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2")));
 
         // Nested comparisons
         assertSimplifiesNumericTypes(
-                new NotExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("I1"), new SymbolReference("I2")), new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new SymbolReference("D2"))))),
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference("I1"), new SymbolReference("I2")), new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new SymbolReference("D2"))))));
+                new NotExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")), new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))))),
+                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(NOT_EQUAL, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")), new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new NotExpression(new NotExpression(new LogicalExpression(OR, ImmutableList.of(new NotExpression(new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("R1"), new SymbolReference("R2")))), new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("I1"), new SymbolReference("I2")))))))),
-                new LogicalExpression(AND, ImmutableList.of(new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("R1"), new SymbolReference("R2"))), new ComparisonExpression(GREATER_THAN, new SymbolReference("I1"), new SymbolReference("I2")))));
+                new NotExpression(new NotExpression(new NotExpression(new LogicalExpression(OR, ImmutableList.of(new NotExpression(new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2")))), new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")))))))),
+                new LogicalExpression(AND, ImmutableList.of(new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))), new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new SymbolReference("D2")), new LogicalExpression(AND, ImmutableList.of(new SymbolReference("B1"), new SymbolReference("B2"))), new NotExpression(new LogicalExpression(OR, ImmutableList.of(new SymbolReference("B3"), new SymbolReference("B4"))))))),
-                new LogicalExpression(AND, ImmutableList.of(new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new SymbolReference("D2"))), new LogicalExpression(OR, ImmutableList.of(new NotExpression(new SymbolReference("B1")), new NotExpression(new SymbolReference("B2")))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference("B3"), new SymbolReference("B4"))))));
+                new NotExpression(new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2")), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "B1"), new SymbolReference(BOOLEAN, "B2"))), new NotExpression(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "B3"), new SymbolReference(BOOLEAN, "B4"))))))),
+                new LogicalExpression(AND, ImmutableList.of(new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))), new LogicalExpression(OR, ImmutableList.of(new NotExpression(new SymbolReference(BOOLEAN, "B1")), new NotExpression(new SymbolReference(BOOLEAN, "B2")))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "B3"), new SymbolReference(BOOLEAN, "B4"))))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new SymbolReference("D2")), new ComparisonExpression(LESS_THAN, new SymbolReference("I1"), new SymbolReference("I2")))), new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("B1"), new SymbolReference("B2"))), new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new SymbolReference("R2"))))))),
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new SymbolReference("D2"))), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("I1"), new SymbolReference("I2")))), new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new NotExpression(new SymbolReference("B1")), new NotExpression(new SymbolReference("B2")))), new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new SymbolReference("R2"))))))));
+                new NotExpression(new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2")), new ComparisonExpression(LESS_THAN, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")))), new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "B1"), new SymbolReference(BOOLEAN, "B2"))), new ComparisonExpression(GREATER_THAN, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))))))),
+                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2"))), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")))), new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new NotExpression(new SymbolReference(BOOLEAN, "B1")), new NotExpression(new SymbolReference(BOOLEAN, "B2")))), new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(REAL, "R1"), new SymbolReference(REAL, "R2"))))))));
         assertSimplifiesNumericTypes(
-                ifExpression(new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("I1"), new SymbolReference("I2"))), new SymbolReference("D1"), new SymbolReference("D2")),
-                ifExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("I1"), new SymbolReference("I2")), new SymbolReference("D1"), new SymbolReference("D2")));
+                ifExpression(new NotExpression(new ComparisonExpression(LESS_THAN, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2"))), new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2")),
+                ifExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(INTEGER, "I1"), new SymbolReference(INTEGER, "I2")), new SymbolReference(DOUBLE, "D1"), new SymbolReference(DOUBLE, "D2")));
 
         // Symbol of type having NaN on either side of comparison
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new Constant(INTEGER, 1L))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("D1"), new Constant(INTEGER, 1L))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "D1"), new Constant(DOUBLE, 1.0))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "D1"), new Constant(DOUBLE, 1.0))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 1L), new SymbolReference("D2"))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 1L), new SymbolReference("D2"))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new Constant(DOUBLE, 1.0), new SymbolReference(DOUBLE, "D2"))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new Constant(DOUBLE, 1.0), new SymbolReference(DOUBLE, "D2"))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new Constant(INTEGER, 1L))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("R1"), new Constant(INTEGER, 1L))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(REAL, "R1"), new Constant(REAL, Reals.toReal(1L)))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(REAL, "R1"), new Constant(REAL, Reals.toReal(1L)))));
         assertSimplifiesNumericTypes(
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 1L), new SymbolReference("R2"))),
-                new NotExpression(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 1L), new SymbolReference("R2"))));
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new Constant(REAL, Reals.toReal(1)), new SymbolReference(REAL, "R2"))),
+                new NotExpression(new ComparisonExpression(GREATER_THAN, new Constant(REAL, Reals.toReal(1)), new SymbolReference(REAL, "R2"))));
     }
 
     private static void assertSimplifiesNumericTypes(Expression expression, Expression expected)

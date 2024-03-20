@@ -117,7 +117,6 @@ import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.TestingTableExecuteHandle;
 import io.trino.testing.TestingTransactionHandle;
-import io.trino.type.UnknownType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -129,6 +128,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -143,9 +143,9 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUT
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
-import static io.trino.util.MoreLists.nElements;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -153,7 +153,7 @@ public class PlanBuilder
 {
     private final PlanNodeIdAllocator idAllocator;
     private final Session session;
-    private final Map<Symbol, Type> symbols = new HashMap<>();
+    private final Map<String, Symbol> symbolsByName = new HashMap<>();
     private final FunctionResolver functionResolver;
 
     public PlanBuilder(PlanNodeIdAllocator idAllocator, PlannerContext plannerContext, Session session)
@@ -241,10 +241,11 @@ public class PlanBuilder
 
     public ValuesNode values(PlanNodeId id, int rows, Symbol... columns)
     {
-        return values(
-                id,
-                ImmutableList.copyOf(columns),
-                nElements(rows, row -> nElements(columns.length, cell -> new Constant(UnknownType.UNKNOWN, null))));
+        List<Expression> row = Arrays.stream(columns)
+                .map(symbol -> new Constant(symbol.getType(), null))
+                .collect(Collectors.toList());
+
+        return values(id, ImmutableList.copyOf(columns), nCopies(rows, row));
     }
 
     public ValuesNode values(List<Symbol> columns, List<List<Expression>> rows)
@@ -1307,6 +1308,7 @@ public class PlanBuilder
                 Optional.empty());
     }
 
+    @Deprecated
     public Symbol symbol(String name)
     {
         return symbol(name, BIGINT);
@@ -1314,15 +1316,11 @@ public class PlanBuilder
 
     public Symbol symbol(String name, Type type)
     {
-        Symbol symbol = new Symbol(name);
+        Symbol symbol = new Symbol(type, name);
 
-        Type old = symbols.put(symbol, type);
-        if (old != null && !old.equals(type)) {
-            throw new IllegalArgumentException(format("Symbol '%s' already registered with type '%s'", name, old));
-        }
-
-        if (old == null) {
-            symbols.put(symbol, type);
+        Symbol old = symbolsByName.put(symbol.getName(), symbol);
+        if (old != null && !old.getType().equals(type)) {
+            throw new IllegalArgumentException(format("Symbol '%s' already registered with type '%s'", name, old.getType()));
         }
 
         return symbol;
@@ -1442,6 +1440,6 @@ public class PlanBuilder
 
     public TypeProvider getTypes()
     {
-        return TypeProvider.copyOf(symbols);
+        return TypeProvider.of(symbolsByName.values());
     }
 }

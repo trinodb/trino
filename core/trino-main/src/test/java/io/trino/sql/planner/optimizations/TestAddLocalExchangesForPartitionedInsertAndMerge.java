@@ -59,8 +59,8 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
     private static final PartitioningScheme INSERT_PARTITIONING_SCHEME = new PartitioningScheme(
             Partitioning.create(
                     FIXED_HASH_DISTRIBUTION,
-                    ImmutableList.of(new Symbol("year"))),
-            ImmutableList.of(new Symbol("customer"), new Symbol("year")));
+                    ImmutableList.of(new Symbol(INTEGER, "year"))),
+            ImmutableList.of(new Symbol(INTEGER, "customer"), new Symbol(INTEGER, "year")));
     private static final PartitioningHandle MERGE_PARTITIONING_HANDLE = new PartitioningHandle(
             Optional.empty(),
             Optional.empty(),

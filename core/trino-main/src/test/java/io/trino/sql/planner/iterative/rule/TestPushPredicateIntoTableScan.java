@@ -130,7 +130,7 @@ public class TestPushPredicateIntoTableScan
     {
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), new Constant(createVarcharType(1), utf8Slice("G"))),
+                        new ComparisonExpression(EQUAL, new SymbolReference(createVarcharType(1), "orderstatus"), new Constant(createVarcharType(1), utf8Slice("G"))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
@@ -144,7 +144,7 @@ public class TestPushPredicateIntoTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new Constant(BIGINT, 44L)),
+                        new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -160,7 +160,7 @@ public class TestPushPredicateIntoTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new Constant(BIGINT, 44L)),
+                        new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -179,7 +179,7 @@ public class TestPushPredicateIntoTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new Constant(BIGINT, 44L)), new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new Constant(BIGINT, 45L)))),
+                        new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)), new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "nationkey"), new Constant(BIGINT, 45L)))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -200,7 +200,7 @@ public class TestPushPredicateIntoTableScan
         Map<String, Domain> filterConstraint = ImmutableMap.of("orderstatus", singleValue(orderStatusType, utf8Slice("O")));
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), new Constant(createVarcharType(1), utf8Slice("O"))), new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), new Constant(createVarcharType(1), utf8Slice("F"))))),
+                        new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference(createVarcharType(1), "orderstatus"), new Constant(createVarcharType(1), utf8Slice("O"))), new ComparisonExpression(EQUAL, new SymbolReference(createVarcharType(1), "orderstatus"), new Constant(createVarcharType(1), utf8Slice("F"))))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", orderStatusType)),
@@ -231,21 +231,11 @@ public class TestPushPredicateIntoTableScan
                                                 new Constant(BOOLEAN, null),
                                                 new ComparisonExpression(
                                                         EQUAL,
-                                                        new ArithmeticBinaryExpression(
-                                                                MODULUS_BIGINT,
-                                                                MODULUS,
-                                                                new SymbolReference("nationkey"),
-                                                                new Constant(BIGINT, 17L)),
+                                                        new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new SymbolReference(BIGINT, "nationkey"), new Constant(BIGINT, 17L)),
                                                         new Constant(BIGINT, 44L))),
                                         LogicalExpression.or(
-                                                new ComparisonExpression(
-                                                        EQUAL,
-                                                        new SymbolReference("nationkey"),
-                                                        new Constant(BIGINT, 44L)),
-                                                new ComparisonExpression(
-                                                        EQUAL,
-                                                        new SymbolReference("nationkey"),
-                                                        new Constant(BIGINT, 45L))))),
+                                                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)),
+                                                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "nationkey"), new Constant(BIGINT, 45L))))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -263,11 +253,7 @@ public class TestPushPredicateIntoTableScan
                                                 new Constant(BIGINT, 42L)),
                                         new ComparisonExpression(
                                                 EQUAL,
-                                                new ArithmeticBinaryExpression(
-                                                        MODULUS_BIGINT,
-                                                        MODULUS,
-                                                        new SymbolReference("nationkey"),
-                                                        new Constant(BIGINT, 17L)),
+                                                new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new SymbolReference(BIGINT, "nationkey"), new Constant(BIGINT, 17L)),
                                                 new Constant(BIGINT, 44L))),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
@@ -300,7 +286,7 @@ public class TestPushPredicateIntoTableScan
     {
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_INTEGER, MODULUS, new SymbolReference("nationkey"), new Constant(INTEGER, 17L)), new Constant(BIGINT, 44L)), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_INTEGER, MODULUS, new SymbolReference("nationkey"), new Constant(INTEGER, 15L)), new Constant(BIGINT, 43L)))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_INTEGER, MODULUS, new SymbolReference(INTEGER, "nationkey"), new Constant(INTEGER, 17L)), new Constant(BIGINT, 44L)), new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_INTEGER, MODULUS, new SymbolReference(INTEGER, "nationkey"), new Constant(INTEGER, 15L)), new Constant(BIGINT, 43L)))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -315,7 +301,7 @@ public class TestPushPredicateIntoTableScan
         Map<String, Domain> filterConstraint = ImmutableMap.of("orderstatus", singleValue(createVarcharType(1), utf8Slice("F")));
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("orderstatus"), new Constant(createVarcharType(1), utf8Slice("F"))),
+                        new ComparisonExpression(EQUAL, new SymbolReference(createVarcharType(1), "orderstatus"), new Constant(createVarcharType(1), utf8Slice("F"))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
@@ -331,10 +317,7 @@ public class TestPushPredicateIntoTableScan
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
                         LogicalExpression.and(
-                                new ComparisonExpression(
-                                        EQUAL,
-                                        new SymbolReference("orderstatus"),
-                                        new Constant(createVarcharType(1), utf8Slice("O"))),
+                                new ComparisonExpression(EQUAL, new SymbolReference(createVarcharType(1), "orderstatus"), new Constant(createVarcharType(1), utf8Slice("O"))),
                                 new ComparisonExpression(
                                         EQUAL,
                                         functionResolution
@@ -368,7 +351,7 @@ public class TestPushPredicateIntoTableScan
         assertThatThrownBy(() -> tester().assertThat(pushPredicateIntoTableScan)
                 .withSession(session)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("col"), new Constant(VARCHAR, utf8Slice("G"))),
+                        new ComparisonExpression(EQUAL, new SymbolReference(VARCHAR, "col"), new Constant(VARCHAR, utf8Slice("G"))),
                         p.tableScan(
                                 mockTableHandle(CONNECTOR_PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED),
                                 ImmutableList.of(p.symbol("col", VARCHAR)),
@@ -380,7 +363,7 @@ public class TestPushPredicateIntoTableScan
         tester().assertThat(pushPredicateIntoTableScan)
                 .withSession(session)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("col"), new Constant(VARCHAR, utf8Slice("G"))),
+                        new ComparisonExpression(EQUAL, new SymbolReference(VARCHAR, "col"), new Constant(VARCHAR, utf8Slice("G"))),
                         p.tableScan(
                                 mockTableHandle(CONNECTOR_PARTITIONED_TABLE_HANDLE),
                                 ImmutableList.of(p.symbol("col", VARCHAR)),
@@ -405,7 +388,7 @@ public class TestPushPredicateIntoTableScan
 
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new Constant(BIGINT, null)),
+                        new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "nationkey"), new Constant(BIGINT, null)),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -414,7 +397,7 @@ public class TestPushPredicateIntoTableScan
 
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference("nationkey"), new Constant(BIGINT, 44L)), new Constant(BOOLEAN, null))),
+                        new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)), new Constant(BOOLEAN, null))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),

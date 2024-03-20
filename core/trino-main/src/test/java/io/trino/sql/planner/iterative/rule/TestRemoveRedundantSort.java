@@ -35,7 +35,7 @@ public class TestRemoveRedundantSort
                         p.sort(
                                 ImmutableList.of(p.symbol("c")),
                                 p.aggregation(builder -> builder
-                                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new SymbolReference("foo"))), ImmutableList.of(BIGINT))
+                                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "foo"))), ImmutableList.of(BIGINT))
                                         .globalGrouping()
                                         .source(p.values(p.symbol("foo"))))))
                 .matches(
@@ -62,7 +62,7 @@ public class TestRemoveRedundantSort
                         p.sort(
                                 ImmutableList.of(p.symbol("c")),
                                 p.aggregation(builder -> builder
-                                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new SymbolReference("foo"))), ImmutableList.of(BIGINT))
+                                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "foo"))), ImmutableList.of(BIGINT))
                                         .singleGroupingSet(p.symbol("foo"))
                                         .source(p.values(20, p.symbol("foo"))))))
                 .doesNotFire();

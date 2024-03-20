@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -128,7 +129,7 @@ public class TestPruneExchangeColumns
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("a", expression(new SymbolReference("a"))),
+                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a"))),
                                 exchange(
                                         REMOTE,
                                         GATHER,

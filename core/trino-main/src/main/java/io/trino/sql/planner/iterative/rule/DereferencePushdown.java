@@ -22,7 +22,6 @@ import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 
 import java.util.Collection;
 import java.util.List;
@@ -40,10 +39,10 @@ class DereferencePushdown
 {
     private DereferencePushdown() {}
 
-    public static Set<SubscriptExpression> extractRowSubscripts(Collection<Expression> expressions, boolean allowOverlap, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+    public static Set<SubscriptExpression> extractRowSubscripts(Collection<Expression> expressions, boolean allowOverlap, IrTypeAnalyzer typeAnalyzer)
     {
         Set<Expression> symbolReferencesAndRowSubscripts = expressions.stream()
-                .flatMap(expression -> getSymbolReferencesAndRowSubscripts(expression, typeAnalyzer, types).stream())
+                .flatMap(expression -> getSymbolReferencesAndRowSubscripts(expression, typeAnalyzer).stream())
                 .collect(toImmutableSet());
 
         // Remove overlap if required
@@ -61,12 +60,12 @@ class DereferencePushdown
                 .collect(toImmutableSet());
     }
 
-    public static boolean exclusiveDereferences(Set<Expression> projections, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+    public static boolean exclusiveDereferences(Set<Expression> projections, IrTypeAnalyzer typeAnalyzer)
     {
         return projections.stream()
                 .allMatch(expression -> expression instanceof SymbolReference ||
                         (expression instanceof SubscriptExpression &&
-                                isRowSubscriptChain((SubscriptExpression) expression, typeAnalyzer, types) &&
+                                isRowSubscriptChain((SubscriptExpression) expression, typeAnalyzer) &&
                                 !prefixExists(expression, projections)));
     }
 
@@ -79,7 +78,7 @@ class DereferencePushdown
      * Extract the sub-expressions of type {@link SubscriptExpression} or {@link SymbolReference} from the expression
      * in a top-down manner. The expressions within the base of a valid {@link SubscriptExpression} sequence are not extracted.
      */
-    private static List<Expression> getSymbolReferencesAndRowSubscripts(Expression expression, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+    private static List<Expression> getSymbolReferencesAndRowSubscripts(Expression expression, IrTypeAnalyzer typeAnalyzer)
     {
         ImmutableList.Builder<Expression> builder = ImmutableList.builder();
 
@@ -88,7 +87,7 @@ class DereferencePushdown
             @Override
             protected Void visitSubscriptExpression(SubscriptExpression node, ImmutableList.Builder<Expression> context)
             {
-                if (isRowSubscriptChain(node, typeAnalyzer, types)) {
+                if (isRowSubscriptChain(node, typeAnalyzer)) {
                     context.add(node);
                 }
                 return null;
@@ -111,14 +110,14 @@ class DereferencePushdown
         return builder.build();
     }
 
-    private static boolean isRowSubscriptChain(SubscriptExpression expression, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+    private static boolean isRowSubscriptChain(SubscriptExpression expression, IrTypeAnalyzer typeAnalyzer)
     {
-        if (!(typeAnalyzer.getType(types, expression.getBase()) instanceof RowType)) {
+        if (!(typeAnalyzer.getType(expression.getBase()) instanceof RowType)) {
             return false;
         }
 
         return (expression.getBase() instanceof SymbolReference) ||
-                ((expression.getBase() instanceof SubscriptExpression) && isRowSubscriptChain((SubscriptExpression) expression.getBase(), typeAnalyzer, types));
+                ((expression.getBase() instanceof SubscriptExpression) && isRowSubscriptChain((SubscriptExpression) expression.getBase(), typeAnalyzer));
     }
 
     private static boolean prefixExists(Expression expression, Set<Expression> expressions)

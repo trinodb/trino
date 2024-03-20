@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
@@ -49,9 +51,16 @@ import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.type.TypeDeserializer;
+import io.trino.type.TypeSignatureKeyDeserializer;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -74,7 +83,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.trino.common.assertions.TrinoAssertions.assertThat;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
@@ -100,7 +108,6 @@ public class TestEventListenerBasic
         extends AbstractTestQueryFramework
 {
     private static final JsonCodec<Map<String, JsonRenderedNode>> ANONYMIZED_PLAN_JSON_CODEC = mapJsonCodec(String.class, JsonRenderedNode.class);
-    private static final JsonCodec<StatsAndCosts> STATS_AND_COSTS_JSON_CODEC = jsonCodec(StatsAndCosts.class);
     private static final String IGNORE_EVENT_MARKER = " -- ignore_generated_event";
     private static final String VARCHAR_TYPE = "varchar(15)";
     private static final String BIGINT_TYPE = BIGINT.getDisplayName();
@@ -1414,7 +1421,19 @@ public class TestEventListenerBasic
         QueryEvents queryEvents = queries.runQueryAndWaitForEvents("SELECT l.name FROM nation l, nation r WHERE l.nationkey = r.nationkey", getSession(), true).getQueryEvents();
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
         assertThat(event.getStatistics().getPlanNodeStatsAndCosts()).isPresent();
-        StatsAndCosts statsAndCosts = STATS_AND_COSTS_JSON_CODEC.fromJson(event.getStatistics().getPlanNodeStatsAndCosts().get());
+
+        TypeManager typeManager = getQueryRunner().getPlannerContext().getTypeManager();
+        ObjectMapperProvider provider = new ObjectMapperProvider();
+        provider.setKeyDeserializers(ImmutableMap.of(
+                Symbol.class, new SymbolKeyDeserializer(typeManager),
+                TypeSignature.class, new TypeSignatureKeyDeserializer()));
+
+        provider.setJsonDeserializers(ImmutableMap.of(
+                Type.class, new TypeDeserializer(typeManager::getType)));
+
+        JsonCodec<StatsAndCosts> codec = new JsonCodecFactory(provider).jsonCodec(StatsAndCosts.class);
+
+        StatsAndCosts statsAndCosts = codec.fromJson(event.getStatistics().getPlanNodeStatsAndCosts().get());
         assertThat(statsAndCosts.getStats().values()).allMatch(stats -> stats.getOutputRowCount() == 25.0);
     }
 

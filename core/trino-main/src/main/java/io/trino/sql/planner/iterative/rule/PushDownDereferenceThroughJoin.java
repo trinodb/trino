@@ -100,7 +100,7 @@ public class PushDownDereferenceThroughJoin
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
         expressionsBuilder.addAll(projectNode.getAssignments().getExpressions());
         joinNode.getFilter().ifPresent(expressionsBuilder::add);
-        Set<SubscriptExpression> dereferences = extractRowSubscripts(expressionsBuilder.build(), false, typeAnalyzer, context.getSymbolAllocator().getTypes());
+        Set<SubscriptExpression> dereferences = extractRowSubscripts(expressionsBuilder.build(), false, typeAnalyzer);
 
         // Exclude criteria symbols
         ImmutableSet.Builder<Symbol> criteriaSymbolsBuilder = ImmutableSet.builder();

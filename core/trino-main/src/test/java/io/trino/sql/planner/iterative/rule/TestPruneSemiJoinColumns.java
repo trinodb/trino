@@ -28,6 +28,8 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -43,7 +45,7 @@ public class TestPruneSemiJoinColumns
                 .on(p -> buildProjectedSemiJoin(p, symbol -> symbol.getName().equals("leftValue")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("leftValue", expression(new SymbolReference("leftValue"))),
+                                ImmutableMap.of("leftValue", expression(new SymbolReference(BIGINT, "leftValue"))),
                                 values("leftKey", "leftKeyHash", "leftValue")));
     }
 
@@ -70,12 +72,12 @@ public class TestPruneSemiJoinColumns
                 .on(p -> buildProjectedSemiJoin(p, symbol -> symbol.getName().equals("match")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("match", expression(new SymbolReference("match"))),
+                                ImmutableMap.of("match", expression(new SymbolReference(BOOLEAN, "match"))),
                                 semiJoin("leftKey", "rightKey", "match",
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "leftKey", expression(new SymbolReference("leftKey")),
-                                                        "leftKeyHash", expression(new SymbolReference("leftKeyHash"))),
+                                                        "leftKey", expression(new SymbolReference(BIGINT, "leftKey")),
+                                                        "leftKeyHash", expression(new SymbolReference(BIGINT, "leftKeyHash"))),
                                                 values("leftKey", "leftKeyHash", "leftValue")),
                                         values("rightKey"))));
     }

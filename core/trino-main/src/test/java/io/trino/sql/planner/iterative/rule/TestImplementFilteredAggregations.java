@@ -68,7 +68,7 @@ public class TestImplementFilteredAggregations
                                 filter(
                                         TRUE_LITERAL,
                                         project(
-                                                ImmutableMap.of("a", expression(new SymbolReference("a")), "g", expression(new SymbolReference("g")), "filter", expression(new SymbolReference("filter"))),
+                                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a")), "g", expression(new SymbolReference(BIGINT, "g")), "filter", expression(new SymbolReference(BOOLEAN, "filter"))),
                                                 values("a", "g", "filter")))));
     }
 
@@ -102,11 +102,11 @@ public class TestImplementFilteredAggregations
                                         TRUE_LITERAL,
                                         project(
                                                 ImmutableMap.of(
-                                                        "a", expression(new SymbolReference("a")),
-                                                        "g", expression(new SymbolReference("g")),
-                                                        "mask", expression(new SymbolReference("mask")),
-                                                        "filter", expression(new SymbolReference("filter")),
-                                                        "new_mask", expression(new LogicalExpression(AND, ImmutableList.of(new SymbolReference("mask"), new SymbolReference("filter"))))),
+                                                        "a", expression(new SymbolReference(BIGINT, "a")),
+                                                        "g", expression(new SymbolReference(BIGINT, "g")),
+                                                        "mask", expression(new SymbolReference(BOOLEAN, "mask")),
+                                                        "filter", expression(new SymbolReference(BOOLEAN, "filter")),
+                                                        "new_mask", expression(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "mask"), new SymbolReference(BOOLEAN, "filter"))))),
                                                 values("a", "g", "mask", "filter")))));
     }
 
@@ -135,9 +135,9 @@ public class TestImplementFilteredAggregations
                                 Optional.empty(),
                                 AggregationNode.Step.SINGLE,
                                 filter(
-                                        new SymbolReference("filter"),
+                                        new SymbolReference(BOOLEAN, "filter"),
                                         project(
-                                                ImmutableMap.of("a", expression(new SymbolReference("a")), "g", expression(new SymbolReference("g")), "filter", expression(new SymbolReference("filter"))),
+                                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a")), "g", expression(new SymbolReference(BIGINT, "g")), "filter", expression(new SymbolReference(BOOLEAN, "filter"))),
                                                 values("a", "g", "filter")))));
     }
 
@@ -172,7 +172,7 @@ public class TestImplementFilteredAggregations
                                 filter(
                                         TRUE_LITERAL,
                                         project(
-                                                ImmutableMap.of("a", expression(new SymbolReference("a")), "g", expression(new SymbolReference("g")), "filter", expression(new SymbolReference("filter"))),
+                                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a")), "g", expression(new SymbolReference(BIGINT, "g")), "filter", expression(new SymbolReference(BOOLEAN, "filter"))),
                                                 values("a", "g", "filter")))));
     }
 }

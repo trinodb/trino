@@ -21,11 +21,13 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.ApplyNode;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.apply;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.setExpression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestPruneApplySourceColumns
         extends BaseRuleTest
@@ -48,10 +50,10 @@ public class TestPruneApplySourceColumns
                 .matches(
                         apply(
                                 ImmutableList.of(),
-                                ImmutableMap.of("in_result", setExpression(new ApplyNode.In(new Symbol("a"), new Symbol("subquery_symbol_1")))),
+                                ImmutableMap.of("in_result", setExpression(new ApplyNode.In(new Symbol(UNKNOWN, "a"), new Symbol(UNKNOWN, "subquery_symbol_1")))),
                                 values("a"),
                                 project(
-                                        ImmutableMap.of("subquery_symbol_1", expression(new SymbolReference("subquery_symbol_1"))),
+                                        ImmutableMap.of("subquery_symbol_1", expression(new SymbolReference(BIGINT, "subquery_symbol_1"))),
                                         values("subquery_symbol_1", "subquery_symbol_2"))));
     }
 
@@ -93,7 +95,7 @@ public class TestPruneApplySourceColumns
                 .matches(
                         apply(
                                 ImmutableList.of(),
-                                ImmutableMap.of("in_result", setExpression(new ApplyNode.In(new Symbol("a"), new Symbol("a")))),
+                                ImmutableMap.of("in_result", setExpression(new ApplyNode.In(new Symbol(UNKNOWN, "a"), new Symbol(UNKNOWN, "a")))),
                                 values("a"),
                                 project(
                                         ImmutableMap.of(),

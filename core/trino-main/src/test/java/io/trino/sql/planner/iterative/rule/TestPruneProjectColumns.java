@@ -20,6 +20,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -42,9 +43,9 @@ public class TestPruneProjectColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                 strictProject(
-                                        ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                        ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                         values("a", "b"))));
     }
 

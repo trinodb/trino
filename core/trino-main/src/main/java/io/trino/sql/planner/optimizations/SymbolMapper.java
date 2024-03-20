@@ -161,8 +161,8 @@ public class SymbolMapper
             @Override
             public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                List<String> arguments = node.getArguments().stream()
-                        .map(name -> map(new Symbol(name)).getName())
+                List<Symbol> arguments = node.getArguments().stream()
+                        .map(symbol -> map(new Symbol(symbol.getType(), symbol.getName())))
                         .collect(toImmutableList());
 
                 Expression body = treeRewriter.rewrite(node.getBody(), context);

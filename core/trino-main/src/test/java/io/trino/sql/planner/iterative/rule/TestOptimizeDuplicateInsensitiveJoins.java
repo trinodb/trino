@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
@@ -115,7 +116,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
                                     p.values(symbolA),
                                     p.project(identity(symbolB),
                                             p.filter(
-                                                    new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new Constant(INTEGER, 10L)),
+                                                    new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 10L)),
                                                     p.join(
                                                             INNER,
                                                             p.values(symbolB),
@@ -127,7 +128,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
                                         .left(values("A"))
                                         .right(project(
                                                 filter(
-                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference("B"), new Constant(INTEGER, 10L)),
+                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "B"), new Constant(INTEGER, 10L)),
                                                         join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                                 .left(values("B"))
                                                                 .right(values("C")))
@@ -161,7 +162,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
                 .matches(
                         aggregation(ImmutableMap.of(),
                                 join(INNER, builder -> builder
-                                        .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference("B"), new FunctionCall(RANDOM, ImmutableList.of())))
+                                        .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "B"), new FunctionCall(RANDOM, ImmutableList.of())))
                                         .left(values("A"))
                                         .right(
                                                 join(INNER, rightJoinBuilder -> rightJoinBuilder

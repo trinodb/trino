@@ -24,7 +24,6 @@ import io.trino.sql.ir.NodeRef;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import org.junit.jupiter.api.Test;
@@ -114,6 +113,6 @@ public class TestSqlToRowExpressionTranslator
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
     {
-        return new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(TypeProvider.empty(), expression);
+        return new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(expression);
     }
 }

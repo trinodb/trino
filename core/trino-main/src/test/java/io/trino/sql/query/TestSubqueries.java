@@ -223,13 +223,13 @@ public class TestSubqueries
                                 .equiCriteria("cast_b", "cast_a")
                                 .left(
                                         project(
-                                                ImmutableMap.of("cast_b", expression(new Cast(new SymbolReference("b"), createDecimalType(11, 1)))),
+                                                ImmutableMap.of("cast_b", expression(new Cast(new SymbolReference(INTEGER, "b"), createDecimalType(11, 1)))),
                                                 any(
                                                         values("b"))))
                                 .right(
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("cast_a", expression(new Cast(new SymbolReference("a"), createDecimalType(11, 1)))),
+                                                        ImmutableMap.of("cast_a", expression(new Cast(new SymbolReference(INTEGER, "a"), createDecimalType(11, 1)))),
                                                         any(
                                                                 rowNumber(
                                                                         rowBuilder -> rowBuilder
@@ -247,7 +247,7 @@ public class TestSubqueries
                                 .equiCriteria("expr", "a")
                                 .left(
                                         project(
-                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference("b"), new SymbolReference("c")), new Constant(INTEGER, 1L)))),
+                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference(INTEGER, "b"), new SymbolReference(INTEGER, "c")), new Constant(INTEGER, 1L)))),
                                                 any(
                                                         values("b", "c"))))
                                 .right(

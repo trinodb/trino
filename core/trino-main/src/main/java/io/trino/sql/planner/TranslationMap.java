@@ -955,10 +955,9 @@ public class TranslationMap
     {
         checkState(analysis.getCoercion(node) == null, "cannot coerce a lambda expression");
 
-        ImmutableList.Builder<String> newArguments = ImmutableList.builder();
+        ImmutableList.Builder<Symbol> newArguments = ImmutableList.builder();
         for (LambdaArgumentDeclaration argument : node.getArguments()) {
-            Symbol symbol = lambdaArguments.get(NodeRef.of(argument));
-            newArguments.add(symbol.getName());
+            newArguments.add(lambdaArguments.get(NodeRef.of(argument)));
         }
         io.trino.sql.ir.Expression rewrittenBody = translateExpression(node.getBody());
         return new io.trino.sql.ir.LambdaExpression(newArguments.build(), rewrittenBody);

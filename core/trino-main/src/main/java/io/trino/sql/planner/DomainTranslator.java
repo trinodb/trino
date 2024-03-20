@@ -550,7 +550,7 @@ public final class DomainTranslator
 
         private Map<NodeRef<Expression>, Type> analyzeExpression(Expression expression)
         {
-            return typeAnalyzer.getTypes(types, expression);
+            return typeAnalyzer.getTypes(expression);
         }
 
         private Optional<ExtractionResult> createVarcharCastToDateComparisonExtractionResult(
@@ -1005,7 +1005,7 @@ public final class DomainTranslator
                 return Optional.empty();
             }
 
-            Type type = typeAnalyzer.getType(types, value);
+            Type type = typeAnalyzer.getType(value);
             if (!(type instanceof VarcharType varcharType)) {
                 // TODO support CharType
                 return Optional.empty();
@@ -1088,7 +1088,7 @@ public final class DomainTranslator
                 return Optional.empty();
             }
 
-            Type type = typeAnalyzer.getType(types, target);
+            Type type = typeAnalyzer.getType(target);
             if (!(type instanceof VarcharType)) {
                 // TODO support CharType
                 return Optional.empty();

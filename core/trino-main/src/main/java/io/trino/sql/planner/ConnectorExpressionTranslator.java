@@ -119,9 +119,9 @@ public final class ConnectorExpressionTranslator
                 .orElseThrow(() -> new UnsupportedOperationException("Expression is not supported: " + expression.toString()));
     }
 
-    public static Optional<ConnectorExpression> translate(Session session, Expression expression, TypeProvider types, IrTypeAnalyzer typeAnalyzer)
+    public static Optional<ConnectorExpression> translate(Session session, Expression expression, IrTypeAnalyzer typeAnalyzer)
     {
-        return new SqlToConnectorExpressionTranslator(session, typeAnalyzer.getTypes(types, expression))
+        return new SqlToConnectorExpressionTranslator(session, typeAnalyzer.getTypes(expression))
                 .process(expression);
     }
 
@@ -131,7 +131,7 @@ public final class ConnectorExpressionTranslator
             TypeProvider types,
             IrTypeAnalyzer typeAnalyzer)
     {
-        Map<NodeRef<Expression>, Type> remainingExpressionTypes = typeAnalyzer.getTypes(types, expression);
+        Map<NodeRef<Expression>, Type> remainingExpressionTypes = typeAnalyzer.getTypes(expression);
         SqlToConnectorExpressionTranslator translator = new SqlToConnectorExpressionTranslator(
                 session,
                 remainingExpressionTypes);

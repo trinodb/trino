@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialJoin;
@@ -63,11 +64,11 @@ public class TestPruneSpatialJoinChildrenColumns
                 })
                 .matches(
                         spatialJoin(
-                                new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), new SymbolReference("r")),
+                                new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new SymbolReference(GEOMETRY, "a"), new SymbolReference(GEOMETRY, "b"))), new SymbolReference(DOUBLE, "r")),
                                 Optional.empty(),
                                 Optional.of(ImmutableList.of("a", "b", "r")),
                                 strictProject(
-                                        ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a"))),
+                                        ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference(GEOMETRY, "a"))),
                                         values("a", "unused")),
                                 values("b", "r")));
     }
@@ -94,14 +95,14 @@ public class TestPruneSpatialJoinChildrenColumns
                 })
                 .matches(
                         spatialJoin(
-                                new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), new SymbolReference("r")),
+                                new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new SymbolReference(GEOMETRY, "a"), new SymbolReference(GEOMETRY, "b"))), new SymbolReference(DOUBLE, "r")),
                                 Optional.empty(),
                                 Optional.of(ImmutableList.of("a", "b", "r")),
                                 strictProject(
-                                        ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference("a"))),
+                                        ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference(GEOMETRY, "a"))),
                                         values("a", "unused_left")),
                                 strictProject(
-                                        ImmutableMap.of("b", PlanMatchPattern.expression(new SymbolReference("b")), "r", PlanMatchPattern.expression(new SymbolReference("r"))),
+                                        ImmutableMap.of("b", PlanMatchPattern.expression(new SymbolReference(GEOMETRY, "b")), "r", PlanMatchPattern.expression(new SymbolReference(DOUBLE, "r"))),
                                         values("b", "r", "unused_right"))));
     }
 
@@ -119,7 +120,7 @@ public class TestPruneSpatialJoinChildrenColumns
                             p.values(a),
                             p.values(b, r, output),
                             ImmutableList.of(output),
-                            new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), new SymbolReference("r")));
+                            new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new SymbolReference(GEOMETRY, "a"), new SymbolReference(GEOMETRY, "b"))), new SymbolReference(DOUBLE, "r")));
                 })
                 .doesNotFire();
     }
@@ -139,7 +140,7 @@ public class TestPruneSpatialJoinChildrenColumns
                             p.values(a, leftPartitionSymbol),
                             p.values(b, r, rightPartitionSymbol),
                             ImmutableList.of(a, b, r),
-                            new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new SymbolReference("a"), new SymbolReference("b"))), new SymbolReference("r")),
+                            new ComparisonExpression(LESS_THAN_OR_EQUAL, new FunctionCall(TEST_ST_DISTANCE_FUNCTION, ImmutableList.of(new SymbolReference(GEOMETRY, "a"), new SymbolReference(GEOMETRY, "b"))), new SymbolReference(DOUBLE, "r")),
                             Optional.of(leftPartitionSymbol),
                             Optional.of(rightPartitionSymbol),
                             Optional.of("some nice kdb tree"));

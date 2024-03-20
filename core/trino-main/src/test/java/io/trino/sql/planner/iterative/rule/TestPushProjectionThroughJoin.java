@@ -53,6 +53,7 @@ import static io.trino.sql.planner.iterative.rule.PushProjectionThroughJoin.push
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPushProjectionThroughJoin
@@ -103,19 +104,19 @@ public class TestPushProjectionThroughJoin
                 node -> unknown(),
                 new Plan(rewritten.get(), p.getTypes(), empty()), noLookup(),
                 join(INNER, builder -> builder
-                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol("a1"), new Symbol("b1"))))
+                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(UNKNOWN, "a1"), new Symbol(UNKNOWN, "b1"))))
                         .left(
                                 strictProject(ImmutableMap.of(
-                                                "a3", expression(new ArithmeticNegation(new ArithmeticNegation(new SymbolReference("a0")))),
-                                                "a1", expression(new SymbolReference("a1"))),
+                                                "a3", expression(new ArithmeticNegation(new ArithmeticNegation(new SymbolReference(BIGINT, "a0")))),
+                                                "a1", expression(new SymbolReference(BIGINT, "a1"))),
                                         strictProject(ImmutableMap.of(
-                                                        "a0", expression(new SymbolReference("a0")),
-                                                        "a1", expression(new SymbolReference("a1"))),
+                                                        "a0", expression(new SymbolReference(BIGINT, "a0")),
+                                                        "a1", expression(new SymbolReference(BIGINT, "a1"))),
                                                 PlanMatchPattern.values("a0", "a1"))))
                         .right(
                                 strictProject(ImmutableMap.of(
-                                                "b2", expression(new ArithmeticNegation(new SymbolReference("b1"))),
-                                                "b1", expression(new SymbolReference("b1"))),
+                                                "b2", expression(new ArithmeticNegation(new SymbolReference(BIGINT, "b1"))),
+                                                "b1", expression(new SymbolReference(BIGINT, "b1"))),
                                         PlanMatchPattern.values("b0", "b1"))))
                         .withExactOutputs("a3", "b2"));
     }

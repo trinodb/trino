@@ -21,6 +21,8 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -48,7 +50,7 @@ public class TestPruneGroupIdColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", expression(new SymbolReference("a")), "k", expression(new SymbolReference("k")), "group_id", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SymbolReference("group_id"))),
+                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a")), "k", expression(new SymbolReference(BIGINT, "k")), "group_id", expression(new SymbolReference(INTEGER, "group_id"))),
                                 groupId(
                                         ImmutableList.of(ImmutableList.of("k"), ImmutableList.of("k")),
                                         ImmutableList.of("a"),

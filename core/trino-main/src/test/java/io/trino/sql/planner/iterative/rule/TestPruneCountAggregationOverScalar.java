@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -138,7 +139,7 @@ public class TestPruneCountAggregationOverScalar
                     AggregationNode inner = p.aggregation((a) -> a
                             .addAggregation(
                                     totalPrice,
-                                    PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("totalprice"))),
+                                    PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference(DOUBLE, "totalprice"))),
                                     ImmutableList.of(DOUBLE))
                             .globalGrouping()
                             .source(
@@ -155,7 +156,7 @@ public class TestPruneCountAggregationOverScalar
                     return p.aggregation((a) -> a
                             .addAggregation(
                                     p.symbol("sum_outer", DOUBLE),
-                                    PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("sum_inner"))),
+                                    PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference(BIGINT, "sum_inner"))),
                                     ImmutableList.of(DOUBLE))
                             .globalGrouping()
                             .source(inner));

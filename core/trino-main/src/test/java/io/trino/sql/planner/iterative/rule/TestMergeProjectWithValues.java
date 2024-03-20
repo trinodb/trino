@@ -149,9 +149,9 @@ public class TestMergeProjectWithValues
 
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("rand"), new SymbolReference("rand")),
+                        Assignments.of(p.symbol("rand", DOUBLE), new SymbolReference(DOUBLE, "rand")),
                         p.valuesOfExpressions(
-                                ImmutableList.of(p.symbol("rand")),
+                                ImmutableList.of(p.symbol("rand", DOUBLE)),
                                 ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
                 .matches(
                         values(
@@ -161,18 +161,18 @@ public class TestMergeProjectWithValues
         // ValuesNode has multiple rows
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("output"), new SymbolReference("value")),
+                        Assignments.of(p.symbol("output", DOUBLE), new SymbolReference(DOUBLE, "value")),
                         p.valuesOfExpressions(
-                                ImmutableList.of(p.symbol("value")),
+                                ImmutableList.of(p.symbol("value", DOUBLE)),
                                 ImmutableList.of(
-                                        new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))),
+                                        new Row(ImmutableList.of(new Constant(DOUBLE, null))),
                                         new Row(ImmutableList.of(randomFunction)),
                                         new Row(ImmutableList.of(new ArithmeticNegation(randomFunction)))))))
                 .matches(
                         values(
                                 ImmutableList.of("output"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)),
+                                        ImmutableList.of(new Constant(DOUBLE, null)),
                                         ImmutableList.of(randomFunction),
                                         ImmutableList.of(new ArithmeticNegation(randomFunction)))));
 
@@ -180,21 +180,21 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
                         Assignments.of(
-                                p.symbol("x"), new ArithmeticNegation(new SymbolReference("a")),
-                                p.symbol("y"), new SymbolReference("b")),
+                                p.symbol("x"), new ArithmeticNegation(new SymbolReference(DOUBLE, "a")),
+                                p.symbol("y"), new SymbolReference(DOUBLE, "b")),
                         p.valuesOfExpressions(
-                                ImmutableList.of(p.symbol("a"), p.symbol("b")),
+                                ImmutableList.of(p.symbol("a", DOUBLE), p.symbol("b", DOUBLE)),
                                 ImmutableList.of(
                                         new Row(ImmutableList.of(new Constant(DOUBLE, 1e0), randomFunction)),
-                                        new Row(ImmutableList.of(randomFunction, new Constant(UnknownType.UNKNOWN, null))),
-                                        new Row(ImmutableList.of(new ArithmeticNegation(randomFunction), new Constant(UnknownType.UNKNOWN, null)))))))
+                                        new Row(ImmutableList.of(randomFunction, new Constant(DOUBLE, null))),
+                                        new Row(ImmutableList.of(new ArithmeticNegation(randomFunction), new Constant(DOUBLE, null)))))))
                 .matches(
                         values(
                                 ImmutableList.of("x", "y"),
                                 ImmutableList.of(
                                         ImmutableList.of(new ArithmeticNegation(new Constant(DOUBLE, 1e0)), randomFunction),
-                                        ImmutableList.of(new ArithmeticNegation(randomFunction), new Constant(UnknownType.UNKNOWN, null)),
-                                        ImmutableList.of(new ArithmeticNegation(new ArithmeticNegation(randomFunction)), new Constant(UnknownType.UNKNOWN, null)))));
+                                        ImmutableList.of(new ArithmeticNegation(randomFunction), new Constant(DOUBLE, null)),
+                                        ImmutableList.of(new ArithmeticNegation(new ArithmeticNegation(randomFunction)), new Constant(DOUBLE, null)))));
     }
 
     @Test
@@ -207,8 +207,8 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
                         Assignments.of(
-                                p.symbol("x"), new SymbolReference("rand"),
-                                p.symbol("y"), new SymbolReference("rand")),
+                                p.symbol("x"), new SymbolReference(DOUBLE, "rand"),
+                                p.symbol("y"), new SymbolReference(DOUBLE, "rand")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand")),
                                 ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
@@ -216,7 +216,7 @@ public class TestMergeProjectWithValues
 
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("x"), new ArithmeticBinaryExpression(ADD_DOUBLE, ADD, new SymbolReference("rand"), new SymbolReference("rand"))),
+                        Assignments.of(p.symbol("x"), new ArithmeticBinaryExpression(ADD_DOUBLE, ADD, new SymbolReference(DOUBLE, "rand"), new SymbolReference(DOUBLE, "rand"))),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand")),
                                 ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
@@ -229,20 +229,20 @@ public class TestMergeProjectWithValues
         // correlation symbol in projection (note: the resulting plan is not yet supported in execution)
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("x"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a"), new SymbolReference("corr"))),
+                        Assignments.of(p.symbol("x", INTEGER), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "a"), new SymbolReference(INTEGER, "corr"))),
                         p.valuesOfExpressions(
-                                ImmutableList.of(p.symbol("a")),
+                                ImmutableList.of(p.symbol("a", INTEGER)),
                                 ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L)))))))
-                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new SymbolReference("corr"))))));
+                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new SymbolReference(INTEGER, "corr"))))));
 
         // correlation symbol in values (note: the resulting plan is not yet supported in execution)
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("x"), new SymbolReference("a")),
+                        Assignments.of(p.symbol("x"), new SymbolReference(BIGINT, "a")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(new Row(ImmutableList.of(new SymbolReference("corr")))))))
-                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new SymbolReference("corr")))));
+                                ImmutableList.of(new Row(ImmutableList.of(new SymbolReference(BIGINT, "corr")))))))
+                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new SymbolReference(BIGINT, "corr")))));
 
         // correlation symbol is not present in the resulting expression
         tester().assertThat(new MergeProjectWithValues())
@@ -250,7 +250,7 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("x"), new Constant(INTEGER, 1L)),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(new Row(ImmutableList.of(new SymbolReference("corr")))))))
+                                ImmutableList.of(new Row(ImmutableList.of(new SymbolReference(INTEGER, "corr")))))))
                 .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L)))));
     }
 

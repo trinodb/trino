@@ -84,7 +84,7 @@ public class Assignments
         Assignments.Builder assignments = Assignments.builder();
 
         for (Expression expression : expressions) {
-            Type type = typeAnalyzer.getType(symbolAllocator.getTypes(), expression);
+            Type type = typeAnalyzer.getType(expression);
             assignments.put(symbolAllocator.newSymbol(expression, type), expression);
         }
 
@@ -262,7 +262,7 @@ public class Assignments
                 checkState(
                         assignment.equals(expression),
                         "Symbol %s already has assignment %s, while adding %s",
-                        symbol,
+                        symbol.getName(),
                         assignment,
                         expression);
             }

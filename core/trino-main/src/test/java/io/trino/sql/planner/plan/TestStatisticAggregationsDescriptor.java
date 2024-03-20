@@ -14,13 +14,22 @@
 package io.trino.sql.planner.plan;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
+import io.trino.spi.type.TestingTypeManager;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SymbolKeyDeserializer;
+import io.trino.type.TypeDeserializer;
+import io.trino.type.TypeSignatureKeyDeserializer;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
@@ -34,7 +43,15 @@ public class TestStatisticAggregationsDescriptor
     @Test
     public void testSerializationRoundTrip()
     {
-        JsonCodec<StatisticAggregationsDescriptor<Symbol>> codec = JsonCodec.jsonCodec(new TypeToken<>() {});
+        ObjectMapperProvider provider = new ObjectMapperProvider();
+        provider.setKeyDeserializers(ImmutableMap.of(
+                Symbol.class, new SymbolKeyDeserializer(new TestingTypeManager()),
+                TypeSignature.class, new TypeSignatureKeyDeserializer()));
+
+        provider.setJsonDeserializers(ImmutableMap.of(
+                Type.class, new TypeDeserializer(new TestingTypeManager()::getType)));
+
+        JsonCodec<StatisticAggregationsDescriptor<Symbol>> codec = new JsonCodecFactory(provider).jsonCodec(new TypeToken<>() {});
         assertSerializationRoundTrip(codec, StatisticAggregationsDescriptor.<Symbol>builder().build());
         assertSerializationRoundTrip(codec, createTestDescriptor());
     }

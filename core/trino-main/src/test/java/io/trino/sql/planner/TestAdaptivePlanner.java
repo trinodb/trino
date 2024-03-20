@@ -44,6 +44,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.remoteSource;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestAdaptivePlanner
         extends BasePlanTest
@@ -62,11 +63,11 @@ public class TestAdaptivePlanner
                                 any(
                                         adaptivePlan(
                                                 join(INNER, builder -> builder
-                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol("nationkey"), new Symbol("nationkey_1"))))
+                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(UNKNOWN, "nationkey"), new Symbol(UNKNOWN, "nationkey_1"))))
                                                         .left(remoteSource(ImmutableList.of(new PlanFragmentId("1"))))
                                                         .right(any(remoteSource(ImmutableList.of(new PlanFragmentId("2")))))),
                                                 join(INNER, builder -> builder
-                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol("nationkey_1"), new Symbol("nationkey"))))
+                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(UNKNOWN, "nationkey_1"), new Symbol(UNKNOWN, "nationkey"))))
                                                         .right(remoteSource(ImmutableList.of(new PlanFragmentId("1"))))
                                                         .left(any(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))))))))
                 .children(
@@ -114,11 +115,11 @@ public class TestAdaptivePlanner
                                 .planPattern(node(AggregationNode.class,
                                         adaptivePlan(
                                                 join(INNER, builder -> builder
-                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol("nationkey"), new Symbol("count"))))
+                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(UNKNOWN, "nationkey"), new Symbol(UNKNOWN, "count"))))
                                                         .left(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
                                                         .right(any(remoteSource(ImmutableList.of(new PlanFragmentId("3")))))),
                                                 join(INNER, builder -> builder
-                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol("count"), new Symbol("nationkey"))))
+                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(UNKNOWN, "count"), new Symbol(UNKNOWN, "nationkey"))))
                                                         .right(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
                                                         .left(any(remoteSource(ImmutableList.of(new PlanFragmentId("3"))))))))))
                                 .children(
@@ -174,7 +175,7 @@ public class TestAdaptivePlanner
                         .fragmentId(0)
                         .planPattern(
                                 any(join(INNER, builder -> builder
-                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol("nationkey"), new Symbol("nationkey_1"))))
+                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(UNKNOWN, "nationkey"), new Symbol(UNKNOWN, "nationkey_1"))))
                                         .left(remoteSource(ImmutableList.of(new PlanFragmentId("1"))))
                                         .right(any(remoteSource(ImmutableList.of(new PlanFragmentId("2")))))))))
                 .children(
@@ -223,7 +224,7 @@ public class TestAdaptivePlanner
                                         .fragmentId(1)
                                         .planPattern(node(AggregationNode.class,
                                                 join(INNER, builder -> builder
-                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol("nationkey"), new Symbol("count"))))
+                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(UNKNOWN, "nationkey"), new Symbol(UNKNOWN, "count"))))
                                                         .left(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
                                                         .right(any(remoteSource(ImmutableList.of(new PlanFragmentId("3")))))))))
                                 .children(

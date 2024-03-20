@@ -11,18 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.planner.iterative.rule;
+package io.trino.sql.planner;
 
-import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.IrTypeAnalyzer;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.SerializerProvider;
 
-import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
+import java.io.IOException;
 
-public class CanonicalizeExpressions
-        extends ExpressionRewriteRuleSet
+public class SymbolKeySerializer
+        extends JsonSerializer<Symbol>
 {
-    public CanonicalizeExpressions(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    @Override
+    public void serialize(Symbol value, JsonGenerator gen, SerializerProvider serializers)
+            throws IOException
     {
-        super((expression, context) -> rewrite(expression, plannerContext, typeAnalyzer));
+        gen.writeFieldName(value.getName() + "::" + value.getType().getTypeId().getId());
     }
 }

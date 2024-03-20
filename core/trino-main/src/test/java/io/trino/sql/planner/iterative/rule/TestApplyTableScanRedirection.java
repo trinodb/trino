@@ -159,7 +159,7 @@ public class TestApplyTableScanRedirection
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_A));
                     })
                     .matches(
-                            project(ImmutableMap.of("COL", expression(new Cast(new SymbolReference("DEST_COL"), VARCHAR))),
+                            project(ImmutableMap.of("COL", expression(new Cast(new SymbolReference(BIGINT, "DEST_COL"), VARCHAR))),
                                     tableScan(
                                             new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                             TupleDomain.all(),
@@ -237,7 +237,7 @@ public class TestApplyTableScanRedirection
                     })
                     .matches(
                             filter(
-                                    new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL"), new Constant(VARCHAR, utf8Slice("foo"))),
+                                    new ComparisonExpression(EQUAL, new SymbolReference(VARCHAR, "DEST_COL"), new Constant(VARCHAR, utf8Slice("foo"))),
                                     tableScan(
                                             new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                             TupleDomain.all(),
@@ -255,9 +255,9 @@ public class TestApplyTableScanRedirection
                     })
                     .matches(
                             project(
-                                    ImmutableMap.of("expr", expression(new SymbolReference("DEST_COL_B"))),
+                                    ImmutableMap.of("expr", expression(new SymbolReference(BIGINT, "DEST_COL_B"))),
                                     filter(
-                                            new ComparisonExpression(EQUAL, new SymbolReference("DEST_COL_A"), new Constant(VARCHAR, utf8Slice("foo"))),
+                                            new ComparisonExpression(EQUAL, new SymbolReference(VARCHAR, "DEST_COL_A"), new Constant(VARCHAR, utf8Slice("foo"))),
                                             tableScan(
                                                     new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                                     TupleDomain.all(),

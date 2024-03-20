@@ -29,7 +29,6 @@ import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.FilterNode;
@@ -86,19 +85,17 @@ public class RemoveUnsupportedDynamicFilters
     @Override
     public PlanNode optimize(PlanNode plan, Context context)
     {
-        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(context.types()), ImmutableSet.of());
+        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(), ImmutableSet.of());
         return result.getNode();
     }
 
     private class Rewriter
             extends PlanVisitor<PlanWithConsumedDynamicFilters, Set<DynamicFilterId>>
     {
-        private final TypeProvider types;
         private final TypeCoercion typeCoercion;
 
-        public Rewriter(TypeProvider types)
+        public Rewriter()
         {
-            this.types = requireNonNull(types, "types is null");
             this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         }
 
@@ -319,7 +316,7 @@ public class RemoveUnsupportedDynamicFilters
             if (!(castExpression.getExpression() instanceof SymbolReference)) {
                 return false;
             }
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, expression);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(expression);
             Type castSourceType = expressionTypes.get(NodeRef.of(castExpression.getExpression()));
             Type castTargetType = expressionTypes.get(NodeRef.<Expression>of(castExpression));
             // CAST must be an implicit coercion

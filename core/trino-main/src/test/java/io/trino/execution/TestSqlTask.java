@@ -75,7 +75,6 @@ import static io.trino.execution.TaskTestUtils.updateTask;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -425,7 +424,7 @@ public class TestSqlTask
         });
         VersionedDynamicFilterDomains versionedDynamicFilters = sqlTask.acknowledgeAndGetNewDynamicFilterDomains(INITIAL_DYNAMIC_FILTERS_VERSION);
         assertThat(versionedDynamicFilters.getVersion()).isEqualTo(INITIAL_DYNAMIC_FILTERS_VERSION + 1);
-        assertThat(versionedDynamicFilters.getDynamicFilterDomains()).isEqualTo(ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, Domain.none(VARCHAR)));
+        assertThat(versionedDynamicFilters.getDynamicFilterDomains()).isEqualTo(ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, Domain.none(BIGINT)));
     }
 
     private SqlTask createInitialTask()

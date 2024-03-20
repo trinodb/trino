@@ -89,17 +89,17 @@ public class TestImplementIntersectAll
                 .matches(
                         strictProject(
                                 ImmutableMap.of(
-                                        "a", expression(new SymbolReference("a")),
-                                        "b", expression(new SymbolReference("b"))),
+                                        "a", expression(new SymbolReference(BIGINT, "a")),
+                                        "b", expression(new SymbolReference(BIGINT, "b"))),
                                 filter(
-                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("row_number"), new FunctionCall(LEAST, ImmutableList.of(new SymbolReference("count_1"), new SymbolReference("count_2")))),
+                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "row_number"), new FunctionCall(LEAST, ImmutableList.of(new SymbolReference(BIGINT, "count_1"), new SymbolReference(BIGINT, "count_2")))),
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "a", expression(new SymbolReference("a")),
-                                                        "b", expression(new SymbolReference("b")),
-                                                        "count_1", expression(new SymbolReference("count_1")),
-                                                        "count_2", expression(new SymbolReference("count_2")),
-                                                        "row_number", expression(new SymbolReference("row_number"))),
+                                                        "a", expression(new SymbolReference(BIGINT, "a")),
+                                                        "b", expression(new SymbolReference(BIGINT, "b")),
+                                                        "count_1", expression(new SymbolReference(BIGINT, "count_1")),
+                                                        "count_2", expression(new SymbolReference(BIGINT, "count_2")),
+                                                        "row_number", expression(new SymbolReference(BIGINT, "row_number"))),
                                                 window(builder -> builder
                                                                 .specification(specification(
                                                                         ImmutableList.of("a", "b"),
@@ -117,15 +117,15 @@ public class TestImplementIntersectAll
                                                         union(
                                                                 project(
                                                                         ImmutableMap.of(
-                                                                                "a1", expression(new SymbolReference("a_1")),
-                                                                                "b1", expression(new SymbolReference("b_1")),
+                                                                                "a1", expression(new SymbolReference(BIGINT, "a_1")),
+                                                                                "b1", expression(new SymbolReference(BIGINT, "b_1")),
                                                                                 "marker_left_1", expression(TRUE_LITERAL),
                                                                                 "marker_left_2", expression(new Constant(BOOLEAN, null))),
                                                                         values("a_1", "b_1")),
                                                                 project(
                                                                         ImmutableMap.of(
-                                                                                "a2", expression(new SymbolReference("a_2")),
-                                                                                "b2", expression(new SymbolReference("b_2")),
+                                                                                "a2", expression(new SymbolReference(BIGINT, "a_2")),
+                                                                                "b2", expression(new SymbolReference(BIGINT, "b_2")),
                                                                                 "marker_right_1", expression(new Constant(BOOLEAN, null)),
                                                                                 "marker_right_2", expression(TRUE_LITERAL)),
                                                                         values("a_2", "b_2")))

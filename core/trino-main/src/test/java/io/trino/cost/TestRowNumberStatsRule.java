@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestRowNumberStatsRule
         extends BaseStatsCalculatorTest
@@ -45,8 +46,8 @@ public class TestRowNumberStatsRule
                         pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(new Symbol("x"), xStats)
-                        .addSymbolStatistics(new Symbol("y"), yStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), yStats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(10)
@@ -67,8 +68,8 @@ public class TestRowNumberStatsRule
                         pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(new Symbol("x"), xStats)
-                        .addSymbolStatistics(new Symbol("y"), yStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), yStats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(5)
@@ -87,8 +88,8 @@ public class TestRowNumberStatsRule
                         pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(60)
-                        .addSymbolStatistics(new Symbol("x"), xStats)
-                        .addSymbolStatistics(new Symbol("y"), yStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), yStats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(60)
@@ -106,8 +107,8 @@ public class TestRowNumberStatsRule
                         pb.symbol("z", BIGINT),
                         pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
-                        .addSymbolStatistics(new Symbol("x"), xStats)
-                        .addSymbolStatistics(new Symbol("y"), yStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), yStats)
                         .build())
                 .check(PlanNodeStatsAssertion::outputRowsCountUnknown);
     }
@@ -124,8 +125,8 @@ public class TestRowNumberStatsRule
                         pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(60)
-                        .addSymbolStatistics(new Symbol("x"), xStats)
-                        .addSymbolStatistics(new Symbol("y"), yStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), yStats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(60)
@@ -144,8 +145,8 @@ public class TestRowNumberStatsRule
                         pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
-                        .addSymbolStatistics(new Symbol("x"), xStats)
-                        .addSymbolStatistics(new Symbol("y"), yStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), yStats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(20)
@@ -164,8 +165,8 @@ public class TestRowNumberStatsRule
                         pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
-                        .addSymbolStatistics(new Symbol("x"), xStats)
-                        .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.unknown())
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), SymbolStatsEstimate.unknown())
                         .build())
                 .check(PlanNodeStatsAssertion::outputRowsCountUnknown);
     }

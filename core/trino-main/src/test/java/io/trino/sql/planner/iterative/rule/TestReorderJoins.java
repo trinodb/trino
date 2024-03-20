@@ -45,6 +45,7 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
@@ -58,6 +59,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -91,12 +93,12 @@ public class TestReorderJoins
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(5000)
                         .addSymbolStatistics(ImmutableMap.of(
-                                new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 100, 100),
-                                new Symbol("A2"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
+                                new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 100, 100),
+                                new Symbol(UNKNOWN, "A2"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .on(p ->
                         p.join(
@@ -124,11 +126,11 @@ public class TestReorderJoins
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "1PB")
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 6400, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 6400, 100)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .on(p -> {
                     Symbol a1 = p.symbol("A1", symbolType);
@@ -158,11 +160,11 @@ public class TestReorderJoins
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 6400, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 6400, 100)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .on(p -> {
                     Symbol a1 = p.symbol("A1", symbolType);
@@ -190,11 +192,11 @@ public class TestReorderJoins
         assertReorderJoins()
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .on(p ->
                         p.join(
@@ -221,11 +223,11 @@ public class TestReorderJoins
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .on(p ->
                         p.join(
@@ -255,11 +257,11 @@ public class TestReorderJoins
 
         PlanNodeStatsEstimate valuesA = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(10000)
-                .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                 .build();
         PlanNodeStatsEstimate valuesB = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(10000)
-                .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                 .build();
 
         assertReorderJoins()
@@ -299,11 +301,11 @@ public class TestReorderJoins
         assertReorderJoins()
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .on(p ->
                         p.join(
@@ -359,17 +361,17 @@ public class TestReorderJoins
         assertReorderJoins()
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(5)
                         .addSymbolStatistics(ImmutableMap.of(
-                                new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 100, 5),
-                                new Symbol("B2"), new SymbolStatsEstimate(0, 100, 0, 100, 5)))
+                                new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 100, 5),
+                                new Symbol(UNKNOWN, "B2"), new SymbolStatsEstimate(0, 100, 0, 100, 5)))
                         .build())
                 .overrideStats("valuesC", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .on(p ->
                         p.join(
@@ -405,16 +407,16 @@ public class TestReorderJoins
         assertReorderJoins()
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(5)
                         .addSymbolStatistics(ImmutableMap.of(
-                                new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 100, 5)))
+                                new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 100, 5)))
                         .build())
                 .overrideStats("valuesC", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .on(p ->
                         p.join(
@@ -445,11 +447,11 @@ public class TestReorderJoins
                                                 .equiCriteria("P2", "P1")
                                                 .left(
                                                         strictProject(
-                                                                ImmutableMap.of("P2", expression(new SymbolReference("A1"))),
+                                                                ImmutableMap.of("P2", expression(new SymbolReference(BIGINT, "A1"))),
                                                                 values("A1")))
                                                 .right(
                                                         strictProject(
-                                                                ImmutableMap.of("P1", expression(new ArithmeticNegation(new SymbolReference("B1")))),
+                                                                ImmutableMap.of("P1", expression(new ArithmeticNegation(new SymbolReference(BIGINT, "B1")))),
                                                                 values("B1")))))));
     }
 
@@ -459,16 +461,16 @@ public class TestReorderJoins
         assertReorderJoins()
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(5)
                         .addSymbolStatistics(ImmutableMap.of(
-                                new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 100, 5)))
+                                new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 100, 5)))
                         .build())
                 .overrideStats("valuesC", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .on(p ->
                         p.join(
@@ -495,7 +497,7 @@ public class TestReorderJoins
                                 .left(values("C1"))
                                 .right(
                                         strictProject(
-                                                ImmutableMap.of("P1", expression(new ArithmeticNegation(new SymbolReference("B1")))),
+                                                ImmutableMap.of("P1", expression(new ArithmeticNegation(new SymbolReference(BIGINT, "B1")))),
                                                 join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                         .equiCriteria("A1", "B1")
                                                         .left(values("A1"))
@@ -508,17 +510,17 @@ public class TestReorderJoins
         assertReorderJoins()
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(40)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addSymbolStatistics(ImmutableMap.of(
-                                new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 100, 10),
-                                new Symbol("B2"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
+                                new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 100, 10),
+                                new Symbol(UNKNOWN, "B2"), new SymbolStatsEstimate(0, 100, 0, 100, 10)))
                         .build())
                 .overrideStats("valuesC", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(ImmutableMap.of(new Symbol("C1"), new SymbolStatsEstimate(99, 199, 0, 100, 100)))
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "C1"), new SymbolStatsEstimate(99, 199, 0, 100, 100)))
                         .build())
                 .on(p ->
                         p.join(
@@ -557,11 +559,11 @@ public class TestReorderJoins
 
         PlanNodeStatsEstimate probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
-                .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
+                .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
         PlanNodeStatsEstimate buildSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(bRows)
-                .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
+                .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
 
         // B table is small enough to be replicated according to JOIN_MAX_BROADCAST_TABLE_SIZE limit
@@ -591,11 +593,11 @@ public class TestReorderJoins
 
         probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
-                .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
+                .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
         buildSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(bRows)
-                .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
+                .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
 
         // B table exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit therefore it is partitioned
@@ -633,11 +635,11 @@ public class TestReorderJoins
 
         PlanNodeStatsEstimate probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
-                .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
+                .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
         PlanNodeStatsEstimate buildSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(bRows)
-                .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
+                .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
 
         // A table is small enough to be replicated in JOIN_MAX_BROADCAST_TABLE_SIZE mode

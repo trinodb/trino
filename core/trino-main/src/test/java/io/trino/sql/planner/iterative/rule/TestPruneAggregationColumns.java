@@ -28,6 +28,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -46,7 +47,7 @@ public class TestPruneAggregationColumns
                 .on(p -> buildProjectedAggregation(p, symbol -> symbol.getName().equals("b")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("b", expression(new SymbolReference("b"))),
+                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
                                 aggregation(
                                         singleGroupingSet("key"),
                                         ImmutableMap.of(

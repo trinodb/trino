@@ -81,12 +81,12 @@ public class TestSwapAdjacentWindowsBySpecifications
                                         ImmutableList.of(p.symbol("a")),
                                         Optional.empty()),
                                 ImmutableMap.of(p.symbol("avg_1", DOUBLE),
-                                        new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference("a")), DEFAULT_FRAME, false)),
+                                        new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference(BIGINT, "a")), DEFAULT_FRAME, false)),
                                 p.window(new DataOrganizationSpecification(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 Optional.empty()),
                                         ImmutableMap.of(p.symbol("avg_2", DOUBLE),
-                                                new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference("b")), DEFAULT_FRAME, false)),
+                                                new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference(BIGINT, "b")), DEFAULT_FRAME, false)),
                                         p.values(p.symbol("a"), p.symbol("b")))))
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
@@ -107,12 +107,12 @@ public class TestSwapAdjacentWindowsBySpecifications
                                         ImmutableList.of(p.symbol("a")),
                                         Optional.empty()),
                                 ImmutableMap.of(p.symbol("avg_1"),
-                                        new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference("avg_2")), DEFAULT_FRAME, false)),
+                                        new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference(DOUBLE, "avg_2")), DEFAULT_FRAME, false)),
                                 p.window(new DataOrganizationSpecification(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 Optional.empty()),
                                         ImmutableMap.of(p.symbol("avg_2"),
-                                                new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference("a")), DEFAULT_FRAME, false)),
+                                                new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference(BIGINT, "a")), DEFAULT_FRAME, false)),
                                         p.values(p.symbol("a"), p.symbol("b")))))
                 .doesNotFire();
     }

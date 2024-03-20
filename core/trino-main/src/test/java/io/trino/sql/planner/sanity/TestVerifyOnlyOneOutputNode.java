@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestVerifyOnlyOneOutputNode
@@ -59,7 +60,7 @@ public class TestVerifyOnlyOneOutputNode
                                                         idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()),
                                                 Assignments.of()
                                         ), ImmutableList.of(), ImmutableList.of()
-                                ), new Symbol("a"),
+                                ), new Symbol(UNKNOWN, "a"),
                                 ImmutableList.of(),
                                 false),
                         ImmutableList.of(), ImmutableList.of());

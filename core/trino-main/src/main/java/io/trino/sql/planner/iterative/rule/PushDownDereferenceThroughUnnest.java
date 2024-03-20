@@ -87,7 +87,7 @@ public class PushDownDereferenceThroughUnnest
         expressionsBuilder.addAll(projectNode.getAssignments().getExpressions());
 
         // Extract dereferences for pushdown
-        Set<SubscriptExpression> dereferences = extractRowSubscripts(expressionsBuilder.build(), false, typeAnalyzer, context.getSymbolAllocator().getTypes());
+        Set<SubscriptExpression> dereferences = extractRowSubscripts(expressionsBuilder.build(), false, typeAnalyzer);
 
         // Only retain dereferences on replicate symbols
         dereferences = dereferences.stream()
