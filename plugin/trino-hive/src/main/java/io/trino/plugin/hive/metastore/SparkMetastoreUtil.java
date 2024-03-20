@@ -39,7 +39,7 @@ import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDecimalC
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.NUM_ROWS;
 import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 
 public final class SparkMetastoreUtil
