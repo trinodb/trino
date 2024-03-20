@@ -21,6 +21,7 @@ import io.trino.hive.thrift.metastore.PrincipalPrivilegeSet;
 import io.trino.hive.thrift.metastore.SerDeInfo;
 import io.trino.hive.thrift.metastore.SkewedInfo;
 import io.trino.hive.thrift.metastore.StorageDescriptor;
+import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.trino.spi.predicate.Domain;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -42,6 +44,9 @@ import static io.trino.plugin.hive.HiveColumnHandle.bucketColumnHandle;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.getBasicStatisticsWithSparkFallback;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
@@ -227,6 +232,60 @@ public class TestMetastoreUtil
                         .put("ds", dsDomain)
                         .put("type", typeDomain)
                         .buildOrThrow());
+    }
+
+    @Test
+    public void testBasicStatisticsRoundTrip()
+    {
+        testBasicStatisticsRoundTrip(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()));
+        testBasicStatisticsRoundTrip(new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.empty()));
+        testBasicStatisticsRoundTrip(new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3), OptionalLong.of(4)));
+    }
+
+    private static void testBasicStatisticsRoundTrip(HiveBasicStatistics expected)
+    {
+        assertThat(getHiveBasicStatistics(updateStatisticsParameters(ImmutableMap.of(), expected))).isEqualTo(expected);
+    }
+
+    @Test
+    public void testSparkFallbackGetBasicStatistics()
+    {
+        // only spark stats
+        Map<String, String> tableParameters = Map.of(
+                "spark.sql.statistics.numFiles", "1",
+                "spark.sql.statistics.numRows", "2",
+                "spark.sql.statistics.rawDataSize", "3",
+                "spark.sql.statistics.totalSize", "4");
+        HiveBasicStatistics actual = getBasicStatisticsWithSparkFallback(tableParameters);
+        assertThat(actual).isEqualTo(new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3), OptionalLong.of(4)));
+        actual = getHiveBasicStatistics(tableParameters);
+        assertThat(actual).isEqualTo(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()));
+        // empty hive and not empty spark stats
+        tableParameters = Map.of(
+                "numFiles", "0",
+                "numRows", "0",
+                "rawDataSize", "0",
+                "totalSize", "0",
+                "spark.sql.statistics.numFiles", "1",
+                "spark.sql.statistics.numRows", "2",
+                "spark.sql.statistics.rawDataSize", "3",
+                "spark.sql.statistics.totalSize", "4");
+        actual = getBasicStatisticsWithSparkFallback(tableParameters);
+        assertThat(actual).isEqualTo(new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3), OptionalLong.of(4)));
+        actual = getHiveBasicStatistics(tableParameters);
+        assertThat(actual).isEqualTo(new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(0)));
+        //  not empty hive and not empty spark stats
+        tableParameters = Map.of(
+                "numFiles", "10",
+                "numRows", "20",
+                "rawDataSize", "30",
+                "totalSize", "40",
+                "spark.sql.statistics.numFiles", "1",
+                "spark.sql.statistics.numRows", "2",
+                "spark.sql.statistics.rawDataSize", "3",
+                "spark.sql.statistics.totalSize", "4");
+        actual = getBasicStatisticsWithSparkFallback(tableParameters);
+        assertThat(actual).isEqualTo(new HiveBasicStatistics(OptionalLong.of(10), OptionalLong.of(20), OptionalLong.of(30), OptionalLong.of(40)));
     }
 
     private static HiveColumnHandle partitionColumn(String name)

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.hive.thrift.metastore.BinaryColumnStatsData;
@@ -25,7 +24,6 @@ import io.trino.hive.thrift.metastore.DecimalColumnStatsData;
 import io.trino.hive.thrift.metastore.DoubleColumnStatsData;
 import io.trino.hive.thrift.metastore.LongColumnStatsData;
 import io.trino.hive.thrift.metastore.StringColumnStatsData;
-import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.metastore.BooleanStatistics;
 import io.trino.plugin.hive.metastore.DateStatistics;
 import io.trino.plugin.hive.metastore.DecimalStatistics;
@@ -39,7 +37,6 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
@@ -53,10 +50,7 @@ import static io.trino.hive.thrift.metastore.ColumnStatisticsData.doubleStats;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.longStats;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.stringStats;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getBasicStatisticsWithSparkFallback;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreDecimal;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.util.SerdeConstants.BIGINT_TYPE_NAME;
 import static io.trino.plugin.hive.util.SerdeConstants.BINARY_TYPE_NAME;
 import static io.trino.plugin.hive.util.SerdeConstants.BOOLEAN_TYPE_NAME;
@@ -309,60 +303,6 @@ public class TestThriftMetastoreUtil
 
         assertThat(actual.getNullsCount()).isEqualTo(OptionalLong.of(10));
         assertThat(actual.getDistinctValuesWithNullCount()).isEqualTo(OptionalLong.of(1));
-    }
-
-    @Test
-    public void testSparkFallbackGetBasicStatistics()
-    {
-        // only spark stats
-        Map<String, String> tableParameters = Map.of(
-                "spark.sql.statistics.numFiles", "1",
-                "spark.sql.statistics.numRows", "2",
-                "spark.sql.statistics.rawDataSize", "3",
-                "spark.sql.statistics.totalSize", "4");
-        HiveBasicStatistics actual = getBasicStatisticsWithSparkFallback(tableParameters);
-        assertThat(actual).isEqualTo(new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3), OptionalLong.of(4)));
-        actual = getHiveBasicStatistics(tableParameters);
-        assertThat(actual).isEqualTo(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()));
-        // empty hive and not empty spark stats
-        tableParameters = Map.of(
-                "numFiles", "0",
-                "numRows", "0",
-                "rawDataSize", "0",
-                "totalSize", "0",
-                "spark.sql.statistics.numFiles", "1",
-                "spark.sql.statistics.numRows", "2",
-                "spark.sql.statistics.rawDataSize", "3",
-                "spark.sql.statistics.totalSize", "4");
-        actual = getBasicStatisticsWithSparkFallback(tableParameters);
-        assertThat(actual).isEqualTo(new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3), OptionalLong.of(4)));
-        actual = getHiveBasicStatistics(tableParameters);
-        assertThat(actual).isEqualTo(new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(0)));
-        //  not empty hive and not empty spark stats
-        tableParameters = Map.of(
-                "numFiles", "10",
-                "numRows", "20",
-                "rawDataSize", "30",
-                "totalSize", "40",
-                "spark.sql.statistics.numFiles", "1",
-                "spark.sql.statistics.numRows", "2",
-                "spark.sql.statistics.rawDataSize", "3",
-                "spark.sql.statistics.totalSize", "4");
-        actual = getBasicStatisticsWithSparkFallback(tableParameters);
-        assertThat(actual).isEqualTo(new HiveBasicStatistics(OptionalLong.of(10), OptionalLong.of(20), OptionalLong.of(30), OptionalLong.of(40)));
-    }
-
-    @Test
-    public void testBasicStatisticsRoundTrip()
-    {
-        testBasicStatisticsRoundTrip(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()));
-        testBasicStatisticsRoundTrip(new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.empty(), OptionalLong.of(2), OptionalLong.empty()));
-        testBasicStatisticsRoundTrip(new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3), OptionalLong.of(4)));
-    }
-
-    private static void testBasicStatisticsRoundTrip(HiveBasicStatistics expected)
-    {
-        assertThat(getHiveBasicStatistics(updateStatisticsParameters(ImmutableMap.of(), expected))).isEqualTo(expected);
     }
 
     @Test
