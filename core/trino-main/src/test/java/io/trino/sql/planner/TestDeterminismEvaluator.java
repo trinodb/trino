@@ -48,25 +48,25 @@ public class TestDeterminismEvaluator
         assertThat(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))
         )).isFalse();
         assertThat(DeterminismEvaluator.isDeterministic(function("uuid"))).isFalse();
-        assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))))).isTrue();
+        assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(new SymbolReference(DOUBLE, "symbol"))))).isTrue();
         assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand"))))).isFalse();
         assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "abs",
                         ImmutableList.of(DOUBLE),
-                        ImmutableList.of(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol")))))
+                        ImmutableList.of(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(new SymbolReference(DOUBLE, "symbol")))))
         )).isTrue();
         assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
-                        ImmutableList.of(lambda("a", comparison(GREATER_THAN, input("a"), new Constant(INTEGER, 0L)))))
+                        ImmutableList.of(lambda(new Symbol(INTEGER, "a"), comparison(GREATER_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 0L)))))
         )).isTrue();
         assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
-                        ImmutableList.of(lambda("a", comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(input("a"))), new Constant(INTEGER, 0L)))))
+                        ImmutableList.of(lambda(new Symbol(INTEGER, "a"), comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(new SymbolReference(INTEGER, "a"))), new Constant(INTEGER, 0L)))))
         )).isFalse();
     }
 
@@ -83,17 +83,12 @@ public class TestDeterminismEvaluator
                 .build();
     }
 
-    private static SymbolReference input(String symbol)
-    {
-        return new SymbolReference(symbol);
-    }
-
     private static ComparisonExpression comparison(ComparisonExpression.Operator operator, Expression left, Expression right)
     {
         return new ComparisonExpression(operator, left, right);
     }
 
-    private static LambdaExpression lambda(String symbol, Expression body)
+    private static LambdaExpression lambda(Symbol symbol, Expression body)
     {
         return new LambdaExpression(ImmutableList.of(symbol), body);
     }

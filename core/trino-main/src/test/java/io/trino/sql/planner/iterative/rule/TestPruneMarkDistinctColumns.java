@@ -21,6 +21,8 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -44,7 +46,7 @@ public class TestPruneMarkDistinctColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("key2", expression(new SymbolReference("key"))),
+                                ImmutableMap.of("key2", expression(new SymbolReference(BIGINT, "key"))),
                                 values(ImmutableList.of("key", "unused"))));
     }
 
@@ -67,12 +69,12 @@ public class TestPruneMarkDistinctColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("mark", expression(new SymbolReference("mark"))),
+                                ImmutableMap.of("mark", expression(new SymbolReference(BOOLEAN, "mark"))),
                                 markDistinct("mark", ImmutableList.of("key"), "hash",
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "key", expression(new SymbolReference("key")),
-                                                        "hash", expression(new SymbolReference("hash"))),
+                                                        "key", expression(new SymbolReference(BIGINT, "key")),
+                                                        "hash", expression(new SymbolReference(BIGINT, "hash"))),
                                                 values(ImmutableList.of("key", "hash", "unused"))))));
     }
 

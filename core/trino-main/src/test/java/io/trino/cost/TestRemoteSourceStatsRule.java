@@ -37,6 +37,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingMetadata.TestingColumnHandle;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Double.NaN;
 
 public class TestRemoteSourceStatsRule
@@ -72,25 +73,25 @@ public class TestRemoteSourceStatsRule
                 .withRuntimeInfoProvider(createRuntimeInfoProvider(statsAndCosts))
                 .check(check -> check
                         .outputRowsCount(1_000_000)
-                        .symbolStats(new Symbol("col_a"), assertion -> assertion
+                        .symbolStats(new Symbol(UNKNOWN, "col_a"), assertion -> assertion
                                 .averageRowSize(avgRowSize)
                                 .distinctValuesCount(100)
                                 .nullsFraction(nullFraction)
                                 .lowValueUnknown()
                                 .highValueUnknown())
-                        .symbolStats(new Symbol("col_b"), assertion -> assertion
+                        .symbolStats(new Symbol(UNKNOWN, "col_b"), assertion -> assertion
                                 .averageRowSize(avgRowSize)
                                 .distinctValuesCount(233)
                                 .nullsFraction(nullFraction)
                                 .lowValueUnknown()
                                 .highValueUnknown())
-                        .symbolStats(new Symbol("col_c"), assertion -> assertion
+                        .symbolStats(new Symbol(UNKNOWN, "col_c"), assertion -> assertion
                                 .averageRowSize(NaN)
                                 .distinctValuesCount(98)
                                 .nullsFraction(nullFraction)
                                 .highValue(100)
                                 .lowValue(3))
-                        .symbolStats(new Symbol("col_d"), assertion -> assertion
+                        .symbolStats(new Symbol(UNKNOWN, "col_d"), assertion -> assertion
                                 .averageRowSize(NaN)
                                 .distinctValuesCount(300)
                                 .nullsFraction(nullFraction)
@@ -118,23 +119,23 @@ public class TestRemoteSourceStatsRule
                 TableScanNode.newInstance(
                         new PlanNodeId("plan_id"),
                         TEST_TABLE_HANDLE,
-                        ImmutableList.of(new Symbol("col_a"), new Symbol("col_b"), new Symbol("col_c"), new Symbol("col_d")),
+                        ImmutableList.of(new Symbol(UNKNOWN, "col_a"), new Symbol(UNKNOWN, "col_b"), new Symbol(UNKNOWN, "col_c"), new Symbol(UNKNOWN, "col_d")),
                         ImmutableMap.of(
-                                new Symbol("col_a"), new TestingColumnHandle("col_a", 0, VARCHAR),
-                                new Symbol("col_b"), new TestingColumnHandle("col_b", 1, VARCHAR),
-                                new Symbol("col_c"), new TestingColumnHandle("col_c", 2, BIGINT),
-                                new Symbol("col_d"), new TestingColumnHandle("col_d", 3, DOUBLE)),
+                                new Symbol(UNKNOWN, "col_a"), new TestingColumnHandle("col_a", 0, VARCHAR),
+                                new Symbol(UNKNOWN, "col_b"), new TestingColumnHandle("col_b", 1, VARCHAR),
+                                new Symbol(UNKNOWN, "col_c"), new TestingColumnHandle("col_c", 2, BIGINT),
+                                new Symbol(UNKNOWN, "col_d"), new TestingColumnHandle("col_d", 3, DOUBLE)),
                         false,
                         Optional.empty()),
                 ImmutableMap.of(
-                        new Symbol("col_a"), VARCHAR,
-                        new Symbol("col_b"), VARCHAR,
-                        new Symbol("col_c"), BIGINT,
-                        new Symbol("col_d"), DOUBLE),
+                        new Symbol(UNKNOWN, "col_a"), VARCHAR,
+                        new Symbol(UNKNOWN, "col_b"), VARCHAR,
+                        new Symbol(UNKNOWN, "col_c"), BIGINT,
+                        new Symbol(UNKNOWN, "col_d"), DOUBLE),
                 SOURCE_DISTRIBUTION,
                 Optional.empty(),
                 ImmutableList.of(new PlanNodeId("plan_id")),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(new Symbol("col_c"))),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(new Symbol(UNKNOWN, "col_c"))),
                 statsAndCosts,
                 ImmutableList.of(),
                 ImmutableList.of(),
@@ -145,24 +146,24 @@ public class TestRemoteSourceStatsRule
     {
         PlanNodeStatsEstimate symbolEstimate = new PlanNodeStatsEstimate(10000,
                 ImmutableMap.of(
-                        new Symbol("col_a"),
+                        new Symbol(UNKNOWN, "col_a"),
                         SymbolStatsEstimate.builder()
                                 .setNullsFraction(nullFraction)
                                 .setDistinctValuesCount(100)
                                 .build(),
-                        new Symbol("col_b"),
+                        new Symbol(UNKNOWN, "col_b"),
                         SymbolStatsEstimate.builder()
                                 .setNullsFraction(nullFraction)
                                 .setDistinctValuesCount(233)
                                 .build(),
-                        new Symbol("col_c"),
+                        new Symbol(UNKNOWN, "col_c"),
                         SymbolStatsEstimate.builder()
                                 .setNullsFraction(nullFraction)
                                 .setDistinctValuesCount(98)
                                 .setHighValue(100)
                                 .setLowValue(3)
                                 .build(),
-                        new Symbol("col_d"),
+                        new Symbol(UNKNOWN, "col_d"),
                         SymbolStatsEstimate.builder()
                                 .setNullsFraction(nullFraction)
                                 .setDistinctValuesCount(300)

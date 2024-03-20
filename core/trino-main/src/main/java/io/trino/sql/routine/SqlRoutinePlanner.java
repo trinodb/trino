@@ -310,7 +310,7 @@ public final class SqlRoutinePlanner
             // build symbol and field indexes for translation
             TypeProvider typeProvider = TypeProvider.viewOf(
                     context.variables().entrySet().stream().collect(toImmutableMap(
-                            entry -> new Symbol(entry.getKey()),
+                            entry -> new Symbol(entry.getValue().type(), entry.getKey()),
                             entry -> entry.getValue().type())));
 
             List<Field> fields = context.variables().entrySet().stream()
@@ -338,7 +338,7 @@ public final class SqlRoutinePlanner
             // The expression tree has been rewritten which breaks all the identity maps, so redo the analysis
             // to re-analyze coercions that might be necessary
             IrTypeAnalyzer analyzer = new IrTypeAnalyzer(plannerContext);
-            Map<io.trino.sql.ir.NodeRef<io.trino.sql.ir.Expression>, Type> types = analyzer.getTypes(typeProvider, lambdaCaptureDesugared);
+            Map<io.trino.sql.ir.NodeRef<io.trino.sql.ir.Expression>, Type> types = analyzer.getTypes(lambdaCaptureDesugared);
 
             // optimize the expression
             IrExpressionInterpreter interpreter = new IrExpressionInterpreter(lambdaCaptureDesugared, plannerContext, session, types);
@@ -349,7 +349,7 @@ public final class SqlRoutinePlanner
                     new Constant(types.get(io.trino.sql.ir.NodeRef.of(lambdaCaptureDesugared)), value);
 
             // Analyze again after optimization
-            types = analyzer.getTypes(typeProvider, optimized);
+            types = analyzer.getTypes(optimized);
 
             // translate to RowExpression
             TranslationVisitor translator = new TranslationVisitor(plannerContext.getMetadata(), plannerContext.getTypeManager(), types, ImmutableMap.of(), context.variables());

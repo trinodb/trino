@@ -29,6 +29,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
+import io.trino.spi.type.RowType;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
@@ -147,7 +148,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                 session,
                 any(
                         project(
-                                ImmutableMap.of("expr", expression(new SubscriptExpression(new SymbolReference("col0"), new Constant(INTEGER, 1L))), "expr_2", expression(new SubscriptExpression(new SymbolReference("col0"), new Constant(INTEGER, 2L)))),
+                                ImmutableMap.of("expr", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), new Constant(INTEGER, 1L))), "expr_2", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), new Constant(INTEGER, 2L)))),
                                 tableScan(testTable, ImmutableMap.of("col0", "col0")))));
     }
 
@@ -198,8 +199,8 @@ public class TestDeltaLakeProjectionPushdownPlans
                 anyTree(
                         filter(
                                 new LogicalExpression(AND, ImmutableList.of(
-                                        new ComparisonExpression(EQUAL, new SymbolReference("y"), new Constant(BIGINT, 2L)),
-                                        new ComparisonExpression(EQUAL, new SymbolReference("x"), new Cast(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("col1"), new Constant(INTEGER, 3L)), BIGINT)))),
+                                        new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "y"), new Constant(BIGINT, 2L)),
+                                        new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "x"), new Cast(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "col1"), new Constant(INTEGER, 3L)), BIGINT)))),
                                 source2)));
 
         // Projection and predicate pushdown with overlapping columns
@@ -216,7 +217,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                 format("SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5", testTable),
                 anyTree(
                         filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference("x"), new Constant(BIGINT, 5L)),
+                                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "x"), new Constant(BIGINT, 5L)),
                                 source1)));
 
         // Projection and predicate pushdown with joins
@@ -225,9 +226,9 @@ public class TestDeltaLakeProjectionPushdownPlans
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference("expr_0"), new Constant(INTEGER, 1L))),
-                                        "expr_0", expression(new SymbolReference("expr_0")),
-                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference("expr_0"), new Constant(INTEGER, 2L)))),
+                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "expr_0"), new Constant(INTEGER, 1L))),
+                                        "expr_0", expression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "expr_0")),
+                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "expr_0"), new Constant(INTEGER, 2L)))),
                                 join(INNER, builder -> {
                                     PlanMatchPattern source = tableScan(
                                             table -> {
@@ -246,7 +247,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                                             .left(
                                                     anyTree(
                                                             filter(
-                                                                    new ComparisonExpression(EQUAL, new SymbolReference("x"), new Constant(BIGINT, 2L)),
+                                                                    new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "x"), new Constant(BIGINT, 2L)),
                                                                     source)))
                                             .right(
                                                     anyTree(

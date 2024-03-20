@@ -24,6 +24,7 @@ import java.util.function.Consumer;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.aggregation;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestAggregationStatsRule
         extends BaseStatsCalculatorTest
@@ -94,26 +95,26 @@ public class TestAggregationStatsRule
     {
         return tester().assertStatsFor(pb -> pb
                 .aggregation(ab -> ab
-                        .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new SymbolReference(BIGINT, "x"))), ImmutableList.of(BIGINT))
                         .addAggregation(pb.symbol("count", BIGINT), aggregation("count", ImmutableList.of()), ImmutableList.of())
-                        .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "x"))), ImmutableList.of(BIGINT))
                         .singleGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))
                         .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), SymbolStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0.3)
                                 .build())
-                        .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), SymbolStatsEstimate.builder()
                                 .setLowValue(0)
                                 .setHighValue(3)
                                 .setDistinctValuesCount(3)
                                 .setNullsFraction(0)
                                 .build())
-                        .addSymbolStatistics(new Symbol("z"), zStats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "z"), zStats)
                         .build())
                 .check(check -> check
                         .symbolStats("sum", symbolStatsAssertion -> symbolStatsAssertion
@@ -143,13 +144,13 @@ public class TestAggregationStatsRule
     {
         tester().assertStatsFor(pb -> pb
                 .aggregation(ab -> ab
-                        .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "x"))), ImmutableList.of(BIGINT))
                         .singleGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))
                         .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
-                        .addSymbolStatistics(new Symbol("z"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "z"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
                         .build())
                 .check(check -> check.outputRowsCount(100));
     }
@@ -159,8 +160,8 @@ public class TestAggregationStatsRule
     {
         tester().assertStatsFor(pb -> pb
                         .aggregation(ab -> ab
-                                .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
-                                .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
+                                .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "x"))), ImmutableList.of(BIGINT))
+                                .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new SymbolReference(BIGINT, "x"))), ImmutableList.of(BIGINT))
                                 .globalGrouping()
                                 .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.unknown())
@@ -172,14 +173,14 @@ public class TestAggregationStatsRule
     {
         tester().assertStatsFor(pb -> pb
                         .aggregation(ab -> ab
-                                .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
-                                .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
+                                .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "x"))), ImmutableList.of(BIGINT))
+                                .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new SymbolReference(BIGINT, "x"))), ImmutableList.of(BIGINT))
                                 .groupingSets(new AggregationNode.GroupingSetDescriptor(ImmutableList.of(pb.symbol("y"), pb.symbol("z")), 3, ImmutableSet.of(0)))
                                 .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
-                        .addSymbolStatistics(new Symbol("z"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "z"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
                         .build())
                 .check(check -> check.outputRowsCountUnknown());
     }

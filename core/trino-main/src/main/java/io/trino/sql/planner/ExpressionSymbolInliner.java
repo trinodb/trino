@@ -71,10 +71,13 @@ public final class ExpressionSymbolInliner
         @Override
         public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            excludedNames.addAll(node.getArguments());
+            excludedNames.addAll(node.arguments().stream()
+                    .map(Symbol::getName)
+                    .toList());
+
             Expression result = treeRewriter.defaultRewrite(node, context);
-            for (String argument : node.getArguments()) {
-                verify(excludedNames.remove(argument));
+            for (Symbol argument : node.arguments()) {
+                verify(excludedNames.remove(argument.getName()));
             }
             return result;
         }

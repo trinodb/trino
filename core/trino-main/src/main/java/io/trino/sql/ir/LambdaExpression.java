@@ -15,13 +15,15 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.planner.Symbol;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record LambdaExpression(List<String> arguments, Expression body)
+public record LambdaExpression(List<Symbol> arguments, Expression body)
         implements Expression
 {
     public LambdaExpression
@@ -31,7 +33,7 @@ public record LambdaExpression(List<String> arguments, Expression body)
     }
 
     @Deprecated
-    public List<String> getArguments()
+    public List<Symbol> getArguments()
     {
         return arguments;
     }
@@ -58,7 +60,8 @@ public record LambdaExpression(List<String> arguments, Expression body)
     public String toString()
     {
         return "(%s) -> %s".formatted(
-                String.join(", ", arguments),
+                arguments.stream()
+                        .map(Symbol::toString).collect(Collectors.joining(", ")),
                 body);
     }
 }

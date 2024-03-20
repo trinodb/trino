@@ -108,7 +108,7 @@ public class TestAnonymizeJsonRepresentation
         assertAnonymizedRepresentation(
                 pb -> pb.aggregation(ab -> ab
                         .step(FINAL)
-                        .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new SymbolReference(BIGINT, "x"))), ImmutableList.of(BIGINT))
                         .singleGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))
                         .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))),
                 new JsonRenderedNode(

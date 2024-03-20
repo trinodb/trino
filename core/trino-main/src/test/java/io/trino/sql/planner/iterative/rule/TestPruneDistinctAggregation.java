@@ -54,7 +54,7 @@ public class TestPruneDistinctAggregation
                     Symbol a = p.symbol("a");
                     AggregationNode child = p.aggregation(aggregationBuilder ->
                             aggregationBuilder.globalGrouping()
-                                    .addAggregation(p.symbol("sum", BIGINT), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                                    .addAggregation(p.symbol("sum", BIGINT), PlanBuilder.aggregation("sum", ImmutableList.of(new SymbolReference(BIGINT, "a"))), ImmutableList.of(BIGINT))
                                     .source(p.values(1, a)));
                     return p.aggregation(aggregationBuilder ->
                             aggregationBuilder.globalGrouping()

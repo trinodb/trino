@@ -321,8 +321,8 @@ public class TestMaterializedViews
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "A_CAST", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new Cast(new SymbolReference("A"), BIGINT), new Constant(BIGINT, 1L))),
-                                        "B_CAST", expression(new Cast(new SymbolReference("B"), BIGINT))),
+                                        "A_CAST", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new Cast(new SymbolReference(BIGINT, "A"), BIGINT), new Constant(BIGINT, 1L))),
+                                        "B_CAST", expression(new Cast(new SymbolReference(BIGINT, "B"), BIGINT))),
                                 tableScan("storage_table_with_casts", ImmutableMap.of("A", "a", "B", "b")))));
     }
 
@@ -334,8 +334,8 @@ public class TestMaterializedViews
                         tableWriter(List.of("A_CAST", "B_CAST"), List.of("a", "b"),
                                 exchange(LOCAL,
                                         project(Map.of(
-                                                        "A_CAST", expression(new Cast(new SymbolReference("A"), TINYINT)),
-                                                        "B_CAST", expression(new Cast(new SymbolReference("B"), VARCHAR))),
+                                                        "A_CAST", expression(new Cast(new SymbolReference(BIGINT, "A"), TINYINT)),
+                                                        "B_CAST", expression(new Cast(new SymbolReference(BIGINT, "B"), VARCHAR))),
                                                 tableScan("test_table", Map.of("A", "a", "B", "b")))))));
 
         // No-op REFRESH
@@ -349,9 +349,9 @@ public class TestMaterializedViews
     {
         assertPlan("SELECT * FROM timestamp_mv_test WHERE ts < TIMESTAMP '2024-01-01 00:00:00.000 America/New_York'",
                 anyTree(
-                        project(ImmutableMap.of("ts_0", expression(new Cast(new SymbolReference("ts"), TIMESTAMP_TZ_MILLIS))),
+                        project(ImmutableMap.of("ts_0", expression(new Cast(new SymbolReference(TIMESTAMP_TZ_MILLIS, "ts"), TIMESTAMP_TZ_MILLIS))),
                                 filter(
-                                        new ComparisonExpression(LESS_THAN, new Cast(new SymbolReference("ts"), TIMESTAMP_TZ_MILLIS), new Constant(createTimestampWithTimeZoneType(3), DateTimes.parseTimestampWithTimeZone(3, "2024-01-01 00:00:00.000 America/New_York"))),
+                                        new ComparisonExpression(LESS_THAN, new Cast(new SymbolReference(TIMESTAMP_TZ_MILLIS, "ts"), TIMESTAMP_TZ_MILLIS), new Constant(createTimestampWithTimeZoneType(3), DateTimes.parseTimestampWithTimeZone(3, "2024-01-01 00:00:00.000 America/New_York"))),
                                         tableScan("timestamp_test_storage", ImmutableMap.of("ts", "ts", "id", "id"))))));
     }
 

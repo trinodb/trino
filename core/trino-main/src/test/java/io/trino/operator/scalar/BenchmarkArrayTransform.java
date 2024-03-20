@@ -25,6 +25,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.relational.InputReferenceExpression;
@@ -111,8 +112,7 @@ public class BenchmarkArrayTransform
                         ImmutableList.of(
                                 new InputReferenceExpression(0, arrayType),
                                 new LambdaDefinitionExpression(
-                                        ImmutableList.of(BIGINT),
-                                        ImmutableList.of("x"),
+                                        ImmutableList.of(new Symbol(BIGINT, "x")),
                                         new CallExpression(
                                                 functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT)),
                                                 ImmutableList.of(new ConstantExpression(0L, BIGINT), new VariableReferenceExpression("x", BIGINT)))))));

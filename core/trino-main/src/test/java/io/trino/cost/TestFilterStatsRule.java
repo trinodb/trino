@@ -28,6 +28,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -56,23 +57,23 @@ public class TestFilterStatsRule
     public void testEstimatableFilter()
     {
         tester().assertStatsFor(pb -> pb
-                .filter(new ComparisonExpression(EQUAL, new SymbolReference("i1"), new Constant(INTEGER, 5L)),
+                .filter(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "i1"), new Constant(INTEGER, 5L)),
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(new Symbol("i1"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "i1"), SymbolStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i2"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "i2"), SymbolStatsEstimate.builder()
                                 .setLowValue(0)
                                 .setHighValue(3)
                                 .setDistinctValuesCount(4)
                                 .setNullsFraction(0)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i3"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "i3"), SymbolStatsEstimate.builder()
                                 .setLowValue(10)
                                 .setHighValue(15)
                                 .setDistinctValuesCount(4)
@@ -101,23 +102,23 @@ public class TestFilterStatsRule
                                 .nullsFraction(0.05)));
 
         defaultFilterTester.assertStatsFor(pb -> pb
-                .filter(new ComparisonExpression(EQUAL, new SymbolReference("i1"), new Constant(INTEGER, 5L)),
+                .filter(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "i1"), new Constant(INTEGER, 5L)),
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(new Symbol("i1"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "i1"), SymbolStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i2"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "i2"), SymbolStatsEstimate.builder()
                                 .setLowValue(0)
                                 .setHighValue(3)
                                 .setDistinctValuesCount(4)
                                 .setNullsFraction(0)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i3"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "i3"), SymbolStatsEstimate.builder()
                                 .setLowValue(10)
                                 .setHighValue(15)
                                 .setDistinctValuesCount(4)
@@ -154,7 +155,7 @@ public class TestFilterStatsRule
                 EQUAL,
                 new TestingFunctionResolution()
                         .functionCallBuilder("sin")
-                        .addArgument(DOUBLE, new SymbolReference("i1"))
+                        .addArgument(DOUBLE, new SymbolReference(DOUBLE, "i1"))
                         .build(),
                 new Constant(DOUBLE, 1.0));
 
@@ -164,19 +165,19 @@ public class TestFilterStatsRule
                                 pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(new Symbol("i1"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "i1"), SymbolStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i2"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "i2"), SymbolStatsEstimate.builder()
                                 .setLowValue(0)
                                 .setHighValue(3)
                                 .setDistinctValuesCount(4)
                                 .setNullsFraction(0)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i3"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "i3"), SymbolStatsEstimate.builder()
                                 .setLowValue(10)
                                 .setHighValue(15)
                                 .setDistinctValuesCount(4)
@@ -191,19 +192,19 @@ public class TestFilterStatsRule
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(new Symbol("i1"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "i1"), SymbolStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i2"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "i2"), SymbolStatsEstimate.builder()
                                 .setLowValue(0)
                                 .setHighValue(3)
                                 .setDistinctValuesCount(4)
                                 .setNullsFraction(0)
                                 .build())
-                        .addSymbolStatistics(new Symbol("i3"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "i3"), SymbolStatsEstimate.builder()
                                 .setLowValue(10)
                                 .setHighValue(15)
                                 .setDistinctValuesCount(4)

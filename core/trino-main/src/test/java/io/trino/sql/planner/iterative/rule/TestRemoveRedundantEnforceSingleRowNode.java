@@ -32,7 +32,7 @@ public class TestRemoveRedundantEnforceSingleRowNode
     {
         tester().assertThat(new RemoveRedundantEnforceSingleRowNode())
                 .on(p -> p.enforceSingleRow(p.aggregation(builder -> builder
-                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "a"))), ImmutableList.of(BIGINT))
                         .globalGrouping()
                         .source(p.values(p.symbol("a"))))))
                 .matches(node(AggregationNode.class, values("a")));

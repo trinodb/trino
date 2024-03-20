@@ -89,10 +89,10 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         join(INNER, builder -> builder
-                                .filter(new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new SymbolReference("a")))
+                                .filter(new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "expr"), new SymbolReference(BIGINT, "a")))
                                 .left(values("a"))
                                 .right(project(
-                                        ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("b"), new Constant(BIGINT, 1L)))),
+                                        ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "b"), new Constant(BIGINT, 1L)))),
                                         values("b")))));
     }
 
@@ -113,13 +113,13 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         join(INNER, builder -> builder
-                                .filter(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("expr_less"), new SymbolReference("a")), new ComparisonExpression(GREATER_THAN, new SymbolReference("expr_greater"), new SymbolReference("a")))))
+                                .filter(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "expr_less"), new SymbolReference(BIGINT, "a")), new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "expr_greater"), new SymbolReference(BIGINT, "a")))))
                                 .left(values("a"))
                                 .right(
                                         project(
                                                 ImmutableMap.of(
-                                                        "expr_less", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("b"), new Constant(BIGINT, 1L))),
-                                                        "expr_greater", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("b"), new Constant(BIGINT, 10L)))),
+                                                        "expr_less", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "b"), new Constant(BIGINT, 1L))),
+                                                        "expr_greater", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "b"), new Constant(BIGINT, 10L)))),
                                                 values("b")))));
     }
 
@@ -138,11 +138,11 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         join(INNER, builder -> builder
-                                .filter(new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("a"), new Constant(BIGINT, 2L))))
+                                .filter(new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "expr"), new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "a"), new Constant(BIGINT, 2L))))
                                 .left(values("a"))
                                 .right(
                                         project(
-                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("b"), new Constant(BIGINT, 1L)))),
+                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "b"), new Constant(BIGINT, 1L)))),
                                                 values("b")))));
     }
 
@@ -180,13 +180,13 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 .matches(
                         project(
                                 filter(
-                                        new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new SymbolReference("a")),
+                                        new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "expr"), new SymbolReference(BIGINT, "a")),
                                         join(INNER, builder -> builder
                                                 .left(
                                                         values("a"))
                                                 .right(
                                                         project(
-                                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("b"), new Constant(BIGINT, 1L)))),
+                                                                ImmutableMap.of("expr", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "b"), new Constant(BIGINT, 1L)))),
                                                                 values("b")))))));
     }
 
@@ -208,14 +208,14 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         project(
-                                filter(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference("expr_less"), new SymbolReference("a")), new ComparisonExpression(GREATER_THAN, new SymbolReference("expr_greater"), new SymbolReference("a")))),
+                                filter(new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "expr_less"), new SymbolReference(BIGINT, "a")), new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "expr_greater"), new SymbolReference(BIGINT, "a")))),
                                         join(INNER, builder -> builder
                                                 .left(values("a"))
                                                 .right(
                                                         project(
                                                                 ImmutableMap.of(
-                                                                        "expr_less", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("b"), new Constant(BIGINT, 1L))),
-                                                                        "expr_greater", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("b"), new Constant(BIGINT, 10L)))),
+                                                                        "expr_less", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "b"), new Constant(BIGINT, 1L))),
+                                                                        "expr_greater", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "b"), new Constant(BIGINT, 10L)))),
                                                                 values("b")))))));
     }
 
@@ -237,15 +237,15 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 .matches(
                         project(
                                 filter(
-                                        new ComparisonExpression(LESS_THAN, new SymbolReference("parent_expression"), new SymbolReference("a")),
+                                        new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "parent_expression"), new SymbolReference(BIGINT, "a")),
                                         join(INNER, builder -> builder
-                                                .filter(new ComparisonExpression(LESS_THAN, new SymbolReference("join_expression"), new SymbolReference("a")))
+                                                .filter(new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "join_expression"), new SymbolReference(BIGINT, "a")))
                                                 .left(values("a"))
                                                 .right(
                                                         project(
                                                                 ImmutableMap.of(
-                                                                        "join_expression", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("b"), new Constant(BIGINT, 2L))),
-                                                                        "parent_expression", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference("b"), new Constant(BIGINT, 1L)))),
+                                                                        "join_expression", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "b"), new Constant(BIGINT, 2L))),
+                                                                        "parent_expression", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "b"), new Constant(BIGINT, 1L)))),
                                                                 values("b"))))
                                                 .withExactOutputs("a", "b", "parent_expression"))));
     }

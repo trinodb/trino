@@ -192,6 +192,7 @@ public class NodeRepresentation
         return estimates.build();
     }
 
+    @Deprecated // TODO: replace with Symbol now that it carries a type
     public static class TypedSymbol
     {
         private final Symbol symbol;
@@ -223,7 +224,7 @@ public class NodeRepresentation
 
         public static TypedSymbol typedSymbol(String symbol, Type type)
         {
-            return new TypedSymbol(new Symbol(symbol), type);
+            return new TypedSymbol(new Symbol(type, symbol), type);
         }
 
         @Override

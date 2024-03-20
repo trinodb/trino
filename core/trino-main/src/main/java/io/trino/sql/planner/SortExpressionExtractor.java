@@ -138,7 +138,7 @@ public final class SortExpressionExtractor
     {
         // Currently we only support symbol as sort expression on build side
         if (expression instanceof SymbolReference symbolReference) {
-            if (buildLayout.contains(new Symbol(symbolReference.getName()))) {
+            if (buildLayout.contains(new Symbol(symbolReference.type(), symbolReference.getName()))) {
                 return Optional.of(symbolReference);
             }
         }

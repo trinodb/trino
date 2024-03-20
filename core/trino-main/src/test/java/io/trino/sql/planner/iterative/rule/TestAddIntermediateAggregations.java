@@ -37,13 +37,13 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "b"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.symbol("b"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                                                    .addAggregation(p.symbol("b"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "a"))), ImmutableList.of(BIGINT))
                                                     .source(
                                                             p.values(p.symbol("a"))))));
                 }))
@@ -59,13 +59,13 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.singleGroupingSet(p.symbol("c"))
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.symbol("c"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("b"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("c"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "b"))), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE,
                                             p.aggregation(ap -> ap.singleGroupingSet(p.symbol("b"))
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.symbol("b"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference("a"))), ImmutableList.of(BIGINT))
+                                                    .addAggregation(p.symbol("b"), PlanBuilder.aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "a"))), ImmutableList.of(BIGINT))
                                                     .source(
                                                             p.values(p.symbol("a"))))));
                 }))

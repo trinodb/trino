@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.plan;
 
+import com.fasterxml.jackson.databind.KeyDeserializer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -33,6 +34,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.WindowNode.Frame;
 import io.trino.sql.planner.plan.WindowNode.Function;
@@ -55,6 +57,8 @@ import java.util.Optional;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
@@ -77,8 +81,10 @@ public class TestPatternRecognitionNodeSerialization
 
     static {
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setKeyDeserializers(ImmutableMap.of(
-                TypeSignature.class, new TypeSignatureKeyDeserializer()));
+        provider.setKeyDeserializers(ImmutableMap.<Class<?>, KeyDeserializer>builder()
+                .put(TypeSignature.class, new TypeSignatureKeyDeserializer())
+                .put(Symbol.class, new SymbolKeyDeserializer(new TestingTypeManager()))
+                .buildOrThrow());
 
         provider.setJsonDeserializers(ImmutableMap.of(
                 Type.class, new TypeDeserializer(new TestingTypeManager()),
@@ -98,11 +104,11 @@ public class TestPatternRecognitionNodeSerialization
     {
         assertJsonRoundTrip(VALUE_POINTER_CODEC, new ScalarValuePointer(
                 new LogicalIndexPointer(ImmutableSet.of(), false, false, 5, 5),
-                new Symbol("input_symbol")));
+                new Symbol(BIGINT, "input_symbol")));
 
         assertJsonRoundTrip(VALUE_POINTER_CODEC, new ScalarValuePointer(
                 new LogicalIndexPointer(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), true, true, 1, -1),
-                new Symbol("input_symbol")));
+                new Symbol(BIGINT, "input_symbol")));
     }
 
     @Test
@@ -113,16 +119,16 @@ public class TestPatternRecognitionNodeSerialization
                 countFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(), false),
                 ImmutableList.of(),
-                Optional.of(new Symbol("classifier")),
-                Optional.of(new Symbol("match_number"))));
+                Optional.of(new Symbol(VARCHAR, "classifier")),
+                Optional.of(new Symbol(BIGINT, "match_number"))));
 
         ResolvedFunction maxFunction = createTestMetadataManager().resolveBuiltinFunction("max", fromTypes(BIGINT));
         assertJsonRoundTrip(VALUE_POINTER_CODEC, new AggregationValuePointer(
                 maxFunction,
                 new AggregatedSetDescriptor(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), true),
                 ImmutableList.of(new Constant(BIGINT, null)),
-                Optional.of(new Symbol("classifier")),
-                Optional.of(new Symbol("match_number"))));
+                Optional.of(new Symbol(VARCHAR, "classifier")),
+                Optional.of(new Symbol(BIGINT, "match_number"))));
     }
 
     @Test
@@ -132,21 +138,21 @@ public class TestPatternRecognitionNodeSerialization
 
         assertJsonRoundTrip(EXPRESSION_AND_VALUE_POINTERS_CODEC, new ExpressionAndValuePointers(
                 ifExpression(
-                        new ComparisonExpression(GREATER_THAN, new SymbolReference("classifier"), new SymbolReference("x")),
+                        new ComparisonExpression(GREATER_THAN, new SymbolReference(VARCHAR, "classifier"), new SymbolReference(VARCHAR, "x")),
                         new FunctionCall(RANDOM, ImmutableList.of()),
-                        new ArithmeticNegation(new SymbolReference("match_number"))),
+                        new ArithmeticNegation(new SymbolReference(INTEGER, "match_number"))),
                 ImmutableList.of(
                         new ExpressionAndValuePointers.Assignment(
-                                new Symbol("classifier"),
+                                new Symbol(VARCHAR, "classifier"),
                                 new ClassifierValuePointer(
                                         new LogicalIndexPointer(ImmutableSet.of(new IrLabel("A"), new IrLabel("B")), false, true, 1, -1))),
                         new ExpressionAndValuePointers.Assignment(
-                                new Symbol("x"),
+                                new Symbol(BIGINT, "x"),
                                 new ScalarValuePointer(
                                         new LogicalIndexPointer(ImmutableSet.of(new IrLabel("B")), true, false, 2, 1),
-                                        new Symbol("input_symbol_a"))),
+                                        new Symbol(BIGINT, "input_symbol_a"))),
                         new ExpressionAndValuePointers.Assignment(
-                                new Symbol("match_number"),
+                                new Symbol(BIGINT, "match_number"),
                                 new MatchNumberValuePointer()))));
     }
 
@@ -160,23 +166,23 @@ public class TestPatternRecognitionNodeSerialization
         assertJsonRoundTrip(MEASURE_CODEC, new Measure(
                 new ExpressionAndValuePointers(
                         ifExpression(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference("match_number"), new SymbolReference("x")),
+                                new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "match_number"), new SymbolReference(INTEGER, "x")),
                                 new Constant(BIGINT, 10L),
-                                new ArithmeticNegation(new SymbolReference("y"))),
+                                new ArithmeticNegation(new SymbolReference(INTEGER, "y"))),
                         ImmutableList.of(
                                 new ExpressionAndValuePointers.Assignment(
-                                        new Symbol("match_number"),
+                                        new Symbol(BIGINT, "match_number"),
                                         new MatchNumberValuePointer()),
                                 new ExpressionAndValuePointers.Assignment(
-                                        new Symbol("x"),
+                                        new Symbol(BIGINT, "x"),
                                         new ScalarValuePointer(
                                                 new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0),
-                                                new Symbol("input_symbol_a"))),
+                                                new Symbol(BIGINT, "input_symbol_a"))),
                                 new ExpressionAndValuePointers.Assignment(
-                                        new Symbol("y"),
+                                        new Symbol(BIGINT, "y"),
                                         new ScalarValuePointer(
                                                 new LogicalIndexPointer(ImmutableSet.of(new IrLabel("B")), false, true, 1, -1),
-                                                new Symbol("input_symbol_b"))))),
+                                                new Symbol(BIGINT, "input_symbol_b"))))),
                 BIGINT));
     }
 
@@ -195,14 +201,14 @@ public class TestPatternRecognitionNodeSerialization
                 ImmutableSet.of(),
                 0,
                 ImmutableMap.of(
-                        new Symbol("rank"),
+                        new Symbol(BIGINT, "rank"),
                         new Function(
                                 rankFunction,
                                 ImmutableList.of(),
                                 new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()),
                                 false)),
                 ImmutableMap.of(
-                        new Symbol("measure"),
+                        new Symbol(BOOLEAN, "measure"),
                         new Measure(new ExpressionAndValuePointers(new Constant(BOOLEAN, null), ImmutableList.of()), BOOLEAN)),
                 Optional.of(new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty())),
                 WINDOW,

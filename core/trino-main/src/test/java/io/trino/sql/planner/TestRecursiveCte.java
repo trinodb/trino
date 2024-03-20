@@ -90,16 +90,16 @@ public class TestRecursiveCte
                                         values()))),
                                 // first recursion step
                                 project(project(project(
-                                        ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("expr"), new Constant(INTEGER, 2L)))),
+                                        ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "expr"), new Constant(INTEGER, 2L)))),
                                         filter(
-                                                new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new Constant(INTEGER, 6L)),
+                                                new ComparisonExpression(LESS_THAN, new SymbolReference(INTEGER, "expr"), new Constant(INTEGER, 6L)),
                                                 project(project(project(
                                                         ImmutableMap.of("expr", expression(new Constant(INTEGER, 1L))),
                                                         values()))))))),
                                 // "post-recursion" step with convergence assertion
                                 filter(
                                         ifExpression(
-                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("count"), new Constant(BIGINT, 0L)),
+                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(BIGINT, "count"), new Constant(BIGINT, 0L)),
                                                 new Cast(new FunctionCall(FAIL, ImmutableList.of(new Constant(INTEGER, (long) NOT_SUPPORTED.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Recursion depth limit exceeded (1). Use 'max_recursion_depth' session property to modify the limit.")))), BOOLEAN),
                                                 TRUE_LITERAL),
                                         window(windowBuilder -> windowBuilder
@@ -107,15 +107,15 @@ public class TestRecursiveCte
                                                                 "count",
                                                                 windowFunction("count", ImmutableList.of(), DEFAULT_FRAME)),
                                                 project(project(project(
-                                                        ImmutableMap.of("expr_1", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("expr"), new Constant(INTEGER, 2L)))),
+                                                        ImmutableMap.of("expr_1", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "expr"), new Constant(INTEGER, 2L)))),
                                                         filter(
-                                                                new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new Constant(INTEGER, 6L)),
+                                                                new ComparisonExpression(LESS_THAN, new SymbolReference(INTEGER, "expr"), new Constant(INTEGER, 6L)),
                                                                 project(
-                                                                        ImmutableMap.of("expr", expression(new SymbolReference("expr_0"))),
+                                                                        ImmutableMap.of("expr", expression(new SymbolReference(INTEGER, "expr_0"))),
                                                                         project(project(project(
-                                                                                ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("expr"), new Constant(INTEGER, 2L)))),
+                                                                                ImmutableMap.of("expr_0", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "expr"), new Constant(INTEGER, 2L)))),
                                                                                 filter(
-                                                                                        new ComparisonExpression(LESS_THAN, new SymbolReference("expr"), new Constant(INTEGER, 6L)),
+                                                                                        new ComparisonExpression(LESS_THAN, new SymbolReference(INTEGER, "expr"), new Constant(INTEGER, 6L)),
                                                                                         project(project(project(
                                                                                                 ImmutableMap.of("expr", expression(new Constant(INTEGER, 1L))),
                                                                                                 values()))))))))))))))));

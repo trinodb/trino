@@ -79,7 +79,7 @@ public class TestRemoveAggregationInSemiJoin
                 p.values(leftKey),
                 p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(rightKey, aggregation("count", ImmutableList.of(new SymbolReference("rightValue"))), ImmutableList.of(BIGINT))
+                        .addAggregation(rightKey, aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "rightValue"))), ImmutableList.of(BIGINT))
                         .source(p.values(p.symbol("rightValue")))));
     }
 }

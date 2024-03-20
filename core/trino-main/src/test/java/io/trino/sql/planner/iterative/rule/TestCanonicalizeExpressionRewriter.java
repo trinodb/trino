@@ -14,7 +14,6 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
@@ -33,8 +32,6 @@ import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
@@ -47,6 +44,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionTestUtils.assertExpressionEquals;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -82,96 +80,96 @@ public class TestCanonicalizeExpressionRewriter
     public void testRewriteIsNotNullPredicate()
     {
         assertRewritten(
-                new NotExpression(new IsNullPredicate(new SymbolReference("x"))),
-                new NotExpression(new IsNullPredicate(new SymbolReference("x"))));
+                new NotExpression(new IsNullPredicate(new SymbolReference(BIGINT, "x"))),
+                new NotExpression(new IsNullPredicate(new SymbolReference(BIGINT, "x"))));
     }
 
     @Test
     public void testRewriteIfExpression()
     {
         assertRewritten(
-                ifExpression(new ComparisonExpression(EQUAL, new SymbolReference("x"), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L), new Constant(INTEGER, 1L)),
-                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference("x"), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L))), Optional.of(new Constant(INTEGER, 1L))));
+                ifExpression(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "x"), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L), new Constant(INTEGER, 1L)),
+                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "x"), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L))), Optional.of(new Constant(INTEGER, 1L))));
     }
 
     @Test
     public void testCanonicalizeArithmetic()
     {
         assertRewritten(
-                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)),
-                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new SymbolReference("a")),
-                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new SymbolReference(INTEGER, "a")),
+                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference("a"), new Constant(INTEGER, 1L)),
-                new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new Constant(INTEGER, 1L), new SymbolReference("a")),
-                new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new Constant(INTEGER, 1L), new SymbolReference(INTEGER, "a")),
+                new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
     }
 
     @Test
     public void testCanonicalizeComparison()
     {
         assertRewritten(
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)),
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(EQUAL, new Constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ComparisonExpression(EQUAL, new Constant(INTEGER, 1L), new SymbolReference(INTEGER, "a")),
+                new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)),
-                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ComparisonExpression(NOT_EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(NOT_EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(NOT_EQUAL, new Constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(NOT_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ComparisonExpression(NOT_EQUAL, new Constant(INTEGER, 1L), new SymbolReference(INTEGER, "a")),
+                new ComparisonExpression(NOT_EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 1L)),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 1L), new SymbolReference(INTEGER, "a")),
+                new ComparisonExpression(LESS_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 1L)),
-                new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ComparisonExpression(LESS_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(LESS_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 1L), new SymbolReference(INTEGER, "a")),
+                new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)),
-                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 1L), new SymbolReference(INTEGER, "a")),
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)),
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference("a"), new Constant(INTEGER, 1L)));
+                new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 1L), new SymbolReference(INTEGER, "a")),
+                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new SymbolReference("a")));
+                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new SymbolReference(INTEGER, "a")),
+                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new SymbolReference(INTEGER, "a")));
 
         assertRewritten(
-                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new SymbolReference("a")),
-                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new SymbolReference("a")));
+                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new SymbolReference(INTEGER, "a")),
+                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 1L), new SymbolReference(INTEGER, "a")));
     }
 
     @Test
@@ -186,8 +184,8 @@ public class TestCanonicalizeExpressionRewriter
     {
         FunctionCall date = new FunctionCall(
                 PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("date", fromTypes(type)),
-                ImmutableList.of(new SymbolReference(symbolName)));
-        assertRewritten(date, new Cast(new SymbolReference(symbolName), DATE));
+                ImmutableList.of(new SymbolReference(VARCHAR, symbolName)));
+        assertRewritten(date, new Cast(new SymbolReference(VARCHAR, symbolName), DATE));
     }
 
     private static void assertRewritten(Expression from, Expression to)
@@ -197,22 +195,15 @@ public class TestCanonicalizeExpressionRewriter
                     return rewrite(
                             from,
                             PLANNER_CONTEXT,
-                            TYPE_ANALYZER,
-                                    TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-                                            .put(new Symbol("x"), BIGINT)
-                                            .put(new Symbol("a"), BIGINT)
-                                            .put(new Symbol("ts"), createTimestampType(3))
-                                            .put(new Symbol("tstz"), createTimestampWithTimeZoneType(3))
-                                            .put(new Symbol("v"), createVarcharType(100))
-                                            .buildOrThrow()));
+                            TYPE_ANALYZER);
                 }),
                 to,
                 SymbolAliases.builder()
-                        .put("x", new SymbolReference("x"))
-                        .put("a", new SymbolReference("a"))
-                        .put("ts", new SymbolReference("ts"))
-                        .put("tstz", new SymbolReference("tstz"))
-                        .put("v", new SymbolReference("v"))
+                        .put("x", new SymbolReference(BIGINT, "x"))
+                        .put("a", new SymbolReference(BIGINT, "a"))
+                        .put("ts", new SymbolReference(createTimestampType(3), "ts"))
+                        .put("tstz", new SymbolReference(createTimestampWithTimeZoneType(3), "tstz"))
+                        .put("v", new SymbolReference(createVarcharType(100), "v"))
                         .build());
     }
 }

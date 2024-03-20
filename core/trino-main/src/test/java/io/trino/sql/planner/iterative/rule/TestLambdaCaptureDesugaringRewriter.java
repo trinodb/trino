@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.BindExpression;
@@ -30,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter.rewrite;
@@ -43,18 +43,18 @@ public class TestLambdaCaptureDesugaringRewriter
     @Test
     public void testRewriteBasicLambda()
     {
-        Map<Symbol, Type> symbols = ImmutableMap.of(new Symbol("a"), BigintType.BIGINT);
+        Map<Symbol, Type> symbols = ImmutableMap.of(new Symbol(BIGINT, "a"), BIGINT);
         SymbolAllocator allocator = new SymbolAllocator(symbols);
 
         assertThat(
                 rewrite(
-                        new LambdaExpression(ImmutableList.of("x"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a"), new SymbolReference("x"))),
+                        new LambdaExpression(ImmutableList.of(new Symbol(INTEGER, "x")), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "a"), new SymbolReference(INTEGER, "x"))),
                         allocator.getTypes(),
                         allocator))
                 .isEqualTo(new BindExpression(
-                        ImmutableList.of(new SymbolReference("a")),
+                        ImmutableList.of(new SymbolReference(INTEGER, "a")),
                         new LambdaExpression(
-                                ImmutableList.of("a_0", "x"),
-                                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference("a_0"), new SymbolReference("x")))));
+                                ImmutableList.of(new Symbol(INTEGER, "a_0"), new Symbol(INTEGER, "x")),
+                                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "a_0"), new SymbolReference(INTEGER, "x")))));
     }
 }

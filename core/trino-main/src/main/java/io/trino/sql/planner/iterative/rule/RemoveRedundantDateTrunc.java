@@ -28,7 +28,6 @@ import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
-import io.trino.sql.planner.TypeProvider;
 
 import java.util.Locale;
 import java.util.Map;
@@ -42,10 +41,10 @@ public class RemoveRedundantDateTrunc
 {
     public RemoveRedundantDateTrunc(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
-        super((expression, context) -> rewrite(expression, context.getSession(), plannerContext, typeAnalyzer, context.getSymbolAllocator().getTypes()));
+        super((expression, context) -> rewrite(expression, context.getSession(), plannerContext, typeAnalyzer));
     }
 
-    private static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+    private static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -53,7 +52,7 @@ public class RemoveRedundantDateTrunc
         if (expression instanceof SymbolReference) {
             return expression;
         }
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, plannerContext, typeAnalyzer, types), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, plannerContext, typeAnalyzer), expression);
     }
 
     private static class Visitor
@@ -62,14 +61,12 @@ public class RemoveRedundantDateTrunc
         private final Session session;
         private final PlannerContext plannerContext;
         private final IrTypeAnalyzer typeAnalyzer;
-        private final TypeProvider types;
 
-        public Visitor(Session session, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+        public Visitor(Session session, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
         {
             this.session = requireNonNull(session, "session is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -77,7 +74,7 @@ public class RemoveRedundantDateTrunc
         {
             CatalogSchemaFunctionName functionName = node.getFunction().getName();
             if (functionName.equals(builtinFunctionName("date_trunc")) && node.getArguments().size() == 2) {
-                Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, node);
+                Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(node);
                 Expression unitExpression = node.getArguments().get(0);
                 Expression argument = node.getArguments().get(1);
                 if (expressionTypes.get(NodeRef.of(argument)) == DATE && expressionTypes.get(NodeRef.of(unitExpression)) instanceof VarcharType && unitExpression instanceof Constant) {

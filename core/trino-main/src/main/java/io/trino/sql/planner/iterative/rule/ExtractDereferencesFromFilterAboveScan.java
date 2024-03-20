@@ -86,7 +86,7 @@ public class ExtractDereferencesFromFilterAboveScan
     @Override
     public Result apply(FilterNode node, Captures captures, Context context)
     {
-        Set<SubscriptExpression> dereferences = extractRowSubscripts(ImmutableList.of(node.getPredicate()), true, typeAnalyzer, context.getSymbolAllocator().getTypes());
+        Set<SubscriptExpression> dereferences = extractRowSubscripts(ImmutableList.of(node.getPredicate()), true, typeAnalyzer);
         if (dereferences.isEmpty()) {
             return Result.empty();
         }

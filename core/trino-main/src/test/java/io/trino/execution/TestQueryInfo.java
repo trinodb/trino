@@ -39,7 +39,11 @@ import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
+import io.trino.spi.type.TestingTypeManager;
+import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.transaction.TransactionId;
@@ -62,6 +66,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestQueryInfo
 {
+    private static final TypeManager TYPE_MANAGER = new TestingTypeManager();
+
     @Test
     public void testQueryInfoRoundTrip()
     {
@@ -73,7 +79,8 @@ public class TestQueryInfo
                                 Span.class, new SpanDeserializer(OpenTelemetry.noop()),
                                 TypeSignature.class, new TypeSignatureDeserializer()))
                         .withKeyDeserializers(Map.of(
-                                TypeSignature.class, new TypeSignatureKeyDeserializer())))
+                                TypeSignature.class, new TypeSignatureKeyDeserializer(),
+                                Symbol.class, new SymbolKeyDeserializer(TYPE_MANAGER))))
                 .jsonCodec(QueryInfo.class);
 
         QueryInfo expected = createQueryInfo(Optional.empty());

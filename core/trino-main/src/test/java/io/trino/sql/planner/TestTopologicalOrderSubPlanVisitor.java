@@ -42,6 +42,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.TopologicalOrderSubPlanVisitor.sortPlanInTopologicalOrder;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTopologicalOrderSubPlanVisitor
@@ -108,7 +109,7 @@ public class TestTopologicalOrderSubPlanVisitor
         return new RemoteSourceNode(
                 new PlanNodeId(fragmentIds.get(0)),
                 fragmentIds.stream().map(PlanFragmentId::new).collect(toImmutableList()),
-                ImmutableList.of(new Symbol("blah")),
+                ImmutableList.of(new Symbol(UNKNOWN, "blah")),
                 Optional.empty(),
                 REPARTITION,
                 RetryPolicy.TASK);
@@ -142,7 +143,7 @@ public class TestTopologicalOrderSubPlanVisitor
                 right,
                 left.getOutputSymbols().get(0),
                 right.getOutputSymbols().get(0),
-                new Symbol(id),
+                new Symbol(UNKNOWN, id),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -177,7 +178,7 @@ public class TestTopologicalOrderSubPlanVisitor
 
     private static SubPlan valuesSubPlan(String fragmentId)
     {
-        Symbol symbol = new Symbol("column");
+        Symbol symbol = new Symbol(UNKNOWN, "column");
         return createSubPlan(fragmentId, new ValuesNode(new PlanNodeId(fragmentId + "Values"),
                         ImmutableList.of(symbol),
                         ImmutableList.of(new Row(ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("foo")))))),

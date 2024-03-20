@@ -31,6 +31,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedIndexSource;
@@ -47,7 +48,7 @@ public class TestPruneIndexSourceColumns
                 .on(p -> buildProjectedIndexSource(p, symbol -> symbol.getName().equals("orderkey")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("x", expression(new SymbolReference("orderkey"))),
+                                ImmutableMap.of("x", expression(new SymbolReference(BIGINT, "orderkey"))),
                                 constrainedIndexSource(
                                         "orders",
                                         ImmutableMap.of("orderkey", "orderkey"))));

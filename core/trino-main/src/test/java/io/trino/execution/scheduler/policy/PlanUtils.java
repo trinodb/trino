@@ -45,6 +45,7 @@ import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 final class PlanUtils
 {
@@ -68,7 +69,7 @@ final class PlanUtils
 
     static PlanFragment createBroadcastJoinPlanFragment(String name, PlanFragment buildFragment)
     {
-        Symbol symbol = new Symbol("column");
+        Symbol symbol = new Symbol(UNKNOWN, "column");
         PlanNode tableScan = TableScanNode.newInstance(
                 new PlanNodeId(name),
                 TEST_TABLE_HANDLE,
@@ -173,7 +174,7 @@ final class PlanUtils
 
     static PlanFragment createTableScanPlanFragment(String name)
     {
-        Symbol symbol = new Symbol("column");
+        Symbol symbol = new Symbol(UNKNOWN, "column");
         PlanNode planNode = TableScanNode.newInstance(
                 new PlanNodeId(name),
                 TEST_TABLE_HANDLE,

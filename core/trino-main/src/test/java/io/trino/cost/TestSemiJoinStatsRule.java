@@ -20,6 +20,7 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestSemiJoinStatsRule
         extends BaseStatsCalculatorTest
@@ -51,12 +52,12 @@ public class TestSemiJoinStatsRule
         })
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(new Symbol("a"), stats)
-                        .addSymbolStatistics(new Symbol("b"), stats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "a"), stats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "b"), stats)
                         .build())
                 .withSourceStats(1, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
-                        .addSymbolStatistics(new Symbol("c"), stats)
+                        .addSymbolStatistics(new Symbol(UNKNOWN, "c"), stats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(10)

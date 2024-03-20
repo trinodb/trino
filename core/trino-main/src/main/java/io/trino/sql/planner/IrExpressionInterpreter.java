@@ -129,7 +129,7 @@ public class IrExpressionInterpreter
 
     public static Object evaluateConstantExpression(Expression expression, PlannerContext plannerContext, Session session)
     {
-        Map<NodeRef<Expression>, Type> types = new IrTypeAnalyzer(plannerContext).getTypes(TypeProvider.empty(), expression);
+        Map<NodeRef<Expression>, Type> types = new IrTypeAnalyzer(plannerContext).getTypes(expression);
         return new IrExpressionInterpreter(expression, plannerContext, session, types).evaluate();
     }
 
@@ -802,7 +802,9 @@ public class IrExpressionInterpreter
             }
 
             Expression body = node.getBody();
-            List<String> argumentNames = node.getArguments();
+            List<String> argumentNames = node.getArguments().stream()
+                    .map(Symbol::getName)
+                    .toList();
             FunctionType functionType = (FunctionType) expressionTypes.get(NodeRef.<Expression>of(node));
             checkArgument(argumentNames.size() == functionType.getArgumentTypes().size());
 

@@ -40,7 +40,6 @@ import io.trino.sql.ir.NotExpression;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
-import io.trino.sql.planner.TypeProvider;
 
 import java.lang.invoke.MethodHandle;
 import java.time.LocalDate;
@@ -105,16 +104,15 @@ public class UnwrapDateTruncInComparison
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> unwrapDateTrunc(context.getSession(), plannerContext, typeAnalyzer, context.getSymbolAllocator().getTypes(), expression);
+        return (expression, context) -> unwrapDateTrunc(context.getSession(), plannerContext, typeAnalyzer, expression);
     }
 
     private static Expression unwrapDateTrunc(Session session,
             PlannerContext plannerContext,
             IrTypeAnalyzer typeAnalyzer,
-            TypeProvider types,
             Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer, session, types), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer, session), expression);
     }
 
     private static class Visitor
@@ -123,15 +121,13 @@ public class UnwrapDateTruncInComparison
         private final PlannerContext plannerContext;
         private final IrTypeAnalyzer typeAnalyzer;
         private final Session session;
-        private final TypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
 
-        public Visitor(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
+        public Visitor(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, Session session)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
-            this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
         }
 
@@ -154,7 +150,7 @@ public class UnwrapDateTruncInComparison
                 return expression;
             }
 
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(types, expression);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(expression);
             Expression unitExpression = call.getArguments().get(0);
             if (!(expressionTypes.get(NodeRef.of(unitExpression)) instanceof VarcharType) || !(unitExpression instanceof Constant)) {
                 return expression;

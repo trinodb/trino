@@ -13,52 +13,52 @@
  */
 package io.trino.sql.planner;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.type.Type;
 
-import java.util.Collections;
+import java.util.Collection;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class TypeProvider
 {
-    private final Map<Symbol, Type> types;
+    private final Collection<Symbol> symbols;
 
     public static TypeProvider viewOf(Map<Symbol, Type> types)
     {
-        return new TypeProvider(types);
+        return new TypeProvider(types.keySet());
     }
 
     public static TypeProvider copyOf(Map<Symbol, Type> types)
     {
-        return new TypeProvider(ImmutableMap.copyOf(types));
+        return new TypeProvider(ImmutableSet.copyOf(types.keySet()));
     }
 
     public static TypeProvider empty()
     {
-        return new TypeProvider(ImmutableMap.of());
+        return new TypeProvider(ImmutableList.of());
     }
 
-    private TypeProvider(Map<Symbol, Type> types)
+    private TypeProvider(Collection<Symbol> symbols)
     {
-        this.types = types;
+        this.symbols = symbols;
+    }
+
+    public static TypeProvider of(Collection<Symbol> symbols)
+    {
+        return new TypeProvider(symbols);
     }
 
     public Type get(Symbol symbol)
     {
-        requireNonNull(symbol, "symbol is null");
-
-        Type type = types.get(symbol);
-        checkArgument(type != null, "no type found for symbol '%s'", symbol);
-
-        return type;
+        return symbol.getType();
     }
 
     public Map<Symbol, Type> allTypes()
     {
-        // types may be a HashMap, so creating an ImmutableMap here would add extra cost when allTypes gets called frequently
-        return Collections.unmodifiableMap(types);
+        return symbols.stream()
+                .collect(toMap(s -> s, Symbol::getType));
     }
 }

@@ -132,7 +132,7 @@ public class TestJsonRepresentation
         assertJsonRepresentation(
                 pb -> pb.aggregation(ab -> ab
                         .step(FINAL)
-                        .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new SymbolReference("x"))), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new SymbolReference(BIGINT, "x"))), ImmutableList.of(BIGINT))
                         .singleGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))
                         .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))),
                 new JsonRenderedNode(
@@ -164,7 +164,7 @@ public class TestJsonRepresentation
                         ImmutableList.of(new JoinNode.EquiJoinClause(pb.symbol("a", BIGINT), pb.symbol("d", BIGINT))),
                         ImmutableList.of(pb.symbol("b", BIGINT)),
                         ImmutableList.of(),
-                        Optional.of(new ComparisonExpression(LESS_THAN, new SymbolReference("a"), new SymbolReference("c"))),
+                        Optional.of(new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "a"), new SymbolReference(BIGINT, "c"))),
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(new DynamicFilterId("DF"), pb.symbol("d", BIGINT))),

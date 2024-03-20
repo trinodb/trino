@@ -34,6 +34,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Collections.emptyList;
 
 public class TestTransformUncorrelatedSubqueryToJoin
@@ -78,7 +79,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                 })
                 .matches(
                         join(JoinType.LEFT, builder -> builder
-                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("a")))
+                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "b"), new SymbolReference(BIGINT, "a")))
                                 .left(values("a"))
                                 .right(values("b"))));
     }
@@ -102,7 +103,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                 })
                 .matches(
                         join(JoinType.LEFT, builder -> builder
-                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("a")))
+                                .filter(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "b"), new SymbolReference(BIGINT, "a")))
                                 .left(values("a"))
                                 .right(values("b"))));
     }
@@ -143,8 +144,8 @@ public class TestTransformUncorrelatedSubqueryToJoin
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "a", expression(ifExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference("b"), new SymbolReference("a")), new SymbolReference("a"), new Constant(BIGINT, null))),
-                                        "b", expression(new SymbolReference("b"))),
+                                        "a", expression(ifExpression(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "b"), new SymbolReference(BIGINT, "a")), new SymbolReference(BIGINT, "a"), new Constant(BIGINT, null))),
+                                        "b", expression(new SymbolReference(BIGINT, "b"))),
                                 join(JoinType.INNER, builder -> builder
                                         .left(values("a"))
                                         .right(values("b")))));
@@ -189,7 +190,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
     @Test
     public void testDoesNotFire()
     {
-        Symbol symbol = new Symbol("x");
+        Symbol symbol = new Symbol(UNKNOWN, "x");
         tester()
                 .assertThat(new TransformUncorrelatedSubqueryToJoin())
                 .on(p -> p.correlatedJoin(ImmutableList.of(symbol), p.values(symbol), p.values()))

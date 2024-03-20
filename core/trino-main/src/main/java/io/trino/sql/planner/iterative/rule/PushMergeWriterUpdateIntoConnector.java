@@ -132,7 +132,6 @@ public class PushMergeWriterUpdateIntoConnector
                 Optional<ConnectorExpression> connectorExpression = ConnectorExpressionTranslator.translate(
                         context.getSession(),
                         field,
-                        context.getSymbolAllocator().getTypes(),
                         typeAnalyzer);
 
                 // we don't support any expressions in update statements yet, only constants

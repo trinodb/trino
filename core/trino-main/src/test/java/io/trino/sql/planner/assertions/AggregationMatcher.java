@@ -32,6 +32,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class AggregationMatcher
         implements Matcher
@@ -85,7 +86,7 @@ public class AggregationMatcher
                 .collect(toImmutableSet());
 
         Set<Symbol> expectedMasks = masks.stream()
-                .map(name -> new Symbol(symbolAliases.get(name).getName()))
+                .map(name -> new Symbol(UNKNOWN, symbolAliases.get(name).getName()))
                 .collect(toImmutableSet());
 
         if (!actualMasks.equals(expectedMasks)) {
@@ -115,7 +116,7 @@ public class AggregationMatcher
 
         List<Symbol> expectedSymbols = expectedAliases
                 .stream()
-                .map(alias -> new Symbol(symbolAliases.get(alias).getName()))
+                .map(alias -> new Symbol(UNKNOWN, symbolAliases.get(alias).getName()))
                 .collect(toImmutableList());
         for (Symbol symbol : expectedSymbols) {
             if (!actualSymbols.contains(symbol)) {

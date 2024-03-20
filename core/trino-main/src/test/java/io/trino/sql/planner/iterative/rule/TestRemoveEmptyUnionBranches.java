@@ -20,11 +20,11 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.union;
@@ -59,11 +59,11 @@ public class TestRemoveEmptyUnionBranches
     {
         tester().assertThat(new RemoveEmptyUnionBranches())
                 .on(p -> {
-                    Symbol output = p.symbol("output");
-                    Symbol input1 = p.symbol("input1");
-                    Symbol input2 = p.symbol("input2");
-                    Symbol input3 = p.symbol("input3");
-                    Symbol input4 = p.symbol("input4");
+                    Symbol output = p.symbol("output", BIGINT);
+                    Symbol input1 = p.symbol("input1", BIGINT);
+                    Symbol input2 = p.symbol("input2", BIGINT);
+                    Symbol input3 = p.symbol("input3", BIGINT);
+                    Symbol input4 = p.symbol("input4", BIGINT);
 
                     return p.union(
                             ImmutableListMultimap.<Symbol, Symbol>builder()
@@ -80,8 +80,8 @@ public class TestRemoveEmptyUnionBranches
                 })
                 .matches(
                         union(
-                                values(List.of("input1"), List.of(List.of(new Constant(UnknownType.UNKNOWN, null)))),
-                                values(List.of("input3"), List.of(List.of(new Constant(UnknownType.UNKNOWN, null)), List.of(new Constant(UnknownType.UNKNOWN, null))))));
+                                values(List.of("input1"), List.of(List.of(new Constant(BIGINT, null)))),
+                                values(List.of("input3"), List.of(List.of(new Constant(BIGINT, null)), List.of(new Constant(BIGINT, null))))));
     }
 
     @Test
@@ -89,9 +89,9 @@ public class TestRemoveEmptyUnionBranches
     {
         tester().assertThat(new RemoveEmptyUnionBranches())
                 .on(p -> {
-                    Symbol output = p.symbol("output");
-                    Symbol input1 = p.symbol("input1");
-                    Symbol input2 = p.symbol("input2");
+                    Symbol output = p.symbol("output", BIGINT);
+                    Symbol input1 = p.symbol("input1", BIGINT);
+                    Symbol input2 = p.symbol("input2", BIGINT);
 
                     return p.union(
                             ImmutableListMultimap.<Symbol, Symbol>builder()
@@ -104,8 +104,8 @@ public class TestRemoveEmptyUnionBranches
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("output", expression(new SymbolReference("input1"))),
-                                values(ImmutableList.of("input1"), ImmutableList.of(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))))));
+                                ImmutableMap.of("output", expression(new SymbolReference(BIGINT, "input1"))),
+                                values(ImmutableList.of("input1"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, null))))));
     }
 
     @Test
