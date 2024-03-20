@@ -216,11 +216,11 @@ public class SyncPartitionMetadataProcedure
             ConnectorSession session,
             Table table)
     {
-        if (syncMode == SyncMode.ADD || syncMode == SyncMode.FULL) {
-            addPartitions(metastore, session, table, partitionsToAdd);
-        }
         if (syncMode == SyncMode.DROP || syncMode == SyncMode.FULL) {
             dropPartitions(metastore, session, table, partitionsToDrop);
+        }
+        if (syncMode == SyncMode.ADD || syncMode == SyncMode.FULL) {
+            addPartitions(metastore, session, table, partitionsToAdd);
         }
         metastore.commit();
     }

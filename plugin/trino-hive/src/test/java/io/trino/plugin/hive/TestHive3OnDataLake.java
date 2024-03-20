@@ -239,6 +239,44 @@ public class TestHive3OnDataLake
     }
 
     @Test
+    public void testSyncPartitionCaseSensitivePathVariation()
+    {
+        String tableName = "test_sync_partition_case_variation_" + randomNameSuffix();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        String tableLocation = format("s3://%s/%s/%s/", bucketName, HIVE_TEST_SCHEMA, tableName);
+
+        hiveMinioDataLake.getMinioClient().putObject(
+                bucketName,
+                "Trino\u0001rocks".getBytes(UTF_8),
+                HIVE_TEST_SCHEMA + "/" + tableName + "/part_key=part_val/data.txt");
+
+        assertUpdate("CREATE TABLE " + fullyQualifiedTestTableName + "(" +
+                " a varchar," +
+                " b varchar," +
+                " part_key varchar)" +
+                "WITH (" +
+                " external_location='" + tableLocation + "'," +
+                " partitioned_by=ARRAY['part_key']," +
+                " format='TEXTFILE'" +
+                ")");
+
+        getQueryRunner().execute("CALL system.sync_partition_metadata(schema_name => '" + HIVE_TEST_SCHEMA + "', table_name => '" + tableName + "', mode => 'ADD')");
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName, "VALUES ('Trino', 'rocks', 'part_val')");
+
+        // Move the data to a location where the partition path differs only in case
+        hiveMinioDataLake.getMinioClient().removeObject(bucketName, HIVE_TEST_SCHEMA + "/" + tableName + "/part_key=part_val/data.txt");
+        hiveMinioDataLake.getMinioClient().putObject(
+                bucketName,
+                "Trino\u0001rocks".getBytes(UTF_8),
+                HIVE_TEST_SCHEMA + "/" + tableName + "/PART_KEY=part_val/data.txt");
+
+        getQueryRunner().execute("CALL system.sync_partition_metadata(schema_name => '" + HIVE_TEST_SCHEMA + "', table_name => '" + tableName + "', mode => 'FULL', case_sensitive => false)");
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName, "VALUES ('Trino', 'rocks', 'part_val')");
+
+        assertUpdate("DROP TABLE " + fullyQualifiedTestTableName);
+    }
+
+    @Test
     public void testFlushPartitionCache()
     {
         String tableName = "nation_" + randomNameSuffix();
