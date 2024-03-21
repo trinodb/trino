@@ -63,17 +63,7 @@ public class IcebergBucketFunction
 
         this.bucketCount = bucketCount;
 
-        Map<String, FieldInfo> nameToFieldInfo = new HashMap<>();
-        for (int channel = 0; channel < partitioningColumns.size(); channel++) {
-            IcebergColumnHandle partitionColumn = partitioningColumns.get(channel);
-            addFieldInfo(
-                    nameToFieldInfo,
-                    channel,
-                    partitionColumn.getName(),
-                    partitionColumn.getColumnIdentity().getChildren(),
-                    partitionColumn.getType(),
-                    new LinkedList<>());
-        }
+        Map<String, FieldInfo> nameToFieldInfo = buildNameToFieldInfo(partitioningColumns);
         partitionColumns = partitionSpec.fields().stream()
                 .map(field -> {
                     String fieldName = partitionSpec.schema().findColumnName(field.sourceId());
@@ -87,6 +77,22 @@ public class IcebergBucketFunction
                 .map(PartitionColumn::getResultType)
                 .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL)))
                 .collect(toImmutableList());
+    }
+
+    private static Map<String, FieldInfo> buildNameToFieldInfo(List<IcebergColumnHandle> partitioningColumns)
+    {
+        Map<String, FieldInfo> nameToFieldInfo = new HashMap<>();
+        for (int channel = 0; channel < partitioningColumns.size(); channel++) {
+            IcebergColumnHandle partitionColumn = partitioningColumns.get(channel);
+            addFieldInfo(
+                    nameToFieldInfo,
+                    channel,
+                    partitionColumn.getName(),
+                    partitionColumn.getColumnIdentity().getChildren(),
+                    partitionColumn.getType(),
+                    new LinkedList<>());
+        }
+        return nameToFieldInfo;
     }
 
     private static void addFieldInfo(

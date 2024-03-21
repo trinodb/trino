@@ -76,14 +76,14 @@ public class TestIcebergUtil
                                 NestedField.required(7, "value", Types.StringType.get()))))));
 
         assertThat(getProjectedColumns(schema, TESTING_TYPE_MANAGER))
-                .extracting(IcebergColumnHandle::getId, IcebergColumnHandle::getName, IcebergColumnHandle::getPath)
+                .extracting(IcebergColumnHandle::getId, IcebergColumnHandle::getName, column -> column.getBaseColumn().getId(), IcebergColumnHandle::getPath)
                 .containsExactly(
-                        tuple(1, "id", ImmutableList.of()),
-                        tuple(2, "nested", ImmutableList.of()),
-                        tuple(3, "value", ImmutableList.of(3)),
-                        tuple(4, "list", ImmutableList.of(4)),
-                        tuple(5, "element", ImmutableList.of(4, 5)),
-                        tuple(6, "nested", ImmutableList.of(6)),
-                        tuple(7, "value", ImmutableList.of(6, 7)));
+                        tuple(1, "id", 1, ImmutableList.of()),
+                        tuple(2, "nested", 2, ImmutableList.of()),
+                        tuple(3, "value", 2, ImmutableList.of(3)),
+                        tuple(4, "list", 2, ImmutableList.of(4)),
+                        tuple(5, "element", 2, ImmutableList.of(4, 5)),
+                        tuple(6, "nested", 2, ImmutableList.of(6)),
+                        tuple(7, "value", 2, ImmutableList.of(6, 7)));
     }
 }

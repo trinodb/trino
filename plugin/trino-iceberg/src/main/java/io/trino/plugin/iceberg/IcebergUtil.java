@@ -239,18 +239,20 @@ public final class IcebergUtil
         Map<Integer, NestedField> indexById = TypeUtil.indexById(schemaAsStruct);
         Map<Integer, Integer> indexParents = TypeUtil.indexParents(schemaAsStruct);
         Map<Integer, List<Integer>> indexPaths = indexById.entrySet().stream()
-                .collect(toImmutableMap(Entry::getKey, e -> buildPath(indexParents, e.getKey())));
+                .collect(toImmutableMap(Entry::getKey, e -> ImmutableList.copyOf(buildPath(indexParents, e.getKey()))));
 
         for (Map.Entry<Integer, NestedField> entry : indexById.entrySet()) {
             int fieldId = entry.getKey();
             NestedField childField = entry.getValue();
             NestedField baseField = childField;
 
-            List<Integer> path = new ArrayList<>(requireNonNull(indexPaths.get(fieldId)));
+            List<Integer> path = requireNonNull(indexPaths.get(fieldId));
             if (!path.isEmpty()) {
-                // Path does not include the base field id
-                baseField = indexById.get(path.removeFirst());
-                path.add(fieldId);
+                baseField = indexById.get(path.getFirst());
+                path = ImmutableList.<Integer>builder()
+                        .addAll(path.subList(1, path.size())) // Base column id shouldn't exist in IcebergColumnHandle.path
+                        .add(fieldId) // Append the leaf field id
+                        .build();
             }
             projectedColumns.add(getColumnHandle(baseField, childField, typeManager, path));
         }
@@ -259,13 +261,13 @@ public final class IcebergUtil
 
     private static List<Integer> buildPath(Map<Integer, Integer> indexParents, int fieldId)
     {
-        Integer parentId = indexParents.get(fieldId);
-        if (parentId == null) {
-            return new ArrayList<>();
+        List<Integer> path = new ArrayList<>();
+        while (indexParents.containsKey(fieldId)) {
+            int parentId = indexParents.get(fieldId);
+            path.add(parentId);
+            fieldId = parentId;
         }
-        List<Integer> path = buildPath(indexParents, parentId);
-        path.add(parentId);
-        return path;
+        return ImmutableList.copyOf(path.reversed());
     }
 
     public static Map<String, Object> getIcebergTableProperties(Table icebergTable)
