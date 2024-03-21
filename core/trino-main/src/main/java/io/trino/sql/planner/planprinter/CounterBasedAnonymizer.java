@@ -106,13 +106,13 @@ public class CounterBasedAnonymizer
 
     private String anonymizeLiteral(Constant literal)
     {
-        if (literal.getValue() == null) {
+        if (literal.value() == null) {
             return "null";
         }
-        if (literal.getType().equals(BOOLEAN)) {
-            return literal.getValue().toString();
+        if (literal.type().equals(BOOLEAN)) {
+            return literal.value().toString();
         }
-        return anonymizeLiteral(literal.getType().getDisplayName(), literal.getValue());
+        return anonymizeLiteral(literal.type().getDisplayName(), literal.value());
     }
 
     private <T> String anonymizeLiteral(String type, T value)

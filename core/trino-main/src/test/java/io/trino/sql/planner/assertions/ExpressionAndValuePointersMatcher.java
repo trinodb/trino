@@ -34,8 +34,7 @@ class ExpressionAndValuePointersMatcher
             Assignment expectedAssignment = expected.getAssignments().get(i);
 
             boolean match = switch (actualAssignment.valuePointer()) {
-                case ScalarValuePointer actualPointer when expectedAssignment.valuePointer() instanceof ScalarValuePointer expectedPointer ->
-                        aliases.get(expectedPointer.getInputSymbol().getName()).getName().equals(actualPointer.getInputSymbol().getName());
+                case ScalarValuePointer actualPointer when expectedAssignment.valuePointer() instanceof ScalarValuePointer expectedPointer -> aliases.get(expectedPointer.getInputSymbol().getName()).name().equals(actualPointer.getInputSymbol().getName());
                 case AggregationValuePointer actualPointer when expectedAssignment.valuePointer() instanceof AggregationValuePointer expectedPointer -> {
                     if (!expectedPointer.getFunction().equals(actualPointer.getFunction()) ||
                             !expectedPointer.getSetDescriptor().equals(actualPointer.getSetDescriptor()) ||

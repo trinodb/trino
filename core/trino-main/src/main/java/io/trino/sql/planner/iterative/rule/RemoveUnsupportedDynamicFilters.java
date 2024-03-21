@@ -309,7 +309,7 @@ public class RemoveUnsupportedDynamicFilters
             if (!(expression instanceof Cast castExpression)) {
                 return false;
             }
-            if (!(castExpression.getExpression() instanceof SymbolReference)) {
+            if (!(castExpression.expression() instanceof SymbolReference)) {
                 return false;
             }
             Type castSourceType = castExpression.expression().type();
@@ -354,7 +354,7 @@ public class RemoveUnsupportedDynamicFilters
                     boolean modified = (node != rewrittenNode);
                     ImmutableList.Builder<Expression> expressionBuilder = ImmutableList.builder();
 
-                    for (Expression term : rewrittenNode.getTerms()) {
+                    for (Expression term : rewrittenNode.terms()) {
                         if (isDynamicFilter(term)) {
                             expressionBuilder.add(TRUE_LITERAL);
                             modified = true;
@@ -367,7 +367,7 @@ public class RemoveUnsupportedDynamicFilters
                     if (!modified) {
                         return node;
                     }
-                    return combinePredicates(node.getOperator(), expressionBuilder.build());
+                    return combinePredicates(node.operator(), expressionBuilder.build());
                 }
             }, expression);
         }

@@ -42,24 +42,6 @@ public record Cast(Expression expression, Type type, boolean safe)
         return type;
     }
 
-    @Deprecated
-    public Expression getExpression()
-    {
-        return expression;
-    }
-
-    @Deprecated
-    public Type getType()
-    {
-        return type;
-    }
-
-    @Deprecated
-    public boolean isSafe()
-    {
-        return safe;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

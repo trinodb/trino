@@ -150,9 +150,9 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitNotExpression(NotExpression node, Void context)
         {
-            if (node.getValue() instanceof IsNullPredicate inner) {
-                if (inner.getValue() instanceof SymbolReference) {
-                    Symbol symbol = Symbol.from(inner.getValue());
+            if (node.value() instanceof IsNullPredicate inner) {
+                if (inner.value() instanceof SymbolReference) {
+                    Symbol symbol = Symbol.from(inner.value());
                     SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
                     PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
                     result.setOutputRowCount(input.getOutputRowCount() * (1 - symbolStats.getNullsFraction()));
@@ -161,19 +161,19 @@ public class FilterStatsCalculator
                 }
                 return PlanNodeStatsEstimate.unknown();
             }
-            return subtractSubsetStats(input, process(node.getValue()));
+            return subtractSubsetStats(input, process(node.value()));
         }
 
         @Override
         protected PlanNodeStatsEstimate visitLogicalExpression(LogicalExpression node, Void context)
         {
-            switch (node.getOperator()) {
+            switch (node.operator()) {
                 case AND:
-                    return estimateLogicalAnd(node.getTerms());
+                    return estimateLogicalAnd(node.terms());
                 case OR:
-                    return estimateLogicalOr(node.getTerms());
+                    return estimateLogicalOr(node.terms());
             }
-            throw new IllegalArgumentException("Unexpected binary operator: " + node.getOperator());
+            throw new IllegalArgumentException("Unexpected binary operator: " + node.operator());
         }
 
         private PlanNodeStatsEstimate estimateLogicalAnd(List<Expression> terms)
@@ -262,8 +262,8 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitConstant(Constant node, Void context)
         {
-            if (node.getType().equals(BOOLEAN) && node.getValue() != null) {
-                if ((boolean) node.getValue()) {
+            if (node.type().equals(BOOLEAN) && node.value() != null) {
+                if ((boolean) node.value()) {
                     return input;
                 }
 
@@ -279,8 +279,8 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitIsNullPredicate(IsNullPredicate node, Void context)
         {
-            if (node.getValue() instanceof SymbolReference) {
-                Symbol symbol = Symbol.from(node.getValue());
+            if (node.value() instanceof SymbolReference) {
+                Symbol symbol = Symbol.from(node.value());
                 SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
                 PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
                 result.setOutputRowCount(input.getOutputRowCount() * symbolStats.getNullsFraction());
@@ -298,19 +298,19 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitBetweenPredicate(BetweenPredicate node, Void context)
         {
-            SymbolStatsEstimate valueStats = getExpressionStats(node.getValue());
+            SymbolStatsEstimate valueStats = getExpressionStats(node.value());
             if (valueStats.isUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
             }
-            if (!getExpressionStats(node.getMin()).isSingleValue()) {
+            if (!getExpressionStats(node.min()).isSingleValue()) {
                 return PlanNodeStatsEstimate.unknown();
             }
-            if (!getExpressionStats(node.getMax()).isSingleValue()) {
+            if (!getExpressionStats(node.max()).isSingleValue()) {
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            Expression lowerBound = new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin());
-            Expression upperBound = new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax());
+            Expression lowerBound = new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.value(), node.min());
+            Expression upperBound = new ComparisonExpression(LESS_THAN_OR_EQUAL, node.value(), node.max());
 
             Expression transformed;
             if (isInfinite(valueStats.getLowValue())) {
@@ -327,8 +327,8 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitInPredicate(InPredicate node, Void context)
         {
-            ImmutableList<PlanNodeStatsEstimate> equalityEstimates = node.getValueList().stream()
-                    .map(inValue -> process(new ComparisonExpression(EQUAL, node.getValue(), inValue)))
+            ImmutableList<PlanNodeStatsEstimate> equalityEstimates = node.valueList().stream()
+                    .map(inValue -> process(new ComparisonExpression(EQUAL, node.value(), inValue)))
                     .collect(toImmutableList());
 
             if (equalityEstimates.stream().anyMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown)) {
@@ -343,7 +343,7 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            SymbolStatsEstimate valueStats = getExpressionStats(node.getValue());
+            SymbolStatsEstimate valueStats = getExpressionStats(node.value());
             if (valueStats.isUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
             }
@@ -353,8 +353,8 @@ public class FilterStatsCalculator
             PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
             result.setOutputRowCount(min(inEstimate.getOutputRowCount(), notNullValuesBeforeIn));
 
-            if (node.getValue() instanceof SymbolReference) {
-                Symbol valueSymbol = Symbol.from(node.getValue());
+            if (node.value() instanceof SymbolReference) {
+                Symbol valueSymbol = Symbol.from(node.value());
                 SymbolStatsEstimate newSymbolStats = inEstimate.getSymbolStatistics(valueSymbol)
                         .mapDistinctValuesCount(newDistinctValuesCount -> min(newDistinctValuesCount, valueStats.getDistinctValuesCount()));
                 result.addSymbolStatistics(valueSymbol, newSymbolStats);
@@ -366,9 +366,9 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitComparisonExpression(ComparisonExpression node, Void context)
         {
-            ComparisonExpression.Operator operator = node.getOperator();
-            Expression left = node.getLeft();
-            Expression right = node.getRight();
+            ComparisonExpression.Operator operator = node.operator();
+            Expression left = node.left();
+            Expression right = node.right();
 
             checkArgument(!(left instanceof Constant && right instanceof Constant), "Literal-to-literal not supported here, should be eliminated earlier");
 

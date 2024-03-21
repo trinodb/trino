@@ -63,8 +63,8 @@ public final class NullabilityAnalyzer
             // except for the CAST(NULL AS x) case -- we should fix this at some point)
             //
             // Also, try_cast (i.e., safe cast) can return null
-            process(node.getExpression(), result);
-            result.compareAndSet(false, node.isSafe());
+            process(node.expression(), result);
+            result.compareAndSet(false, node.safe());
             return null;
         }
 
@@ -114,7 +114,7 @@ public final class NullabilityAnalyzer
         @Override
         protected Void visitConstant(Constant node, AtomicBoolean result)
         {
-            if (node.getValue() == null) {
+            if (node.value() == null) {
                 result.set(true);
             }
             return null;

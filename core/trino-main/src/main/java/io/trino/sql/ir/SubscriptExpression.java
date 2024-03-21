@@ -48,16 +48,4 @@ public record SubscriptExpression(Type type, Expression base, Expression index)
     {
         return ImmutableList.of(base, index);
     }
-
-    @Deprecated
-    public Expression getBase()
-    {
-        return base;
-    }
-
-    @Deprecated
-    public Expression getIndex()
-    {
-        return index;
-    }
 }

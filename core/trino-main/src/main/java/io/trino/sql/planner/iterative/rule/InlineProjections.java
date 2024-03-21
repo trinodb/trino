@@ -181,7 +181,7 @@ public class InlineProjections
                     Expression assignment = child.getAssignments().get(entry.getKey());
 
                     if (assignment instanceof SubscriptExpression) {
-                        if (((SubscriptExpression) assignment).getBase().type() instanceof RowType) {
+                        if (((SubscriptExpression) assignment).base().type() instanceof RowType) {
                             return false;
                         }
                     }
@@ -196,6 +196,6 @@ public class InlineProjections
 
     private static boolean isSymbolReference(Symbol symbol, Expression expression)
     {
-        return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(symbol.getName());
+        return expression instanceof SymbolReference && ((SymbolReference) expression).name().equals(symbol.getName());
     }
 }

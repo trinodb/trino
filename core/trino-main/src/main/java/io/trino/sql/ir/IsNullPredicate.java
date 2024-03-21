@@ -37,12 +37,6 @@ public record IsNullPredicate(Expression value)
         return BOOLEAN;
     }
 
-    @Deprecated
-    public Expression getValue()
-    {
-        return value;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

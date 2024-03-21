@@ -42,18 +42,6 @@ public record LambdaExpression(List<Symbol> arguments, Expression body)
                 body.type());
     }
 
-    @Deprecated
-    public List<Symbol> getArguments()
-    {
-        return arguments;
-    }
-
-    @Deprecated
-    public Expression getBody()
-    {
-        return body;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

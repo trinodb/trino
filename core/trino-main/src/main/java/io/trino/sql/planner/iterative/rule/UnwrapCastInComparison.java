@@ -162,14 +162,14 @@ public class UnwrapCastInComparison
         private Expression unwrapCast(ComparisonExpression expression)
         {
             // Canonicalization is handled by CanonicalizeExpressionRewriter
-            if (!(expression.getLeft() instanceof Cast cast)) {
+            if (!(expression.left() instanceof Cast cast)) {
                 return expression;
             }
 
-            Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session)
+            Object right = new IrExpressionInterpreter(expression.right(), plannerContext, session)
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
-            ComparisonExpression.Operator operator = expression.getOperator();
+            ComparisonExpression.Operator operator = expression.operator();
 
             if (right == null) {
                 return switch (operator) {
@@ -186,7 +186,7 @@ public class UnwrapCastInComparison
             Type targetType = expression.right().type();
 
             if (sourceType instanceof TimestampType && targetType == DATE) {
-                return unwrapTimestampToDateCast((TimestampType) sourceType, operator, cast.getExpression(), (long) right).orElse(expression);
+                return unwrapTimestampToDateCast((TimestampType) sourceType, operator, cast.expression(), (long) right).orElse(expression);
             }
 
             if (targetType instanceof TimestampWithTimeZoneType) {
@@ -207,9 +207,9 @@ public class UnwrapCastInComparison
                     case GREATER_THAN_OR_EQUAL:
                     case LESS_THAN:
                     case LESS_THAN_OR_EQUAL:
-                        return falseIfNotNull(cast.getExpression());
+                        return falseIfNotNull(cast.expression());
                     case NOT_EQUAL:
-                        return trueIfNotNull(cast.getExpression());
+                        return trueIfNotNull(cast.expression());
                     case IS_DISTINCT_FROM:
                         if (!typeHasNaN(sourceType)) {
                             return TRUE_LITERAL;
@@ -240,8 +240,8 @@ public class UnwrapCastInComparison
                     if (upperBoundComparison > 0) {
                         // larger than maximum representable value
                         return switch (operator) {
-                            case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> falseIfNotNull(cast.getExpression());
-                            case NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
+                            case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> falseIfNotNull(cast.expression());
+                            case NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
                             case IS_DISTINCT_FROM -> TRUE_LITERAL;
                         };
                     }
@@ -249,12 +249,12 @@ public class UnwrapCastInComparison
                     if (upperBoundComparison == 0) {
                         // equal to max representable value
                         return switch (operator) {
-                            case GREATER_THAN -> falseIfNotNull(cast.getExpression());
-                            case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.getExpression(), new Constant(sourceType, max));
-                            case LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
-                            case LESS_THAN -> new ComparisonExpression(NOT_EQUAL, cast.getExpression(), new Constant(sourceType, max));
+                            case GREATER_THAN -> falseIfNotNull(cast.expression());
+                            case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.expression(), new Constant(sourceType, max));
+                            case LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
+                            case LESS_THAN -> new ComparisonExpression(NOT_EQUAL, cast.expression(), new Constant(sourceType, max));
                             case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM ->
-                                    new ComparisonExpression(operator, cast.getExpression(), new Constant(sourceType, max));
+                                    new ComparisonExpression(operator, cast.expression(), new Constant(sourceType, max));
                         };
                     }
 
@@ -265,8 +265,8 @@ public class UnwrapCastInComparison
                     if (lowerBoundComparison < 0) {
                         // smaller than minimum representable value
                         return switch (operator) {
-                            case NOT_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
-                            case EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> falseIfNotNull(cast.getExpression());
+                            case NOT_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
+                            case EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> falseIfNotNull(cast.expression());
                             case IS_DISTINCT_FROM -> TRUE_LITERAL;
                         };
                     }
@@ -274,12 +274,12 @@ public class UnwrapCastInComparison
                     if (lowerBoundComparison == 0) {
                         // equal to min representable value
                         return switch (operator) {
-                            case LESS_THAN -> falseIfNotNull(cast.getExpression());
-                            case LESS_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.getExpression(), new Constant(sourceType, min));
-                            case GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
-                            case GREATER_THAN -> new ComparisonExpression(NOT_EQUAL, cast.getExpression(), new Constant(sourceType, min));
+                            case LESS_THAN -> falseIfNotNull(cast.expression());
+                            case LESS_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.expression(), new Constant(sourceType, min));
+                            case GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
+                            case GREATER_THAN -> new ComparisonExpression(NOT_EQUAL, cast.expression(), new Constant(sourceType, min));
                             case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM ->
-                                    new ComparisonExpression(operator, cast.getExpression(), new Constant(sourceType, min));
+                                    new ComparisonExpression(operator, cast.expression(), new Constant(sourceType, min));
                         };
                     }
                 }
@@ -316,40 +316,40 @@ public class UnwrapCastInComparison
                 if (literalVsRoundtripped > 0) {
                     // cast rounded down
                     return switch (operator) {
-                        case EQUAL -> falseIfNotNull(cast.getExpression());
-                        case NOT_EQUAL -> trueIfNotNull(cast.getExpression());
+                        case EQUAL -> falseIfNotNull(cast.expression());
+                        case NOT_EQUAL -> trueIfNotNull(cast.expression());
                         case IS_DISTINCT_FROM -> TRUE_LITERAL;
                         case LESS_THAN, LESS_THAN_OR_EQUAL -> {
                             if (sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMin(), literalInSourceType) == 0) {
-                                yield new ComparisonExpression(EQUAL, cast.getExpression(), new Constant(sourceType, literalInSourceType));
+                                yield new ComparisonExpression(EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
                             }
-                            yield new ComparisonExpression(LESS_THAN_OR_EQUAL, cast.getExpression(), new Constant(sourceType, literalInSourceType));
+                            yield new ComparisonExpression(LESS_THAN_OR_EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
                         }
                         case GREATER_THAN, GREATER_THAN_OR_EQUAL ->
                             // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
                             // larger than the next value in the source type
-                                new ComparisonExpression(GREATER_THAN, cast.getExpression(), new Constant(sourceType, literalInSourceType));
+                                new ComparisonExpression(GREATER_THAN, cast.expression(), new Constant(sourceType, literalInSourceType));
                     };
                 }
 
                 if (literalVsRoundtripped < 0) {
                     // cast rounded up
                     return switch (operator) {
-                        case EQUAL -> falseIfNotNull(cast.getExpression());
-                        case NOT_EQUAL -> trueIfNotNull(cast.getExpression());
+                        case EQUAL -> falseIfNotNull(cast.expression());
+                        case NOT_EQUAL -> trueIfNotNull(cast.expression());
                         case IS_DISTINCT_FROM -> TRUE_LITERAL;
                         case LESS_THAN, LESS_THAN_OR_EQUAL ->
                             // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
                             // smaller than the next value in the source type
-                                new ComparisonExpression(LESS_THAN, cast.getExpression(), new Constant(sourceType, literalInSourceType));
+                                new ComparisonExpression(LESS_THAN, cast.expression(), new Constant(sourceType, literalInSourceType));
                         case GREATER_THAN, GREATER_THAN_OR_EQUAL -> sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMax(), literalInSourceType) == 0 ?
-                                new ComparisonExpression(EQUAL, cast.getExpression(), new Constant(sourceType, literalInSourceType)) :
-                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, cast.getExpression(), new Constant(sourceType, literalInSourceType));
+                                new ComparisonExpression(EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType)) :
+                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
                     };
                 }
             }
 
-            return new ComparisonExpression(operator, cast.getExpression(), new Constant(sourceType, literalInSourceType));
+            return new ComparisonExpression(operator, cast.expression(), new Constant(sourceType, literalInSourceType));
         }
 
         private Optional<Expression> unwrapTimestampToDateCast(TimestampType sourceType, ComparisonExpression.Operator operator, Expression timestampExpression, long date)
