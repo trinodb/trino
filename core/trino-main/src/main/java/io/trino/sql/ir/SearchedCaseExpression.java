@@ -15,6 +15,7 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,6 +31,12 @@ public record SearchedCaseExpression(List<WhenClause> whenClauses, Optional<Expr
     {
         whenClauses = ImmutableList.copyOf(whenClauses);
         requireNonNull(defaultValue, "defaultValue is null");
+    }
+
+    @Override
+    public Type type()
+    {
+        return whenClauses.getFirst().getResult().type();
     }
 
     @Deprecated

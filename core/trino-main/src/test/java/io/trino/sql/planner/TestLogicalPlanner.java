@@ -304,8 +304,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "row"), new Constant(INTEGER, 1L))),
-                                        "output_2", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "row"), new Constant(INTEGER, 2L)))),
+                                        "output_1", expression(new SubscriptExpression(BIGINT, new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "row"), new Constant(INTEGER, 1L))),
+                                        "output_2", expression(new SubscriptExpression(BIGINT, new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "row"), new Constant(INTEGER, 2L)))),
                                 project(
                                         ImmutableMap.of("row", expression(new Row(ImmutableList.of(new SymbolReference(BIGINT, "min"), new SymbolReference(BIGINT, "max"))))),
                                         aggregation(
@@ -333,8 +333,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 1L))),
-                                        "output_2", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 2L)))),
+                                        "output_1", expression(new SubscriptExpression(DOUBLE, new SymbolReference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 1L))),
+                                        "output_2", expression(new SubscriptExpression(DOUBLE, new SymbolReference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 2L)))),
                                 project(
                                         ImmutableMap.of("row", expression(new Row(ImmutableList.of(new SymbolReference(DOUBLE, "rand"), new SymbolReference(DOUBLE, "rand"))))),
                                         values(
@@ -345,8 +345,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(DOUBLE, DOUBLE), "r"), new Constant(INTEGER, 1L))),
-                                        "output_2", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(DOUBLE, DOUBLE), "r"), new Constant(INTEGER, 2L)))),
+                                        "output_1", expression(new SubscriptExpression(DOUBLE, new SymbolReference(RowType.anonymousRow(DOUBLE, DOUBLE), "r"), new Constant(INTEGER, 1L))),
+                                        "output_2", expression(new SubscriptExpression(DOUBLE, new SymbolReference(RowType.anonymousRow(DOUBLE, DOUBLE), "r"), new Constant(INTEGER, 2L)))),
                                 values(
                                         ImmutableList.of("r"),
                                         ImmutableList.of(ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))))))));
@@ -358,8 +358,8 @@ public class TestLogicalPlanner
                                 any(
                                         project(
                                                 ImmutableMap.of(
-                                                        "output_1", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 1L))),
-                                                        "output_2", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 2L)))),
+                                                        "output_1", expression(new SubscriptExpression(DOUBLE, new SymbolReference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 1L))),
+                                                        "output_2", expression(new SubscriptExpression(DOUBLE, new SymbolReference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 2L)))),
                                                 values(
                                                         ImmutableList.of("row"),
                                                         ImmutableList.of(

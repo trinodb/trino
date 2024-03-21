@@ -15,7 +15,9 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
+import io.trino.type.FunctionType;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,6 +32,14 @@ public record LambdaExpression(List<Symbol> arguments, Expression body)
     {
         requireNonNull(arguments, "arguments is null");
         requireNonNull(body, "body is null");
+    }
+
+    @Override
+    public Type type()
+    {
+        return new FunctionType(
+                arguments.stream().map(Symbol::getType).collect(Collectors.toList()),
+                body.type());
     }
 
     @Deprecated

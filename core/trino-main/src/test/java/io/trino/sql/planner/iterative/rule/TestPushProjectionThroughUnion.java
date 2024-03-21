@@ -96,7 +96,7 @@ public class TestPushProjectionThroughUnion
                     return p.project(
                             Assignments.of(
                                     cTimes3, new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, c.toSymbolReference(), new Constant(INTEGER, 3L)),
-                                    dX, new SubscriptExpression(new SymbolReference(ROW_TYPE, "d"), new Constant(INTEGER, 1L))),
+                                    dX, new SubscriptExpression(INTEGER, new SymbolReference(ROW_TYPE, "d"), new Constant(INTEGER, 1L))),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()
                                             .put(c, a)
@@ -111,10 +111,10 @@ public class TestPushProjectionThroughUnion
                 .matches(
                         union(
                                 project(
-                                        ImmutableMap.of("a_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 3L))), "z_x", expression(new SubscriptExpression(new SymbolReference(ROW_TYPE, "z"), new Constant(INTEGER, 1L)))),
+                                        ImmutableMap.of("a_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 3L))), "z_x", expression(new SubscriptExpression(INTEGER, new SymbolReference(ROW_TYPE, "z"), new Constant(INTEGER, 1L)))),
                                         values(ImmutableList.of("a", "z"))),
                                 project(
-                                        ImmutableMap.of("b_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 3L))), "w_x", expression(new SubscriptExpression(new SymbolReference(ROW_TYPE, "w"), new Constant(INTEGER, 1L)))),
+                                        ImmutableMap.of("b_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 3L))), "w_x", expression(new SubscriptExpression(INTEGER, new SymbolReference(ROW_TYPE, "w"), new Constant(INTEGER, 1L)))),
                                         values(ImmutableList.of("b", "w"))))
                                 .withNumberOfOutputColumns(2)
                                 .withAlias("a_times_3")

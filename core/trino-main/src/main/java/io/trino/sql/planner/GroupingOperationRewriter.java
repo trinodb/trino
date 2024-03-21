@@ -92,6 +92,7 @@ public final class GroupingOperationRewriter
 
         // It is necessary to add a 1 to the groupId because the underlying array is indexed starting at 1
         return new SubscriptExpression(
+                type,
                 BuiltinFunctionCallBuilder.resolve(metadata)
                         .setName(ArrayConstructor.NAME)
                         .setArguments(Collections.nCopies(groupingResults.size(), type), groupingResults)

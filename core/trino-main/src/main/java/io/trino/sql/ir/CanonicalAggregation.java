@@ -15,7 +15,9 @@ package io.trino.sql.ir;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
+import io.trino.type.UnknownType;
 
 import java.util.List;
 import java.util.Objects;
@@ -56,6 +58,12 @@ public final class CanonicalAggregation
     public List<? extends Expression> getChildren()
     {
         return arguments;
+    }
+
+    @Override
+    public Type type()
+    {
+        return UnknownType.UNKNOWN;
     }
 
     @Override

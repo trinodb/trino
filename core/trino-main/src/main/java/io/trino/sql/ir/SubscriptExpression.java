@@ -15,19 +15,26 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record SubscriptExpression(Expression base, Expression index)
+public record SubscriptExpression(Type type, Expression base, Expression index)
         implements Expression
 {
     public SubscriptExpression
     {
         requireNonNull(base, "base is null");
         requireNonNull(index, "index is null");
+    }
+
+    @Override
+    public Type type()
+    {
+        return type;
     }
 
     @Override

@@ -148,7 +148,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                 session,
                 any(
                         project(
-                                ImmutableMap.of("expr", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), new Constant(INTEGER, 1L))), "expr_2", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), new Constant(INTEGER, 2L)))),
+                                ImmutableMap.of("expr", expression(new SubscriptExpression(BIGINT, new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), new Constant(INTEGER, 1L))), "expr_2", expression(new SubscriptExpression(BIGINT, new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), new Constant(INTEGER, 2L)))),
                                 tableScan(testTable, ImmutableMap.of("col0", "col0")))));
     }
 
@@ -226,9 +226,9 @@ public class TestDeltaLakeProjectionPushdownPlans
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "expr_0"), new Constant(INTEGER, 1L))),
+                                        "expr_0_x", expression(new SubscriptExpression(BIGINT, new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "expr_0"), new Constant(INTEGER, 1L))),
                                         "expr_0", expression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "expr_0")),
-                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "expr_0"), new Constant(INTEGER, 2L)))),
+                                        "expr_0_y", expression(new SubscriptExpression(BIGINT, new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "expr_0"), new Constant(INTEGER, 2L)))),
                                 join(INNER, builder -> {
                                     PlanMatchPattern source = tableScan(
                                             table -> {

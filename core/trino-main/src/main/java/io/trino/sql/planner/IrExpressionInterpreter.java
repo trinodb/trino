@@ -832,9 +832,7 @@ public class IrExpressionInterpreter
                     builder.add(toExpression(values.get(i), type(node.getValues().get(i))));
                 }
 
-                return new BindExpression(
-                        builder.build(),
-                        toExpression(function, type(node.getFunction())));
+                return new BindExpression(builder.build(), (LambdaExpression) function);
             }
 
             return MethodHandles.insertArguments((MethodHandle) function, 0, values.toArray());
@@ -909,7 +907,7 @@ public class IrExpressionInterpreter
             }
 
             if (hasUnresolvedValue(base, index)) {
-                return new SubscriptExpression(toExpression(base, type(node.getBase())), toExpression(index, type(node.getIndex())));
+                return new SubscriptExpression(node.type(), toExpression(base, type(node.getBase())), toExpression(index, type(node.getIndex())));
             }
 
             // Subscript on Row hasn't got a dedicated operator. It is interpreted by hand.

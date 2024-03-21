@@ -15,9 +15,11 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
@@ -87,6 +89,12 @@ public record ComparisonExpression(Operator operator, Expression left, Expressio
         requireNonNull(operator, "operator is null");
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
+    }
+
+    @Override
+    public Type type()
+    {
+        return BOOLEAN;
     }
 
     @Deprecated
