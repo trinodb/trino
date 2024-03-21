@@ -13,25 +13,20 @@
  */
 package io.trino.sql.planner.planprinter;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.FormatMethod;
 import io.trino.cost.LocalCostEstimate;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
-import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -41,7 +36,7 @@ public class NodeRepresentation
     private final String name;
     private final String type;
     private final Map<String, String> descriptor;
-    private final List<TypedSymbol> outputs;
+    private final List<Symbol> outputs;
     private final List<PlanNodeId> children;
     private final List<PlanNodeId> initialChildren;
     private final Optional<PlanNodeStats> stats;
@@ -56,7 +51,7 @@ public class NodeRepresentation
             String name,
             String type,
             Map<String, String> descriptor,
-            List<TypedSymbol> outputs,
+            List<Symbol> outputs,
             Optional<PlanNodeStats> stats,
             List<PlanNodeStatsEstimate> estimatedStats,
             List<PlanCostEstimate> estimatedCost,
@@ -111,7 +106,7 @@ public class NodeRepresentation
         return descriptor;
     }
 
-    public List<TypedSymbol> getOutputs()
+    public List<Symbol> getOutputs()
     {
         return outputs;
     }
@@ -163,74 +158,14 @@ public class NodeRepresentation
             PlanNodeStatsEstimate stats = getEstimatedStats().get(i);
             LocalCostEstimate cost = getEstimatedCost().get(i).getRootNodeLocalCostEstimate();
 
-            List<Symbol> outputSymbols = getOutputs().stream()
-                    .map(NodeRepresentation.TypedSymbol::getSymbol)
-                    .collect(toImmutableList());
-
             estimates.add(new PlanNodeStatsAndCostSummary(
                     stats.getOutputRowCount(),
-                    stats.getOutputSizeInBytes(outputSymbols),
+                    stats.getOutputSizeInBytes(getOutputs()),
                     cost.getCpuCost(),
                     cost.getMaxMemory(),
                     cost.getNetworkCost()));
         }
 
         return estimates.build();
-    }
-
-    @Deprecated // TODO: replace with Symbol now that it carries a type
-    public static class TypedSymbol
-    {
-        private final Symbol symbol;
-        private final Type trinoType;
-
-        public TypedSymbol(Symbol symbol, Type trinoType)
-        {
-            this.symbol = symbol;
-            this.trinoType = trinoType;
-        }
-
-        @JsonProperty
-        public Symbol getSymbol()
-        {
-            return symbol;
-        }
-
-        @JsonProperty
-        public String getType()
-        {
-            return trinoType.getDisplayName();
-        }
-
-        @JsonIgnore
-        public Type getTrinoType()
-        {
-            return trinoType;
-        }
-
-        public static TypedSymbol typedSymbol(String symbol, Type type)
-        {
-            return new TypedSymbol(new Symbol(type, symbol), type);
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (!(o instanceof TypedSymbol)) {
-                return false;
-            }
-            TypedSymbol that = (TypedSymbol) o;
-            return symbol.equals(that.symbol)
-                    && trinoType.equals(that.trinoType);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(symbol, trinoType);
-        }
     }
 }
