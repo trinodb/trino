@@ -40,9 +40,9 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.testing.PlanTester;
@@ -63,8 +63,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
@@ -149,7 +149,7 @@ public class TestTableScanRedirectionWithPushdown
                     output(
                             ImmutableList.of("DEST_COL"),
                             filter(
-                                    new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "DEST_COL"), new Constant(INTEGER, 0L)),
+                                    new Comparison(GREATER_THAN, new Reference(INTEGER, "DEST_COL"), new Constant(INTEGER, 0L)),
                                     tableScan(
                                             new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                             TupleDomain.all(),
@@ -206,7 +206,7 @@ public class TestTableScanRedirectionWithPushdown
                             ImmutableList.of("DEST_COL_A", "DEST_COL_B"),
                             filter(
 
-                                    new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "DEST_COL_A"), new Constant(INTEGER, 1L)),
+                                    new Comparison(EQUAL, new Reference(INTEGER, "DEST_COL_A"), new Constant(INTEGER, 1L)),
                                     tableScan(
                                             new MockConnectorTableHandle(
                                                     DESTINATION_TABLE,
@@ -261,9 +261,9 @@ public class TestTableScanRedirectionWithPushdown
                     "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'",
                     output(
                             ImmutableList.of("DEST_COL_B"),
-                            project(ImmutableMap.of("DEST_COL_B", expression(new SymbolReference(BIGINT, "DEST_COL_B"))),
+                            project(ImmutableMap.of("DEST_COL_B", expression(new Reference(BIGINT, "DEST_COL_B"))),
                                     filter(
-                                            new ComparisonExpression(EQUAL, new Cast(new SymbolReference(BIGINT, "DEST_COL_A"), VARCHAR), new Constant(VARCHAR, Slices.utf8Slice("foo"))),
+                                            new Comparison(EQUAL, new Cast(new Reference(BIGINT, "DEST_COL_A"), VARCHAR), new Constant(VARCHAR, Slices.utf8Slice("foo"))),
                                             tableScan(
                                                     new MockConnectorTableHandle(
                                                             DESTINATION_TABLE,

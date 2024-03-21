@@ -15,8 +15,8 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -25,9 +25,9 @@ import io.trino.sql.planner.plan.FilterNode;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -57,7 +57,7 @@ public class TestPruneCorrelatedJoinColumns
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference(BIGINT, "a"))),
+                                ImmutableMap.of("a", PlanMatchPattern.expression(new Reference(BIGINT, "a"))),
                                 values("a", "correlationSymbol")));
 
         // retain input of LEFT join
@@ -72,12 +72,12 @@ public class TestPruneCorrelatedJoinColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     LEFT,
-                                    new ComparisonExpression(GREATER_THAN, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
+                                    new Comparison(GREATER_THAN, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                     p.values(1, b)));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference(BIGINT, "a"))),
+                                ImmutableMap.of("a", PlanMatchPattern.expression(new Reference(BIGINT, "a"))),
                                 values("a", "correlationSymbol")));
 
         // retain subquery of INNER join
@@ -94,7 +94,7 @@ public class TestPruneCorrelatedJoinColumns
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
+                                ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
                                 values("b")));
 
         // retain subquery of RIGHT join
@@ -108,12 +108,12 @@ public class TestPruneCorrelatedJoinColumns
                                     ImmutableList.of(),
                                     p.values(1, a),
                                     RIGHT,
-                                    new ComparisonExpression(GREATER_THAN, b.toSymbolReference(), a.toSymbolReference()),
+                                    new Comparison(GREATER_THAN, b.toSymbolReference(), a.toSymbolReference()),
                                     p.values(b)));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
+                                ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
                                 values("b")));
     }
 
@@ -132,19 +132,19 @@ public class TestPruneCorrelatedJoinColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     LEFT,
-                                    new ComparisonExpression(GREATER_THAN, b.toSymbolReference(), a.toSymbolReference()),
+                                    new Comparison(GREATER_THAN, b.toSymbolReference(), a.toSymbolReference()),
                                     p.filter(
-                                            new ComparisonExpression(GREATER_THAN, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
+                                            new Comparison(GREATER_THAN, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(5, b, c))));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference(BIGINT, "a"))),
+                                ImmutableMap.of("a", PlanMatchPattern.expression(new Reference(BIGINT, "a"))),
                                 correlatedJoin(
                                         ImmutableList.of("correlation_symbol"),
                                         values("a", "correlation_symbol"),
                                         project(
-                                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
+                                                ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
                                                 node(
                                                         FilterNode.class,
                                                         values("b", "c"))))));
@@ -164,18 +164,18 @@ public class TestPruneCorrelatedJoinColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     LEFT,
-                                    new ComparisonExpression(GREATER_THAN, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
+                                    new Comparison(GREATER_THAN, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                     p.filter(
-                                            new ComparisonExpression(GREATER_THAN_OR_EQUAL, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
+                                            new Comparison(GREATER_THAN_OR_EQUAL, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(b))));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
+                                ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
                                 correlatedJoin(
                                         ImmutableList.of("correlation_symbol"),
                                         project(
-                                                ImmutableMap.of("correlation_symbol", PlanMatchPattern.expression(new SymbolReference(BIGINT, "correlation_symbol"))),
+                                                ImmutableMap.of("correlation_symbol", PlanMatchPattern.expression(new Reference(BIGINT, "correlation_symbol"))),
                                                 values("a", "correlation_symbol")),
                                         node(
                                                 FilterNode.class,
@@ -196,7 +196,7 @@ public class TestPruneCorrelatedJoinColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     LEFT,
-                                    TRUE_LITERAL,
+                                    TRUE,
                                     p.values(b)));
                 })
                 .doesNotFire();
@@ -216,9 +216,9 @@ public class TestPruneCorrelatedJoinColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     LEFT,
-                                    TRUE_LITERAL,
+                                    TRUE,
                                     p.filter(
-                                            new ComparisonExpression(GREATER_THAN_OR_EQUAL, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
+                                            new Comparison(GREATER_THAN_OR_EQUAL, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(b))));
                 })
                 .doesNotFire();

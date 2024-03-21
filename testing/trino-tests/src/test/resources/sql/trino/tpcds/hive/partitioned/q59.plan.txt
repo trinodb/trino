@@ -16,19 +16,19 @@ local exchange (GATHER, SINGLE, [])
                                                             intermediate aggregation over (d_day_name, d_week_seq, ss_store_sk)
                                                                 join (INNER, REPLICATED):
                                                                     partial aggregation over (ss_sold_date_sk, ss_store_sk)
-                                                                        dynamic filter (await [SymbolReference[type=bigint, name=ss_sold_date_sk], SymbolReference[type=bigint, name=ss_store_sk]])
+                                                                        dynamic filter (await [Reference[type=bigint, name=ss_sold_date_sk], Reference[type=bigint, name=ss_store_sk]])
                                                                             scan store_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                                            dynamic filter ([SymbolReference[type=integer, name=d_week_seq]], await [SymbolReference[type=integer, name=d_week_seq]])
+                                                                            dynamic filter ([Reference[type=integer, name=d_week_seq]], await [Reference[type=integer, name=d_week_seq]])
                                                                                 scan date_dim
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        dynamic filter ([SymbolReference[type=integer, name=d_week_seq_22]])
+                                        dynamic filter ([Reference[type=integer, name=d_week_seq_22]])
                                             scan date_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    dynamic filter ([SymbolReference[type=char(16), name=s_store_id]])
+                                    dynamic filter ([Reference[type=char(16), name=s_store_id]])
                                         scan store
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [expr_211, s_store_id_124])
@@ -44,11 +44,11 @@ local exchange (GATHER, SINGLE, [])
                                                                 intermediate aggregation over (d_day_name_90, d_week_seq_80, ss_store_sk_55)
                                                                     join (INNER, REPLICATED):
                                                                         partial aggregation over (ss_sold_date_sk_71, ss_store_sk_55)
-                                                                            dynamic filter (await [SymbolReference[type=bigint, name=ss_sold_date_sk_71], SymbolReference[type=bigint, name=ss_store_sk_55]])
+                                                                            dynamic filter (await [Reference[type=bigint, name=ss_sold_date_sk_71], Reference[type=bigint, name=ss_store_sk_55]])
                                                                                 scan store_sales
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                                dynamic filter (await [SymbolReference[type=integer, name=d_week_seq_80]])
+                                                                                dynamic filter (await [Reference[type=integer, name=d_week_seq_80]])
                                                                                     scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])

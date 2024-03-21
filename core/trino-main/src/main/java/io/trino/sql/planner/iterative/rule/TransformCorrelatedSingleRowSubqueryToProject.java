@@ -24,7 +24,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
 import static com.google.common.collect.Streams.forEachPair;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.filter;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
 
@@ -61,7 +61,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
         implements Rule<CorrelatedJoinNode>
 {
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
-            .with(filter().equalTo(TRUE_LITERAL));
+            .with(filter().equalTo(TRUE));
 
     @Override
     public Pattern<CorrelatedJoinNode> getPattern()

@@ -9,10 +9,10 @@ remote exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, [custkey])
                                     cross join:
                                         alternatives
-                                            dynamic filter ([SymbolReference[type=double, name=acctbal]])
+                                            dynamic filter ([Reference[type=double, name=acctbal]])
                                                 scan customer
                                             cache data
-                                                dynamic filter ([SymbolReference[type=double, name=acctbal]])
+                                                dynamic filter ([Reference[type=double, name=acctbal]])
                                                     scan customer
                                             load from cache
                                         local exchange (GATHER, SINGLE, [])

@@ -18,16 +18,16 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -62,13 +62,13 @@ public class TestFullOuterJoinWithCoalesce
                         "FULL OUTER JOIN (VALUES 2, 5) r(a) on ts.a = r.a",
                 anyTree(
                         project(
-                                ImmutableMap.of("expr", expression(new CoalesceExpression(new SymbolReference(INTEGER, "ts"), new SymbolReference(INTEGER, "r")))),
+                                ImmutableMap.of("expr", expression(new Coalesce(new Reference(INTEGER, "ts"), new Reference(INTEGER, "r")))),
                                 join(FULL, builder -> builder
                                         .equiCriteria("ts", "r")
                                         .left(
                                                 anyTree(
                                                         project(
-                                                                ImmutableMap.of("ts", expression(new CoalesceExpression(new SymbolReference(INTEGER, "t"), new SymbolReference(INTEGER, "s")))),
+                                                                ImmutableMap.of("ts", expression(new Coalesce(new Reference(INTEGER, "t"), new Reference(INTEGER, "s")))),
                                                                 join(FULL, leftJoinBuilder -> leftJoinBuilder
                                                                         .equiCriteria("t", "s")
                                                                         .left(exchange(REMOTE, REPARTITION, anyTree(values(ImmutableList.of("t")))))
@@ -97,7 +97,7 @@ public class TestFullOuterJoinWithCoalesce
                                         PARTIAL,
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("expr", expression(new CoalesceExpression(new SymbolReference(INTEGER, "l"), new SymbolReference(INTEGER, "r")))),
+                                                        ImmutableMap.of("expr", expression(new Coalesce(new Reference(INTEGER, "l"), new Reference(INTEGER, "r")))),
                                                         join(FULL, builder -> builder
                                                                 .equiCriteria("l", "r")
                                                                 .left(anyTree(values(ImmutableList.of("l"))))
@@ -117,7 +117,7 @@ public class TestFullOuterJoinWithCoalesce
                                         PARTIAL,
                                         anyTree(
                                                 project(
-                                                        ImmutableMap.of("expr", expression(new CoalesceExpression(new SymbolReference(INTEGER, "r"), new SymbolReference(INTEGER, "l")))),
+                                                        ImmutableMap.of("expr", expression(new Coalesce(new Reference(INTEGER, "r"), new Reference(INTEGER, "l")))),
                                                         join(FULL, builder -> builder
                                                                 .equiCriteria("l", "r")
                                                                 .left(anyTree(values(ImmutableList.of("l"))))
@@ -144,7 +144,7 @@ public class TestFullOuterJoinWithCoalesce
                                         ImmutableMap.of(),
                                         PARTIAL,
                                         project(
-                                                ImmutableMap.of("expr", expression(new CoalesceExpression(new SymbolReference(INTEGER, "l"), new SymbolReference(INTEGER, "m"), new SymbolReference(INTEGER, "r")))),
+                                                ImmutableMap.of("expr", expression(new Coalesce(new Reference(INTEGER, "l"), new Reference(INTEGER, "m"), new Reference(INTEGER, "r")))),
                                                 join(FULL, builder -> builder
                                                         .equiCriteria("l", "r")
                                                         .left(
@@ -173,7 +173,7 @@ public class TestFullOuterJoinWithCoalesce
                                         ImmutableMap.of(),
                                         PARTIAL,
                                         project(
-                                                ImmutableMap.of("expr", expression(new CoalesceExpression(new SymbolReference(INTEGER, "l"), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "m"), new Constant(INTEGER, 1L)), new SymbolReference(INTEGER, "r")))),
+                                                ImmutableMap.of("expr", expression(new Coalesce(new Reference(INTEGER, "l"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "m"), new Constant(INTEGER, 1L)), new Reference(INTEGER, "r")))),
                                                 join(FULL, builder -> builder
                                                         .equiCriteria("l", "r")
                                                         .left(

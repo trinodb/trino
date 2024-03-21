@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
@@ -46,7 +46,7 @@ public class TestPruneExplainAnalyzeSourceColumns
                 .matches(
                         node(ExplainAnalyzeNode.class,
                                 strictProject(
-                                        ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
+                                        ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
                                         values("a", "b"))));
     }
 

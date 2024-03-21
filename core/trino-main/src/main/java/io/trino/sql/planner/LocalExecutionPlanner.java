@@ -206,11 +206,11 @@ import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.optimizations.IndexJoinOptimizer;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -373,9 +373,9 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractDisjuncts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
@@ -1267,7 +1267,7 @@ public class LocalExecutionPlanner
                 ResolvedFunction resolvedFunction = function.getResolvedFunction();
                 ImmutableList.Builder<Integer> arguments = ImmutableList.builder();
                 for (Expression argument : function.getArguments()) {
-                    if (!(argument instanceof LambdaExpression)) {
+                    if (!(argument instanceof Lambda)) {
                         Symbol argumentSymbol = Symbol.from(argument);
                         arguments.add(source.getLayout().get(argumentSymbol));
                     }
@@ -1276,16 +1276,16 @@ public class LocalExecutionPlanner
                 WindowFunctionSupplier windowFunctionSupplier = getWindowFunctionImplementation(resolvedFunction);
                 Type type = resolvedFunction.getSignature().getReturnType();
 
-                List<LambdaExpression> lambdaExpressions = function.getArguments().stream()
-                        .filter(LambdaExpression.class::isInstance)
-                        .map(LambdaExpression.class::cast)
+                List<Lambda> lambdas = function.getArguments().stream()
+                        .filter(Lambda.class::isInstance)
+                        .map(Lambda.class::cast)
                         .collect(toImmutableList());
                 List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
                         .filter(FunctionType.class::isInstance)
                         .map(FunctionType.class::cast)
                         .collect(toImmutableList());
 
-                List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdaExpressions, windowFunctionSupplier.getLambdaInterfaces(), functionTypes);
+                List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdas, windowFunctionSupplier.getLambdaInterfaces(), functionTypes);
                 windowFunctionsBuilder.add(window(windowFunctionSupplier, type, frameInfo, function.isIgnoreNulls(), lambdaProviders, arguments.build()));
                 windowFunctionOutputSymbolsBuilder.add(symbol);
             }
@@ -1408,7 +1408,7 @@ public class LocalExecutionPlanner
                 ResolvedFunction resolvedFunction = function.getResolvedFunction();
                 ImmutableList.Builder<Integer> arguments = ImmutableList.builder();
                 for (Expression argument : function.getArguments()) {
-                    if (!(argument instanceof LambdaExpression)) {
+                    if (!(argument instanceof Lambda)) {
                         Symbol argumentSymbol = Symbol.from(argument);
                         arguments.add(source.getLayout().get(argumentSymbol));
                     }
@@ -1416,16 +1416,16 @@ public class LocalExecutionPlanner
                 WindowFunctionSupplier windowFunctionSupplier = getWindowFunctionImplementation(resolvedFunction);
                 Type type = resolvedFunction.getSignature().getReturnType();
 
-                List<LambdaExpression> lambdaExpressions = function.getArguments().stream()
-                        .filter(LambdaExpression.class::isInstance)
-                        .map(LambdaExpression.class::cast)
+                List<Lambda> lambdas = function.getArguments().stream()
+                        .filter(Lambda.class::isInstance)
+                        .map(Lambda.class::cast)
                         .collect(toImmutableList());
                 List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
                         .filter(FunctionType.class::isInstance)
                         .map(FunctionType.class::cast)
                         .collect(toImmutableList());
 
-                List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdaExpressions, windowFunctionSupplier.getLambdaInterfaces(), functionTypes);
+                List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdas, windowFunctionSupplier.getLambdaInterfaces(), functionTypes);
                 windowFunctionsBuilder.add(window(windowFunctionSupplier, type, function.isIgnoreNulls(), lambdaProviders, arguments.build()));
             }
 
@@ -1659,12 +1659,12 @@ public class LocalExecutionPlanner
                             builder.add(new SimpleEntry<>(pointer.getArguments().get(i), signatureTypes.get(i)));
                         }
                         Map<Boolean, List<Map.Entry<Expression, Type>>> arguments = builder.build().stream()
-                                .collect(partitioningBy(entry -> entry.getKey() instanceof LambdaExpression));
+                                .collect(partitioningBy(entry -> entry.getKey() instanceof Lambda));
 
                         // handle lambda arguments
-                        List<LambdaExpression> lambdaExpressions = arguments.get(true).stream()
+                        List<Lambda> lambdas = arguments.get(true).stream()
                                 .map(Map.Entry::getKey)
-                                .map(LambdaExpression.class::cast)
+                                .map(Lambda.class::cast)
                                 .collect(toImmutableList());
 
                         List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
@@ -1673,7 +1673,7 @@ public class LocalExecutionPlanner
                                 .collect(toImmutableList());
 
                         // TODO when we support lambda arguments: lambda cannot have runtime-evaluated symbols -- add check in the Analyzer
-                        List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdaExpressions, aggregationImplementation.getLambdaInterfaces(), functionTypes);
+                        List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdas, aggregationImplementation.getLambdaInterfaces(), functionTypes);
 
                         // handle non-lambda arguments
                         List<Integer> valueChannels = new ArrayList<>();
@@ -1686,7 +1686,7 @@ public class LocalExecutionPlanner
 
                         for (Map.Entry<Expression, Type> argumentWithType : arguments.get(false)) {
                             Expression argument = argumentWithType.getKey();
-                            boolean isRuntimeEvaluated = !(argument instanceof SymbolReference) || runtimeEvaluatedSymbols.contains(Symbol.from(argument));
+                            boolean isRuntimeEvaluated = !(argument instanceof Reference) || runtimeEvaluatedSymbols.contains(Symbol.from(argument));
                             if (isRuntimeEvaluated) {
                                 List<Symbol> argumentInputSymbols = ImmutableList.copyOf(SymbolsExtractor.extractUnique(argument));
                                 Supplier<PageProjection> argumentProjectionSupplier = prepareArgumentProjection(argument, argumentInputSymbols);
@@ -2278,7 +2278,7 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableScan(TableScanNode node, LocalExecutionPlanContext context)
         {
-            return visitTableScan(node.getId(), node, TRUE_LITERAL, context);
+            return visitTableScan(node.getId(), node, TRUE, context);
         }
 
         private PhysicalOperation visitTableScan(PlanNodeId planNodeId, TableScanNode node, Expression filterExpression, LocalExecutionPlanContext context)
@@ -2297,7 +2297,7 @@ public class LocalExecutionPlanner
         {
             DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
             Expression staticFilter = combineConjuncts(extractDynamicFilterResult.getStaticConjuncts());
-            if (staticFilter.equals(TRUE_LITERAL)) {
+            if (staticFilter.equals(TRUE)) {
                 return Optional.empty();
             }
             return Optional.of(staticFilter);
@@ -2667,21 +2667,21 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitSpatialJoin(SpatialJoinNode node, LocalExecutionPlanContext context)
         {
             Expression filterExpression = node.getFilter();
-            List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filterExpression);
-            for (FunctionCall spatialFunction : spatialFunctions) {
+            List<Call> spatialFunctions = extractSupportedSpatialFunctions(filterExpression);
+            for (Call spatialFunction : spatialFunctions) {
                 Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialFunction), spatialFunction, Optional.empty(), Optional.empty());
                 if (operation.isPresent()) {
                     return operation.get();
                 }
             }
 
-            List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filterExpression);
-            for (ComparisonExpression spatialComparison : spatialComparisons) {
+            List<Comparison> spatialComparisons = extractSupportedSpatialComparisons(filterExpression);
+            for (Comparison spatialComparison : spatialComparisons) {
                 if (spatialComparison.operator() == LESS_THAN || spatialComparison.operator() == LESS_THAN_OR_EQUAL) {
                     // ST_Distance(a, b) <= r
                     Expression radius = spatialComparison.right();
-                    if (radius instanceof SymbolReference && getSymbolReferences(node.getRight().getOutputSymbols()).contains(radius)) {
-                        FunctionCall spatialFunction = (FunctionCall) spatialComparison.left();
+                    if (radius instanceof Reference && getSymbolReferences(node.getRight().getOutputSymbols()).contains(radius)) {
+                        Call spatialFunction = (Call) spatialComparison.left();
                         Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(spatialComparison.operator()));
                         if (operation.isPresent()) {
                             return operation.get();
@@ -2697,22 +2697,22 @@ public class LocalExecutionPlanner
                 LocalExecutionPlanContext context,
                 SpatialJoinNode node,
                 Optional<Expression> filterExpression,
-                FunctionCall spatialFunction,
+                Call spatialFunction,
                 Optional<Expression> radius,
-                Optional<ComparisonExpression.Operator> comparisonOperator)
+                Optional<Comparison.Operator> comparisonOperator)
         {
             List<Expression> arguments = spatialFunction.arguments();
             verify(arguments.size() == 2);
 
-            if (!(arguments.get(0) instanceof SymbolReference firstSymbol) || !(arguments.get(1) instanceof SymbolReference secondSymbol)) {
+            if (!(arguments.get(0) instanceof Reference firstSymbol) || !(arguments.get(1) instanceof Reference secondSymbol)) {
                 return Optional.empty();
             }
 
             PlanNode probeNode = node.getLeft();
-            Set<SymbolReference> probeSymbols = getSymbolReferences(probeNode.getOutputSymbols());
+            Set<Reference> probeSymbols = getSymbolReferences(probeNode.getOutputSymbols());
 
             PlanNode buildNode = node.getRight();
-            Set<SymbolReference> buildSymbols = getSymbolReferences(buildNode.getOutputSymbols());
+            Set<Reference> buildSymbols = getSymbolReferences(buildNode.getOutputSymbols());
 
             if (probeSymbols.contains(firstSymbol) && buildSymbols.contains(secondSymbol)) {
                 return Optional.of(createSpatialLookupJoin(
@@ -2743,13 +2743,13 @@ public class LocalExecutionPlanner
 
         private Optional<Expression> removeExpressionFromFilter(Expression filter, Expression expression)
         {
-            Expression updatedJoinFilter = replaceExpression(filter, ImmutableMap.of(expression, TRUE_LITERAL));
-            return updatedJoinFilter.equals(TRUE_LITERAL) ? Optional.empty() : Optional.of(updatedJoinFilter);
+            Expression updatedJoinFilter = replaceExpression(filter, ImmutableMap.of(expression, TRUE));
+            return updatedJoinFilter.equals(TRUE) ? Optional.empty() : Optional.of(updatedJoinFilter);
         }
 
-        private SpatialPredicate spatialTest(FunctionCall functionCall, boolean probeFirst, Optional<ComparisonExpression.Operator> comparisonOperator)
+        private SpatialPredicate spatialTest(Call call, boolean probeFirst, Optional<Comparison.Operator> comparisonOperator)
         {
-            CatalogSchemaFunctionName functionName = functionCall.function().getName();
+            CatalogSchemaFunctionName functionName = call.function().getName();
             if (functionName.equals(builtinFunctionName(ST_CONTAINS))) {
                 if (probeFirst) {
                     return (buildGeometry, probeGeometry, radius) -> probeGeometry.contains(buildGeometry);
@@ -2777,7 +2777,7 @@ public class LocalExecutionPlanner
             throw new UnsupportedOperationException("Unsupported spatial function: " + functionName);
         }
 
-        private Set<SymbolReference> getSymbolReferences(Collection<Symbol> symbols)
+        private Set<Reference> getSymbolReferences(Collection<Symbol> symbols)
         {
             return symbols.stream().map(Symbol::toSymbolReference).collect(toImmutableSet());
         }
@@ -3938,7 +3938,7 @@ public class LocalExecutionPlanner
         {
             List<Integer> argumentChannels = new ArrayList<>();
             for (Expression argument : aggregation.getArguments()) {
-                if (!(argument instanceof LambdaExpression)) {
+                if (!(argument instanceof Lambda)) {
                     Symbol argumentSymbol = Symbol.from(argument);
                     argumentChannels.add(source.getLayout().get(argumentSymbol));
                 }
@@ -4008,15 +4008,15 @@ public class LocalExecutionPlanner
                     .mapToInt(value -> source.getLayout().get(value))
                     .findAny();
 
-            List<LambdaExpression> lambdaExpressions = aggregation.getArguments().stream()
-                    .filter(LambdaExpression.class::isInstance)
-                    .map(LambdaExpression.class::cast)
+            List<Lambda> lambdas = aggregation.getArguments().stream()
+                    .filter(Lambda.class::isInstance)
+                    .map(Lambda.class::cast)
                     .collect(toImmutableList());
             List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
                     .filter(FunctionType.class::isInstance)
                     .map(FunctionType.class::cast)
                     .collect(toImmutableList());
-            List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdaExpressions, aggregationImplementation.getLambdaInterfaces(), functionTypes);
+            List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdas, aggregationImplementation.getLambdaInterfaces(), functionTypes);
 
             return new AggregatorFactory(
                     accumulatorFactory,
@@ -4029,15 +4029,15 @@ public class LocalExecutionPlanner
                     lambdaProviders);
         }
 
-        private List<Supplier<Object>> makeLambdaProviders(List<LambdaExpression> lambdaExpressions, List<Class<?>> lambdaInterfaces, List<FunctionType> functionTypes)
+        private List<Supplier<Object>> makeLambdaProviders(List<Lambda> lambdas, List<Class<?>> lambdaInterfaces, List<FunctionType> functionTypes)
         {
             List<Supplier<Object>> lambdaProviders = new ArrayList<>();
-            if (!lambdaExpressions.isEmpty()) {
-                verify(lambdaExpressions.size() == functionTypes.size());
-                verify(lambdaExpressions.size() == lambdaInterfaces.size());
+            if (!lambdas.isEmpty()) {
+                verify(lambdas.size() == functionTypes.size());
+                verify(lambdas.size() == lambdaInterfaces.size());
 
-                for (int i = 0; i < lambdaExpressions.size(); i++) {
-                    LambdaExpression lambdaExpression = lambdaExpressions.get(i);
+                for (int i = 0; i < lambdas.size(); i++) {
+                    Lambda lambdaExpression = lambdas.get(i);
                     FunctionType functionType = functionTypes.get(i);
 
                     // To compile lambda, LambdaDefinitionExpression needs to be generated from LambdaExpression,

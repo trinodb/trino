@@ -37,7 +37,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
@@ -1026,9 +1026,9 @@ public class TestDynamicFilterService
                                 new PlanSignatureWithPredicate(
                                         new PlanSignature(new SignatureKey("test"), Optional.empty(), ImmutableList.of(), ImmutableList.of()),
                                         TupleDomain.all()),
-                                or(and(createDynamicFilterExpression(metadata, new DynamicFilterId("0"), BIGINT, new SymbolReference(BIGINT, "symbol0")),
-                                                createDynamicFilterExpression(metadata, new DynamicFilterId("1"), BIGINT, new SymbolReference(BIGINT, "symbol1"))),
-                                        createDynamicFilterExpression(metadata, new DynamicFilterId("2"), BIGINT, new SymbolReference(BIGINT, "symbol2"))),
+                                or(and(createDynamicFilterExpression(metadata, new DynamicFilterId("0"), BIGINT, new Reference(BIGINT, "symbol0")),
+                                                createDynamicFilterExpression(metadata, new DynamicFilterId("1"), BIGINT, new Reference(BIGINT, "symbol1"))),
+                                        createDynamicFilterExpression(metadata, new DynamicFilterId("2"), BIGINT, new Reference(BIGINT, "symbol2"))),
                                 ImmutableMap.of(),
                                 ImmutableList.of()),
                         Assignments.of())))

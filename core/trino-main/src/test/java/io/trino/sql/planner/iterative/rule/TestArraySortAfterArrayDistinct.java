@@ -18,10 +18,10 @@ import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.Lambda;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -50,22 +50,22 @@ public class TestArraySortAfterArrayDistinct
     public void testArrayDistinctAfterArraySort()
     {
         test(
-                new FunctionCall(DISTINCT, ImmutableList.of(new FunctionCall(SORT, ImmutableList.of(new FunctionCall(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))),
-                new FunctionCall(SORT, ImmutableList.of(new FunctionCall(DISTINCT, ImmutableList.of(new FunctionCall(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))));
+                new Call(DISTINCT, ImmutableList.of(new Call(SORT, ImmutableList.of(new Call(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))),
+                new Call(SORT, ImmutableList.of(new Call(DISTINCT, ImmutableList.of(new Call(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))));
     }
 
     @Test
     public void testArrayDistinctAfterArraySortWithLambda()
     {
         test(
-                new FunctionCall(DISTINCT, ImmutableList.of(
-                        new FunctionCall(SORT_WITH_LAMBDA, ImmutableList.of(
-                                new FunctionCall(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))),
-                                new LambdaExpression(ImmutableList.of(new Symbol(INTEGER, "a"), new Symbol(INTEGER, "b")), new Constant(INTEGER, 1L)))))),
-                new FunctionCall(SORT_WITH_LAMBDA, ImmutableList.of(
-                        new FunctionCall(DISTINCT, ImmutableList.of(
-                                new FunctionCall(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))),
-                        new LambdaExpression(ImmutableList.of(new Symbol(INTEGER, "a"), new Symbol(INTEGER, "b")), new Constant(INTEGER, 1L)))));
+                new Call(DISTINCT, ImmutableList.of(
+                        new Call(SORT_WITH_LAMBDA, ImmutableList.of(
+                                new Call(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))),
+                                new Lambda(ImmutableList.of(new Symbol(INTEGER, "a"), new Symbol(INTEGER, "b")), new Constant(INTEGER, 1L)))))),
+                new Call(SORT_WITH_LAMBDA, ImmutableList.of(
+                        new Call(DISTINCT, ImmutableList.of(
+                                new Call(ARRAY, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))),
+                        new Lambda(ImmutableList.of(new Symbol(INTEGER, "a"), new Symbol(INTEGER, "b")), new Constant(INTEGER, 1L)))));
     }
 
     private void test(Expression original, Expression rewritten)

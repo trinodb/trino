@@ -19,9 +19,9 @@ import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticNegation;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Negation;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -41,7 +41,7 @@ import static io.trino.cost.StatsAndCosts.empty;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -75,14 +75,14 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        a3, new ArithmeticNegation(a2.toSymbolReference()),
-                        b2, new ArithmeticNegation(b1.toSymbolReference())),
+                        a3, new Negation(a2.toSymbolReference()),
+                        b2, new Negation(b1.toSymbolReference())),
                 p.join(
                         INNER,
                         // intermediate non-identity projections should be fully inlined
                         p.project(
                                 Assignments.of(
-                                        a2, new ArithmeticNegation(a0.toSymbolReference()),
+                                        a2, new Negation(a0.toSymbolReference()),
                                         a1, a1.toSymbolReference()),
                                 p.project(
                                         Assignments.builder()
@@ -106,16 +106,16 @@ public class TestPushProjectionThroughJoin
                         .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(UNKNOWN, "a1"), new Symbol(UNKNOWN, "b1"))))
                         .left(
                                 strictProject(ImmutableMap.of(
-                                                "a3", expression(new ArithmeticNegation(new ArithmeticNegation(new SymbolReference(BIGINT, "a0")))),
-                                                "a1", expression(new SymbolReference(BIGINT, "a1"))),
+                                                "a3", expression(new Negation(new Negation(new Reference(BIGINT, "a0")))),
+                                                "a1", expression(new Reference(BIGINT, "a1"))),
                                         strictProject(ImmutableMap.of(
-                                                        "a0", expression(new SymbolReference(BIGINT, "a0")),
-                                                        "a1", expression(new SymbolReference(BIGINT, "a1"))),
+                                                        "a0", expression(new Reference(BIGINT, "a0")),
+                                                        "a1", expression(new Reference(BIGINT, "a1"))),
                                                 PlanMatchPattern.values("a0", "a1"))))
                         .right(
                                 strictProject(ImmutableMap.of(
-                                                "b2", expression(new ArithmeticNegation(new SymbolReference(BIGINT, "b1"))),
-                                                "b1", expression(new SymbolReference(BIGINT, "b1"))),
+                                                "b2", expression(new Negation(new Reference(BIGINT, "b1"))),
+                                                "b1", expression(new Reference(BIGINT, "b1"))),
                                         PlanMatchPattern.values("b0", "b1"))))
                         .withExactOutputs("a3", "b2"));
     }
@@ -130,7 +130,7 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        c, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, a.toSymbolReference(), b.toSymbolReference())),
+                        c, new Arithmetic(ADD_BIGINT, ADD, a.toSymbolReference(), b.toSymbolReference())),
                 p.join(
                         INNER,
                         p.values(a),
@@ -149,7 +149,7 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        c, new ArithmeticNegation(a.toSymbolReference())),
+                        c, new Negation(a.toSymbolReference())),
                 p.join(
                         LEFT,
                         p.values(a),

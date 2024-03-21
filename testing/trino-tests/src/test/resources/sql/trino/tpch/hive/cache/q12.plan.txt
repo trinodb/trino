@@ -8,10 +8,10 @@ remote exchange (GATHER, SINGLE, [])
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, [orderkey])
                                     alternatives
-                                        dynamic filter ([SymbolReference[type=bigint, name=orderkey]])
+                                        dynamic filter ([Reference[type=bigint, name=orderkey]])
                                             scan orders
                                         cache data
-                                            dynamic filter ([SymbolReference[type=bigint, name=orderkey]])
+                                            dynamic filter ([Reference[type=bigint, name=orderkey]])
                                                 scan orders
                                         load from cache
                                 local exchange (GATHER, SINGLE, [])

@@ -18,7 +18,7 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
@@ -41,26 +41,26 @@ public class TestUnwrapRowSubscript
     @Test
     public void testSimpleSubscript()
     {
-        test(new SubscriptExpression(INTEGER, new Row(ImmutableList.of(new Constant(INTEGER, 1L))), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L));
-        test(new SubscriptExpression(INTEGER, new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L));
-        test(new SubscriptExpression(INTEGER, new SubscriptExpression(anonymousRow(INTEGER), new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))), new Constant(INTEGER, 1L)), new Constant(INTEGER, 2L)), new Constant(INTEGER, 2L));
+        test(new Subscript(INTEGER, new Row(ImmutableList.of(new Constant(INTEGER, 1L))), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L));
+        test(new Subscript(INTEGER, new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L));
+        test(new Subscript(INTEGER, new Subscript(anonymousRow(INTEGER), new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))), new Constant(INTEGER, 1L)), new Constant(INTEGER, 2L)), new Constant(INTEGER, 2L));
     }
 
     @Test
     public void testWithCast()
     {
         test(
-                new SubscriptExpression(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), rowType(field("a", BIGINT), field("b", BIGINT))), new Constant(INTEGER, 1L)),
+                new Subscript(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), rowType(field("a", BIGINT), field("b", BIGINT))), new Constant(INTEGER, 1L)),
                 new Cast(new Constant(INTEGER, 1L), BIGINT));
 
         test(
-                new SubscriptExpression(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), anonymousRow(BIGINT, BIGINT)), new Constant(INTEGER, 1L)),
+                new Subscript(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), anonymousRow(BIGINT, BIGINT)), new Constant(INTEGER, 1L)),
                 new Cast(new Constant(INTEGER, 1L), BIGINT));
 
         test(
-                new SubscriptExpression(
+                new Subscript(
                         BIGINT,
-                        new Cast(new SubscriptExpression(
+                        new Cast(new Subscript(
                                 anonymousRow(SMALLINT, SMALLINT),
                                 new Cast(
                                         new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))),
@@ -75,15 +75,15 @@ public class TestUnwrapRowSubscript
     public void testWithTryCast()
     {
         test(
-                new SubscriptExpression(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), rowType(field("a", BIGINT), field("b", BIGINT)), true), new Constant(INTEGER, 1L)),
+                new Subscript(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), rowType(field("a", BIGINT), field("b", BIGINT)), true), new Constant(INTEGER, 1L)),
                 new Cast(new Constant(INTEGER, 1L), BIGINT, true));
 
         test(
-                new SubscriptExpression(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), anonymousRow(BIGINT, BIGINT), true), new Constant(INTEGER, 1L)),
+                new Subscript(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), anonymousRow(BIGINT, BIGINT), true), new Constant(INTEGER, 1L)),
                 new Cast(new Constant(INTEGER, 1L), BIGINT, true));
 
         test(
-                new SubscriptExpression(BIGINT, new Cast(new SubscriptExpression(rowType(field("x", BIGINT), field("y", BIGINT)), new Cast(new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))), anonymousRow(anonymousRow(SMALLINT, SMALLINT), BIGINT), true), new Constant(INTEGER, 1L)), rowType(field("x", BIGINT), field("y", BIGINT)), true), new Constant(INTEGER, 2L)),
+                new Subscript(BIGINT, new Cast(new Subscript(rowType(field("x", BIGINT), field("y", BIGINT)), new Cast(new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))), anonymousRow(anonymousRow(SMALLINT, SMALLINT), BIGINT), true), new Constant(INTEGER, 1L)), rowType(field("x", BIGINT), field("y", BIGINT)), true), new Constant(INTEGER, 2L)),
                 new Cast(new Cast(new Constant(INTEGER, 2L), SMALLINT, true), BIGINT, true));
     }
 

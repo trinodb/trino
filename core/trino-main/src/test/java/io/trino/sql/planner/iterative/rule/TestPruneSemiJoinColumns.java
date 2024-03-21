@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -45,7 +45,7 @@ public class TestPruneSemiJoinColumns
                 .on(p -> buildProjectedSemiJoin(p, symbol -> symbol.getName().equals("leftValue")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("leftValue", expression(new SymbolReference(BIGINT, "leftValue"))),
+                                ImmutableMap.of("leftValue", expression(new Reference(BIGINT, "leftValue"))),
                                 values("leftKey", "leftKeyHash", "leftValue")));
     }
 
@@ -72,12 +72,12 @@ public class TestPruneSemiJoinColumns
                 .on(p -> buildProjectedSemiJoin(p, symbol -> symbol.getName().equals("match")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("match", expression(new SymbolReference(BOOLEAN, "match"))),
+                                ImmutableMap.of("match", expression(new Reference(BOOLEAN, "match"))),
                                 semiJoin("leftKey", "rightKey", "match",
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "leftKey", expression(new SymbolReference(BIGINT, "leftKey")),
-                                                        "leftKeyHash", expression(new SymbolReference(BIGINT, "leftKeyHash"))),
+                                                        "leftKey", expression(new Reference(BIGINT, "leftKey")),
+                                                        "leftKeyHash", expression(new Reference(BIGINT, "leftKeyHash"))),
                                                 values("leftKey", "leftKeyHash", "leftValue")),
                                         values("rightKey"))));
     }

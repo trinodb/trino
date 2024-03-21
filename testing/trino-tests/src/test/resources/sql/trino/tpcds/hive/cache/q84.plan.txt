@@ -4,20 +4,20 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 join (INNER, REPLICATED):
                     alternatives
-                        dynamic filter ([SymbolReference[type=bigint, name=sr_cdemo_sk]])
+                        dynamic filter ([Reference[type=bigint, name=sr_cdemo_sk]])
                             scan store_returns
                         cache data
-                            dynamic filter ([SymbolReference[type=bigint, name=sr_cdemo_sk]])
+                            dynamic filter ([Reference[type=bigint, name=sr_cdemo_sk]])
                                 scan store_returns
                         load from cache
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPLICATE, BROADCAST, [])
                             join (INNER, REPLICATED):
                                 alternatives
-                                    dynamic filter ([SymbolReference[type=bigint, name=cd_demo_sk]])
+                                    dynamic filter ([Reference[type=bigint, name=cd_demo_sk]])
                                         scan customer_demographics
                                     cache data
-                                        dynamic filter ([SymbolReference[type=bigint, name=cd_demo_sk]])
+                                        dynamic filter ([Reference[type=bigint, name=cd_demo_sk]])
                                             scan customer_demographics
                                     load from cache
                                 local exchange (GATHER, SINGLE, [])
@@ -25,10 +25,10 @@ local exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 alternatives
-                                                    dynamic filter ([SymbolReference[type=bigint, name=c_current_addr_sk]], await [SymbolReference[type=bigint, name=c_current_hdemo_sk]])
+                                                    dynamic filter ([Reference[type=bigint, name=c_current_addr_sk]], await [Reference[type=bigint, name=c_current_hdemo_sk]])
                                                         scan customer
                                                     cache data
-                                                        dynamic filter ([SymbolReference[type=bigint, name=c_current_addr_sk]], await [SymbolReference[type=bigint, name=c_current_hdemo_sk]])
+                                                        dynamic filter ([Reference[type=bigint, name=c_current_addr_sk]], await [Reference[type=bigint, name=c_current_hdemo_sk]])
                                                             scan customer
                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])
@@ -42,10 +42,10 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     join (INNER, REPLICATED):
                                                         alternatives
-                                                            dynamic filter (await [SymbolReference[type=bigint, name=hd_income_band_sk]])
+                                                            dynamic filter (await [Reference[type=bigint, name=hd_income_band_sk]])
                                                                 scan household_demographics
                                                             cache data
-                                                                dynamic filter (await [SymbolReference[type=bigint, name=hd_income_band_sk]])
+                                                                dynamic filter (await [Reference[type=bigint, name=hd_income_band_sk]])
                                                                     scan household_demographics
                                                             load from cache
                                                         local exchange (GATHER, SINGLE, [])

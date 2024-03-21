@@ -14,7 +14,7 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -199,7 +199,7 @@ public class TestJoinStatsRule
                             Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, DOUBLE);
                             Symbol leftJoinColumnSymbol2 = pb.symbol(LEFT_JOIN_COLUMN_2, BIGINT);
                             Symbol rightJoinColumnSymbol2 = pb.symbol(RIGHT_JOIN_COLUMN_2, DOUBLE);
-                            ComparisonExpression leftJoinColumnLessThanTen = new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, leftJoinColumnSymbol.toSymbolReference(), new Constant(INTEGER, 10L));
+                            Comparison leftJoinColumnLessThanTen = new Comparison(Comparison.Operator.LESS_THAN, leftJoinColumnSymbol.toSymbolReference(), new Constant(INTEGER, 10L));
                             return pb.join(
                                     INNER,
                                     pb.values(leftJoinColumnSymbol, leftJoinColumnSymbol2),

@@ -27,7 +27,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -400,7 +400,7 @@ public final class StreamPropertyDerivations
         {
             Map<Symbol, Symbol> inputToOutput = new HashMap<>();
             for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-                if (assignment.getValue() instanceof SymbolReference) {
+                if (assignment.getValue() instanceof Reference) {
                     inputToOutput.put(Symbol.from(assignment.getValue()), assignment.getKey());
                 }
             }

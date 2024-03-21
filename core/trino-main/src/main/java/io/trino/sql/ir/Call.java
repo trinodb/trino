@@ -15,49 +15,49 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record SimpleCaseExpression(Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+public record Call(ResolvedFunction function, List<Expression> arguments)
         implements Expression
 {
-    public SimpleCaseExpression
+    public Call
     {
-        requireNonNull(operand, "operand is null");
-        whenClauses = ImmutableList.copyOf(whenClauses);
-        requireNonNull(defaultValue, "defaultValue is null");
+        requireNonNull(function, "function is null");
+        arguments = ImmutableList.copyOf(arguments);
     }
 
     @Override
     public Type type()
     {
-        return whenClauses.getFirst().getResult().type();
+        return function.getSignature().getReturnType();
     }
 
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitSimpleCaseExpression(this, context);
+        return visitor.visitCall(this, context);
     }
 
     @Override
-    public List<? extends Expression> getChildren()
+    public List<? extends Expression> children()
     {
-        ImmutableList.Builder<Expression> builder = ImmutableList.<Expression>builder()
-                .add(operand);
+        return arguments;
+    }
 
-        whenClauses.forEach(clause -> {
-            builder.add(clause.getOperand());
-            builder.add(clause.getResult());
-        });
-
-        defaultValue.ifPresent(builder::add);
-
-        return builder.build();
+    @Override
+    public String toString()
+    {
+        return "%s(%s)".formatted(
+                function.getName(),
+                arguments.stream()
+                        .map(Expression::toString)
+                        .collect(Collectors.joining(", ")));
     }
 }

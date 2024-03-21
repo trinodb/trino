@@ -18,8 +18,8 @@ import com.google.common.collect.Multiset;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -57,7 +57,7 @@ public final class ExpressionSymbolInliner
         private final Multiset<String> excludedNames = HashMultiset.create();
 
         @Override
-        public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteReference(Reference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             if (excludedNames.contains(node.name())) {
                 return node;
@@ -69,7 +69,7 @@ public final class ExpressionSymbolInliner
         }
 
         @Override
-        public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteLambda(Lambda node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             excludedNames.addAll(node.arguments().stream()
                     .map(Symbol::getName)

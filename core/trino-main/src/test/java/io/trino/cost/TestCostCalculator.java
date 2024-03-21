@@ -30,8 +30,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.SubPlan;
@@ -67,7 +67,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
@@ -160,7 +160,7 @@ public class TestCostCalculator
     public void testProject()
     {
         TableScanNode tableScan = tableScan("ts", new Symbol(BIGINT, "orderkey"));
-        PlanNode project = project("project", tableScan, new Symbol(VARCHAR, "string"), new Cast(new SymbolReference(BIGINT, "orderkey"), VARCHAR));
+        PlanNode project = project("project", tableScan, new Symbol(VARCHAR, "string"), new Cast(new Reference(BIGINT, "orderkey"), VARCHAR));
         Map<String, PlanCostEstimate> costs = ImmutableMap.of("ts", cpuCost(1000));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "project", statsEstimate(project, 4000),
@@ -188,7 +188,7 @@ public class TestCostCalculator
     public void testFilter()
     {
         TableScanNode tableScan = tableScan("ts", new Symbol(VARCHAR, "string"));
-        IsNullPredicate expression = new IsNullPredicate(new SymbolReference(VARCHAR, "string"));
+        IsNull expression = new IsNull(new Reference(VARCHAR, "string"));
         FilterNode filter = new FilterNode(new PlanNodeId("filter"), tableScan, expression);
         Map<String, PlanCostEstimate> costs = ImmutableMap.of("ts", cpuCost(1000));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
@@ -216,7 +216,7 @@ public class TestCostCalculator
     @Test
     public void testChooseAlternative()
     {
-        FilterNode alternative1 = new FilterNode(new PlanNodeId("alternative1"), tableScan("ts1", new Symbol(VARCHAR, "string")), TRUE_LITERAL);
+        FilterNode alternative1 = new FilterNode(new PlanNodeId("alternative1"), tableScan("ts1", new Symbol(VARCHAR, "string")), TRUE);
         TableScanNode alternative2 = tableScan("alternative2", new Symbol(VARCHAR, "string"));
         ChooseAlternativeNode chooseAlternativeNode = new ChooseAlternativeNode(
                 new PlanNodeId("chooseAlternative"),

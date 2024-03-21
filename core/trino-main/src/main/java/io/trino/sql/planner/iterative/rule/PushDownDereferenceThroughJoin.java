@@ -20,8 +20,8 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SubscriptExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -92,7 +92,7 @@ public class PushDownDereferenceThroughJoin
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
         expressionsBuilder.addAll(projectNode.getAssignments().getExpressions());
         joinNode.getFilter().ifPresent(expressionsBuilder::add);
-        Set<SubscriptExpression> dereferences = extractRowSubscripts(expressionsBuilder.build(), false);
+        Set<Subscript> dereferences = extractRowSubscripts(expressionsBuilder.build(), false);
 
         // Exclude criteria symbols
         ImmutableSet.Builder<Symbol> criteriaSymbolsBuilder = ImmutableSet.builder();
@@ -114,7 +114,7 @@ public class PushDownDereferenceThroughJoin
         Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSymbolAllocator());
 
         // Rewrite project node assignments using new symbols for dereference expressions
-        Map<Expression, SymbolReference> mappings = HashBiMap.create(dereferenceAssignments.getMap())
+        Map<Expression, Reference> mappings = HashBiMap.create(dereferenceAssignments.getMap())
                 .inverse()
                 .entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));

@@ -7,10 +7,10 @@ final aggregation over ()
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 alternatives
-                                    dynamic filter ([SymbolReference[type=bigint, name=ss_addr_sk], SymbolReference[type=bigint, name=ss_cdemo_sk]], await [SymbolReference[type=bigint, name=ss_sold_date_sk], SymbolReference[type=bigint, name=ss_store_sk]])
+                                    dynamic filter ([Reference[type=bigint, name=ss_addr_sk], Reference[type=bigint, name=ss_cdemo_sk]], await [Reference[type=bigint, name=ss_sold_date_sk], Reference[type=bigint, name=ss_store_sk]])
                                         scan store_sales
                                     cache data
-                                        dynamic filter ([SymbolReference[type=bigint, name=ss_addr_sk], SymbolReference[type=bigint, name=ss_cdemo_sk]], await [SymbolReference[type=bigint, name=ss_sold_date_sk], SymbolReference[type=bigint, name=ss_store_sk]])
+                                        dynamic filter ([Reference[type=bigint, name=ss_addr_sk], Reference[type=bigint, name=ss_cdemo_sk]], await [Reference[type=bigint, name=ss_sold_date_sk], Reference[type=bigint, name=ss_store_sk]])
                                             scan store_sales
                                     load from cache
                                 local exchange (GATHER, SINGLE, [])

@@ -25,7 +25,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -415,7 +415,7 @@ public abstract class BaseCostBasedPlanTest
         }
         Expression expression = argument.getExpression();
         requireNonNull(expression, "expression is null");
-        if (expression instanceof SymbolReference symbolReference) {
+        if (expression instanceof Reference symbolReference) {
             return symbolReference.name();
         }
         return expression.toString();

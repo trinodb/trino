@@ -9,11 +9,11 @@ local exchange (GATHER, SINGLE, [])
                                 join (INNER, REPLICATED, can skip output duplicates):
                                     alternatives
                                         partial aggregation over (ss_item_sk)
-                                            dynamic filter ([SymbolReference[type=bigint, name=ss_item_sk]])
+                                            dynamic filter ([Reference[type=bigint, name=ss_item_sk]])
                                                 scan store_sales
                                         cache data
                                             partial aggregation over (ss_item_sk)
-                                                dynamic filter ([SymbolReference[type=bigint, name=ss_item_sk]])
+                                                dynamic filter ([Reference[type=bigint, name=ss_item_sk]])
                                                     scan store_sales
                                         load from cache
                                     local exchange (GATHER, SINGLE, [])
@@ -21,10 +21,10 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, REPLICATED, can skip output duplicates):
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     alternatives
-                                                        dynamic filter (await [SymbolReference[type=bigint, name=inv_date_sk], SymbolReference[type=bigint, name=inv_item_sk]])
+                                                        dynamic filter (await [Reference[type=bigint, name=inv_date_sk], Reference[type=bigint, name=inv_item_sk]])
                                                             scan inventory
                                                         cache data
-                                                            dynamic filter (await [SymbolReference[type=bigint, name=inv_date_sk], SymbolReference[type=bigint, name=inv_item_sk]])
+                                                            dynamic filter (await [Reference[type=bigint, name=inv_date_sk], Reference[type=bigint, name=inv_item_sk]])
                                                                 scan inventory
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])

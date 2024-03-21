@@ -21,29 +21,29 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticNegation;
-import io.trino.sql.ir.BetweenPredicate;
-import io.trino.sql.ir.BindExpression;
+import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Between;
+import io.trino.sql.ir.Bind;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.CoalesceExpression;
-import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.ComparisonExpression.Operator;
+import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Comparison.Operator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Negation;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.NullIf;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.SearchedCaseExpression;
-import io.trino.sql.ir.SimpleCaseExpression;
-import io.trino.sql.ir.SubscriptExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Subscript;
+import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.SpecialForm.Form;
@@ -141,7 +141,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitComparisonExpression(ComparisonExpression node, Void context)
+        protected RowExpression visitComparison(Comparison node, Void context)
         {
             RowExpression left = process(node.left(), context);
             RowExpression right = process(node.right(), context);
@@ -170,7 +170,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitFunctionCall(FunctionCall node, Void context)
+        protected RowExpression visitCall(Call node, Void context)
         {
             List<RowExpression> arguments = node.arguments().stream()
                     .map(value -> process(value, context))
@@ -180,7 +180,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitSymbolReference(SymbolReference node, Void context)
+        protected RowExpression visitReference(Reference node, Void context)
         {
             Integer field = layout.get(Symbol.from(node));
             if (field != null) {
@@ -191,7 +191,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitLambdaExpression(LambdaExpression node, Void context)
+        protected RowExpression visitLambda(Lambda node, Void context)
         {
             return new LambdaDefinitionExpression(
                     node.arguments(),
@@ -199,7 +199,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitBindExpression(BindExpression node, Void context)
+        protected RowExpression visitBind(Bind node, Void context)
         {
             ImmutableList.Builder<Type> valueTypesBuilder = ImmutableList.builder();
             ImmutableList.Builder<RowExpression> argumentsBuilder = ImmutableList.builder();
@@ -215,7 +215,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
+        protected RowExpression visitArithmetic(Arithmetic node, Void context)
         {
             RowExpression left = process(node.left(), context);
             RowExpression right = process(node.right(), context);
@@ -227,7 +227,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitArithmeticNegation(ArithmeticNegation node, Void context)
+        protected RowExpression visitNegation(Negation node, Void context)
         {
             RowExpression expression = process(node.value(), context);
             return call(
@@ -236,7 +236,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitLogicalExpression(LogicalExpression node, Void context)
+        protected RowExpression visitLogical(Logical node, Void context)
         {
             Form form;
             switch (node.operator()) {
@@ -332,7 +332,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitCoalesceExpression(CoalesceExpression node, Void context)
+        protected RowExpression visitCoalesce(Coalesce node, Void context)
         {
             List<RowExpression> arguments = node.operands().stream()
                     .map(value -> process(value, context))
@@ -342,7 +342,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+        protected RowExpression visitSwitch(Switch node, Void context)
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
 
@@ -373,7 +373,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+        protected RowExpression visitCase(Case node, Void context)
         {
             /*
                 Translates an expression like:
@@ -412,7 +412,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitInPredicate(InPredicate node, Void context)
+        protected RowExpression visitIn(In node, Void context)
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
             RowExpression value = process(node.value(), context);
@@ -431,7 +431,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitIsNullPredicate(IsNullPredicate node, Void context)
+        protected RowExpression visitIsNull(IsNull node, Void context)
         {
             RowExpression expression = process(node.value(), context);
 
@@ -439,7 +439,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitNotExpression(NotExpression node, Void context)
+        protected RowExpression visitNot(Not node, Void context)
         {
             return notExpression(process(node.value(), context));
         }
@@ -452,7 +452,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitNullIfExpression(NullIfExpression node, Void context)
+        protected RowExpression visitNullIf(NullIf node, Void context)
         {
             RowExpression first = process(node.first(), context);
             RowExpression second = process(node.second(), context);
@@ -472,7 +472,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitBetweenPredicate(BetweenPredicate node, Void context)
+        protected RowExpression visitBetween(Between node, Void context)
         {
             RowExpression value = process(node.value(), context);
             RowExpression min = process(node.min(), context);
@@ -489,7 +489,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitSubscriptExpression(SubscriptExpression node, Void context)
+        protected RowExpression visitSubscript(Subscript node, Void context)
         {
             RowExpression base = process(node.base(), context);
             RowExpression index = process(node.index(), context);

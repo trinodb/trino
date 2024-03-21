@@ -16,7 +16,7 @@ package io.trino.sql;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.Decimals;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.IrExpressionInterpreter;
@@ -44,7 +44,7 @@ public class TestSqlToRowExpressionTranslator
     {
         Expression expression = new Constant(BIGINT, 1L);
         for (int i = 0; i < 100; i++) {
-            expression = new CoalesceExpression(expression, new Constant(BIGINT, 2L));
+            expression = new Coalesce(expression, new Constant(BIGINT, 2L));
         }
         translateAndOptimize(expression);
     }

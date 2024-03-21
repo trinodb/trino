@@ -12,14 +12,14 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [s_state])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (await [SymbolReference[type=bigint, name=ss_sold_date_sk], SymbolReference[type=bigint, name=ss_store_sk]])
+                                                        dynamic filter (await [Reference[type=bigint, name=ss_sold_date_sk], Reference[type=bigint, name=ss_store_sk]])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter ([SymbolReference[type=char(2), name=s_state]])
+                                                            dynamic filter ([Reference[type=char(2), name=s_state]])
                                                                 scan store
                                             single aggregation over (s_state_57)
                                                 final aggregation over (s_state_57)
@@ -29,7 +29,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 join (INNER, REPLICATED):
                                                                     partial aggregation over (ss_store_sk_12)
                                                                         join (INNER, REPLICATED):
-                                                                            dynamic filter (await [SymbolReference[type=bigint, name=ss_sold_date_sk_28], SymbolReference[type=bigint, name=ss_store_sk_12]])
+                                                                            dynamic filter (await [Reference[type=bigint, name=ss_sold_date_sk_28], Reference[type=bigint, name=ss_store_sk_12]])
                                                                                 scan store_sales
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])

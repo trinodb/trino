@@ -34,8 +34,8 @@ import java.util.stream.Stream;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
-import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -45,30 +45,30 @@ public final class IrUtils
 
     public static List<Expression> extractConjuncts(Expression expression)
     {
-        return extractPredicates(LogicalExpression.Operator.AND, expression);
+        return extractPredicates(Logical.Operator.AND, expression);
     }
 
     public static List<Expression> extractDisjuncts(Expression expression)
     {
-        return extractPredicates(LogicalExpression.Operator.OR, expression);
+        return extractPredicates(Logical.Operator.OR, expression);
     }
 
-    public static List<Expression> extractPredicates(LogicalExpression expression)
+    public static List<Expression> extractPredicates(Logical expression)
     {
         return extractPredicates(expression.operator(), expression);
     }
 
-    public static List<Expression> extractPredicates(LogicalExpression.Operator operator, Expression expression)
+    public static List<Expression> extractPredicates(Logical.Operator operator, Expression expression)
     {
         ImmutableList.Builder<Expression> resultBuilder = ImmutableList.builder();
         extractPredicates(operator, expression, resultBuilder);
         return resultBuilder.build();
     }
 
-    private static void extractPredicates(LogicalExpression.Operator operator, Expression expression, ImmutableList.Builder<Expression> resultBuilder)
+    private static void extractPredicates(Logical.Operator operator, Expression expression, ImmutableList.Builder<Expression> resultBuilder)
     {
-        if (expression instanceof LogicalExpression logicalExpression && logicalExpression.operator() == operator) {
-            for (Expression term : logicalExpression.terms()) {
+        if (expression instanceof Logical logical && logical.operator() == operator) {
+            for (Expression term : logical.terms()) {
                 extractPredicates(operator, term, resultBuilder);
             }
         }
@@ -84,7 +84,7 @@ public final class IrUtils
 
     public static Expression and(Collection<Expression> expressions)
     {
-        return logicalExpression(LogicalExpression.Operator.AND, expressions);
+        return logicalExpression(Logical.Operator.AND, expressions);
     }
 
     public static Expression or(Expression... expressions)
@@ -94,10 +94,10 @@ public final class IrUtils
 
     public static Expression or(Collection<Expression> expressions)
     {
-        return logicalExpression(LogicalExpression.Operator.OR, expressions);
+        return logicalExpression(Logical.Operator.OR, expressions);
     }
 
-    public static Expression logicalExpression(LogicalExpression.Operator operator, Collection<Expression> expressions)
+    public static Expression logicalExpression(Logical.Operator operator, Collection<Expression> expressions)
     {
         requireNonNull(operator, "operator is null");
         requireNonNull(expressions, "expressions is null");
@@ -105,9 +105,9 @@ public final class IrUtils
         if (expressions.isEmpty()) {
             switch (operator) {
                 case AND:
-                    return TRUE_LITERAL;
+                    return TRUE;
                 case OR:
-                    return FALSE_LITERAL;
+                    return FALSE;
             }
             throw new IllegalArgumentException("Unsupported LogicalExpression operator");
         }
@@ -116,12 +116,12 @@ public final class IrUtils
             return Iterables.getOnlyElement(expressions);
         }
 
-        return new LogicalExpression(operator, ImmutableList.copyOf(expressions));
+        return new Logical(operator, ImmutableList.copyOf(expressions));
     }
 
-    public static Expression combinePredicates(LogicalExpression.Operator operator, Collection<Expression> expressions)
+    public static Expression combinePredicates(Logical.Operator operator, Collection<Expression> expressions)
     {
-        if (operator == LogicalExpression.Operator.AND) {
+        if (operator == Logical.Operator.AND) {
             return combineConjuncts(expressions);
         }
 
@@ -139,13 +139,13 @@ public final class IrUtils
 
         List<Expression> conjuncts = expressions.stream()
                 .flatMap(e -> extractConjuncts(e).stream())
-                .filter(e -> !e.equals(TRUE_LITERAL))
+                .filter(e -> !e.equals(TRUE))
                 .collect(toList());
 
         conjuncts = removeDuplicates(conjuncts);
 
-        if (conjuncts.contains(FALSE_LITERAL)) {
-            return FALSE_LITERAL;
+        if (conjuncts.contains(FALSE)) {
+            return FALSE;
         }
 
         return and(conjuncts);
@@ -157,11 +157,11 @@ public final class IrUtils
 
         List<Expression> conjuncts = expressions.stream()
                 .flatMap(e -> extractConjuncts(e).stream())
-                .filter(e -> !e.equals(TRUE_LITERAL))
+                .filter(e -> !e.equals(TRUE))
                 .collect(toList());
 
-        if (conjuncts.contains(FALSE_LITERAL)) {
-            return FALSE_LITERAL;
+        if (conjuncts.contains(FALSE)) {
+            return FALSE;
         }
 
         return and(conjuncts);
@@ -174,7 +174,7 @@ public final class IrUtils
 
     public static Expression combineDisjuncts(Collection<Expression> expressions)
     {
-        return combineDisjunctsWithDefault(expressions, FALSE_LITERAL);
+        return combineDisjunctsWithDefault(expressions, FALSE);
     }
 
     public static Expression combineDisjunctsWithDefault(Collection<Expression> expressions, Expression emptyDefault)
@@ -183,13 +183,13 @@ public final class IrUtils
 
         List<Expression> disjuncts = expressions.stream()
                 .flatMap(e -> extractDisjuncts(e).stream())
-                .filter(e -> !e.equals(FALSE_LITERAL))
+                .filter(e -> !e.equals(FALSE))
                 .collect(toList());
 
         disjuncts = removeDuplicates(disjuncts);
 
-        if (disjuncts.contains(TRUE_LITERAL)) {
-            return TRUE_LITERAL;
+        if (disjuncts.contains(TRUE)) {
+            return TRUE;
         }
 
         return disjuncts.isEmpty() ? emptyDefault : or(disjuncts);
@@ -232,7 +232,7 @@ public final class IrUtils
 
                 ImmutableList.Builder<Expression> nullConjuncts = ImmutableList.builder();
                 for (Symbol symbol : symbols) {
-                    nullConjuncts.add(new IsNullPredicate(symbol.toSymbolReference()));
+                    nullConjuncts.add(new IsNull(symbol.toSymbolReference()));
                 }
 
                 resultDisjunct.add(and(nullConjuncts.build()));
@@ -267,7 +267,7 @@ public final class IrUtils
     public static Stream<Expression> preOrder(Expression node)
     {
         return stream(
-                Traverser.forTree((SuccessorsFunction<Expression>) Expression::getChildren)
+                Traverser.forTree((SuccessorsFunction<Expression>) Expression::children)
                         .depthFirstPreOrder(requireNonNull(node, "node is null")));
     }
 }

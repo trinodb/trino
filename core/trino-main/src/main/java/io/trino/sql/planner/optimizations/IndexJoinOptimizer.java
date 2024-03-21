@@ -26,9 +26,9 @@ import io.trino.metadata.ResolvedIndex;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -59,7 +59,7 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static java.util.Objects.requireNonNull;
@@ -274,7 +274,7 @@ public class IndexJoinOptimizer
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Context> context)
         {
-            return planTableScan(node, BooleanLiteral.TRUE_LITERAL, context.get());
+            return planTableScan(node, Booleans.TRUE, context.get());
         }
 
         private PlanNode planTableScan(TableScanNode node, Expression predicate, Context context)
@@ -317,7 +317,7 @@ public class IndexJoinOptimizer
                     domainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
                     decomposedPredicate.getRemainingExpression());
 
-            if (!resultingPredicate.equals(TRUE_LITERAL)) {
+            if (!resultingPredicate.equals(TRUE)) {
                 // todo it is likely we end up with redundant filters here because the predicate push down has already been run... the fix is to run predicate push down again
                 source = new FilterNode(idAllocator.getNextId(), source, resultingPredicate);
             }
@@ -331,7 +331,7 @@ public class IndexJoinOptimizer
             // Rewrite the lookup symbols in terms of only the pre-projected symbols that have direct translations
             Set<Symbol> newLookupSymbols = context.get().getLookupSymbols().stream()
                     .map(node.getAssignments()::get)
-                    .filter(SymbolReference.class::isInstance)
+                    .filter(Reference.class::isInstance)
                     .map(Symbol::from)
                     .collect(toImmutableSet());
 
@@ -480,7 +480,7 @@ public class IndexJoinOptimizer
             public Map<Symbol, Symbol> visitProject(ProjectNode node, Set<Symbol> lookupSymbols)
             {
                 // Map from output Symbols to source Symbols
-                Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getAssignments().getMap(), SymbolReference.class::isInstance), Symbol::from);
+                Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getAssignments().getMap(), Reference.class::isInstance), Symbol::from);
                 Map<Symbol, Symbol> outputToSourceMap = lookupSymbols.stream()
                         .filter(directSymbolTranslationOutputMap.keySet()::contains)
                         .collect(toImmutableMap(identity(), directSymbolTranslationOutputMap::get));

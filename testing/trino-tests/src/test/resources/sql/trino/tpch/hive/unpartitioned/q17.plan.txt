@@ -8,12 +8,12 @@ final aggregation over ()
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, [partkey_6])
                                     partial aggregation over (partkey_6)
-                                        dynamic filter ([SymbolReference[type=bigint, name=partkey_6]])
+                                        dynamic filter ([Reference[type=bigint, name=partkey_6]])
                                             scan lineitem
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [partkey])
                                 join (INNER, REPLICATED):
-                                    dynamic filter ([SymbolReference[type=bigint, name=partkey]])
+                                    dynamic filter ([Reference[type=bigint, name=partkey]])
                                         scan lineitem
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])

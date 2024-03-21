@@ -33,8 +33,8 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionFormatter;
-import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
@@ -115,7 +115,7 @@ public final class CanonicalSubplanExtractor
     public static CacheColumnId canonicalExpressionToColumnId(Expression expression)
     {
         requireNonNull(expression, "expression is null");
-        if (expression instanceof SymbolReference symbolReference) {
+        if (expression instanceof Reference symbolReference) {
             // symbol -> column id translation should be reversible via columnIdToSymbol method
             return new CacheColumnId(symbolReference.name());
         }
@@ -176,7 +176,7 @@ public final class CanonicalSubplanExtractor
             // only subset of aggregation functions are supported
             boolean allSupportedAggregations = node.getAggregations().values().stream().allMatch(aggregation ->
                     // only symbol arguments are supported (no lambdas yet)
-                    aggregation.getArguments().stream().allMatch(argument -> argument instanceof SymbolReference)
+                    aggregation.getArguments().stream().allMatch(argument -> argument instanceof Reference)
                             && !aggregation.isDistinct()
                             && aggregation.getFilter().isEmpty()
                             && aggregation.getOrderingScheme().isEmpty()
@@ -413,8 +413,8 @@ public final class CanonicalSubplanExtractor
 
         private boolean containsLambdaExpression(Expression expression)
         {
-            return stream(Traverser.<Expression>forTree(Expression::getChildren).depthFirstPreOrder(expression))
-                    .anyMatch(instanceOf(LambdaExpression.class));
+            return stream(Traverser.<Expression>forTree(Expression::children).depthFirstPreOrder(expression))
+                    .anyMatch(instanceOf(Lambda.class));
         }
 
         @Override

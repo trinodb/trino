@@ -14,7 +14,7 @@ final aggregation over ()
                                                     intermediate aggregation over (d_date_3, ss_customer_sk)
                                                         join (INNER, REPLICATED, can skip output duplicates):
                                                             partial aggregation over (ss_customer_sk, ss_sold_date_sk)
-                                                                dynamic filter ([SymbolReference[type=bigint, name=ss_customer_sk]], await [SymbolReference[type=bigint, name=ss_sold_date_sk]])
+                                                                dynamic filter ([Reference[type=bigint, name=ss_customer_sk]], await [Reference[type=bigint, name=ss_sold_date_sk]])
                                                                     scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -32,7 +32,7 @@ final aggregation over ()
                                                     intermediate aggregation over (cs_bill_customer_sk, d_date_17)
                                                         join (INNER, REPLICATED, can skip output duplicates):
                                                             partial aggregation over (cs_bill_customer_sk, cs_sold_date_sk)
-                                                                dynamic filter ([SymbolReference[type=bigint, name=cs_bill_customer_sk]], await [SymbolReference[type=bigint, name=cs_sold_date_sk]])
+                                                                dynamic filter ([Reference[type=bigint, name=cs_bill_customer_sk]], await [Reference[type=bigint, name=cs_sold_date_sk]])
                                                                     scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -50,7 +50,7 @@ final aggregation over ()
                                                     intermediate aggregation over (d_date_72, ws_bill_customer_sk)
                                                         join (INNER, REPLICATED, can skip output duplicates):
                                                             partial aggregation over (ws_bill_customer_sk, ws_sold_date_sk)
-                                                                dynamic filter ([SymbolReference[type=bigint, name=ws_bill_customer_sk]], await [SymbolReference[type=bigint, name=ws_sold_date_sk]])
+                                                                dynamic filter ([Reference[type=bigint, name=ws_bill_customer_sk]], await [Reference[type=bigint, name=ws_sold_date_sk]])
                                                                     scan web_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])

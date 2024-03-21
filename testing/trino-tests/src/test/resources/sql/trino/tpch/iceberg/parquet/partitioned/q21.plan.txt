@@ -17,15 +17,15 @@ local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, [orderkey])
                                                                     join (INNER, PARTITIONED):
                                                                         remote exchange (REPARTITION, HASH, [suppkey_0])
-                                                                            dynamic filter ([SymbolReference[type=bigint, name=orderkey], SymbolReference[type=bigint, name=orderkey], SymbolReference[type=bigint, name=suppkey_0]])
+                                                                            dynamic filter ([Reference[type=bigint, name=orderkey], Reference[type=bigint, name=orderkey], Reference[type=bigint, name=suppkey_0]])
                                                                                 scan lineitem
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPARTITION, HASH, [suppkey])
-                                                                                dynamic filter (await [SymbolReference[type=bigint, name=nationkey]])
+                                                                                dynamic filter (await [Reference[type=bigint, name=nationkey]])
                                                                                     scan supplier
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, [orderkey_4])
-                                                                        dynamic filter ([SymbolReference[type=bigint, name=orderkey_4]])
+                                                                        dynamic filter ([Reference[type=bigint, name=orderkey_4]])
                                                                             scan orders
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])

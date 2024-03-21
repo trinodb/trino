@@ -11,11 +11,11 @@ local exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [ss_customer_sk, ss_item_sk, ss_ticket_number])
-                                                    dynamic filter ([SymbolReference[type=bigint, name=ss_customer_sk], SymbolReference[type=bigint, name=ss_item_sk], SymbolReference[type=bigint, name=ss_ticket_number]], await [SymbolReference[type=bigint, name=ss_sold_date_sk], SymbolReference[type=bigint, name=ss_store_sk]])
+                                                    dynamic filter ([Reference[type=bigint, name=ss_customer_sk], Reference[type=bigint, name=ss_item_sk], Reference[type=bigint, name=ss_ticket_number]], await [Reference[type=bigint, name=ss_sold_date_sk], Reference[type=bigint, name=ss_store_sk]])
                                                         scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [sr_customer_sk, sr_item_sk, sr_ticket_number])
-                                                        dynamic filter (await [SymbolReference[type=bigint, name=sr_returned_date_sk]])
+                                                        dynamic filter (await [Reference[type=bigint, name=sr_returned_date_sk]])
                                                             scan store_returns
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])

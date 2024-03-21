@@ -26,11 +26,11 @@ import com.google.common.collect.Multimap;
 import io.trino.SystemSessionProperties;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.PartitioningHandle;
@@ -862,10 +862,10 @@ public class HashGenerationOptimizer
         for (Symbol symbol : symbols) {
             Expression hashField = BuiltinFunctionCallBuilder.resolve(metadata)
                     .setName(HASH_CODE)
-                    .addArgument(symbol.getType(), new SymbolReference(BIGINT, symbol.getName()))
+                    .addArgument(symbol.getType(), new Reference(BIGINT, symbol.getName()))
                     .build();
 
-            hashField = new CoalesceExpression(hashField, new Constant(BIGINT, (long) NULL_HASH_CODE));
+            hashField = new Coalesce(hashField, new Constant(BIGINT, (long) NULL_HASH_CODE));
 
             result = BuiltinFunctionCallBuilder.resolve(metadata)
                     .setName("combine_hash")
@@ -921,7 +921,7 @@ public class HashGenerationOptimizer
 
         private static Expression getHashFunctionCall(Expression previousHashValue, Symbol symbol, Metadata metadata)
         {
-            FunctionCall functionCall = BuiltinFunctionCallBuilder.resolve(metadata)
+            Call call = BuiltinFunctionCallBuilder.resolve(metadata)
                     .setName(HASH_CODE)
                     .addArgument(symbol.getType(), symbol.toSymbolReference())
                     .build();
@@ -929,13 +929,13 @@ public class HashGenerationOptimizer
             return BuiltinFunctionCallBuilder.resolve(metadata)
                     .setName("combine_hash")
                     .addArgument(BIGINT, previousHashValue)
-                    .addArgument(BIGINT, orNullHashCode(functionCall))
+                    .addArgument(BIGINT, orNullHashCode(call))
                     .build();
         }
 
         private static Expression orNullHashCode(Expression expression)
         {
-            return new CoalesceExpression(expression, new Constant(BIGINT, (long) NULL_HASH_CODE));
+            return new Coalesce(expression, new Constant(BIGINT, (long) NULL_HASH_CODE));
         }
 
         @Override
@@ -999,7 +999,7 @@ public class HashGenerationOptimizer
     {
         Map<Symbol, Symbol> outputToInput = new HashMap<>();
         for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-            if (assignment.getValue() instanceof SymbolReference) {
+            if (assignment.getValue() instanceof Reference) {
                 outputToInput.put(assignment.getKey(), Symbol.from(assignment.getValue()));
             }
         }

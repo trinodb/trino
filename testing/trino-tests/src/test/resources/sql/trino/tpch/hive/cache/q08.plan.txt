@@ -12,20 +12,20 @@ remote exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [orderkey_11])
                                                     alternatives
-                                                        dynamic filter ([SymbolReference[type=bigint, name=custkey], SymbolReference[type=bigint, name=orderkey_11]])
+                                                        dynamic filter ([Reference[type=bigint, name=custkey], Reference[type=bigint, name=orderkey_11]])
                                                             scan orders
                                                         cache data
-                                                            dynamic filter ([SymbolReference[type=bigint, name=custkey], SymbolReference[type=bigint, name=orderkey_11]])
+                                                            dynamic filter ([Reference[type=bigint, name=custkey], Reference[type=bigint, name=orderkey_11]])
                                                                 scan orders
                                                         load from cache
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [orderkey])
                                                         join (INNER, REPLICATED):
                                                             alternatives
-                                                                dynamic filter ([SymbolReference[type=bigint, name=partkey_5], SymbolReference[type=bigint, name=suppkey_6]])
+                                                                dynamic filter ([Reference[type=bigint, name=partkey_5], Reference[type=bigint, name=suppkey_6]])
                                                                     scan lineitem
                                                                 cache data
-                                                                    dynamic filter ([SymbolReference[type=bigint, name=partkey_5], SymbolReference[type=bigint, name=suppkey_6]])
+                                                                    dynamic filter ([Reference[type=bigint, name=partkey_5], Reference[type=bigint, name=suppkey_6]])
                                                                         scan lineitem
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])
@@ -39,20 +39,20 @@ remote exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [custkey_16])
                                                 join (INNER, REPLICATED):
                                                     alternatives
-                                                        dynamic filter (await [SymbolReference[type=bigint, name=nationkey_19]])
+                                                        dynamic filter (await [Reference[type=bigint, name=nationkey_19]])
                                                             scan customer
                                                         cache data
-                                                            dynamic filter (await [SymbolReference[type=bigint, name=nationkey_19]])
+                                                            dynamic filter (await [Reference[type=bigint, name=nationkey_19]])
                                                                 scan customer
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             join (INNER, REPLICATED):
                                                                 alternatives
-                                                                    dynamic filter (await [SymbolReference[type=bigint, name=regionkey]])
+                                                                    dynamic filter (await [Reference[type=bigint, name=regionkey]])
                                                                         scan nation
                                                                     cache data
-                                                                        dynamic filter (await [SymbolReference[type=bigint, name=regionkey]])
+                                                                        dynamic filter (await [Reference[type=bigint, name=regionkey]])
                                                                             scan nation
                                                                     load from cache
                                                                 local exchange (GATHER, SINGLE, [])
@@ -66,10 +66,10 @@ remote exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [suppkey])
                                         join (INNER, REPLICATED):
                                             alternatives
-                                                dynamic filter (await [SymbolReference[type=bigint, name=nationkey]])
+                                                dynamic filter (await [Reference[type=bigint, name=nationkey]])
                                                     scan supplier
                                                 cache data
-                                                    dynamic filter (await [SymbolReference[type=bigint, name=nationkey]])
+                                                    dynamic filter (await [Reference[type=bigint, name=nationkey]])
                                                         scan supplier
                                                 load from cache
                                             local exchange (GATHER, SINGLE, [])

@@ -10,7 +10,7 @@ local exchange (GATHER, SINGLE, [])
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                dynamic filter (await [SymbolReference[type=bigint, name=ws_ship_date_sk], SymbolReference[type=bigint, name=ws_ship_mode_sk], SymbolReference[type=bigint, name=ws_warehouse_sk], SymbolReference[type=bigint, name=ws_web_site_sk]])
+                                                dynamic filter (await [Reference[type=bigint, name=ws_ship_date_sk], Reference[type=bigint, name=ws_ship_mode_sk], Reference[type=bigint, name=ws_warehouse_sk], Reference[type=bigint, name=ws_web_site_sk]])
                                                     scan web_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])

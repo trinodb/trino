@@ -23,15 +23,15 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.BetweenPredicate;
-import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Between;
+import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.EffectivePredicateExtractor;
 import io.trino.sql.planner.EqualityInference;
@@ -88,13 +88,13 @@ import static io.trino.SystemSessionProperties.isPredicatePushdownUseTableProper
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.ir.IrUtils.filterDeterministicConjuncts;
@@ -112,7 +112,7 @@ import static java.util.Objects.requireNonNull;
 public class PredicatePushDown
         implements PlanOptimizer
 {
-    private static final Set<ComparisonExpression.Operator> DYNAMIC_FILTERING_SUPPORTED_COMPARISONS = ImmutableSet.of(
+    private static final Set<Comparison.Operator> DYNAMIC_FILTERING_SUPPORTED_COMPARISONS = ImmutableSet.of(
             EQUAL,
             GREATER_THAN,
             GREATER_THAN_OR_EQUAL,
@@ -141,7 +141,7 @@ public class PredicatePushDown
         return SimplePlanRewriter.rewriteWith(
                 new Rewriter(context.symbolAllocator(), context.idAllocator(), plannerContext, context.session(), useTableProperties, dynamicFiltering),
                 plan,
-                TRUE_LITERAL);
+                TRUE);
     }
 
     private static class Rewriter
@@ -179,8 +179,8 @@ public class PredicatePushDown
         @Override
         public PlanNode visitPlan(PlanNode node, RewriteContext<Expression> context)
         {
-            PlanNode rewrittenNode = context.defaultRewrite(node, TRUE_LITERAL);
-            if (!context.get().equals(TRUE_LITERAL)) {
+            PlanNode rewrittenNode = context.defaultRewrite(node, TRUE);
+            if (!context.get().equals(TRUE)) {
                 // Drop in a FilterNode b/c we cannot push our predicate down any further
                 rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, context.get());
             }
@@ -193,7 +193,7 @@ public class PredicatePushDown
             boolean modified = false;
             ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
-                Map<Symbol, SymbolReference> outputsToInputs = new HashMap<>();
+                Map<Symbol, Reference> outputsToInputs = new HashMap<>();
                 for (int index = 0; index < node.getInputs().get(i).size(); index++) {
                     outputsToInputs.put(
                             node.getOutputSymbols().get(index),
@@ -303,13 +303,13 @@ public class PredicatePushDown
             return dependencies.entrySet().stream()
                     .allMatch(entry -> entry.getValue() == 1
                             || node.getAssignments().get(entry.getKey()) instanceof Constant
-                            || node.getAssignments().get(entry.getKey()) instanceof SymbolReference);
+                            || node.getAssignments().get(entry.getKey()) instanceof Reference);
         }
 
         @Override
         public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Expression> context)
         {
-            Map<Symbol, SymbolReference> commonGroupingSymbolMapping = node.getGroupingColumns().entrySet().stream()
+            Map<Symbol, Reference> commonGroupingSymbolMapping = node.getGroupingColumns().entrySet().stream()
                     .filter(entry -> node.getCommonGroupingColumns().contains(entry.getKey()))
                     .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
 
@@ -446,8 +446,8 @@ public class PredicatePushDown
                     newJoinPredicate = rightOuterJoinPushDownResult.getJoinPredicate();
                 }
                 case FULL -> {
-                    leftPredicate = TRUE_LITERAL;
-                    rightPredicate = TRUE_LITERAL;
+                    leftPredicate = TRUE;
+                    rightPredicate = TRUE;
                     postJoinPredicate = inheritedPredicate;
                     newJoinPredicate = joinPredicate;
                 }
@@ -472,7 +472,7 @@ public class PredicatePushDown
             ImmutableList.Builder<Expression> joinFilterBuilder = ImmutableList.builder();
             for (Expression conjunct : extractConjuncts(newJoinPredicate)) {
                 if (joinEqualityExpression(conjunct, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols())) {
-                    ComparisonExpression equality = (ComparisonExpression) conjunct;
+                    Comparison equality = (Comparison) conjunct;
 
                     boolean alignedComparison = node.getLeft().getOutputSymbols().containsAll(extractUnique(equality.left()));
                     Expression leftExpression = alignedComparison ? equality.left() : equality.right();
@@ -513,7 +513,7 @@ public class PredicatePushDown
             }
 
             Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(joinFilter));
-            if (newJoinFilter.get().equals(TRUE_LITERAL)) {
+            if (newJoinFilter.get().equals(TRUE)) {
                 newJoinFilter = Optional.empty();
             }
 
@@ -557,7 +557,7 @@ public class PredicatePushDown
                         node.getReorderJoinStatsAndCost());
             }
 
-            if (!postJoinPredicate.equals(TRUE_LITERAL)) {
+            if (!postJoinPredicate.equals(TRUE)) {
                 output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
             }
 
@@ -585,24 +585,24 @@ public class PredicatePushDown
                             equiJoinClauses
                                     .stream()
                                     .map(clause -> new DynamicFilterExpression(
-                                            new ComparisonExpression(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference()))),
+                                            new Comparison(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference()))),
                             joinFilterClauses.stream()
                                     .flatMap(Rewriter::tryConvertBetweenIntoComparisons)
                                     .filter(clause -> joinDynamicFilteringExpression(clause, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols()))
                                     .map(expression -> {
-                                        if (expression instanceof NotExpression notExpression) {
-                                            ComparisonExpression comparison = (ComparisonExpression) notExpression.value();
-                                            return new DynamicFilterExpression(new ComparisonExpression(EQUAL, comparison.left(), comparison.right()), true);
+                                        if (expression instanceof Not notExpression) {
+                                            Comparison comparison = (Comparison) notExpression.value();
+                                            return new DynamicFilterExpression(new Comparison(EQUAL, comparison.left(), comparison.right()), true);
                                         }
-                                        return new DynamicFilterExpression((ComparisonExpression) expression);
+                                        return new DynamicFilterExpression((Comparison) expression);
                                     })
                                     .map(expression -> {
-                                        ComparisonExpression comparison = expression.getComparison();
+                                        Comparison comparison = expression.getComparison();
                                         Expression leftExpression = comparison.left();
                                         Expression rightExpression = comparison.right();
                                         boolean alignedComparison = node.getLeft().getOutputSymbols().containsAll(extractUnique(leftExpression));
                                         return new DynamicFilterExpression(
-                                                new ComparisonExpression(
+                                                new Comparison(
                                                         alignedComparison ? comparison.operator() : comparison.operator().flip(),
                                                         alignedComparison ? leftExpression : rightExpression,
                                                         alignedComparison ? rightExpression : leftExpression),
@@ -618,7 +618,7 @@ public class PredicatePushDown
             // Collect build symbols:
             Set<Symbol> buildSymbols = clauses.stream()
                     .map(DynamicFilterExpression::getComparison)
-                    .map(ComparisonExpression::right)
+                    .map(Comparison::right)
                     .map(Symbol::from)
                     .collect(toImmutableSet());
 
@@ -634,7 +634,7 @@ public class PredicatePushDown
             List<Expression> predicates = clauses
                     .stream()
                     .map(clause -> {
-                        ComparisonExpression comparison = clause.getComparison();
+                        Comparison comparison = clause.getComparison();
                         Expression probeExpression = comparison.left();
                         Symbol buildSymbol = Symbol.from(comparison.right());
                         // we can take type of buildSymbol instead probeExpression as comparison expression must have the same type on both sides
@@ -649,31 +649,31 @@ public class PredicatePushDown
 
         private static Stream<Expression> tryConvertBetweenIntoComparisons(Expression clause)
         {
-            if (clause instanceof BetweenPredicate between) {
+            if (clause instanceof Between between) {
                 return Stream.of(
-                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, between.value(), between.min()),
-                        new ComparisonExpression(LESS_THAN_OR_EQUAL, between.value(), between.max()));
+                        new Comparison(GREATER_THAN_OR_EQUAL, between.value(), between.min()),
+                        new Comparison(LESS_THAN_OR_EQUAL, between.value(), between.max()));
             }
             return Stream.of(clause);
         }
 
         private static class DynamicFilterExpression
         {
-            private final ComparisonExpression comparison;
+            private final Comparison comparison;
             private final boolean nullAllowed;
 
-            private DynamicFilterExpression(ComparisonExpression comparison)
+            private DynamicFilterExpression(Comparison comparison)
             {
                 this(comparison, false);
             }
 
-            private DynamicFilterExpression(ComparisonExpression comparison, boolean nullAllowed)
+            private DynamicFilterExpression(Comparison comparison, boolean nullAllowed)
             {
                 this.comparison = requireNonNull(comparison, "comparison is null");
                 this.nullAllowed = nullAllowed;
             }
 
-            public ComparisonExpression getComparison()
+            public Comparison getComparison()
             {
                 return comparison;
             }
@@ -756,7 +756,7 @@ public class PredicatePushDown
             }
 
             newJoinPredicate = simplifyExpression(newJoinPredicate);
-            verify(!newJoinPredicate.equals(BooleanLiteral.FALSE_LITERAL), "Spatial join predicate is missing");
+            verify(!newJoinPredicate.equals(Booleans.FALSE), "Spatial join predicate is missing");
 
             PlanNode leftSource = context.rewrite(node.getLeft(), leftPredicate);
             PlanNode rightSource = context.rewrite(node.getRight(), rightPredicate);
@@ -791,7 +791,7 @@ public class PredicatePushDown
                         node.getKdbTree());
             }
 
-            if (!postJoinPredicate.equals(TRUE_LITERAL)) {
+            if (!postJoinPredicate.equals(TRUE)) {
                 output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
             }
 
@@ -800,7 +800,7 @@ public class PredicatePushDown
 
         private Symbol symbolForExpression(Expression expression)
         {
-            if (expression instanceof SymbolReference) {
+            if (expression instanceof Reference) {
                 return Symbol.from(expression);
             }
 
@@ -998,9 +998,9 @@ public class PredicatePushDown
                 if (leftRewrittenConjunct == null && rightRewrittenConjunct == null) {
                     // Try to push one side of BETWEEN that could not be pushed down entirely.
                     // We do it only if BETWEEN value is a simple expression, which we assume is cheap to evaluate twice.
-                    if (conjunct instanceof BetweenPredicate between && isSimpleExpression(between.value())) {
-                        Expression lteMax = new ComparisonExpression(LESS_THAN_OR_EQUAL, between.value(), between.max());
-                        Expression gteMin = new ComparisonExpression(GREATER_THAN_OR_EQUAL, between.value(), between.min());
+                    if (conjunct instanceof Between between && isSimpleExpression(between.value())) {
+                        Expression lteMax = new Comparison(LESS_THAN_OR_EQUAL, between.value(), between.max());
+                        Expression gteMin = new Comparison(GREATER_THAN_OR_EQUAL, between.value(), between.min());
                         Expression leftRewrittenLteMax = allInference.rewrite(lteMax, leftScope);
                         Expression leftRewrittenGteMin = allInference.rewrite(gteMin, leftScope);
                         Expression rightRewrittenLteMax = allInference.rewrite(lteMax, rightScope);
@@ -1078,7 +1078,7 @@ public class PredicatePushDown
                     combineConjuncts(leftPushDownConjuncts.build()),
                     combineConjuncts(rightPushDownConjuncts.build()),
                     combineConjuncts(joinConjuncts.build()),
-                    TRUE_LITERAL);
+                    TRUE);
         }
 
         private boolean isSimpleExpression(Expression expression)
@@ -1088,10 +1088,10 @@ public class PredicatePushDown
 
         private boolean isSimpleExpression(Expression expression, boolean allowArithmeticBinaryExpression)
         {
-            return expression instanceof SymbolReference ||
+            return expression instanceof Reference ||
                     expression instanceof Constant ||
                     (expression instanceof Cast cast && isSimpleExpression(cast.expression(), allowArithmeticBinaryExpression)) ||
-                    (allowArithmeticBinaryExpression && expression instanceof ArithmeticBinaryExpression arithmeticExpression &&
+                    (allowArithmeticBinaryExpression && expression instanceof Arithmetic arithmeticExpression &&
                             isSimpleExpression(arithmeticExpression.left(), false) &&
                             isSimpleExpression(arithmeticExpression.right(), false));
         }
@@ -1259,13 +1259,13 @@ public class PredicatePushDown
 
         private boolean joinDynamicFilteringExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
         {
-            ComparisonExpression comparison;
-            if (expression instanceof NotExpression notExpression) {
-                boolean isDistinctFrom = joinComparisonExpression(notExpression.value(), leftSymbols, rightSymbols, ImmutableSet.of(IS_DISTINCT_FROM));
+            Comparison comparison;
+            if (expression instanceof Not not) {
+                boolean isDistinctFrom = joinComparisonExpression(not.value(), leftSymbols, rightSymbols, ImmutableSet.of(IS_DISTINCT_FROM));
                 if (!isDistinctFrom) {
                     return false;
                 }
-                comparison = (ComparisonExpression) notExpression.value();
+                comparison = (Comparison) not.value();
                 Set<Type> expressionTypes = ImmutableSet.of(
                         comparison.left().type(),
                         comparison.right().type());
@@ -1278,18 +1278,18 @@ public class PredicatePushDown
                 if (!joinComparisonExpression(expression, leftSymbols, rightSymbols, DYNAMIC_FILTERING_SUPPORTED_COMPARISONS)) {
                     return false;
                 }
-                comparison = (ComparisonExpression) expression;
+                comparison = (Comparison) expression;
             }
 
             // Build side expression must be a symbol reference, since DynamicFilterSourceOperator can only collect column values (not expressions)
-            return (comparison.right() instanceof SymbolReference && rightSymbols.contains(Symbol.from(comparison.right())))
-                    || (comparison.left() instanceof SymbolReference && rightSymbols.contains(Symbol.from(comparison.left())));
+            return (comparison.right() instanceof Reference && rightSymbols.contains(Symbol.from(comparison.right())))
+                    || (comparison.left() instanceof Reference && rightSymbols.contains(Symbol.from(comparison.left())));
         }
 
-        private boolean joinComparisonExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols, Set<ComparisonExpression.Operator> operators)
+        private boolean joinComparisonExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols, Set<Comparison.Operator> operators)
         {
             // At this point in time, our join predicates need to be deterministic
-            if (expression instanceof ComparisonExpression comparison && isDeterministic(expression)) {
+            if (expression instanceof Comparison comparison && isDeterministic(expression)) {
                 if (operators.contains(comparison.operator())) {
                     Set<Symbol> symbols1 = extractUnique(comparison.left());
                     Set<Symbol> symbols2 = extractUnique(comparison.right());
@@ -1321,7 +1321,7 @@ public class PredicatePushDown
 
             // TODO: see if there are predicates that can be inferred from the semi join output
 
-            PlanNode rewrittenFilteringSource = context.defaultRewrite(node.getFilteringSource(), TRUE_LITERAL);
+            PlanNode rewrittenFilteringSource = context.defaultRewrite(node.getFilteringSource(), TRUE);
 
             // Push inheritedPredicates down to the source if they don't involve the semi join output
             ImmutableSet<Symbol> sourceScope = ImmutableSet.copyOf(node.getSource().getOutputSymbols());
@@ -1371,7 +1371,7 @@ public class PredicatePushDown
             Expression deterministicInheritedPredicate = filterDeterministicConjuncts(metadata, inheritedPredicate);
             Expression sourceEffectivePredicate = filterDeterministicConjuncts(metadata, effectivePredicateExtractor.extract(session, node.getSource()));
             Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(metadata, effectivePredicateExtractor.extract(session, node.getFilteringSource()));
-            Expression joinExpression = new ComparisonExpression(
+            Expression joinExpression = new Comparison(
                     EQUAL,
                     node.getSourceJoinSymbol().toSymbolReference(),
                     node.getFilteringSourceJoinSymbol().toSymbolReference());
@@ -1590,7 +1590,7 @@ public class PredicatePushDown
         {
             Expression predicate = simplifyExpression(context.get());
 
-            if (!TRUE_LITERAL.equals(predicate)) {
+            if (!TRUE.equals(predicate)) {
                 return new FilterNode(idAllocator.getNextId(), node, predicate);
             }
 

@@ -7,7 +7,7 @@ final aggregation over ()
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    dynamic filter ([SymbolReference[type=bigint, name=ss_addr_sk], SymbolReference[type=bigint, name=ss_cdemo_sk]], await [SymbolReference[type=bigint, name=ss_hdemo_sk], SymbolReference[type=bigint, name=ss_sold_date_sk], SymbolReference[type=bigint, name=ss_store_sk]])
+                                    dynamic filter ([Reference[type=bigint, name=ss_addr_sk], Reference[type=bigint, name=ss_cdemo_sk]], await [Reference[type=bigint, name=ss_hdemo_sk], Reference[type=bigint, name=ss_sold_date_sk], Reference[type=bigint, name=ss_store_sk]])
                                         scan store_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])

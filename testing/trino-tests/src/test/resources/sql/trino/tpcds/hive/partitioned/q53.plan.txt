@@ -12,7 +12,7 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ss_store_sk])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (await [SymbolReference[type=bigint, name=ss_item_sk], SymbolReference[type=bigint, name=ss_sold_date_sk], SymbolReference[type=bigint, name=ss_store_sk]])
+                                                        dynamic filter (await [Reference[type=bigint, name=ss_item_sk], Reference[type=bigint, name=ss_sold_date_sk], Reference[type=bigint, name=ss_store_sk]])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

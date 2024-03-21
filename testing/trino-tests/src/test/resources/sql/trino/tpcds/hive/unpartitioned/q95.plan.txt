@@ -13,15 +13,15 @@ final aggregation over ()
                                                 join (INNER, PARTITIONED, can skip output duplicates):
                                                     join (INNER, PARTITIONED, can skip output duplicates):
                                                         remote exchange (REPARTITION, HASH, [ws_order_number_107])
-                                                            dynamic filter ([SymbolReference[type=bigint, name=ws_order_number_107], SymbolReference[type=bigint, name=ws_order_number_107], SymbolReference[type=bigint, name=ws_order_number_107]])
+                                                            dynamic filter ([Reference[type=bigint, name=ws_order_number_107], Reference[type=bigint, name=ws_order_number_107], Reference[type=bigint, name=ws_order_number_107]])
                                                                 scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, [wr_order_number])
-                                                                dynamic filter ([SymbolReference[type=bigint, name=wr_order_number], SymbolReference[type=bigint, name=wr_order_number]])
+                                                                dynamic filter ([Reference[type=bigint, name=wr_order_number], Reference[type=bigint, name=wr_order_number]])
                                                                     scan web_returns
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, [ws_order_number_144])
-                                                            dynamic filter ([SymbolReference[type=bigint, name=ws_order_number_144]])
+                                                            dynamic filter ([Reference[type=bigint, name=ws_order_number_144]])
                                                                 scan web_sales
                                     join (INNER, PARTITIONED):
                                         final aggregation over (ws_order_number_26)
@@ -29,18 +29,18 @@ final aggregation over ()
                                                 partial aggregation over (ws_order_number_26)
                                                     join (INNER, PARTITIONED, can skip output duplicates):
                                                         remote exchange (REPARTITION, HASH, [ws_order_number_26])
-                                                            dynamic filter ([SymbolReference[type=bigint, name=ws_order_number_26], SymbolReference[type=bigint, name=ws_order_number_26]])
+                                                            dynamic filter ([Reference[type=bigint, name=ws_order_number_26], Reference[type=bigint, name=ws_order_number_26]])
                                                                 scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, [ws_order_number_63])
-                                                                dynamic filter ([SymbolReference[type=bigint, name=ws_order_number_63]])
+                                                                dynamic filter ([Reference[type=bigint, name=ws_order_number_63]])
                                                                     scan web_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ws_order_number])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter ([SymbolReference[type=bigint, name=ws_ship_addr_sk]], await [SymbolReference[type=bigint, name=ws_ship_date_sk], SymbolReference[type=bigint, name=ws_web_site_sk]])
+                                                            dynamic filter ([Reference[type=bigint, name=ws_ship_addr_sk]], await [Reference[type=bigint, name=ws_ship_date_sk], Reference[type=bigint, name=ws_web_site_sk]])
                                                                 scan web_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])

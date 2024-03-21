@@ -3,7 +3,7 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             join (INNER, REPLICATED):
                 join (INNER, REPLICATED):
-                    dynamic filter ([SymbolReference[type=bigint, name=suppkey]])
+                    dynamic filter ([Reference[type=bigint, name=suppkey]])
                         scan supplier
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPLICATE, BROADCAST, [])

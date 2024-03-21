@@ -63,12 +63,12 @@ import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.CoalesceExpression;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
@@ -150,8 +150,8 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
@@ -584,7 +584,7 @@ public class LogicalPlanner
                 expression = coerceOrCastToTableType(input, tableType, queryType);
             }
             if (!column.isNullable()) {
-                expression = new CoalesceExpression(expression, createNullNotAllowedFailExpression(column.getName(), tableType));
+                expression = new Coalesce(expression, createNullNotAllowedFailExpression(column.getName(), tableType));
             }
             assignments.put(output, expression);
             insertedColumnsBuilder.add(column);
@@ -671,11 +671,11 @@ public class LogicalPlanner
 
     private static Function<Expression, Expression> failIfPredicateIsNotMet(Metadata metadata, ErrorCodeSupplier errorCode, String errorMessage)
     {
-        FunctionCall fail = failFunction(metadata, errorCode, errorMessage);
-        return predicate -> ifExpression(predicate, TRUE_LITERAL, new Cast(fail, BOOLEAN));
+        Call fail = failFunction(metadata, errorCode, errorMessage);
+        return predicate -> ifExpression(predicate, TRUE, new Cast(fail, BOOLEAN));
     }
 
-    public static FunctionCall failFunction(Metadata metadata, ErrorCodeSupplier errorCode, String errorMessage)
+    public static Call failFunction(Metadata metadata, ErrorCodeSupplier errorCode, String errorMessage)
     {
         Object rawValue = Slices.utf8Slice(errorMessage);
         return BuiltinFunctionCallBuilder.resolve(metadata)
@@ -853,11 +853,11 @@ public class LogicalPlanner
 
         return ifExpression(
                 // check if the trimmed value fits in the target type
-                new ComparisonExpression(
+                new Comparison(
                         GREATER_THAN_OR_EQUAL,
                         new Constant(BIGINT, (long) targetLength),
-                        new CoalesceExpression(
-                                new FunctionCall(
+                        new Coalesce(
+                                new Call(
                                         spaceTrimmedLength,
                                         ImmutableList.of(new Cast(expression, VARCHAR))),
                                 new Constant(BIGINT, 0L))),

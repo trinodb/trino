@@ -27,11 +27,11 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SearchedCaseExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
@@ -222,7 +222,7 @@ public class PreAggregateCaseAggregations
         assignments.putIdentities(aggregationNode.getGroupingKeys());
         newProjectionSymbols.forEach((aggregation, symbol) -> assignments.put(
                 symbol,
-                new SearchedCaseExpression(ImmutableList.of(
+                new Case(ImmutableList.of(
                         new WhenClause(
                                 aggregation.getOperand(),
                                 preAggregations.get(new PreAggregationKey(aggregation)).getAggregationSymbol().toSymbolReference())),
@@ -298,7 +298,7 @@ public class PreAggregateCaseAggregations
                             }
 
                             // Wrap the preProjection with IF to retain the conditional nature on the CASE aggregation(s) during pre-aggregation
-                            if (!(preProjection instanceof SymbolReference || preProjection instanceof Constant)) {
+                            if (!(preProjection instanceof Reference || preProjection instanceof Constant)) {
                                 Expression unionConditions = or(caseAggregations.stream()
                                         .map(CaseAggregation::getOperand)
                                         .collect(toImmutableSet()));
@@ -331,7 +331,7 @@ public class PreAggregateCaseAggregations
     private Optional<CaseAggregation> extractCaseAggregation(Symbol aggregationSymbol, Aggregation aggregation, ProjectNode projectNode, Context context)
     {
         if (aggregation.getArguments().size() != 1
-                || !(aggregation.getArguments().get(0) instanceof SymbolReference)
+                || !(aggregation.getArguments().get(0) instanceof Reference)
                 || aggregation.isDistinct()
                 || aggregation.getFilter().isPresent()
                 || aggregation.getMask().isPresent()
@@ -358,7 +358,7 @@ public class PreAggregateCaseAggregations
             unwrappedProjection = projection;
         }
 
-        if (!(unwrappedProjection instanceof SearchedCaseExpression caseExpression)) {
+        if (!(unwrappedProjection instanceof Case caseExpression)) {
             return Optional.empty();
         }
 

@@ -17,11 +17,11 @@ local exchange (GATHER, SINGLE, [])
                                                                 join (INNER, REPLICATED):
                                                                     join (INNER, PARTITIONED):
                                                                         remote exchange (REPARTITION, HASH, [cs_item_sk])
-                                                                            dynamic filter ([SymbolReference[type=bigint, name=cs_bill_cdemo_sk], SymbolReference[type=bigint, name=cs_item_sk], SymbolReference[type=bigint, name=cs_item_sk], SymbolReference[type=integer, name=cs_quantity]], await [SymbolReference[type=bigint, name=cs_bill_hdemo_sk], SymbolReference[type=bigint, name=cs_ship_date_sk], SymbolReference[type=bigint, name=cs_sold_date_sk]])
+                                                                            dynamic filter ([Reference[type=bigint, name=cs_bill_cdemo_sk], Reference[type=bigint, name=cs_item_sk], Reference[type=bigint, name=cs_item_sk], Reference[type=integer, name=cs_quantity]], await [Reference[type=bigint, name=cs_bill_hdemo_sk], Reference[type=bigint, name=cs_ship_date_sk], Reference[type=bigint, name=cs_sold_date_sk]])
                                                                                 scan catalog_sales
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPARTITION, HASH, [inv_item_sk])
-                                                                                dynamic filter ([SymbolReference[type=bigint, name=inv_item_sk]], await [SymbolReference[type=bigint, name=inv_date_sk], SymbolReference[type=bigint, name=inv_warehouse_sk]])
+                                                                                dynamic filter ([Reference[type=bigint, name=inv_item_sk]], await [Reference[type=bigint, name=inv_date_sk], Reference[type=bigint, name=inv_warehouse_sk]])
                                                                                     scan inventory
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -37,7 +37,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 scan household_demographics
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (await [SymbolReference[type=integer, name=d_week_seq]])
+                                                            dynamic filter (await [Reference[type=integer, name=d_week_seq]])
                                                                 scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])

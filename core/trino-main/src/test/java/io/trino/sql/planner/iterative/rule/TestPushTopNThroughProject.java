@@ -19,11 +19,11 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.SubscriptExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
@@ -34,7 +34,7 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
@@ -66,12 +66,12 @@ public class TestPushTopNThroughProject
                             1,
                             ImmutableList.of(projectedA),
                             p.project(
-                                    Assignments.of(projectedA, new SymbolReference(BIGINT, "a"), projectedB, new SymbolReference(BIGINT, "b")),
+                                    Assignments.of(projectedA, new Reference(BIGINT, "a"), projectedB, new Reference(BIGINT, "b")),
                                     p.values(a, b)));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("projectedA", expression(new SymbolReference(BIGINT, "a")), "projectedB", expression(new SymbolReference(BIGINT, "b"))),
+                                ImmutableMap.of("projectedA", expression(new Reference(BIGINT, "a")), "projectedB", expression(new Reference(BIGINT, "b"))),
                                 topN(1, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a", "b"))));
     }
 
@@ -89,15 +89,15 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(projectedA),
                             p.project(
                                     Assignments.of(
-                                            projectedA, new SymbolReference(BIGINT, "a"),
-                                            projectedC, new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "a"), new SymbolReference(BIGINT, "b"))),
+                                            projectedA, new Reference(BIGINT, "a"),
+                                            projectedC, new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))),
                                     p.values(a, b)));
                 })
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "projectedA", expression(new SymbolReference(BIGINT, "a")),
-                                        "projectedC", expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "a"), new SymbolReference(BIGINT, "b")))),
+                                        "projectedA", expression(new Reference(BIGINT, "a")),
+                                        "projectedC", expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
                                 topN(1, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a", "b"))));
     }
 
@@ -125,9 +125,9 @@ public class TestPushTopNThroughProject
                             1,
                             ImmutableList.of(projectedA),
                             p.project(
-                                    Assignments.of(projectedA, new SymbolReference(BIGINT, "a")),
+                                    Assignments.of(projectedA, new Reference(BIGINT, "a")),
                                     p.filter(
-                                            BooleanLiteral.TRUE_LITERAL,
+                                            Booleans.TRUE,
                                             p.tableScan(ImmutableList.of(), ImmutableMap.of()))));
                 }).doesNotFire();
     }
@@ -143,7 +143,7 @@ public class TestPushTopNThroughProject
                             1,
                             ImmutableList.of(projectedA),
                             p.project(
-                                    Assignments.of(projectedA, new SymbolReference(BIGINT, "a")),
+                                    Assignments.of(projectedA, new Reference(BIGINT, "a")),
                                     p.tableScan(
                                             ImmutableList.of(a),
                                             ImmutableMap.of(a, new TestingMetadata.TestingColumnHandle("a")))));
@@ -161,8 +161,8 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(p.symbol("c")),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new SubscriptExpression(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 1L)))
-                                            .put(p.symbol("c"), new SubscriptExpression(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 2L)))
+                                            .put(p.symbol("b"), new Subscript(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 1L)))
+                                            .put(p.symbol("c"), new Subscript(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 2L)))
                                             .build(),
                                     p.values(a)));
                 }).doesNotFire();
@@ -180,7 +180,7 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(d),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new SubscriptExpression(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 1L)))
+                                            .put(p.symbol("b"), new Subscript(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 1L)))
                                             .put(p.symbol("c", rowType), a.toSymbolReference())
                                             .putIdentity(d)
                                             .build(),
@@ -188,7 +188,7 @@ public class TestPushTopNThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(BIGINT, new SymbolReference(BIGINT, "a"), new Constant(INTEGER, 1L))), "c", expression(new SymbolReference(BIGINT, "a")), "d", expression(new SymbolReference(BIGINT, "d"))),
+                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new Subscript(BIGINT, new Reference(BIGINT, "a"), new Constant(INTEGER, 1L))), "c", expression(new Reference(BIGINT, "a")), "d", expression(new Reference(BIGINT, "d"))),
                                 topN(
                                         1,
                                         ImmutableList.of(sort("d", ASCENDING, FIRST)),

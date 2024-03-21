@@ -13,7 +13,7 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [sr_customer_sk, sr_store_sk])
                                                     partial aggregation over (sr_customer_sk, sr_store_sk)
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter ([SymbolReference[type=bigint, name=sr_customer_sk]], await [SymbolReference[type=bigint, name=sr_returned_date_sk], SymbolReference[type=bigint, name=sr_store_sk]])
+                                                            dynamic filter ([Reference[type=bigint, name=sr_customer_sk]], await [Reference[type=bigint, name=sr_returned_date_sk], Reference[type=bigint, name=sr_store_sk]])
                                                                 scan store_returns
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -33,7 +33,7 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [sr_customer_sk_8, sr_store_sk_12])
                                                     partial aggregation over (sr_customer_sk_8, sr_store_sk_12)
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (await [SymbolReference[type=bigint, name=sr_returned_date_sk_25]])
+                                                            dynamic filter (await [Reference[type=bigint, name=sr_returned_date_sk_25]])
                                                                 scan store_returns
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])

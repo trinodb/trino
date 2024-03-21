@@ -18,11 +18,11 @@ import io.trino.Session;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
 
@@ -44,7 +44,7 @@ public class RemoveRedundantDateTrunc
     {
         requireNonNull(plannerContext, "plannerContext is null");
 
-        if (expression instanceof SymbolReference) {
+        if (expression instanceof Reference) {
             return expression;
         }
         return ExpressionTreeRewriter.rewriteWith(new Visitor(session, plannerContext), expression);
@@ -63,7 +63,7 @@ public class RemoveRedundantDateTrunc
         }
 
         @Override
-        public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteCall(Call node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             CatalogSchemaFunctionName functionName = node.function().getName();
             if (functionName.equals(builtinFunctionName("date_trunc")) && node.arguments().size() == 2) {

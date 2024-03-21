@@ -5,7 +5,7 @@ final aggregation over ()
                 cross join:
                     join (LEFT, REPLICATED):
                         join (INNER, REPLICATED):
-                            dynamic filter ([SymbolReference[type=bigint, name=partkey]])
+                            dynamic filter ([Reference[type=bigint, name=partkey]])
                                 scan lineitem
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])

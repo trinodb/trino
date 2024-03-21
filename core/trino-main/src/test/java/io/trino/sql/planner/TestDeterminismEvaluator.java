@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
 import io.trino.type.FunctionType;
 import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
@@ -33,7 +33,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeterminismEvaluator
@@ -48,34 +48,34 @@ public class TestDeterminismEvaluator
         assertThat(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))
         )).isFalse();
         assertThat(DeterminismEvaluator.isDeterministic(function("uuid"))).isFalse();
-        assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(new SymbolReference(DOUBLE, "symbol"))))).isTrue();
+        assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(new Reference(DOUBLE, "symbol"))))).isTrue();
         assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand"))))).isFalse();
         assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "abs",
                         ImmutableList.of(DOUBLE),
-                        ImmutableList.of(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(new SymbolReference(DOUBLE, "symbol")))))
+                        ImmutableList.of(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(new Reference(DOUBLE, "symbol")))))
         )).isTrue();
         assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
-                        ImmutableList.of(lambda(new Symbol(INTEGER, "a"), comparison(GREATER_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 0L)))))
+                        ImmutableList.of(lambda(new Symbol(INTEGER, "a"), comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)))))
         )).isTrue();
         assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
-                        ImmutableList.of(lambda(new Symbol(INTEGER, "a"), comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(new SymbolReference(INTEGER, "a"))), new Constant(INTEGER, 0L)))))
+                        ImmutableList.of(lambda(new Symbol(INTEGER, "a"), comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(new Reference(INTEGER, "a"))), new Constant(INTEGER, 0L)))))
         )).isFalse();
     }
 
-    private FunctionCall function(String name)
+    private Call function(String name)
     {
         return function(name, ImmutableList.of(), ImmutableList.of());
     }
 
-    private FunctionCall function(String name, List<Type> types, List<Expression> arguments)
+    private Call function(String name, List<Type> types, List<Expression> arguments)
     {
         return functionResolution
                 .functionCallBuilder(name)
@@ -83,13 +83,13 @@ public class TestDeterminismEvaluator
                 .build();
     }
 
-    private static ComparisonExpression comparison(ComparisonExpression.Operator operator, Expression left, Expression right)
+    private static Comparison comparison(Comparison.Operator operator, Expression left, Expression right)
     {
-        return new ComparisonExpression(operator, left, right);
+        return new Comparison(operator, left, right);
     }
 
-    private static LambdaExpression lambda(Symbol symbol, Expression body)
+    private static Lambda lambda(Symbol symbol, Expression body)
     {
-        return new LambdaExpression(ImmutableList.of(symbol), body);
+        return new Lambda(ImmutableList.of(symbol), body);
     }
 }

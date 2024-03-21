@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineDisjunctsWithDefault;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -123,9 +123,9 @@ public class ImplementFilteredAggregations
                     mask));
         }
 
-        Expression predicate = TRUE_LITERAL;
+        Expression predicate = TRUE;
         if (!aggregationNode.hasNonEmptyGroupingSet() && !aggregateWithoutFilterOrMaskPresent) {
-            predicate = combineDisjunctsWithDefault(maskSymbols.build(), TRUE_LITERAL);
+            predicate = combineDisjunctsWithDefault(maskSymbols.build(), TRUE);
         }
 
         // identity projection for all existing inputs

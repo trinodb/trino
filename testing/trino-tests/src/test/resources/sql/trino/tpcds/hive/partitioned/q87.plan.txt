@@ -14,7 +14,7 @@ final aggregation over ()
                                                     intermediate aggregation over (d_date_3, ss_customer_sk)
                                                         join (INNER, REPLICATED, can skip output duplicates):
                                                             partial aggregation over (ss_customer_sk, ss_sold_date_sk)
-                                                                dynamic filter ([SymbolReference[type=bigint, name=ss_customer_sk]], await [SymbolReference[type=bigint, name=ss_sold_date_sk]])
+                                                                dynamic filter ([Reference[type=bigint, name=ss_customer_sk]], await [Reference[type=bigint, name=ss_sold_date_sk]])
                                                                     scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -29,12 +29,12 @@ final aggregation over ()
                                         partial aggregation over (c_first_name_55, c_last_name_56, d_date_18)
                                             join (INNER, PARTITIONED, can skip output duplicates):
                                                 remote exchange (REPARTITION, HASH, [c_customer_sk_47])
-                                                    dynamic filter ([SymbolReference[type=bigint, name=c_customer_sk_47]])
+                                                    dynamic filter ([Reference[type=bigint, name=c_customer_sk_47]])
                                                         scan customer
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [cs_bill_customer_sk])
                                                         join (INNER, REPLICATED, can skip output duplicates):
-                                                            dynamic filter (await [SymbolReference[type=bigint, name=cs_sold_date_sk]])
+                                                            dynamic filter (await [Reference[type=bigint, name=cs_sold_date_sk]])
                                                                 scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -46,12 +46,12 @@ final aggregation over ()
                                         partial aggregation over (c_first_name_111, c_last_name_112, d_date_74)
                                             join (INNER, PARTITIONED, can skip output duplicates):
                                                 remote exchange (REPARTITION, HASH, [c_customer_sk_103])
-                                                    dynamic filter ([SymbolReference[type=bigint, name=c_customer_sk_103]])
+                                                    dynamic filter ([Reference[type=bigint, name=c_customer_sk_103]])
                                                         scan customer
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [ws_bill_customer_sk])
                                                         join (INNER, REPLICATED, can skip output duplicates):
-                                                            dynamic filter (await [SymbolReference[type=bigint, name=ws_sold_date_sk]])
+                                                            dynamic filter (await [Reference[type=bigint, name=ws_sold_date_sk]])
                                                                 scan web_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])

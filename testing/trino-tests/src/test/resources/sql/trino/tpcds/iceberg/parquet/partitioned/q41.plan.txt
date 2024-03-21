@@ -11,7 +11,7 @@ local exchange (GATHER, SINGLE, [])
                                         partial aggregation over (i_manufact_14, i_manufact_id, i_product_name, unique)
                                             join (INNER, PARTITIONED, can skip output duplicates):
                                                 remote exchange (REPARTITION, HASH, [i_manufact_14])
-                                                    dynamic filter ([SymbolReference[type=varchar, name=i_manufact_14]])
+                                                    dynamic filter ([Reference[type=varchar, name=i_manufact_14]])
                                                         scan item
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [i_manufact])

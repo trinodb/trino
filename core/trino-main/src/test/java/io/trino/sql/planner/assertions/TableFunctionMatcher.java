@@ -24,7 +24,7 @@ import io.trino.spi.function.table.Descriptor;
 import io.trino.spi.function.table.DescriptorArgument;
 import io.trino.spi.function.table.ScalarArgument;
 import io.trino.spi.function.table.TableArgument;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
@@ -128,10 +128,10 @@ public class TableFunctionMatcher
                 if (!specificationMatches) {
                     return NO_MATCH;
                 }
-                Set<SymbolReference> expectedPassThrough = expectedTableArgument.passThroughSymbols().stream()
+                Set<Reference> expectedPassThrough = expectedTableArgument.passThroughSymbols().stream()
                         .map(symbolAliases::get)
                         .collect(toImmutableSet());
-                Set<SymbolReference> actualPassThrough = argumentProperties.getPassThroughSpecification().columns().stream()
+                Set<Reference> actualPassThrough = argumentProperties.getPassThroughSpecification().columns().stream()
                         .map(PassThroughColumn::symbol)
                         .map(Symbol::toSymbolReference)
                         .collect(toImmutableSet());
@@ -149,7 +149,7 @@ public class TableFunctionMatcher
             return NO_MATCH;
         }
 
-        ImmutableMap.Builder<String, SymbolReference> properOutputsMapping = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Reference> properOutputsMapping = ImmutableMap.builder();
         for (int i = 0; i < properOutputs.size(); i++) {
             properOutputsMapping.put(properOutputs.get(i), tableFunctionNode.getProperOutputs().get(i).toSymbolReference());
         }

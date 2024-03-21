@@ -23,10 +23,10 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.FieldId;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.ResolvedField;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.Subscript;
 import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.NodeRef;
 
@@ -40,7 +40,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static java.util.Objects.requireNonNull;
 
 public final class GroupingOperationRewriter
@@ -91,13 +91,13 @@ public final class GroupingOperationRewriter
                 .collect(toImmutableList());
 
         // It is necessary to add a 1 to the groupId because the underlying array is indexed starting at 1
-        return new SubscriptExpression(
+        return new Subscript(
                 type,
                 BuiltinFunctionCallBuilder.resolve(metadata)
                         .setName(ArrayConstructor.NAME)
                         .setArguments(Collections.nCopies(groupingResults.size(), type), groupingResults)
                         .build(),
-                new ArithmeticBinaryExpression(
+                new Arithmetic(
                         metadata.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT)),
                         ADD,
                         groupIdSymbol.get().toSymbolReference(),

@@ -19,9 +19,9 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.BooleanLiteral;
-import io.trino.sql.ir.CoalesceExpression;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Booleans;
+import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -40,8 +40,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -133,7 +133,7 @@ public class TransformExistsApplyToCorrelatedJoin
                         applyNode.getSubquery(),
                         1L,
                         false),
-                Assignments.of(subqueryTrue, TRUE_LITERAL));
+                Assignments.of(subqueryTrue, TRUE));
 
         PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(plannerContext, context.getSymbolAllocator(), context.getLookup());
         if (decorrelator.decorrelateFilters(subquery, applyNode.getCorrelation()).isEmpty()) {
@@ -143,7 +143,7 @@ public class TransformExistsApplyToCorrelatedJoin
         Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().keySet());
         Assignments.Builder assignments = Assignments.builder()
                 .putIdentities(applyNode.getInput().getOutputSymbols())
-                .put(exists, new CoalesceExpression(ImmutableList.of(subqueryTrue.toSymbolReference(), BooleanLiteral.FALSE_LITERAL)));
+                .put(exists, new Coalesce(ImmutableList.of(subqueryTrue.toSymbolReference(), Booleans.FALSE)));
 
         return Optional.of(new ProjectNode(context.getIdAllocator().getNextId(),
                 new CorrelatedJoinNode(
@@ -152,7 +152,7 @@ public class TransformExistsApplyToCorrelatedJoin
                         subquery,
                         applyNode.getCorrelation(),
                         LEFT,
-                        TRUE_LITERAL,
+                        TRUE,
                         applyNode.getOriginSubquery()),
                 assignments.build()));
     }
@@ -179,10 +179,10 @@ public class TransformExistsApplyToCorrelatedJoin
                                         Optional.empty(),
                                         Optional.empty())),
                                 globalAggregation()),
-                        Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Constant(BIGINT, 0L)))),
+                        Assignments.of(exists, new Comparison(GREATER_THAN, count.toSymbolReference(), new Constant(BIGINT, 0L)))),
                 applyNode.getCorrelation(),
                 INNER,
-                TRUE_LITERAL,
+                TRUE,
                 applyNode.getOriginSubquery());
     }
 }

@@ -9,11 +9,11 @@ remote exchange (GATHER, SINGLE, [])
                                 join (INNER, REPLICATED):
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, [suppkey])
-                                            dynamic filter ([SymbolReference[type=bigint, name=suppkey]])
+                                            dynamic filter ([Reference[type=bigint, name=suppkey]])
                                                 scan partsupp
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [suppkey_0])
-                                                dynamic filter (await [SymbolReference[type=bigint, name=nationkey]])
+                                                dynamic filter (await [Reference[type=bigint, name=nationkey]])
                                                     scan supplier
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -27,11 +27,11 @@ remote exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [suppkey_10])
-                                                    dynamic filter ([SymbolReference[type=bigint, name=suppkey_10]])
+                                                    dynamic filter ([Reference[type=bigint, name=suppkey_10]])
                                                         scan partsupp
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [suppkey_16])
-                                                        dynamic filter (await [SymbolReference[type=bigint, name=nationkey_19]])
+                                                        dynamic filter (await [Reference[type=bigint, name=nationkey_19]])
                                                             scan supplier
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])

@@ -49,10 +49,10 @@ import static java.util.Objects.requireNonNull;
  * This expression facilitates desugaring.
  */
 @JsonSerialize
-public record BindExpression(List<Expression> values, LambdaExpression function)
+public record Bind(List<Expression> values, Lambda function)
         implements Expression
 {
-    public BindExpression
+    public Bind
     {
         requireNonNull(function, "function is null");
         values = ImmutableList.copyOf(values);
@@ -72,11 +72,11 @@ public record BindExpression(List<Expression> values, LambdaExpression function)
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitBindExpression(this, context);
+        return visitor.visitBind(this, context);
     }
 
     @Override
-    public List<? extends Expression> getChildren()
+    public List<? extends Expression> children()
     {
         return ImmutableList.<Expression>builder()
                 .addAll(values)

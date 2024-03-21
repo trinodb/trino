@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 
@@ -132,7 +132,7 @@ public class Assignments
     {
         Expression expression = assignments.get(output);
 
-        return expression instanceof SymbolReference && ((SymbolReference) expression).name().equals(output.getName());
+        return expression instanceof Reference && ((Reference) expression).name().equals(output.getName());
     }
 
     public boolean isIdentity()
@@ -140,7 +140,7 @@ public class Assignments
         for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
             Expression expression = entry.getValue();
             Symbol symbol = entry.getKey();
-            if (!(expression instanceof SymbolReference && ((SymbolReference) expression).name().equals(symbol.getName()))) {
+            if (!(expression instanceof Reference && ((Reference) expression).name().equals(symbol.getName()))) {
                 return false;
             }
         }

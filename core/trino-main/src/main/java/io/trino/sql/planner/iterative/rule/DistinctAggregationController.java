@@ -20,7 +20,7 @@ import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.metadata.Metadata;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -202,7 +202,7 @@ public class DistinctAggregationController
                 .values().stream()
                 .filter(AggregationNode.Aggregation::isDistinct)
                 .flatMap(aggregation -> aggregation.getArguments().stream())
-                .filter(expression -> expression instanceof SymbolReference)
+                .filter(expression -> expression instanceof Reference)
                 .map(Symbol::from)
                 .collect(toImmutableSet());
 

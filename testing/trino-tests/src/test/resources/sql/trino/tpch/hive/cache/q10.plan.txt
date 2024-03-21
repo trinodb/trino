@@ -9,10 +9,10 @@ local exchange (GATHER, SINGLE, [])
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, [custkey_5])
                                         alternatives
-                                            dynamic filter ([SymbolReference[type=bigint, name=custkey_5]], await [SymbolReference[type=bigint, name=nationkey]])
+                                            dynamic filter ([Reference[type=bigint, name=custkey_5]], await [Reference[type=bigint, name=nationkey]])
                                                 scan customer
                                             cache data
-                                                dynamic filter ([SymbolReference[type=bigint, name=custkey_5]], await [SymbolReference[type=bigint, name=nationkey]])
+                                                dynamic filter ([Reference[type=bigint, name=custkey_5]], await [Reference[type=bigint, name=nationkey]])
                                                     scan customer
                                             load from cache
                                     local exchange (GATHER, SINGLE, [])
@@ -20,10 +20,10 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [orderkey])
                                                     alternatives
-                                                        dynamic filter ([SymbolReference[type=bigint, name=orderkey]])
+                                                        dynamic filter ([Reference[type=bigint, name=orderkey]])
                                                             scan lineitem
                                                         cache data
-                                                            dynamic filter ([SymbolReference[type=bigint, name=orderkey]])
+                                                            dynamic filter ([Reference[type=bigint, name=orderkey]])
                                                                 scan lineitem
                                                         load from cache
                                                 local exchange (GATHER, SINGLE, [])

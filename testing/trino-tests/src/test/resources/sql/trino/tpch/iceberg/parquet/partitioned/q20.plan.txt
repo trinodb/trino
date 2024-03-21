@@ -4,7 +4,7 @@ remote exchange (GATHER, SINGLE, [])
             join (INNER, PARTITIONED):
                 remote exchange (REPARTITION, HASH, [suppkey])
                     join (INNER, REPLICATED):
-                        dynamic filter ([SymbolReference[type=bigint, name=suppkey]], await [SymbolReference[type=bigint, name=nationkey]])
+                        dynamic filter ([Reference[type=bigint, name=suppkey]], await [Reference[type=bigint, name=nationkey]])
                             scan supplier
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPLICATE, BROADCAST, [])
@@ -17,7 +17,7 @@ remote exchange (GATHER, SINGLE, [])
                                     join (LEFT, PARTITIONED, can skip output duplicates):
                                         join (INNER, PARTITIONED, can skip output duplicates):
                                             remote exchange (REPARTITION, HASH, [partkey])
-                                                dynamic filter ([SymbolReference[type=bigint, name=partkey]])
+                                                dynamic filter ([Reference[type=bigint, name=partkey]])
                                                     scan partsupp
                                             final aggregation over (partkey_11)
                                                 local exchange (GATHER, SINGLE, [])

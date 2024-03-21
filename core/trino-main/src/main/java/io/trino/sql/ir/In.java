@@ -20,15 +20,14 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record IsNullPredicate(Expression value)
+public record In(Expression value, List<Expression> valueList)
         implements Expression
 {
-    public IsNullPredicate
+    public In
     {
-        requireNonNull(value, "value is null");
+        valueList = ImmutableList.copyOf(valueList);
     }
 
     @Override
@@ -40,12 +39,15 @@ public record IsNullPredicate(Expression value)
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitIsNullPredicate(this, context);
+        return visitor.visitIn(this, context);
     }
 
     @Override
-    public List<? extends Expression> getChildren()
+    public List<? extends Expression> children()
     {
-        return ImmutableList.of(value);
+        return ImmutableList.<Expression>builder()
+                .add(value)
+                .addAll(valueList)
+                .build();
     }
 }

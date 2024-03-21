@@ -22,9 +22,9 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -149,10 +149,10 @@ public class RewriteSpatialPartitioningAggregation
 
     private boolean isStEnvelopeFunctionCall(Expression expression, ResolvedFunction stEnvelopeFunction)
     {
-        if (!(expression instanceof FunctionCall functionCall)) {
+        if (!(expression instanceof Call call)) {
             return false;
         }
 
-        return functionCall.function().getFunctionId().equals(stEnvelopeFunction.getFunctionId());
+        return call.function().getFunctionId().equals(stEnvelopeFunction.getFunctionId());
     }
 }

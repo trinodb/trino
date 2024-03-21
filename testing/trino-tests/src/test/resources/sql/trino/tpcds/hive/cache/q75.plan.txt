@@ -11,10 +11,10 @@ local exchange (GATHER, SINGLE, [])
                                         join (RIGHT, PARTITIONED, can skip output duplicates):
                                             remote exchange (REPARTITION, HASH, [cr_item_sk, cr_order_number])
                                                 alternatives
-                                                    dynamic filter ([SymbolReference[type=bigint, name=cr_item_sk], SymbolReference[type=bigint, name=cr_order_number]])
+                                                    dynamic filter ([Reference[type=bigint, name=cr_item_sk], Reference[type=bigint, name=cr_order_number]])
                                                         scan catalog_returns
                                                     cache data
-                                                        dynamic filter ([SymbolReference[type=bigint, name=cr_item_sk], SymbolReference[type=bigint, name=cr_order_number]])
+                                                        dynamic filter ([Reference[type=bigint, name=cr_item_sk], Reference[type=bigint, name=cr_order_number]])
                                                             scan catalog_returns
                                                     load from cache
                                             local exchange (GATHER, SINGLE, [])
@@ -22,19 +22,19 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED, can skip output duplicates):
                                                         join (INNER, REPLICATED, can skip output duplicates):
                                                             alternatives
-                                                                dynamic filter ([SymbolReference[type=bigint, name=cs_item_sk]], await [SymbolReference[type=bigint, name=cs_sold_date_sk]])
+                                                                dynamic filter ([Reference[type=bigint, name=cs_item_sk]], await [Reference[type=bigint, name=cs_sold_date_sk]])
                                                                     scan catalog_sales
                                                                 cache data
-                                                                    dynamic filter ([SymbolReference[type=bigint, name=cs_item_sk]], await [SymbolReference[type=bigint, name=cs_sold_date_sk]])
+                                                                    dynamic filter ([Reference[type=bigint, name=cs_item_sk]], await [Reference[type=bigint, name=cs_sold_date_sk]])
                                                                         scan catalog_sales
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     alternatives
-                                                                        dynamic filter ([SymbolReference[type=integer, name=i_brand_id_7], SymbolReference[type=integer, name=i_category_id_9], SymbolReference[type=integer, name=i_class_id_8], SymbolReference[type=integer, name=i_manufact_id_10]])
+                                                                        dynamic filter ([Reference[type=integer, name=i_brand_id_7], Reference[type=integer, name=i_category_id_9], Reference[type=integer, name=i_class_id_8], Reference[type=integer, name=i_manufact_id_10]])
                                                                             scan item
                                                                         cache data
-                                                                            dynamic filter ([SymbolReference[type=integer, name=i_brand_id_7], SymbolReference[type=integer, name=i_category_id_9], SymbolReference[type=integer, name=i_class_id_8], SymbolReference[type=integer, name=i_manufact_id_10]])
+                                                                            dynamic filter ([Reference[type=integer, name=i_brand_id_7], Reference[type=integer, name=i_category_id_9], Reference[type=integer, name=i_class_id_8], Reference[type=integer, name=i_manufact_id_10]])
                                                                                 scan item
                                                                         load from cache
                                                         local exchange (GATHER, SINGLE, [])
@@ -49,10 +49,10 @@ local exchange (GATHER, SINGLE, [])
                                         join (RIGHT, PARTITIONED, can skip output duplicates):
                                             remote exchange (REPARTITION, HASH, [sr_item_sk, sr_ticket_number])
                                                 alternatives
-                                                    dynamic filter ([SymbolReference[type=bigint, name=sr_item_sk], SymbolReference[type=bigint, name=sr_ticket_number]])
+                                                    dynamic filter ([Reference[type=bigint, name=sr_item_sk], Reference[type=bigint, name=sr_ticket_number]])
                                                         scan store_returns
                                                     cache data
-                                                        dynamic filter ([SymbolReference[type=bigint, name=sr_item_sk], SymbolReference[type=bigint, name=sr_ticket_number]])
+                                                        dynamic filter ([Reference[type=bigint, name=sr_item_sk], Reference[type=bigint, name=sr_ticket_number]])
                                                             scan store_returns
                                                     load from cache
                                             local exchange (GATHER, SINGLE, [])
@@ -60,19 +60,19 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED, can skip output duplicates):
                                                         join (INNER, REPLICATED, can skip output duplicates):
                                                             alternatives
-                                                                dynamic filter ([SymbolReference[type=bigint, name=ss_item_sk]], await [SymbolReference[type=bigint, name=ss_sold_date_sk]])
+                                                                dynamic filter ([Reference[type=bigint, name=ss_item_sk]], await [Reference[type=bigint, name=ss_sold_date_sk]])
                                                                     scan store_sales
                                                                 cache data
-                                                                    dynamic filter ([SymbolReference[type=bigint, name=ss_item_sk]], await [SymbolReference[type=bigint, name=ss_sold_date_sk]])
+                                                                    dynamic filter ([Reference[type=bigint, name=ss_item_sk]], await [Reference[type=bigint, name=ss_sold_date_sk]])
                                                                         scan store_sales
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     alternatives
-                                                                        dynamic filter ([SymbolReference[type=integer, name=i_brand_id_32], SymbolReference[type=integer, name=i_category_id_36], SymbolReference[type=integer, name=i_class_id_34], SymbolReference[type=integer, name=i_manufact_id_38]])
+                                                                        dynamic filter ([Reference[type=integer, name=i_brand_id_32], Reference[type=integer, name=i_category_id_36], Reference[type=integer, name=i_class_id_34], Reference[type=integer, name=i_manufact_id_38]])
                                                                             scan item
                                                                         cache data
-                                                                            dynamic filter ([SymbolReference[type=integer, name=i_brand_id_32], SymbolReference[type=integer, name=i_category_id_36], SymbolReference[type=integer, name=i_class_id_34], SymbolReference[type=integer, name=i_manufact_id_38]])
+                                                                            dynamic filter ([Reference[type=integer, name=i_brand_id_32], Reference[type=integer, name=i_category_id_36], Reference[type=integer, name=i_class_id_34], Reference[type=integer, name=i_manufact_id_38]])
                                                                                 scan item
                                                                         load from cache
                                                         local exchange (GATHER, SINGLE, [])
@@ -87,10 +87,10 @@ local exchange (GATHER, SINGLE, [])
                                         join (RIGHT, PARTITIONED, can skip output duplicates):
                                             remote exchange (REPARTITION, HASH, [wr_item_sk, wr_order_number])
                                                 alternatives
-                                                    dynamic filter ([SymbolReference[type=bigint, name=wr_item_sk], SymbolReference[type=bigint, name=wr_order_number]])
+                                                    dynamic filter ([Reference[type=bigint, name=wr_item_sk], Reference[type=bigint, name=wr_order_number]])
                                                         scan web_returns
                                                     cache data
-                                                        dynamic filter ([SymbolReference[type=bigint, name=wr_item_sk], SymbolReference[type=bigint, name=wr_order_number]])
+                                                        dynamic filter ([Reference[type=bigint, name=wr_item_sk], Reference[type=bigint, name=wr_order_number]])
                                                             scan web_returns
                                                     load from cache
                                             local exchange (GATHER, SINGLE, [])
@@ -98,19 +98,19 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED, can skip output duplicates):
                                                         join (INNER, REPLICATED, can skip output duplicates):
                                                             alternatives
-                                                                dynamic filter ([SymbolReference[type=bigint, name=ws_item_sk]], await [SymbolReference[type=bigint, name=ws_sold_date_sk]])
+                                                                dynamic filter ([Reference[type=bigint, name=ws_item_sk]], await [Reference[type=bigint, name=ws_sold_date_sk]])
                                                                     scan web_sales
                                                                 cache data
-                                                                    dynamic filter ([SymbolReference[type=bigint, name=ws_item_sk]], await [SymbolReference[type=bigint, name=ws_sold_date_sk]])
+                                                                    dynamic filter ([Reference[type=bigint, name=ws_item_sk]], await [Reference[type=bigint, name=ws_sold_date_sk]])
                                                                         scan web_sales
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     alternatives
-                                                                        dynamic filter ([SymbolReference[type=integer, name=i_brand_id_96], SymbolReference[type=integer, name=i_category_id_100], SymbolReference[type=integer, name=i_class_id_98], SymbolReference[type=integer, name=i_manufact_id_102]])
+                                                                        dynamic filter ([Reference[type=integer, name=i_brand_id_96], Reference[type=integer, name=i_category_id_100], Reference[type=integer, name=i_class_id_98], Reference[type=integer, name=i_manufact_id_102]])
                                                                             scan item
                                                                         cache data
-                                                                            dynamic filter ([SymbolReference[type=integer, name=i_brand_id_96], SymbolReference[type=integer, name=i_category_id_100], SymbolReference[type=integer, name=i_class_id_98], SymbolReference[type=integer, name=i_manufact_id_102]])
+                                                                            dynamic filter ([Reference[type=integer, name=i_brand_id_96], Reference[type=integer, name=i_category_id_100], Reference[type=integer, name=i_class_id_98], Reference[type=integer, name=i_manufact_id_102]])
                                                                                 scan item
                                                                         load from cache
                                                         local exchange (GATHER, SINGLE, [])
@@ -128,10 +128,10 @@ local exchange (GATHER, SINGLE, [])
                                         join (RIGHT, PARTITIONED, can skip output duplicates):
                                             remote exchange (REPARTITION, HASH, [cr_item_sk_261, cr_order_number_275])
                                                 alternatives
-                                                    dynamic filter ([SymbolReference[type=bigint, name=cr_item_sk_261], SymbolReference[type=bigint, name=cr_order_number_275]])
+                                                    dynamic filter ([Reference[type=bigint, name=cr_item_sk_261], Reference[type=bigint, name=cr_order_number_275]])
                                                         scan catalog_returns
                                                     cache data
-                                                        dynamic filter ([SymbolReference[type=bigint, name=cr_item_sk_261], SymbolReference[type=bigint, name=cr_order_number_275]])
+                                                        dynamic filter ([Reference[type=bigint, name=cr_item_sk_261], Reference[type=bigint, name=cr_order_number_275]])
                                                             scan catalog_returns
                                                     load from cache
                                             local exchange (GATHER, SINGLE, [])
@@ -139,10 +139,10 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED, can skip output duplicates):
                                                         join (INNER, REPLICATED, can skip output duplicates):
                                                             alternatives
-                                                                dynamic filter ([SymbolReference[type=bigint, name=cs_item_sk_181]], await [SymbolReference[type=bigint, name=cs_sold_date_sk_166]])
+                                                                dynamic filter ([Reference[type=bigint, name=cs_item_sk_181]], await [Reference[type=bigint, name=cs_sold_date_sk_166]])
                                                                     scan catalog_sales
                                                                 cache data
-                                                                    dynamic filter ([SymbolReference[type=bigint, name=cs_item_sk_181]], await [SymbolReference[type=bigint, name=cs_sold_date_sk_166]])
+                                                                    dynamic filter ([Reference[type=bigint, name=cs_item_sk_181]], await [Reference[type=bigint, name=cs_sold_date_sk_166]])
                                                                         scan catalog_sales
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])
@@ -164,10 +164,10 @@ local exchange (GATHER, SINGLE, [])
                                         join (RIGHT, PARTITIONED, can skip output duplicates):
                                             remote exchange (REPARTITION, HASH, [sr_item_sk_375, sr_ticket_number_382])
                                                 alternatives
-                                                    dynamic filter ([SymbolReference[type=bigint, name=sr_item_sk_375], SymbolReference[type=bigint, name=sr_ticket_number_382]])
+                                                    dynamic filter ([Reference[type=bigint, name=sr_item_sk_375], Reference[type=bigint, name=sr_ticket_number_382]])
                                                         scan store_returns
                                                     cache data
-                                                        dynamic filter ([SymbolReference[type=bigint, name=sr_item_sk_375], SymbolReference[type=bigint, name=sr_ticket_number_382]])
+                                                        dynamic filter ([Reference[type=bigint, name=sr_item_sk_375], Reference[type=bigint, name=sr_ticket_number_382]])
                                                             scan store_returns
                                                     load from cache
                                             local exchange (GATHER, SINGLE, [])
@@ -175,10 +175,10 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED, can skip output duplicates):
                                                         join (INNER, REPLICATED, can skip output duplicates):
                                                             alternatives
-                                                                dynamic filter ([SymbolReference[type=bigint, name=ss_item_sk_293]], await [SymbolReference[type=bigint, name=ss_sold_date_sk_291]])
+                                                                dynamic filter ([Reference[type=bigint, name=ss_item_sk_293]], await [Reference[type=bigint, name=ss_sold_date_sk_291]])
                                                                     scan store_sales
                                                                 cache data
-                                                                    dynamic filter ([SymbolReference[type=bigint, name=ss_item_sk_293]], await [SymbolReference[type=bigint, name=ss_sold_date_sk_291]])
+                                                                    dynamic filter ([Reference[type=bigint, name=ss_item_sk_293]], await [Reference[type=bigint, name=ss_sold_date_sk_291]])
                                                                         scan store_sales
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])
@@ -200,10 +200,10 @@ local exchange (GATHER, SINGLE, [])
                                         join (RIGHT, PARTITIONED, can skip output duplicates):
                                             remote exchange (REPARTITION, HASH, [wr_item_sk_493, wr_order_number_504])
                                                 alternatives
-                                                    dynamic filter ([SymbolReference[type=bigint, name=wr_item_sk_493], SymbolReference[type=bigint, name=wr_order_number_504]])
+                                                    dynamic filter ([Reference[type=bigint, name=wr_item_sk_493], Reference[type=bigint, name=wr_order_number_504]])
                                                         scan web_returns
                                                     cache data
-                                                        dynamic filter ([SymbolReference[type=bigint, name=wr_item_sk_493], SymbolReference[type=bigint, name=wr_order_number_504]])
+                                                        dynamic filter ([Reference[type=bigint, name=wr_item_sk_493], Reference[type=bigint, name=wr_order_number_504]])
                                                             scan web_returns
                                                     load from cache
                                             local exchange (GATHER, SINGLE, [])
@@ -211,10 +211,10 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED, can skip output duplicates):
                                                         join (INNER, REPLICATED, can skip output duplicates):
                                                             alternatives
-                                                                dynamic filter ([SymbolReference[type=bigint, name=ws_item_sk_401]], await [SymbolReference[type=bigint, name=ws_sold_date_sk_398]])
+                                                                dynamic filter ([Reference[type=bigint, name=ws_item_sk_401]], await [Reference[type=bigint, name=ws_sold_date_sk_398]])
                                                                     scan web_sales
                                                                 cache data
-                                                                    dynamic filter ([SymbolReference[type=bigint, name=ws_item_sk_401]], await [SymbolReference[type=bigint, name=ws_sold_date_sk_398]])
+                                                                    dynamic filter ([Reference[type=bigint, name=ws_item_sk_401]], await [Reference[type=bigint, name=ws_sold_date_sk_398]])
                                                                         scan web_sales
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])

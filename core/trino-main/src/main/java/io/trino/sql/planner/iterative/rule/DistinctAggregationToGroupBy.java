@@ -22,8 +22,8 @@ import io.trino.metadata.FunctionResolver;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.CoalesceExpression;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
@@ -50,7 +50,7 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.AUTOMATIC;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.PRE_AGGREGATE;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -201,7 +201,7 @@ public class DistinctAggregationToGroupBy
         Assignments.Builder groupIdFilters = Assignments.builder();
         Symbol nonDistinctGroupFilterSymbol = symbolAllocator.newSymbol("non-distinct-gid-filter", BOOLEAN);
         if (hasNonDistinctAggregation) {
-            groupIdFilters.put(nonDistinctGroupFilterSymbol, new ComparisonExpression(
+            groupIdFilters.put(nonDistinctGroupFilterSymbol, new Comparison(
                     EQUAL,
                     groupSymbol.toSymbolReference(),
                     new Constant(BIGINT, 0L)));
@@ -219,7 +219,7 @@ public class DistinctAggregationToGroupBy
                 Integer groupId = distinctAggregationArgumentToGroupIdMap.get(aggregationInput);
                 Symbol groupIdFilterSymbol = groupIdFilterSymbolByGroupId.computeIfAbsent(groupId, id -> {
                     Symbol filterSymbol = symbolAllocator.newSymbol("gid-filter-" + groupId, BOOLEAN);
-                    groupIdFilters.put(filterSymbol, new ComparisonExpression(
+                    groupIdFilters.put(filterSymbol, new Comparison(
                             EQUAL,
                             groupSymbol.toSymbolReference(),
                             new Constant(BIGINT, (long) groupId)));
@@ -363,7 +363,7 @@ public class DistinctAggregationToGroupBy
         Assignments.Builder outputSymbols = Assignments.builder();
         for (Symbol symbol : outerAggregationNode.getOutputSymbols()) {
             if (coalesceSymbols.containsKey(symbol)) {
-                Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Constant(BIGINT, 0L));
+                Expression expression = new Coalesce(symbol.toSymbolReference(), new Constant(BIGINT, 0L));
                 outputSymbols.put(coalesceSymbols.get(symbol), expression);
             }
             else {

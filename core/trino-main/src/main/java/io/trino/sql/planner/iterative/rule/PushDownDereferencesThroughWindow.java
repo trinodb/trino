@@ -19,8 +19,8 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SubscriptExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -79,7 +79,7 @@ public class PushDownDereferencesThroughWindow
         WindowNode windowNode = captures.get(CHILD);
 
         // Extract dereferences for pushdown
-        Set<SubscriptExpression> dereferences = extractRowSubscripts(
+        Set<Subscript> dereferences = extractRowSubscripts(
                 ImmutableList.<Expression>builder()
                         .addAll(projectNode.getAssignments().getExpressions())
                         // also include dereference projections used in window functions
@@ -108,7 +108,7 @@ public class PushDownDereferencesThroughWindow
         Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSymbolAllocator());
 
         // Rewrite project node assignments using new symbols for dereference expressions
-        Map<Expression, SymbolReference> mappings = HashBiMap.create(dereferenceAssignments.getMap())
+        Map<Expression, Reference> mappings = HashBiMap.create(dereferenceAssignments.getMap())
                 .inverse()
                 .entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));

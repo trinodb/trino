@@ -14,19 +14,19 @@
 package io.trino.sql.planner.planprinter;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Reference;
 import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.ir.LogicalExpression.Operator.AND;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Logical.Operator.AND;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCounterBasedAnonymizer
@@ -42,10 +42,10 @@ public class TestCounterBasedAnonymizer
     @Test
     public void testSymbolReferenceAnonymization()
     {
-        LogicalExpression expression = new LogicalExpression(AND, ImmutableList.of(
-                new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 1L)),
-                new ComparisonExpression(LESS_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 2L)),
-                new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "c"), new Constant(INTEGER, 3L))));
+        Logical expression = new Logical(AND, ImmutableList.of(
+                new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                new Comparison(LESS_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 2L)),
+                new Comparison(EQUAL, new Reference(INTEGER, "c"), new Constant(INTEGER, 3L))));
         CounterBasedAnonymizer anonymizer = new CounterBasedAnonymizer();
         assertThat(anonymizer.anonymize(expression))
                 .isEqualTo("((\"symbol_1\" > 'integer_literal_1') AND (\"symbol_2\" < 'integer_literal_2') AND (\"symbol_3\" = 'integer_literal_3'))");

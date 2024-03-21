@@ -21,10 +21,10 @@ import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.FilterNode;
@@ -47,8 +47,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.operator.join.JoinUtils.getJoinDynamicFilters;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
@@ -180,10 +180,10 @@ public final class JoinMatcher
             }
             Expression expression;
             if (descriptor.isNullAllowed()) {
-                expression = new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, probe, build.toSymbolReference()));
+                expression = new Not(new Comparison(IS_DISTINCT_FROM, probe, build.toSymbolReference()));
             }
             else {
-                expression = new ComparisonExpression(descriptor.getOperator(), probe, build.toSymbolReference());
+                expression = new Comparison(descriptor.getOperator(), probe, build.toSymbolReference());
             }
             actualExpressions.add(expression);
             if (descriptor.getPreferredTimeout().isPresent()) {
@@ -275,13 +275,13 @@ public final class JoinMatcher
         @CanIgnoreReturnValue
         public Builder dynamicFilter(Type type, String key, String value)
         {
-            this.dynamicFilter = Optional.of(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern(new SymbolReference(type, key), EQUAL, value)));
+            this.dynamicFilter = Optional.of(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern(new Reference(type, key), EQUAL, value)));
 
             return this;
         }
 
         @CanIgnoreReturnValue
-        public Builder dynamicFilter(SymbolReference symbolKey, String value, long timeout)
+        public Builder dynamicFilter(Reference symbolKey, String value, long timeout)
         {
             this.dynamicFilter = Optional.of(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern(symbolKey, EQUAL, value, false, OptionalLong.of(timeout))));
 

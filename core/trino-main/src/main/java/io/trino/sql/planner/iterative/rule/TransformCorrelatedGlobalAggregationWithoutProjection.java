@@ -44,7 +44,7 @@ import static io.trino.matching.Pattern.empty;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.isDistinctOperator;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.restoreDistinctAggregation;
@@ -122,7 +122,7 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
 
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
             .with(nonEmpty(Patterns.CorrelatedJoin.correlation()))
-            .with(filter().equalTo(TRUE_LITERAL)) // todo non-trivial join filter: adding filter/project on top of aggregation
+            .with(filter().equalTo(TRUE)) // todo non-trivial join filter: adding filter/project on top of aggregation
             .with(subquery().matching(aggregation()
                     .with(empty(groupingColumns()))
                     .with(source().capturedAs(SOURCE))
@@ -175,7 +175,7 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
                 source,
                 Assignments.builder()
                         .putIdentities(source.getOutputSymbols())
-                        .put(nonNull, TRUE_LITERAL)
+                        .put(nonNull, TRUE)
                         .build());
 
         // assign unique id on correlated join's input. It will be used to distinguish between original input rows after join

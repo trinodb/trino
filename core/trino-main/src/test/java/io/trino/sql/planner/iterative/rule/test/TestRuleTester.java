@@ -20,7 +20,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.Rule.Context;
@@ -52,7 +52,7 @@ public class TestRuleTester
                             (node, captures, context) -> Result.ofPlanNode(node.replaceChildren(node.getSources()))))
                     .on(p ->
                             p.project(
-                                    Assignments.of(p.symbol("y"), new SymbolReference(INTEGER, "x")),
+                                    Assignments.of(p.symbol("y"), new Reference(INTEGER, "x")),
                                     p.values(
                                             ImmutableList.of(p.symbol("x")),
                                             ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L))))));

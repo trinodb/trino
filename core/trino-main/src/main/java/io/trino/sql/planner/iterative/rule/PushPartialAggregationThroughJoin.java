@@ -22,7 +22,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.Lambda;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
@@ -342,7 +342,7 @@ public class PushPartialAggregationThroughJoin
                             ImmutableList.<Expression>builder()
                                     .add(entry.getKey().toSymbolReference())
                                     .addAll(aggregation.getArguments().stream()
-                                            .filter(LambdaExpression.class::isInstance)
+                                            .filter(Lambda.class::isInstance)
                                             .collect(toImmutableList()))
                                     .build(),
                             false,

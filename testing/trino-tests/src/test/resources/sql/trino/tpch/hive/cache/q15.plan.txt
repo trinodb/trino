@@ -5,10 +5,10 @@ remote exchange (GATHER, SINGLE, [])
                 join (INNER, PARTITIONED):
                     remote exchange (REPARTITION, HASH, [suppkey])
                         alternatives
-                            dynamic filter ([SymbolReference[type=bigint, name=suppkey]])
+                            dynamic filter ([Reference[type=bigint, name=suppkey]])
                                 scan supplier
                             cache data
-                                dynamic filter ([SymbolReference[type=bigint, name=suppkey]])
+                                dynamic filter ([Reference[type=bigint, name=suppkey]])
                                     scan supplier
                             load from cache
                     final aggregation over (suppkey_0)

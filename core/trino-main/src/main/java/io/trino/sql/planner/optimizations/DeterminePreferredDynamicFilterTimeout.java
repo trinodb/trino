@@ -21,8 +21,8 @@ import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.SymbolStatsEstimate;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
@@ -166,8 +166,8 @@ public class DeterminePreferredDynamicFilterTimeout
 
                 DynamicFilterTimeout dynamicFilterTimeout = dynamicFilterBuildSideStates.computeIfAbsent(dynamicFilterId, ignore -> getBuildSideState(getBuildSide(planNode), getDynamicFilterSymbol(planNode, dynamicFilterId)));
                 switch (dynamicFilterTimeout) {
-                    case USE_PREFERRED_TIMEOUT -> expressionBuilder.add(replaceDynamicFilterTimeout((FunctionCall) conjunct, smallDynamicFilterWaitTimeoutMillis));
-                    case NO_WAIT -> expressionBuilder.add(replaceDynamicFilterTimeout((FunctionCall) conjunct, 0));
+                    case USE_PREFERRED_TIMEOUT -> expressionBuilder.add(replaceDynamicFilterTimeout((Call) conjunct, smallDynamicFilterWaitTimeoutMillis));
+                    case NO_WAIT -> expressionBuilder.add(replaceDynamicFilterTimeout((Call) conjunct, 0));
                     case UNESTIMATED -> expressionBuilder.add(conjunct);
                 }
             }

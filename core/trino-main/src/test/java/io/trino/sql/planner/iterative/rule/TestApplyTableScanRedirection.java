@@ -30,9 +30,9 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.testing.PlanTester;
@@ -47,7 +47,7 @@ import static io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -159,7 +159,7 @@ public class TestApplyTableScanRedirection
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_A));
                     })
                     .matches(
-                            project(ImmutableMap.of("COL", expression(new Cast(new SymbolReference(BIGINT, "DEST_COL"), VARCHAR))),
+                            project(ImmutableMap.of("COL", expression(new Cast(new Reference(BIGINT, "DEST_COL"), VARCHAR))),
                                     tableScan(
                                             new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                             TupleDomain.all(),
@@ -237,7 +237,7 @@ public class TestApplyTableScanRedirection
                     })
                     .matches(
                             filter(
-                                    new ComparisonExpression(EQUAL, new SymbolReference(VARCHAR, "DEST_COL"), new Constant(VARCHAR, utf8Slice("foo"))),
+                                    new Comparison(EQUAL, new Reference(VARCHAR, "DEST_COL"), new Constant(VARCHAR, utf8Slice("foo"))),
                                     tableScan(
                                             new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                             TupleDomain.all(),
@@ -255,9 +255,9 @@ public class TestApplyTableScanRedirection
                     })
                     .matches(
                             project(
-                                    ImmutableMap.of("expr", expression(new SymbolReference(BIGINT, "DEST_COL_B"))),
+                                    ImmutableMap.of("expr", expression(new Reference(BIGINT, "DEST_COL_B"))),
                                     filter(
-                                            new ComparisonExpression(EQUAL, new SymbolReference(VARCHAR, "DEST_COL_A"), new Constant(VARCHAR, utf8Slice("foo"))),
+                                            new Comparison(EQUAL, new Reference(VARCHAR, "DEST_COL_A"), new Constant(VARCHAR, utf8Slice("foo"))),
                                             tableScan(
                                                     new MockConnectorTableHandle(DESTINATION_TABLE)::equals,
                                                     TupleDomain.all(),

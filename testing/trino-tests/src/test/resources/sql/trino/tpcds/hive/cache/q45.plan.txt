@@ -12,10 +12,10 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ws_bill_customer_sk])
                                                 join (INNER, REPLICATED):
                                                     alternatives
-                                                        dynamic filter ([SymbolReference[type=bigint, name=ws_bill_customer_sk], SymbolReference[type=bigint, name=ws_item_sk]], await [SymbolReference[type=bigint, name=ws_sold_date_sk]])
+                                                        dynamic filter ([Reference[type=bigint, name=ws_bill_customer_sk], Reference[type=bigint, name=ws_item_sk]], await [Reference[type=bigint, name=ws_sold_date_sk]])
                                                             scan web_sales
                                                         cache data
-                                                            dynamic filter ([SymbolReference[type=bigint, name=ws_bill_customer_sk], SymbolReference[type=bigint, name=ws_item_sk]], await [SymbolReference[type=bigint, name=ws_sold_date_sk]])
+                                                            dynamic filter ([Reference[type=bigint, name=ws_bill_customer_sk], Reference[type=bigint, name=ws_item_sk]], await [Reference[type=bigint, name=ws_sold_date_sk]])
                                                                 scan web_sales
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])
@@ -30,10 +30,10 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, PARTITIONED):
                                                         remote exchange (REPARTITION, HASH, [c_current_addr_sk])
                                                             alternatives
-                                                                dynamic filter ([SymbolReference[type=bigint, name=c_current_addr_sk]])
+                                                                dynamic filter ([Reference[type=bigint, name=c_current_addr_sk]])
                                                                     scan customer
                                                                 cache data
-                                                                    dynamic filter ([SymbolReference[type=bigint, name=c_current_addr_sk]])
+                                                                    dynamic filter ([Reference[type=bigint, name=c_current_addr_sk]])
                                                                         scan customer
                                                                 load from cache
                                                         local exchange (GATHER, SINGLE, [])

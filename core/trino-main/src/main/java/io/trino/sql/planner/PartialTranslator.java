@@ -18,7 +18,7 @@ import io.trino.Session;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.NodeRef;
 
 import java.util.HashMap;
@@ -68,7 +68,7 @@ public final class PartialTranslator
                 translatedSubExpressions.put(NodeRef.of(node), result.get());
             }
             else {
-                node.getChildren().forEach(this::process);
+                node.children().forEach(this::process);
             }
 
             return null;
@@ -76,7 +76,7 @@ public final class PartialTranslator
 
         // TODO support lambda expressions for partial projection
         @Override
-        public Void visitLambdaExpression(LambdaExpression functionCall, Void context)
+        public Void visitLambda(Lambda functionCall, Void context)
         {
             return null;
         }

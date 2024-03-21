@@ -20,10 +20,10 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.SubscriptExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
@@ -33,7 +33,7 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
+import static io.trino.sql.ir.Arithmetic.Operator.MULTIPLY;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.union;
@@ -95,8 +95,8 @@ public class TestPushProjectionThroughUnion
                     Symbol w = p.symbol("w", ROW_TYPE);
                     return p.project(
                             Assignments.of(
-                                    cTimes3, new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, c.toSymbolReference(), new Constant(INTEGER, 3L)),
-                                    dX, new SubscriptExpression(INTEGER, new SymbolReference(ROW_TYPE, "d"), new Constant(INTEGER, 1L))),
+                                    cTimes3, new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, c.toSymbolReference(), new Constant(INTEGER, 3L)),
+                                    dX, new Subscript(INTEGER, new Reference(ROW_TYPE, "d"), new Constant(INTEGER, 1L))),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()
                                             .put(c, a)
@@ -111,10 +111,10 @@ public class TestPushProjectionThroughUnion
                 .matches(
                         union(
                                 project(
-                                        ImmutableMap.of("a_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 3L))), "z_x", expression(new SubscriptExpression(INTEGER, new SymbolReference(ROW_TYPE, "z"), new Constant(INTEGER, 1L)))),
+                                        ImmutableMap.of("a_times_3", expression(new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "a"), new Constant(INTEGER, 3L))), "z_x", expression(new Subscript(INTEGER, new Reference(ROW_TYPE, "z"), new Constant(INTEGER, 1L)))),
                                         values(ImmutableList.of("a", "z"))),
                                 project(
-                                        ImmutableMap.of("b_times_3", expression(new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 3L))), "w_x", expression(new SubscriptExpression(INTEGER, new SymbolReference(ROW_TYPE, "w"), new Constant(INTEGER, 1L)))),
+                                        ImmutableMap.of("b_times_3", expression(new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "b"), new Constant(INTEGER, 3L))), "w_x", expression(new Subscript(INTEGER, new Reference(ROW_TYPE, "w"), new Constant(INTEGER, 1L)))),
                                         values(ImmutableList.of("b", "w"))))
                                 .withNumberOfOutputColumns(2)
                                 .withAlias("a_times_3")

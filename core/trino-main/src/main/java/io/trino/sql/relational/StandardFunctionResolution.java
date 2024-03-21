@@ -18,8 +18,8 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.ArithmeticBinaryExpression.Operator;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Arithmetic.Operator;
+import io.trino.sql.ir.Comparison;
 
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
@@ -66,7 +66,7 @@ public final class StandardFunctionResolution
         return metadata.resolveOperator(operatorType, ImmutableList.of(leftType, rightType));
     }
 
-    public ResolvedFunction comparisonFunction(ComparisonExpression.Operator operator, Type leftType, Type rightType)
+    public ResolvedFunction comparisonFunction(Comparison.Operator operator, Type leftType, Type rightType)
     {
         OperatorType operatorType;
         switch (operator) {

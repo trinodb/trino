@@ -9,10 +9,10 @@ local exchange (GATHER, SINGLE, [])
                                 single aggregation over (i_manufact, i_manufact_id, i_product_name, unique)
                                     join (INNER, REPLICATED, can skip output duplicates):
                                         alternatives
-                                            dynamic filter (await [SymbolReference[type=char(50), name=i_manufact]])
+                                            dynamic filter (await [Reference[type=char(50), name=i_manufact]])
                                                 scan item
                                             cache data
-                                                dynamic filter (await [SymbolReference[type=char(50), name=i_manufact]])
+                                                dynamic filter (await [Reference[type=char(50), name=i_manufact]])
                                                     scan item
                                             load from cache
                                         local exchange (GATHER, SINGLE, [])

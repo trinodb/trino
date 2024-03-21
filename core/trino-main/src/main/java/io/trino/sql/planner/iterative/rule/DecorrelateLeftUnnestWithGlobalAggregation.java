@@ -39,7 +39,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -101,7 +101,7 @@ public class DecorrelateLeftUnnestWithGlobalAggregation
 {
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
             .with(nonEmpty(correlation()))
-            .with(filter().equalTo(TRUE_LITERAL))
+            .with(filter().equalTo(TRUE))
             .matching(node -> node.getType() == JoinType.INNER || node.getType() == JoinType.LEFT);
 
     @Override

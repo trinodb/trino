@@ -21,7 +21,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.SimplePlanVisitor;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -98,8 +98,8 @@ public final class TypeValidator
 
             for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
                 Type expectedType = entry.getKey().getType();
-                if (entry.getValue() instanceof SymbolReference symbolReference) {
-                    Symbol symbol = Symbol.from(symbolReference);
+                if (entry.getValue() instanceof Reference reference) {
+                    Symbol symbol = Symbol.from(reference);
                     verifyTypeSignature(entry.getKey(), expectedType, symbol.getType());
                     continue;
                 }

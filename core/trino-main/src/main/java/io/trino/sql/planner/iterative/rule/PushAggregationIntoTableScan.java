@@ -32,7 +32,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
@@ -102,7 +102,7 @@ public class PushAggregationIntoTableScan
         return node.getAggregations()
                 .values().stream()
                 .flatMap(aggregation -> aggregation.getArguments().stream())
-                .allMatch(SymbolReference.class::isInstance);
+                .allMatch(Reference.class::isInstance);
     }
 
     private static boolean hasNoMasks(AggregationNode node)
@@ -238,7 +238,7 @@ public class PushAggregationIntoTableScan
 
         ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();
         for (int i = 0; i < aggregation.getArguments().size(); i++) {
-            SymbolReference argument = (SymbolReference) aggregation.getArguments().get(i);
+            Reference argument = (Reference) aggregation.getArguments().get(i);
             arguments.add(new Variable(argument.name(), signature.getArgumentTypes().get(i)));
         }
 

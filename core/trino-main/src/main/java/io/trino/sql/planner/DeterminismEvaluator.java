@@ -13,9 +13,9 @@
  */
 package io.trino.sql.planner;
 
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -37,13 +37,13 @@ public final class DeterminismEvaluator
             extends DefaultTraversalVisitor<AtomicBoolean>
     {
         @Override
-        protected Void visitFunctionCall(FunctionCall node, AtomicBoolean deterministic)
+        protected Void visitCall(Call node, AtomicBoolean deterministic)
         {
             if (!node.function().isDeterministic()) {
                 deterministic.set(false);
                 return null;
             }
-            return super.visitFunctionCall(node, deterministic);
+            return super.visitCall(node, deterministic);
         }
     }
 }
