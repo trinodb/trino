@@ -71,13 +71,13 @@ public class SimpleFilterProjectSemiJoinStatsRule
                 return Optional.empty();
             }
             PlanNode projectNodeSource = context.lookup().resolve(projectNode.getSource());
-            if (!(projectNodeSource instanceof SemiJoinNode)) {
+            if (!(projectNodeSource instanceof SemiJoinNode value)) {
                 return Optional.empty();
             }
-            semiJoinNode = (SemiJoinNode) projectNodeSource;
+            semiJoinNode = value;
         }
-        else if (nodeSource instanceof SemiJoinNode) {
-            semiJoinNode = (SemiJoinNode) nodeSource;
+        else if (nodeSource instanceof SemiJoinNode value) {
+            semiJoinNode = value;
         }
         else {
             return Optional.empty();
@@ -141,8 +141,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
     private static boolean isSemiJoinOutputReference(Expression conjunct, Symbol semiJoinOutput)
     {
         Reference semiJoinOutputSymbolReference = semiJoinOutput.toSymbolReference();
-        return conjunct.equals(semiJoinOutputSymbolReference) ||
-                (conjunct instanceof Not && ((Not) conjunct).value().equals(semiJoinOutputSymbolReference));
+        return conjunct.equals(semiJoinOutputSymbolReference) || (conjunct instanceof Not not && not.value().equals(semiJoinOutputSymbolReference));
     }
 
     private static class SemiJoinOutputFilter

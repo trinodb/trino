@@ -40,8 +40,10 @@ public class ComposableStatsCalculator
     {
         this.rulesByRootType = rules.stream()
                 .peek(rule -> {
-                    checkArgument(rule.getPattern() instanceof TypeOfPattern, "Rule pattern must be TypeOfPattern");
-                    Class<?> expectedClass = ((TypeOfPattern<?>) rule.getPattern()).expectedClass();
+                    if (!(rule.getPattern() instanceof TypeOfPattern pattern)) {
+                        throw new IllegalArgumentException("Rule pattern must be TypeOfPattern but was: " + rule.getPattern().getClass().getSimpleName());
+                    }
+                    Class<?> expectedClass = pattern.expectedClass();
                     checkArgument(!expectedClass.isInterface() && !Modifier.isAbstract(expectedClass.getModifiers()), "Rule must be registered on a concrete class");
                 })
                 .collect(toMultimap(

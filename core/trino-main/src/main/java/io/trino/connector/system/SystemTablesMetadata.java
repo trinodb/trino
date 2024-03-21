@@ -150,8 +150,8 @@ public class SystemTablesMetadata
         }
 
         SystemTable systemTable = checkAndGetTable(session, table);
-        if (systemTable instanceof JdbcTable) {
-            TupleDomain<ColumnHandle> filtered = ((JdbcTable) systemTable).applyFilter(session, effectiveConstraint(oldDomain, constraint, newDomain));
+        if (systemTable instanceof JdbcTable jdbcTable) {
+            TupleDomain<ColumnHandle> filtered = jdbcTable.applyFilter(session, effectiveConstraint(oldDomain, constraint, newDomain));
             newDomain = newDomain.intersect(filtered);
         }
 

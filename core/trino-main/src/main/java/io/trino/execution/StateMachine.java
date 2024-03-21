@@ -319,7 +319,7 @@ public class StateMachine<T>
             executor.execute(command);
         }
         catch (RejectedExecutionException e) {
-            if ((executor instanceof ExecutorService) && ((ExecutorService) executor).isShutdown()) {
+            if (executor instanceof ExecutorService service && service.isShutdown()) {
                 throw new TrinoException(SERVER_SHUTTING_DOWN, "Server is shutting down", e);
             }
             throw e;

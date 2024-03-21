@@ -196,6 +196,6 @@ public class InlineProjections
 
     private static boolean isSymbolReference(Symbol symbol, Expression expression)
     {
-        return expression instanceof Reference && ((Reference) expression).name().equals(symbol.getName());
+        return expression instanceof Reference reference && reference.name().equals(symbol.getName());
     }
 }

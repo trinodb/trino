@@ -344,10 +344,10 @@ public class EffectivePredicateExtractor
             }
             List<ImmutableList.Builder<Object>> valuesBuilders = builders.build();
 
-            for (Expression row : node.getRows().get()) {
-                if (row instanceof Row) {
+            for (Expression expression : node.getRows().get()) {
+                if (expression instanceof Row row) {
                     for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                        Expression value = ((Row) row).items().get(i);
+                        Expression value = row.items().get(i);
                         if (!DeterminismEvaluator.isDeterministic(value)) {
                             nonDeterministic[i] = true;
                         }
@@ -379,10 +379,10 @@ public class EffectivePredicateExtractor
                     }
                 }
                 else {
-                    if (!DeterminismEvaluator.isDeterministic(row)) {
+                    if (!DeterminismEvaluator.isDeterministic(expression)) {
                         return TRUE;
                     }
-                    IrExpressionInterpreter interpreter = new IrExpressionInterpreter(row, plannerContext, session);
+                    IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, plannerContext, session);
                     Object evaluated = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
                     if (evaluated instanceof Expression) {
                         return TRUE;

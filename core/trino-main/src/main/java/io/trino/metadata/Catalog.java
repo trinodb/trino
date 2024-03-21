@@ -128,8 +128,8 @@ public class Catalog
     {
         Connector connector = connectorServices.getConnector();
         ConnectorTransactionHandle transactionHandle;
-        if (connector instanceof InternalConnector) {
-            transactionHandle = ((InternalConnector) connector).beginTransaction(transactionId, isolationLevel, readOnly);
+        if (connector instanceof InternalConnector internalConnector) {
+            transactionHandle = internalConnector.beginTransaction(transactionId, isolationLevel, readOnly);
         }
         else {
             transactionHandle = connector.beginTransaction(isolationLevel, readOnly, autoCommitContext);

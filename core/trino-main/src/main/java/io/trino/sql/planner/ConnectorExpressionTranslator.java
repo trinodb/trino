@@ -196,8 +196,8 @@ public final class ConnectorExpressionTranslator
 
         public Optional<Expression> translate(ConnectorExpression expression)
         {
-            if (expression instanceof Variable) {
-                String name = ((Variable) expression).getName();
+            if (expression instanceof Variable variable) {
+                String name = variable.getName();
                 return Optional.of(variableMappings.get(name).toSymbolReference());
             }
 
@@ -210,8 +210,8 @@ public final class ConnectorExpressionTranslator
                         .map(base -> new Subscript(dereference.getType(), base, new Constant(INTEGER, (long) (dereference.getField() + 1))));
             }
 
-            if (expression instanceof io.trino.spi.expression.Call) {
-                return translateCall((io.trino.spi.expression.Call) expression);
+            if (expression instanceof io.trino.spi.expression.Call call) {
+                return translateCall(call);
             }
 
             return Optional.empty();

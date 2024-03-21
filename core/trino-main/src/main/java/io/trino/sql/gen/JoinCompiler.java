@@ -1150,10 +1150,9 @@ public class JoinCompiler
             if (this == obj) {
                 return true;
             }
-            if (!(obj instanceof CacheKey)) {
+            if (!(obj instanceof CacheKey other)) {
                 return false;
             }
-            CacheKey other = (CacheKey) obj;
             return Objects.equals(this.types, other.types) &&
                     Objects.equals(this.outputChannels, other.outputChannels) &&
                     Objects.equals(this.joinChannels, other.joinChannels) &&
