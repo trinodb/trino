@@ -19,6 +19,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
@@ -492,7 +493,7 @@ public class ArrayType
                     offset += 1 + elementFixedSize;
                 }
             }
-            default -> throw new IllegalArgumentException("Unsupported block type: " + array.getClass().getName());
+            case LazyBlock ignored -> throw new IllegalStateException("Did not expect LazyBlock after loading " + array.getClass().getSimpleName());
         }
     }
 
