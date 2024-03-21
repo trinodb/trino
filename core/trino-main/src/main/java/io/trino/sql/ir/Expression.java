@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
@@ -51,6 +52,8 @@ public sealed interface Expression
         NotExpression, NullIfExpression, Row, SearchedCaseExpression, SimpleCaseExpression,
         SubscriptExpression, SymbolReference
 {
+    Type type();
+
     /**
      * Accessible for {@link IrVisitor}, use {@link IrVisitor#process(Expression, Object)} instead.
      */

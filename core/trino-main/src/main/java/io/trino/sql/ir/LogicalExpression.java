@@ -15,11 +15,13 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
@@ -47,6 +49,12 @@ public record LogicalExpression(Operator operator, List<Expression> terms)
         requireNonNull(operator, "operator is null");
         checkArgument(terms.size() >= 2, "Expected at least 2 terms");
         terms = ImmutableList.copyOf(terms);
+    }
+
+    @Override
+    public Type type()
+    {
+        return BOOLEAN;
     }
 
     @Deprecated

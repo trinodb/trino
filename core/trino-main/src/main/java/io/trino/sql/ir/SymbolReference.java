@@ -30,6 +30,7 @@ public record SymbolReference(Type type, String name)
         requireNonNull(name, "name is null");
     }
 
+    @Override
     public Type type()
     {
         return type;

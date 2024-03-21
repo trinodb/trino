@@ -16,6 +16,7 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
@@ -51,6 +52,12 @@ public record ArithmeticBinaryExpression(ResolvedFunction function, Operator ope
         requireNonNull(operator, "operator is null");
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
+    }
+
+    @Override
+    public Type type()
+    {
+        return function.getSignature().getReturnType();
     }
 
     @Deprecated

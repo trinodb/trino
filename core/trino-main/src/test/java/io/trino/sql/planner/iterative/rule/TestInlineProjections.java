@@ -76,7 +76,7 @@ public class TestInlineProjections
                                                 .put(p.symbol("complex"), new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference(INTEGER, "x"), new Constant(INTEGER, 2L)))
                                                 .put(p.symbol("literal"), new Constant(INTEGER, 1L))
                                                 .put(p.symbol("complex_2"), new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, new SymbolReference(INTEGER, "x"), new Constant(INTEGER, 1L)))
-                                                .put(p.symbol("z"), new SubscriptExpression(new SymbolReference(MSG_TYPE, "msg"), new Constant(INTEGER, 1L)))
+                                                .put(p.symbol("z"), new SubscriptExpression(VARCHAR, new SymbolReference(MSG_TYPE, "msg"), new Constant(INTEGER, 1L)))
                                                 .put(p.symbol("v"), new SymbolReference(BIGINT, "x"))
                                                 .build(),
                                         p.values(p.symbol("x"), p.symbol("msg", MSG_TYPE)))))
@@ -96,7 +96,7 @@ public class TestInlineProjections
                                         ImmutableMap.of(
                                                 "x", PlanMatchPattern.expression(new SymbolReference(BIGINT, "x")),
                                                 "y", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY_INTEGER, MULTIPLY, new SymbolReference(INTEGER, "x"), new Constant(INTEGER, 2L))),
-                                                "z", PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference(MSG_TYPE, "msg"), new Constant(INTEGER, 1L)))),
+                                                "z", PlanMatchPattern.expression(new SubscriptExpression(VARCHAR, new SymbolReference(MSG_TYPE, "msg"), new Constant(INTEGER, 1L)))),
                                         values(ImmutableMap.of("x", 0, "msg", 1)))));
     }
 

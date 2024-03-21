@@ -93,7 +93,7 @@ public class IrTypeAnalyzer
 
     public Type getType(Expression expression)
     {
-        return getTypes(expression).get(NodeRef.of(expression));
+        return expression.type();
     }
 
     private static class Visitor

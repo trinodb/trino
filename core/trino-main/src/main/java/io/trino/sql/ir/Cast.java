@@ -36,6 +36,12 @@ public record Cast(Expression expression, Type type, boolean safe)
         requireNonNull(type, "type is null");
     }
 
+    @Override
+    public Type type()
+    {
+        return type;
+    }
+
     @Deprecated
     public Expression getExpression()
     {

@@ -15,6 +15,7 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
@@ -27,6 +28,12 @@ public record ArithmeticNegation(Expression value)
     public ArithmeticNegation
     {
         requireNonNull(value, "value is null");
+    }
+
+    @Override
+    public Type type()
+    {
+        return value.type();
     }
 
     @Deprecated

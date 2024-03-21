@@ -15,6 +15,7 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
@@ -30,6 +31,12 @@ public record CoalesceExpression(List<Expression> operands)
                 .add(first, second)
                 .add(additional)
                 .build());
+    }
+
+    @Override
+    public Type type()
+    {
+        return operands.getFirst().type();
     }
 
     public CoalesceExpression

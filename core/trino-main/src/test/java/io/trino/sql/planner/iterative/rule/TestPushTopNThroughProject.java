@@ -161,8 +161,8 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(p.symbol("c")),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new Constant(INTEGER, 1L)))
-                                            .put(p.symbol("c"), new SubscriptExpression(a.toSymbolReference(), new Constant(INTEGER, 2L)))
+                                            .put(p.symbol("b"), new SubscriptExpression(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 1L)))
+                                            .put(p.symbol("c"), new SubscriptExpression(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 2L)))
                                             .build(),
                                     p.values(a)));
                 }).doesNotFire();
@@ -180,7 +180,7 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(d),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new Constant(INTEGER, 1L)))
+                                            .put(p.symbol("b"), new SubscriptExpression(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 1L)))
                                             .put(p.symbol("c", rowType), a.toSymbolReference())
                                             .putIdentity(d)
                                             .build(),
@@ -188,7 +188,7 @@ public class TestPushTopNThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference(BIGINT, "a"), new Constant(INTEGER, 1L))), "c", expression(new SymbolReference(BIGINT, "a")), "d", expression(new SymbolReference(BIGINT, "d"))),
+                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(BIGINT, new SymbolReference(BIGINT, "a"), new Constant(INTEGER, 1L))), "c", expression(new SymbolReference(BIGINT, "a")), "d", expression(new SymbolReference(BIGINT, "d"))),
                                 topN(
                                         1,
                                         ImmutableList.of(sort("d", ASCENDING, FIRST)),

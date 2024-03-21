@@ -133,7 +133,7 @@ public class TestMongoProjectionPushdownPlans
                 session,
                 any(
                         project(
-                                ImmutableMap.of("expr_1", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), new Constant(INTEGER, 1L))), "expr_2", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), new Constant(INTEGER, 2L)))),
+                                ImmutableMap.of("expr_1", expression(new SubscriptExpression(BIGINT, new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), new Constant(INTEGER, 1L))), "expr_2", expression(new SubscriptExpression(BIGINT, new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), new Constant(INTEGER, 2L)))),
                                 tableScan(tableName, ImmutableMap.of("col0", "col0")))));
     }
 
@@ -205,9 +205,9 @@ public class TestMongoProjectionPushdownPlans
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "expr_0_x", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(INTEGER), "expr_0"), new Constant(INTEGER, 1L))),
+                                        "expr_0_x", expression(new SubscriptExpression(INTEGER, new SymbolReference(RowType.anonymousRow(INTEGER), "expr_0"), new Constant(INTEGER, 1L))),
                                         "expr_0", expression(new SymbolReference(RowType.anonymousRow(INTEGER), "expr_0")),
-                                        "expr_0_y", expression(new SubscriptExpression(new SymbolReference(RowType.anonymousRow(INTEGER), "expr_0"), new Constant(INTEGER, 2L)))),
+                                        "expr_0_y", expression(new SubscriptExpression(INTEGER, new SymbolReference(RowType.anonymousRow(INTEGER), "expr_0"), new Constant(INTEGER, 2L)))),
                                 PlanMatchPattern.join(INNER, builder -> builder
                                         .equiCriteria("t_expr_1", "s_expr_1")
                                         .left(
