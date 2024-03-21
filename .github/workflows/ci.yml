@@ -185,8 +185,6 @@ jobs:
           platforms: arm64,ppc64le
       - name: Build and Test Docker Image
         run: core/docker/build.sh
-      - name: Build and Test AMD64 Docker Image with JDK 22
-        run: core/docker/build.sh -j 22 -a amd64
 
   check-commits-dispatcher:
     runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
