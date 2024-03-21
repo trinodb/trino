@@ -50,7 +50,7 @@ public final class SymbolAliases
             @Override
             public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                return map.getOrDefault(node.getName(), node);
+                return map.getOrDefault(node.name(), node);
             }
         }, expression);
     }

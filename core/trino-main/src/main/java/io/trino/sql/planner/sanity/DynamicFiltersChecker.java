@@ -176,8 +176,8 @@ public class DynamicFiltersChecker
         verify(expression instanceof Cast,
                 "Dynamic filter expression %s must be a SymbolReference or a CAST of SymbolReference.", expression);
         Cast castExpression = (Cast) expression;
-        verify(castExpression.getExpression() instanceof SymbolReference,
-                "The expression %s within in a CAST in dynamic filter must be a SymbolReference.", formatExpression(castExpression.getExpression()));
+        verify(castExpression.expression() instanceof SymbolReference,
+                "The expression %s within in a CAST in dynamic filter must be a SymbolReference.", formatExpression(castExpression.expression()));
     }
 
     private static List<DynamicFilters.Descriptor> extractDynamicPredicates(Expression expression)

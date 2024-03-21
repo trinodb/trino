@@ -40,18 +40,6 @@ public record NullIfExpression(Expression first, Expression second)
         return first.type();
     }
 
-    @Deprecated
-    public Expression getFirst()
-    {
-        return first;
-    }
-
-    @Deprecated
-    public Expression getSecond()
-    {
-        return second;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

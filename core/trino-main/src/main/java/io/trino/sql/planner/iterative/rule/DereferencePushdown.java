@@ -111,19 +111,19 @@ class DereferencePushdown
 
     private static boolean isRowSubscriptChain(SubscriptExpression expression)
     {
-        if (!(expression.getBase().type() instanceof RowType)) {
+        if (!(expression.base().type() instanceof RowType)) {
             return false;
         }
 
-        return (expression.getBase() instanceof SymbolReference) ||
-                ((expression.getBase() instanceof SubscriptExpression) && isRowSubscriptChain((SubscriptExpression) expression.getBase()));
+        return (expression.base() instanceof SymbolReference) ||
+                ((expression.base() instanceof SubscriptExpression) && isRowSubscriptChain((SubscriptExpression) expression.base()));
     }
 
     private static boolean prefixExists(Expression expression, Set<Expression> expressions)
     {
         Expression current = expression;
         while (current instanceof SubscriptExpression) {
-            current = ((SubscriptExpression) current).getBase();
+            current = ((SubscriptExpression) current).base();
             if (expressions.contains(current)) {
                 return true;
             }

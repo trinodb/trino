@@ -47,7 +47,7 @@ public class RemoveTrivialFilters
         }
 
         if (predicate.equals(FALSE_LITERAL) ||
-                predicate instanceof Constant literal && literal.getValue() == null) {
+                predicate instanceof Constant literal && literal.value() == null) {
             return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), filterNode.getOutputSymbols(), emptyList()));
         }
 

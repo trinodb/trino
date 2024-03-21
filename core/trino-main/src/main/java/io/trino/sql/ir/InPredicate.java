@@ -36,18 +36,6 @@ public record InPredicate(Expression value, List<Expression> valueList)
         return BOOLEAN;
     }
 
-    @Deprecated
-    public Expression getValue()
-    {
-        return value;
-    }
-
-    @Deprecated
-    public List<Expression> getValueList()
-    {
-        return valueList;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

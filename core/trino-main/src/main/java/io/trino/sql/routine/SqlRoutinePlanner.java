@@ -406,7 +406,7 @@ public final class SqlRoutinePlanner
         @Override
         protected RowExpression visitSymbolReference(SymbolReference node, Void context)
         {
-            IrVariable variable = variables.get(node.getName());
+            IrVariable variable = variables.get(node.name());
             if (variable != null) {
                 return field(variable.field(), variable.type());
             }

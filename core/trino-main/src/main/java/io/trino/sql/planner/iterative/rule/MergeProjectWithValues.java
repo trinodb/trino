@@ -131,7 +131,7 @@ public class MergeProjectWithValues
         for (Expression rowExpression : valuesNode.getRows().get()) {
             Row row = (Row) rowExpression;
             for (int i = 0; i < valuesNode.getOutputSymbols().size(); i++) {
-                if (!isDeterministic(row.getItems().get(i))) {
+                if (!isDeterministic(row.items().get(i))) {
                     nonDeterministicValuesOutputs.add(valuesNode.getOutputSymbols().get(i));
                 }
             }
@@ -167,8 +167,8 @@ public class MergeProjectWithValues
     private Map<SymbolReference, Expression> buildMappings(List<Symbol> symbols, Row row)
     {
         ImmutableMap.Builder<SymbolReference, Expression> mappingBuilder = ImmutableMap.builder();
-        for (int i = 0; i < row.getItems().size(); i++) {
-            mappingBuilder.put(symbols.get(i).toSymbolReference(), row.getItems().get(i));
+        for (int i = 0; i < row.items().size(); i++) {
+            mappingBuilder.put(symbols.get(i).toSymbolReference(), row.items().get(i));
         }
         return mappingBuilder.buildOrThrow();
     }

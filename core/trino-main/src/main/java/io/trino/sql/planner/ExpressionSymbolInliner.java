@@ -59,12 +59,12 @@ public final class ExpressionSymbolInliner
         @Override
         public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (excludedNames.contains(node.getName())) {
+            if (excludedNames.contains(node.name())) {
                 return node;
             }
 
             Expression expression = mapping.apply(Symbol.from(node));
-            checkState(expression != null, "Cannot resolve symbol %s", node.getName());
+            checkState(expression != null, "Cannot resolve symbol %s", node.name());
             return expression;
         }
 

@@ -474,9 +474,9 @@ public class PredicatePushDown
                 if (joinEqualityExpression(conjunct, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols())) {
                     ComparisonExpression equality = (ComparisonExpression) conjunct;
 
-                    boolean alignedComparison = node.getLeft().getOutputSymbols().containsAll(extractUnique(equality.getLeft()));
-                    Expression leftExpression = alignedComparison ? equality.getLeft() : equality.getRight();
-                    Expression rightExpression = alignedComparison ? equality.getRight() : equality.getLeft();
+                    boolean alignedComparison = node.getLeft().getOutputSymbols().containsAll(extractUnique(equality.left()));
+                    Expression leftExpression = alignedComparison ? equality.left() : equality.right();
+                    Expression rightExpression = alignedComparison ? equality.right() : equality.left();
 
                     Symbol leftSymbol = symbolForExpression(leftExpression);
                     if (!node.getLeft().getOutputSymbols().contains(leftSymbol)) {
@@ -591,19 +591,19 @@ public class PredicatePushDown
                                     .filter(clause -> joinDynamicFilteringExpression(clause, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols()))
                                     .map(expression -> {
                                         if (expression instanceof NotExpression notExpression) {
-                                            ComparisonExpression comparison = (ComparisonExpression) notExpression.getValue();
-                                            return new DynamicFilterExpression(new ComparisonExpression(EQUAL, comparison.getLeft(), comparison.getRight()), true);
+                                            ComparisonExpression comparison = (ComparisonExpression) notExpression.value();
+                                            return new DynamicFilterExpression(new ComparisonExpression(EQUAL, comparison.left(), comparison.right()), true);
                                         }
                                         return new DynamicFilterExpression((ComparisonExpression) expression);
                                     })
                                     .map(expression -> {
                                         ComparisonExpression comparison = expression.getComparison();
-                                        Expression leftExpression = comparison.getLeft();
-                                        Expression rightExpression = comparison.getRight();
+                                        Expression leftExpression = comparison.left();
+                                        Expression rightExpression = comparison.right();
                                         boolean alignedComparison = node.getLeft().getOutputSymbols().containsAll(extractUnique(leftExpression));
                                         return new DynamicFilterExpression(
                                                 new ComparisonExpression(
-                                                        alignedComparison ? comparison.getOperator() : comparison.getOperator().flip(),
+                                                        alignedComparison ? comparison.operator() : comparison.operator().flip(),
                                                         alignedComparison ? leftExpression : rightExpression,
                                                         alignedComparison ? rightExpression : leftExpression),
                                                 expression.isNullAllowed());
@@ -618,7 +618,7 @@ public class PredicatePushDown
             // Collect build symbols:
             Set<Symbol> buildSymbols = clauses.stream()
                     .map(DynamicFilterExpression::getComparison)
-                    .map(ComparisonExpression::getRight)
+                    .map(ComparisonExpression::right)
                     .map(Symbol::from)
                     .collect(toImmutableSet());
 
@@ -635,12 +635,12 @@ public class PredicatePushDown
                     .stream()
                     .map(clause -> {
                         ComparisonExpression comparison = clause.getComparison();
-                        Expression probeExpression = comparison.getLeft();
-                        Symbol buildSymbol = Symbol.from(comparison.getRight());
+                        Expression probeExpression = comparison.left();
+                        Symbol buildSymbol = Symbol.from(comparison.right());
                         // we can take type of buildSymbol instead probeExpression as comparison expression must have the same type on both sides
                         Type type = buildSymbol.getType();
                         DynamicFilterId id = requireNonNull(buildSymbolToDynamicFilter.get(buildSymbol), () -> "missing dynamic filter for symbol " + buildSymbol);
-                        return createDynamicFilterExpression(metadata, id, type, probeExpression, comparison.getOperator(), clause.isNullAllowed());
+                        return createDynamicFilterExpression(metadata, id, type, probeExpression, comparison.operator(), clause.isNullAllowed());
                     })
                     .collect(toImmutableList());
             // Return a mapping from build symbols to corresponding dynamic filter IDs:
@@ -651,8 +651,8 @@ public class PredicatePushDown
         {
             if (clause instanceof BetweenPredicate between) {
                 return Stream.of(
-                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, between.getValue(), between.getMin()),
-                        new ComparisonExpression(LESS_THAN_OR_EQUAL, between.getValue(), between.getMax()));
+                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, between.value(), between.min()),
+                        new ComparisonExpression(LESS_THAN_OR_EQUAL, between.value(), between.max()));
             }
             return Stream.of(clause);
         }
@@ -1206,11 +1206,11 @@ public class PredicatePushDown
         {
             ComparisonExpression comparison;
             if (expression instanceof NotExpression notExpression) {
-                boolean isDistinctFrom = joinComparisonExpression(notExpression.getValue(), leftSymbols, rightSymbols, ImmutableSet.of(IS_DISTINCT_FROM));
+                boolean isDistinctFrom = joinComparisonExpression(notExpression.value(), leftSymbols, rightSymbols, ImmutableSet.of(IS_DISTINCT_FROM));
                 if (!isDistinctFrom) {
                     return false;
                 }
-                comparison = (ComparisonExpression) notExpression.getValue();
+                comparison = (ComparisonExpression) notExpression.value();
                 Set<Type> expressionTypes = ImmutableSet.of(
                         comparison.left().type(),
                         comparison.right().type());
@@ -1227,17 +1227,17 @@ public class PredicatePushDown
             }
 
             // Build side expression must be a symbol reference, since DynamicFilterSourceOperator can only collect column values (not expressions)
-            return (comparison.getRight() instanceof SymbolReference && rightSymbols.contains(Symbol.from(comparison.getRight())))
-                    || (comparison.getLeft() instanceof SymbolReference && rightSymbols.contains(Symbol.from(comparison.getLeft())));
+            return (comparison.right() instanceof SymbolReference && rightSymbols.contains(Symbol.from(comparison.right())))
+                    || (comparison.left() instanceof SymbolReference && rightSymbols.contains(Symbol.from(comparison.left())));
         }
 
         private boolean joinComparisonExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols, Set<ComparisonExpression.Operator> operators)
         {
             // At this point in time, our join predicates need to be deterministic
             if (expression instanceof ComparisonExpression comparison && isDeterministic(expression)) {
-                if (operators.contains(comparison.getOperator())) {
-                    Set<Symbol> symbols1 = extractUnique(comparison.getLeft());
-                    Set<Symbol> symbols2 = extractUnique(comparison.getRight());
+                if (operators.contains(comparison.operator())) {
+                    Set<Symbol> symbols1 = extractUnique(comparison.left());
+                    Set<Symbol> symbols2 = extractUnique(comparison.right());
                     if (symbols1.isEmpty() || symbols2.isEmpty()) {
                         return false;
                     }

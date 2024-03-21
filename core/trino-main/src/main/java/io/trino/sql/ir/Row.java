@@ -39,12 +39,6 @@ public record Row(List<Expression> items)
         return RowType.anonymous(items.stream().map(Expression::type).collect(Collectors.toList()));
     }
 
-    @Deprecated
-    public List<Expression> getItems()
-    {
-        return items;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

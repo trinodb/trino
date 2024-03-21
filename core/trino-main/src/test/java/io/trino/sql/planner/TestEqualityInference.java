@@ -440,8 +440,8 @@ public class TestEqualityInference
     {
         checkArgument(expression instanceof ComparisonExpression);
         ComparisonExpression comparisonExpression = (ComparisonExpression) expression;
-        checkArgument(comparisonExpression.getOperator() == EQUAL);
-        return ImmutableSet.of(comparisonExpression.getLeft(), comparisonExpression.getRight());
+        checkArgument(comparisonExpression.operator() == EQUAL);
+        return ImmutableSet.of(comparisonExpression.left(), comparisonExpression.right());
     }
 
     @SafeVarargs

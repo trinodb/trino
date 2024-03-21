@@ -137,13 +137,13 @@ public class UnwrapDateTruncInComparison
             // Expect date_trunc on the left side and value on the right side of the comparison.
             // This is provided by CanonicalizeExpressionRewriter.
 
-            if (!(expression.getLeft() instanceof FunctionCall call) ||
-                    !call.getFunction().getName().equals(builtinFunctionName("date_trunc")) ||
-                    call.getArguments().size() != 2) {
+            if (!(expression.left() instanceof FunctionCall call) ||
+                    !call.function().getName().equals(builtinFunctionName("date_trunc")) ||
+                    call.arguments().size() != 2) {
                 return expression;
             }
 
-            Expression unitExpression = call.getArguments().get(0);
+            Expression unitExpression = call.arguments().get(0);
             if (!(unitExpression.type() instanceof VarcharType) || !(unitExpression instanceof Constant)) {
                 return expression;
             }
@@ -153,17 +153,17 @@ public class UnwrapDateTruncInComparison
                 return expression;
             }
 
-            Expression argument = call.getArguments().get(1);
+            Expression argument = call.arguments().get(1);
             Type argumentType = argument.type();
 
             Type rightType = expression.right().type();
             verify(argumentType.equals(rightType), "Mismatched types: %s and %s", argumentType, rightType);
 
-            Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session)
+            Object right = new IrExpressionInterpreter(expression.right(), plannerContext, session)
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
             if (right == null) {
-                return switch (expression.getOperator()) {
+                return switch (expression.operator()) {
                     case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Constant(BOOLEAN, null);
                     case IS_DISTINCT_FROM -> new NotExpression(new IsNullPredicate(argument));
                 };
@@ -178,7 +178,7 @@ public class UnwrapDateTruncInComparison
                 return expression;
             }
 
-            ResolvedFunction resolvedFunction = call.getFunction();
+            ResolvedFunction resolvedFunction = call.function();
 
             Optional<SupportedUnit> unitIfSupported = Enums.getIfPresent(SupportedUnit.class, unitName.toStringUtf8().toUpperCase(Locale.ENGLISH)).toJavaUtil();
             if (unitIfSupported.isEmpty()) {
@@ -195,7 +195,7 @@ public class UnwrapDateTruncInComparison
             verify(compare <= 0, "Truncation of %s value %s resulted in a bigger value %s", rightType, right, rangeLow);
             boolean rightValueAtRangeLow = compare == 0;
 
-            return switch (expression.getOperator()) {
+            return switch (expression.operator()) {
                 case EQUAL -> {
                     if (!rightValueAtRangeLow) {
                         yield falseIfNotNull(argument);

@@ -301,13 +301,13 @@ public class ExtractSpatialJoins
         Expression radius;
         Optional<Symbol> newRadiusSymbol;
         ComparisonExpression newComparison;
-        if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
+        if (spatialComparison.operator() == LESS_THAN || spatialComparison.operator() == LESS_THAN_OR_EQUAL) {
             // ST_Distance(a, b) <= r
-            radius = spatialComparison.getRight();
+            radius = spatialComparison.right();
             Set<Symbol> radiusSymbols = extractUnique(radius);
             if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
                 newRadiusSymbol = newRadiusSymbol(context, radius);
-                newComparison = new ComparisonExpression(spatialComparison.getOperator(), spatialComparison.getLeft(), toExpression(newRadiusSymbol, radius));
+                newComparison = new ComparisonExpression(spatialComparison.operator(), spatialComparison.left(), toExpression(newRadiusSymbol, radius));
             }
             else {
                 return Result.empty();
@@ -315,11 +315,11 @@ public class ExtractSpatialJoins
         }
         else {
             // r >= ST_Distance(a, b)
-            radius = spatialComparison.getLeft();
+            radius = spatialComparison.left();
             Set<Symbol> radiusSymbols = extractUnique(radius);
             if (radiusSymbols.isEmpty() || (rightSymbols.containsAll(radiusSymbols) && containsNone(leftSymbols, radiusSymbols))) {
                 newRadiusSymbol = newRadiusSymbol(context, radius);
-                newComparison = new ComparisonExpression(spatialComparison.getOperator().flip(), spatialComparison.getRight(), toExpression(newRadiusSymbol, radius));
+                newComparison = new ComparisonExpression(spatialComparison.operator().flip(), spatialComparison.right(), toExpression(newRadiusSymbol, radius));
             }
             else {
                 return Result.empty();
@@ -346,7 +346,7 @@ public class ExtractSpatialJoins
                 joinNode.getDynamicFilters(),
                 joinNode.getReorderJoinStatsAndCost());
 
-        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (FunctionCall) newComparison.getLeft(), Optional.of(newComparison.getRight()), plannerContext, splitManager, pageSourceManager);
+        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (FunctionCall) newComparison.left(), Optional.of(newComparison.right()), plannerContext, splitManager, pageSourceManager);
     }
 
     private static Result tryCreateSpatialJoin(
@@ -365,7 +365,7 @@ public class ExtractSpatialJoins
         Optional<String> spatialPartitioningTableName = joinNode.getType() == INNER ? getSpatialPartitioningTableName(context.getSession()) : Optional.empty();
         Optional<KdbTree> kdbTree = spatialPartitioningTableName.map(tableName -> loadKdbTree(tableName, context.getSession(), plannerContext.getMetadata(), splitManager, pageSourceManager));
 
-        List<Expression> arguments = spatialFunction.getArguments();
+        List<Expression> arguments = spatialFunction.arguments();
         verify(arguments.size() == 2);
 
         Expression firstArgument = arguments.get(0);
@@ -426,7 +426,7 @@ public class ExtractSpatialJoins
             }
         }
 
-        ResolvedFunction resolvedFunction = spatialFunction.getFunction();
+        ResolvedFunction resolvedFunction = spatialFunction.function();
         Expression newSpatialFunction = ResolvedFunctionCallBuilder.builder(resolvedFunction)
                 .addArgument(newFirstArgument)
                 .addArgument(newSecondArgument)

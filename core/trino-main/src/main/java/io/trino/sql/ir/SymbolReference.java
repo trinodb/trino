@@ -36,12 +36,6 @@ public record SymbolReference(Type type, String name)
         return type;
     }
 
-    @Deprecated
-    public String getName()
-    {
-        return name;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

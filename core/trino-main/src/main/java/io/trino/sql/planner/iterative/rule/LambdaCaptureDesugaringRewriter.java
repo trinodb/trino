@@ -60,9 +60,9 @@ public final class LambdaCaptureDesugaringRewriter
         {
             // Use linked hash set to guarantee deterministic iteration order
             LinkedHashSet<Symbol> referencedSymbols = new LinkedHashSet<>();
-            Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), context.withReferencedSymbols(referencedSymbols));
+            Expression rewrittenBody = treeRewriter.rewrite(node.body(), context.withReferencedSymbols(referencedSymbols));
 
-            List<Symbol> lambdaArguments = node.getArguments();
+            List<Symbol> lambdaArguments = node.arguments();
 
             Set<Symbol> captureSymbols = Sets.difference(referencedSymbols, ImmutableSet.copyOf(lambdaArguments));
 
@@ -76,7 +76,7 @@ public final class LambdaCaptureDesugaringRewriter
                 captureSymbolToExtraSymbol.put(captureSymbol, extraSymbol);
                 newLambdaArguments.add(extraSymbol);
             }
-            newLambdaArguments.addAll(node.getArguments());
+            newLambdaArguments.addAll(node.arguments());
 
             ImmutableMap<Symbol, Symbol> symbolsMap = captureSymbolToExtraSymbol.buildOrThrow();
             Function<Symbol, Expression> symbolMapping = symbol -> symbolsMap.getOrDefault(symbol, symbol).toSymbolReference();
@@ -97,7 +97,7 @@ public final class LambdaCaptureDesugaringRewriter
         @Override
         public Expression rewriteSymbolReference(SymbolReference node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
         {
-            context.getReferencedSymbols().add(new Symbol(node.type(), node.getName()));
+            context.getReferencedSymbols().add(new Symbol(node.type(), node.name()));
             return null;
         }
     }

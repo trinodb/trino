@@ -304,7 +304,7 @@ public class ExpressionRewriteRuleSet
                 Expression rewritten;
                 if (row instanceof Row) {
                     // preserve the structure of row
-                    rewritten = new Row(((Row) row).getItems().stream()
+                    rewritten = new Row(((Row) row).items().stream()
                             .map(item -> rewriter.rewrite(item, context))
                             .collect(toImmutableList()));
                 }

@@ -671,11 +671,11 @@ public class TestSimplifyExpressions
         @Override
         public Expression rewriteLogicalExpression(LogicalExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            List<Expression> predicates = extractPredicates(node.getOperator(), node).stream()
+            List<Expression> predicates = extractPredicates(node.operator(), node).stream()
                     .map(p -> treeRewriter.rewrite(p, context))
                     .sorted(Comparator.comparing(Expression::toString))
                     .collect(toList());
-            return logicalExpression(node.getOperator(), predicates);
+            return logicalExpression(node.operator(), predicates);
         }
 
         @Override
@@ -683,7 +683,7 @@ public class TestSimplifyExpressions
         {
             // the `expected` Cast expression comes out of the AstBuilder with the `typeOnly` flag set to false.
             // always set the `typeOnly` flag to false so that it does not break the comparison.
-            return new Cast(node.getExpression(), node.getType(), node.isSafe());
+            return new Cast(node.expression(), node.type(), node.safe());
         }
     }
 }

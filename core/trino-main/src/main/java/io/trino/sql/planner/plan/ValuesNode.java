@@ -77,7 +77,7 @@ public class ValuesNode
             List<Integer> rowSizes = rows.get().stream()
                     .map(row -> requireNonNull(row, "row is null"))
                     .filter(expression -> expression instanceof Row)
-                    .map(expression -> ((Row) expression).getItems().size())
+                    .map(expression -> ((Row) expression).items().size())
                     .distinct()
                     .collect(toImmutableList());
             checkState(rowSizes.size() <= 1, "mismatched rows. All rows must be the same size");

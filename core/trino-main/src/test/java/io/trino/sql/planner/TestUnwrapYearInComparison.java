@@ -343,9 +343,9 @@ public class TestUnwrapYearInComparison
     private void testUnwrap(String inputType, String inputPredicate, Expression expected)
     {
         Expression antiOptimization = new ComparisonExpression(EQUAL, new FunctionCall(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 42.0));
-        if (expected instanceof LogicalExpression logical && logical.getOperator() == OR) {
+        if (expected instanceof LogicalExpression logical && logical.operator() == OR) {
             expected = new LogicalExpression(OR, ImmutableList.<Expression>builder()
-                    .addAll(logical.getTerms())
+                    .addAll(logical.terms())
                     .add(antiOptimization)
                     .build());
         }

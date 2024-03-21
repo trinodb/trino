@@ -88,8 +88,8 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitConstant(Constant node, Void context)
         {
-            Type type = node.getType();
-            Object value = node.getValue();
+            Type type = node.type();
+            Object value = node.value();
             if (value == null) {
                 return nullStatsEstimate();
             }
@@ -131,7 +131,7 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitCast(Cast node, Void context)
         {
-            SymbolStatsEstimate sourceStats = process(node.getExpression());
+            SymbolStatsEstimate sourceStats = process(node.expression());
 
             // todo - make this general postprocessing rule.
             double distinctValuesCount = sourceStats.getDistinctValuesCount();
@@ -178,7 +178,7 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitArithmeticNegation(ArithmeticNegation node, Void context)
         {
-            SymbolStatsEstimate stats = process(node.getValue());
+            SymbolStatsEstimate stats = process(node.value());
             return SymbolStatsEstimate.buildFrom(stats)
                     .setLowValue(-stats.getHighValue())
                     .setHighValue(-stats.getLowValue())
@@ -189,8 +189,8 @@ public class ScalarStatsCalculator
         protected SymbolStatsEstimate visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
         {
             requireNonNull(node, "node is null");
-            SymbolStatsEstimate left = process(node.getLeft());
-            SymbolStatsEstimate right = process(node.getRight());
+            SymbolStatsEstimate left = process(node.left());
+            SymbolStatsEstimate right = process(node.right());
             if (left.isUnknown() || right.isUnknown()) {
                 return SymbolStatsEstimate.unknown();
             }
@@ -208,11 +208,11 @@ public class ScalarStatsCalculator
                 result.setLowValue(NaN)
                         .setHighValue(NaN);
             }
-            else if (node.getOperator() == ArithmeticBinaryExpression.Operator.DIVIDE && rightLow < 0 && rightHigh > 0) {
+            else if (node.operator() == ArithmeticBinaryExpression.Operator.DIVIDE && rightLow < 0 && rightHigh > 0) {
                 result.setLowValue(Double.NEGATIVE_INFINITY)
                         .setHighValue(Double.POSITIVE_INFINITY);
             }
-            else if (node.getOperator() == ArithmeticBinaryExpression.Operator.MODULUS) {
+            else if (node.operator() == ArithmeticBinaryExpression.Operator.MODULUS) {
                 double maxDivisor = max(abs(rightLow), abs(rightHigh));
                 if (leftHigh <= 0) {
                     result.setLowValue(max(-maxDivisor, leftLow))
@@ -228,10 +228,10 @@ public class ScalarStatsCalculator
                 }
             }
             else {
-                double v1 = operate(node.getOperator(), leftLow, rightLow);
-                double v2 = operate(node.getOperator(), leftLow, rightHigh);
-                double v3 = operate(node.getOperator(), leftHigh, rightLow);
-                double v4 = operate(node.getOperator(), leftHigh, rightHigh);
+                double v1 = operate(node.operator(), leftLow, rightLow);
+                double v2 = operate(node.operator(), leftLow, rightHigh);
+                double v3 = operate(node.operator(), leftHigh, rightLow);
+                double v4 = operate(node.operator(), leftHigh, rightHigh);
                 double lowValue = min(v1, v2, v3, v4);
                 double highValue = max(v1, v2, v3, v4);
 
@@ -264,7 +264,7 @@ public class ScalarStatsCalculator
         {
             requireNonNull(node, "node is null");
             SymbolStatsEstimate result = null;
-            for (Expression operand : node.getOperands()) {
+            for (Expression operand : node.operands()) {
                 SymbolStatsEstimate operandEstimates = process(operand);
                 if (result != null) {
                     result = estimateCoalesce(result, operandEstimates);
