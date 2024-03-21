@@ -16,50 +16,36 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
-import io.trino.sql.planner.Symbol;
-import io.trino.type.FunctionType;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record LambdaExpression(List<Symbol> arguments, Expression body)
+public record Subscript(Type type, Expression base, Expression index)
         implements Expression
 {
-    public LambdaExpression
+    public Subscript
     {
-        requireNonNull(arguments, "arguments is null");
-        requireNonNull(body, "body is null");
+        requireNonNull(base, "base is null");
+        requireNonNull(index, "index is null");
     }
 
     @Override
     public Type type()
     {
-        return new FunctionType(
-                arguments.stream().map(Symbol::getType).collect(Collectors.toList()),
-                body.type());
+        return type;
     }
 
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitLambdaExpression(this, context);
+        return visitor.visitSubscript(this, context);
     }
 
     @Override
-    public List<? extends Expression> getChildren()
+    public List<? extends Expression> children()
     {
-        return ImmutableList.of(body);
-    }
-
-    @Override
-    public String toString()
-    {
-        return "(%s) -> %s".formatted(
-                arguments.stream()
-                        .map(Symbol::toString).collect(Collectors.joining(", ")),
-                body);
+        return ImmutableList.of(base, index);
     }
 }

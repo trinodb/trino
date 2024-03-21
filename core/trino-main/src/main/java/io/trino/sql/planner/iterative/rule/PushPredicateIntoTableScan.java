@@ -32,6 +32,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
@@ -60,9 +61,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.spi.expression.Constant.TRUE;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -180,7 +179,7 @@ public class PushPredicateIntoTableScan
 
         Constraint constraint;
         // use evaluator only when there is some predicate which could not be translated into tuple domain
-        if (pruneWithPredicateExpression && !TRUE_LITERAL.equals(decomposedPredicate.getRemainingExpression())) {
+        if (pruneWithPredicateExpression && !Booleans.TRUE.equals(decomposedPredicate.getRemainingExpression())) {
             LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(
                     plannerContext,
                     session,
@@ -201,17 +200,17 @@ public class PushPredicateIntoTableScan
         // check if new domain is wider than domain already provided by table scan
         if (constraint.predicate().isEmpty() &&
                 // TODO do we need to track enforced ConnectorExpression in TableScanNode?
-                TRUE.equals(expressionTranslation.connectorExpression()) &&
+                io.trino.spi.expression.Constant.TRUE.equals(expressionTranslation.connectorExpression()) &&
                 newDomain.contains(node.getEnforcedConstraint())) {
             Expression resultingPredicate = createResultingPredicate(
                     plannerContext,
                     session,
                     splitExpression.getDynamicFilter(),
-                    TRUE_LITERAL,
+                    Booleans.TRUE,
                     splitExpression.getNonDeterministicPredicate(),
                     decomposedPredicate.getRemainingExpression());
 
-            if (!TRUE_LITERAL.equals(resultingPredicate)) {
+            if (!Booleans.TRUE.equals(resultingPredicate)) {
                 return Optional.of(new FilterNode(filterNode.getId(), node, resultingPredicate));
             }
 
@@ -284,7 +283,7 @@ public class PushPredicateIntoTableScan
                 splitExpression.getNonDeterministicPredicate(),
                 remainingDecomposedPredicate);
 
-        if (!TRUE_LITERAL.equals(resultingPredicate)) {
+        if (!Booleans.TRUE.equals(resultingPredicate)) {
             return Optional.of(new FilterNode(filterNode.getId(), tableScan, resultingPredicate));
         }
 

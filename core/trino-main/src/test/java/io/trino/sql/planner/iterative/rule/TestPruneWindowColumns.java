@@ -21,7 +21,7 @@ import com.google.common.collect.Sets;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.connector.SortOrder;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -85,7 +85,7 @@ public class TestPruneWindowColumns
                 .on(p -> buildProjectedWindow(p, symbol -> inputSymbolNameSet.contains(symbol.getName()), alwaysTrue()))
                 .matches(
                         strictProject(
-                                Maps.asMap(inputSymbolNameSet, symbol -> expression(new SymbolReference(BIGINT, symbol))),
+                                Maps.asMap(inputSymbolNameSet, symbol -> expression(new Reference(BIGINT, symbol))),
                                 values(inputSymbolNameList)));
     }
 
@@ -99,8 +99,8 @@ public class TestPruneWindowColumns
                 .matches(
                         strictProject(
                                 ImmutableMap.of(
-                                        "output2", expression(new SymbolReference(BIGINT, "output2")),
-                                        "unused", expression(new SymbolReference(BIGINT, "unused"))),
+                                        "output2", expression(new Reference(BIGINT, "output2")),
+                                        "unused", expression(new Reference(BIGINT, "unused"))),
                                 window(windowBuilder -> windowBuilder
                                                 .prePartitionedInputs(ImmutableSet.of())
                                                 .specification(
@@ -113,7 +113,7 @@ public class TestPruneWindowColumns
                                         strictProject(
                                                 Maps.asMap(
                                                         Sets.difference(inputSymbolNameSet, ImmutableSet.of("input1", "startValue1", "endValue1")),
-                                                        symbol -> expression(new SymbolReference(BIGINT, symbol))),
+                                                        symbol -> expression(new Reference(BIGINT, symbol))),
                                                 values(inputSymbolNameList)))));
     }
 
@@ -151,8 +151,8 @@ public class TestPruneWindowColumns
                 .matches(
                         strictProject(
                                 ImmutableMap.of(
-                                        "output1", expression(new SymbolReference(BIGINT, "output1")),
-                                        "output2", expression(new SymbolReference(BIGINT, "output2"))),
+                                        "output1", expression(new Reference(BIGINT, "output1")),
+                                        "output2", expression(new Reference(BIGINT, "output2"))),
                                 window(windowBuilder -> windowBuilder
                                                 .prePartitionedInputs(ImmutableSet.of())
                                                 .specification(
@@ -166,7 +166,7 @@ public class TestPruneWindowColumns
                                         strictProject(
                                                 Maps.asMap(
                                                         Sets.filter(inputSymbolNameSet, symbolName -> !symbolName.equals("unused")),
-                                                        symbol -> expression(new SymbolReference(BIGINT, symbol))),
+                                                        symbol -> expression(new Reference(BIGINT, symbol))),
                                                 values(inputSymbolNameList)))));
     }
 

@@ -19,33 +19,42 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * NULLIF(V1,V2): CASE WHEN V1=V2 THEN NULL ELSE V1 END
+ */
 @JsonSerialize
-public record NotExpression(Expression value)
+public record NullIf(Expression first, Expression second)
         implements Expression
 {
-    public NotExpression
+    public NullIf
     {
-        requireNonNull(value, "value is null");
+        requireNonNull(first, "first is null");
+        requireNonNull(second, "second is null");
     }
 
     @Override
     public Type type()
     {
-        return BOOLEAN;
+        return first.type();
     }
 
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitNotExpression(this, context);
+        return visitor.visitNullIf(this, context);
     }
 
     @Override
-    public List<? extends Expression> getChildren()
+    public List<? extends Expression> children()
     {
-        return ImmutableList.of(value);
+        return ImmutableList.of(first, second);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "NullIf(%s, %s)".formatted(first, second);
     }
 }

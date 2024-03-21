@@ -25,8 +25,8 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.MergeProcessorNode;
@@ -117,11 +117,11 @@ public class PushMergeWriterUpdateIntoConnector
     {
         ImmutableMap.Builder<ColumnHandle, io.trino.spi.expression.Constant> assignments = ImmutableMap.builder();
         if (mergeRow instanceof Row row) {
-            List<? extends Expression> fields = row.getChildren();
+            List<? extends Expression> fields = row.children();
             for (int i = 0; i < orderedColumnNames.size(); i++) {
                 String columnName = orderedColumnNames.get(i);
                 Expression field = fields.get(i);
-                if (field instanceof SymbolReference) {
+                if (field instanceof Reference) {
                     // the column is not updated
                     continue;
                 }

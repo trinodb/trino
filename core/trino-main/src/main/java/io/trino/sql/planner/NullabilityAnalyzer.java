@@ -13,16 +13,16 @@
  */
 package io.trino.sql.planner;
 
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.InPredicate;
-import io.trino.sql.ir.NullIfExpression;
-import io.trino.sql.ir.SearchedCaseExpression;
-import io.trino.sql.ir.SimpleCaseExpression;
-import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.In;
+import io.trino.sql.ir.NullIf;
+import io.trino.sql.ir.Subscript;
+import io.trino.sql.ir.Switch;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -69,42 +69,42 @@ public final class NullabilityAnalyzer
         }
 
         @Override
-        protected Void visitNullIfExpression(NullIfExpression node, AtomicBoolean result)
+        protected Void visitNullIf(NullIf node, AtomicBoolean result)
         {
             result.set(true);
             return null;
         }
 
         @Override
-        protected Void visitInPredicate(InPredicate node, AtomicBoolean result)
+        protected Void visitIn(In node, AtomicBoolean result)
         {
             result.set(true);
             return null;
         }
 
         @Override
-        protected Void visitSearchedCaseExpression(SearchedCaseExpression node, AtomicBoolean result)
+        protected Void visitCase(Case node, AtomicBoolean result)
         {
             result.set(true);
             return null;
         }
 
         @Override
-        protected Void visitSimpleCaseExpression(SimpleCaseExpression node, AtomicBoolean result)
+        protected Void visitSwitch(Switch node, AtomicBoolean result)
         {
             result.set(true);
             return null;
         }
 
         @Override
-        protected Void visitSubscriptExpression(SubscriptExpression node, AtomicBoolean result)
+        protected Void visitSubscript(Subscript node, AtomicBoolean result)
         {
             result.set(true);
             return null;
         }
 
         @Override
-        protected Void visitFunctionCall(FunctionCall node, AtomicBoolean result)
+        protected Void visitCall(Call node, AtomicBoolean result)
         {
             // TODO: this should look at whether the return type of the function is annotated with @SqlNullable
             result.set(true);

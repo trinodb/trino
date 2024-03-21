@@ -14,7 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import org.junit.jupiter.api.Test;
@@ -32,7 +32,7 @@ public class TestRemoveRedundantEnforceSingleRowNode
     {
         tester().assertThat(new RemoveRedundantEnforceSingleRowNode())
                 .on(p -> p.enforceSingleRow(p.aggregation(builder -> builder
-                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new SymbolReference(BIGINT, "a"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
                         .globalGrouping()
                         .source(p.values(p.symbol("a"))))))
                 .matches(node(AggregationNode.class, values("a")));

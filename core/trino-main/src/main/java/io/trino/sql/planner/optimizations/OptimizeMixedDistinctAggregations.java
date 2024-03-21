@@ -20,8 +20,8 @@ import com.google.common.collect.Iterables;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.CoalesceExpression;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -206,7 +206,7 @@ public class OptimizeMixedDistinctAggregations
             Assignments.Builder outputSymbols = Assignments.builder();
             for (Symbol symbol : aggregationNode.getOutputSymbols()) {
                 if (coalesceSymbols.containsKey(symbol)) {
-                    Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Constant(BIGINT, 0L));
+                    Expression expression = new Coalesce(symbol.toSymbolReference(), new Constant(BIGINT, 0L));
                     outputSymbols.put(coalesceSymbols.get(symbol), expression);
                 }
                 else {
@@ -330,7 +330,7 @@ public class OptimizeMixedDistinctAggregations
                     Expression expression = createIfExpression(
                             groupSymbol.toSymbolReference(),
                             new Constant(BIGINT, 1L), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
-                            ComparisonExpression.Operator.EQUAL,
+                            Comparison.Operator.EQUAL,
                             symbol.toSymbolReference(),
                             symbol.getType());
                     outputSymbols.put(newSymbol, expression);
@@ -342,7 +342,7 @@ public class OptimizeMixedDistinctAggregations
                     Expression expression = createIfExpression(
                             groupSymbol.toSymbolReference(),
                             new Constant(BIGINT, 0L), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
-                            ComparisonExpression.Operator.EQUAL,
+                            Comparison.Operator.EQUAL,
                             symbol.toSymbolReference(),
                             symbol.getType());
                     outputSymbols.put(newSymbol, expression);
@@ -462,10 +462,10 @@ public class OptimizeMixedDistinctAggregations
         }
 
         // creates if clause specific to use case here, default value always null
-        private static Expression createIfExpression(Expression left, Expression right, ComparisonExpression.Operator operator, Expression result, Type trueValueType)
+        private static Expression createIfExpression(Expression left, Expression right, Comparison.Operator operator, Expression result, Type trueValueType)
         {
             return ifExpression(
-                    new ComparisonExpression(operator, left, right),
+                    new Comparison(operator, left, right),
                     result,
                     new Constant(trueValueType, null));
         }

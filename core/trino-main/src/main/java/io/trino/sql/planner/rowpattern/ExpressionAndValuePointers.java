@@ -16,6 +16,7 @@ package io.trino.sql.planner.rowpattern;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 
@@ -25,12 +26,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionAndValuePointers
 {
-    public static final ExpressionAndValuePointers TRUE = new ExpressionAndValuePointers(TRUE_LITERAL, ImmutableList.of());
+    public static final ExpressionAndValuePointers TRUE = new ExpressionAndValuePointers(Booleans.TRUE, ImmutableList.of());
 
     private final Expression expression;
     private final List<Assignment> assignments;

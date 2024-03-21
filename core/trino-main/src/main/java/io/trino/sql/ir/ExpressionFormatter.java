@@ -37,11 +37,11 @@ public final class ExpressionFormatter
             extends IrVisitor<String, Void>
     {
         private final Optional<Function<Constant, String>> literalFormatter;
-        private final Optional<Function<SymbolReference, String>> symbolReferenceFormatter;
+        private final Optional<Function<Reference, String>> symbolReferenceFormatter;
 
         public Formatter(
                 Optional<Function<Constant, String>> literalFormatter,
-                Optional<Function<SymbolReference, String>> symbolReferenceFormatter)
+                Optional<Function<Reference, String>> symbolReferenceFormatter)
         {
             this.literalFormatter = requireNonNull(literalFormatter, "literalFormatter is null");
             this.symbolReferenceFormatter = requireNonNull(symbolReferenceFormatter, "symbolReferenceFormatter is null");
@@ -62,7 +62,7 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitSubscriptExpression(SubscriptExpression node, Void context)
+        protected String visitSubscript(Subscript node, Void context)
         {
             return formatExpression(node.base()) + "[" + formatExpression(node.index()) + "]";
         }
@@ -83,13 +83,13 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitFunctionCall(FunctionCall node, Void context)
+        protected String visitCall(Call node, Void context)
         {
             return node.function().getName().toString() + '(' + joinExpressions(node.arguments()) + ')';
         }
 
         @Override
-        protected String visitLambdaExpression(LambdaExpression node, Void context)
+        protected String visitLambda(Lambda node, Void context)
         {
             return "(" +
                     node.arguments().stream()
@@ -100,7 +100,7 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitSymbolReference(SymbolReference node, Void context)
+        protected String visitReference(Reference node, Void context)
         {
             if (symbolReferenceFormatter.isPresent()) {
                 return symbolReferenceFormatter.get().apply(node);
@@ -109,7 +109,7 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitBindExpression(BindExpression node, Void context)
+        protected String visitBind(Bind node, Void context)
         {
             StringBuilder builder = new StringBuilder();
 
@@ -124,7 +124,7 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitLogicalExpression(LogicalExpression node, Void context)
+        protected String visitLogical(Logical node, Void context)
         {
             return "(" +
                     node.terms().stream()
@@ -134,43 +134,43 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitNotExpression(NotExpression node, Void context)
+        protected String visitNot(Not node, Void context)
         {
             return "(NOT " + process(node.value(), context) + ")";
         }
 
         @Override
-        protected String visitComparisonExpression(ComparisonExpression node, Void context)
+        protected String visitComparison(Comparison node, Void context)
         {
             return formatBinaryExpression(node.operator().getValue(), node.left(), node.right());
         }
 
         @Override
-        protected String visitIsNullPredicate(IsNullPredicate node, Void context)
+        protected String visitIsNull(IsNull node, Void context)
         {
             return "(" + process(node.value(), context) + " IS NULL)";
         }
 
         @Override
-        protected String visitNullIfExpression(NullIfExpression node, Void context)
+        protected String visitNullIf(NullIf node, Void context)
         {
             return "NULLIF(" + process(node.first(), context) + ", " + process(node.second(), context) + ')';
         }
 
         @Override
-        protected String visitCoalesceExpression(CoalesceExpression node, Void context)
+        protected String visitCoalesce(Coalesce node, Void context)
         {
             return "COALESCE(" + joinExpressions(node.operands()) + ")";
         }
 
         @Override
-        protected String visitArithmeticNegation(ArithmeticNegation node, Void context)
+        protected String visitNegation(Negation node, Void context)
         {
             return "-(" + process(node.value(), context) + ")";
         }
 
         @Override
-        protected String visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
+        protected String visitArithmetic(Arithmetic node, Void context)
         {
             return formatBinaryExpression(node.operator().getValue(), node.left(), node.right());
         }
@@ -183,7 +183,7 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+        protected String visitCase(Case node, Void context)
         {
             ImmutableList.Builder<String> parts = ImmutableList.builder();
             parts.add("CASE");
@@ -200,7 +200,7 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+        protected String visitSwitch(Switch node, Void context)
         {
             ImmutableList.Builder<String> parts = ImmutableList.builder();
 
@@ -225,14 +225,14 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitBetweenPredicate(BetweenPredicate node, Void context)
+        protected String visitBetween(Between node, Void context)
         {
             return "(" + process(node.value(), context) + " BETWEEN " +
                     process(node.min(), context) + " AND " + process(node.max(), context) + ")";
         }
 
         @Override
-        protected String visitInPredicate(InPredicate node, Void context)
+        protected String visitIn(In node, Void context)
         {
             return "(" + process(node.value(), context) + " IN " + joinExpressions(node.valueList()) + ")";
         }

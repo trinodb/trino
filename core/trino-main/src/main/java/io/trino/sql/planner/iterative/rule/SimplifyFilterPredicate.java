@@ -16,14 +16,14 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullIfExpression;
-import io.trino.sql.ir.SearchedCaseExpression;
-import io.trino.sql.ir.SimpleCaseExpression;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.NullIf;
+import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
@@ -33,8 +33,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -68,9 +68,9 @@ public class SimplifyFilterPredicate
         boolean simplified = false;
         for (Expression conjunct : conjuncts) {
             Optional<Expression> simplifiedConjunct = switch (conjunct) {
-                case NullIfExpression expression -> Optional.of(LogicalExpression.and(expression.first(), isFalseOrNullPredicate(expression.second())));
-                case SearchedCaseExpression expression -> simplify(expression);
-                case SimpleCaseExpression expression -> simplify(expression);
+                case NullIf expression -> Optional.of(Logical.and(expression.first(), isFalseOrNullPredicate(expression.second())));
+                case Case expression -> simplify(expression);
+                case Switch expression -> simplify(expression);
                 case null, default -> Optional.empty();
             };
 
@@ -94,28 +94,28 @@ public class SimplifyFilterPredicate
 
     private static Optional<Expression> simplify(Expression condition, Expression trueValue, Optional<Expression> falseValue)
     {
-        if (trueValue.equals(TRUE_LITERAL) && (falseValue.isEmpty() || isNotTrue(falseValue.get()))) {
+        if (trueValue.equals(TRUE) && (falseValue.isEmpty() || isNotTrue(falseValue.get()))) {
             return Optional.of(condition);
         }
-        if (isNotTrue(trueValue) && falseValue.isPresent() && falseValue.get().equals(TRUE_LITERAL)) {
+        if (isNotTrue(trueValue) && falseValue.isPresent() && falseValue.get().equals(TRUE)) {
             return Optional.of(isFalseOrNullPredicate(condition));
         }
         if (falseValue.isPresent() && falseValue.get().equals(trueValue) && isDeterministic(trueValue)) {
             return Optional.of(trueValue);
         }
         if (isNotTrue(trueValue) && (falseValue.isEmpty() || isNotTrue(falseValue.get()))) {
-            return Optional.of(FALSE_LITERAL);
+            return Optional.of(FALSE);
         }
-        if (condition.equals(TRUE_LITERAL)) {
+        if (condition.equals(TRUE)) {
             return Optional.of(trueValue);
         }
         if (isNotTrue(condition)) {
-            return Optional.of(falseValue.orElse(FALSE_LITERAL));
+            return Optional.of(falseValue.orElse(FALSE));
         }
         return Optional.empty();
     }
 
-    private static Optional<Expression> simplify(SearchedCaseExpression caseExpression)
+    private static Optional<Expression> simplify(Case caseExpression)
     {
         Optional<Expression> defaultValue = caseExpression.defaultValue();
 
@@ -135,18 +135,18 @@ public class SimplifyFilterPredicate
                 .map(WhenClause::getResult)
                 .collect(toImmutableList());
         long trueResultsCount = results.stream()
-                .filter(result -> result.equals(TRUE_LITERAL))
+                .filter(result -> result.equals(TRUE))
                 .count();
         long notTrueResultsCount = results.stream()
                 .filter(SimplifyFilterPredicate::isNotTrue)
                 .count();
         // all results true
-        if (trueResultsCount == results.size() && defaultValue.isPresent() && defaultValue.get().equals(TRUE_LITERAL)) {
-            return Optional.of(TRUE_LITERAL);
+        if (trueResultsCount == results.size() && defaultValue.isPresent() && defaultValue.get().equals(TRUE)) {
+            return Optional.of(TRUE);
         }
         // all results not true
         if (notTrueResultsCount == results.size() && (defaultValue.isEmpty() || isNotTrue(defaultValue.get()))) {
-            return Optional.of(FALSE_LITERAL);
+            return Optional.of(FALSE);
         }
         // one result true, and remaining results not true
         if (trueResultsCount == 1 && notTrueResultsCount == results.size() - 1 && (defaultValue.isEmpty() || isNotTrue(defaultValue.get()))) {
@@ -164,7 +164,7 @@ public class SimplifyFilterPredicate
             }
         }
         // all results not true, and default true
-        if (notTrueResultsCount == results.size() && defaultValue.isPresent() && defaultValue.get().equals(TRUE_LITERAL)) {
+        if (notTrueResultsCount == results.size() && defaultValue.isPresent() && defaultValue.get().equals(TRUE)) {
             ImmutableList.Builder<Expression> builder = ImmutableList.builder();
             operands.forEach(operand -> builder.add(isFalseOrNullPredicate(operand)));
             return Optional.of(combineConjuncts(builder.build()));
@@ -173,53 +173,53 @@ public class SimplifyFilterPredicate
         List<WhenClause> whenClauses = new ArrayList<>();
         for (WhenClause whenClause : caseExpression.whenClauses()) {
             Expression operand = whenClause.getOperand();
-            if (operand.equals(TRUE_LITERAL)) {
+            if (operand.equals(TRUE)) {
                 if (whenClauses.isEmpty()) {
                     return Optional.of(whenClause.getResult());
                 }
-                return Optional.of(new SearchedCaseExpression(whenClauses, Optional.of(whenClause.getResult())));
+                return Optional.of(new Case(whenClauses, Optional.of(whenClause.getResult())));
             }
             if (!isNotTrue(operand)) {
                 whenClauses.add(whenClause);
             }
         }
         if (whenClauses.isEmpty()) {
-            return Optional.of(defaultValue.orElse(FALSE_LITERAL));
+            return Optional.of(defaultValue.orElse(FALSE));
         }
         if (whenClauses.size() < caseExpression.whenClauses().size()) {
-            return Optional.of(new SearchedCaseExpression(whenClauses, defaultValue));
+            return Optional.of(new Case(whenClauses, defaultValue));
         }
         return Optional.empty();
     }
 
-    private static Optional<Expression> simplify(SimpleCaseExpression caseExpression)
+    private static Optional<Expression> simplify(Switch caseExpression)
     {
         Optional<Expression> defaultValue = caseExpression.defaultValue();
 
         if (caseExpression.operand() instanceof Constant literal && literal.value() == null) {
-            return Optional.of(defaultValue.orElse(FALSE_LITERAL));
+            return Optional.of(defaultValue.orElse(FALSE));
         }
 
         List<Expression> results = caseExpression.whenClauses().stream()
                 .map(WhenClause::getResult)
                 .collect(toImmutableList());
-        if (results.stream().allMatch(result -> result.equals(TRUE_LITERAL)) && defaultValue.isPresent() && defaultValue.get().equals(TRUE_LITERAL)) {
-            return Optional.of(TRUE_LITERAL);
+        if (results.stream().allMatch(result -> result.equals(TRUE)) && defaultValue.isPresent() && defaultValue.get().equals(TRUE)) {
+            return Optional.of(TRUE);
         }
         if (results.stream().allMatch(SimplifyFilterPredicate::isNotTrue) && (defaultValue.isEmpty() || isNotTrue(defaultValue.get()))) {
-            return Optional.of(FALSE_LITERAL);
+            return Optional.of(FALSE);
         }
         return Optional.empty();
     }
 
     private static boolean isNotTrue(Expression expression)
     {
-        return expression.equals(FALSE_LITERAL) ||
+        return expression.equals(FALSE) ||
                 expression instanceof Constant literal && literal.value() == null;
     }
 
     private static Expression isFalseOrNullPredicate(Expression expression)
     {
-        return LogicalExpression.or(new IsNullPredicate(expression), new NotExpression(expression));
+        return Logical.or(new IsNull(expression), new Not(expression));
     }
 }

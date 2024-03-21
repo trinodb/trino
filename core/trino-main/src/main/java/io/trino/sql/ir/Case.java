@@ -15,66 +15,56 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record ArithmeticBinaryExpression(ResolvedFunction function, Operator operator, Expression left, Expression right)
+public record Case(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
         implements Expression
 {
-    public enum Operator
+    public Case
     {
-        ADD("+"),
-        SUBTRACT("-"),
-        MULTIPLY("*"),
-        DIVIDE("/"),
-        MODULUS("%");
-        private final String value;
-
-        Operator(String value)
-        {
-            this.value = value;
-        }
-
-        public String getValue()
-        {
-            return value;
-        }
-    }
-
-    public ArithmeticBinaryExpression
-    {
-        requireNonNull(function, "function is null");
-        requireNonNull(operator, "operator is null");
-        requireNonNull(left, "left is null");
-        requireNonNull(right, "right is null");
+        whenClauses = ImmutableList.copyOf(whenClauses);
+        requireNonNull(defaultValue, "defaultValue is null");
     }
 
     @Override
     public Type type()
     {
-        return function.getSignature().getReturnType();
+        return whenClauses.getFirst().getResult().type();
     }
 
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitArithmeticBinary(this, context);
+        return visitor.visitCase(this, context);
     }
 
     @Override
-    public List<? extends Expression> getChildren()
+    public List<? extends Expression> children()
     {
-        return ImmutableList.of(left, right);
+        ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+        whenClauses.forEach(clause -> {
+            builder.add(clause.getOperand());
+            builder.add(clause.getResult());
+        });
+        defaultValue.ifPresent(builder::add);
+
+        return builder.build();
     }
 
     @Override
     public String toString()
     {
-        return "%s(%s, %s)".formatted(operator.getValue(), left, right);
+        return "Case(%s, %s)".formatted(
+                whenClauses.stream()
+                        .map(WhenClause::toString)
+                        .collect(Collectors.joining(", ")),
+                defaultValue.map(Expression::toString).orElse("null"));
     }
 }

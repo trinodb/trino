@@ -19,33 +19,41 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 
 @JsonSerialize
-public record SubscriptExpression(Type type, Expression base, Expression index)
+public record Coalesce(List<Expression> operands)
         implements Expression
 {
-    public SubscriptExpression
+    public Coalesce(Expression first, Expression second, Expression... additional)
     {
-        requireNonNull(base, "base is null");
-        requireNonNull(index, "index is null");
+        this(ImmutableList.<Expression>builder()
+                .add(first, second)
+                .add(additional)
+                .build());
     }
 
     @Override
     public Type type()
     {
-        return type;
+        return operands.getFirst().type();
+    }
+
+    public Coalesce
+    {
+        checkArgument(operands.size() >= 2, "must have at least two operands");
+        operands = ImmutableList.copyOf(operands);
     }
 
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitSubscriptExpression(this, context);
+        return visitor.visitCoalesce(this, context);
     }
 
     @Override
-    public List<? extends Expression> getChildren()
+    public List<? extends Expression> children()
     {
-        return ImmutableList.of(base, index);
+        return operands;
     }
 }

@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
@@ -40,7 +40,7 @@ import java.util.List;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -235,7 +235,7 @@ public class TestReorderWindows
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(windowA)
                                                         .addFunction(windowFunction("lag", ImmutableList.of(QUANTITY_ALIAS, "ONE"), DEFAULT_FRAME)),
-                                                project(ImmutableMap.of("ONE", expression(new Cast(new SymbolReference(INTEGER, "expr"), BIGINT))),
+                                                project(ImmutableMap.of("ONE", expression(new Cast(new Reference(INTEGER, "expr"), BIGINT))),
                                                         project(ImmutableMap.of("expr", expression(new Constant(INTEGER, 1L))),
                                                                 LINEITEM_TABLESCAN_DOQRST)))))));
     }
@@ -261,7 +261,7 @@ public class TestReorderWindows
                                         .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                 project(
                                         filter(
-                                                new NotExpression(new IsNullPredicate(new SymbolReference(VARCHAR, RECEIPTDATE_ALIAS))),
+                                                new Not(new IsNull(new Reference(VARCHAR, RECEIPTDATE_ALIAS))),
                                                 project(
                                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                                         .specification(windowApp)
@@ -293,7 +293,7 @@ public class TestReorderWindows
                                                         .specification(windowA)
                                                         .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), DEFAULT_FRAME)),
                                                 filter(
-                                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "SUPPKEY"), new Constant(BIGINT, 0L)),
+                                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "SUPPKEY"), new Constant(BIGINT, 0L)),
                                                         LINEITEM_TABLESCAN_DOQRST))))));
     }
 

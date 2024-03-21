@@ -28,11 +28,11 @@ import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.ir.ArithmeticNegation;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Negation;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
@@ -60,7 +60,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
@@ -138,9 +138,9 @@ public class TestPatternRecognitionNodeSerialization
 
         assertJsonRoundTrip(EXPRESSION_AND_VALUE_POINTERS_CODEC, new ExpressionAndValuePointers(
                 ifExpression(
-                        new ComparisonExpression(GREATER_THAN, new SymbolReference(VARCHAR, "classifier"), new SymbolReference(VARCHAR, "x")),
-                        new FunctionCall(RANDOM, ImmutableList.of()),
-                        new ArithmeticNegation(new SymbolReference(INTEGER, "match_number"))),
+                        new Comparison(GREATER_THAN, new Reference(VARCHAR, "classifier"), new Reference(VARCHAR, "x")),
+                        new Call(RANDOM, ImmutableList.of()),
+                        new Negation(new Reference(INTEGER, "match_number"))),
                 ImmutableList.of(
                         new ExpressionAndValuePointers.Assignment(
                                 new Symbol(VARCHAR, "classifier"),
@@ -166,9 +166,9 @@ public class TestPatternRecognitionNodeSerialization
         assertJsonRoundTrip(MEASURE_CODEC, new Measure(
                 new ExpressionAndValuePointers(
                         ifExpression(
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "match_number"), new SymbolReference(INTEGER, "x")),
+                                new Comparison(GREATER_THAN, new Reference(INTEGER, "match_number"), new Reference(INTEGER, "x")),
                                 new Constant(BIGINT, 10L),
-                                new ArithmeticNegation(new SymbolReference(INTEGER, "y"))),
+                                new Negation(new Reference(INTEGER, "y"))),
                         ImmutableList.of(
                                 new ExpressionAndValuePointers.Assignment(
                                         new Symbol(BIGINT, "match_number"),

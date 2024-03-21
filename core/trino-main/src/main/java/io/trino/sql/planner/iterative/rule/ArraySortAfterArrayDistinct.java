@@ -22,10 +22,10 @@ import io.trino.operator.scalar.ArraySortFunction;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.iterative.Rule;
 
@@ -59,7 +59,7 @@ public class ArraySortAfterArrayDistinct
 
     private static Expression rewrite(Expression expression, Metadata metadata)
     {
-        if (expression instanceof SymbolReference) {
+        if (expression instanceof Reference) {
             return expression;
         }
         return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata), expression);
@@ -76,19 +76,19 @@ public class ArraySortAfterArrayDistinct
         }
 
         @Override
-        public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteCall(Call node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
+            Call rewritten = treeRewriter.defaultRewrite(node, context);
             if (node.function().getName().equals(ARRAY_DISTINCT_NAME) &&
-                    getOnlyElement(rewritten.arguments()) instanceof FunctionCall) {
+                    getOnlyElement(rewritten.arguments()) instanceof Call) {
                 Expression expression = getOnlyElement(rewritten.arguments());
-                FunctionCall functionCall = (FunctionCall) expression;
-                ResolvedFunction resolvedFunction = functionCall.function();
+                Call call = (Call) expression;
+                ResolvedFunction resolvedFunction = call.function();
                 if (resolvedFunction.getName().equals(ARRAY_SORT_NAME)) {
-                    List<Expression> arraySortArguments = functionCall.arguments();
+                    List<Expression> arraySortArguments = call.arguments();
                     List<Type> arraySortArgumentsTypes = resolvedFunction.getSignature().getArgumentTypes();
 
-                    FunctionCall arrayDistinctCall = BuiltinFunctionCallBuilder.resolve(metadata)
+                    Call arrayDistinctCall = BuiltinFunctionCallBuilder.resolve(metadata)
                             .setName(ArrayDistinctFunction.NAME)
                             .setArguments(
                                     ImmutableList.of(arraySortArgumentsTypes.get(0)),

@@ -32,22 +32,22 @@ public abstract class IrVisitor<R, C>
         return null;
     }
 
-    protected R visitArithmeticBinary(ArithmeticBinaryExpression node, C context)
+    protected R visitArithmetic(Arithmetic node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitBetweenPredicate(BetweenPredicate node, C context)
+    protected R visitBetween(Between node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitCoalesceExpression(CoalesceExpression node, C context)
+    protected R visitCoalesce(Coalesce node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitComparisonExpression(ComparisonExpression node, C context)
+    protected R visitComparison(Comparison node, C context)
     {
         return visitExpression(node, context);
     }
@@ -57,57 +57,57 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitInPredicate(InPredicate node, C context)
+    protected R visitIn(In node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitFunctionCall(FunctionCall node, C context)
+    protected R visitCall(Call node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitLambdaExpression(LambdaExpression node, C context)
+    protected R visitLambda(Lambda node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitSimpleCaseExpression(SimpleCaseExpression node, C context)
+    protected R visitSwitch(Switch node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitNullIfExpression(NullIfExpression node, C context)
+    protected R visitNullIf(NullIf node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitArithmeticNegation(ArithmeticNegation node, C context)
+    protected R visitNegation(Negation node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitNotExpression(NotExpression node, C context)
+    protected R visitNot(Not node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitSearchedCaseExpression(SearchedCaseExpression node, C context)
+    protected R visitCase(Case node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitIsNullPredicate(IsNullPredicate node, C context)
+    protected R visitIsNull(IsNull node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitSubscriptExpression(SubscriptExpression node, C context)
+    protected R visitSubscript(Subscript node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitLogicalExpression(LogicalExpression node, C context)
+    protected R visitLogical(Logical node, C context)
     {
         return visitExpression(node, context);
     }
@@ -122,12 +122,12 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitSymbolReference(SymbolReference node, C context)
+    protected R visitReference(Reference node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitBindExpression(BindExpression node, C context)
+    protected R visitBind(Bind node, C context)
     {
         return visitExpression(node, context);
     }

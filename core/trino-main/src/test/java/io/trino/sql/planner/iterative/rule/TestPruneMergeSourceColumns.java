@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -53,8 +53,8 @@ public class TestPruneMergeSourceColumns
                                 MergeWriterNode.class,
                                 strictProject(
                                         ImmutableMap.of(
-                                                "row_id", expression(new SymbolReference(BIGINT, "row_id")),
-                                                "merge_row", expression(new SymbolReference(BIGINT, "merge_row"))),
+                                                "row_id", expression(new Reference(BIGINT, "row_id")),
+                                                "merge_row", expression(new Reference(BIGINT, "merge_row"))),
                                         values("a", "merge_row", "row_id"))));
     }
 

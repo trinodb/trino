@@ -29,11 +29,11 @@ import io.trino.operator.table.json.JsonTablePlanSingle;
 import io.trino.operator.table.json.JsonTablePlanUnion;
 import io.trino.operator.table.json.JsonTableQueryColumn;
 import io.trino.operator.table.json.JsonTableValueColumn;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.TableFunctionNode;
@@ -56,7 +56,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.planner.JsonTablePlanComparator.planComparator;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.PathNodes.contextVariable;
@@ -108,7 +108,7 @@ public class TestJsonTable
                         ImmutableList.of("json_col", "int_col", "bigint_col", "formatted_varchar_col"),
                         anyTree(
                                 project(
-                                        ImmutableMap.of("formatted_varchar_col", expression(new FunctionCall(JSON_TO_VARCHAR, ImmutableList.of(new SymbolReference(VARCHAR, "varchar_col"), new Constant(TINYINT, 1L), FALSE_LITERAL)))),
+                                        ImmutableMap.of("formatted_varchar_col", expression(new Call(JSON_TO_VARCHAR, ImmutableList.of(new Reference(VARCHAR, "varchar_col"), new Constant(TINYINT, 1L), FALSE)))),
                                         tableFunction(builder -> builder
                                                         .name("$json_table")
                                                         .addTableArgument(
@@ -120,14 +120,14 @@ public class TestJsonTable
                                                         .properOutputs(ImmutableList.of("bigint_col", "varchar_col")),
                                                 project(
                                                         ImmutableMap.of(
-                                                                "context_item", expression(new FunctionCall(VARCHAR_TO_JSON, ImmutableList.of(new SymbolReference(VARCHAR, "json_col_coerced"), FALSE_LITERAL))), // apply input function to context item
-                                                                "parameters_row", expression(new Cast(new Row(ImmutableList.of(new SymbolReference(INTEGER, "int_col"), new FunctionCall(VARCHAR_TO_JSON, ImmutableList.of(new SymbolReference(VARCHAR, "name_coerced"), FALSE_LITERAL)))), rowType(field("id", INTEGER), field("name", JSON_2016))))), // apply input function to formatted path parameter and gather path parameters in a row
+                                                                "context_item", expression(new Call(VARCHAR_TO_JSON, ImmutableList.of(new Reference(VARCHAR, "json_col_coerced"), FALSE))), // apply input function to context item
+                                                                "parameters_row", expression(new Cast(new Row(ImmutableList.of(new Reference(INTEGER, "int_col"), new Call(VARCHAR_TO_JSON, ImmutableList.of(new Reference(VARCHAR, "name_coerced"), FALSE)))), rowType(field("id", INTEGER), field("name", JSON_2016))))), // apply input function to formatted path parameter and gather path parameters in a row
                                                         project(// coerce context item, path parameters and default expressions
                                                                 ImmutableMap.of(
-                                                                        "name_coerced", expression(new Cast(new SymbolReference(createVarcharType(5), "name"), VARCHAR)), // cast formatted path parameter to VARCHAR for the input function
-                                                                        "default_value_coerced", expression(new Cast(new SymbolReference(INTEGER, "default_value"), BIGINT)), // cast default value to BIGINT to match declared return type for the column
-                                                                        "json_col_coerced", expression(new Cast(new SymbolReference(createVarcharType(9), "json_col"), VARCHAR)), // cast context item to VARCHAR for the input function
-                                                                        "int_col_coerced", expression(new Cast(new SymbolReference(INTEGER, "int_col"), BIGINT))), // cast default value to BIGINT to match declared return type for the column
+                                                                        "name_coerced", expression(new Cast(new Reference(createVarcharType(5), "name"), VARCHAR)), // cast formatted path parameter to VARCHAR for the input function
+                                                                        "default_value_coerced", expression(new Cast(new Reference(INTEGER, "default_value"), BIGINT)), // cast default value to BIGINT to match declared return type for the column
+                                                                        "json_col_coerced", expression(new Cast(new Reference(createVarcharType(9), "json_col"), VARCHAR)), // cast context item to VARCHAR for the input function
+                                                                        "int_col_coerced", expression(new Cast(new Reference(INTEGER, "int_col"), BIGINT))), // cast default value to BIGINT to match declared return type for the column
                                                                 project(// pre-project context item, path parameters and default expressions
                                                                         ImmutableMap.of(
                                                                                 "name", expression(new Constant(createVarcharType(5), Slices.utf8Slice("[ala]"))),

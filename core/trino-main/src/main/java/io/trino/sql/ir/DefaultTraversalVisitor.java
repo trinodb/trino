@@ -24,7 +24,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitArithmeticBinary(ArithmeticBinaryExpression node, C context)
+    protected Void visitArithmetic(Arithmetic node, C context)
     {
         process(node.left(), context);
         process(node.right(), context);
@@ -33,7 +33,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitBetweenPredicate(BetweenPredicate node, C context)
+    protected Void visitBetween(Between node, C context)
     {
         process(node.value(), context);
         process(node.min(), context);
@@ -43,7 +43,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitCoalesceExpression(CoalesceExpression node, C context)
+    protected Void visitCoalesce(Coalesce node, C context)
     {
         for (Expression operand : node.operands()) {
             process(operand, context);
@@ -53,7 +53,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitSubscriptExpression(SubscriptExpression node, C context)
+    protected Void visitSubscript(Subscript node, C context)
     {
         process(node.base(), context);
         process(node.index(), context);
@@ -62,7 +62,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitComparisonExpression(ComparisonExpression node, C context)
+    protected Void visitComparison(Comparison node, C context)
     {
         process(node.left(), context);
         process(node.right(), context);
@@ -71,7 +71,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitInPredicate(InPredicate node, C context)
+    protected Void visitIn(In node, C context)
     {
         process(node.value(), context);
         for (Expression argument : node.valueList()) {
@@ -82,7 +82,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitFunctionCall(FunctionCall node, C context)
+    protected Void visitCall(Call node, C context)
     {
         for (Expression argument : node.arguments()) {
             process(argument, context);
@@ -92,7 +92,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitSimpleCaseExpression(SimpleCaseExpression node, C context)
+    protected Void visitSwitch(Switch node, C context)
     {
         process(node.operand(), context);
         for (WhenClause clause : node.whenClauses()) {
@@ -107,7 +107,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitNullIfExpression(NullIfExpression node, C context)
+    protected Void visitNullIf(NullIf node, C context)
     {
         process(node.first(), context);
         process(node.second(), context);
@@ -116,7 +116,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitBindExpression(BindExpression node, C context)
+    protected Void visitBind(Bind node, C context)
     {
         for (Expression value : node.values()) {
             process(value, context);
@@ -127,21 +127,21 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitArithmeticNegation(ArithmeticNegation node, C context)
+    protected Void visitNegation(Negation node, C context)
     {
         process(node.value(), context);
         return null;
     }
 
     @Override
-    protected Void visitNotExpression(NotExpression node, C context)
+    protected Void visitNot(Not node, C context)
     {
         process(node.value(), context);
         return null;
     }
 
     @Override
-    protected Void visitSearchedCaseExpression(SearchedCaseExpression node, C context)
+    protected Void visitCase(Case node, C context)
     {
         for (WhenClause clause : node.whenClauses()) {
             process(clause.getOperand(), context);
@@ -154,14 +154,14 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitIsNullPredicate(IsNullPredicate node, C context)
+    protected Void visitIsNull(IsNull node, C context)
     {
         process(node.value(), context);
         return null;
     }
 
     @Override
-    protected Void visitLogicalExpression(LogicalExpression node, C context)
+    protected Void visitLogical(Logical node, C context)
     {
         for (Expression child : node.terms()) {
             process(child, context);
@@ -180,7 +180,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitLambdaExpression(LambdaExpression node, C context)
+    protected Void visitLambda(Lambda node, C context)
     {
         process(node.body(), context);
 

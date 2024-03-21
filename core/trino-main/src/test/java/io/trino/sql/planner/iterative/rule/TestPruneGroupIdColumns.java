@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
@@ -50,7 +50,7 @@ public class TestPruneGroupIdColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a")), "k", expression(new SymbolReference(BIGINT, "k")), "group_id", expression(new SymbolReference(INTEGER, "group_id"))),
+                                ImmutableMap.of("a", expression(new Reference(BIGINT, "a")), "k", expression(new Reference(BIGINT, "k")), "group_id", expression(new Reference(INTEGER, "group_id"))),
                                 groupId(
                                         ImmutableList.of(ImmutableList.of("k"), ImmutableList.of("k")),
                                         ImmutableList.of("a"),

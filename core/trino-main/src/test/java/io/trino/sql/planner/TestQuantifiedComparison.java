@@ -14,8 +14,8 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.JoinNode;
@@ -52,7 +52,7 @@ public class TestQuantifiedComparison
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey <> ALL (VALUES ROW(CAST(5 as BIGINT)), ROW(CAST(3 as BIGINT)))";
         assertPlan(query, anyTree(
                 filter(
-                        new NotExpression(new SymbolReference(BOOLEAN, "S")),
+                        new Not(new Reference(BOOLEAN, "S")),
                         semiJoin("X", "Y", "S",
                                 tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                 values(ImmutableMap.of("Y", 0))))));

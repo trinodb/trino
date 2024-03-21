@@ -23,7 +23,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -170,13 +170,13 @@ public class DynamicFiltersChecker
 
     private static void validateDynamicFilterExpression(Expression expression)
     {
-        if (expression instanceof SymbolReference) {
+        if (expression instanceof Reference) {
             return;
         }
         verify(expression instanceof Cast,
                 "Dynamic filter expression %s must be a SymbolReference or a CAST of SymbolReference.", expression);
         Cast castExpression = (Cast) expression;
-        verify(castExpression.expression() instanceof SymbolReference,
+        verify(castExpression.expression() instanceof Reference,
                 "The expression %s within in a CAST in dynamic filter must be a SymbolReference.", formatExpression(castExpression.expression()));
     }
 

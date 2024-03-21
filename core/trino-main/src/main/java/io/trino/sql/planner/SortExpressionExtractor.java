@@ -15,12 +15,12 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.join.SortedPositionLinks;
-import io.trino.sql.ir.BetweenPredicate;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Between;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,8 +28,8 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static java.util.Collections.singletonList;
 import static java.util.Comparator.comparing;
 import static java.util.function.Function.identity;
@@ -104,11 +104,11 @@ public final class SortExpressionExtractor
         }
 
         @Override
-        protected Optional<SortExpressionContext> visitComparisonExpression(ComparisonExpression comparison, Void context)
+        protected Optional<SortExpressionContext> visitComparison(Comparison comparison, Void context)
         {
             return switch (comparison.operator()) {
                 case GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> {
-                    Optional<SymbolReference> sortChannel = asBuildSymbolReference(buildSymbols, comparison.right());
+                    Optional<Reference> sortChannel = asBuildSymbolReference(buildSymbols, comparison.right());
                     boolean hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.left());
                     if (sortChannel.isEmpty()) {
                         sortChannel = asBuildSymbolReference(buildSymbols, comparison.left());
@@ -124,22 +124,22 @@ public final class SortExpressionExtractor
         }
 
         @Override
-        protected Optional<SortExpressionContext> visitBetweenPredicate(BetweenPredicate node, Void context)
+        protected Optional<SortExpressionContext> visitBetween(Between node, Void context)
         {
-            Optional<SortExpressionContext> result = visitComparisonExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.value(), node.min()), context);
+            Optional<SortExpressionContext> result = visitComparison(new Comparison(GREATER_THAN_OR_EQUAL, node.value(), node.min()), context);
             if (result.isPresent()) {
                 return result;
             }
-            return visitComparisonExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, node.value(), node.max()), context);
+            return visitComparison(new Comparison(LESS_THAN_OR_EQUAL, node.value(), node.max()), context);
         }
     }
 
-    private static Optional<SymbolReference> asBuildSymbolReference(Set<Symbol> buildLayout, Expression expression)
+    private static Optional<Reference> asBuildSymbolReference(Set<Symbol> buildLayout, Expression expression)
     {
         // Currently we only support symbol as sort expression on build side
-        if (expression instanceof SymbolReference symbolReference) {
-            if (buildLayout.contains(new Symbol(symbolReference.type(), symbolReference.name()))) {
-                return Optional.of(symbolReference);
+        if (expression instanceof Reference reference) {
+            if (buildLayout.contains(new Symbol(reference.type(), reference.name()))) {
+                return Optional.of(reference);
             }
         }
         return Optional.empty();
@@ -165,7 +165,7 @@ public final class SortExpressionExtractor
         @Override
         protected Boolean visitExpression(Expression node, Void context)
         {
-            for (Expression child : node.getChildren()) {
+            for (Expression child : node.children()) {
                 if (process(child, context)) {
                     return true;
                 }
@@ -174,9 +174,9 @@ public final class SortExpressionExtractor
         }
 
         @Override
-        protected Boolean visitSymbolReference(SymbolReference symbolReference, Void context)
+        protected Boolean visitReference(Reference reference, Void context)
         {
-            return buildSymbols.contains(symbolReference.name());
+            return buildSymbols.contains(reference.name());
         }
     }
 }

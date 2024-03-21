@@ -19,7 +19,7 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
@@ -65,8 +65,8 @@ public class TestPushCastIntoRow
 
         // expression nested in another unrelated expression
         test(
-                new SubscriptExpression(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L))), anonymousRow(BIGINT)), new Constant(INTEGER, 1L)),
-                new SubscriptExpression(BIGINT, new Row(ImmutableList.of(new Cast(new Constant(INTEGER, 1L), BIGINT))), new Constant(INTEGER, 1L)));
+                new Subscript(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L))), anonymousRow(BIGINT)), new Constant(INTEGER, 1L)),
+                new Subscript(BIGINT, new Row(ImmutableList.of(new Cast(new Constant(INTEGER, 1L), BIGINT))), new Constant(INTEGER, 1L)));
 
         // don't insert CAST(x AS unknown)
         test(
