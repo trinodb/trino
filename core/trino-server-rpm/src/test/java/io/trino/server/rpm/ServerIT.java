@@ -17,12 +17,14 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.testing.containers.TestContainers.DockerArchitecture;
 import org.assertj.core.api.AbstractAssert;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,6 +45,7 @@ import java.util.function.Consumer;
 import static io.trino.server.rpm.ServerIT.PathInfoAssert.assertThatPaths;
 import static io.trino.testing.TestingProperties.getProjectVersion;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.containers.TestContainers.getDockerArchitectureInfo;
 import static java.lang.String.format;
 import static java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE;
 import static java.sql.DriverManager.getConnection;
@@ -56,8 +59,8 @@ import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 @Execution(SAME_THREAD)
 public class ServerIT
 {
-    private static final String BASE_IMAGE_PREFIX = "eclipse-temurin:";
-    private static final String BASE_IMAGE_SUFFIX = "-jre-ubi9-minimal";
+    private static final DockerImageName BASE_IMAGE = DockerImageName.parse("registry.access.redhat.com/ubi9/ubi-minimal:latest");
+    private static final DockerArchitecture ARCH = getDockerArchitectureInfo(BASE_IMAGE).imageArch();
 
     private final String rpmHostPath;
 
@@ -67,38 +70,37 @@ public class ServerIT
     }
 
     @Test
-    public void testInstall()
+    public void testInstallUninstall()
+            throws Exception
     {
-        testInstall("21");
+        // Release names as in the https://api.adoptium.net/q/swagger-ui/#/Release%20Info/getReleaseNames
+        testInstall("jdk-21.0.2+13", "/usr/lib/jvm/temurin-21", "21");
+        testUninstall("jdk-21.0.2+13", "/usr/lib/jvm/temurin-21", "21");
     }
 
-    private void testInstall(String javaVersion)
+    private void testInstall(String temurinReleaseName, String javaHome, String expectedJavaVersion)
     {
         String rpm = "/" + new File(rpmHostPath).getName();
-        String command = "" +
-                // install required dependencies that are missing in UBI9-minimal
-                "microdnf install -y python sudo shadow-utils\n" +
-                // install RPM
-                "rpm -i " + rpm + "\n" +
-                // create Hive catalog file
-                "mkdir /etc/trino/catalog\n" +
-                "echo CONFIG_ENV[HMS_PORT]=9083 >> /etc/trino/env.sh\n" +
-                "echo CONFIG_ENV[NODE_ID]=test-node-id-injected-via-env >> /etc/trino/env.sh\n" +
-                "sed -i \"s/^node.id=.*/node.id=\\${ENV:NODE_ID}/g\" /etc/trino/node.properties\n" +
-                "cat > /etc/trino/catalog/hive.properties <<\"EOT\"\n" +
-                "connector.name=hive\n" +
-                "hive.metastore.uri=thrift://localhost:${ENV:HMS_PORT}\n" +
-                "EOT\n" +
-                // create JMX catalog file
-                "cat > /etc/trino/catalog/jmx.properties <<\"EOT\"\n" +
-                "connector.name=jmx\n" +
-                "EOT\n" +
-                // start server
-                "/etc/init.d/trino start\n" +
-                // allow tail to work with Docker's non-local file system
-                "tail ---disable-inotify -F /var/log/trino/server.log\n";
+        String command = """
+                microdnf install -y tar gzip python sudo shadow-utils
+                %s
+                rpm -i %s
+                mkdir /etc/trino/catalog
+                echo CONFIG_ENV[HMS_PORT]=9083 >> /etc/trino/env.sh
+                echo CONFIG_ENV[NODE_ID]=test-node-id-injected-via-env >> /etc/trino/env.sh
+                sed -i "s/^node.id=.*/node.id=\\${ENV:NODE_ID}/g" /etc/trino/node.properties
+                cat > /etc/trino/catalog/hive.properties <<"EOT"
+                connector.name=hive
+                hive.metastore.uri=thrift://localhost:${ENV:HMS_PORT}
+                EOT
+                cat > /etc/trino/catalog/jmx.properties <<"EOT"
+                connector.name=jmx
+                EOT
+                /etc/init.d/trino start
+                tail ---disable-inotify -F /var/log/trino/server.log
+                """.formatted(installJavaCommand(temurinReleaseName, javaHome), rpm);
 
-        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE_PREFIX + javaVersion + BASE_IMAGE_SUFFIX)) {
+        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE)) {
             container.withExposedPorts(8080)
                     // the RPM is hundreds MB and file system bind is much more efficient
                     .withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
@@ -111,7 +113,41 @@ public class ServerIT
             // TODO remove usage of assertEventually once https://github.com/trinodb/trino/issues/2214 is fixed
             assertEventually(
                     new io.airlift.units.Duration(1, MINUTES),
-                    () -> assertThat(queryRunner.execute("SELECT specversion FROM jmx.current.\"java.lang:type=runtime\"")).isEqualTo(ImmutableSet.of(asList(javaVersion))));
+                    () -> assertThat(queryRunner.execute("SELECT specversion FROM jmx.current.\"java.lang:type=runtime\"")).isEqualTo(ImmutableSet.of(asList(expectedJavaVersion))));
+        }
+    }
+
+
+    private void testUninstall(String temurinReleaseName, String javaHome, String expectedJavaVersion)
+            throws Exception
+    {
+        String rpm = "/" + new File(rpmHostPath).getName();
+        String installAndStartTrino = """
+                microdnf install -y tar gzip python sudo shadow-utils
+                %s
+                rpm -i %s
+                /etc/init.d/trino start
+                tail ---disable-inotify -F /var/log/trino/server.log
+                """.formatted(installJavaCommand(temurinReleaseName, javaHome), rpm);
+
+        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE)) {
+            container.withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
+                    .withCommand("sh", "-xeuc", installAndStartTrino)
+                    .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
+                    .start();
+            String uninstallTrino = """
+                    /etc/init.d/trino stop
+                    rpm -e trino-server-rpm
+                    """;
+            container.execInContainer("sh", "-xeuc", uninstallTrino);
+
+            ExecResult actual = container.execInContainer("rpm", "-q", "trino-server-rpm");
+            assertThat(actual.getStdout()).isEqualTo("package trino-server-rpm is not installed\n");
+
+            assertPathDeleted(container, "/var/lib/trino");
+            assertPathDeleted(container, "/usr/lib/trino");
+            assertPathDeleted(container, "/etc/init.d/trino");
+            assertPathDeleted(container, "/usr/shared/doc/trino");
         }
     }
 
@@ -120,7 +156,7 @@ public class ServerIT
             throws IOException, InterruptedException
     {
         String rpm = "/" + new File(rpmHostPath).getName();
-        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE_PREFIX + "21" + BASE_IMAGE_SUFFIX)) {
+        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE)) {
             container
                     .withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
                     .withCommand("sleep 1h")
@@ -163,7 +199,7 @@ public class ServerIT
             throws IOException, InterruptedException
     {
         String rpm = "/" + new File(rpmHostPath).getName();
-        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE_PREFIX + "21" + BASE_IMAGE_SUFFIX)) {
+        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE)) {
             container
                     .withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
                     .withCommand("sleep 1h")
@@ -181,43 +217,22 @@ public class ServerIT
         }
     }
 
-    @Test
-    public void testUninstall()
-            throws Exception
+    private static String temurinDownloadLink(String temurinReleaseName)
     {
-        testUninstall("21");
+        return switch (ARCH) {
+            case AMD64 -> "https://api.adoptium.net/v3/binary/version/%s/linux/x64/jdk/hotspot/normal/eclipse?project=jdk".formatted(temurinReleaseName);
+            case ARM64 -> "https://api.adoptium.net/v3/binary/version/%s/linux/aarch64/jdk/hotspot/normal/eclipse?project=jdk".formatted(temurinReleaseName);
+            default -> throw new UnsupportedOperationException("Unsupported arch: " + ARCH);
+        };
     }
 
-    private void testUninstall(String javaVersion)
-            throws Exception
+    private static String installJavaCommand(String temurinReleaseName, String javaHome)
     {
-        String rpm = "/" + new File(rpmHostPath).getName();
-        String installAndStartTrino = "" +
-                // install required dependencies that are missing in UBI9-minimal
-                "microdnf install -y python sudo shadow-utils\n" +
-                // install RPM
-                "rpm -i " + rpm + "\n" +
-                "/etc/init.d/trino start\n" +
-                // allow tail to work with Docker's non-local file system
-                "tail ---disable-inotify -F /var/log/trino/server.log\n";
-        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE_PREFIX + javaVersion + BASE_IMAGE_SUFFIX)) {
-            container.withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
-                    .withCommand("sh", "-xeuc", installAndStartTrino)
-                    .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
-                    .start();
-            String uninstallTrino = "" +
-                    "/etc/init.d/trino stop\n" +
-                    "rpm -e trino-server-rpm\n";
-            container.execInContainer("sh", "-xeuc", uninstallTrino);
-
-            ExecResult actual = container.execInContainer("rpm", "-q", "trino-server-rpm");
-            assertThat(actual.getStdout()).isEqualTo("package trino-server-rpm is not installed\n");
-
-            assertPathDeleted(container, "/var/lib/trino");
-            assertPathDeleted(container, "/usr/lib/trino");
-            assertPathDeleted(container, "/etc/init.d/trino");
-            assertPathDeleted(container, "/usr/shared/doc/trino");
-        }
+        return """
+                echo "Downloading JDK from %1$s"
+                mkdir -p "%2$s"
+                curl -#LfS "%1$s" | tar -zx --strip 1 -C "%2$s"
+                """.formatted(temurinDownloadLink(temurinReleaseName), javaHome);
     }
 
     private static void assertPathDeleted(GenericContainer<?> container, String path)
