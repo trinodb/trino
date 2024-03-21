@@ -57,7 +57,7 @@ jobs:
       matrix:
         include:
           - { java-version: 21, cache: 'true', cleanup-node: 'false' }
-          - { java-version: 22-ea, cache: 'restore', cleanup-node: 'true' }
+          - { java-version: 22, cache: 'restore', cleanup-node: 'true' }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -121,8 +121,8 @@ jobs:
           platforms: arm64,ppc64le
       - name: Build and Test Docker Image
         run: core/docker/build.sh
-      - name: Build and Test AMD64 Docker Image with JDK 22-ea
-        run: core/docker/build.sh -j 22-ea -a amd64
+      - name: Build and Test AMD64 Docker Image with JDK 22
+        run: core/docker/build.sh -j 22 -a amd64
 
   check-commits-dispatcher:
     runs-on: ubuntu-latest
