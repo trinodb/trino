@@ -39,7 +39,7 @@ public final class DeterminismEvaluator
         @Override
         protected Void visitFunctionCall(FunctionCall node, AtomicBoolean deterministic)
         {
-            if (!node.getFunction().isDeterministic()) {
+            if (!node.function().isDeterministic()) {
                 deterministic.set(false);
                 return null;
             }

@@ -187,16 +187,16 @@ public class IrExpressionInterpreter
         @Override
         protected Object visitConstant(Constant node, Object context)
         {
-            return node.getValue();
+            return node.value();
         }
 
         @Override
         protected Object visitIsNullPredicate(IsNullPredicate node, Object context)
         {
-            Object value = processWithExceptionHandling(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.value(), context);
 
             if (value instanceof Expression) {
-                return new IsNullPredicate(toExpression(value, node.getValue().type()));
+                return new IsNullPredicate(toExpression(value, node.value().type()));
             }
 
             return value == null;
@@ -209,7 +209,7 @@ public class IrExpressionInterpreter
             boolean foundNewDefault = false;
 
             List<WhenClause> whenClauses = new ArrayList<>();
-            for (WhenClause whenClause : node.getWhenClauses()) {
+            for (WhenClause whenClause : node.whenClauses()) {
                 Object whenOperand = processWithExceptionHandling(whenClause.getOperand(), context);
 
                 if (whenOperand instanceof Expression) {
@@ -231,7 +231,7 @@ public class IrExpressionInterpreter
                 defaultResult = newDefault;
             }
             else {
-                defaultResult = processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
+                defaultResult = processWithExceptionHandling(node.defaultValue().orElse(null), context);
             }
 
             if (whenClauses.isEmpty()) {
@@ -246,19 +246,19 @@ public class IrExpressionInterpreter
         @Override
         protected Object visitSimpleCaseExpression(SimpleCaseExpression node, Object context)
         {
-            Object operand = processWithExceptionHandling(node.getOperand(), context);
-            Type operandType = node.getOperand().type();
+            Object operand = processWithExceptionHandling(node.operand(), context);
+            Type operandType = node.operand().type();
 
             // if operand is null, return defaultValue
             if (operand == null) {
-                return processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
+                return processWithExceptionHandling(node.defaultValue().orElse(null), context);
             }
 
             Object newDefault = null;
             boolean foundNewDefault = false;
 
             List<WhenClause> whenClauses = new ArrayList<>();
-            for (WhenClause whenClause : node.getWhenClauses()) {
+            for (WhenClause whenClause : node.whenClauses()) {
                 Object whenOperand = processWithExceptionHandling(whenClause.getOperand(), context);
 
                 if (whenOperand instanceof Expression || operand instanceof Expression) {
@@ -282,7 +282,7 @@ public class IrExpressionInterpreter
                 defaultResult = newDefault;
             }
             else {
-                defaultResult = processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
+                defaultResult = processWithExceptionHandling(node.defaultValue().orElse(null), context);
             }
 
             if (whenClauses.isEmpty()) {
@@ -291,7 +291,7 @@ public class IrExpressionInterpreter
 
             Expression defaultExpression;
             defaultExpression = defaultResult == null ? null : toExpression(defaultResult, ((Expression) node).type());
-            return new SimpleCaseExpression(toExpression(operand, node.getOperand().type()), whenClauses, Optional.ofNullable(defaultExpression));
+            return new SimpleCaseExpression(toExpression(operand, node.operand().type()), whenClauses, Optional.ofNullable(defaultExpression));
         }
 
         private boolean isEqual(Object operand1, Type type1, Object operand2, Type type2)
@@ -318,17 +318,17 @@ public class IrExpressionInterpreter
         {
             List<Object> newOperands = new ArrayList<>();
             Set<Expression> uniqueNewOperands = new HashSet<>();
-            for (Expression operand : node.getOperands()) {
+            for (Expression operand : node.operands()) {
                 Object value = processWithExceptionHandling(operand, context);
                 if (value instanceof CoalesceExpression) {
                     // The nested CoalesceExpression was recursively processed. It does not contain null.
-                    for (Expression nestedOperand : ((CoalesceExpression) value).getOperands()) {
+                    for (Expression nestedOperand : ((CoalesceExpression) value).operands()) {
                         // Skip duplicates unless they are non-deterministic.
                         if (!isDeterministic(nestedOperand) || uniqueNewOperands.add(nestedOperand)) {
                             newOperands.add(nestedOperand);
                         }
                         // This operand can be evaluated to a non-null value. Remaining operands can be skipped.
-                        if (nestedOperand instanceof Constant constant && constant.getValue() != null) {
+                        if (nestedOperand instanceof Constant constant && constant.value() != null) {
                             return newOperands;
                         }
                     }
@@ -351,15 +351,15 @@ public class IrExpressionInterpreter
         @Override
         protected Object visitInPredicate(InPredicate node, Object context)
         {
-            Object value = processWithExceptionHandling(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.value(), context);
 
-            List<Expression> valueList = node.getValueList();
+            List<Expression> valueList = node.valueList();
             // `NULL IN ()` would be false, but InListExpression cannot be empty by construction
             if (value == null) {
                 return null;
             }
 
-            Type type = node.getValue().type();
+            Type type = node.value().type();
             if (!(value instanceof Expression) &&
                     !(type instanceof ArrayType) && // equals/hashcode doesn't work for complex types that may contain nulls
                     !(type instanceof MapType) &&
@@ -373,7 +373,7 @@ public class IrExpressionInterpreter
                     boolean nonNullConstants = valueList.stream().allMatch(Constant.class::isInstance) &&
                             valueList.stream()
                                     .map(Constant.class::cast)
-                                    .map(Constant::getValue)
+                                    .map(Constant::value)
                                     .noneMatch(Objects::isNull);
                     if (nonNullConstants) {
                         Set<Object> objectSet = valueList.stream().map(expression -> processWithExceptionHandling(expression, context)).collect(Collectors.toSet());
@@ -397,7 +397,7 @@ public class IrExpressionInterpreter
             List<Object> values = new ArrayList<>(valueList.size());
             List<Type> types = new ArrayList<>(valueList.size());
 
-            ResolvedFunction equalsOperator = metadata.resolveOperator(OperatorType.EQUAL, types(node.getValue(), node.getValue()));
+            ResolvedFunction equalsOperator = metadata.resolveOperator(OperatorType.EQUAL, types(node.value(), node.value()));
             for (Expression expression : valueList) {
                 if (value instanceof Expression && expression instanceof Constant) {
                     // skip interpreting of literal IN term since it cannot be compared
@@ -463,19 +463,19 @@ public class IrExpressionInterpreter
         @Override
         protected Object visitArithmeticNegation(ArithmeticNegation node, Object context)
         {
-            Object value = processWithExceptionHandling(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.value(), context);
             if (value == null) {
                 return null;
             }
             if (value instanceof Expression) {
-                Expression valueExpression = toExpression(value, node.getValue().type());
+                Expression valueExpression = toExpression(value, node.value().type());
                 if (valueExpression instanceof ArithmeticNegation argument) {
-                    return argument.getValue();
+                    return argument.value();
                 }
                 return new ArithmeticNegation(valueExpression);
             }
 
-            ResolvedFunction resolvedOperator = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
+            ResolvedFunction resolvedOperator = metadata.resolveOperator(OperatorType.NEGATION, types(node.value()));
             InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NEVER_NULL), FAIL_ON_NULL, true, false);
             MethodHandle handle = plannerContext.getFunctionManager().getScalarFunctionImplementation(resolvedOperator, invocationConvention).getMethodHandle();
 
@@ -495,28 +495,28 @@ public class IrExpressionInterpreter
         @Override
         protected Object visitArithmeticBinary(ArithmeticBinaryExpression node, Object context)
         {
-            Object left = processWithExceptionHandling(node.getLeft(), context);
+            Object left = processWithExceptionHandling(node.left(), context);
             if (left == null) {
                 return null;
             }
-            Object right = processWithExceptionHandling(node.getRight(), context);
+            Object right = processWithExceptionHandling(node.right(), context);
             if (right == null) {
                 return null;
             }
 
             if (hasUnresolvedValue(left, right)) {
-                return new ArithmeticBinaryExpression(node.getFunction(), node.getOperator(), toExpression(left, node.getLeft().type()), toExpression(right, node.getRight().type()));
+                return new ArithmeticBinaryExpression(node.function(), node.operator(), toExpression(left, node.left().type()), toExpression(right, node.right().type()));
             }
 
-            return functionInvoker.invoke(node.getFunction(), connectorSession, ImmutableList.of(left, right));
+            return functionInvoker.invoke(node.function(), connectorSession, ImmutableList.of(left, right));
         }
 
         @Override
         protected Object visitComparisonExpression(ComparisonExpression node, Object context)
         {
-            Operator operator = node.getOperator();
-            Expression left = node.getLeft();
-            Expression right = node.getRight();
+            Operator operator = node.operator();
+            Expression left = node.left();
+            Expression right = node.right();
 
             if (operator == Operator.IS_DISTINCT_FROM) {
                 return processIsDistinctFrom(context, left, right);
@@ -524,7 +524,7 @@ public class IrExpressionInterpreter
             // Execution engine does not have not equal and greater than operators, so interpret with
             // equal or less than, but do not flip operator in result, as many optimizers depend on
             // operators not flipping
-            if (node.getOperator() == Operator.NOT_EQUAL) {
+            if (node.operator() == Operator.NOT_EQUAL) {
                 Object result = visitComparisonExpression(flipComparison(node), context);
                 if (result == null) {
                     return null;
@@ -534,7 +534,7 @@ public class IrExpressionInterpreter
                 }
                 return !(Boolean) result;
             }
-            if (node.getOperator() == Operator.GREATER_THAN || node.getOperator() == Operator.GREATER_THAN_OR_EQUAL) {
+            if (node.operator() == Operator.GREATER_THAN || node.operator() == Operator.GREATER_THAN_OR_EQUAL) {
                 Object result = visitComparisonExpression(flipComparison(node), context);
                 if (result instanceof ComparisonExpression) {
                     return flipComparison((ComparisonExpression) result);
@@ -587,41 +587,41 @@ public class IrExpressionInterpreter
         // TODO define method contract or split into separate methods, as flip(EQUAL) is a negation, while flip(LESS_THAN) is just flipping sides
         private ComparisonExpression flipComparison(ComparisonExpression comparisonExpression)
         {
-            return switch (comparisonExpression.getOperator()) {
-                case EQUAL -> new ComparisonExpression(Operator.NOT_EQUAL, comparisonExpression.getLeft(), comparisonExpression.getRight());
-                case NOT_EQUAL -> new ComparisonExpression(Operator.EQUAL, comparisonExpression.getLeft(), comparisonExpression.getRight());
-                case LESS_THAN -> new ComparisonExpression(Operator.GREATER_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                case LESS_THAN_OR_EQUAL -> new ComparisonExpression(Operator.GREATER_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                case GREATER_THAN -> new ComparisonExpression(Operator.LESS_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(Operator.LESS_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                default -> throw new IllegalStateException("Unexpected value: " + comparisonExpression.getOperator());
+            return switch (comparisonExpression.operator()) {
+                case EQUAL -> new ComparisonExpression(Operator.NOT_EQUAL, comparisonExpression.left(), comparisonExpression.right());
+                case NOT_EQUAL -> new ComparisonExpression(Operator.EQUAL, comparisonExpression.left(), comparisonExpression.right());
+                case LESS_THAN -> new ComparisonExpression(Operator.GREATER_THAN, comparisonExpression.right(), comparisonExpression.left());
+                case LESS_THAN_OR_EQUAL -> new ComparisonExpression(Operator.GREATER_THAN_OR_EQUAL, comparisonExpression.right(), comparisonExpression.left());
+                case GREATER_THAN -> new ComparisonExpression(Operator.LESS_THAN, comparisonExpression.right(), comparisonExpression.left());
+                case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(Operator.LESS_THAN_OR_EQUAL, comparisonExpression.right(), comparisonExpression.left());
+                default -> throw new IllegalStateException("Unexpected value: " + comparisonExpression.operator());
             };
         }
 
         @Override
         protected Object visitBetweenPredicate(BetweenPredicate node, Object context)
         {
-            Object value = processWithExceptionHandling(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.value(), context);
             if (value == null) {
                 return null;
             }
-            Object min = processWithExceptionHandling(node.getMin(), context);
-            Object max = processWithExceptionHandling(node.getMax(), context);
+            Object min = processWithExceptionHandling(node.min(), context);
+            Object max = processWithExceptionHandling(node.max(), context);
 
             if (value instanceof Expression || min instanceof Expression || max instanceof Expression) {
                 return new BetweenPredicate(
-                        toExpression(value, node.getValue().type()),
-                        toExpression(min, node.getMin().type()),
-                        toExpression(max, node.getMax().type()));
+                        toExpression(value, node.value().type()),
+                        toExpression(min, node.min().type()),
+                        toExpression(max, node.max().type()));
             }
 
             Boolean greaterOrEqualToMin = null;
             if (min != null) {
-                greaterOrEqualToMin = (Boolean) invokeOperator(OperatorType.LESS_THAN_OR_EQUAL, types(node.getMin(), node.getValue()), ImmutableList.of(min, value));
+                greaterOrEqualToMin = (Boolean) invokeOperator(OperatorType.LESS_THAN_OR_EQUAL, types(node.min(), node.value()), ImmutableList.of(min, value));
             }
             Boolean lessThanOrEqualToMax = null;
             if (max != null) {
-                lessThanOrEqualToMax = (Boolean) invokeOperator(OperatorType.LESS_THAN_OR_EQUAL, types(node.getValue(), node.getMax()), ImmutableList.of(value, max));
+                lessThanOrEqualToMax = (Boolean) invokeOperator(OperatorType.LESS_THAN_OR_EQUAL, types(node.value(), node.max()), ImmutableList.of(value, max));
             }
 
             if (greaterOrEqualToMin == null) {
@@ -636,17 +636,17 @@ public class IrExpressionInterpreter
         @Override
         protected Object visitNullIfExpression(NullIfExpression node, Object context)
         {
-            Object first = processWithExceptionHandling(node.getFirst(), context);
+            Object first = processWithExceptionHandling(node.first(), context);
             if (first == null) {
                 return null;
             }
-            Object second = processWithExceptionHandling(node.getSecond(), context);
+            Object second = processWithExceptionHandling(node.second(), context);
             if (second == null) {
                 return first;
             }
 
-            Type firstType = node.getFirst().type();
-            Type secondType = node.getSecond().type();
+            Type firstType = node.first().type();
+            Type secondType = node.second().type();
 
             if (hasUnresolvedValue(first, second)) {
                 return new NullIfExpression(toExpression(first, firstType), toExpression(second, secondType));
@@ -674,13 +674,13 @@ public class IrExpressionInterpreter
         @Override
         protected Object visitNotExpression(NotExpression node, Object context)
         {
-            Object value = processWithExceptionHandling(node.getValue(), context);
+            Object value = processWithExceptionHandling(node.value(), context);
             if (value == null) {
                 return null;
             }
 
             if (value instanceof Expression) {
-                return new NotExpression(toExpression(value, node.getValue().type()));
+                return new NotExpression(toExpression(value, node.value().type()));
             }
 
             return !(Boolean) value;
@@ -692,10 +692,10 @@ public class IrExpressionInterpreter
             List<Object> terms = new ArrayList<>();
             List<Type> types = new ArrayList<>();
 
-            for (Expression term : node.getTerms()) {
+            for (Expression term : node.terms()) {
                 Object processed = processWithExceptionHandling(term, context);
 
-                switch (node.getOperator()) {
+                switch (node.operator()) {
                     case AND -> {
                         if (Boolean.FALSE.equals(processed)) {
                             return false;
@@ -718,7 +718,7 @@ public class IrExpressionInterpreter
             }
 
             if (terms.isEmpty()) {
-                return switch (node.getOperator()) {
+                return switch (node.operator()) {
                     case AND -> true; // terms are true
                     case OR -> false; // all terms are false
                 };
@@ -736,7 +736,7 @@ public class IrExpressionInterpreter
             for (int i = 0; i < terms.size(); i++) {
                 expressions.add(toExpression(terms.get(i), types.get(i)));
             }
-            return new LogicalExpression(node.getOperator(), expressions.build());
+            return new LogicalExpression(node.operator(), expressions.build());
         }
 
         @Override
@@ -744,14 +744,14 @@ public class IrExpressionInterpreter
         {
             List<Type> argumentTypes = new ArrayList<>();
             List<Object> argumentValues = new ArrayList<>();
-            for (Expression expression : node.getArguments()) {
+            for (Expression expression : node.arguments()) {
                 Object value = processWithExceptionHandling(expression, context);
                 Type type = expression.type();
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
 
-            ResolvedFunction resolvedFunction = node.getFunction();
+            ResolvedFunction resolvedFunction = node.function();
             FunctionNullability functionNullability = resolvedFunction.getFunctionNullability();
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
@@ -778,7 +778,7 @@ public class IrExpressionInterpreter
             if (optimize) {
                 // TODO: enable optimization related to lambda expression
                 // A mechanism to convert function type back into lambda expression need to exist to enable optimization
-                Object value = processWithExceptionHandling(node.getBody(), context);
+                Object value = processWithExceptionHandling(node.body(), context);
                 Expression optimizedBody;
 
                 // value may be null, converted to an expression by toExpression(value, type)
@@ -786,14 +786,14 @@ public class IrExpressionInterpreter
                     optimizedBody = (Expression) value;
                 }
                 else {
-                    Type type = node.getBody().type();
+                    Type type = node.body().type();
                     optimizedBody = toExpression(value, type);
                 }
-                return new LambdaExpression(node.getArguments(), optimizedBody);
+                return new LambdaExpression(node.arguments(), optimizedBody);
             }
 
-            Expression body = node.getBody();
-            List<String> argumentNames = node.getArguments().stream()
+            Expression body = node.body();
+            List<String> argumentNames = node.arguments().stream()
                     .map(Symbol::getName)
                     .toList();
             FunctionType functionType = (FunctionType) node.type();
@@ -812,15 +812,15 @@ public class IrExpressionInterpreter
         @Override
         protected Object visitBindExpression(BindExpression node, Object context)
         {
-            List<Object> values = node.getValues().stream()
+            List<Object> values = node.values().stream()
                     .map(value -> processWithExceptionHandling(value, context))
                     .collect(toList()); // values are nullable
-            Object function = processWithExceptionHandling(node.getFunction(), context);
+            Object function = processWithExceptionHandling(node.function(), context);
 
             if (hasUnresolvedValue(values) || hasUnresolvedValue(function)) {
                 ImmutableList.Builder<Expression> builder = ImmutableList.builder();
                 for (int i = 0; i < values.size(); i++) {
-                    builder.add(toExpression(values.get(i), node.getValues().get(i).type()));
+                    builder.add(toExpression(values.get(i), node.values().get(i).type()));
                 }
 
                 return new BindExpression(builder.build(), (LambdaExpression) function);
@@ -832,15 +832,15 @@ public class IrExpressionInterpreter
         @Override
         public Object visitCast(Cast node, Object context)
         {
-            Object value = processWithExceptionHandling(node.getExpression(), context);
-            Type targetType = node.getType();
-            Type sourceType = node.getExpression().type();
+            Object value = processWithExceptionHandling(node.expression(), context);
+            Type targetType = node.type();
+            Type sourceType = node.expression().type();
             if (value instanceof Expression) {
                 if (targetType.equals(sourceType)) {
                     return value;
                 }
 
-                return new Cast((Expression) value, node.getType(), node.isSafe());
+                return new Cast((Expression) value, node.type(), node.safe());
             }
 
             if (value == null) {
@@ -853,7 +853,7 @@ public class IrExpressionInterpreter
                 return functionInvoker.invoke(operator, connectorSession, ImmutableList.of(value));
             }
             catch (RuntimeException e) {
-                if (node.isSafe()) {
+                if (node.safe()) {
                     return null;
                 }
                 throw e;
@@ -865,7 +865,7 @@ public class IrExpressionInterpreter
         {
             RowType rowType = (RowType) ((Expression) node).type();
             List<Type> parameterTypes = rowType.getTypeParameters();
-            List<Expression> arguments = node.getItems();
+            List<Expression> arguments = node.items();
 
             int cardinality = arguments.size();
             List<Object> values = new ArrayList<>(cardinality);
@@ -885,20 +885,20 @@ public class IrExpressionInterpreter
         @Override
         protected Object visitSubscriptExpression(SubscriptExpression node, Object context)
         {
-            Object base = processWithExceptionHandling(node.getBase(), context);
+            Object base = processWithExceptionHandling(node.base(), context);
             if (base == null) {
                 return null;
             }
-            Object index = processWithExceptionHandling(node.getIndex(), context);
+            Object index = processWithExceptionHandling(node.index(), context);
             if (index == null) {
                 return null;
             }
-            if ((index instanceof Long) && isArray(node.getBase().type())) {
+            if ((index instanceof Long) && isArray(node.base().type())) {
                 ArraySubscriptOperator.checkArrayIndex((Long) index);
             }
 
             if (hasUnresolvedValue(base, index)) {
-                return new SubscriptExpression(node.type(), toExpression(base, node.getBase().type()), toExpression(index, node.getIndex().type()));
+                return new SubscriptExpression(node.type(), toExpression(base, node.base().type()), toExpression(index, node.index().type()));
             }
 
             // Subscript on Row hasn't got a dedicated operator. It is interpreted by hand.
@@ -907,12 +907,12 @@ public class IrExpressionInterpreter
                 if (fieldIndex < 0 || fieldIndex >= row.getFieldCount()) {
                     throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "ROW index out of bounds: " + (fieldIndex + 1));
                 }
-                Type returnType = node.getBase().type().getTypeParameters().get(fieldIndex);
+                Type returnType = node.base().type().getTypeParameters().get(fieldIndex);
                 return readNativeValue(returnType, row.getRawFieldBlock(fieldIndex), row.getRawIndex());
             }
 
             // Subscript on Array or Map is interpreted using operator.
-            return invokeOperator(OperatorType.SUBSCRIPT, types(node.getBase(), node.getIndex()), ImmutableList.of(base, index));
+            return invokeOperator(OperatorType.SUBSCRIPT, types(node.base(), node.index()), ImmutableList.of(base, index));
         }
 
         @Override

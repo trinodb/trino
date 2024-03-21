@@ -239,7 +239,7 @@ public class PushAggregationIntoTableScan
         ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();
         for (int i = 0; i < aggregation.getArguments().size(); i++) {
             SymbolReference argument = (SymbolReference) aggregation.getArguments().get(i);
-            arguments.add(new Variable(argument.getName(), signature.getArgumentTypes().get(i)));
+            arguments.add(new Variable(argument.name(), signature.getArgumentTypes().get(i)));
         }
 
         Optional<OrderingScheme> orderingScheme = aggregation.getOrderingScheme();

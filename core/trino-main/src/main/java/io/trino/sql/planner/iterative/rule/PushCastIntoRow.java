@@ -62,7 +62,7 @@ public class PushCastIntoRow
         @Override
         public Expression rewriteCast(Cast node, Boolean inRowCast, ExpressionTreeRewriter<Boolean> treeRewriter)
         {
-            if (!(node.getType() instanceof RowType type)) {
+            if (!(node.type() instanceof RowType type)) {
                 return treeRewriter.defaultRewrite(node, false);
             }
 
@@ -70,15 +70,15 @@ public class PushCastIntoRow
             // otherwise, apply recursively with inRowCast == true and don't push this one
 
             if (inRowCast || type.getFields().stream().allMatch(field -> field.getName().isEmpty())) {
-                Expression value = treeRewriter.rewrite(node.getExpression(), true);
+                Expression value = treeRewriter.rewrite(node.expression(), true);
 
                 if (value instanceof Row row) {
                     ImmutableList.Builder<Expression> items = ImmutableList.builder();
-                    for (int i = 0; i < row.getItems().size(); i++) {
-                        Expression item = row.getItems().get(i);
+                    for (int i = 0; i < row.items().size(); i++) {
+                        Expression item = row.items().get(i);
                         Type itemType = type.getFields().get(i).getType();
                         if (!(itemType instanceof UnknownType)) {
-                            item = new Cast(item, itemType, node.isSafe());
+                            item = new Cast(item, itemType, node.safe());
                         }
                         items.add(item);
                     }

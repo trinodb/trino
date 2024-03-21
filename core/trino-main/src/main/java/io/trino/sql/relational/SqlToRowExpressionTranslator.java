@@ -137,17 +137,17 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitConstant(Constant node, Void context)
         {
-            return constant(node.getValue(), node.getType());
+            return constant(node.value(), node.type());
         }
 
         @Override
         protected RowExpression visitComparisonExpression(ComparisonExpression node, Void context)
         {
-            RowExpression left = process(node.getLeft(), context);
-            RowExpression right = process(node.getRight(), context);
-            Operator operator = node.getOperator();
+            RowExpression left = process(node.left(), context);
+            RowExpression right = process(node.right(), context);
+            Operator operator = node.operator();
 
-            switch (node.getOperator()) {
+            switch (node.operator()) {
                 case NOT_EQUAL:
                     return new CallExpression(
                             metadata.resolveBuiltinFunction("not", fromTypes(BOOLEAN)),
@@ -172,11 +172,11 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitFunctionCall(FunctionCall node, Void context)
         {
-            List<RowExpression> arguments = node.getArguments().stream()
+            List<RowExpression> arguments = node.arguments().stream()
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
 
-            return new CallExpression(node.getFunction(), arguments);
+            return new CallExpression(node.function(), arguments);
         }
 
         @Override
@@ -187,7 +187,7 @@ public final class SqlToRowExpressionTranslator
                 return field(field, ((Expression) node).type());
             }
 
-            return new VariableReferenceExpression(node.getName(), ((Expression) node).type());
+            return new VariableReferenceExpression(node.name(), ((Expression) node).type());
         }
 
         @Override
@@ -195,7 +195,7 @@ public final class SqlToRowExpressionTranslator
         {
             return new LambdaDefinitionExpression(
                     node.arguments(),
-                    process(node.getBody(), context));
+                    process(node.body(), context));
         }
 
         @Override
@@ -203,12 +203,12 @@ public final class SqlToRowExpressionTranslator
         {
             ImmutableList.Builder<Type> valueTypesBuilder = ImmutableList.builder();
             ImmutableList.Builder<RowExpression> argumentsBuilder = ImmutableList.builder();
-            for (Expression value : node.getValues()) {
+            for (Expression value : node.values()) {
                 RowExpression valueRowExpression = process(value, context);
                 valueTypesBuilder.add(valueRowExpression.getType());
                 argumentsBuilder.add(valueRowExpression);
             }
-            RowExpression function = process(node.getFunction(), context);
+            RowExpression function = process(node.function(), context);
             argumentsBuilder.add(function);
 
             return new SpecialForm(BIND, ((Expression) node).type(), argumentsBuilder.build());
@@ -217,11 +217,11 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
         {
-            RowExpression left = process(node.getLeft(), context);
-            RowExpression right = process(node.getRight(), context);
+            RowExpression left = process(node.left(), context);
+            RowExpression right = process(node.right(), context);
 
             return call(
-                    standardFunctionResolution.arithmeticFunction(node.getOperator(), left.getType(), right.getType()),
+                    standardFunctionResolution.arithmeticFunction(node.operator(), left.getType(), right.getType()),
                     left,
                     right);
         }
@@ -229,7 +229,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitArithmeticNegation(ArithmeticNegation node, Void context)
         {
-            RowExpression expression = process(node.getValue(), context);
+            RowExpression expression = process(node.value(), context);
             return call(
                     metadata.resolveOperator(NEGATION, ImmutableList.of(expression.getType())),
                     expression);
@@ -239,7 +239,7 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitLogicalExpression(LogicalExpression node, Void context)
         {
             Form form;
-            switch (node.getOperator()) {
+            switch (node.operator()) {
                 case AND:
                     form = AND;
                     break;
@@ -247,12 +247,12 @@ public final class SqlToRowExpressionTranslator
                     form = OR;
                     break;
                 default:
-                    throw new IllegalStateException("Unknown logical operator: " + node.getOperator());
+                    throw new IllegalStateException("Unknown logical operator: " + node.operator());
             }
             return new SpecialForm(
                     form,
                     BOOLEAN,
-                    node.getTerms().stream()
+                    node.terms().stream()
                             .map(term -> process(term, context))
                             .collect(toImmutableList()));
         }
@@ -260,14 +260,14 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitCast(Cast node, Void context)
         {
-            RowExpression value = process(node.getExpression(), context);
+            RowExpression value = process(node.expression(), context);
 
             Type returnType = ((Expression) node).type();
             if (typeCoercion.isTypeOnlyCoercion(value.getType(), returnType)) {
                 return changeType(value, returnType);
             }
 
-            if (node.isSafe()) {
+            if (node.safe()) {
                 return call(
                         metadata.getCoercion(builtinFunctionName("TRY_CAST"), value.getType(), returnType),
                         value);
@@ -334,7 +334,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitCoalesceExpression(CoalesceExpression node, Void context)
         {
-            List<RowExpression> arguments = node.getOperands().stream()
+            List<RowExpression> arguments = node.operands().stream()
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
 
@@ -346,11 +346,11 @@ public final class SqlToRowExpressionTranslator
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
 
-            RowExpression value = process(node.getOperand(), context);
+            RowExpression value = process(node.operand(), context);
             arguments.add(value);
 
             ImmutableList.Builder<ResolvedFunction> functionDependencies = ImmutableList.builder();
-            for (WhenClause clause : node.getWhenClauses()) {
+            for (WhenClause clause : node.whenClauses()) {
                 RowExpression operand = process(clause.getOperand(), context);
                 RowExpression result = process(clause.getResult(), context);
 
@@ -365,7 +365,7 @@ public final class SqlToRowExpressionTranslator
 
             Type returnType = ((Expression) node).type();
 
-            arguments.add(node.getDefaultValue()
+            arguments.add(node.defaultValue()
                     .map(defaultValue -> process(defaultValue, context))
                     .orElse(constantNull(returnType)));
 
@@ -395,11 +395,11 @@ public final class SqlToRowExpressionTranslator
                                     value4)))
 
              */
-            RowExpression expression = node.getDefaultValue()
+            RowExpression expression = node.defaultValue()
                     .map(value -> process(value, context))
                     .orElse(constantNull(((Expression) node).type()));
 
-            for (WhenClause clause : node.getWhenClauses().reversed()) {
+            for (WhenClause clause : node.whenClauses().reversed()) {
                 expression = new SpecialForm(
                         IF,
                         ((Expression) node).type(),
@@ -415,9 +415,9 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitInPredicate(InPredicate node, Void context)
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
-            RowExpression value = process(node.getValue(), context);
+            RowExpression value = process(node.value(), context);
             arguments.add(value);
-            for (Expression testValue : node.getValueList()) {
+            for (Expression testValue : node.valueList()) {
                 arguments.add(process(testValue, context));
             }
 
@@ -433,7 +433,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitIsNullPredicate(IsNullPredicate node, Void context)
         {
-            RowExpression expression = process(node.getValue(), context);
+            RowExpression expression = process(node.value(), context);
 
             return new SpecialForm(IS_NULL, BOOLEAN, expression);
         }
@@ -441,7 +441,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitNotExpression(NotExpression node, Void context)
         {
-            return notExpression(process(node.getValue(), context));
+            return notExpression(process(node.value(), context));
         }
 
         private RowExpression notExpression(RowExpression value)
@@ -454,8 +454,8 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitNullIfExpression(NullIfExpression node, Void context)
         {
-            RowExpression first = process(node.getFirst(), context);
-            RowExpression second = process(node.getSecond(), context);
+            RowExpression first = process(node.first(), context);
+            RowExpression second = process(node.second(), context);
 
             ResolvedFunction resolvedFunction = metadata.resolveOperator(EQUAL, ImmutableList.of(first.getType(), second.getType()));
             List<ResolvedFunction> functionDependencies = ImmutableList.<ResolvedFunction>builder()
@@ -474,9 +474,9 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitBetweenPredicate(BetweenPredicate node, Void context)
         {
-            RowExpression value = process(node.getValue(), context);
-            RowExpression min = process(node.getMin(), context);
-            RowExpression max = process(node.getMax(), context);
+            RowExpression value = process(node.value(), context);
+            RowExpression min = process(node.min(), context);
+            RowExpression max = process(node.max(), context);
 
             List<ResolvedFunction> functionDependencies = ImmutableList.of(
                     metadata.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(value.getType(), max.getType())));
@@ -491,10 +491,10 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitSubscriptExpression(SubscriptExpression node, Void context)
         {
-            RowExpression base = process(node.getBase(), context);
-            RowExpression index = process(node.getIndex(), context);
+            RowExpression base = process(node.base(), context);
+            RowExpression index = process(node.index(), context);
 
-            if (node.getBase().type() instanceof RowType) {
+            if (node.base().type() instanceof RowType) {
                 long value = (Long) ((ConstantExpression) index).getValue();
                 return new SpecialForm(DEREFERENCE, ((Expression) node).type(), base, constant(value - 1, INTEGER));
             }
@@ -508,7 +508,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitRow(Row node, Void context)
         {
-            List<RowExpression> arguments = node.getItems().stream()
+            List<RowExpression> arguments = node.items().stream()
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
             Type returnType = ((Expression) node).type();

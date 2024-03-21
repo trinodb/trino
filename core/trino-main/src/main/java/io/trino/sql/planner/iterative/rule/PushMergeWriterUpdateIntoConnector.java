@@ -138,8 +138,8 @@ public class PushMergeWriterUpdateIntoConnector
             }
         }
         else if (mergeRow instanceof Constant row) {
-            RowType type = (RowType) row.getType();
-            SqlRow rowValue = (SqlRow) row.getValue();
+            RowType type = (RowType) row.type();
+            SqlRow rowValue = (SqlRow) row.value();
 
             for (int i = 0; i < orderedColumnNames.size(); i++) {
                 Type fieldType = type.getFields().get(i).getType();

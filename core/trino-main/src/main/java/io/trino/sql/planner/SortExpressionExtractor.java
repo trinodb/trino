@@ -106,13 +106,13 @@ public final class SortExpressionExtractor
         @Override
         protected Optional<SortExpressionContext> visitComparisonExpression(ComparisonExpression comparison, Void context)
         {
-            return switch (comparison.getOperator()) {
+            return switch (comparison.operator()) {
                 case GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> {
-                    Optional<SymbolReference> sortChannel = asBuildSymbolReference(buildSymbols, comparison.getRight());
-                    boolean hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getLeft());
+                    Optional<SymbolReference> sortChannel = asBuildSymbolReference(buildSymbols, comparison.right());
+                    boolean hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.left());
                     if (sortChannel.isEmpty()) {
-                        sortChannel = asBuildSymbolReference(buildSymbols, comparison.getLeft());
-                        hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getRight());
+                        sortChannel = asBuildSymbolReference(buildSymbols, comparison.left());
+                        hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.right());
                     }
                     if (sortChannel.isPresent() && !hasBuildReferencesOnOtherSide) {
                         yield sortChannel.map(symbolReference -> new SortExpressionContext(symbolReference, singletonList(comparison)));
@@ -126,11 +126,11 @@ public final class SortExpressionExtractor
         @Override
         protected Optional<SortExpressionContext> visitBetweenPredicate(BetweenPredicate node, Void context)
         {
-            Optional<SortExpressionContext> result = visitComparisonExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin()), context);
+            Optional<SortExpressionContext> result = visitComparisonExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.value(), node.min()), context);
             if (result.isPresent()) {
                 return result;
             }
-            return visitComparisonExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax()), context);
+            return visitComparisonExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, node.value(), node.max()), context);
         }
     }
 
@@ -138,7 +138,7 @@ public final class SortExpressionExtractor
     {
         // Currently we only support symbol as sort expression on build side
         if (expression instanceof SymbolReference symbolReference) {
-            if (buildLayout.contains(new Symbol(symbolReference.type(), symbolReference.getName()))) {
+            if (buildLayout.contains(new Symbol(symbolReference.type(), symbolReference.name()))) {
                 return Optional.of(symbolReference);
             }
         }
@@ -176,7 +176,7 @@ public final class SortExpressionExtractor
         @Override
         protected Boolean visitSymbolReference(SymbolReference symbolReference, Void context)
         {
-            return buildSymbols.contains(symbolReference.getName());
+            return buildSymbols.contains(symbolReference.name());
         }
     }
 }

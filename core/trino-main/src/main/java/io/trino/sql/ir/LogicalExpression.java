@@ -57,18 +57,6 @@ public record LogicalExpression(Operator operator, List<Expression> terms)
         return BOOLEAN;
     }
 
-    @Deprecated
-    public Operator getOperator()
-    {
-        return operator;
-    }
-
-    @Deprecated
-    public List<Expression> getTerms()
-    {
-        return terms;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

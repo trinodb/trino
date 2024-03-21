@@ -39,24 +39,6 @@ public record SimpleCaseExpression(Expression operand, List<WhenClause> whenClau
         return whenClauses.getFirst().getResult().type();
     }
 
-    @Deprecated
-    public Expression getOperand()
-    {
-        return operand;
-    }
-
-    @Deprecated
-    public List<WhenClause> getWhenClauses()
-    {
-        return whenClauses;
-    }
-
-    @Deprecated
-    public Optional<Expression> getDefaultValue()
-    {
-        return defaultValue;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

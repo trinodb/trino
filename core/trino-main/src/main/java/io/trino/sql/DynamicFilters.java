@@ -157,20 +157,20 @@ public final class DynamicFilters
             return Symbol.from(dynamicFilterExpression);
         }
         checkState(dynamicFilterExpression instanceof Cast);
-        checkState(((Cast) dynamicFilterExpression).getExpression() instanceof SymbolReference);
-        return Symbol.from(((Cast) dynamicFilterExpression).getExpression());
+        checkState(((Cast) dynamicFilterExpression).expression() instanceof SymbolReference);
+        return Symbol.from(((Cast) dynamicFilterExpression).expression());
     }
 
     public static Expression replaceDynamicFilterId(FunctionCall dynamicFilterFunctionCall, DynamicFilterId newId)
     {
         return new FunctionCall(
-                dynamicFilterFunctionCall.getFunction(),
+                dynamicFilterFunctionCall.function(),
                 ImmutableList.of(
-                        dynamicFilterFunctionCall.getArguments().get(0),
-                        dynamicFilterFunctionCall.getArguments().get(1),
+                        dynamicFilterFunctionCall.arguments().get(0),
+                        dynamicFilterFunctionCall.arguments().get(1),
                         new Constant(VarcharType.VARCHAR, Slices.utf8Slice(newId.toString())), // dynamic filter id is the 3rd argument
-                        dynamicFilterFunctionCall.getArguments().get(3),
-                        dynamicFilterFunctionCall.getArguments().get(4)));
+                        dynamicFilterFunctionCall.arguments().get(3),
+                        dynamicFilterFunctionCall.arguments().get(4)));
     }
 
     public static Expression replaceDynamicFilterTimeout(FunctionCall dynamicFilterFunctionCall, long timeout)
@@ -178,12 +178,12 @@ public final class DynamicFilters
         Expression timeoutArgument = new Constant(IntegerType.INTEGER, timeout);
 
         return new FunctionCall(
-                dynamicFilterFunctionCall.getFunction(),
+                dynamicFilterFunctionCall.function(),
                 ImmutableList.of(
-                        dynamicFilterFunctionCall.getArguments().get(0),
-                        dynamicFilterFunctionCall.getArguments().get(1),
-                        dynamicFilterFunctionCall.getArguments().get(2),
-                        dynamicFilterFunctionCall.getArguments().get(3),
+                        dynamicFilterFunctionCall.arguments().get(0),
+                        dynamicFilterFunctionCall.arguments().get(1),
+                        dynamicFilterFunctionCall.arguments().get(2),
+                        dynamicFilterFunctionCall.arguments().get(3),
                         timeoutArgument));
     }
 
@@ -202,28 +202,28 @@ public final class DynamicFilters
             return Optional.empty();
         }
 
-        List<Expression> arguments = functionCall.getArguments();
+        List<Expression> arguments = functionCall.arguments();
         checkArgument(arguments.size() == 5, "invalid arguments count: %s", arguments.size());
 
         Expression probeSymbol = arguments.get(0);
 
         Expression operatorExpression = arguments.get(1);
-        checkArgument(operatorExpression instanceof Constant literal && literal.getType().equals(VarcharType.VARCHAR), "operatorExpression is expected to be a varchar: %s", operatorExpression.getClass().getSimpleName());
-        String operatorExpressionString = ((Slice) ((Constant) operatorExpression).getValue()).toStringUtf8();
+        checkArgument(operatorExpression instanceof Constant literal && literal.type().equals(VarcharType.VARCHAR), "operatorExpression is expected to be a varchar: %s", operatorExpression.getClass().getSimpleName());
+        String operatorExpressionString = ((Slice) ((Constant) operatorExpression).value()).toStringUtf8();
         ComparisonExpression.Operator operator = ComparisonExpression.Operator.valueOf(operatorExpressionString);
 
         Expression idExpression = arguments.get(2);
-        checkArgument(idExpression instanceof Constant literal && literal.getType().equals(VarcharType.VARCHAR), "id is expected to be a varchar: %s", idExpression.getClass().getSimpleName());
-        String id = ((Slice) ((Constant) idExpression).getValue()).toStringUtf8();
+        checkArgument(idExpression instanceof Constant literal && literal.type().equals(VarcharType.VARCHAR), "id is expected to be a varchar: %s", idExpression.getClass().getSimpleName());
+        String id = ((Slice) ((Constant) idExpression).value()).toStringUtf8();
 
         Expression nullAllowedExpression = arguments.get(3);
-        checkArgument(nullAllowedExpression instanceof Constant literal && literal.getType().equals(BooleanType.BOOLEAN), "nullAllowedExpression is expected to be a boolean constant: %s", nullAllowedExpression.getClass().getSimpleName());
-        boolean nullAllowed = (boolean) ((Constant) nullAllowedExpression).getValue();
+        checkArgument(nullAllowedExpression instanceof Constant literal && literal.type().equals(BooleanType.BOOLEAN), "nullAllowedExpression is expected to be a boolean constant: %s", nullAllowedExpression.getClass().getSimpleName());
+        boolean nullAllowed = (boolean) ((Constant) nullAllowedExpression).value();
 
         Expression timeoutExpression = arguments.get(4);
         OptionalLong timeout;
-        if (timeoutExpression instanceof Constant timeoutConstant && isInteger(timeoutConstant.getType())) {
-            Long value = (Long) timeoutConstant.getValue();
+        if (timeoutExpression instanceof Constant timeoutConstant && isInteger(timeoutConstant.type())) {
+            Long value = (Long) timeoutConstant.value();
             if (value == null) {
                 timeout = OptionalLong.empty();
             }
@@ -248,7 +248,7 @@ public final class DynamicFilters
 
     private static boolean isDynamicFilterFunction(FunctionCall functionCall)
     {
-        return isDynamicFilterFunction(functionCall.getFunction().getName());
+        return isDynamicFilterFunction(functionCall.function().getName());
     }
 
     public static boolean isDynamicFilterFunction(CatalogSchemaFunctionName functionName)

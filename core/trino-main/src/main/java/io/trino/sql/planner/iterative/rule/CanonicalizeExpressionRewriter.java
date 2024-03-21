@@ -70,8 +70,8 @@ public final class CanonicalizeExpressionRewriter
         {
             // if we have a comparison of the form <constant> <op> <expr>, normalize it to
             // <expr> <op-flipped> <constant>
-            if (isConstant(node.getLeft()) && !isConstant(node.getRight())) {
-                node = new ComparisonExpression(node.getOperator().flip(), node.getRight(), node.getLeft());
+            if (isConstant(node.left()) && !isConstant(node.right())) {
+                node = new ComparisonExpression(node.operator().flip(), node.right(), node.left());
             }
 
             return treeRewriter.defaultRewrite(node, context);
@@ -81,23 +81,23 @@ public final class CanonicalizeExpressionRewriter
         @Override
         public Expression rewriteArithmeticBinary(ArithmeticBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (node.getOperator() == MULTIPLY || node.getOperator() == ADD) {
+            if (node.operator() == MULTIPLY || node.operator() == ADD) {
                 // if we have a operation of the form <constant> [+|*] <expr>, normalize it to
                 // <expr> [+|*] <constant>
-                if (isConstant(node.getLeft()) && !isConstant(node.getRight())) {
+                if (isConstant(node.left()) && !isConstant(node.right())) {
                     node = new ArithmeticBinaryExpression(
                             plannerContext.getMetadata().resolveOperator(
-                                    switch (node.getOperator()) {
+                                    switch (node.operator()) {
                                         case ADD -> OperatorType.ADD;
                                         case MULTIPLY -> OperatorType.MULTIPLY;
-                                        default -> throw new IllegalStateException("Unexpected value: " + node.getOperator());
+                                        default -> throw new IllegalStateException("Unexpected value: " + node.operator());
                                     },
                                     ImmutableList.of(
-                                            node.getFunction().getSignature().getArgumentType(1),
-                                            node.getFunction().getSignature().getArgumentType(0))),
-                            node.getOperator(),
-                            node.getRight(),
-                            node.getLeft());
+                                            node.function().getSignature().getArgumentType(1),
+                                            node.function().getSignature().getArgumentType(0))),
+                            node.operator(),
+                            node.right(),
+                            node.left());
                 }
             }
 
@@ -107,9 +107,9 @@ public final class CanonicalizeExpressionRewriter
         @Override
         public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            CatalogSchemaFunctionName functionName = node.getFunction().getName();
-            if (functionName.equals(builtinFunctionName("date")) && node.getArguments().size() == 1) {
-                Expression argument = node.getArguments().get(0);
+            CatalogSchemaFunctionName functionName = node.function().getName();
+            if (functionName.equals(builtinFunctionName("date")) && node.arguments().size() == 1) {
+                Expression argument = node.arguments().get(0);
                 Type argumentType = argument.type();
                 if (argumentType instanceof TimestampType
                         || argumentType instanceof TimestampWithTimeZoneType

@@ -69,7 +69,7 @@ final class AggregationFunctionProvider
             ImmutableMap.Builder<Symbol, SortOrder> orders = ImmutableMap.builder();
 
             for (PlanMatchPattern.Ordering ordering : this.orderBy) {
-                Symbol symbol = new Symbol(UNKNOWN, aliases.get(ordering.getField()).getName());
+                Symbol symbol = new Symbol(UNKNOWN, aliases.get(ordering.getField()).name());
                 fields.add(symbol);
                 orders.put(symbol, ordering.getSortOrder());
             }

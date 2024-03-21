@@ -1175,7 +1175,7 @@ public class PlanPrinter
             List<String> rows = node.getRows().get().stream()
                     .map(row -> {
                         if (row instanceof Row) {
-                            return ((Row) row).getItems().stream()
+                            return ((Row) row).items().stream()
                                     .map(anonymizer::anonymize)
                                     .collect(joining(", ", "(", ")"));
                         }
@@ -1989,7 +1989,7 @@ public class PlanPrinter
         private void printAssignments(NodeRepresentation nodeOutput, Assignments assignments)
         {
             for (Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
-                if (entry.getValue() instanceof SymbolReference && ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
+                if (entry.getValue() instanceof SymbolReference && ((SymbolReference) entry.getValue()).name().equals(entry.getKey().getName())) {
                     // skip identity assignments
                     continue;
                 }

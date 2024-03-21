@@ -41,24 +41,6 @@ public record BetweenPredicate(Expression value, Expression min, Expression max)
         return BOOLEAN;
     }
 
-    @Deprecated
-    public Expression getValue()
-    {
-        return value;
-    }
-
-    @Deprecated
-    public Expression getMin()
-    {
-        return min;
-    }
-
-    @Deprecated
-    public Expression getMax()
-    {
-        return max;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

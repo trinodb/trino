@@ -352,7 +352,7 @@ public class PreAggregateCaseAggregations
         Expression unwrappedProjection;
         // unwrap top-level cast
         if (projection instanceof Cast) {
-            unwrappedProjection = ((Cast) projection).getExpression();
+            unwrappedProjection = ((Cast) projection).expression();
         }
         else {
             unwrappedProjection = projection;
@@ -362,7 +362,7 @@ public class PreAggregateCaseAggregations
             return Optional.empty();
         }
 
-        if (caseExpression.getWhenClauses().size() != 1) {
+        if (caseExpression.whenClauses().size() != 1) {
             return Optional.empty();
         }
 
@@ -382,9 +382,9 @@ public class PreAggregateCaseAggregations
         }
 
         Optional<Expression> cumulativeAggregationDefaultValue = Optional.empty();
-        if (caseExpression.getDefaultValue().isPresent()) {
-            Type defaultType = getType(caseExpression.getDefaultValue().get());
-            Object defaultValue = optimizeExpression(caseExpression.getDefaultValue().get(), context);
+        if (caseExpression.defaultValue().isPresent()) {
+            Type defaultType = getType(caseExpression.defaultValue().get());
+            Object defaultValue = optimizeExpression(caseExpression.defaultValue().get(), context);
             if (defaultValue != null) {
                 if (!name.equals(SUM)) {
                     return Optional.empty();
@@ -408,7 +408,7 @@ public class PreAggregateCaseAggregations
             }
 
             // cumulative aggregation default value need to be CAST to cumulative aggregation input type
-            cumulativeAggregationDefaultValue = Optional.of(new Cast(caseExpression.getDefaultValue().get(), aggregationType));
+            cumulativeAggregationDefaultValue = Optional.of(new Cast(caseExpression.defaultValue().get(), aggregationType));
         }
 
         return Optional.of(new CaseAggregation(
@@ -416,8 +416,8 @@ public class PreAggregateCaseAggregations
                 resolvedFunction,
                 cumulativeFunction,
                 name,
-                caseExpression.getWhenClauses().get(0).getOperand(),
-                caseExpression.getWhenClauses().get(0).getResult(),
+                caseExpression.whenClauses().get(0).getOperand(),
+                caseExpression.whenClauses().get(0).getResult(),
                 cumulativeAggregationDefaultValue));
     }
 

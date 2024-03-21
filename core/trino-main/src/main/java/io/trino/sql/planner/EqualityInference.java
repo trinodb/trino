@@ -74,8 +74,8 @@ public class EqualityInference
                 .filter(expression -> isInferenceCandidate(expression))
                 .forEach(expression -> {
                     ComparisonExpression comparison = (ComparisonExpression) expression;
-                    Expression expression1 = comparison.getLeft();
-                    Expression expression2 = comparison.getRight();
+                    Expression expression1 = comparison.left();
+                    Expression expression2 = comparison.right();
 
                     equalities.findAndUnion(expression1, expression2);
                 });
@@ -259,9 +259,9 @@ public class EqualityInference
         if (expression instanceof ComparisonExpression comparison &&
                 isDeterministic(expression) &&
                 !mayReturnNullOnNonNullInput(expression)) {
-            if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
+            if (comparison.operator() == ComparisonExpression.Operator.EQUAL) {
                 // We should only consider equalities that have distinct left and right components
-                return !comparison.getLeft().equals(comparison.getRight());
+                return !comparison.left().equals(comparison.right());
             }
         }
         return false;

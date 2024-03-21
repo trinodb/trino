@@ -39,7 +39,7 @@ class WindowFrameMatcher
             return false;
         }
 
-        return expected.map(symbol -> aliases.get(symbol.getName()).getName().equals(actual.get().getName()))
+        return expected.map(symbol -> aliases.get(symbol.getName()).name().equals(actual.get().getName()))
                 .orElse(true);
     }
 }

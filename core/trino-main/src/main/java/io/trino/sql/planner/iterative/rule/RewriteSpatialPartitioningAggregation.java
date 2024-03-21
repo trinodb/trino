@@ -153,6 +153,6 @@ public class RewriteSpatialPartitioningAggregation
             return false;
         }
 
-        return functionCall.getFunction().getFunctionId().equals(stEnvelopeFunction.getFunctionId());
+        return functionCall.function().getFunctionId().equals(stEnvelopeFunction.getFunctionId());
     }
 }

@@ -174,11 +174,11 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
         if (!(expression instanceof ComparisonExpression comparison && isDeterministic(expression))) {
             return false;
         }
-        if (!SUPPORTED_COMPARISONS.contains(comparison.getOperator())) {
+        if (!SUPPORTED_COMPARISONS.contains(comparison.operator())) {
             return false;
         }
-        Set<Symbol> leftComparisonSymbols = extractUnique(comparison.getLeft());
-        Set<Symbol> rightComparisonSymbols = extractUnique(comparison.getRight());
+        Set<Symbol> leftComparisonSymbols = extractUnique(comparison.left());
+        Set<Symbol> rightComparisonSymbols = extractUnique(comparison.right());
         if (leftComparisonSymbols.isEmpty() || rightComparisonSymbols.isEmpty()) {
             return false;
         }
@@ -190,7 +190,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
         }
 
         boolean alignedComparison = joinNodeContext.isComparisonAligned(comparison);
-        Expression buildExpression = alignedComparison ? comparison.getRight() : comparison.getLeft();
+        Expression buildExpression = alignedComparison ? comparison.right() : comparison.left();
 
         // if buildExpression is a symbol, and it is available, we don't need to push down anything
         return !(buildExpression instanceof SymbolReference);
@@ -217,11 +217,11 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
         checkArgument(conjunct instanceof ComparisonExpression, "conjunct '%s' is not a comparison", conjunct);
         ComparisonExpression comparison = (ComparisonExpression) conjunct;
         boolean alignedComparison = joinNodeContext.isComparisonAligned(comparison);
-        Expression rightExpression = alignedComparison ? comparison.getRight() : comparison.getLeft();
-        Expression leftExpression = alignedComparison ? comparison.getLeft() : comparison.getRight();
+        Expression rightExpression = alignedComparison ? comparison.right() : comparison.left();
+        Expression leftExpression = alignedComparison ? comparison.left() : comparison.right();
         Symbol rightSymbol = symbolForExpression(context, rightExpression);
         newConjuncts.add(new ComparisonExpression(
-                comparison.getOperator(),
+                comparison.operator(),
                 alignedComparison ? leftExpression : rightSymbol.toSymbolReference(),
                 alignedComparison ? rightSymbol.toSymbolReference() : leftExpression));
         newProjections.put(rightSymbol, rightExpression);
@@ -341,7 +341,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
 
         public boolean isComparisonAligned(ComparisonExpression comparison)
         {
-            return leftSymbols.containsAll(extractUnique(comparison.getLeft()));
+            return leftSymbols.containsAll(extractUnique(comparison.left()));
         }
     }
 }

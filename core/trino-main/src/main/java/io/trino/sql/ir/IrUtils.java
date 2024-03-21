@@ -55,7 +55,7 @@ public final class IrUtils
 
     public static List<Expression> extractPredicates(LogicalExpression expression)
     {
-        return extractPredicates(expression.getOperator(), expression);
+        return extractPredicates(expression.operator(), expression);
     }
 
     public static List<Expression> extractPredicates(LogicalExpression.Operator operator, Expression expression)
@@ -67,8 +67,8 @@ public final class IrUtils
 
     private static void extractPredicates(LogicalExpression.Operator operator, Expression expression, ImmutableList.Builder<Expression> resultBuilder)
     {
-        if (expression instanceof LogicalExpression logicalExpression && logicalExpression.getOperator() == operator) {
-            for (Expression term : logicalExpression.getTerms()) {
+        if (expression instanceof LogicalExpression logicalExpression && logicalExpression.operator() == operator) {
+            for (Expression term : logicalExpression.terms()) {
                 extractPredicates(operator, term, resultBuilder);
             }
         }

@@ -65,10 +65,10 @@ public class RemoveRedundantDateTrunc
         @Override
         public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            CatalogSchemaFunctionName functionName = node.getFunction().getName();
-            if (functionName.equals(builtinFunctionName("date_trunc")) && node.getArguments().size() == 2) {
-                Expression unitExpression = node.getArguments().get(0);
-                Expression argument = node.getArguments().get(1);
+            CatalogSchemaFunctionName functionName = node.function().getName();
+            if (functionName.equals(builtinFunctionName("date_trunc")) && node.arguments().size() == 2) {
+                Expression unitExpression = node.arguments().get(0);
+                Expression argument = node.arguments().get(1);
                 if (argument.type() == DATE && unitExpression.type() instanceof VarcharType && unitExpression instanceof Constant) {
                     Slice unitValue = (Slice) new IrExpressionInterpreter(unitExpression, plannerContext, session)
                             .optimize(NoOpSymbolResolver.INSTANCE);

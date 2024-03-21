@@ -74,7 +74,7 @@ public class SetExpressionMatcher
 
     private boolean matches(SymbolAliases aliases, Symbol expected, Symbol actual)
     {
-        return aliases.get(expected.getName()).getName().equals(actual.getName());
+        return aliases.get(expected.getName()).name().equals(actual.getName());
     }
 
     @Override

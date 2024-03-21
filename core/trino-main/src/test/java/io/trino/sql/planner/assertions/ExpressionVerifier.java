@@ -82,8 +82,8 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return Objects.equals(actual.getValue(), expected.getValue()) &&
-                actual.getType().equals(expected.getType());
+        return Objects.equals(actual.value(), expected.value()) &&
+                actual.type().equals(expected.type());
     }
 
     @Override
@@ -96,7 +96,7 @@ public final class ExpressionVerifier
         // TODO: verify types. This is currently hard to do because planner tests
         //       are either missing types, have the wrong types, or they are unable to
         //       provide types due to limitations in the matcher infrastructure
-        return symbolAliases.get(expected.getName()).name().equals(actual.name());
+        return symbolAliases.get(expected.name()).name().equals(actual.name());
     }
 
     @Override
@@ -110,11 +110,11 @@ public final class ExpressionVerifier
         // Here we're trying to verify its IR counterpart, but the plan testing framework goes directly
         // from SQL text -> IR-like expressions without doing all the proper canonicalizations. So we cheat
         // here and normalize everything to the same case before comparing
-        if (!actual.getType().toString().equalsIgnoreCase(expected.getType().toString())) {
+        if (!actual.type().toString().equalsIgnoreCase(expected.type().toString())) {
             return false;
         }
 
-        return process(actual.getExpression(), expected.getExpression());
+        return process(actual.expression(), expected.expression());
     }
 
     @Override
@@ -124,7 +124,7 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return process(actual.getValue(), expected.getValue());
+        return process(actual.value(), expected.value());
     }
 
     @Override
@@ -134,8 +134,8 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return process(actual.getValue(), expected.getValue()) &&
-                process(actual.getValueList(), expected.getValueList());
+        return process(actual.value(), expected.value()) &&
+                process(actual.valueList(), expected.valueList());
     }
 
     @Override
@@ -145,15 +145,15 @@ public final class ExpressionVerifier
             return false;
         }
 
-        if (actual.getOperator() == expected.getOperator() &&
-                process(actual.getLeft(), expected.getLeft()) &&
-                process(actual.getRight(), expected.getRight())) {
+        if (actual.operator() == expected.operator() &&
+                process(actual.left(), expected.left()) &&
+                process(actual.right(), expected.right())) {
             return true;
         }
 
-        return actual.getOperator() == expected.getOperator().flip() &&
-                process(actual.getLeft(), expected.getRight()) &&
-                process(actual.getRight(), expected.getLeft());
+        return actual.operator() == expected.operator().flip() &&
+                process(actual.left(), expected.right()) &&
+                process(actual.right(), expected.left());
     }
 
     @Override
@@ -163,9 +163,9 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return process(actual.getValue(), expected.getValue()) &&
-                process(actual.getMin(), expected.getMin()) &&
-                process(actual.getMax(), expected.getMax());
+        return process(actual.value(), expected.value()) &&
+                process(actual.min(), expected.min()) &&
+                process(actual.max(), expected.max());
     }
 
     @Override
@@ -175,7 +175,7 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return process(actual.getValue(), expected.getValue());
+        return process(actual.value(), expected.value());
     }
 
     @Override
@@ -185,9 +185,9 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return actual.getOperator() == expected.getOperator() &&
-                process(actual.getLeft(), expected.getLeft()) &&
-                process(actual.getRight(), expected.getRight());
+        return actual.operator() == expected.operator() &&
+                process(actual.left(), expected.left()) &&
+                process(actual.right(), expected.right());
     }
 
     @Override
@@ -197,7 +197,7 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return process(actual.getValue(), expected.getValue());
+        return process(actual.value(), expected.value());
     }
 
     @Override
@@ -207,12 +207,12 @@ public final class ExpressionVerifier
             return false;
         }
 
-        if (actual.getTerms().size() != expected.getTerms().size() || actual.getOperator() != expected.getOperator()) {
+        if (actual.terms().size() != expected.terms().size() || actual.operator() != expected.operator()) {
             return false;
         }
 
-        for (int i = 0; i < actual.getTerms().size(); i++) {
-            if (!process(actual.getTerms().get(i), expected.getTerms().get(i))) {
+        for (int i = 0; i < actual.terms().size(); i++) {
+            if (!process(actual.terms().get(i), expected.terms().get(i))) {
                 return false;
             }
         }
@@ -227,12 +227,12 @@ public final class ExpressionVerifier
             return false;
         }
 
-        if (actual.getOperands().size() != expected.getOperands().size()) {
+        if (actual.operands().size() != expected.operands().size()) {
             return false;
         }
 
-        for (int i = 0; i < actual.getOperands().size(); i++) {
-            if (!process(actual.getOperands().get(i), expected.getOperands().get(i))) {
+        for (int i = 0; i < actual.operands().size(); i++) {
+            if (!process(actual.operands().get(i), expected.operands().get(i))) {
                 return false;
             }
         }
@@ -246,9 +246,9 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return process(actual.getOperand(), expected.getOperand()) &&
-                processWhenClauses(actual.getWhenClauses(), expected.getWhenClauses()) &&
-                process(actual.getDefaultValue(), expected.getDefaultValue());
+        return process(actual.operand(), expected.operand()) &&
+                processWhenClauses(actual.whenClauses(), expected.whenClauses()) &&
+                process(actual.defaultValue(), expected.defaultValue());
     }
 
     @Override
@@ -258,15 +258,15 @@ public final class ExpressionVerifier
             return false;
         }
 
-        if (!processWhenClauses(actual.getWhenClauses(), expectedCase.getWhenClauses())) {
+        if (!processWhenClauses(actual.whenClauses(), expectedCase.whenClauses())) {
             return false;
         }
 
-        if (actual.getDefaultValue().isPresent() != expectedCase.getDefaultValue().isPresent()) {
+        if (actual.defaultValue().isPresent() != expectedCase.defaultValue().isPresent()) {
             return false;
         }
 
-        return process(actual.getDefaultValue(), expectedCase.getDefaultValue());
+        return process(actual.defaultValue(), expectedCase.defaultValue());
     }
 
     private boolean processWhenClauses(List<WhenClause> actual, List<WhenClause> expected)
@@ -295,8 +295,8 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return actual.getFunction().getName().equals(expected.getFunction().getName()) &&
-                process(actual.getArguments(), expected.getArguments());
+        return actual.function().getName().equals(expected.function().getName()) &&
+                process(actual.arguments(), expected.arguments());
     }
 
     @Override
@@ -307,11 +307,11 @@ public final class ExpressionVerifier
         }
 
         // todo this should allow the arguments to have different names
-        if (!actual.getArguments().equals(lambdaExpression.getArguments())) {
+        if (!actual.arguments().equals(lambdaExpression.arguments())) {
             return false;
         }
 
-        return process(actual.getBody(), lambdaExpression.getBody());
+        return process(actual.body(), lambdaExpression.body());
     }
 
     @Override
@@ -321,7 +321,7 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return process(actual.getItems(), expected.getItems());
+        return process(actual.items(), expected.items());
     }
 
     @Override
@@ -331,7 +331,7 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return process(actual.getBase(), expected.getBase()) && process(actual.getIndex(), expected.getIndex());
+        return process(actual.base(), expected.base()) && process(actual.index(), expected.index());
     }
 
     private <T extends Expression> boolean process(List<T> actuals, List<T> expecteds)

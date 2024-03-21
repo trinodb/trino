@@ -117,7 +117,7 @@ public final class CanonicalSubplanExtractor
         requireNonNull(expression, "expression is null");
         if (expression instanceof SymbolReference symbolReference) {
             // symbol -> column id translation should be reversible via columnIdToSymbol method
-            return new CacheColumnId(symbolReference.getName());
+            return new CacheColumnId(symbolReference.name());
         }
 
         // Make CacheColumnIds for complex expressions always wrapped in '()' so they are distinguishable from

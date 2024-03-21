@@ -39,18 +39,6 @@ public record SearchedCaseExpression(List<WhenClause> whenClauses, Optional<Expr
         return whenClauses.getFirst().getResult().type();
     }
 
-    @Deprecated
-    public List<WhenClause> getWhenClauses()
-    {
-        return whenClauses;
-    }
-
-    @Deprecated
-    public Optional<Expression> getDefaultValue()
-    {
-        return defaultValue;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

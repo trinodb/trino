@@ -114,18 +114,18 @@ public class UnwrapYearInComparison
         public Expression rewriteInPredicate(InPredicate node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             InPredicate inPredicate = treeRewriter.defaultRewrite(node, null);
-            Expression value = inPredicate.getValue();
+            Expression value = inPredicate.value();
 
             if (!(value instanceof FunctionCall call) ||
-                    !call.getFunction().getName().equals(builtinFunctionName("year")) ||
-                    call.getArguments().size() != 1) {
+                    !call.function().getName().equals(builtinFunctionName("year")) ||
+                    call.arguments().size() != 1) {
                 return inPredicate;
             }
 
             // Convert each value to a comparison expression and try to unwrap it.
             // unwrap the InPredicate only in case we manage to unwrap the entire value list
-            ImmutableList.Builder<Expression> comparisonExpressions = ImmutableList.builderWithExpectedSize(node.getValueList().size());
-            for (Expression rightExpression : node.getValueList()) {
+            ImmutableList.Builder<Expression> comparisonExpressions = ImmutableList.builderWithExpectedSize(node.valueList().size());
+            for (Expression rightExpression : node.valueList()) {
                 ComparisonExpression comparisonExpression = new ComparisonExpression(EQUAL, value, rightExpression);
                 Expression unwrappedExpression = unwrapYear(comparisonExpression);
                 if (unwrappedExpression == comparisonExpression) {
@@ -142,20 +142,20 @@ public class UnwrapYearInComparison
         {
             // Expect year on the left side and value on the right side of the comparison.
             // This is provided by CanonicalizeExpressionRewriter.
-            if (!(expression.getLeft() instanceof FunctionCall call) ||
-                    !call.getFunction().getName().equals(builtinFunctionName("year")) ||
-                    call.getArguments().size() != 1) {
+            if (!(expression.left() instanceof FunctionCall call) ||
+                    !call.function().getName().equals(builtinFunctionName("year")) ||
+                    call.arguments().size() != 1) {
                 return expression;
             }
 
-            Expression argument = getOnlyElement(call.getArguments());
+            Expression argument = getOnlyElement(call.arguments());
             Type argumentType = argument.type();
 
-            Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session)
+            Object right = new IrExpressionInterpreter(expression.right(), plannerContext, session)
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
             if (right == null) {
-                return switch (expression.getOperator()) {
+                return switch (expression.operator()) {
                     case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Constant(BOOLEAN, null);
                     case IS_DISTINCT_FROM -> new NotExpression(new IsNullPredicate(argument));
                 };
@@ -175,7 +175,7 @@ public class UnwrapYearInComparison
             }
 
             int year = toIntExact((Long) right);
-            return switch (expression.getOperator()) {
+            return switch (expression.operator()) {
                 case EQUAL -> between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType));
                 case NOT_EQUAL -> new NotExpression(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType)));
                 case IS_DISTINCT_FROM -> or(

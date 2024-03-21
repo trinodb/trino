@@ -334,7 +334,7 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitLogicalExpression(LogicalExpression node, Boolean complement)
         {
-            List<ExtractionResult> results = node.getTerms().stream()
+            List<ExtractionResult> results = node.terms().stream()
                     .map(term -> process(term, complement))
                     .collect(toImmutableList());
 
@@ -346,7 +346,7 @@ public final class DomainTranslator
                     .map(ExtractionResult::getRemainingExpression)
                     .collect(toImmutableList());
 
-            LogicalExpression.Operator operator = complement ? node.getOperator().flip() : node.getOperator();
+            LogicalExpression.Operator operator = complement ? node.operator().flip() : node.operator();
             switch (operator) {
                 case AND:
                     return new ExtractionResult(
@@ -418,13 +418,13 @@ public final class DomainTranslator
 
                     return new ExtractionResult(columnUnionedTupleDomain, remainingExpression);
             }
-            throw new AssertionError("Unknown operator: " + node.getOperator());
+            throw new AssertionError("Unknown operator: " + node.operator());
         }
 
         @Override
         protected ExtractionResult visitNotExpression(NotExpression node, Boolean complement)
         {
-            return process(node.getValue(), !complement);
+            return process(node.value(), !complement);
         }
 
         @Override
@@ -459,7 +459,7 @@ public final class DomainTranslator
                 // type of expression which is then cast to type of value
                 Type castSourceType = castExpression.expression().type();
                 Type castTargetType = castExpression.type();
-                if (castSourceType instanceof VarcharType && castTargetType == DATE && !castExpression.isSafe()) {
+                if (castSourceType instanceof VarcharType && castTargetType == DATE && !castExpression.safe()) {
                     Optional<ExtractionResult> result = createVarcharCastToDateComparisonExtractionResult(
                             normalized,
                             (VarcharType) castSourceType,
@@ -493,7 +493,7 @@ public final class DomainTranslator
 
                 // we use saturated floor cast value -> castSourceType to rewrite original expression to new one with one cast peeled off the symbol side
                 Optional<Expression> coercedExpression = coerceComparisonWithRounding(
-                        castSourceType, castExpression.getExpression(), normalized.getValue(), normalized.getComparisonOperator());
+                        castSourceType, castExpression.expression(), normalized.getValue(), normalized.getComparisonOperator());
 
                 if (coercedExpression.isPresent()) {
                     return process(coercedExpression.get(), complement);
@@ -509,8 +509,8 @@ public final class DomainTranslator
          */
         private Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(ComparisonExpression comparison)
         {
-            Expression left = comparison.getLeft();
-            Expression right = comparison.getRight();
+            Expression left = comparison.left();
+            Expression right = comparison.right();
 
             if (left instanceof Constant == right instanceof Constant) {
                 // One of the terms must be a constant and the other a non-constant
@@ -518,10 +518,10 @@ public final class DomainTranslator
             }
 
             if (left instanceof Constant constant) {
-                return Optional.of(new NormalizedSimpleComparison(right, comparison.getOperator().flip(), new NullableValue(left.type(), constant.getValue())));
+                return Optional.of(new NormalizedSimpleComparison(right, comparison.operator().flip(), new NullableValue(left.type(), constant.value())));
             }
             else {
-                return Optional.of(new NormalizedSimpleComparison(left, comparison.getOperator(), new NullableValue(right.type(), ((Constant) right).getValue())));
+                return Optional.of(new NormalizedSimpleComparison(left, comparison.operator(), new NullableValue(right.type(), ((Constant) right).value())));
             }
         }
 
@@ -536,7 +536,7 @@ public final class DomainTranslator
                 boolean complement,
                 ComparisonExpression originalExpression)
         {
-            Expression sourceExpression = ((Cast) comparison.getSymbolExpression()).getExpression();
+            Expression sourceExpression = ((Cast) comparison.getSymbolExpression()).expression();
             ComparisonExpression.Operator operator = comparison.getComparisonOperator();
             NullableValue value = comparison.getValue();
 
@@ -870,7 +870,7 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitInPredicate(InPredicate node, Boolean complement)
         {
-            checkState(!node.getValueList().isEmpty(), "InListExpression should never be empty");
+            checkState(!node.valueList().isEmpty(), "InListExpression should never be empty");
 
             Optional<ExtractionResult> directExtractionResult = processSimpleInPredicate(node, complement);
             if (directExtractionResult.isPresent()) {
@@ -878,8 +878,8 @@ public final class DomainTranslator
             }
 
             ImmutableList.Builder<Expression> disjuncts = ImmutableList.builder();
-            for (Expression expression : node.getValueList()) {
-                disjuncts.add(new ComparisonExpression(EQUAL, node.getValue(), expression));
+            for (Expression expression : node.valueList()) {
+                disjuncts.add(new ComparisonExpression(EQUAL, node.value(), expression));
             }
             ExtractionResult extractionResult = process(or(disjuncts.build()), complement);
 
@@ -896,17 +896,17 @@ public final class DomainTranslator
 
         private Optional<ExtractionResult> processSimpleInPredicate(InPredicate node, Boolean complement)
         {
-            if (!(node.getValue() instanceof SymbolReference)) {
+            if (!(node.value() instanceof SymbolReference)) {
                 return Optional.empty();
             }
-            Symbol symbol = Symbol.from(node.getValue());
+            Symbol symbol = Symbol.from(node.value());
             Type type = node.value().type();
-            List<Object> inValues = new ArrayList<>(node.getValueList().size());
+            List<Object> inValues = new ArrayList<>(node.valueList().size());
             List<Expression> excludedExpressions = new ArrayList<>();
 
-            for (Expression expression : node.getValueList()) {
+            for (Expression expression : node.valueList()) {
                 if (expression instanceof Constant constant) {
-                    if (constant.getValue() == null) {
+                    if (constant.value() == null) {
                         if (complement) {
                             // NOT IN is equivalent to NOT(s eq v1) AND NOT(s eq v2). When any right value is NULL, the comparison result is NULL, so AND's result can be at most
                             // NULL (effectively false in predicate context)
@@ -917,19 +917,19 @@ public final class DomainTranslator
                     }
                     else if (type instanceof RealType || type instanceof DoubleType) {
                         // NaN can be ignored: it always compares to false, as if it was not among IN's values
-                        if (!isFloatingPointNaN(type, constant.getValue())) {
+                        if (!isFloatingPointNaN(type, constant.value())) {
                             if (complement) {
                                 // in case of NOT IN with floating point, the NaN on the left passes the test (unless a NULL is found, and we exited earlier)
                                 // but this cannot currently be described with a Domain other than Domain.all
                                 excludedExpressions.add(expression);
                             }
                             else {
-                                inValues.add(constant.getValue());
+                                inValues.add(constant.value());
                             }
                         }
                     }
                     else {
-                        inValues.add(constant.getValue());
+                        inValues.add(constant.value());
                     }
                 }
                 else {
@@ -953,10 +953,10 @@ public final class DomainTranslator
                 remainingExpression = TRUE_LITERAL;
             }
             else if (excludedExpressions.size() == 1) {
-                remainingExpression = new NotExpression(new ComparisonExpression(EQUAL, node.getValue(), getOnlyElement(excludedExpressions)));
+                remainingExpression = new NotExpression(new ComparisonExpression(EQUAL, node.value(), getOnlyElement(excludedExpressions)));
             }
             else {
-                remainingExpression = new NotExpression(new InPredicate(node.getValue(), excludedExpressions));
+                remainingExpression = new NotExpression(new InPredicate(node.value(), excludedExpressions));
             }
 
             return Optional.of(new ExtractionResult(tupleDomain, remainingExpression));
@@ -967,14 +967,14 @@ public final class DomainTranslator
         {
             // Re-write as two comparison expressions
             return process(and(
-                    new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin()),
-                    new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax())), complement);
+                    new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.value(), node.min()),
+                    new ComparisonExpression(LESS_THAN_OR_EQUAL, node.value(), node.max())), complement);
         }
 
         private Optional<ExtractionResult> tryVisitLikeFunction(FunctionCall node, Boolean complement)
         {
-            Expression value = node.getArguments().get(0);
-            Expression patternArgument = node.getArguments().get(1);
+            Expression value = node.arguments().get(0);
+            Expression patternArgument = node.arguments().get(1);
 
             if (!(value instanceof SymbolReference)) {
                 // LIKE not on a symbol
@@ -989,12 +989,12 @@ public final class DomainTranslator
 
             Symbol symbol = Symbol.from(value);
 
-            if (node.getArguments().size() > 2 || !(patternArgument instanceof Constant patternConstant)) {
+            if (node.arguments().size() > 2 || !(patternArgument instanceof Constant patternConstant)) {
                 // dynamic pattern or escape
                 return Optional.empty();
             }
 
-            LikePattern matcher = (LikePattern) patternConstant.getValue();
+            LikePattern matcher = (LikePattern) patternConstant.value();
 
             Slice pattern = utf8Slice(matcher.getPattern());
             Optional<Slice> escape = matcher.getEscape()
@@ -1029,7 +1029,7 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitFunctionCall(FunctionCall node, Boolean complement)
         {
-            CatalogSchemaFunctionName name = node.getFunction().getName();
+            CatalogSchemaFunctionName name = node.function().getName();
             if (name.equals(builtinFunctionName("starts_with"))) {
                 Optional<ExtractionResult> result = tryVisitStartsWithFunction(node, complement);
                 if (result.isPresent()) {
@@ -1047,7 +1047,7 @@ public final class DomainTranslator
 
         private Optional<ExtractionResult> tryVisitStartsWithFunction(FunctionCall node, Boolean complement)
         {
-            List<Expression> args = node.getArguments();
+            List<Expression> args = node.arguments();
             if (args.size() != 2) {
                 return Optional.empty();
             }
@@ -1059,7 +1059,7 @@ public final class DomainTranslator
             }
 
             Expression prefix = args.get(1);
-            if (!(prefix instanceof Constant literal && literal.getType().equals(VarcharType.VARCHAR))) {
+            if (!(prefix instanceof Constant literal && literal.type().equals(VarcharType.VARCHAR))) {
                 // dynamic pattern
                 return Optional.empty();
             }
@@ -1074,7 +1074,7 @@ public final class DomainTranslator
             }
 
             Symbol symbol = Symbol.from(target);
-            Slice constantPrefix = (Slice) ((Constant) prefix).getValue();
+            Slice constantPrefix = (Slice) ((Constant) prefix).value();
 
             return createRangeDomain(type, constantPrefix).map(domain -> new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)), node));
         }
@@ -1106,11 +1106,11 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitIsNullPredicate(IsNullPredicate node, Boolean complement)
         {
-            if (!(node.getValue() instanceof SymbolReference)) {
+            if (!(node.value() instanceof SymbolReference)) {
                 return super.visitIsNullPredicate(node, complement);
             }
 
-            Symbol symbol = Symbol.from(node.getValue());
+            Symbol symbol = Symbol.from(node.value());
             Type columnType = symbol.getType();
             Domain domain = complementIfNecessary(Domain.onlyNull(columnType), complement);
             return new ExtractionResult(
@@ -1121,12 +1121,12 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitConstant(Constant node, Boolean complement)
         {
-            if (node.getValue() == null) {
+            if (node.value() == null) {
                 return new ExtractionResult(TupleDomain.none(), TRUE_LITERAL);
             }
 
-            if (node.getType().equals(BOOLEAN)) {
-                boolean value = (boolean) node.getValue();
+            if (node.type().equals(BOOLEAN)) {
+                boolean value = (boolean) node.value();
                 value = complement != value;
                 return new ExtractionResult(value ? TupleDomain.all() : TupleDomain.none(), TRUE_LITERAL);
             }
