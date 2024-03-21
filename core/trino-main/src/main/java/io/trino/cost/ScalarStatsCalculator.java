@@ -168,8 +168,8 @@ public class ScalarStatsCalculator
                 return true;
             }
 
-            if (type instanceof DecimalType) {
-                return ((DecimalType) type).getScale() == 0;
+            if (type instanceof DecimalType decimalType) {
+                return decimalType.getScale() == 0;
             }
 
             return false;

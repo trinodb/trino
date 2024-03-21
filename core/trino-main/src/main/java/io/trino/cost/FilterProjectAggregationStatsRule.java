@@ -67,13 +67,13 @@ public class FilterProjectAggregationStatsRule
                 return Optional.empty();
             }
             PlanNode projectNodeSource = context.lookup().resolve(projectNode.getSource());
-            if (!(projectNodeSource instanceof AggregationNode)) {
+            if (!(projectNodeSource instanceof AggregationNode value)) {
                 return Optional.empty();
             }
-            aggregationNode = (AggregationNode) projectNodeSource;
+            aggregationNode = value;
         }
-        else if (nodeSource instanceof AggregationNode) {
-            aggregationNode = (AggregationNode) nodeSource;
+        else if (nodeSource instanceof AggregationNode value) {
+            aggregationNode = value;
         }
         else {
             return Optional.empty();
