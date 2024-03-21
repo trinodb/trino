@@ -49,6 +49,7 @@ The following configuration properties are available:
 | `prometheus.cache.ttl`                      | How long values from this config file are cached                                             |
 | `prometheus.auth.user`                      | Username for basic authentication                                                            |
 | `prometheus.auth.password`                  | Password for basic authentication                                                            |
+| `prometheus.auth.http.header.name`          | Name of the header to use for authorization                                                  |
 | `prometheus.bearer.token.file`              | File holding bearer token if needed for access to Prometheus                                 |
 | `prometheus.read-timeout`                   | How much time a query to Prometheus has before timing out                                    |
 | `prometheus.case-insensitive-name-matching` | Match Prometheus metric names case insensitively. Defaults to `false`                        |
@@ -79,7 +80,8 @@ settings are meant to protect against an unlimited query.
 
 Prometheus can be setup to require a Authorization header with every query. The value in
 `prometheus.bearer.token.file` allows for a bearer token to be read from the configured file. This file
-is optional and not required unless your Prometheus setup requires it.
+is optional and not required unless your Prometheus setup requires it.  
+`prometheus.auth.http.header.name` allows you to use a custom header name for bearer token. Default value is `Authorization`.
 
 (prometheus-type-mapping)=
 
