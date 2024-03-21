@@ -13,21 +13,16 @@
  */
 package io.trino.filesystem.s3;
 
-import software.amazon.awssdk.services.s3.model.ObjectStorageClass;
 import software.amazon.awssdk.services.s3.model.RestoreStatus;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 
 public enum S3ObjectStorageClassFilter {
     READ_ALL(o -> true),
     READ_NON_GLACIER(S3ObjectStorageClassFilter::isNotGlacierObject),
     READ_NON_GLACIER_AND_RESTORED(S3ObjectStorageClassFilter::isNonGlacierOrCompletedRestoredObject);
-
-    private static final Set<ObjectStorageClass> GLACIER_STORAGE_CLASSES = Set.of(
-            ObjectStorageClass.GLACIER, ObjectStorageClass.DEEP_ARCHIVE);
 
     private final Function<S3Object, Boolean> filter;
 
@@ -44,7 +39,10 @@ public enum S3ObjectStorageClassFilter {
      */
     private static boolean isNotGlacierObject(S3Object object)
     {
-        return !GLACIER_STORAGE_CLASSES.contains(object.storageClass());
+        return switch (object.storageClass()) {
+            case GLACIER, DEEP_ARCHIVE -> true;
+            default -> false;
+        }
     }
 
     /**
