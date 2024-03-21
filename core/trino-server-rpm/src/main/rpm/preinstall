@@ -35,9 +35,13 @@ if ! check_if_correct_java_version "$JAVA_HOME"; then
     java_found=false
     for candidate in \
         /usr/lib/jvm/java-21-* \
+        /usr/lib/jvm/java-22-* \
         /usr/lib/jvm/zulu-21 \
+        /usr/lib/jvm/zulu-22 \
         /usr/lib/jvm/temurin-21 \
         /usr/lib/jvm/temurin-21-* \
+        /usr/lib/jvm/temurin-22 \
+        /usr/lib/jvm/temurin-22-* \
         /usr/lib/jvm/default-java \
         /usr/java/default \
         / \
