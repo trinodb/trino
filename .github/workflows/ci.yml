@@ -104,8 +104,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { java-version: 21, cache: 'true', cleanup-node: 'false' }
-          - { java-version: 22, cache: 'restore', cleanup-node: 'true' }
+          - { java-version: 22, cache: 'true', cleanup-node: 'false' }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -756,7 +755,7 @@ jobs:
         with:
           cache: restore
           cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore') }}
-          java-version: ${{ matrix.jdk != '' && matrix.jdk || '21' }}
+          java-version: ${{ matrix.jdk != '' && matrix.jdk || '22' }}
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"

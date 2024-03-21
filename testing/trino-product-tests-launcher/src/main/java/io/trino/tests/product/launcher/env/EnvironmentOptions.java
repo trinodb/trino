@@ -60,7 +60,7 @@ public final class EnvironmentOptions
     public String launcherBin;
 
     @Option(names = "--trino-jdk-version", paramLabel = "<trino-jdk-version>", description = "JDK to use for running Trino " + DEFAULT_VALUE)
-    public String jdkProvider = "temurin21";
+    public String jdkProvider = "temurin22";
 
     @Option(names = "--jdk-tmp-download-path", paramLabel = "<jdk-tmp-download-path>", defaultValue = "${env:PTL_TMP_DOWNLOAD_PATH:-${sys:java.io.tmpdir}/ptl-tmp-download}", description = "Path to use to download JDK distributions " + DEFAULT_VALUE)
     @Nullable
