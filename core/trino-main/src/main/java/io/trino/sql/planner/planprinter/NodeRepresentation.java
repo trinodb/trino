@@ -23,7 +23,6 @@ import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
@@ -45,7 +44,6 @@ public class NodeRepresentation
     private final List<TypedSymbol> outputs;
     private final List<PlanNodeId> children;
     private final List<PlanNodeId> initialChildren;
-    private final List<PlanFragmentId> remoteSources;
     private final Optional<PlanNodeStats> stats;
     private final List<PlanNodeStatsEstimate> estimatedStats;
     private final List<PlanCostEstimate> estimatedCost;
@@ -65,8 +63,7 @@ public class NodeRepresentation
             Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost,
             List<PlanNodeId> children,
             // This is used in the case of adaptive plan node
-            List<PlanNodeId> initialChildren,
-            List<PlanFragmentId> remoteSources)
+            List<PlanNodeId> initialChildren)
     {
         this.id = requireNonNull(id, "id is null");
         this.name = requireNonNull(name, "name is null");
@@ -79,7 +76,6 @@ public class NodeRepresentation
         this.reorderJoinStatsAndCost = requireNonNull(reorderJoinStatsAndCost, "reorderJoinStatsAndCost is null");
         this.children = requireNonNull(children, "children is null");
         this.initialChildren = requireNonNull(initialChildren, "initialChildren is null");
-        this.remoteSources = requireNonNull(remoteSources, "remoteSources is null");
 
         checkArgument(estimatedCost.size() == estimatedStats.size(), "size of cost and stats list does not match");
     }
@@ -128,11 +124,6 @@ public class NodeRepresentation
     public List<PlanNodeId> getInitialChildren()
     {
         return initialChildren;
-    }
-
-    public List<PlanFragmentId> getRemoteSources()
-    {
-        return remoteSources;
     }
 
     public List<String> getDetails()
