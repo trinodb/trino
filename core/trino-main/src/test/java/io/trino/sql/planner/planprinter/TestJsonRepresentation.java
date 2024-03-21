@@ -25,6 +25,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
@@ -57,8 +58,6 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
-import static io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
-import static io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol.typedSymbol;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -100,21 +99,21 @@ public class TestJsonRepresentation
                 "8",
                 "Output",
                 ImmutableMap.of("columnNames", "[_col0]"),
-                ImmutableList.of(typedSymbol("field", INTEGER)),
+                ImmutableList.of(new Symbol(INTEGER, "field")),
                 ImmutableList.of("_col0 := field"),
                 ImmutableList.of(new PlanNodeStatsAndCostSummary(1, 5, 0, 0, 0)),
                 ImmutableList.of(new JsonRenderedNode(
                         "90",
                         "Limit",
                         ImmutableMap.of("count", "1", "withTies", "", "inputPreSortedBy", "[]"),
-                        ImmutableList.of(typedSymbol("field", INTEGER)),
+                        ImmutableList.of(new Symbol(INTEGER, "field")),
                         ImmutableList.of(),
                         ImmutableList.of(new PlanNodeStatsAndCostSummary(1, 5, 5, 0, 0)),
                         ImmutableList.of(new JsonRenderedNode(
                                 "0",
                                 "Values",
                                 ImmutableMap.of(),
-                                ImmutableList.of(typedSymbol("field", INTEGER)),
+                                ImmutableList.of(new Symbol(INTEGER, "field")),
                                 ImmutableList.of("(integer '1')", "(integer '2')"),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(2, 10, 0, 0, 0)),
                                 ImmutableList.of())))));
@@ -143,14 +142,14 @@ public class TestJsonRepresentation
                                 "keys", "[y, z]",
                                 "hash", "[]"),
                         ImmutableList.of(
-                                typedSymbol("y", BIGINT),
-                                typedSymbol("z", BIGINT),
-                                typedSymbol("sum", BIGINT)),
+                                new Symbol(BIGINT, "y"),
+                                new Symbol(BIGINT, "z"),
+                                new Symbol(BIGINT, "sum")),
                         ImmutableList.of("sum := sum(x)"),
                         ImmutableList.of(),
                         ImmutableList.of(valuesRepresentation(
                                 "0",
-                                ImmutableList.of(typedSymbol("x", BIGINT), typedSymbol("y", BIGINT), typedSymbol("z", BIGINT))))));
+                                ImmutableList.of(new Symbol(BIGINT, "x"), new Symbol(BIGINT, "y"), new Symbol(BIGINT, "z"))))));
     }
 
     @Test
@@ -172,12 +171,12 @@ public class TestJsonRepresentation
                         "2",
                         "InnerJoin",
                         ImmutableMap.of("criteria", "(a = d)", "filter", "(a < c)", "hash", "[]"),
-                        ImmutableList.of(typedSymbol("b", BIGINT)),
+                        ImmutableList.of(new Symbol(BIGINT, "b")),
                         ImmutableList.of("dynamicFilterAssignments = {d -> #DF}"),
                         ImmutableList.of(),
                         ImmutableList.of(
-                                valuesRepresentation("0", ImmutableList.of(typedSymbol("a", BIGINT), typedSymbol("b", BIGINT))),
-                                valuesRepresentation("1", ImmutableList.of(typedSymbol("c", BIGINT), typedSymbol("d", BIGINT))))));
+                                valuesRepresentation("0", ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"))),
+                                valuesRepresentation("1", ImmutableList.of(new Symbol(BIGINT, "c"), new Symbol(BIGINT, "d"))))));
     }
 
     @Test
@@ -196,13 +195,13 @@ public class TestJsonRepresentation
                         "0",
                         "RemoteSource",
                         ImmutableMap.of("sourceFragmentIds", "[1, 2]"),
-                        ImmutableList.of(typedSymbol("a", BIGINT), typedSymbol("b", BIGINT)),
+                        ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b")),
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of()));
     }
 
-    private static JsonRenderedNode valuesRepresentation(String id, List<TypedSymbol> outputs)
+    private static JsonRenderedNode valuesRepresentation(String id, List<Symbol> outputs)
     {
         return new JsonRenderedNode(
                 id,
