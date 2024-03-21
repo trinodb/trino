@@ -470,29 +470,29 @@ public class ArrayType
         // variable width data starts after fixed width data
         // there is one extra byte per position for the null flag
         int writeVariableWidthOffset = offset + positionCount * (1 + elementFixedSize);
-        if (array instanceof ValueBlock valuesBlock) {
-            for (int index = 0; index < positionCount; index++) {
-                writeVariableWidthOffset = writeFlatElement(elementType, elementWriteFlat, elementVariableWidth, valuesBlock, index, slice, offset, writeVariableWidthOffset);
-                offset += 1 + elementFixedSize;
+        switch (array) {
+            case ValueBlock valuesBlock -> {
+                for (int index = 0; index < positionCount; index++) {
+                    writeVariableWidthOffset = writeFlatElement(elementType, elementWriteFlat, elementVariableWidth, valuesBlock, index, slice, offset, writeVariableWidthOffset);
+                    offset += 1 + elementFixedSize;
+                }
             }
-        }
-        else if (array instanceof RunLengthEncodedBlock rleBlock) {
-            ValueBlock valuesBlock = rleBlock.getValue();
-            for (int index = 0; index < positionCount; index++) {
-                writeVariableWidthOffset = writeFlatElement(elementType, elementWriteFlat, elementVariableWidth, valuesBlock, 0, slice, offset, writeVariableWidthOffset);
-                offset += 1 + elementFixedSize;
+            case RunLengthEncodedBlock rleBlock -> {
+                ValueBlock valuesBlock = rleBlock.getValue();
+                for (int index = 0; index < positionCount; index++) {
+                    writeVariableWidthOffset = writeFlatElement(elementType, elementWriteFlat, elementVariableWidth, valuesBlock, 0, slice, offset, writeVariableWidthOffset);
+                    offset += 1 + elementFixedSize;
+                }
             }
-        }
-        else if (array instanceof DictionaryBlock dictionaryBlock) {
-            ValueBlock valuesBlock = dictionaryBlock.getDictionary();
-            for (int position = 0; position < positionCount; position++) {
-                int index = dictionaryBlock.getId(position);
-                writeVariableWidthOffset = writeFlatElement(elementType, elementWriteFlat, elementVariableWidth, valuesBlock, index, slice, offset, writeVariableWidthOffset);
-                offset += 1 + elementFixedSize;
+            case DictionaryBlock dictionaryBlock -> {
+                ValueBlock valuesBlock = dictionaryBlock.getDictionary();
+                for (int position = 0; position < positionCount; position++) {
+                    int index = dictionaryBlock.getId(position);
+                    writeVariableWidthOffset = writeFlatElement(elementType, elementWriteFlat, elementVariableWidth, valuesBlock, index, slice, offset, writeVariableWidthOffset);
+                    offset += 1 + elementFixedSize;
+                }
             }
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported block type: " + array.getClass().getName());
+            default -> throw new IllegalArgumentException("Unsupported block type: " + array.getClass().getName());
         }
     }
 
