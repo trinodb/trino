@@ -221,7 +221,6 @@ public class IterativeOptimizer
                             rule.getClass().getName(),
                             PlanPrinter.textLogicalPlan(
                                     node,
-                                    context.symbolAllocator.getTypes(),
                                     plannerContext.getMetadata(),
                                     plannerContext.getFunctionManager(),
                                     StatsAndCosts.empty(),
@@ -230,7 +229,6 @@ public class IterativeOptimizer
                                     false),
                             PlanPrinter.textLogicalPlan(
                                     result.getTransformedPlan().get(),
-                                    context.symbolAllocator.getTypes(),
                                     plannerContext.getMetadata(),
                                     plannerContext.getFunctionManager(),
                                     StatsAndCosts.empty(),
@@ -273,8 +271,8 @@ public class IterativeOptimizer
 
     private Rule.Context ruleContext(Context context)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.symbolAllocator.getTypes(), context.tableStatsProvider, context.runtimeStatsProvider);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.session, context.symbolAllocator.getTypes());
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.tableStatsProvider, context.runtimeStatsProvider);
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.session);
 
         return new Rule.Context()
         {

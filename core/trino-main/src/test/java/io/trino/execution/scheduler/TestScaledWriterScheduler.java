@@ -15,6 +15,7 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -52,7 +53,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.execution.TestingRemoteTaskFactory.TestingRemoteTask;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -389,7 +389,7 @@ public class TestScaledWriterScheduler
         return new PlanFragment(
                 new PlanFragmentId("plan_id"),
                 tableScan,
-                ImmutableMap.of(symbol, VARCHAR),
+                ImmutableSet.of(symbol),
                 SOURCE_DISTRIBUTION,
                 Optional.empty(),
                 ImmutableList.of(TABLE_SCAN_NODE_ID),

@@ -14,7 +14,6 @@
 package io.trino.cost;
 
 import io.trino.Session;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.PlanNode;
 
@@ -39,7 +38,6 @@ public interface StatsCalculator
             StatsProvider statsProvider,
             Lookup lookup,
             Session session,
-            TypeProvider types,
             TableStatsProvider tableStatsProvider,
             RuntimeInfoProvider runtimeInfoProvider)
     {
@@ -48,7 +46,6 @@ public interface StatsCalculator
             requireNonNull(statsProvider, "statsProvider is null");
             requireNonNull(lookup, "lookup is null");
             requireNonNull(session, "session is null");
-            requireNonNull(types, "types is null");
             requireNonNull(tableStatsProvider, "tableStatsProvider is null");
             requireNonNull(runtimeInfoProvider, "runtimeInfoProvider is null");
         }

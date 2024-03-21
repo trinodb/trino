@@ -22,7 +22,6 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
@@ -107,7 +106,6 @@ public class TestEliminateSorts
 
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
-        IrTypeAnalyzer typeAnalyzer = new IrTypeAnalyzer(getPlanTester().getPlannerContext());
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new IterativeOptimizer(
                         getPlanTester().getPlannerContext(),
@@ -117,7 +115,7 @@ public class TestEliminateSorts
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new DetermineTableScanNodePartitioning(getPlanTester().getPlannerContext().getMetadata(), getPlanTester().getNodePartitioningManager(), new TaskCountEstimator(() -> 10)))),
-                new AddExchanges(getPlanTester().getPlannerContext(), typeAnalyzer, getPlanTester().getStatsCalculator(), getPlanTester().getTaskCountEstimator()));
+                new AddExchanges(getPlanTester().getPlannerContext(), getPlanTester().getStatsCalculator(), getPlanTester().getTaskCountEstimator()));
 
         assertPlan(sql, pattern, optimizers);
     }

@@ -16,11 +16,9 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
@@ -48,9 +46,7 @@ public final class PushProjectionThroughJoin
     public static Optional<PlanNode> pushProjectionThroughJoin(
             ProjectNode projectNode,
             Lookup lookup,
-            PlanNodeIdAllocator planNodeIdAllocator,
-            IrTypeAnalyzer typeAnalyzer,
-            TypeProvider types)
+            PlanNodeIdAllocator planNodeIdAllocator)
     {
         if (!projectNode.getAssignments().getExpressions().stream().allMatch(expression -> isDeterministic(expression))) {
             return Optional.empty();
@@ -113,14 +109,10 @@ public final class PushProjectionThroughJoin
                 joinNode.getType(),
                 inlineProjections(
                         new ProjectNode(planNodeIdAllocator.getNextId(), leftChild, leftAssignments),
-                        lookup,
-                        typeAnalyzer,
-                        types),
+                        lookup),
                 inlineProjections(
                         new ProjectNode(planNodeIdAllocator.getNextId(), rightChild, rightAssignments),
-                        lookup,
-                        typeAnalyzer,
-                        types),
+                        lookup),
                 joinNode.getCriteria(),
                 leftOutputSymbols,
                 rightOutputSymbols,
@@ -136,17 +128,15 @@ public final class PushProjectionThroughJoin
 
     private static PlanNode inlineProjections(
             ProjectNode parentProjection,
-            Lookup lookup,
-            IrTypeAnalyzer typeAnalyzer,
-            TypeProvider types)
+            Lookup lookup)
     {
         PlanNode child = lookup.resolve(parentProjection.getSource());
         if (!(child instanceof ProjectNode childProjection)) {
             return parentProjection;
         }
 
-        return InlineProjections.inlineProjections(parentProjection, childProjection, typeAnalyzer)
-                .map(node -> inlineProjections(node, lookup, typeAnalyzer, types))
+        return InlineProjections.inlineProjections(parentProjection, childProjection)
+                .map(node -> inlineProjections(node, lookup))
                 .orElse(parentProjection);
     }
 

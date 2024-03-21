@@ -23,7 +23,6 @@ import io.trino.metadata.Metadata;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -75,7 +74,7 @@ public class PlanFragmentMatcher
             return false;
         }
         if (planPattern.isPresent()) {
-            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, TypeProvider.viewOf(fragment.getSymbols()), new CachingTableStatsProvider(metadata, session));
+            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session));
             MatchResult matches = fragment.getRoot().accept(new PlanMatchingVisitor(session, metadata, statsProvider, noLookup()), planPattern.get());
             if (!matches.isMatch()) {
                 return false;

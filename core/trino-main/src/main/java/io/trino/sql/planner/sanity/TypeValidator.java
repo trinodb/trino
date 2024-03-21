@@ -22,10 +22,8 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.SimplePlanVisitor;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.PlanNode;
@@ -39,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Ensures that all the expressions and FunctionCalls matches their output symbols
@@ -51,25 +48,14 @@ public final class TypeValidator
     public void validate(PlanNode plan,
             Session session,
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
-            TypeProvider types,
             WarningCollector warningCollector)
     {
-        plan.accept(new Visitor(typeAnalyzer, types), null);
+        plan.accept(new Visitor(), null);
     }
 
     private static class Visitor
             extends SimplePlanVisitor<Void>
     {
-        private final IrTypeAnalyzer typeAnalyzer;
-        private final TypeProvider types;
-
-        public Visitor(IrTypeAnalyzer typeAnalyzer, TypeProvider types)
-        {
-            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-            this.types = requireNonNull(types, "types is null");
-        }
-
         @Override
         public Void visitAggregation(AggregationNode node, Void context)
         {
@@ -111,12 +97,13 @@ public final class TypeValidator
             visitPlan(node, context);
 
             for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                Type expectedType = types.get(entry.getKey());
+                Type expectedType = entry.getKey().getType();
                 if (entry.getValue() instanceof SymbolReference symbolReference) {
-                    verifyTypeSignature(entry.getKey(), expectedType, types.get(Symbol.from(symbolReference)));
+                    Symbol symbol = Symbol.from(symbolReference);
+                    verifyTypeSignature(entry.getKey(), expectedType, symbol.getType());
                     continue;
                 }
-                Type actualType = typeAnalyzer.getType(entry.getValue());
+                Type actualType = entry.getValue().type();
                 verifyTypeSignature(entry.getKey(), expectedType, actualType);
             }
 
@@ -131,9 +118,9 @@ public final class TypeValidator
             ListMultimap<Symbol, Symbol> symbolMapping = node.getSymbolMapping();
             for (Symbol keySymbol : symbolMapping.keySet()) {
                 List<Symbol> valueSymbols = symbolMapping.get(keySymbol);
-                Type expectedType = types.get(keySymbol);
+                Type expectedType = keySymbol.getType();
                 for (Symbol valueSymbol : valueSymbols) {
-                    verifyTypeSignature(keySymbol, expectedType, types.get(valueSymbol));
+                    verifyTypeSignature(keySymbol, expectedType, valueSymbol.getType());
                 }
             }
 
@@ -150,14 +137,14 @@ public final class TypeValidator
 
         private void checkSignature(Symbol symbol, BoundSignature signature)
         {
-            Type expectedType = types.get(symbol);
+            Type expectedType = symbol.getType();
             Type actualType = signature.getReturnType();
             verifyTypeSignature(symbol, expectedType, actualType);
         }
 
         private void checkCall(Symbol symbol, BoundSignature signature, List<Expression> arguments)
         {
-            Type expectedType = types.get(symbol);
+            Type expectedType = symbol.getType();
             Type actualType = signature.getReturnType();
             verifyTypeSignature(symbol, expectedType, actualType);
 
@@ -171,7 +158,7 @@ public final class TypeValidator
                 if (expectedTypeSignature instanceof FunctionType) {
                     continue;
                 }
-                Type actualTypeSignature = typeAnalyzer.getType(arguments.get(i));
+                Type actualTypeSignature = arguments.get(i).type();
                 verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
             }
         }

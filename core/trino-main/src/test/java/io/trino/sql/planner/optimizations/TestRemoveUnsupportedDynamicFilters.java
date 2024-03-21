@@ -36,7 +36,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -497,7 +496,6 @@ public class TestRemoveUnsupportedDynamicFilters
                     root,
                     new PlanOptimizer.Context(
                             session,
-                            builder.getTypes(),
                             new SymbolAllocator(),
                             new PlanNodeIdAllocator(),
                             WarningCollector.NOOP,
@@ -506,8 +504,7 @@ public class TestRemoveUnsupportedDynamicFilters
                             RuntimeInfoProvider.noImplementation()));
             new DynamicFiltersChecker().validate(rewrittenPlan,
                     session,
-                    plannerContext, new IrTypeAnalyzer(plannerContext),
-                    builder.getTypes(),
+                    plannerContext,
                     WarningCollector.NOOP);
             return rewrittenPlan;
         });
@@ -523,7 +520,7 @@ public class TestRemoveUnsupportedDynamicFilters
                     metadata,
                     getPlanTester().getPlannerContext().getFunctionManager(),
                     getPlanTester().getStatsCalculator(),
-                    new Plan(actual, builder.getTypes(), StatsAndCosts.empty()),
+                    new Plan(actual, StatsAndCosts.empty()),
                     pattern);
             return null;
         });

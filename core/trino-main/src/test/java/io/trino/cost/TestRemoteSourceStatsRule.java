@@ -15,6 +15,7 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.ImmutableLongArray;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -119,19 +120,19 @@ public class TestRemoteSourceStatsRule
                 TableScanNode.newInstance(
                         new PlanNodeId("plan_id"),
                         TEST_TABLE_HANDLE,
-                        ImmutableList.of(new Symbol(UNKNOWN, "col_a"), new Symbol(UNKNOWN, "col_b"), new Symbol(UNKNOWN, "col_c"), new Symbol(UNKNOWN, "col_d")),
+                        ImmutableList.of(new Symbol(VARCHAR, "col_a"), new Symbol(VARCHAR, "col_b"), new Symbol(BIGINT, "col_c"), new Symbol(DOUBLE, "col_d")),
                         ImmutableMap.of(
-                                new Symbol(UNKNOWN, "col_a"), new TestingColumnHandle("col_a", 0, VARCHAR),
-                                new Symbol(UNKNOWN, "col_b"), new TestingColumnHandle("col_b", 1, VARCHAR),
-                                new Symbol(UNKNOWN, "col_c"), new TestingColumnHandle("col_c", 2, BIGINT),
-                                new Symbol(UNKNOWN, "col_d"), new TestingColumnHandle("col_d", 3, DOUBLE)),
+                                new Symbol(VARCHAR, "col_a"), new TestingColumnHandle("col_a", 0, VARCHAR),
+                                new Symbol(VARCHAR, "col_b"), new TestingColumnHandle("col_b", 1, VARCHAR),
+                                new Symbol(BIGINT, "col_c"), new TestingColumnHandle("col_c", 2, BIGINT),
+                                new Symbol(DOUBLE, "col_d"), new TestingColumnHandle("col_d", 3, DOUBLE)),
                         false,
                         Optional.empty()),
-                ImmutableMap.of(
-                        new Symbol(UNKNOWN, "col_a"), VARCHAR,
-                        new Symbol(UNKNOWN, "col_b"), VARCHAR,
-                        new Symbol(UNKNOWN, "col_c"), BIGINT,
-                        new Symbol(UNKNOWN, "col_d"), DOUBLE),
+                ImmutableSet.of(
+                        new Symbol(VARCHAR, "col_a"),
+                        new Symbol(VARCHAR, "col_b"),
+                        new Symbol(BIGINT, "col_c"),
+                        new Symbol(DOUBLE, "col_d")),
                 SOURCE_DISTRIBUTION,
                 Optional.empty(),
                 ImmutableList.of(new PlanNodeId("plan_id")),

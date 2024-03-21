@@ -27,7 +27,6 @@ import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -86,11 +85,10 @@ public class PushdownFilterIntoWindow
     public Result apply(FilterNode node, Captures captures, Context context)
     {
         Session session = context.getSession();
-        TypeProvider types = context.getSymbolAllocator().getTypes();
 
         WindowNode windowNode = captures.get(childCapture);
 
-        DomainTranslator.ExtractionResult extractionResult = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate(), types);
+        DomainTranslator.ExtractionResult extractionResult = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate());
         TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
 
         Optional<RankingType> rankingType = toTopNRankingType(windowNode);

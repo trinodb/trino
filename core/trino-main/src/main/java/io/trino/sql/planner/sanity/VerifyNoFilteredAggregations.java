@@ -16,8 +16,6 @@ package io.trino.sql.planner.sanity;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.PlanNode;
 
@@ -30,8 +28,6 @@ public final class VerifyNoFilteredAggregations
     public void validate(PlanNode plan,
             Session session,
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
-            TypeProvider types,
             WarningCollector warningCollector)
     {
         searchFrom(plan)

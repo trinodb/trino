@@ -6265,7 +6265,7 @@ public abstract class BaseHiveConnectorTest
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
                 Metadata metadata = getDistributedQueryRunner().getPlannerContext().getMetadata();
                 FunctionManager functionManager = getDistributedQueryRunner().getPlannerContext().getFunctionManager();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
+                String formattedPlan = textLogicalPlan(plan.getRoot(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] remote exchanges but found [\n%s\n] remote exchanges. Actual plan is [\n\n%s\n]",
                         expectedRemoteExchangesCount,
@@ -6292,7 +6292,7 @@ public abstract class BaseHiveConnectorTest
                 Session session = getSession();
                 Metadata metadata = getDistributedQueryRunner().getPlannerContext().getMetadata();
                 FunctionManager functionManager = getDistributedQueryRunner().getPlannerContext().getFunctionManager();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
+                String formattedPlan = textLogicalPlan(plan.getRoot(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] local repartitioned exchanges but found [\n%s\n] local repartitioned exchanges. Actual plan is [\n\n%s\n]",
                         expectedLocalExchangesCount,

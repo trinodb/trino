@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.tracing.Tracing;
 import io.opentelemetry.api.OpenTelemetry;
@@ -47,7 +48,6 @@ import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.planner.CompilerConfig;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Partitioning;
@@ -69,7 +69,6 @@ import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -98,7 +97,7 @@ public final class TaskTestUtils
                     ImmutableMap.of(SYMBOL, new TestingColumnHandle("column", 0, BIGINT)),
                     false,
                     Optional.empty()),
-            ImmutableMap.of(SYMBOL, VARCHAR),
+            ImmutableSet.of(SYMBOL),
             SOURCE_DISTRIBUTION,
             Optional.empty(),
             ImmutableList.of(TABLE_SCAN_NODE_ID),
@@ -123,7 +122,7 @@ public final class TaskTestUtils
                             false,
                             Optional.empty()),
                     ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, SYMBOL)),
-            ImmutableMap.of(SYMBOL, VARCHAR),
+            ImmutableSet.of(SYMBOL),
             SOURCE_DISTRIBUTION,
             Optional.empty(),
             ImmutableList.of(TABLE_SCAN_NODE_ID),
@@ -154,7 +153,6 @@ public final class TaskTestUtils
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
         return new LocalExecutionPlanner(
                 PLANNER_CONTEXT,
-                new IrTypeAnalyzer(PLANNER_CONTEXT),
                 Optional.empty(),
                 pageSourceManager,
                 new IndexManager(CatalogServiceProvider.fail()),

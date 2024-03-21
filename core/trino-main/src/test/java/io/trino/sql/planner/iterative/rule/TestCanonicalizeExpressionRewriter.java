@@ -31,7 +31,6 @@ import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
@@ -73,7 +72,6 @@ public class TestCanonicalizeExpressionRewriter
     private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
             .withTransactionManager(TRANSACTION_MANAGER)
             .build();
-    private static final IrTypeAnalyzer TYPE_ANALYZER = new IrTypeAnalyzer(PLANNER_CONTEXT);
     private static final AllowAllAccessControl ACCESS_CONTROL = new AllowAllAccessControl();
 
     @Test
@@ -192,10 +190,7 @@ public class TestCanonicalizeExpressionRewriter
     {
         assertExpressionEquals(
                 transaction(TRANSACTION_MANAGER, PLANNER_CONTEXT.getMetadata(), ACCESS_CONTROL).execute(TEST_SESSION, transactedSession -> {
-                    return rewrite(
-                            from,
-                            PLANNER_CONTEXT,
-                            TYPE_ANALYZER);
+                    return rewrite(from, PLANNER_CONTEXT);
                 }),
                 to,
                 SymbolAliases.builder()

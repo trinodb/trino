@@ -95,7 +95,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestConnectorExpressionTranslator
 {
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
-    private static final IrTypeAnalyzer TYPE_ANALYZER = new IrTypeAnalyzer(PLANNER_CONTEXT);
     private static final Type ROW_TYPE = rowType(field("int_symbol_1", INTEGER), field("varchar_symbol_1", createVarcharType(5)));
     private static final VarcharType VARCHAR_TYPE = createUnboundedVarcharType();
     private static final ArrayType VARCHAR_ARRAY_TYPE = new ArrayType(VARCHAR_TYPE);
@@ -503,7 +502,7 @@ public class TestConnectorExpressionTranslator
 
     private void assertTranslationToConnectorExpression(Session session, Expression expression, Optional<ConnectorExpression> connectorExpression)
     {
-        Optional<ConnectorExpression> translation = translate(session, expression, TYPE_ANALYZER);
+        Optional<ConnectorExpression> translation = translate(session, expression);
         assertThat(connectorExpression.isPresent()).isEqualTo(translation.isPresent());
         translation.ifPresent(value -> assertThat(value).isEqualTo(connectorExpression.get()));
     }

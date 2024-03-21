@@ -22,12 +22,9 @@ import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.CatalogSchemaFunctionName;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.relational.InputReferenceExpression;
@@ -42,7 +39,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -63,24 +59,22 @@ public class ExpressionEquivalence
     private final Metadata metadata;
     private final FunctionManager functionManager;
     private final TypeManager typeManager;
-    private final IrTypeAnalyzer typeAnalyzer;
     private final CanonicalizationVisitor canonicalizationVisitor;
 
-    public ExpressionEquivalence(Metadata metadata, FunctionManager functionManager, TypeManager typeManager, IrTypeAnalyzer typeAnalyzer)
+    public ExpressionEquivalence(Metadata metadata, FunctionManager functionManager, TypeManager typeManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.canonicalizationVisitor = new CanonicalizationVisitor();
     }
 
-    public boolean areExpressionsEquivalent(Session session, Expression leftExpression, Expression rightExpression, TypeProvider types)
+    public boolean areExpressionsEquivalent(Session session, Expression leftExpression, Expression rightExpression, Set<Symbol> symbols)
     {
         Map<Symbol, Integer> symbolInput = new HashMap<>();
         int inputId = 0;
-        for (Entry<Symbol, Type> entry : types.allTypes().entrySet()) {
-            symbolInput.put(entry.getKey(), inputId);
+        for (Symbol entry : symbols) {
+            symbolInput.put(entry, inputId);
             inputId++;
         }
         RowExpression leftRowExpression = toRowExpression(session, leftExpression, symbolInput);
@@ -96,7 +90,6 @@ public class ExpressionEquivalence
     {
         return translate(
                 expression,
-                typeAnalyzer.getTypes(expression),
                 symbolInput,
                 metadata,
                 functionManager,

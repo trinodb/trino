@@ -32,7 +32,6 @@ import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
@@ -46,7 +45,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -205,10 +203,7 @@ public class TestIgniteClient
 
     private ConnectorExpression translateToConnectorExpression(Expression expression)
     {
-        return ConnectorExpressionTranslator.translate(
-                        TEST_SESSION,
-                        expression,
-                        new IrTypeAnalyzer(PLANNER_CONTEXT))
+        return ConnectorExpressionTranslator.translate(TEST_SESSION, expression)
                 .orElseThrow();
     }
 

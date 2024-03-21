@@ -523,7 +523,7 @@ public class ImplementTableFunctionSource
         for (int i = 0; i < copartitionedNodes.leftPartitionBy().size(); i++) {
             Symbol leftColumn = copartitionedNodes.leftPartitionBy().get(i);
             Symbol rightColumn = copartitionedNodes.rightPartitionBy().get(i);
-            Type type = context.getSymbolAllocator().getTypes().get(leftColumn);
+            Type type = leftColumn.getType();
 
             Symbol joinedColumn = context.getSymbolAllocator().newSymbol("combined_partition_column", type);
             joinedPartitionByAssignments.put(joinedColumn, new CoalesceExpression(leftColumn.toSymbolReference(), rightColumn.toSymbolReference()));

@@ -544,7 +544,7 @@ class QueryPlanner
                 assignmentsBuilder.putIdentity(symbol);
             }
             else {
-                assignmentsBuilder.put(symbol, new Constant(symbolAllocator.getTypes().get(symbol), null));
+                assignmentsBuilder.put(symbol, new Constant(symbol.getType(), null));
             }
         }
         List<Symbol> columnSymbols = columnSymbolsBuilder.build();
@@ -1519,7 +1519,7 @@ class QueryPlanner
 
         // First, append filter to validate offset values. They mustn't be negative or null.
         Symbol offsetSymbol = coercions.get(frameOffset.get());
-        Expression zeroOffset = zeroOfType(symbolAllocator.getTypes().get(offsetSymbol));
+        Expression zeroOffset = zeroOfType(offsetSymbol.getType());
         Expression predicate = ifExpression(
                 new ComparisonExpression(
                         GREATER_THAN_OR_EQUAL,
@@ -1617,7 +1617,7 @@ class QueryPlanner
         }
 
         Symbol offsetSymbol = frameOffset.get();
-        Type offsetType = symbolAllocator.getTypes().get(offsetSymbol);
+        Type offsetType = offsetSymbol.getType();
 
         // Append filter to validate offset values. They mustn't be negative or null.
         Expression zeroOffset = zeroOfType(offsetType);
@@ -2087,7 +2087,7 @@ class QueryPlanner
             Symbol input = visibleFields.get(i);
             Type type = types.get(i);
 
-            if (!symbolAllocator.getTypes().get(input).equals(type)) {
+            if (!input.getType().equals(type)) {
                 Symbol coerced = symbolAllocator.newSymbol(input.getName(), type);
                 assignments.put(coerced, new Cast(input.toSymbolReference(), type));
                 mappings.add(coerced);

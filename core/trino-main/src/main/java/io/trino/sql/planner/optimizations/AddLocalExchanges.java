@@ -24,15 +24,12 @@ import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SystemPartitioningHandle;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -115,18 +112,16 @@ public class AddLocalExchanges
         implements PlanOptimizer
 {
     private final PlannerContext plannerContext;
-    private final IrTypeAnalyzer typeAnalyzer;
 
-    public AddLocalExchanges(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    public AddLocalExchanges(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     @Override
     public PlanNode optimize(PlanNode plan, Context context)
     {
-        PlanWithProperties result = plan.accept(new Rewriter(context.symbolAllocator(), context.idAllocator(), context.session()), any());
+        PlanWithProperties result = plan.accept(new Rewriter(context.idAllocator(), context.session()), any());
         return result.getNode();
     }
 
@@ -135,11 +130,9 @@ public class AddLocalExchanges
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
-        private final TypeProvider types;
 
-        public Rewriter(SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Session session)
+        public Rewriter(PlanNodeIdAllocator idAllocator, Session session)
         {
-            this.types = symbolAllocator.getTypes();
             this.idAllocator = idAllocator;
             this.session = session;
         }
@@ -979,7 +972,7 @@ public class AddLocalExchanges
                     parentPreferences.constrainTo(node.getProbeSource().getOutputSymbols()).withDefaultParallelism(session));
 
             // index source does not support local parallel and must produce a single stream
-            StreamProperties indexStreamProperties = derivePropertiesRecursively(node.getIndexSource(), plannerContext, session, types, typeAnalyzer);
+            StreamProperties indexStreamProperties = derivePropertiesRecursively(node.getIndexSource(), plannerContext, session);
             checkArgument(indexStreamProperties.getDistribution() == SINGLE, "index source must be single stream");
             PlanWithProperties index = new PlanWithProperties(node.getIndexSource(), indexStreamProperties);
 
@@ -1080,12 +1073,12 @@ public class AddLocalExchanges
 
         private PlanWithProperties deriveProperties(PlanNode result, StreamProperties inputProperties)
         {
-            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session, types, typeAnalyzer));
+            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session));
         }
 
         private PlanWithProperties deriveProperties(PlanNode result, List<StreamProperties> inputProperties)
         {
-            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session, types, typeAnalyzer));
+            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session));
         }
     }
 

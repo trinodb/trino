@@ -35,7 +35,7 @@ public abstract class SimpleStatsRule<T extends PlanNode>
     public final Optional<PlanNodeStatsEstimate> calculate(T node, Context context)
     {
         return doCalculate(node, context)
-                .map(estimate -> normalizer.normalize(estimate, node.getOutputSymbols(), context.types()));
+                .map(estimate -> normalizer.normalize(estimate, node.getOutputSymbols()));
     }
 
     protected abstract Optional<PlanNodeStatsEstimate> doCalculate(T node, Context context);

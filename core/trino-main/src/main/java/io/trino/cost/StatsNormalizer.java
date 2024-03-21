@@ -23,7 +23,6 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 
 import java.util.Collection;
 import java.util.Objects;
@@ -35,24 +34,23 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.floor;
 import static java.lang.Math.pow;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Makes stats consistent
  */
 public class StatsNormalizer
 {
-    public PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, TypeProvider types)
+    public PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats)
     {
-        return normalize(stats, Optional.empty(), types);
+        return normalize(stats, Optional.empty());
     }
 
-    public PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Collection<Symbol> outputSymbols, TypeProvider types)
+    public PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Collection<Symbol> outputSymbols)
     {
-        return normalize(stats, Optional.of(outputSymbols), types);
+        return normalize(stats, Optional.of(outputSymbols));
     }
 
-    private PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Optional<Collection<Symbol>> outputSymbols, TypeProvider types)
+    private PlanNodeStatsEstimate normalize(PlanNodeStatsEstimate stats, Optional<Collection<Symbol>> outputSymbols)
     {
         PlanNodeStatsEstimate.Builder normalized = PlanNodeStatsEstimate.buildFrom(stats);
 
@@ -69,8 +67,8 @@ public class StatsNormalizer
 
             SymbolStatsEstimate symbolStats = stats.getSymbolStatistics(symbol);
             SymbolStatsEstimate normalizedSymbolStats = stats.isOutputRowCountUnknown()
-                    ? normalizeSymbolStatsWithoutRowCount(symbol, symbolStats, types)
-                    : normalizeSymbolStats(symbol, symbolStats, stats, types);
+                    ? normalizeSymbolStatsWithoutRowCount(symbol, symbolStats)
+                    : normalizeSymbolStats(symbol, symbolStats, stats);
 
             if (normalizedSymbolStats.isUnknown()) {
                 normalized.removeSymbolStatistics(symbol);
@@ -87,7 +85,7 @@ public class StatsNormalizer
     /**
      * Calculates consistent stats for a symbol when row count is unavailable.
      */
-    private SymbolStatsEstimate normalizeSymbolStatsWithoutRowCount(Symbol symbol, SymbolStatsEstimate symbolStats, TypeProvider types)
+    private SymbolStatsEstimate normalizeSymbolStatsWithoutRowCount(Symbol symbol, SymbolStatsEstimate symbolStats)
     {
         if (symbolStats.isUnknown()) {
             return SymbolStatsEstimate.unknown();
@@ -95,8 +93,7 @@ public class StatsNormalizer
         double distinctValuesCount = symbolStats.getDistinctValuesCount();
 
         if (!isNaN(distinctValuesCount)) {
-            Type type = requireNonNull(types.get(symbol), () -> "type is missing for symbol " + symbol);
-            double maxDistinctValuesByLowHigh = maxDistinctValuesByLowHigh(symbolStats, type);
+            double maxDistinctValuesByLowHigh = maxDistinctValuesByLowHigh(symbolStats, symbol.getType());
             if (distinctValuesCount > maxDistinctValuesByLowHigh) {
                 distinctValuesCount = maxDistinctValuesByLowHigh;
             }
@@ -114,7 +111,7 @@ public class StatsNormalizer
     /**
      * Calculates consistent stats for a symbol when row count is available.
      */
-    private SymbolStatsEstimate normalizeSymbolStats(Symbol symbol, SymbolStatsEstimate symbolStats, PlanNodeStatsEstimate stats, TypeProvider types)
+    private SymbolStatsEstimate normalizeSymbolStats(Symbol symbol, SymbolStatsEstimate symbolStats, PlanNodeStatsEstimate stats)
     {
         if (stats.getOutputRowCount() == 0) {
             return SymbolStatsEstimate.zero();
@@ -130,8 +127,7 @@ public class StatsNormalizer
         double nullsFraction = symbolStats.getNullsFraction();
 
         if (!isNaN(distinctValuesCount)) {
-            Type type = requireNonNull(types.get(symbol), () -> "type is missing for symbol " + symbol);
-            double maxDistinctValuesByLowHigh = maxDistinctValuesByLowHigh(symbolStats, type);
+            double maxDistinctValuesByLowHigh = maxDistinctValuesByLowHigh(symbolStats, symbol.getType());
             if (distinctValuesCount > maxDistinctValuesByLowHigh) {
                 distinctValuesCount = maxDistinctValuesByLowHigh;
             }

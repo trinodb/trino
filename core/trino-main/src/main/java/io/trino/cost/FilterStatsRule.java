@@ -46,7 +46,7 @@ public class FilterStatsRule
     public Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, Context context)
     {
         PlanNodeStatsEstimate sourceStats = context.statsProvider().getStats(node.getSource());
-        PlanNodeStatsEstimate estimate = filterStatsCalculator.filterStats(sourceStats, node.getPredicate(), context.session(), context.types());
+        PlanNodeStatsEstimate estimate = filterStatsCalculator.filterStats(sourceStats, node.getPredicate(), context.session());
         if (isDefaultFilterFactorEnabled(context.session()) && estimate.isOutputRowCountUnknown()) {
             estimate = sourceStats.mapOutputRowCount(sourceRowCount -> sourceStats.getOutputRowCount() * UNKNOWN_FILTER_COEFFICIENT);
         }

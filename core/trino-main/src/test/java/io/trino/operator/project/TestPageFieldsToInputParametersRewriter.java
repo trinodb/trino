@@ -41,7 +41,6 @@ import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SimpleCaseExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
@@ -82,7 +81,6 @@ public class TestPageFieldsToInputParametersRewriter
     private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
             .withTransactionManager(TRANSACTION_MANAGER)
             .build();
-    private static final IrTypeAnalyzer TYPE_ANALYZER = new IrTypeAnalyzer(PLANNER_CONTEXT);
 
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction CEIL = FUNCTIONS.resolveFunction("ceil", fromTypes(BIGINT));
@@ -157,7 +155,6 @@ public class TestPageFieldsToInputParametersRewriter
 
     private static class RowExpressionBuilder
     {
-        private final Map<Symbol, Type> symbolTypes = new HashMap<>();
         private final Map<Symbol, Integer> sourceLayout = new HashMap<>();
         private final List<Type> types = new LinkedList<>();
 
@@ -169,7 +166,6 @@ public class TestPageFieldsToInputParametersRewriter
         private RowExpressionBuilder addSymbol(String name, Type type)
         {
             Symbol symbol = new Symbol(type, name);
-            symbolTypes.put(symbol, type);
             sourceLayout.put(symbol, types.size());
             types.add(type);
             return this;
@@ -179,7 +175,6 @@ public class TestPageFieldsToInputParametersRewriter
         {
             return SqlToRowExpressionTranslator.translate(
                     expression,
-                    TYPE_ANALYZER.getTypes(expression),
                     sourceLayout,
                     PLANNER_CONTEXT.getMetadata(),
                     PLANNER_CONTEXT.getFunctionManager(),

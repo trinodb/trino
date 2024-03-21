@@ -22,7 +22,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.List;
@@ -65,7 +64,6 @@ public class ValuesStatsRule
     {
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         statsBuilder.setOutputRowCount(node.getRowCount());
-        TypeProvider types = context.types();
 
         try {
             for (int symbolId = 0; symbolId < node.getOutputSymbols().size(); ++symbolId) {
@@ -75,9 +73,9 @@ public class ValuesStatsRule
                         symbolId,
                         context.session(),
                         RowType.anonymous(node.getOutputSymbols().stream()
-                                .map(types::get)
+                                .map(Symbol::getType)
                                 .collect(toImmutableList())));
-                statsBuilder.addSymbolStatistics(symbol, buildSymbolStatistics(symbolValues, types.get(symbol)));
+                statsBuilder.addSymbolStatistics(symbol, buildSymbolStatistics(symbolValues, symbol.getType()));
             }
         }
         catch (RuntimeException e) {
