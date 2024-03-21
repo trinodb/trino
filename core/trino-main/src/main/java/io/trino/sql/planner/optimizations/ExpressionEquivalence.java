@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -319,12 +318,5 @@ public class ExpressionEquivalence
             }
             return Integer.compare(left.size(), right.size());
         }
-    }
-
-    private static <T> List<T> swapPair(List<T> pair)
-    {
-        requireNonNull(pair, "pair is null");
-        checkArgument(pair.size() == 2, "Expected pair to have two elements");
-        return ImmutableList.of(pair.get(1), pair.get(0));
     }
 }

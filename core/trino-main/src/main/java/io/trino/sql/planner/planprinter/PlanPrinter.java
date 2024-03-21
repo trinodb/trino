@@ -1266,7 +1266,6 @@ public class PlanPrinter
                     allNodes,
                     ImmutableList.of(sourceNode),
                     ImmutableList.of(),
-                    ImmutableList.of(),
                     Optional.empty(),
                     context);
 
@@ -1463,7 +1462,6 @@ public class PlanPrinter
                     ImmutableList.of(),
                     ImmutableList.of(),
                     ImmutableList.of(),
-                    node.getSourceFragmentIds(),
                     Optional.empty(),
                     context);
 
@@ -1664,7 +1662,6 @@ public class PlanPrinter
                     ImmutableList.of(node.getId()),
                     ImmutableList.of(node.getCurrentPlan()),
                     ImmutableList.of(node.getInitialPlan()),
-                    ImmutableList.of(),
                     Optional.empty(),
                     context);
             node.getInitialPlan().accept(this, new Context("Initial Plan", true));
@@ -2170,7 +2167,7 @@ public class PlanPrinter
 
         public NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, List<PlanNode> children, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost, Context context)
         {
-            return addNode(node, name, descriptor, ImmutableList.of(node.getId()), children, ImmutableList.of(), ImmutableList.of(), reorderJoinStatsAndCost, context);
+            return addNode(node, name, descriptor, ImmutableList.of(node.getId()), children, ImmutableList.of(), reorderJoinStatsAndCost, context);
         }
 
         public NodeRepresentation addNode(
@@ -2180,7 +2177,6 @@ public class PlanPrinter
                 List<PlanNodeId> allNodes,
                 List<PlanNode> children,
                 List<PlanNode> initialChildren,
-                List<PlanFragmentId> remoteSources,
                 Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost,
                 Context context)
         {
@@ -2209,8 +2205,7 @@ public class PlanPrinter
                     estimatedCosts,
                     reorderJoinStatsAndCost,
                     childrenIds,
-                    initialChildrenIds,
-                    remoteSources);
+                    initialChildrenIds);
 
             if (context.isInitialPlan()) {
                 representation.addInitialNode(nodeOutput);
