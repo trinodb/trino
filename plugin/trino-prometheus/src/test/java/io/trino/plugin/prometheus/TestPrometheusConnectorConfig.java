@@ -14,6 +14,7 @@
 package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.net.HttpHeaders;
 import com.google.inject.ConfigurationException;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,7 @@ public class TestPrometheusConnectorConfig
                 .setMaxQueryRangeDuration(new Duration(21, DAYS))
                 .setCacheDuration(new Duration(30, SECONDS))
                 .setBearerTokenFile(null)
+                .setHttpAuthHeaderName(HttpHeaders.AUTHORIZATION)
                 .setUser(null)
                 .setPassword(null)
                 .setReadTimeout(new Duration(10, SECONDS))
@@ -54,6 +56,7 @@ public class TestPrometheusConnectorConfig
                 .put("prometheus.query.chunk.size.duration", "365d")
                 .put("prometheus.max.query.range.duration", "1095d")
                 .put("prometheus.cache.ttl", "60s")
+                .put("prometheus.auth.http.header.name", "X-team-auth")
                 .put("prometheus.bearer.token.file", "/tmp/bearer_token.txt")
                 .put("prometheus.auth.user", "admin")
                 .put("prometheus.auth.password", "password")
@@ -67,6 +70,7 @@ public class TestPrometheusConnectorConfig
         expected.setQueryChunkSizeDuration(new Duration(365, DAYS));
         expected.setMaxQueryRangeDuration(new Duration(1095, DAYS));
         expected.setCacheDuration(new Duration(60, SECONDS));
+        expected.setHttpAuthHeaderName("X-team-auth");
         expected.setBearerTokenFile(new File("/tmp/bearer_token.txt"));
         expected.setUser("admin");
         expected.setPassword("password");
