@@ -75,8 +75,8 @@ public final class CachingStatsProvider
         requireNonNull(node, "node is null");
 
         try {
-            if (node instanceof GroupReference) {
-                return getGroupStats((GroupReference) node);
+            if (node instanceof GroupReference group) {
+                return getGroupStats(group);
             }
 
             PlanNodeStatsEstimate stats = cache.get(node);

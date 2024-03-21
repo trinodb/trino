@@ -126,8 +126,8 @@ public final class SqlJsonLiteralConverter
         if (type.equals(BOOLEAN)) {
             return Optional.of(BooleanNode.valueOf(typedValue.getBooleanValue()));
         }
-        if (type instanceof CharType) {
-            return Optional.of(TextNode.valueOf(padSpaces((Slice) typedValue.getObjectValue(), (CharType) typedValue.getType()).toStringUtf8()));
+        if (type instanceof CharType charType) {
+            return Optional.of(TextNode.valueOf(padSpaces((Slice) typedValue.getObjectValue(), charType).toStringUtf8()));
         }
         if (type instanceof VarcharType) {
             return Optional.of(TextNode.valueOf(((Slice) typedValue.getObjectValue()).toStringUtf8()));
@@ -144,15 +144,15 @@ public final class SqlJsonLiteralConverter
         if (type.equals(TINYINT)) {
             return Optional.of(ShortNode.valueOf(Shorts.checkedCast(typedValue.getLongValue())));
         }
-        if (type instanceof DecimalType) {
+        if (type instanceof DecimalType decimalType) {
             BigInteger unscaledValue;
-            if (((DecimalType) type).isShort()) {
+            if (decimalType.isShort()) {
                 unscaledValue = BigInteger.valueOf(typedValue.getLongValue());
             }
             else {
                 unscaledValue = ((Int128) typedValue.getObjectValue()).toBigInteger();
             }
-            return Optional.of(DecimalNode.valueOf(new BigDecimal(unscaledValue, ((DecimalType) type).getScale())));
+            return Optional.of(DecimalNode.valueOf(new BigDecimal(unscaledValue, decimalType.getScale())));
         }
         if (type.equals(DOUBLE)) {
             return Optional.of(DoubleNode.valueOf(typedValue.getDoubleValue()));

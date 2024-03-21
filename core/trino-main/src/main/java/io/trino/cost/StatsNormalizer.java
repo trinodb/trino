@@ -170,8 +170,8 @@ public class StatsNormalizer
             return NaN;
         }
 
-        if (type instanceof DecimalType) {
-            length *= pow(10, ((DecimalType) type).getScale());
+        if (type instanceof DecimalType decimalType) {
+            length *= pow(10, decimalType.getScale());
         }
         return floor(length + 1);
     }

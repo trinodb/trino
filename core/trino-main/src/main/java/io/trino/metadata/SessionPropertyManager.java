@@ -298,13 +298,13 @@ public final class SessionPropertyManager
         if (DoubleType.DOUBLE.equals(type)) {
             return (JsonCodec<T>) JSON_CODEC_FACTORY.jsonCodec(Double.class);
         }
-        if (type instanceof ArrayType) {
-            Type elementType = ((ArrayType) type).getElementType();
+        if (type instanceof ArrayType arrayType) {
+            Type elementType = arrayType.getElementType();
             return (JsonCodec<T>) JSON_CODEC_FACTORY.listJsonCodec(getJsonCodecForType(elementType));
         }
-        if (type instanceof MapType) {
-            Type keyType = ((MapType) type).getKeyType();
-            Type valueType = ((MapType) type).getValueType();
+        if (type instanceof MapType mapType) {
+            Type keyType = mapType.getKeyType();
+            Type valueType = mapType.getValueType();
             return (JsonCodec<T>) JSON_CODEC_FACTORY.mapJsonCodec(getMapKeyType(keyType), getJsonCodecForType(valueType));
         }
         throw new TrinoException(INVALID_SESSION_PROPERTY, format("Session property type %s is not supported", type));

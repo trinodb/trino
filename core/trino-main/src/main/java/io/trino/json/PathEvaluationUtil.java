@@ -30,8 +30,8 @@ public class PathEvaluationUtil
     {
         return sequence.stream()
                 .flatMap(object -> {
-                    if (object instanceof JsonNode && ((JsonNode) object).getNodeType() == ARRAY) {
-                        return ImmutableList.copyOf(((JsonNode) object).elements()).stream();
+                    if (object instanceof JsonNode node && node.getNodeType() == ARRAY) {
+                        return ImmutableList.copyOf(node.elements()).stream();
                     }
                     return Stream.of(object);
                 })

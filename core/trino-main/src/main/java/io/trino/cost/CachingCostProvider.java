@@ -63,8 +63,8 @@ public class CachingCostProvider
         requireNonNull(node, "node is null");
 
         try {
-            if (node instanceof GroupReference) {
-                return getGroupCost((GroupReference) node);
+            if (node instanceof GroupReference group) {
+                return getGroupCost(group);
             }
 
             PlanCostEstimate cost = cache.get(node);

@@ -131,9 +131,9 @@ public class Driver
 
         Optional<SourceOperator> sourceOperator = Optional.empty();
         for (Operator operator : operators) {
-            if (operator instanceof SourceOperator) {
+            if (operator instanceof SourceOperator value) {
                 checkArgument(sourceOperator.isEmpty(), "There must be at most one SourceOperator");
-                sourceOperator = Optional.of((SourceOperator) operator);
+                sourceOperator = Optional.of(value);
             }
         }
         this.sourceOperator = sourceOperator;

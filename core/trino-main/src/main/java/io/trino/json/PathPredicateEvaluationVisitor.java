@@ -162,11 +162,11 @@ class PathPredicateEvaluationVisitor
         boolean leftHasScalar = false;
         boolean leftHasNonScalar = false;
         for (Object object : leftSequence) {
-            if (object instanceof JsonNode) {
+            if (object instanceof JsonNode jsonNode) {
                 if (object instanceof NullNode) {
                     leftHasJsonNull = true;
                 }
-                else if (((JsonNode) object).isValueNode()) {
+                else if (jsonNode.isValueNode()) {
                     leftHasScalar = true;
                 }
                 else {
@@ -182,11 +182,11 @@ class PathPredicateEvaluationVisitor
         boolean rightHasScalar = false;
         boolean rightHasNonScalar = false;
         for (Object object : rightSequence) {
-            if (object instanceof JsonNode) {
-                if (((JsonNode) object).isNull()) {
+            if (object instanceof JsonNode jsonNode) {
+                if (jsonNode.isNull()) {
                     rightHasJsonNull = true;
                 }
-                else if (((JsonNode) object).isValueNode()) {
+                else if (jsonNode.isValueNode()) {
                     rightHasScalar = true;
                 }
                 else {
@@ -443,8 +443,8 @@ class PathPredicateEvaluationVisitor
     {
         ImmutableList.Builder<TypedValue> scalars = ImmutableList.builder();
         for (Object object : sequence) {
-            if (object instanceof TypedValue) {
-                scalars.add((TypedValue) object);
+            if (object instanceof TypedValue typedValue) {
+                scalars.add(typedValue);
             }
             else {
                 JsonNode jsonNode = (JsonNode) object;
@@ -471,8 +471,8 @@ class PathPredicateEvaluationVisitor
     {
         if (object instanceof TypedValue typedValue) {
             if (isCharacterStringType(typedValue.getType())) {
-                if (typedValue.getType() instanceof CharType) {
-                    return padSpaces((Slice) typedValue.getObjectValue(), (CharType) typedValue.getType());
+                if (typedValue.getType() instanceof CharType charType) {
+                    return padSpaces((Slice) typedValue.getObjectValue(), charType);
                 }
                 return (Slice) typedValue.getObjectValue();
             }

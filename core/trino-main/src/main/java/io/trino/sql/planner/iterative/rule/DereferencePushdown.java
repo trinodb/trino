@@ -63,8 +63,8 @@ class DereferencePushdown
     {
         return projections.stream()
                 .allMatch(expression -> expression instanceof Reference ||
-                        (expression instanceof Subscript &&
-                                isRowSubscriptChain((Subscript) expression) &&
+                        (expression instanceof Subscript subscript &&
+                                isRowSubscriptChain(subscript) &&
                                 !prefixExists(expression, projections)));
     }
 
@@ -116,14 +116,14 @@ class DereferencePushdown
         }
 
         return (expression.base() instanceof Reference) ||
-                ((expression.base() instanceof Subscript) && isRowSubscriptChain((Subscript) expression.base()));
+                ((expression.base() instanceof Subscript subscript) && isRowSubscriptChain(subscript));
     }
 
     private static boolean prefixExists(Expression expression, Set<Expression> expressions)
     {
         Expression current = expression;
-        while (current instanceof Subscript) {
-            current = ((Subscript) current).base();
+        while (current instanceof Subscript subscript) {
+            current = subscript.base();
             if (expressions.contains(current)) {
                 return true;
             }
