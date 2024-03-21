@@ -2448,12 +2448,12 @@ public class LocalExecutionPlanner
 
             List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filterExpression);
             for (ComparisonExpression spatialComparison : spatialComparisons) {
-                if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
+                if (spatialComparison.operator() == LESS_THAN || spatialComparison.operator() == LESS_THAN_OR_EQUAL) {
                     // ST_Distance(a, b) <= r
-                    Expression radius = spatialComparison.getRight();
+                    Expression radius = spatialComparison.right();
                     if (radius instanceof SymbolReference && getSymbolReferences(node.getRight().getOutputSymbols()).contains(radius)) {
-                        FunctionCall spatialFunction = (FunctionCall) spatialComparison.getLeft();
-                        Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(spatialComparison.getOperator()));
+                        FunctionCall spatialFunction = (FunctionCall) spatialComparison.left();
+                        Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialComparison), spatialFunction, Optional.of(radius), Optional.of(spatialComparison.operator()));
                         if (operation.isPresent()) {
                             return operation.get();
                         }
@@ -2472,7 +2472,7 @@ public class LocalExecutionPlanner
                 Optional<Expression> radius,
                 Optional<ComparisonExpression.Operator> comparisonOperator)
         {
-            List<Expression> arguments = spatialFunction.getArguments();
+            List<Expression> arguments = spatialFunction.arguments();
             verify(arguments.size() == 2);
 
             if (!(arguments.get(0) instanceof SymbolReference firstSymbol) || !(arguments.get(1) instanceof SymbolReference secondSymbol)) {
@@ -2520,7 +2520,7 @@ public class LocalExecutionPlanner
 
         private SpatialPredicate spatialTest(FunctionCall functionCall, boolean probeFirst, Optional<ComparisonExpression.Operator> comparisonOperator)
         {
-            CatalogSchemaFunctionName functionName = functionCall.getFunction().getName();
+            CatalogSchemaFunctionName functionName = functionCall.function().getName();
             if (functionName.equals(builtinFunctionName(ST_CONTAINS))) {
                 if (probeFirst) {
                     return (buildGeometry, probeGeometry, radius) -> probeGeometry.contains(buildGeometry);
@@ -3823,11 +3823,11 @@ public class LocalExecutionPlanner
                     //
                     // TODO: Once the final aggregation function call representation is fixed,
                     // the same mechanism in project and filter expression should be used here.
-                    verify(lambdaExpression.getArguments().size() == functionType.getArgumentTypes().size());
+                    verify(lambdaExpression.arguments().size() == functionType.getArgumentTypes().size());
                     Map<Symbol, Type> lambdaArgumentSymbolTypes = new HashMap<>();
-                    for (int j = 0; j < lambdaExpression.getArguments().size(); j++) {
+                    for (int j = 0; j < lambdaExpression.arguments().size(); j++) {
                         lambdaArgumentSymbolTypes.put(
-                                lambdaExpression.getArguments().get(j),
+                                lambdaExpression.arguments().get(j),
                                 functionType.getArgumentTypes().get(j));
                     }
 

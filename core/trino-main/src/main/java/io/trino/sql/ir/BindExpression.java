@@ -69,18 +69,6 @@ public record BindExpression(List<Expression> values, LambdaExpression function)
                 ((FunctionType) function.type()).getReturnType());
     }
 
-    @Deprecated
-    public List<Expression> getValues()
-    {
-        return values;
-    }
-
-    @Deprecated
-    public Expression getFunction()
-    {
-        return function;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

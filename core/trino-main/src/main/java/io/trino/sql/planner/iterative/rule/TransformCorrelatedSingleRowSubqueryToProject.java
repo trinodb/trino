@@ -93,7 +93,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
                         .putIdentities(parent.getInput().getOutputSymbols());
                 forEachPair(
                         values.getOutputSymbols().stream(),
-                        row.getItems().stream(),
+                        row.items().stream(),
                         assignments::put);
                 return Result.ofPlanNode(projectNode(parent.getInput(), assignments.build(), context));
             }

@@ -109,10 +109,10 @@ public class SymbolAllocator
         String nameHint = "expr";
         if (expression instanceof FunctionCall functionCall) {
             // symbol allocation can happen during planning, before function calls are rewritten
-            nameHint = functionCall.getFunction().getName().getFunctionName();
+            nameHint = functionCall.function().getName().getFunctionName();
         }
         else if (expression instanceof SymbolReference symbolReference) {
-            nameHint = symbolReference.getName();
+            nameHint = symbolReference.name();
         }
 
         return newSymbol(nameHint, type, suffix);

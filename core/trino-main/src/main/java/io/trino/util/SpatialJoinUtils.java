@@ -52,7 +52,7 @@ public final class SpatialJoinUtils
 
     private static boolean isSupportedSpatialFunction(FunctionCall functionCall)
     {
-        CatalogSchemaFunctionName functionName = functionCall.getFunction().getName();
+        CatalogSchemaFunctionName functionName = functionCall.function().getName();
         return functionName.equals(builtinFunctionName(ST_CONTAINS)) ||
                 functionName.equals(builtinFunctionName(ST_WITHIN)) ||
                 functionName.equals(builtinFunctionName(ST_INTERSECTS));
@@ -79,13 +79,13 @@ public final class SpatialJoinUtils
 
     private static boolean isSupportedSpatialComparison(ComparisonExpression expression)
     {
-        switch (expression.getOperator()) {
+        switch (expression.operator()) {
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
-                return isSTDistance(expression.getLeft());
+                return isSTDistance(expression.left());
             case GREATER_THAN:
             case GREATER_THAN_OR_EQUAL:
-                return isSTDistance(expression.getRight());
+                return isSTDistance(expression.right());
             default:
                 return false;
         }
@@ -94,7 +94,7 @@ public final class SpatialJoinUtils
     private static boolean isSTDistance(Expression expression)
     {
         if (expression instanceof FunctionCall call) {
-            return call.getFunction().getName().equals(builtinFunctionName(ST_DISTANCE));
+            return call.function().getName().equals(builtinFunctionName(ST_DISTANCE));
         }
 
         return false;

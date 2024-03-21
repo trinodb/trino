@@ -97,24 +97,6 @@ public record ComparisonExpression(Operator operator, Expression left, Expressio
         return BOOLEAN;
     }
 
-    @Deprecated
-    public Operator getOperator()
-    {
-        return operator;
-    }
-
-    @Deprecated
-    public Expression getLeft()
-    {
-        return left;
-    }
-
-    @Deprecated
-    public Expression getRight()
-    {
-        return right;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

@@ -60,8 +60,8 @@ public final class ExtractCommonPredicatesExpressionRewriter
         public Expression rewriteLogicalExpression(LogicalExpression node, NodeContext context, ExpressionTreeRewriter<NodeContext> treeRewriter)
         {
             Expression expression = combinePredicates(
-                    node.getOperator(),
-                    extractPredicates(node.getOperator(), node).stream()
+                    node.operator(),
+                    extractPredicates(node.operator(), node).stream()
                             .map(subExpression -> treeRewriter.rewrite(subExpression, NodeContext.NOT_ROOT_NODE))
                             .collect(toImmutableList()));
 
@@ -72,7 +72,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
             Expression simplified = extractCommonPredicates((LogicalExpression) expression);
 
             // Prefer AND LogicalBinaryExpression at the root if possible
-            if (context.isRootNode() && simplified instanceof LogicalExpression && ((LogicalExpression) simplified).getOperator() == OR) {
+            if (context.isRootNode() && simplified instanceof LogicalExpression && ((LogicalExpression) simplified).operator() == OR) {
                 return distributeIfPossible((LogicalExpression) simplified);
             }
 
@@ -92,12 +92,12 @@ public final class ExtractCommonPredicatesExpressionRewriter
                     .map(predicateList -> removeAll(predicateList, commonPredicates))
                     .collect(toImmutableList());
 
-            LogicalExpression.Operator flippedOperator = node.getOperator().flip();
+            LogicalExpression.Operator flippedOperator = node.operator().flip();
 
             List<Expression> uncorrelatedPredicates = uncorrelatedSubPredicates.stream()
                     .map(predicate -> combinePredicates(flippedOperator, predicate))
                     .collect(toImmutableList());
-            Expression combinedUncorrelatedPredicates = combinePredicates(node.getOperator(), uncorrelatedPredicates);
+            Expression combinedUncorrelatedPredicates = combinePredicates(node.operator(), uncorrelatedPredicates);
 
             return combinePredicates(flippedOperator, ImmutableList.<Expression>builder()
                     .addAll(commonPredicates)
@@ -107,7 +107,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
 
         private static List<List<Expression>> getSubPredicates(LogicalExpression expression)
         {
-            return extractPredicates(expression.getOperator(), expression).stream()
+            return extractPredicates(expression.operator(), expression).stream()
                     .map(predicate -> predicate instanceof LogicalExpression ?
                             extractPredicates((LogicalExpression) predicate) : ImmutableList.of(predicate))
                     .collect(toImmutableList());
@@ -159,9 +159,9 @@ public final class ExtractCommonPredicatesExpressionRewriter
             Set<List<Expression>> crossProduct = Sets.cartesianProduct(subPredicates);
 
             return combinePredicates(
-                    expression.getOperator().flip(),
+                    expression.operator().flip(),
                     crossProduct.stream()
-                            .map(expressions -> combinePredicates(expression.getOperator(), expressions))
+                            .map(expressions -> combinePredicates(expression.operator(), expressions))
                             .collect(toImmutableList()));
         }
 

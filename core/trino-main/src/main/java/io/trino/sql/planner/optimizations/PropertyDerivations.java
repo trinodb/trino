@@ -971,7 +971,7 @@ public final class PropertyDerivations
             return Optional.empty();
         }
 
-        Set<Expression> arguments = ImmutableSet.copyOf(((CoalesceExpression) expression).getOperands());
+        Set<Expression> arguments = ImmutableSet.copyOf(((CoalesceExpression) expression).operands());
         if (!arguments.stream().allMatch(SymbolReference.class::isInstance)) {
             return Optional.empty();
         }
@@ -981,7 +981,7 @@ public final class PropertyDerivations
         // CoalesceExpression directly.
         for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
             if (entry.getValue() instanceof CoalesceExpression) {
-                Set<Expression> candidateArguments = ImmutableSet.copyOf(((CoalesceExpression) entry.getValue()).getOperands());
+                Set<Expression> candidateArguments = ImmutableSet.copyOf(((CoalesceExpression) entry.getValue()).operands());
                 if (!candidateArguments.stream().allMatch(SymbolReference.class::isInstance)) {
                     return Optional.empty();
                 }

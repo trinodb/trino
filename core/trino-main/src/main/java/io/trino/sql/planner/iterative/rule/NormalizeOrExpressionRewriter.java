@@ -50,11 +50,11 @@ public final class NormalizeOrExpressionRewriter
         @Override
         public Expression rewriteLogicalExpression(LogicalExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            List<Expression> terms = node.getTerms().stream()
+            List<Expression> terms = node.terms().stream()
                     .map(expression -> treeRewriter.rewrite(expression, context))
                     .collect(toImmutableList());
 
-            if (node.getOperator() == AND) {
+            if (node.operator() == AND) {
                 return and(terms);
             }
 
@@ -70,13 +70,13 @@ public final class NormalizeOrExpressionRewriter
 
             Set<Expression> expressionToSkip = expressionToSkipBuilder.build();
             for (Expression expression : terms) {
-                if (expression instanceof ComparisonExpression comparisonExpression && comparisonExpression.getOperator() == EQUAL) {
-                    if (!expressionToSkip.contains(comparisonExpression.getLeft())) {
+                if (expression instanceof ComparisonExpression comparisonExpression && comparisonExpression.operator() == EQUAL) {
+                    if (!expressionToSkip.contains(comparisonExpression.left())) {
                         othersExpressionBuilder.add(expression);
                     }
                 }
                 else if (expression instanceof InPredicate inPredicate) {
-                    if (!expressionToSkip.contains(inPredicate.getValue())) {
+                    if (!expressionToSkip.contains(inPredicate.value())) {
                         othersExpressionBuilder.add(expression);
                     }
                 }
@@ -95,11 +95,11 @@ public final class NormalizeOrExpressionRewriter
         {
             LinkedHashSet<Expression> expressionValues = new LinkedHashSet<>();
             for (Expression expression : expressions) {
-                if (expression instanceof ComparisonExpression comparisonExpression && comparisonExpression.getOperator() == EQUAL) {
-                    expressionValues.add(comparisonExpression.getRight());
+                if (expression instanceof ComparisonExpression comparisonExpression && comparisonExpression.operator() == EQUAL) {
+                    expressionValues.add(comparisonExpression.right());
                 }
                 else if (expression instanceof InPredicate inPredicate) {
-                    expressionValues.addAll(inPredicate.getValueList());
+                    expressionValues.addAll(inPredicate.valueList());
                 }
                 else {
                     throw new IllegalStateException("Unexpected expression: " + expression);
@@ -113,11 +113,11 @@ public final class NormalizeOrExpressionRewriter
         {
             ImmutableMultimap.Builder<Expression, Expression> expressionBuilder = ImmutableMultimap.builder();
             for (Expression expression : terms) {
-                if (expression instanceof ComparisonExpression comparisonExpression && comparisonExpression.getOperator() == EQUAL) {
-                    expressionBuilder.put(comparisonExpression.getLeft(), comparisonExpression);
+                if (expression instanceof ComparisonExpression comparisonExpression && comparisonExpression.operator() == EQUAL) {
+                    expressionBuilder.put(comparisonExpression.left(), comparisonExpression);
                 }
                 else if (expression instanceof InPredicate inPredicate) {
-                    expressionBuilder.put(inPredicate.getValue(), inPredicate);
+                    expressionBuilder.put(inPredicate.value(), inPredicate);
                 }
             }
 

@@ -48,7 +48,7 @@ public class RemoveDuplicateConditions
         @Override
         public Expression rewriteLogicalExpression(LogicalExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            return combinePredicates(node.getOperator(), extractPredicates(node));
+            return combinePredicates(node.operator(), extractPredicates(node));
         }
     }
 }

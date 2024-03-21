@@ -47,24 +47,12 @@ public record Constant(Type type, @JsonIgnore Object value)
         }
     }
 
-    @Deprecated
-    @JsonProperty
-    public Type getType()
-    {
-        return type;
-    }
-
     @JsonProperty
     public Block getValueAsBlock()
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
         writeNativeValue(type, blockBuilder, value);
         return blockBuilder.build();
-    }
-
-    public Object getValue()
-    {
-        return value;
     }
 
     @Override

@@ -54,7 +54,7 @@ public class BuiltinFunctionCallBuilder
     public BuiltinFunctionCallBuilder addArgument(Constant value)
     {
         requireNonNull(value, "value is null");
-        return addArgument(value.getType().getTypeSignature(), value);
+        return addArgument(value.type().getTypeSignature(), value);
     }
 
     public BuiltinFunctionCallBuilder addArgument(Type type, Expression value)

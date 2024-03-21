@@ -45,12 +45,6 @@ public record CoalesceExpression(List<Expression> operands)
         operands = ImmutableList.copyOf(operands);
     }
 
-    @Deprecated
-    public List<Expression> getOperands()
-    {
-        return operands;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

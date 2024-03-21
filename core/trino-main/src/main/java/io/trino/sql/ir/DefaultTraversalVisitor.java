@@ -19,15 +19,15 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitCast(Cast node, C context)
     {
-        process(node.getExpression(), context);
+        process(node.expression(), context);
         return null;
     }
 
     @Override
     protected Void visitArithmeticBinary(ArithmeticBinaryExpression node, C context)
     {
-        process(node.getLeft(), context);
-        process(node.getRight(), context);
+        process(node.left(), context);
+        process(node.right(), context);
 
         return null;
     }
@@ -35,9 +35,9 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitBetweenPredicate(BetweenPredicate node, C context)
     {
-        process(node.getValue(), context);
-        process(node.getMin(), context);
-        process(node.getMax(), context);
+        process(node.value(), context);
+        process(node.min(), context);
+        process(node.max(), context);
 
         return null;
     }
@@ -45,7 +45,7 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitCoalesceExpression(CoalesceExpression node, C context)
     {
-        for (Expression operand : node.getOperands()) {
+        for (Expression operand : node.operands()) {
             process(operand, context);
         }
 
@@ -55,8 +55,8 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitSubscriptExpression(SubscriptExpression node, C context)
     {
-        process(node.getBase(), context);
-        process(node.getIndex(), context);
+        process(node.base(), context);
+        process(node.index(), context);
 
         return null;
     }
@@ -64,8 +64,8 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitComparisonExpression(ComparisonExpression node, C context)
     {
-        process(node.getLeft(), context);
-        process(node.getRight(), context);
+        process(node.left(), context);
+        process(node.right(), context);
 
         return null;
     }
@@ -73,8 +73,8 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitInPredicate(InPredicate node, C context)
     {
-        process(node.getValue(), context);
-        for (Expression argument : node.getValueList()) {
+        process(node.value(), context);
+        for (Expression argument : node.valueList()) {
             process(argument, context);
         }
 
@@ -84,7 +84,7 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitFunctionCall(FunctionCall node, C context)
     {
-        for (Expression argument : node.getArguments()) {
+        for (Expression argument : node.arguments()) {
             process(argument, context);
         }
 
@@ -94,13 +94,13 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitSimpleCaseExpression(SimpleCaseExpression node, C context)
     {
-        process(node.getOperand(), context);
-        for (WhenClause clause : node.getWhenClauses()) {
+        process(node.operand(), context);
+        for (WhenClause clause : node.whenClauses()) {
             process(clause.getOperand(), context);
             process(clause.getResult(), context);
         }
 
-        node.getDefaultValue()
+        node.defaultValue()
                 .ifPresent(value -> process(value, context));
 
         return null;
@@ -109,8 +109,8 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitNullIfExpression(NullIfExpression node, C context)
     {
-        process(node.getFirst(), context);
-        process(node.getSecond(), context);
+        process(node.first(), context);
+        process(node.second(), context);
 
         return null;
     }
@@ -118,10 +118,10 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitBindExpression(BindExpression node, C context)
     {
-        for (Expression value : node.getValues()) {
+        for (Expression value : node.values()) {
             process(value, context);
         }
-        process(node.getFunction(), context);
+        process(node.function(), context);
 
         return null;
     }
@@ -129,25 +129,25 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitArithmeticNegation(ArithmeticNegation node, C context)
     {
-        process(node.getValue(), context);
+        process(node.value(), context);
         return null;
     }
 
     @Override
     protected Void visitNotExpression(NotExpression node, C context)
     {
-        process(node.getValue(), context);
+        process(node.value(), context);
         return null;
     }
 
     @Override
     protected Void visitSearchedCaseExpression(SearchedCaseExpression node, C context)
     {
-        for (WhenClause clause : node.getWhenClauses()) {
+        for (WhenClause clause : node.whenClauses()) {
             process(clause.getOperand(), context);
             process(clause.getResult(), context);
         }
-        node.getDefaultValue()
+        node.defaultValue()
                 .ifPresent(value -> process(value, context));
 
         return null;
@@ -156,14 +156,14 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitIsNullPredicate(IsNullPredicate node, C context)
     {
-        process(node.getValue(), context);
+        process(node.value(), context);
         return null;
     }
 
     @Override
     protected Void visitLogicalExpression(LogicalExpression node, C context)
     {
-        for (Expression child : node.getTerms()) {
+        for (Expression child : node.terms()) {
             process(child, context);
         }
 
@@ -173,7 +173,7 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitRow(Row node, C context)
     {
-        for (Expression expression : node.getItems()) {
+        for (Expression expression : node.items()) {
             process(expression, context);
         }
         return null;
@@ -182,7 +182,7 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitLambdaExpression(LambdaExpression node, C context)
     {
-        process(node.getBody(), context);
+        process(node.body(), context);
 
         return null;
     }

@@ -50,15 +50,15 @@ public final class PushDownNegationsExpressionRewriter
         @Override
         public Expression rewriteNotExpression(NotExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (node.getValue() instanceof LogicalExpression child) {
+            if (node.value() instanceof LogicalExpression child) {
                 List<Expression> predicates = extractPredicates(child);
                 List<Expression> negatedPredicates = predicates.stream().map(predicate -> treeRewriter.rewrite((Expression) new NotExpression(predicate), context)).collect(toImmutableList());
-                return combinePredicates(child.getOperator().flip(), negatedPredicates);
+                return combinePredicates(child.operator().flip(), negatedPredicates);
             }
-            if (node.getValue() instanceof ComparisonExpression child && child.getOperator() != IS_DISTINCT_FROM) {
-                Operator operator = child.getOperator();
-                Expression left = child.getLeft();
-                Expression right = child.getRight();
+            if (node.value() instanceof ComparisonExpression child && child.operator() != IS_DISTINCT_FROM) {
+                Operator operator = child.operator();
+                Expression left = child.left();
+                Expression right = child.right();
                 Type leftType = left.type();
                 Type rightType = right.type();
                 if ((typeHasNaN(leftType) || typeHasNaN(rightType)) && (
@@ -70,11 +70,11 @@ public final class PushDownNegationsExpressionRewriter
                 }
                 return new ComparisonExpression(operator.negate(), treeRewriter.rewrite(left, context), treeRewriter.rewrite(right, context));
             }
-            if (node.getValue() instanceof NotExpression child) {
-                return treeRewriter.rewrite(child.getValue(), context);
+            if (node.value() instanceof NotExpression child) {
+                return treeRewriter.rewrite(child.value(), context);
             }
 
-            return new NotExpression(treeRewriter.rewrite(node.getValue(), context));
+            return new NotExpression(treeRewriter.rewrite(node.value(), context));
         }
 
         private boolean typeHasNaN(Type type)

@@ -142,7 +142,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
     {
         SymbolReference semiJoinOutputSymbolReference = semiJoinOutput.toSymbolReference();
         return conjunct.equals(semiJoinOutputSymbolReference) ||
-                (conjunct instanceof NotExpression && ((NotExpression) conjunct).getValue().equals(semiJoinOutputSymbolReference));
+                (conjunct instanceof NotExpression && ((NotExpression) conjunct).value().equals(semiJoinOutputSymbolReference));
     }
 
     private static class SemiJoinOutputFilter

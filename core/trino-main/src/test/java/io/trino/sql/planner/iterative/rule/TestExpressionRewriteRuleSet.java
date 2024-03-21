@@ -57,7 +57,7 @@ public class TestExpressionRewriteRuleSet
                 public Expression rewriteRow(Row node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
                 {
                     // rewrite Row items to preserve Row structure of ValuesNode
-                    return new Row(node.getItems().stream().map(item -> new Constant(INTEGER, 0L)).collect(toImmutableList()));
+                    return new Row(node.items().stream().map(item -> new Constant(INTEGER, 0L)).collect(toImmutableList()));
                 }
             }, expression));
 

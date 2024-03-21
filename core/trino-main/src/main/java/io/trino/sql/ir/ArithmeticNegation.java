@@ -36,12 +36,6 @@ public record ArithmeticNegation(Expression value)
         return value.type();
     }
 
-    @Deprecated
-    public Expression getValue()
-    {
-        return value;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

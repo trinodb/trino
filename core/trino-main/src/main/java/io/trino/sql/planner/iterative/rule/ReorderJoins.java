@@ -382,15 +382,15 @@ public class ReorderJoins
         private static boolean isJoinEqualityCondition(Expression expression)
         {
             return expression instanceof ComparisonExpression
-                    && ((ComparisonExpression) expression).getOperator() == EQUAL
-                    && ((ComparisonExpression) expression).getLeft() instanceof SymbolReference
-                    && ((ComparisonExpression) expression).getRight() instanceof SymbolReference;
+                    && ((ComparisonExpression) expression).operator() == EQUAL
+                    && ((ComparisonExpression) expression).left() instanceof SymbolReference
+                    && ((ComparisonExpression) expression).right() instanceof SymbolReference;
         }
 
         private static EquiJoinClause toEquiJoinClause(ComparisonExpression equality, Set<Symbol> leftSymbols)
         {
-            Symbol leftSymbol = Symbol.from(equality.getLeft());
-            Symbol rightSymbol = Symbol.from(equality.getRight());
+            Symbol leftSymbol = Symbol.from(equality.left());
+            Symbol rightSymbol = Symbol.from(equality.right());
             EquiJoinClause equiJoinClause = new EquiJoinClause(leftSymbol, rightSymbol);
             return leftSymbols.contains(leftSymbol) ? equiJoinClause : equiJoinClause.flip();
         }

@@ -39,18 +39,6 @@ public record FunctionCall(ResolvedFunction function, List<Expression> arguments
         return function.getSignature().getReturnType();
     }
 
-    @Deprecated
-    public ResolvedFunction getFunction()
-    {
-        return function;
-    }
-
-    @Deprecated
-    public List<Expression> getArguments()
-    {
-        return arguments;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

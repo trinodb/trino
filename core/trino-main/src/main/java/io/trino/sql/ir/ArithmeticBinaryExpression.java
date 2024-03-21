@@ -60,30 +60,6 @@ public record ArithmeticBinaryExpression(ResolvedFunction function, Operator ope
         return function.getSignature().getReturnType();
     }
 
-    @Deprecated
-    public ResolvedFunction getFunction()
-    {
-        return function;
-    }
-
-    @Deprecated
-    public Operator getOperator()
-    {
-        return operator;
-    }
-
-    @Deprecated
-    public Expression getLeft()
-    {
-        return left;
-    }
-
-    @Deprecated
-    public Expression getRight()
-    {
-        return right;
-    }
-
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {

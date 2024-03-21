@@ -86,7 +86,7 @@ public class AggregationMatcher
                 .collect(toImmutableSet());
 
         Set<Symbol> expectedMasks = masks.stream()
-                .map(name -> new Symbol(UNKNOWN, symbolAliases.get(name).getName()))
+                .map(name -> new Symbol(UNKNOWN, symbolAliases.get(name).name()))
                 .collect(toImmutableSet());
 
         if (!actualMasks.equals(expectedMasks)) {
@@ -116,7 +116,7 @@ public class AggregationMatcher
 
         List<Symbol> expectedSymbols = expectedAliases
                 .stream()
-                .map(alias -> new Symbol(UNKNOWN, symbolAliases.get(alias).getName()))
+                .map(alias -> new Symbol(UNKNOWN, symbolAliases.get(alias).name()))
                 .collect(toImmutableList());
         for (Symbol symbol : expectedSymbols) {
             if (!actualSymbols.contains(symbol)) {

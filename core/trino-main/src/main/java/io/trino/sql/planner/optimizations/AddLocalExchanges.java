@@ -183,7 +183,7 @@ public class AddLocalExchanges
         {
             // Special handling for trivial projections. Applies to identity and renaming projections, and constants
             // It might be extended to handle other low-cost projections.
-            if (node.getAssignments().getExpressions().stream().allMatch(expression -> expression instanceof SymbolReference || expression instanceof Constant constant && constant.getValue() != null)) {
+            if (node.getAssignments().getExpressions().stream().allMatch(expression -> expression instanceof SymbolReference || expression instanceof Constant constant && constant.value() != null)) {
                 if (parentPreferences.isSingleStreamPreferred()) {
                     // Do not enforce gathering exchange below project:
                     // - if project's source is single stream, no exchanges will be added around project,
