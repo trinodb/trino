@@ -66,12 +66,13 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
+import org.apache.hadoop.hbase.client.ColumnFamilyDescriptor;
+import org.apache.hadoop.hbase.client.ColumnFamilyDescriptorBuilder;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.io.compress.Compression;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.apache.hadoop.hbase.regionserver.BloomType;
@@ -681,12 +682,12 @@ public class PhoenixClient
             PhoenixTableProperties.getSplitOn(tableProperties).ifPresent(value -> tableOptions.add("SPLIT ON (" + value.replace('"', '\'') + ")"));
             PhoenixTableProperties.getDisableWal(tableProperties).ifPresent(value -> tableOptions.add(TableProperty.DISABLE_WAL + "=" + value));
             PhoenixTableProperties.getDefaultColumnFamily(tableProperties).ifPresent(value -> tableOptions.add(TableProperty.DEFAULT_COLUMN_FAMILY + "=" + value));
-            PhoenixTableProperties.getBloomfilter(tableProperties).ifPresent(value -> tableOptions.add(HColumnDescriptor.BLOOMFILTER + "='" + value + "'"));
+            PhoenixTableProperties.getBloomfilter(tableProperties).ifPresent(value -> tableOptions.add(ColumnFamilyDescriptorBuilder.BLOOMFILTER + "='" + value + "'"));
             PhoenixTableProperties.getVersions(tableProperties).ifPresent(value -> tableOptions.add(HConstants.VERSIONS + "=" + value));
-            PhoenixTableProperties.getMinVersions(tableProperties).ifPresent(value -> tableOptions.add(HColumnDescriptor.MIN_VERSIONS + "=" + value));
-            PhoenixTableProperties.getCompression(tableProperties).ifPresent(value -> tableOptions.add(HColumnDescriptor.COMPRESSION + "='" + value + "'"));
-            PhoenixTableProperties.getTimeToLive(tableProperties).ifPresent(value -> tableOptions.add(HColumnDescriptor.TTL + "=" + value));
-            PhoenixTableProperties.getDataBlockEncoding(tableProperties).ifPresent(value -> tableOptions.add(HColumnDescriptor.DATA_BLOCK_ENCODING + "='" + value + "'"));
+            PhoenixTableProperties.getMinVersions(tableProperties).ifPresent(value -> tableOptions.add(ColumnFamilyDescriptorBuilder.MIN_VERSIONS + "=" + value));
+            PhoenixTableProperties.getCompression(tableProperties).ifPresent(value -> tableOptions.add(ColumnFamilyDescriptorBuilder.COMPRESSION + "='" + value + "'"));
+            PhoenixTableProperties.getTimeToLive(tableProperties).ifPresent(value -> tableOptions.add(ColumnFamilyDescriptorBuilder.TTL + "=" + value));
+            PhoenixTableProperties.getDataBlockEncoding(tableProperties).ifPresent(value -> tableOptions.add(ColumnFamilyDescriptorBuilder.DATA_BLOCK_ENCODING + "='" + value + "'"));
 
             String sql = format(
                     "CREATE %s TABLE %s (%s , CONSTRAINT PK PRIMARY KEY (%s)) %s",
@@ -761,10 +762,10 @@ public class PhoenixClient
                 properties.put(PhoenixTableProperties.DEFAULT_COLUMN_FAMILY, defaultFamilyName);
             }
 
-            HTableDescriptor tableDesc = admin.getTableDescriptor(TableName.valueOf(table.getPhysicalName().getBytes()));
+            TableDescriptor tableDesc = admin.getDescriptor(TableName.valueOf(table.getPhysicalName().getBytes()));
 
-            HColumnDescriptor[] columnFamilies = tableDesc.getColumnFamilies();
-            for (HColumnDescriptor columnFamily : columnFamilies) {
+            ColumnFamilyDescriptor[] columnFamilies = tableDesc.getColumnFamilies();
+            for (ColumnFamilyDescriptor columnFamily : columnFamilies) {
                 if (columnFamily.getNameAsString().equals(defaultFamilyName)) {
                     if (columnFamily.getBloomFilterType() != BloomType.NONE) {
                         properties.put(PhoenixTableProperties.BLOOMFILTER, columnFamily.getBloomFilterType());
@@ -775,8 +776,8 @@ public class PhoenixClient
                     if (columnFamily.getMinVersions() > 0) {
                         properties.put(PhoenixTableProperties.MIN_VERSIONS, columnFamily.getMinVersions());
                     }
-                    if (columnFamily.getCompression() != Compression.Algorithm.NONE) {
-                        properties.put(PhoenixTableProperties.COMPRESSION, columnFamily.getCompression());
+                    if (columnFamily.getCompressionType() != Compression.Algorithm.NONE) {
+                        properties.put(PhoenixTableProperties.COMPRESSION, columnFamily.getCompressionType());
                     }
                     if (columnFamily.getTimeToLive() < FOREVER) {
                         properties.put(PhoenixTableProperties.TTL, columnFamily.getTimeToLive());
