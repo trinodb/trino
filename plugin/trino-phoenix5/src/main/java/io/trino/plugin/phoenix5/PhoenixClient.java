@@ -715,6 +715,12 @@ public class PhoenixClient
     }
 
     @Override
+    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming columns");
+    }
+
+    @Override
     protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables");
