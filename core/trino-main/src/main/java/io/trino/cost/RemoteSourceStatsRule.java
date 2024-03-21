@@ -116,8 +116,8 @@ public class RemoteSourceStatsRule
             double nullsFraction = firstNonNaN(symbolStatistics.getNullsFraction(), 0d);
             double numberOfNonNullRows = runtimeStats.outputRowCountEstimate() * (1.0 - nullsFraction);
 
-            if (type instanceof FixedWidthType) {
-                fixedWidthTypeSize += numberOfNonNullRows * ((FixedWidthType) type).getFixedSize();
+            if (type instanceof FixedWidthType fixedType) {
+                fixedWidthTypeSize += numberOfNonNullRows * fixedType.getFixedSize();
             }
             else {
                 variableTypeValuesCount += numberOfNonNullRows;

@@ -101,10 +101,10 @@ public class InCodeGenerator
             // For non-constant expressions, they will be added to the default case in the generated switch code. They do not affect any of
             // the cases other than the default one. Therefore, it's okay to skip them when choosing between DIRECT_SWITCH and HASH_SWITCH.
             // Same argument applies for nulls.
-            if (!(expression instanceof ConstantExpression)) {
+            if (!(expression instanceof ConstantExpression constantExpression)) {
                 continue;
             }
-            Object constant = ((ConstantExpression) expression).getValue();
+            Object constant = constantExpression.getValue();
             if (constant == null) {
                 continue;
             }
