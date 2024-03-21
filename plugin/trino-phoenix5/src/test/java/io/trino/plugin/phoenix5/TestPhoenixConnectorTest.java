@@ -25,7 +25,6 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
@@ -99,6 +98,7 @@ public class TestPhoenixConnectorTest
                     SUPPORTS_LIMIT_PUSHDOWN,
                     SUPPORTS_NATIVE_QUERY,
                     SUPPORTS_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_RENAME_COLUMN,
                     SUPPORTS_RENAME_SCHEMA,
                     SUPPORTS_RENAME_TABLE,
                     SUPPORTS_ROW_TYPE,
@@ -215,33 +215,6 @@ public class TestPhoenixConnectorTest
     {
         // Apparently all Phoenix types are supported in the Phoenix connector.
         return abort("Cannot find an unsupported data type");
-    }
-
-    @Test
-    @Override
-    public void testRenameColumn()
-    {
-        assertThatThrownBy(super::testRenameColumn)
-                // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
-                .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
-        abort("Rename column is not yet supported by Phoenix connector");
-    }
-
-    @Test
-    @Override
-    public void testAlterTableRenameColumnToLongName()
-    {
-        assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
-                // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
-                .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
-        abort("Rename column is not yet supported by Phoenix connector");
-    }
-
-    @Test
-    @Disabled
-    @Override
-    public void testRenameColumnName()
-    {
     }
 
     @Test
