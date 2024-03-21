@@ -78,8 +78,8 @@ public class TestPartialTranslator
     public void testPartialTranslator()
     {
         Expression rowSymbolReference = new SymbolReference(RowType.anonymousRow(INTEGER, INTEGER), "row_symbol_1");
-        Expression dereferenceExpression1 = new SubscriptExpression(rowSymbolReference, new Constant(INTEGER, 1L));
-        Expression dereferenceExpression2 = new SubscriptExpression(rowSymbolReference, new Constant(INTEGER, 2L));
+        Expression dereferenceExpression1 = new SubscriptExpression(INTEGER, rowSymbolReference, new Constant(INTEGER, 1L));
+        Expression dereferenceExpression2 = new SubscriptExpression(INTEGER, rowSymbolReference, new Constant(INTEGER, 2L));
         Expression stringLiteral = new Constant(VARCHAR, Slices.utf8Slice("abcd"));
         Expression symbolReference1 = new SymbolReference(DOUBLE, "double_symbol_1");
 

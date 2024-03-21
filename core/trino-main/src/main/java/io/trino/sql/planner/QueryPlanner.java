@@ -889,7 +889,7 @@ class QueryPlanner
                 subPlanProject,
                 Assignments.builder()
                         .putIdentities(subPlanProject.getOutputSymbols())
-                        .put(caseNumberSymbol, new SubscriptExpression(mergeRowSymbol.toSymbolReference(), new Constant(INTEGER, (long) mergeAnalysis.getMergeRowType().getFields().size())))
+                        .put(caseNumberSymbol, new SubscriptExpression(INTEGER, mergeRowSymbol.toSymbolReference(), new Constant(INTEGER, (long) mergeAnalysis.getMergeRowType().getFields().size())))
                         .build());
 
         // Mark distinct combinations of the unique_id value and the case_number

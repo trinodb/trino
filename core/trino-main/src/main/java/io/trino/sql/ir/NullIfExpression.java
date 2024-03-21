@@ -15,6 +15,7 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
@@ -31,6 +32,12 @@ public record NullIfExpression(Expression first, Expression second)
     {
         requireNonNull(first, "first is null");
         requireNonNull(second, "second is null");
+    }
+
+    @Override
+    public Type type()
+    {
+        return first.type();
     }
 
     @Deprecated

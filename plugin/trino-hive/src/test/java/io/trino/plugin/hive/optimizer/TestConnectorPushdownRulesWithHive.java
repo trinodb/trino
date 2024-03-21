@@ -196,7 +196,7 @@ public class TestConnectorPushdownRulesWithHive
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_deref", BIGINT), new SubscriptExpression(p.symbol("struct_of_int", baseType).toSymbolReference(), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_deref", BIGINT), new SubscriptExpression(INTEGER, p.symbol("struct_of_int", baseType).toSymbolReference(), new Constant(INTEGER, 1L))),
                                 p.tableScan(
                                         table,
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
@@ -338,7 +338,7 @@ public class TestConnectorPushdownRulesWithHive
         // Test Dereference pushdown
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p -> {
-                    SubscriptExpression subscript = new SubscriptExpression(p.symbol("struct_of_bigint", ROW_TYPE).toSymbolReference(), new Constant(INTEGER, 1L));
+                    SubscriptExpression subscript = new SubscriptExpression(BIGINT, p.symbol("struct_of_bigint", ROW_TYPE).toSymbolReference(), new Constant(INTEGER, 1L));
                     Expression sum = new ArithmeticBinaryExpression(ADD_INTEGER, ADD, subscript, new Constant(INTEGER, 2L));
                     return p.project(
                             Assignments.of(

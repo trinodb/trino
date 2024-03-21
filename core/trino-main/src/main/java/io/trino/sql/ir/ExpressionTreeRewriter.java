@@ -149,7 +149,7 @@ public final class ExpressionTreeRewriter<C>
             Expression index = rewrite(node.getIndex(), context.get());
 
             if (base != node.getBase() || index != node.getIndex()) {
-                return new SubscriptExpression(base, index);
+                return new SubscriptExpression(node.type(), base, index);
             }
 
             return node;
@@ -408,7 +408,7 @@ public final class ExpressionTreeRewriter<C>
             Expression function = rewrite(node.getFunction(), context.get());
 
             if (!sameElements(values, node.getValues()) || (function != node.getFunction())) {
-                return new BindExpression(values, function);
+                return new BindExpression(values, (LambdaExpression) function);
             }
             return node;
         }

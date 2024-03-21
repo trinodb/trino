@@ -16,6 +16,7 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,6 +31,12 @@ public record FunctionCall(ResolvedFunction function, List<Expression> arguments
     {
         requireNonNull(function, "function is null");
         arguments = ImmutableList.copyOf(arguments);
+    }
+
+    @Override
+    public Type type()
+    {
+        return function.getSignature().getReturnType();
     }
 
     @Deprecated
