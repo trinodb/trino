@@ -23,6 +23,8 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 import io.trino.util.PowerOfTwo;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -103,6 +105,7 @@ public class TaskManagerConfig
     private int httpResponseThreads = 100;
     private int httpTimeoutThreads = 3;
 
+    private double lowQueryPriorityResourcePercentage = 0.01;
     private int taskNotificationThreads = 5;
     private int taskYieldThreads = 3;
     private int driverTimeoutThreads = 5;
@@ -541,6 +544,21 @@ public class TaskManagerConfig
     public TaskManagerConfig setHttpTimeoutThreads(int httpTimeoutThreads)
     {
         this.httpTimeoutThreads = httpTimeoutThreads;
+        return this;
+    }
+
+    @DecimalMin(value = "0", inclusive = false)
+    @DecimalMax(value = "1", inclusive = false)
+    public double getLowQueryPriorityResourcePercentage()
+    {
+        return lowQueryPriorityResourcePercentage;
+    }
+
+    @Config("query.priority.low.resource-percentage")
+    @ConfigDescription("The share of resources (CPU, Network), low priority query can use when the resource is fully utilized")
+    public TaskManagerConfig setLowQueryPriorityResourcePercentage(double lowQueryPriorityResourcePercentage)
+    {
+        this.lowQueryPriorityResourcePercentage = lowQueryPriorityResourcePercentage;
         return this;
     }
 
