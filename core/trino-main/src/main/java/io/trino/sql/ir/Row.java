@@ -46,7 +46,7 @@ public record Row(List<Expression> items)
     }
 
     @Override
-    public List<? extends Expression> getChildren()
+    public List<? extends Expression> children()
     {
         return items;
     }

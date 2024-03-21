@@ -15,49 +15,37 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record FunctionCall(ResolvedFunction function, List<Expression> arguments)
+public record Not(Expression value)
         implements Expression
 {
-    public FunctionCall
+    public Not
     {
-        requireNonNull(function, "function is null");
-        arguments = ImmutableList.copyOf(arguments);
+        requireNonNull(value, "value is null");
     }
 
     @Override
     public Type type()
     {
-        return function.getSignature().getReturnType();
+        return BOOLEAN;
     }
 
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitFunctionCall(this, context);
+        return visitor.visitNot(this, context);
     }
 
     @Override
-    public List<? extends Expression> getChildren()
+    public List<? extends Expression> children()
     {
-        return arguments;
-    }
-
-    @Override
-    public String toString()
-    {
-        return "%s(%s)".formatted(
-                function.getName(),
-                arguments.stream()
-                        .map(Expression::toString)
-                        .collect(Collectors.joining(", ")));
+        return ImmutableList.of(value);
     }
 }

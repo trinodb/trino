@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
@@ -35,7 +35,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -85,7 +85,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 INNER,
                                 p.values(1, p.symbol("a")),
                                 p.values(5, p.symbol("b")),
-                                new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "a"), new SymbolReference(BIGINT, "b"))))
+                                new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))))
                 .doesNotFire();
     }
 
@@ -134,7 +134,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 LEFT,
                                 p.values(1, p.symbol("a")),
                                 p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 5L)),
+                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
                                         p.values(10, p.symbol("b")))))
                 .doesNotFire();
 
@@ -143,7 +143,7 @@ public class TestReplaceJoinOverConstantWithProject
                         p.join(
                                 RIGHT,
                                 p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 5L)),
+                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                                         p.values(10, p.symbol("a"))),
                                 p.values(1, p.symbol("b"))))
                 .doesNotFire();
@@ -154,7 +154,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 FULL,
                                 p.values(1, p.symbol("a")),
                                 p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "b"), new Constant(INTEGER, 5L)),
+                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
                                         p.values(10, p.symbol("b")))))
                 .doesNotFire();
 
@@ -163,7 +163,7 @@ public class TestReplaceJoinOverConstantWithProject
                         p.join(
                                 FULL,
                                 p.filter(
-                                        new ComparisonExpression(GREATER_THAN, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 5L)),
+                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                                         p.values(10, p.symbol("a"))),
                                 p.values(1, p.symbol("b"))))
                 .doesNotFire();
@@ -183,7 +183,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(new Constant(INTEGER, 1L)),
                                         "b", PlanMatchPattern.expression(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
-                                        "c", PlanMatchPattern.expression(new SymbolReference(BIGINT, "c"))),
+                                        "c", PlanMatchPattern.expression(new Reference(BIGINT, "c"))),
                                 values("c")));
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
@@ -197,7 +197,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(new Constant(INTEGER, 1L)),
                                         "b", PlanMatchPattern.expression(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
-                                        "c", PlanMatchPattern.expression(new SymbolReference(BIGINT, "c"))),
+                                        "c", PlanMatchPattern.expression(new Reference(BIGINT, "c"))),
                                 values("c")));
     }
 
@@ -215,7 +215,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(new Constant(INTEGER, 1L)),
                                         "b", PlanMatchPattern.expression(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
-                                        "c", PlanMatchPattern.expression(new SymbolReference(BIGINT, "c"))),
+                                        "c", PlanMatchPattern.expression(new Reference(BIGINT, "c"))),
                                 values("c")));
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
@@ -229,7 +229,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(new Constant(INTEGER, 1L)),
                                         "b", PlanMatchPattern.expression(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
-                                        "c", PlanMatchPattern.expression(new SymbolReference(BIGINT, "c"))),
+                                        "c", PlanMatchPattern.expression(new Reference(BIGINT, "c"))),
                                 values("c")));
     }
 
@@ -247,7 +247,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(new Constant(INTEGER, 1L)),
                                         "b", PlanMatchPattern.expression(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
-                                        "c", PlanMatchPattern.expression(new SymbolReference(BIGINT, "c"))),
+                                        "c", PlanMatchPattern.expression(new Reference(BIGINT, "c"))),
                                 values("c")));
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
@@ -261,7 +261,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(new Constant(INTEGER, 1L)),
                                         "b", PlanMatchPattern.expression(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
-                                        "c", PlanMatchPattern.expression(new SymbolReference(BIGINT, "c"))),
+                                        "c", PlanMatchPattern.expression(new Reference(BIGINT, "c"))),
                                 values("c")));
     }
 
@@ -279,7 +279,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(new Constant(INTEGER, 1L)),
                                         "b", PlanMatchPattern.expression(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
-                                        "c", PlanMatchPattern.expression(new SymbolReference(BIGINT, "c"))),
+                                        "c", PlanMatchPattern.expression(new Reference(BIGINT, "c"))),
                                 values("c")));
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
@@ -293,7 +293,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(new Constant(INTEGER, 1L)),
                                         "b", PlanMatchPattern.expression(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
-                                        "c", PlanMatchPattern.expression(new SymbolReference(BIGINT, "c"))),
+                                        "c", PlanMatchPattern.expression(new Reference(BIGINT, "c"))),
                                 values("c")));
     }
 
@@ -315,14 +315,14 @@ public class TestReplaceJoinOverConstantWithProject
                                 ImmutableMap.of(
                                         "a", PlanMatchPattern.expression(new Constant(INTEGER, 1L)),
                                         "b", PlanMatchPattern.expression(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("x"))),
-                                        "c", PlanMatchPattern.expression(new SymbolReference(BIGINT, "c"))),
+                                        "c", PlanMatchPattern.expression(new Reference(BIGINT, "c"))),
                                 values("c")));
     }
 
     @Test
     public void testNonDeterministicValues()
     {
-        FunctionCall randomFunction = new FunctionCall(
+        Call randomFunction = new Call(
                 tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()),
                 ImmutableList.of());
 
@@ -334,7 +334,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 p.values(5, p.symbol("b"))))
                 .doesNotFire();
 
-        FunctionCall uuidFunction = new FunctionCall(
+        Call uuidFunction = new Call(
                 tester().getMetadata().resolveBuiltinFunction("uuid", ImmutableList.of()),
                 ImmutableList.of());
 

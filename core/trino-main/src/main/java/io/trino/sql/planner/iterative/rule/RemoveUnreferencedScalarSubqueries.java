@@ -20,7 +20,7 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtLeastScalar;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -32,7 +32,7 @@ public class RemoveUnreferencedScalarSubqueries
         implements Rule<CorrelatedJoinNode>
 {
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
-            .with(filter().equalTo(TRUE_LITERAL));
+            .with(filter().equalTo(TRUE));
 
     @Override
     public Pattern<CorrelatedJoinNode> getPattern()

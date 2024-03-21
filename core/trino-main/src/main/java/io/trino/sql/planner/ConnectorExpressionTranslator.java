@@ -24,7 +24,6 @@ import io.trino.operator.scalar.JsonPath;
 import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
-import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
@@ -37,22 +36,22 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticNegation;
-import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Between;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullIfExpression;
-import io.trino.sql.ir.SubscriptExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Negation;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.NullIf;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Subscript;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.type.JoniRegexp;
 import io.trino.type.JsonPathType;
@@ -148,7 +147,7 @@ public final class ConnectorExpressionTranslator
     }
 
     @VisibleForTesting
-    static FunctionName functionNameForComparisonOperator(ComparisonExpression.Operator operator)
+    static FunctionName functionNameForComparisonOperator(Comparison.Operator operator)
     {
         return switch (operator) {
             case EQUAL -> EQUAL_OPERATOR_FUNCTION_NAME;
@@ -162,7 +161,7 @@ public final class ConnectorExpressionTranslator
     }
 
     @VisibleForTesting
-    static FunctionName functionNameForArithmeticBinaryOperator(ArithmeticBinaryExpression.Operator operator)
+    static FunctionName functionNameForArithmeticBinaryOperator(Arithmetic.Operator operator)
     {
         return switch (operator) {
             case ADD -> ADD_FUNCTION_NAME;
@@ -208,17 +207,17 @@ public final class ConnectorExpressionTranslator
 
             if (expression instanceof FieldDereference dereference) {
                 return translate(dereference.getTarget())
-                        .map(base -> new SubscriptExpression(dereference.getType(), base, new Constant(INTEGER, (long) (dereference.getField() + 1))));
+                        .map(base -> new Subscript(dereference.getType(), base, new Constant(INTEGER, (long) (dereference.getField() + 1))));
             }
 
-            if (expression instanceof Call) {
-                return translateCall((Call) expression);
+            if (expression instanceof io.trino.spi.expression.Call) {
+                return translateCall((io.trino.spi.expression.Call) expression);
             }
 
             return Optional.empty();
         }
 
-        protected Optional<Expression> translateCall(Call call)
+        protected Optional<Expression> translateCall(io.trino.spi.expression.Call call)
         {
             if (call.getFunctionName().getCatalogSchema().isPresent()) {
                 CatalogSchemaName catalogSchemaName = call.getFunctionName().getCatalogSchema().get();
@@ -234,15 +233,15 @@ public final class ConnectorExpressionTranslator
             }
 
             if (AND_FUNCTION_NAME.equals(call.getFunctionName())) {
-                return translateLogicalExpression(LogicalExpression.Operator.AND, call.getArguments());
+                return translateLogicalExpression(Logical.Operator.AND, call.getArguments());
             }
             if (OR_FUNCTION_NAME.equals(call.getFunctionName())) {
-                return translateLogicalExpression(LogicalExpression.Operator.OR, call.getArguments());
+                return translateLogicalExpression(Logical.Operator.OR, call.getArguments());
             }
             if (NOT_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
                 ConnectorExpression expression = getOnlyElement(call.getArguments());
 
-                if (expression instanceof Call innerCall) {
+                if (expression instanceof io.trino.spi.expression.Call innerCall) {
                     if (innerCall.getFunctionName().equals(IS_NULL_FUNCTION_NAME) && innerCall.getArguments().size() == 1) {
                         return translateIsNotNull(innerCall.getArguments().get(0));
                     }
@@ -263,7 +262,7 @@ public final class ConnectorExpressionTranslator
 
             // comparisons
             if (call.getArguments().size() == 2) {
-                Optional<ComparisonExpression.Operator> operator = comparisonOperatorForFunctionName(call.getFunctionName());
+                Optional<Comparison.Operator> operator = comparisonOperatorForFunctionName(call.getFunctionName());
                 if (operator.isPresent()) {
                     return translateComparison(operator.get(), call.getArguments().get(0), call.getArguments().get(1));
                 }
@@ -271,7 +270,7 @@ public final class ConnectorExpressionTranslator
 
             // arithmetic binary
             if (call.getArguments().size() == 2) {
-                Optional<ArithmeticBinaryExpression.Operator> operator = arithmeticBinaryOperatorForFunctionName(call.getFunctionName());
+                Optional<Arithmetic.Operator> operator = arithmeticBinaryOperatorForFunctionName(call.getFunctionName());
                 if (operator.isPresent()) {
                     return translateArithmeticBinary(operator.get(), call.getArguments().get(0), call.getArguments().get(1));
                 }
@@ -279,7 +278,7 @@ public final class ConnectorExpressionTranslator
 
             // arithmetic unary
             if (NEGATE_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
-                return translate(getOnlyElement(call.getArguments())).map(argument -> new ArithmeticNegation(argument));
+                return translate(getOnlyElement(call.getArguments())).map(argument -> new Negation(argument));
             }
 
             if (StandardFunctions.LIKE_FUNCTION_NAME.equals(call.getFunctionName())) {
@@ -331,7 +330,7 @@ public final class ConnectorExpressionTranslator
         {
             Optional<Expression> translatedArgument = translate(argument);
             if (translatedArgument.isPresent()) {
-                return Optional.of(new NotExpression(new IsNullPredicate(translatedArgument.get())));
+                return Optional.of(new Not(new IsNull(translatedArgument.get())));
             }
 
             return Optional.empty();
@@ -341,7 +340,7 @@ public final class ConnectorExpressionTranslator
         {
             Optional<Expression> translatedArgument = translate(argument);
             if (translatedArgument.isPresent()) {
-                return Optional.of(new IsNullPredicate(translatedArgument.get()));
+                return Optional.of(new IsNull(translatedArgument.get()));
             }
 
             return Optional.empty();
@@ -351,7 +350,7 @@ public final class ConnectorExpressionTranslator
         {
             Optional<Expression> translatedArgument = translate(argument);
             if (argument.getType().equals(BOOLEAN) && translatedArgument.isPresent()) {
-                return Optional.of(new NotExpression(translatedArgument.get()));
+                return Optional.of(new Not(translatedArgument.get()));
             }
             return Optional.empty();
         }
@@ -367,17 +366,17 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        private Optional<Expression> translateLogicalExpression(LogicalExpression.Operator operator, List<ConnectorExpression> arguments)
+        private Optional<Expression> translateLogicalExpression(Logical.Operator operator, List<ConnectorExpression> arguments)
         {
             Optional<List<Expression>> translatedArguments = translateExpressions(arguments);
-            return translatedArguments.map(expressions -> new LogicalExpression(operator, expressions));
+            return translatedArguments.map(expressions -> new Logical(operator, expressions));
         }
 
-        private Optional<Expression> translateComparison(ComparisonExpression.Operator operator, ConnectorExpression left, ConnectorExpression right)
+        private Optional<Expression> translateComparison(Comparison.Operator operator, ConnectorExpression left, ConnectorExpression right)
         {
             return translate(left).flatMap(leftTranslated ->
                     translate(right).map(rightTranslated ->
-                            new ComparisonExpression(operator, leftTranslated, rightTranslated)));
+                            new Comparison(operator, leftTranslated, rightTranslated)));
         }
 
         private Optional<Expression> translateNullIf(ConnectorExpression first, ConnectorExpression second)
@@ -385,39 +384,39 @@ public final class ConnectorExpressionTranslator
             Optional<Expression> firstExpression = translate(first);
             Optional<Expression> secondExpression = translate(second);
             if (firstExpression.isPresent() && secondExpression.isPresent()) {
-                return Optional.of(new NullIfExpression(firstExpression.get(), secondExpression.get()));
+                return Optional.of(new NullIf(firstExpression.get(), secondExpression.get()));
             }
 
             return Optional.empty();
         }
 
-        private Optional<ComparisonExpression.Operator> comparisonOperatorForFunctionName(FunctionName functionName)
+        private Optional<Comparison.Operator> comparisonOperatorForFunctionName(FunctionName functionName)
         {
             if (EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ComparisonExpression.Operator.EQUAL);
+                return Optional.of(Comparison.Operator.EQUAL);
             }
             if (NOT_EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ComparisonExpression.Operator.NOT_EQUAL);
+                return Optional.of(Comparison.Operator.NOT_EQUAL);
             }
             if (LESS_THAN_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ComparisonExpression.Operator.LESS_THAN);
+                return Optional.of(Comparison.Operator.LESS_THAN);
             }
             if (LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL);
+                return Optional.of(Comparison.Operator.LESS_THAN_OR_EQUAL);
             }
             if (GREATER_THAN_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ComparisonExpression.Operator.GREATER_THAN);
+                return Optional.of(Comparison.Operator.GREATER_THAN);
             }
             if (GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL);
+                return Optional.of(Comparison.Operator.GREATER_THAN_OR_EQUAL);
             }
             if (IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM);
+                return Optional.of(Comparison.Operator.IS_DISTINCT_FROM);
             }
             return Optional.empty();
         }
 
-        private Optional<Expression> translateArithmeticBinary(ArithmeticBinaryExpression.Operator operator, ConnectorExpression left, ConnectorExpression right)
+        private Optional<Expression> translateArithmeticBinary(Arithmetic.Operator operator, ConnectorExpression left, ConnectorExpression right)
         {
             OperatorType operatorType = switch (operator) {
                 case ADD -> OperatorType.ADD;
@@ -430,25 +429,25 @@ public final class ConnectorExpressionTranslator
 
             return translate(left).flatMap(leftTranslated ->
                     translate(right).map(rightTranslated ->
-                            new ArithmeticBinaryExpression(function, operator, leftTranslated, rightTranslated)));
+                            new Arithmetic(function, operator, leftTranslated, rightTranslated)));
         }
 
-        private Optional<ArithmeticBinaryExpression.Operator> arithmeticBinaryOperatorForFunctionName(FunctionName functionName)
+        private Optional<Arithmetic.Operator> arithmeticBinaryOperatorForFunctionName(FunctionName functionName)
         {
             if (ADD_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ArithmeticBinaryExpression.Operator.ADD);
+                return Optional.of(Arithmetic.Operator.ADD);
             }
             if (SUBTRACT_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ArithmeticBinaryExpression.Operator.SUBTRACT);
+                return Optional.of(Arithmetic.Operator.SUBTRACT);
             }
             if (MULTIPLY_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ArithmeticBinaryExpression.Operator.MULTIPLY);
+                return Optional.of(Arithmetic.Operator.MULTIPLY);
             }
             if (DIVIDE_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ArithmeticBinaryExpression.Operator.DIVIDE);
+                return Optional.of(Arithmetic.Operator.DIVIDE);
             }
             if (MODULUS_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(ArithmeticBinaryExpression.Operator.MODULUS);
+                return Optional.of(Arithmetic.Operator.MODULUS);
             }
             return Optional.empty();
         }
@@ -459,7 +458,7 @@ public final class ConnectorExpressionTranslator
             Optional<Expression> translatedPattern = translate(pattern);
 
             if (translatedValue.isPresent() && translatedPattern.isPresent()) {
-                FunctionCall patternCall;
+                Call patternCall;
                 if (escape.isPresent()) {
                     Optional<Expression> translatedEscape = translate(escape.get());
                     if (translatedEscape.isEmpty()) {
@@ -479,7 +478,7 @@ public final class ConnectorExpressionTranslator
                             .build();
                 }
 
-                FunctionCall call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                Call call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                         .setName(LIKE_FUNCTION_NAME)
                         .addArgument(value.getType(), translatedValue.get())
                         .addArgument(LIKE_PATTERN, patternCall)
@@ -497,7 +496,7 @@ public final class ConnectorExpressionTranslator
             Optional<List<Expression>> translatedValues = extractExpressionsFromArrayCall(values);
 
             if (translatedValue.isPresent() && translatedValues.isPresent()) {
-                return Optional.of(new InPredicate(translatedValue.get(), translatedValues.get()));
+                return Optional.of(new In(translatedValue.get(), translatedValues.get()));
             }
 
             return Optional.empty();
@@ -505,7 +504,7 @@ public final class ConnectorExpressionTranslator
 
         protected Optional<List<Expression>> extractExpressionsFromArrayCall(ConnectorExpression expression)
         {
-            if (!(expression instanceof Call call)) {
+            if (!(expression instanceof io.trino.spi.expression.Call call)) {
                 return Optional.empty();
             }
 
@@ -542,7 +541,7 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitSymbolReference(SymbolReference node, Void context)
+        protected Optional<ConnectorExpression> visitReference(Reference node, Void context)
         {
             return Optional.of(new Variable(node.name(), ((Expression) node).type()));
         }
@@ -554,7 +553,7 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitLogicalExpression(LogicalExpression node, Void context)
+        protected Optional<ConnectorExpression> visitLogical(Logical node, Void context)
         {
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
@@ -569,34 +568,34 @@ public final class ConnectorExpressionTranslator
                 arguments.add(translated.get());
             }
             return switch (node.operator()) {
-                case AND -> Optional.of(new Call(BOOLEAN, AND_FUNCTION_NAME, arguments.build()));
-                case OR -> Optional.of(new Call(BOOLEAN, OR_FUNCTION_NAME, arguments.build()));
+                case AND -> Optional.of(new io.trino.spi.expression.Call(BOOLEAN, AND_FUNCTION_NAME, arguments.build()));
+                case OR -> Optional.of(new io.trino.spi.expression.Call(BOOLEAN, OR_FUNCTION_NAME, arguments.build()));
             };
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitComparisonExpression(ComparisonExpression node, Void context)
+        protected Optional<ConnectorExpression> visitComparison(Comparison node, Void context)
         {
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
             }
 
             return process(node.left()).flatMap(left -> process(node.right()).map(right ->
-                    new Call(((Expression) node).type(), functionNameForComparisonOperator(node.operator()), ImmutableList.of(left, right))));
+                    new io.trino.spi.expression.Call(((Expression) node).type(), functionNameForComparisonOperator(node.operator()), ImmutableList.of(left, right))));
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
+        protected Optional<ConnectorExpression> visitArithmetic(Arithmetic node, Void context)
         {
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
             }
             return process(node.left()).flatMap(left -> process(node.right()).map(right ->
-                    new Call(((Expression) node).type(), functionNameForArithmeticBinaryOperator(node.operator()), ImmutableList.of(left, right))));
+                    new io.trino.spi.expression.Call(((Expression) node).type(), functionNameForArithmeticBinaryOperator(node.operator()), ImmutableList.of(left, right))));
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitBetweenPredicate(BetweenPredicate node, Void context)
+        protected Optional<ConnectorExpression> visitBetween(Between node, Void context)
         {
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
@@ -604,21 +603,21 @@ public final class ConnectorExpressionTranslator
             return process(node.value()).flatMap(value ->
                     process(node.min()).flatMap(min ->
                             process(node.max()).map(max ->
-                                    new Call(
+                                    new io.trino.spi.expression.Call(
                                             BOOLEAN,
                                             AND_FUNCTION_NAME,
                                             ImmutableList.of(
-                                                    new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, min)),
-                                                    new Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, max)))))));
+                                                    new io.trino.spi.expression.Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, min)),
+                                                    new io.trino.spi.expression.Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, max)))))));
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitArithmeticNegation(ArithmeticNegation node, Void context)
+        protected Optional<ConnectorExpression> visitNegation(Negation node, Void context)
         {
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
             }
-            return process(node.value()).map(value -> new Call(((Expression) node).type(), NEGATE_FUNCTION_NAME, ImmutableList.of(value)));
+            return process(node.value()).map(value -> new io.trino.spi.expression.Call(((Expression) node).type(), NEGATE_FUNCTION_NAME, ImmutableList.of(value)));
         }
 
         @Override
@@ -642,14 +641,14 @@ public final class ConnectorExpressionTranslator
 
             Optional<ConnectorExpression> translatedExpression = process(node.expression());
             if (translatedExpression.isPresent()) {
-                return Optional.of(new Call(node.type(), CAST_FUNCTION_NAME, List.of(translatedExpression.get())));
+                return Optional.of(new io.trino.spi.expression.Call(node.type(), CAST_FUNCTION_NAME, List.of(translatedExpression.get())));
             }
 
             return Optional.empty();
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitFunctionCall(FunctionCall node, Void context)
+        protected Optional<ConnectorExpression> visitCall(Call node, Void context)
         {
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
@@ -681,10 +680,10 @@ public final class ConnectorExpressionTranslator
             else {
                 name = new FunctionName(Optional.of(new CatalogSchemaName(functionName.getCatalogName(), functionName.getSchemaName())), functionName.getFunctionName());
             }
-            return Optional.of(new Call(((Expression) node).type(), name, arguments.build()));
+            return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), name, arguments.build()));
         }
 
-        private Optional<ConnectorExpression> translateLike(FunctionCall node)
+        private Optional<ConnectorExpression> translateLike(Call node)
         {
             // we need special handling for LIKE because within the engine IR a LIKE expression
             // is modeled as $like(value, $like_pattern(pattern, escape)) and we want
@@ -706,7 +705,7 @@ public final class ConnectorExpressionTranslator
                     arguments.add(new io.trino.spi.expression.Constant(Slices.utf8Slice(matcher.getEscape().get().toString()), createVarcharType(1)));
                 }
             }
-            else if (patternArgument instanceof FunctionCall call && call.function().getName().equals(builtinFunctionName(LIKE_PATTERN_FUNCTION_NAME))) {
+            else if (patternArgument instanceof Call call && call.function().getName().equals(builtinFunctionName(LIKE_PATTERN_FUNCTION_NAME))) {
                 Optional<ConnectorExpression> translatedPattern = process(call.arguments().get(0));
                 if (translatedPattern.isEmpty()) {
                     return Optional.empty();
@@ -725,25 +724,25 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            return Optional.of(new Call(((Expression) node).type(), StandardFunctions.LIKE_FUNCTION_NAME, arguments.build()));
+            return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), StandardFunctions.LIKE_FUNCTION_NAME, arguments.build()));
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitIsNullPredicate(IsNullPredicate node, Void context)
+        protected Optional<ConnectorExpression> visitIsNull(IsNull node, Void context)
         {
             Optional<ConnectorExpression> translatedValue = process(node.value());
             if (translatedValue.isPresent()) {
-                return Optional.of(new Call(BOOLEAN, IS_NULL_FUNCTION_NAME, ImmutableList.of(translatedValue.get())));
+                return Optional.of(new io.trino.spi.expression.Call(BOOLEAN, IS_NULL_FUNCTION_NAME, ImmutableList.of(translatedValue.get())));
             }
             return Optional.empty();
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitNotExpression(NotExpression node, Void context)
+        protected Optional<ConnectorExpression> visitNot(Not node, Void context)
         {
             Optional<ConnectorExpression> translatedValue = process(node.value());
             if (translatedValue.isPresent()) {
-                return Optional.of(new Call(BOOLEAN, NOT_FUNCTION_NAME, List.of(translatedValue.get())));
+                return Optional.of(new io.trino.spi.expression.Call(BOOLEAN, NOT_FUNCTION_NAME, List.of(translatedValue.get())));
             }
             return Optional.empty();
         }
@@ -773,18 +772,18 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitNullIfExpression(NullIfExpression node, Void context)
+        protected Optional<ConnectorExpression> visitNullIf(NullIf node, Void context)
         {
             Optional<ConnectorExpression> firstValue = process(node.first());
             Optional<ConnectorExpression> secondValue = process(node.second());
             if (firstValue.isPresent() && secondValue.isPresent()) {
-                return Optional.of(new Call(((Expression) node).type(), NULLIF_FUNCTION_NAME, ImmutableList.of(firstValue.get(), secondValue.get())));
+                return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), NULLIF_FUNCTION_NAME, ImmutableList.of(firstValue.get(), secondValue.get())));
             }
             return Optional.empty();
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitSubscriptExpression(SubscriptExpression node, Void context)
+        protected Optional<ConnectorExpression> visitSubscript(Subscript node, Void context)
         {
             if (!(node.base().type() instanceof RowType)) {
                 return Optional.empty();
@@ -799,7 +798,7 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitInPredicate(InPredicate node, Void context)
+        protected Optional<ConnectorExpression> visitIn(In node, Void context)
         {
             Optional<ConnectorExpression> valueExpression = process(node.value());
 
@@ -823,8 +822,8 @@ public final class ConnectorExpressionTranslator
                 values.add(processedValue.get());
             }
 
-            ConnectorExpression arrayExpression = new Call(new ArrayType(node.value().type()), ARRAY_CONSTRUCTOR_FUNCTION_NAME, values.build());
-            return Optional.of(new Call(((Expression) node).type(), IN_PREDICATE_FUNCTION_NAME, List.of(valueExpression.get(), arrayExpression)));
+            ConnectorExpression arrayExpression = new io.trino.spi.expression.Call(new ArrayType(node.value().type()), ARRAY_CONSTRUCTOR_FUNCTION_NAME, values.build());
+            return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), IN_PREDICATE_FUNCTION_NAME, List.of(valueExpression.get(), arrayExpression)));
         }
 
         @Override

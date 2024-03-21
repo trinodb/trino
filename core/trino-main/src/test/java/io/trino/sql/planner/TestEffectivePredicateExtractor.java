@@ -40,19 +40,19 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.Between;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrUtils;
-import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
@@ -99,9 +99,9 @@ import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.or;
@@ -249,7 +249,7 @@ public class TestEffectivePredicateExtractor
     {
         PlanNode node = new AggregationNode(
                 newId(),
-                filter(baseTableScan, FALSE_LITERAL),
+                filter(baseTableScan, FALSE),
                 ImmutableMap.of(),
                 globalAggregation(),
                 ImmutableList.of(),
@@ -259,7 +259,7 @@ public class TestEffectivePredicateExtractor
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node);
 
-        assertThat(effectivePredicate).isEqualTo(TRUE_LITERAL);
+        assertThat(effectivePredicate).isEqualTo(TRUE);
     }
 
     @Test
@@ -455,7 +455,7 @@ public class TestEffectivePredicateExtractor
                 false,
                 Optional.empty());
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node);
-        assertThat(effectivePredicate).isEqualTo(TRUE_LITERAL);
+        assertThat(effectivePredicate).isEqualTo(TRUE);
 
         node = new TableScanNode(
                 newId(),
@@ -467,7 +467,7 @@ public class TestEffectivePredicateExtractor
                 false,
                 Optional.empty());
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node);
-        assertThat(effectivePredicate).isEqualTo(FALSE_LITERAL);
+        assertThat(effectivePredicate).isEqualTo(FALSE);
 
         TupleDomain<ColumnHandle> predicate = TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L)));
         node = new TableScanNode(
@@ -533,7 +533,7 @@ public class TestEffectivePredicateExtractor
                 false,
                 Optional.empty());
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node);
-        assertThat(effectivePredicate).isEqualTo(TRUE_LITERAL);
+        assertThat(effectivePredicate).isEqualTo(TRUE);
     }
 
     @Test
@@ -548,7 +548,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1))),
                                 new Row(ImmutableList.of(bigintLiteral(2)))))
-        )).isEqualTo(new InPredicate(AE, ImmutableList.of(bigintLiteral(1), bigintLiteral(2))));
+        )).isEqualTo(new In(AE, ImmutableList.of(bigintLiteral(1), bigintLiteral(2))));
 
         // one column with null
         assertThat(effectivePredicateExtractor.extract(
@@ -561,8 +561,8 @@ public class TestEffectivePredicateExtractor
                                 new Row(ImmutableList.of(bigintLiteral(2))),
                                 new Row(ImmutableList.of(new Constant(BIGINT, null)))))))
                 .isEqualTo(or(
-                        new InPredicate(AE, ImmutableList.of(bigintLiteral(1), bigintLiteral(2))),
-                        new IsNullPredicate(AE)));
+                        new In(AE, ImmutableList.of(bigintLiteral(1), bigintLiteral(2))),
+                        new IsNull(AE)));
 
         // all nulls
         assertThat(effectivePredicateExtractor.extract(
@@ -571,7 +571,7 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(A),
                         ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, null)))))))
-                .isEqualTo(new IsNullPredicate(AE));
+                .isEqualTo(new IsNull(AE));
 
         // nested row
         assertThat(effectivePredicateExtractor.extract(
@@ -580,7 +580,7 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(R),
                         ImmutableList.of(new Row(ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), new Constant(UNKNOWN, null)))))))))
-                .isEqualTo(TRUE_LITERAL);
+                .isEqualTo(TRUE);
 
         // many rows
         List<Expression> rows = IntStream.range(0, 500)
@@ -594,7 +594,7 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(A),
                         rows)
-        )).isEqualTo(new BetweenPredicate(AE, bigintLiteral(0), bigintLiteral(499)));
+        )).isEqualTo(new Between(AE, bigintLiteral(0), bigintLiteral(499)));
 
         // NaN
         assertThat(effectivePredicateExtractor.extract(
@@ -603,7 +603,7 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(new Symbol(DOUBLE, "c")),
                         ImmutableList.of(new Row(ImmutableList.of(doubleLiteral(Double.NaN)))))
-        )).isEqualTo(new NotExpression(new IsNullPredicate(new SymbolReference(DOUBLE, "c"))));
+        )).isEqualTo(new Not(new IsNull(new Reference(DOUBLE, "c"))));
 
         // NaN and NULL
         assertThat(effectivePredicateExtractor.extract(
@@ -614,7 +614,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(
                                 new Row(ImmutableList.of(new Constant(DOUBLE, null))),
                                 new Row(ImmutableList.of(doubleLiteral(Double.NaN)))))
-        )).isEqualTo(TRUE_LITERAL);
+        )).isEqualTo(TRUE);
 
         // NaN and value
         assertThat(effectivePredicateExtractor.extract(
@@ -625,7 +625,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(
                                 new Row(ImmutableList.of(doubleLiteral(42.))),
                                 new Row(ImmutableList.of(doubleLiteral(Double.NaN)))))
-        )).isEqualTo(new NotExpression(new IsNullPredicate(new SymbolReference(DOUBLE, "x"))));
+        )).isEqualTo(new Not(new IsNull(new Reference(DOUBLE, "x"))));
 
         // Real NaN
         assertThat(effectivePredicateExtractor.extract(
@@ -634,7 +634,7 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(D),
                         ImmutableList.of(new Row(ImmutableList.of(new Cast(doubleLiteral(Double.NaN), REAL)))))))
-                .isEqualTo(new NotExpression(new IsNullPredicate(DE)));
+                .isEqualTo(new Not(new IsNull(DE)));
 
         // multiple columns
         assertThat(effectivePredicateExtractor.extract(
@@ -646,8 +646,8 @@ public class TestEffectivePredicateExtractor
                                 new Row(ImmutableList.of(bigintLiteral(1), bigintLiteral(100))),
                                 new Row(ImmutableList.of(bigintLiteral(2), bigintLiteral(200)))))))
                 .isEqualTo(and(
-                        new InPredicate(AE, ImmutableList.of(bigintLiteral(1), bigintLiteral(2))),
-                        new InPredicate(BE, ImmutableList.of(bigintLiteral(100), bigintLiteral(200)))));
+                        new In(AE, ImmutableList.of(bigintLiteral(1), bigintLiteral(2))),
+                        new In(BE, ImmutableList.of(bigintLiteral(100), bigintLiteral(200)))));
 
         // multiple columns with null
         assertThat(effectivePredicateExtractor.extract(
@@ -659,16 +659,16 @@ public class TestEffectivePredicateExtractor
                                 new Row(ImmutableList.of(bigintLiteral(1), new Constant(BIGINT, null))),
                                 new Row(ImmutableList.of(new Constant(BIGINT, null), bigintLiteral(200)))))
         )).isEqualTo(and(
-                or(new ComparisonExpression(EQUAL, AE, bigintLiteral(1)), new IsNullPredicate(AE)),
-                or(new ComparisonExpression(EQUAL, BE, bigintLiteral(200)), new IsNullPredicate(BE))));
+                or(new Comparison(EQUAL, AE, bigintLiteral(1)), new IsNull(AE)),
+                or(new Comparison(EQUAL, BE, bigintLiteral(200)), new IsNull(BE))));
 
         // non-deterministic
         ResolvedFunction rand = functionResolution.resolveFunction("rand", ImmutableList.of());
         ValuesNode node = new ValuesNode(
                 newId(),
                 ImmutableList.of(A, B),
-                ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), new FunctionCall(rand, ImmutableList.of())))));
-        assertThat(extract(node)).isEqualTo(new ComparisonExpression(EQUAL, AE, bigintLiteral(1)));
+                ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), new Call(rand, ImmutableList.of())))));
+        assertThat(extract(node)).isEqualTo(new Comparison(EQUAL, AE, bigintLiteral(1)));
 
         // non-constant
         assertThat(effectivePredicateExtractor.extract(
@@ -679,7 +679,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1))),
                                 new Row(ImmutableList.of(BE))))
-        )).isEqualTo(TRUE_LITERAL);
+        )).isEqualTo(TRUE);
 
         // non-comparable and non-orderable
         assertThat(effectivePredicateExtractor.extract(
@@ -690,7 +690,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1))),
                                 new Row(ImmutableList.of(bigintLiteral(2)))))
-        )).isEqualTo(TRUE_LITERAL);
+        )).isEqualTo(TRUE);
     }
 
     private Expression extract(PlanNode node)
@@ -829,7 +829,7 @@ public class TestEffectivePredicateExtractor
                 leftScan.getOutputSymbols(),
                 rightScan.getOutputSymbols(),
                 false,
-                Optional.of(FALSE_LITERAL),
+                Optional.of(FALSE),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -839,7 +839,7 @@ public class TestEffectivePredicateExtractor
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node);
 
-        assertThat(effectivePredicate).isEqualTo(FALSE_LITERAL);
+        assertThat(effectivePredicate).isEqualTo(FALSE);
     }
 
     @Test
@@ -913,7 +913,7 @@ public class TestEffectivePredicateExtractor
                         lessThan(BE, AE),
                         lessThan(CE, bigintLiteral(10)),
                         equals(GE, bigintLiteral(10))));
-        FilterNode right = filter(rightScan, FALSE_LITERAL);
+        FilterNode right = filter(rightScan, FALSE);
         PlanNode node = new JoinNode(
                 newId(),
                 JoinType.LEFT,
@@ -1005,7 +1005,7 @@ public class TestEffectivePredicateExtractor
         Map<Symbol, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(D, E, F)));
         TableScanNode rightScan = tableScanNode(rightAssignments);
 
-        FilterNode left = filter(leftScan, FALSE_LITERAL);
+        FilterNode left = filter(leftScan, FALSE);
         FilterNode right = filter(
                 rightScan,
                 and(
@@ -1089,29 +1089,29 @@ public class TestEffectivePredicateExtractor
         return new Constant(DOUBLE, value);
     }
 
-    private static ComparisonExpression equals(Expression expression1, Expression expression2)
+    private static Comparison equals(Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(EQUAL, expression1, expression2);
+        return new Comparison(EQUAL, expression1, expression2);
     }
 
-    private static ComparisonExpression lessThan(Expression expression1, Expression expression2)
+    private static Comparison lessThan(Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, expression1, expression2);
+        return new Comparison(Comparison.Operator.LESS_THAN, expression1, expression2);
     }
 
-    private static ComparisonExpression lessThanOrEqual(Expression expression1, Expression expression2)
+    private static Comparison lessThanOrEqual(Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL, expression1, expression2);
+        return new Comparison(Comparison.Operator.LESS_THAN_OR_EQUAL, expression1, expression2);
     }
 
-    private static ComparisonExpression greaterThan(Expression expression1, Expression expression2)
+    private static Comparison greaterThan(Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN, expression1, expression2);
+        return new Comparison(Comparison.Operator.GREATER_THAN, expression1, expression2);
     }
 
-    private static IsNullPredicate isNull(Expression expression)
+    private static IsNull isNull(Expression expression)
     {
-        return new IsNullPredicate(expression);
+        return new IsNull(expression);
     }
 
     private static ResolvedFunction fakeFunction(String name)

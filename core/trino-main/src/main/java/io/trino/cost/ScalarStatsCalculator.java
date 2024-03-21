@@ -22,15 +22,15 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticNegation;
+import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Negation;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
@@ -80,7 +80,7 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        protected SymbolStatsEstimate visitSymbolReference(SymbolReference node, Void context)
+        protected SymbolStatsEstimate visitReference(Reference node, Void context)
         {
             return input.getSymbolStatistics(Symbol.from(node));
         }
@@ -107,7 +107,7 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        protected SymbolStatsEstimate visitFunctionCall(FunctionCall node, Void context)
+        protected SymbolStatsEstimate visitCall(Call node, Void context)
         {
             IrExpressionInterpreter interpreter = new IrExpressionInterpreter(node, plannerContext, session);
             Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
@@ -176,7 +176,7 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        protected SymbolStatsEstimate visitArithmeticNegation(ArithmeticNegation node, Void context)
+        protected SymbolStatsEstimate visitNegation(Negation node, Void context)
         {
             SymbolStatsEstimate stats = process(node.value());
             return SymbolStatsEstimate.buildFrom(stats)
@@ -186,7 +186,7 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        protected SymbolStatsEstimate visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
+        protected SymbolStatsEstimate visitArithmetic(Arithmetic node, Void context)
         {
             requireNonNull(node, "node is null");
             SymbolStatsEstimate left = process(node.left());
@@ -208,11 +208,11 @@ public class ScalarStatsCalculator
                 result.setLowValue(NaN)
                         .setHighValue(NaN);
             }
-            else if (node.operator() == ArithmeticBinaryExpression.Operator.DIVIDE && rightLow < 0 && rightHigh > 0) {
+            else if (node.operator() == Arithmetic.Operator.DIVIDE && rightLow < 0 && rightHigh > 0) {
                 result.setLowValue(Double.NEGATIVE_INFINITY)
                         .setHighValue(Double.POSITIVE_INFINITY);
             }
-            else if (node.operator() == ArithmeticBinaryExpression.Operator.MODULUS) {
+            else if (node.operator() == Arithmetic.Operator.MODULUS) {
                 double maxDivisor = max(abs(rightLow), abs(rightHigh));
                 if (leftHigh <= 0) {
                     result.setLowValue(max(-maxDivisor, leftLow))
@@ -242,7 +242,7 @@ public class ScalarStatsCalculator
             return result.build();
         }
 
-        private double operate(ArithmeticBinaryExpression.Operator operator, double left, double right)
+        private double operate(Arithmetic.Operator operator, double left, double right)
         {
             switch (operator) {
                 case ADD:
@@ -260,7 +260,7 @@ public class ScalarStatsCalculator
         }
 
         @Override
-        protected SymbolStatsEstimate visitCoalesceExpression(CoalesceExpression node, Void context)
+        protected SymbolStatsEstimate visitCoalesce(Coalesce node, Void context)
         {
             requireNonNull(node, "node is null");
             SymbolStatsEstimate result = null;

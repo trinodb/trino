@@ -24,8 +24,8 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
-import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
@@ -162,7 +162,7 @@ public class TestDeterminePartitionCount
                 output(
                         project(
                                 filter(
-                                        new IsNullPredicate(new SymbolReference(BIGINT, "column_b")),
+                                        new IsNull(new Reference(BIGINT, "column_b")),
                                         tableScan("table_with_stats_a", ImmutableMap.of("column_a", "column_a", "column_b", "column_b"))))));
     }
 

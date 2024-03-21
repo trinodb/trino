@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
@@ -93,12 +93,12 @@ public class TableFunctionProcessorMatcher
             return NO_MATCH;
         }
 
-        List<List<SymbolReference>> expectedPassThrough = passThroughSymbols.stream()
+        List<List<Reference>> expectedPassThrough = passThroughSymbols.stream()
                 .map(list -> list.stream()
                         .map(symbolAliases::get)
                         .collect(toImmutableList()))
                 .collect(toImmutableList());
-        List<List<SymbolReference>> actualPassThrough = tableFunctionProcessorNode.getPassThroughSpecifications().stream()
+        List<List<Reference>> actualPassThrough = tableFunctionProcessorNode.getPassThroughSpecifications().stream()
                 .map(PassThroughSpecification::columns)
                 .map(list -> list.stream()
                         .map(PassThroughColumn::symbol)
@@ -109,12 +109,12 @@ public class TableFunctionProcessorMatcher
             return NO_MATCH;
         }
 
-        List<List<SymbolReference>> expectedRequired = requiredSymbols.stream()
+        List<List<Reference>> expectedRequired = requiredSymbols.stream()
                 .map(list -> list.stream()
                         .map(symbolAliases::get)
                         .collect(toImmutableList()))
                 .collect(toImmutableList());
-        List<List<SymbolReference>> actualRequired = tableFunctionProcessorNode.getRequiredSymbols().stream()
+        List<List<Reference>> actualRequired = tableFunctionProcessorNode.getRequiredSymbols().stream()
                 .map(list -> list.stream()
                         .map(Symbol::toSymbolReference)
                         .collect(toImmutableList()))
@@ -127,9 +127,9 @@ public class TableFunctionProcessorMatcher
             return NO_MATCH;
         }
         if (markerSymbols.isPresent()) {
-            Map<SymbolReference, SymbolReference> expectedMapping = markerSymbols.get().entrySet().stream()
+            Map<Reference, Reference> expectedMapping = markerSymbols.get().entrySet().stream()
                     .collect(toImmutableMap(entry -> symbolAliases.get(entry.getKey()), entry -> symbolAliases.get(entry.getValue())));
-            Map<SymbolReference, SymbolReference> actualMapping = tableFunctionProcessorNode.getMarkerSymbols().orElseThrow().entrySet().stream()
+            Map<Reference, Reference> actualMapping = tableFunctionProcessorNode.getMarkerSymbols().orElseThrow().entrySet().stream()
                     .collect(toImmutableMap(entry -> entry.getKey().toSymbolReference(), entry -> entry.getValue().toSymbolReference()));
             if (!expectedMapping.equals(actualMapping)) {
                 return NO_MATCH;
@@ -151,7 +151,7 @@ public class TableFunctionProcessorMatcher
             }
         }
 
-        ImmutableMap.Builder<String, SymbolReference> properOutputsMapping = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Reference> properOutputsMapping = ImmutableMap.builder();
         for (int i = 0; i < properOutputs.size(); i++) {
             properOutputsMapping.put(properOutputs.get(i), tableFunctionProcessorNode.getProperOutputs().get(i).toSymbolReference());
         }

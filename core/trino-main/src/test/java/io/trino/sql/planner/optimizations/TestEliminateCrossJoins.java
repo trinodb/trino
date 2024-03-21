@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.SystemSessionProperties;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import org.junit.jupiter.api.Test;
@@ -28,10 +28,10 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.ir.ComparisonExpression.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -138,14 +138,14 @@ public class TestEliminateCrossJoins
                                 .left(
                                         join(INNER, leftJoinBuilder -> leftJoinBuilder
                                                 .equiCriteria("P_PARTKEY", "L_PARTKEY")
-                                                .filter(new ComparisonExpression(LESS_THAN, new SymbolReference(VARCHAR, "P_NAME"), new SymbolReference(VARCHAR, "expr")))
+                                                .filter(new Comparison(LESS_THAN, new Reference(VARCHAR, "P_NAME"), new Reference(VARCHAR, "expr")))
                                                 .left(anyTree(PART_WITH_NAME_TABLESCAN))
                                                 .right(
                                                         anyTree(
                                                                 project(
-                                                                        ImmutableMap.of("expr", expression(new Cast(new SymbolReference(VARCHAR, "L_COMMENT"), createVarcharType(55)))),
+                                                                        ImmutableMap.of("expr", expression(new Cast(new Reference(VARCHAR, "L_COMMENT"), createVarcharType(55)))),
                                                                         filter(
-                                                                                new ComparisonExpression(NOT_EQUAL, new SymbolReference(BIGINT, "L_PARTKEY"), new SymbolReference(BIGINT, "L_ORDERKEY")),
+                                                                                new Comparison(NOT_EQUAL, new Reference(BIGINT, "L_PARTKEY"), new Reference(BIGINT, "L_ORDERKEY")),
                                                                                 LINEITEM_WITH_COMMENT_TABLESCAN))))))
                                 .right(anyTree(ORDERS_TABLESCAN)))));
     }
@@ -163,11 +163,11 @@ public class TestEliminateCrossJoins
                                                 .equiCriteria("P_PARTKEY", "L_PARTKEY")
                                                 .left(anyTree(PART_TABLESCAN))
                                                 .right(anyTree(filter(
-                                                        new ComparisonExpression(EQUAL, new SymbolReference(createVarcharType(1), "L_RETURNFLAG"), new Constant(createVarcharType(1), Slices.utf8Slice("R"))),
+                                                        new Comparison(EQUAL, new Reference(createVarcharType(1), "L_RETURNFLAG"), new Constant(createVarcharType(1), Slices.utf8Slice("R"))),
                                                         LINEITEM_WITH_RETURNFLAG_TABLESCAN)))))
                                 .right(
                                         anyTree(filter(
-                                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(INTEGER, "O_SHIPPRIORITY"), new Constant(INTEGER, 10L)),
+                                                new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "O_SHIPPRIORITY"), new Constant(INTEGER, 10L)),
                                                 ORDERS_WITH_SHIPPRIORITY_TABLESCAN))))));
     }
 }

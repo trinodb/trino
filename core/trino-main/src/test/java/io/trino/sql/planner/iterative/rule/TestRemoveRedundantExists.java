@@ -21,8 +21,8 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.testing.TestingMetadata;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -40,7 +40,7 @@ public class TestRemoveRedundantExists
                         p.values(0)))
                 .matches(
                         project(
-                                ImmutableMap.of("exists", expression(FALSE_LITERAL)),
+                                ImmutableMap.of("exists", expression(FALSE)),
                                 values()));
     }
 
@@ -54,7 +54,7 @@ public class TestRemoveRedundantExists
                         p.values(1)))
                 .matches(
                         project(
-                                ImmutableMap.of("exists", expression(TRUE_LITERAL)),
+                                ImmutableMap.of("exists", expression(TRUE)),
                                 values()));
     }
 

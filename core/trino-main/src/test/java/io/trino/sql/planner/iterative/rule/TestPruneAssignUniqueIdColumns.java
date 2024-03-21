@@ -14,7 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -45,7 +45,7 @@ public class TestPruneAssignUniqueIdColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference(BIGINT, "a"))),
+                                ImmutableMap.of("a", PlanMatchPattern.expression(new Reference(BIGINT, "a"))),
                                 values("a", "b")));
     }
 
@@ -65,11 +65,11 @@ public class TestPruneAssignUniqueIdColumns
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference(BIGINT, "a")), "unique_id", PlanMatchPattern.expression(new SymbolReference(BIGINT, "unique_id"))),
+                                ImmutableMap.of("a", PlanMatchPattern.expression(new Reference(BIGINT, "a")), "unique_id", PlanMatchPattern.expression(new Reference(BIGINT, "unique_id"))),
                                 assignUniqueId(
                                         "unique_id",
                                         strictProject(
-                                                ImmutableMap.of("a", PlanMatchPattern.expression(new SymbolReference(BIGINT, "a"))),
+                                                ImmutableMap.of("a", PlanMatchPattern.expression(new Reference(BIGINT, "a"))),
                                                 values("a", "b")))));
     }
 

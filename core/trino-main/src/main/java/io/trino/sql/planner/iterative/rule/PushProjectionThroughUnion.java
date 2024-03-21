@@ -20,7 +20,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
@@ -68,7 +68,7 @@ public class PushProjectionThroughUnion
         ImmutableList.Builder<PlanNode> outputSources = ImmutableList.builder();
 
         for (int i = 0; i < source.getSources().size(); i++) {
-            Map<Symbol, SymbolReference> outputToInput = source.sourceSymbolMap(i);   // Map: output of union -> input of this source to the union
+            Map<Symbol, Reference> outputToInput = source.sourceSymbolMap(i);   // Map: output of union -> input of this source to the union
             Assignments.Builder assignments = Assignments.builder(); // assignments for the new ProjectNode
 
             // mapping from current ProjectNode to new ProjectNode, used to identify the output layout
@@ -93,6 +93,6 @@ public class PushProjectionThroughUnion
     {
         return !project.getAssignments()
                 .getExpressions().stream()
-                .allMatch(SymbolReference.class::isInstance);
+                .allMatch(Reference.class::isInstance);
     }
 }

@@ -22,10 +22,10 @@ import com.google.common.collect.Sets;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.NodeAndMappings;
 import io.trino.sql.planner.OrderingScheme;
@@ -908,7 +908,7 @@ public class UnaliasSymbolReferences
                 // If the assignment potentially introduces a reused (ambiguous) symbol, do not map output to input
                 // to avoid mixing semantics. Input symbols represent semantics as in the source plan,
                 // while output symbols represent newly established semantics.
-                if (expression instanceof SymbolReference && !ambiguousSymbolsPresent) {
+                if (expression instanceof Reference && !ambiguousSymbolsPresent) {
                     Symbol value = Symbol.from(expression);
                     if (!assignment.getKey().equals(value)) {
                         newMapping.put(assignment.getKey(), value);
@@ -1445,7 +1445,7 @@ public class UnaliasSymbolReferences
                 Expression newConjunct = conjunct;
                 if (mappedId != null) {
                     // DF was remapped
-                    newConjunct = replaceDynamicFilterId((FunctionCall) conjunct, mappedId);
+                    newConjunct = replaceDynamicFilterId((Call) conjunct, mappedId);
                     updated = true;
                 }
                 newConjuncts.add(newConjunct);

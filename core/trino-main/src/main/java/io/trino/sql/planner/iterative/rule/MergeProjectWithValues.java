@@ -21,8 +21,8 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
@@ -150,7 +150,7 @@ public class MergeProjectWithValues
         // inline values expressions into projection's assignments
         ImmutableList.Builder<Expression> projectedRows = ImmutableList.builder();
         for (Expression rowExpression : valuesNode.getRows().get()) {
-            Map<SymbolReference, Expression> mapping = buildMappings(valuesNode.getOutputSymbols(), (Row) rowExpression);
+            Map<Reference, Expression> mapping = buildMappings(valuesNode.getOutputSymbols(), (Row) rowExpression);
             Row projectedRow = new Row(expressions.stream()
                     .map(expression -> replaceExpression(expression, mapping))
                     .collect(toImmutableList()));
@@ -164,9 +164,9 @@ public class MergeProjectWithValues
         return valuesNode.getRows().isEmpty() || valuesNode.getRows().get().stream().allMatch(Row.class::isInstance);
     }
 
-    private Map<SymbolReference, Expression> buildMappings(List<Symbol> symbols, Row row)
+    private Map<Reference, Expression> buildMappings(List<Symbol> symbols, Row row)
     {
-        ImmutableMap.Builder<SymbolReference, Expression> mappingBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<Reference, Expression> mappingBuilder = ImmutableMap.builder();
         for (int i = 0; i < row.items().size(); i++) {
             mappingBuilder.put(symbols.get(i).toSymbolReference(), row.items().get(i));
         }

@@ -23,11 +23,11 @@ public class IrExpressions
 
     public static Expression ifExpression(Expression condition, Expression trueCase)
     {
-        return new SearchedCaseExpression(ImmutableList.of(new WhenClause(condition, trueCase)), Optional.empty());
+        return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), Optional.empty());
     }
 
     public static Expression ifExpression(Expression condition, Expression trueCase, Expression falseCase)
     {
-        return new SearchedCaseExpression(ImmutableList.of(new WhenClause(condition, trueCase)), Optional.of(falseCase));
+        return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), Optional.of(falseCase));
     }
 }

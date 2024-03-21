@@ -26,9 +26,9 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
@@ -92,7 +92,7 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
-import static io.trino.sql.ir.ComparisonExpression.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
@@ -1188,11 +1188,11 @@ public final class PlanMatchPattern
     public static class DynamicFilterPattern
     {
         private final Expression probe;
-        private final ComparisonExpression.Operator operator;
+        private final Comparison.Operator operator;
         private final SymbolAlias build;
         private final boolean nullAllowed;
 
-        public DynamicFilterPattern(Expression probe, ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed)
+        public DynamicFilterPattern(Expression probe, Comparison.Operator operator, String buildAlias, boolean nullAllowed)
         {
             this.probe = requireNonNull(probe, "probe is null");
             this.operator = requireNonNull(operator, "operator is null");
@@ -1200,7 +1200,7 @@ public final class PlanMatchPattern
             this.nullAllowed = nullAllowed;
         }
 
-        public DynamicFilterPattern(Expression probe, ComparisonExpression.Operator operator, String buildAlias)
+        public DynamicFilterPattern(Expression probe, Comparison.Operator operator, String buildAlias)
         {
             this(probe, operator, buildAlias, false);
         }
@@ -1209,13 +1209,13 @@ public final class PlanMatchPattern
         {
             Expression probeMapped = symbolMapper(aliases).map(probe);
             if (nullAllowed) {
-                return new NotExpression(
-                        new ComparisonExpression(
+                return new Not(
+                        new Comparison(
                                 IS_DISTINCT_FROM,
                                 probeMapped,
                                 build.toSymbol(aliases).toSymbolReference()));
             }
-            return new ComparisonExpression(
+            return new Comparison(
                     operator,
                     probeMapped,
                     build.toSymbol(aliases).toSymbolReference());

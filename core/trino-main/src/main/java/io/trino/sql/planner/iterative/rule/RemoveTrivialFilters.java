@@ -21,8 +21,8 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
-import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static java.util.Collections.emptyList;
 
@@ -42,11 +42,11 @@ public class RemoveTrivialFilters
     {
         Expression predicate = filterNode.getPredicate();
 
-        if (predicate.equals(TRUE_LITERAL)) {
+        if (predicate.equals(TRUE)) {
             return Result.ofPlanNode(filterNode.getSource());
         }
 
-        if (predicate.equals(FALSE_LITERAL) ||
+        if (predicate.equals(FALSE) ||
                 predicate instanceof Constant literal && literal.value() == null) {
             return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), filterNode.getOutputSymbols(), emptyList()));
         }

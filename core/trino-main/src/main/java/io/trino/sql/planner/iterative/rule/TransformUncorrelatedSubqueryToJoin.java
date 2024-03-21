@@ -35,7 +35,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.matching.Pattern.empty;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.trino.sql.planner.plan.JoinType.FULL;
@@ -81,9 +81,9 @@ public class TransformUncorrelatedSubqueryToJoin
         else {
             type = JoinType.LEFT;
         }
-        JoinNode joinNode = rewriteToJoin(correlatedJoinNode, type, TRUE_LITERAL, context.getLookup());
+        JoinNode joinNode = rewriteToJoin(correlatedJoinNode, type, TRUE, context.getLookup());
 
-        if (correlatedJoinNode.getFilter().equals(TRUE_LITERAL)) {
+        if (correlatedJoinNode.getFilter().equals(TRUE)) {
             return Result.ofPlanNode(joinNode);
         }
 
@@ -113,7 +113,7 @@ public class TransformUncorrelatedSubqueryToJoin
 
     private JoinNode rewriteToJoin(CorrelatedJoinNode parent, JoinType type, Expression filter, Lookup lookup)
     {
-        if (type == JoinType.LEFT && extractCardinality(parent.getSubquery(), lookup).isAtLeastScalar() && filter.equals(TRUE_LITERAL)) {
+        if (type == JoinType.LEFT && extractCardinality(parent.getSubquery(), lookup).isAtLeastScalar() && filter.equals(TRUE)) {
             // input rows will always be matched against subquery rows
             type = JoinType.INNER;
         }
@@ -126,7 +126,7 @@ public class TransformUncorrelatedSubqueryToJoin
                 parent.getInput().getOutputSymbols(),
                 parent.getSubquery().getOutputSymbols(),
                 false,
-                filter.equals(TRUE_LITERAL) ? Optional.empty() : Optional.of(filter),
+                filter.equals(TRUE) ? Optional.empty() : Optional.of(filter),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

@@ -24,8 +24,8 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -53,7 +53,7 @@ import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.DynamicFilters.getDescriptor;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.combinePredicates;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
@@ -138,7 +138,7 @@ public class RemoveUnsupportedDynamicFilters
 
             Optional<Expression> filter = node
                     .getFilter().map(this::removeAllDynamicFilters)  // no DF support at Join operators.
-                    .filter(expression -> !expression.equals(TRUE_LITERAL));
+                    .filter(expression -> !expression.equals(TRUE));
 
             PlanNode left = leftResult.getNode();
             PlanNode right = rightResult.getNode();
@@ -270,7 +270,7 @@ public class RemoveUnsupportedDynamicFilters
                 modified = removeAllDynamicFilters(original);
             }
 
-            if (TRUE_LITERAL.equals(modified)) {
+            if (TRUE.equals(modified)) {
                 return new PlanWithConsumedDynamicFilters(source, consumedDynamicFilterIds.build());
             }
 
@@ -303,13 +303,13 @@ public class RemoveUnsupportedDynamicFilters
 
         private boolean isSupportedDynamicFilterExpression(Expression expression)
         {
-            if (expression instanceof SymbolReference) {
+            if (expression instanceof Reference) {
                 return true;
             }
             if (!(expression instanceof Cast castExpression)) {
                 return false;
             }
-            if (!(castExpression.expression() instanceof SymbolReference)) {
+            if (!(castExpression.expression() instanceof Reference)) {
                 return false;
             }
             Type castSourceType = castExpression.expression().type();
@@ -347,16 +347,16 @@ public class RemoveUnsupportedDynamicFilters
             return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
             {
                 @Override
-                public Expression rewriteLogicalExpression(LogicalExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                public Expression rewriteLogical(Logical node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
                 {
-                    LogicalExpression rewrittenNode = treeRewriter.defaultRewrite(node, context);
+                    Logical rewrittenNode = treeRewriter.defaultRewrite(node, context);
 
                     boolean modified = (node != rewrittenNode);
                     ImmutableList.Builder<Expression> expressionBuilder = ImmutableList.builder();
 
                     for (Expression term : rewrittenNode.terms()) {
                         if (isDynamicFilter(term)) {
-                            expressionBuilder.add(TRUE_LITERAL);
+                            expressionBuilder.add(TRUE);
                             modified = true;
                         }
                         else {

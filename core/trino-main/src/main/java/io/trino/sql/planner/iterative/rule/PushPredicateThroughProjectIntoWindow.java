@@ -41,7 +41,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.isOptimizeTopNRanking;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Range.range;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.iterative.rule.Util.toTopNRankingType;
 import static io.trino.sql.planner.plan.Patterns.filter;
@@ -146,7 +146,7 @@ public class PushPredicateThroughProjectIntoWindow
         Expression newPredicate = combineConjuncts(
                 extractionResult.getRemainingExpression(),
                 new DomainTranslator().toPredicate(newTupleDomain));
-        if (newPredicate.equals(TRUE_LITERAL)) {
+        if (newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(project);
         }
         return Result.ofPlanNode(new FilterNode(filter.getId(), project, newPredicate));

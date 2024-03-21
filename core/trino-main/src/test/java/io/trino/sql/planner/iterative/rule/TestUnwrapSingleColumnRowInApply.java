@@ -16,8 +16,8 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.SubscriptExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.SetExpressionMatcher;
@@ -83,14 +83,14 @@ public class TestUnwrapSingleColumnRowInApply
                                                 .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedValue", expression(new SubscriptExpression(INTEGER, new SymbolReference(RowType.anonymousRow(INTEGER), "rowValue"), new Constant(INTEGER, 1L))))
-                                                        .put("nonRowValue", expression(new SymbolReference(INTEGER, "nonRowValue")))
+                                                        .put("unwrappedValue", expression(new Subscript(INTEGER, new Reference(RowType.anonymousRow(INTEGER), "rowValue"), new Constant(INTEGER, 1L))))
+                                                        .put("nonRowValue", expression(new Reference(INTEGER, "nonRowValue")))
                                                         .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedElement", expression(new SubscriptExpression(INTEGER, new SymbolReference(RowType.anonymousRow(INTEGER), "rowElement"), new Constant(INTEGER, 1L))))
-                                                        .put("nonRowElement", expression(new SymbolReference(INTEGER, "nonRowElement")))
+                                                        .put("unwrappedElement", expression(new Subscript(INTEGER, new Reference(RowType.anonymousRow(INTEGER), "rowElement"), new Constant(INTEGER, 1L))))
+                                                        .put("nonRowElement", expression(new Reference(INTEGER, "nonRowElement")))
                                                         .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));
     }
@@ -121,14 +121,14 @@ public class TestUnwrapSingleColumnRowInApply
                                                 .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedValue", expression(new SubscriptExpression(INTEGER, new SymbolReference(RowType.anonymousRow(INTEGER), "rowValue"), new Constant(INTEGER, 1L))))
-                                                        .put("nonRowValue", expression(new SymbolReference(INTEGER, "nonRowValue")))
+                                                        .put("unwrappedValue", expression(new Subscript(INTEGER, new Reference(RowType.anonymousRow(INTEGER), "rowValue"), new Constant(INTEGER, 1L))))
+                                                        .put("nonRowValue", expression(new Reference(INTEGER, "nonRowValue")))
                                                         .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedElement", expression(new SubscriptExpression(INTEGER, new SymbolReference(RowType.anonymousRow(INTEGER), "rowElement"), new Constant(INTEGER, 1L))))
-                                                        .put("nonRowElement", expression(new SymbolReference(INTEGER, "nonRowElement")))
+                                                        .put("unwrappedElement", expression(new Subscript(INTEGER, new Reference(RowType.anonymousRow(INTEGER), "rowElement"), new Constant(INTEGER, 1L))))
+                                                        .put("nonRowElement", expression(new Reference(INTEGER, "nonRowElement")))
                                                         .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));
     }

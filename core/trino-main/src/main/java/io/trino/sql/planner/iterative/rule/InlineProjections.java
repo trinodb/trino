@@ -22,8 +22,8 @@ import io.trino.matching.Pattern;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SubscriptExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
@@ -169,7 +169,7 @@ public class InlineProjections
 
         // find references to simple constants or symbol references
         Set<Symbol> basicReferences = dependencies.keySet().stream()
-                .filter(input -> child.getAssignments().get(input) instanceof Constant || child.getAssignments().get(input) instanceof SymbolReference)
+                .filter(input -> child.getAssignments().get(input) instanceof Constant || child.getAssignments().get(input) instanceof Reference)
                 .filter(input -> !child.getAssignments().isIdentity(input)) // skip identities, otherwise, this rule will keep firing forever
                 .collect(toSet());
 
@@ -180,8 +180,8 @@ public class InlineProjections
                     // skip dereferences, otherwise, inlining can cause conflicts with PushdownDereferences
                     Expression assignment = child.getAssignments().get(entry.getKey());
 
-                    if (assignment instanceof SubscriptExpression) {
-                        if (((SubscriptExpression) assignment).base().type() instanceof RowType) {
+                    if (assignment instanceof Subscript) {
+                        if (((Subscript) assignment).base().type() instanceof RowType) {
                             return false;
                         }
                     }
@@ -196,6 +196,6 @@ public class InlineProjections
 
     private static boolean isSymbolReference(Symbol symbol, Expression expression)
     {
-        return expression instanceof SymbolReference && ((SymbolReference) expression).name().equals(symbol.getName());
+        return expression instanceof Reference && ((Reference) expression).name().equals(symbol.getName());
     }
 }

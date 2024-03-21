@@ -30,9 +30,9 @@ import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
@@ -776,8 +776,8 @@ public final class PropertyDerivations
                 // ("ROW comparison not supported for fields with null elements", etc)
                 Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
 
-                if (value instanceof SymbolReference) {
-                    Symbol symbol = Symbol.from((SymbolReference) value);
+                if (value instanceof Reference) {
+                    Symbol symbol = Symbol.from((Reference) value);
                     NullableValue existingConstantValue = constants.get(symbol);
                     if (existingConstantValue != null) {
                         constants.put(assignment.getKey(), new NullableValue(type, value));
@@ -910,7 +910,7 @@ public final class PropertyDerivations
         {
             Map<Symbol, Symbol> inputToOutput = new HashMap<>();
             for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-                if (assignment.getValue() instanceof SymbolReference) {
+                if (assignment.getValue() instanceof Reference) {
                     inputToOutput.put(Symbol.from(assignment.getValue()), assignment.getKey());
                 }
             }
@@ -967,12 +967,12 @@ public final class PropertyDerivations
     private static Optional<Symbol> rewriteExpression(Map<Symbol, Expression> assignments, Expression expression)
     {
         // Only simple coalesce expressions supported currently
-        if (!(expression instanceof CoalesceExpression)) {
+        if (!(expression instanceof Coalesce)) {
             return Optional.empty();
         }
 
-        Set<Expression> arguments = ImmutableSet.copyOf(((CoalesceExpression) expression).operands());
-        if (!arguments.stream().allMatch(SymbolReference.class::isInstance)) {
+        Set<Expression> arguments = ImmutableSet.copyOf(((Coalesce) expression).operands());
+        if (!arguments.stream().allMatch(Reference.class::isInstance)) {
             return Optional.empty();
         }
 
@@ -980,9 +980,9 @@ public final class PropertyDerivations
         // of the arguments. Thus we extract and compare the symbols of the CoalesceExpression as a set rather than compare the
         // CoalesceExpression directly.
         for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
-            if (entry.getValue() instanceof CoalesceExpression) {
-                Set<Expression> candidateArguments = ImmutableSet.copyOf(((CoalesceExpression) entry.getValue()).operands());
-                if (!candidateArguments.stream().allMatch(SymbolReference.class::isInstance)) {
+            if (entry.getValue() instanceof Coalesce) {
+                Set<Expression> candidateArguments = ImmutableSet.copyOf(((Coalesce) entry.getValue()).operands());
+                if (!candidateArguments.stream().allMatch(Reference.class::isInstance)) {
                     return Optional.empty();
                 }
 

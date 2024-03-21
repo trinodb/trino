@@ -62,7 +62,7 @@ public record Constant(Type type, @JsonIgnore Object value)
     }
 
     @Override
-    public List<? extends Expression> getChildren()
+    public List<? extends Expression> children()
     {
         return ImmutableList.of();
     }

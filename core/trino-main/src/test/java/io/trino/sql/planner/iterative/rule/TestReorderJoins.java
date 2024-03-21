@@ -20,9 +20,9 @@ import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.SymbolStatsEstimate;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.ArithmeticNegation;
-import io.trino.sql.ir.ComparisonExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Negation;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.Symbol;
@@ -46,8 +46,8 @@ import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.AUTOMATIC;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -346,7 +346,7 @@ public class TestReorderJoins
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
                                 ImmutableList.of(p.symbol("A1")),
                                 ImmutableList.of(p.symbol("B1")),
-                                Optional.of(new ComparisonExpression(
+                                Optional.of(new Comparison(
                                         LESS_THAN,
                                         p.symbol("A1").toSymbolReference(),
                                         new TestingFunctionResolution().functionCallBuilder("random").build()))))
@@ -387,7 +387,7 @@ public class TestReorderJoins
                                         new EquiJoinClause(p.symbol("B2"), p.symbol("C1"))),
                                 ImmutableList.of(p.symbol("A1")),
                                 ImmutableList.of(),
-                                Optional.of(new ComparisonExpression(EQUAL, p.symbol("A1").toSymbolReference(), p.symbol("B1").toSymbolReference()))))
+                                Optional.of(new Comparison(EQUAL, p.symbol("A1").toSymbolReference(), p.symbol("B1").toSymbolReference()))))
                 .matches(
                         join(INNER, builder -> builder
                                 .equiCriteria("C1", "B2")
@@ -421,7 +421,7 @@ public class TestReorderJoins
                                 INNER,
                                 p.project(
                                         Assignments.of(
-                                                p.symbol("P1"), new ArithmeticNegation(p.symbol("B1").toSymbolReference()),
+                                                p.symbol("P1"), new Negation(p.symbol("B1").toSymbolReference()),
                                                 p.symbol("P2"), p.symbol("A1").toSymbolReference()),
                                         p.join(
                                                 INNER,
@@ -435,7 +435,7 @@ public class TestReorderJoins
                                 ImmutableList.of(new EquiJoinClause(p.symbol("P1"), p.symbol("C1"))),
                                 ImmutableList.of(p.symbol("P1")),
                                 ImmutableList.of(),
-                                Optional.of(new ComparisonExpression(EQUAL, p.symbol("P2").toSymbolReference(), p.symbol("C1").toSymbolReference()))))
+                                Optional.of(new Comparison(EQUAL, p.symbol("P2").toSymbolReference(), p.symbol("C1").toSymbolReference()))))
                 .matches(
                         join(INNER, builder -> builder
                                 .equiCriteria("C1", "P1")
@@ -445,11 +445,11 @@ public class TestReorderJoins
                                                 .equiCriteria("P2", "P1")
                                                 .left(
                                                         strictProject(
-                                                                ImmutableMap.of("P2", expression(new SymbolReference(BIGINT, "A1"))),
+                                                                ImmutableMap.of("P2", expression(new Reference(BIGINT, "A1"))),
                                                                 values("A1")))
                                                 .right(
                                                         strictProject(
-                                                                ImmutableMap.of("P1", expression(new ArithmeticNegation(new SymbolReference(BIGINT, "B1")))),
+                                                                ImmutableMap.of("P1", expression(new Negation(new Reference(BIGINT, "B1")))),
                                                                 values("B1")))))));
     }
 
@@ -475,7 +475,7 @@ public class TestReorderJoins
                                 INNER,
                                 p.project(
                                         Assignments.of(
-                                                p.symbol("P1"), new ArithmeticNegation(p.symbol("B1").toSymbolReference())),
+                                                p.symbol("P1"), new Negation(p.symbol("B1").toSymbolReference())),
                                         p.join(
                                                 INNER,
                                                 p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1")),
@@ -495,7 +495,7 @@ public class TestReorderJoins
                                 .left(values("C1"))
                                 .right(
                                         strictProject(
-                                                ImmutableMap.of("P1", expression(new ArithmeticNegation(new SymbolReference(BIGINT, "B1")))),
+                                                ImmutableMap.of("P1", expression(new Negation(new Reference(BIGINT, "B1")))),
                                                 join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                         .equiCriteria("A1", "B1")
                                                         .left(values("A1"))
@@ -536,7 +536,7 @@ public class TestReorderJoins
                                         new EquiJoinClause(p.symbol("B2"), p.symbol("C1"))),
                                 ImmutableList.of(p.symbol("A1")),
                                 ImmutableList.of(),
-                                Optional.of(new ComparisonExpression(EQUAL, p.symbol("A1").toSymbolReference(), p.symbol("B1").toSymbolReference()))))
+                                Optional.of(new Comparison(EQUAL, p.symbol("A1").toSymbolReference(), p.symbol("B1").toSymbolReference()))))
                 .matches(
                         join(INNER, builder -> builder
                                 .equiCriteria("A1", "B1")

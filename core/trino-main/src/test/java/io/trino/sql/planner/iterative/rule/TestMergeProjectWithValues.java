@@ -19,14 +19,14 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticNegation;
+import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Negation;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
@@ -38,9 +38,9 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Arithmetic.Operator.ADD;
+import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
@@ -77,8 +77,8 @@ public class TestMergeProjectWithValues
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of(
-                                                new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL)),
-                                                new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("y")), FALSE_LITERAL))))))
+                                                new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE)),
+                                                new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("y")), FALSE))))))
                 .matches(values(2));
 
         // ValuesNode has no output symbols and two rows
@@ -119,21 +119,21 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("a"), new Constant(createCharType(1), Slices.utf8Slice("x")), p.symbol("b"), TRUE_LITERAL),
+                                Assignments.of(p.symbol("a"), new Constant(createCharType(1), Slices.utf8Slice("x")), p.symbol("b"), TRUE),
                                 p.values(
                                         ImmutableList.of(),
                                         ImmutableList.of(ImmutableList.of(), ImmutableList.of()))))
                 .matches(values(
                         ImmutableList.of("a", "b"),
                         ImmutableList.of(
-                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL),
-                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL))));
+                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE),
+                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE))));
 
         // ValuesNode has no rows
         tester().assertThat(new MergeProjectWithValues())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("a"), new Constant(createCharType(1), Slices.utf8Slice("x")), p.symbol("b"), TRUE_LITERAL),
+                                Assignments.of(p.symbol("a"), new Constant(createCharType(1), Slices.utf8Slice("x")), p.symbol("b"), TRUE),
                                 p.values(
                                         ImmutableList.of(),
                                         ImmutableList.of())))
@@ -143,13 +143,13 @@ public class TestMergeProjectWithValues
     @Test
     public void testNonDeterministicValues()
     {
-        FunctionCall randomFunction = new FunctionCall(
+        Call randomFunction = new Call(
                 tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()),
                 ImmutableList.of());
 
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("rand", DOUBLE), new SymbolReference(DOUBLE, "rand")),
+                        Assignments.of(p.symbol("rand", DOUBLE), new Reference(DOUBLE, "rand")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand", DOUBLE)),
                                 ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
@@ -161,54 +161,54 @@ public class TestMergeProjectWithValues
         // ValuesNode has multiple rows
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("output", DOUBLE), new SymbolReference(DOUBLE, "value")),
+                        Assignments.of(p.symbol("output", DOUBLE), new Reference(DOUBLE, "value")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("value", DOUBLE)),
                                 ImmutableList.of(
                                         new Row(ImmutableList.of(new Constant(DOUBLE, null))),
                                         new Row(ImmutableList.of(randomFunction)),
-                                        new Row(ImmutableList.of(new ArithmeticNegation(randomFunction)))))))
+                                        new Row(ImmutableList.of(new Negation(randomFunction)))))))
                 .matches(
                         values(
                                 ImmutableList.of("output"),
                                 ImmutableList.of(
                                         ImmutableList.of(new Constant(DOUBLE, null)),
                                         ImmutableList.of(randomFunction),
-                                        ImmutableList.of(new ArithmeticNegation(randomFunction)))));
+                                        ImmutableList.of(new Negation(randomFunction)))));
 
         // ValuesNode has multiple non-deterministic outputs
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
                         Assignments.of(
-                                p.symbol("x"), new ArithmeticNegation(new SymbolReference(DOUBLE, "a")),
-                                p.symbol("y"), new SymbolReference(DOUBLE, "b")),
+                                p.symbol("x"), new Negation(new Reference(DOUBLE, "a")),
+                                p.symbol("y"), new Reference(DOUBLE, "b")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a", DOUBLE), p.symbol("b", DOUBLE)),
                                 ImmutableList.of(
                                         new Row(ImmutableList.of(new Constant(DOUBLE, 1e0), randomFunction)),
                                         new Row(ImmutableList.of(randomFunction, new Constant(DOUBLE, null))),
-                                        new Row(ImmutableList.of(new ArithmeticNegation(randomFunction), new Constant(DOUBLE, null)))))))
+                                        new Row(ImmutableList.of(new Negation(randomFunction), new Constant(DOUBLE, null)))))))
                 .matches(
                         values(
                                 ImmutableList.of("x", "y"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new ArithmeticNegation(new Constant(DOUBLE, 1e0)), randomFunction),
-                                        ImmutableList.of(new ArithmeticNegation(randomFunction), new Constant(DOUBLE, null)),
-                                        ImmutableList.of(new ArithmeticNegation(new ArithmeticNegation(randomFunction)), new Constant(DOUBLE, null)))));
+                                        ImmutableList.of(new Negation(new Constant(DOUBLE, 1e0)), randomFunction),
+                                        ImmutableList.of(new Negation(randomFunction), new Constant(DOUBLE, null)),
+                                        ImmutableList.of(new Negation(new Negation(randomFunction)), new Constant(DOUBLE, null)))));
     }
 
     @Test
     public void testDoNotFireOnNonDeterministicValues()
     {
-        FunctionCall randomFunction = new FunctionCall(
+        Call randomFunction = new Call(
                 tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()),
                 ImmutableList.of());
 
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
                         Assignments.of(
-                                p.symbol("x"), new SymbolReference(DOUBLE, "rand"),
-                                p.symbol("y"), new SymbolReference(DOUBLE, "rand")),
+                                p.symbol("x"), new Reference(DOUBLE, "rand"),
+                                p.symbol("y"), new Reference(DOUBLE, "rand")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand")),
                                 ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
@@ -216,7 +216,7 @@ public class TestMergeProjectWithValues
 
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("x"), new ArithmeticBinaryExpression(ADD_DOUBLE, ADD, new SymbolReference(DOUBLE, "rand"), new SymbolReference(DOUBLE, "rand"))),
+                        Assignments.of(p.symbol("x"), new Arithmetic(ADD_DOUBLE, ADD, new Reference(DOUBLE, "rand"), new Reference(DOUBLE, "rand"))),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand")),
                                 ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
@@ -229,20 +229,20 @@ public class TestMergeProjectWithValues
         // correlation symbol in projection (note: the resulting plan is not yet supported in execution)
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("x", INTEGER), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "a"), new SymbolReference(INTEGER, "corr"))),
+                        Assignments.of(p.symbol("x", INTEGER), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "a"), new Reference(INTEGER, "corr"))),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a", INTEGER)),
                                 ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L)))))))
-                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new SymbolReference(INTEGER, "corr"))))));
+                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new Arithmetic(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new Reference(INTEGER, "corr"))))));
 
         // correlation symbol in values (note: the resulting plan is not yet supported in execution)
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("x"), new SymbolReference(BIGINT, "a")),
+                        Assignments.of(p.symbol("x"), new Reference(BIGINT, "a")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(new Row(ImmutableList.of(new SymbolReference(BIGINT, "corr")))))))
-                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new SymbolReference(BIGINT, "corr")))));
+                                ImmutableList.of(new Row(ImmutableList.of(new Reference(BIGINT, "corr")))))))
+                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new Reference(BIGINT, "corr")))));
 
         // correlation symbol is not present in the resulting expression
         tester().assertThat(new MergeProjectWithValues())
@@ -250,14 +250,14 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("x"), new Constant(INTEGER, 1L)),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(new Row(ImmutableList.of(new SymbolReference(INTEGER, "corr")))))))
+                                ImmutableList.of(new Row(ImmutableList.of(new Reference(INTEGER, "corr")))))))
                 .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L)))));
     }
 
     @Test
     public void testFailingExpression()
     {
-        FunctionCall failFunction = failFunction(tester().getMetadata(), GENERIC_USER_ERROR, "message");
+        Call failFunction = failFunction(tester().getMetadata(), GENERIC_USER_ERROR, "message");
 
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
@@ -282,23 +282,23 @@ public class TestMergeProjectWithValues
                     Assignments.Builder assignments = Assignments.builder();
                     assignments.putIdentity(a); // identity assignment
                     assignments.put(d, b.toSymbolReference()); // renaming assignment
-                    assignments.put(e, new IsNullPredicate(a.toSymbolReference())); // expression involving input symbol
+                    assignments.put(e, new IsNull(a.toSymbolReference())); // expression involving input symbol
                     assignments.put(f, new Constant(INTEGER, 1L)); // constant expression
                     return p.project(
                             assignments.build(),
                             p.valuesOfExpressions(
                                     ImmutableList.of(a, b, c),
                                     ImmutableList.of(
-                                            new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL, new Constant(INTEGER, 1L))),
-                                            new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("y")), FALSE_LITERAL, new Constant(INTEGER, 2L))),
-                                            new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("z")), TRUE_LITERAL, new Constant(INTEGER, 3L))))));
+                                            new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE, new Constant(INTEGER, 1L))),
+                                            new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("y")), FALSE, new Constant(INTEGER, 2L))),
+                                            new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("z")), TRUE, new Constant(INTEGER, 3L))))));
                 })
                 .matches(values(
                         ImmutableList.of("a", "d", "e", "f"),
                         ImmutableList.of(
-                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE_LITERAL, new IsNullPredicate(new Constant(createCharType(1), Slices.utf8Slice("x"))), new Constant(INTEGER, 1L)),
-                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("y")), FALSE_LITERAL, new IsNullPredicate(new Constant(createCharType(1), Slices.utf8Slice("y"))), new Constant(INTEGER, 1L)),
-                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("z")), TRUE_LITERAL, new IsNullPredicate(new Constant(createCharType(1), Slices.utf8Slice("z"))), new Constant(INTEGER, 1L)))));
+                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE, new IsNull(new Constant(createCharType(1), Slices.utf8Slice("x"))), new Constant(INTEGER, 1L)),
+                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("y")), FALSE, new IsNull(new Constant(createCharType(1), Slices.utf8Slice("y"))), new Constant(INTEGER, 1L)),
+                                ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("z")), TRUE, new IsNull(new Constant(createCharType(1), Slices.utf8Slice("z"))), new Constant(INTEGER, 1L)))));
 
         // ValuesNode has no rows
         tester().assertThat(new MergeProjectWithValues())
@@ -312,7 +312,7 @@ public class TestMergeProjectWithValues
                     Assignments.Builder assignments = Assignments.builder();
                     assignments.putIdentity(a); // identity assignment
                     assignments.put(d, b.toSymbolReference()); // renaming assignment
-                    assignments.put(e, new IsNullPredicate(a.toSymbolReference())); // expression involving input symbol
+                    assignments.put(e, new IsNull(a.toSymbolReference())); // expression involving input symbol
                     assignments.put(f, new Constant(INTEGER, 1L)); // constant expression
                     return p.project(
                             assignments.build(),

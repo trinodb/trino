@@ -30,8 +30,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.SubPlan;
@@ -156,7 +156,7 @@ public class TestCostCalculator
     public void testProject()
     {
         TableScanNode tableScan = tableScan("ts", new Symbol(BIGINT, "orderkey"));
-        PlanNode project = project("project", tableScan, new Symbol(VARCHAR, "string"), new Cast(new SymbolReference(BIGINT, "orderkey"), VARCHAR));
+        PlanNode project = project("project", tableScan, new Symbol(VARCHAR, "string"), new Cast(new Reference(BIGINT, "orderkey"), VARCHAR));
         Map<String, PlanCostEstimate> costs = ImmutableMap.of("ts", cpuCost(1000));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "project", statsEstimate(project, 4000),
@@ -184,7 +184,7 @@ public class TestCostCalculator
     public void testFilter()
     {
         TableScanNode tableScan = tableScan("ts", new Symbol(VARCHAR, "string"));
-        IsNullPredicate expression = new IsNullPredicate(new SymbolReference(VARCHAR, "string"));
+        IsNull expression = new IsNull(new Reference(VARCHAR, "string"));
         FilterNode filter = new FilterNode(new PlanNodeId("filter"), tableScan, expression);
         Map<String, PlanCostEstimate> costs = ImmutableMap.of("ts", cpuCost(1000));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(

@@ -36,7 +36,7 @@ import java.util.Optional;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -76,7 +76,7 @@ public class TransformCorrelatedDistinctAggregationWithoutProjection
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
             .with(type().equalTo(LEFT))
             .with(nonEmpty(Patterns.CorrelatedJoin.correlation()))
-            .with(filter().equalTo(TRUE_LITERAL))
+            .with(filter().equalTo(TRUE))
             .with(subquery().matching(aggregation()
                     .matching(AggregationDecorrelation::isDistinctOperator)
                     .capturedAs(AGGREGATION)));

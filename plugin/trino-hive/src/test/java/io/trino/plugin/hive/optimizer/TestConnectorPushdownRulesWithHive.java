@@ -36,13 +36,13 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticNegation;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SubscriptExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Negation;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
@@ -70,8 +70,8 @@ import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
-import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.Arithmetic.Operator.ADD;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -170,7 +170,7 @@ public class TestConnectorPushdownRulesWithHive
                                         ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
                 .matches(
                         project(
-                                ImmutableMap.of("expr", expression(new SymbolReference(RowType.anonymousRow(BIGINT, BIGINT), "col"))),
+                                ImmutableMap.of("expr", expression(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "col"))),
                                 tableScan(
                                         hiveTable.withProjectedColumns(ImmutableSet.of(fullColumn))::equals,
                                         TupleDomain.all(),
@@ -195,13 +195,13 @@ public class TestConnectorPushdownRulesWithHive
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_deref", BIGINT), new SubscriptExpression(INTEGER, p.symbol("struct_of_int", baseType).toSymbolReference(), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_deref", BIGINT), new Subscript(INTEGER, p.symbol("struct_of_int", baseType).toSymbolReference(), new Constant(INTEGER, 1L))),
                                 p.tableScan(
                                         table,
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
                                         ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
                 .matches(project(
-                        ImmutableMap.of("expr_deref", expression(new SymbolReference(BIGINT, "struct_of_int#a"))),
+                        ImmutableMap.of("expr_deref", expression(new Reference(BIGINT, "struct_of_int#a"))),
                         tableScan(
                                 hiveTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
                                 TupleDomain.all(),
@@ -226,13 +226,13 @@ public class TestConnectorPushdownRulesWithHive
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p ->
                         p.filter(
-                                new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 5L)),
+                                new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                                 p.tableScan(
                                         table,
                                         ImmutableList.of(p.symbol("a", INTEGER)),
                                         ImmutableMap.of(p.symbol("a", INTEGER), column))))
                 .matches(filter(
-                        new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "a"), new Constant(INTEGER, 5L)),
+                        new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                         tableScan(
                                 tableHandle -> ((HiveTableHandle) tableHandle).getCompactEffectivePredicate().getDomains().get()
                                         .equals(ImmutableMap.of(column, Domain.singleValue(INTEGER, 5L))),
@@ -271,7 +271,7 @@ public class TestConnectorPushdownRulesWithHive
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("expr", expression(new SymbolReference(INTEGER, "COLA"))),
+                                ImmutableMap.of("expr", expression(new Reference(INTEGER, "COLA"))),
                                 tableScan(
                                         hiveTable.withProjectedColumns(ImmutableSet.of(columnA))::equals,
                                         TupleDomain.all(),
@@ -312,8 +312,8 @@ public class TestConnectorPushdownRulesWithHive
         // Test projection pushdown with duplicate column references
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p -> {
-                    SymbolReference column = p.symbol("just_bigint", BIGINT).toSymbolReference();
-                    Expression negation = new ArithmeticNegation(column);
+                    Reference column = p.symbol("just_bigint", BIGINT).toSymbolReference();
+                    Expression negation = new Negation(column);
                     return p.project(
                             Assignments.of(
                                     // The column reference is part of both the assignments
@@ -326,8 +326,8 @@ public class TestConnectorPushdownRulesWithHive
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "column_ref", expression(new SymbolReference(BIGINT, "just_bigint_0")),
-                                "negated_column_ref", expression(new ArithmeticNegation(new SymbolReference(BIGINT, "just_bigint_0")))),
+                                "column_ref", expression(new Reference(BIGINT, "just_bigint_0")),
+                                "negated_column_ref", expression(new Negation(new Reference(BIGINT, "just_bigint_0")))),
                         tableScan(
                                 hiveTable.withProjectedColumns(ImmutableSet.of(bigintColumn))::equals,
                                 TupleDomain.all(),
@@ -336,8 +336,8 @@ public class TestConnectorPushdownRulesWithHive
         // Test Dereference pushdown
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p -> {
-                    SubscriptExpression subscript = new SubscriptExpression(BIGINT, p.symbol("struct_of_bigint", ROW_TYPE).toSymbolReference(), new Constant(INTEGER, 1L));
-                    Expression sum = new ArithmeticBinaryExpression(ADD_INTEGER, ADD, subscript, new Constant(INTEGER, 2L));
+                    Subscript subscript = new Subscript(BIGINT, p.symbol("struct_of_bigint", ROW_TYPE).toSymbolReference(), new Constant(INTEGER, 1L));
+                    Expression sum = new Arithmetic(ADD_INTEGER, ADD, subscript, new Constant(INTEGER, 2L));
                     return p.project(
                             Assignments.of(
                                     // The subscript expression instance is part of both the assignments
@@ -350,8 +350,8 @@ public class TestConnectorPushdownRulesWithHive
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "expr_deref", expression(new SymbolReference(INTEGER, "struct_of_bigint#a")),
-                                "expr_deref_2", expression(new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "struct_of_bigint#a"), new Constant(INTEGER, 2L)))),
+                                "expr_deref", expression(new Reference(INTEGER, "struct_of_bigint#a")),
+                                "expr_deref_2", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "struct_of_bigint#a"), new Constant(INTEGER, 2L)))),
                         tableScan(
                                 hiveTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
                                 TupleDomain.all(),

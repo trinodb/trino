@@ -39,7 +39,7 @@ import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -346,7 +346,7 @@ public class TestDetermineSemiJoinDistributionType
                             p.values(new PlanNodeId("valuesA"), aRows, a1),
                             p.filter(
                                     new PlanNodeId("filterB"),
-                                    TRUE_LITERAL,
+                                    TRUE,
                                     p.values(new PlanNodeId("valuesB"), bRows, b1)),
                             a1,
                             b1,
@@ -361,7 +361,7 @@ public class TestDetermineSemiJoinDistributionType
                         "output",
                         Optional.of(REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
-                        filter(TRUE_LITERAL, values(ImmutableMap.of("B1", 0)))));
+                        filter(TRUE, values(ImmutableMap.of("B1", 0)))));
     }
 
     private RuleBuilder assertDetermineSemiJoinDistributionType()

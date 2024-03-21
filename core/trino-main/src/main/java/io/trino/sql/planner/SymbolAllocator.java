@@ -17,9 +17,9 @@ import com.google.common.primitives.Ints;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Field;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import jakarta.annotation.Nullable;
 
 import java.util.Collection;
@@ -107,12 +107,12 @@ public class SymbolAllocator
     public Symbol newSymbol(Expression expression, Type type, String suffix)
     {
         String nameHint = "expr";
-        if (expression instanceof FunctionCall functionCall) {
+        if (expression instanceof Call call) {
             // symbol allocation can happen during planning, before function calls are rewritten
-            nameHint = functionCall.function().getName().getFunctionName();
+            nameHint = call.function().getName().getFunctionName();
         }
-        else if (expression instanceof SymbolReference symbolReference) {
-            nameHint = symbolReference.name();
+        else if (expression instanceof Reference reference) {
+            nameHint = reference.name();
         }
 
         return newSymbol(nameHint, type, suffix);

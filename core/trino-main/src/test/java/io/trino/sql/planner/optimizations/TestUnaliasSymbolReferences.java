@@ -26,7 +26,7 @@ import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -47,7 +47,7 @@ import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createP
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
@@ -81,7 +81,7 @@ public class TestUnaliasSymbolReferences
                     return p.join(
                             INNER,
                             p.filter(
-                                    TRUE_LITERAL, // additional filter to test recursive call
+                                    TRUE, // additional filter to test recursive call
                                     p.filter(
                                             and(
                                                     dynamicFilterExpression(metadata, probeColumn1, dynamicFilterId1),
@@ -105,13 +105,13 @@ public class TestUnaliasSymbolReferences
                 },
                 join(INNER, builder -> builder
                         .dynamicFilter(ImmutableMap.of(
-                                new SymbolReference(BIGINT, "probeColumn1"), "column",
-                                new SymbolReference(BIGINT, "probeColumn2"), "column"))
+                                new Reference(BIGINT, "probeColumn1"), "column",
+                                new Reference(BIGINT, "probeColumn2"), "column"))
                         .left(
                                 filter(
-                                        TRUE_LITERAL,
+                                        TRUE,
                                         filter(
-                                                TRUE_LITERAL,
+                                                TRUE,
                                                 tableScan(
                                                         probeTable,
                                                         ImmutableMap.of("probeColumn1", "suppkey", "probeColumn2", "nationkey")))))

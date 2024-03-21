@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import io.trino.cost.StatsAndCosts;
 import io.trino.operator.RetryPolicy;
-import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.plan.IndexJoinNode;
@@ -171,7 +171,7 @@ public class TestTopologicalOrderSubPlanVisitor
                 left,
                 right,
                 left.getOutputSymbols(),
-                BooleanLiteral.TRUE_LITERAL,
+                Booleans.TRUE,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());

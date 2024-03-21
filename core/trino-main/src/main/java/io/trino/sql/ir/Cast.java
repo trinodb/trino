@@ -49,7 +49,7 @@ public record Cast(Expression expression, Type type, boolean safe)
     }
 
     @Override
-    public List<? extends Expression> getChildren()
+    public List<? extends Expression> children()
     {
         return ImmutableList.of(expression);
     }

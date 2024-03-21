@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
@@ -125,7 +125,7 @@ public class TestPruneTableFunctionProcessorColumns
                                             .source(p.values(a, b))));
                 })
                 .matches(project(
-                        ImmutableMap.of("y", expression(new SymbolReference(BIGINT, "y")), "b", expression(new SymbolReference(BIGINT, "b"))),
+                        ImmutableMap.of("y", expression(new Reference(BIGINT, "y")), "b", expression(new Reference(BIGINT, "b"))),
                         tableFunctionProcessor(builder -> builder
                                         .name("test_function")
                                         .properOutputs(ImmutableList.of("x", "y"))
@@ -213,7 +213,7 @@ public class TestPruneTableFunctionProcessorColumns
                                             .source(p.values(a, b, c, d))));
                 })
                 .matches(project(
-                        ImmutableMap.of("b", expression(new SymbolReference(BIGINT, "b"))),
+                        ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
                         tableFunctionProcessor(builder -> builder
                                         .name("test_function")
                                         .properOutputs(ImmutableList.of("proper"))

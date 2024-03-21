@@ -15,6 +15,7 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -22,35 +23,58 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record ArithmeticNegation(Expression value)
+public record Arithmetic(ResolvedFunction function, Operator operator, Expression left, Expression right)
         implements Expression
 {
-    public ArithmeticNegation
+    public enum Operator
     {
-        requireNonNull(value, "value is null");
+        ADD("+"),
+        SUBTRACT("-"),
+        MULTIPLY("*"),
+        DIVIDE("/"),
+        MODULUS("%");
+        private final String value;
+
+        Operator(String value)
+        {
+            this.value = value;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
+    }
+
+    public Arithmetic
+    {
+        requireNonNull(function, "function is null");
+        requireNonNull(operator, "operator is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
     }
 
     @Override
     public Type type()
     {
-        return value.type();
+        return function.getSignature().getReturnType();
     }
 
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitArithmeticNegation(this, context);
+        return visitor.visitArithmetic(this, context);
     }
 
     @Override
-    public List<? extends Expression> getChildren()
+    public List<? extends Expression> children()
     {
-        return ImmutableList.of(value);
+        return ImmutableList.of(left, right);
     }
 
     @Override
     public String toString()
     {
-        return "-(%s)".formatted(value);
+        return "%s(%s, %s)".formatted(operator.getValue(), left, right);
     }
 }

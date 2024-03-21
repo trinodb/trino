@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
@@ -48,7 +48,7 @@ public class TestPruneDistinctLimitSourceColumns
                                 5,
                                 ImmutableList.of("a"),
                                 strictProject(
-                                        ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a"))),
+                                        ImmutableMap.of("a", expression(new Reference(BIGINT, "a"))),
                                         values("a", "b"))));
 
         tester().assertThat(new PruneDistinctLimitSourceColumns())
@@ -68,7 +68,7 @@ public class TestPruneDistinctLimitSourceColumns
                                 ImmutableList.of("a"),
                                 "hash_symbol",
                                 strictProject(
-                                        ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a")), "hash_symbol", expression(new SymbolReference(BIGINT, "hash_symbol"))),
+                                        ImmutableMap.of("a", expression(new Reference(BIGINT, "a")), "hash_symbol", expression(new Reference(BIGINT, "hash_symbol"))),
                                         values("a", "b", "hash_symbol"))));
     }
 

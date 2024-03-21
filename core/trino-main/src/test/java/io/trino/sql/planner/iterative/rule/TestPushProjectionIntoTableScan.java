@@ -42,8 +42,8 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SubscriptExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
@@ -101,7 +101,7 @@ public class TestPushProjectionIntoTableScan
                     .on(p -> {
                         Symbol symbol = p.symbol(columnName, columnType);
                         return p.project(
-                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new SubscriptExpression(BIGINT, symbol.toSymbolReference(), new Constant(INTEGER, 1L))),
+                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new Subscript(BIGINT, symbol.toSymbolReference(), new Constant(INTEGER, 1L))),
                                 p.tableScan(
                                         ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE),
                                         ImmutableList.of(symbol),
@@ -136,7 +136,7 @@ public class TestPushProjectionIntoTableScan
             // Prepare project node assignments
             Assignments inputProjections = Assignments.builder()
                     .put(identity, baseColumn.toSymbolReference())
-                    .put(dereference, new SubscriptExpression(BIGINT, baseColumn.toSymbolReference(), new Constant(INTEGER, 1L)))
+                    .put(dereference, new Subscript(BIGINT, baseColumn.toSymbolReference(), new Constant(INTEGER, 1L)))
                     .put(constant, new Constant(INTEGER, 5L))
                     .build();
 
@@ -181,7 +181,7 @@ public class TestPushProjectionIntoTableScan
                                             e -> e.getKey().getName(),
                                             e -> {
                                                 if (e.getValue() instanceof String value) {
-                                                    return expression(new SymbolReference(BIGINT, value));
+                                                    return expression(new Reference(BIGINT, value));
                                                 }
                                                 if (e.getValue() instanceof Expression value) {
                                                     return expression(value);
