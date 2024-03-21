@@ -42,7 +42,7 @@ prometheus.read-timeout=10s
 The following configuration properties are available:
 
 | Property name                               | Description                                                                                  |
-|---------------------------------------------|----------------------------------------------------------------------------------------------|
+| ------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `prometheus.uri`                            | Where to find Prometheus coordinator host                                                    |
 | `prometheus.query.chunk.size.duration`      | The duration of each query to Prometheus                                                     |
 | `prometheus.max.query.range.duration`       | Width of overall query to Prometheus, will be divided into query-chunk-size-duration queries |
