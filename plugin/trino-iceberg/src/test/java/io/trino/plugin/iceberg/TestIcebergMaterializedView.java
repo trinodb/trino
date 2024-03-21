@@ -92,6 +92,12 @@ public class TestIcebergMaterializedView
                     .setCatalog("iceberg2")
                     .build();
 
+            queryRunner.createCatalog("iceberg_legacy_mv", "iceberg", Map.of(
+                    "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                    "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toString(),
+                    "iceberg.hive-catalog-name", "hive",
+                    "iceberg.materialized-views.hide-storage-table", "false"));
+
             queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                     .withTableFunctions(ImmutableSet.of(new SequenceTableFunction()))
                     .withFunctionProvider(Optional.of(new FunctionProvider()
@@ -143,17 +149,17 @@ public class TestIcebergMaterializedView
         assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM TABLE(mock.system.sequence_function())");
 
         assertFreshness(viewName, "STALE");
-        assertThat(computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE name = '" + viewName + "'").getOnlyValue()).isNull();
+        assertThat(computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = '" + ICEBERG_CATALOG + "' AND name = '" + viewName + "'").getOnlyValue()).isNull();
         int result1 = (int) computeActual("SELECT * FROM " + viewName).getOnlyValue();
 
         int result2 = (int) computeActual("SELECT * FROM " + viewName).getOnlyValue();
         assertThat(result2).isNotEqualTo(result1); // differs because PTF sequence_function is called directly as mv is considered stale
         assertFreshness(viewName, "STALE");
-        assertThat(computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE name = '" + viewName + "'").getOnlyValue()).isNull();
+        assertThat(computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = '" + ICEBERG_CATALOG + "' AND name = '" + viewName + "'").getOnlyValue()).isNull();
 
         assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
         assertFreshness(viewName, "UNKNOWN");
-        ZonedDateTime lastFreshTime = (ZonedDateTime) computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE name = '" + viewName + "'").getOnlyValue();
+        ZonedDateTime lastFreshTime = (ZonedDateTime) computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = '" + ICEBERG_CATALOG + "' AND name = '" + viewName + "'").getOnlyValue();
         assertThat(lastFreshTime).isNotNull();
         int result3 = (int) computeActual("SELECT * FROM " + viewName).getOnlyValue();
         assertThat(result3).isNotEqualTo(result2);  // mv is not stale anymore so all selects until next refresh returns same result
@@ -163,7 +169,7 @@ public class TestIcebergMaterializedView
         assertThat(result4).isEqualTo(result5);
 
         assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
-        assertThat((ZonedDateTime) computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE name = '" + viewName + "'").getOnlyValue()).isAfter(lastFreshTime);
+        assertThat((ZonedDateTime) computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = '" + ICEBERG_CATALOG + "' AND name = '" + viewName + "'").getOnlyValue()).isAfter(lastFreshTime);
         assertFreshness(viewName, "UNKNOWN");
         int result6 = (int) computeActual("SELECT * FROM " + viewName).getOnlyValue();
         assertThat(result6).isNotEqualTo(result5);
@@ -183,7 +189,7 @@ public class TestIcebergMaterializedView
         assertThat(materializedRows.get(0).getField(1)).isEqualTo(2);
         int valueFromPtf1 = (int) materializedRows.get(0).getField(0);
         assertFreshness(viewName, "STALE");
-        assertThat(computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE name = '" + viewName + "'").getOnlyValue()).isNull();
+        assertThat(computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = '" + ICEBERG_CATALOG + "' AND name = '" + viewName + "'").getOnlyValue()).isNull();
 
         materializedRows = computeActual("SELECT * FROM " + viewName).getMaterializedRows();
         assertThat(materializedRows.size()).isEqualTo(1);
@@ -191,11 +197,11 @@ public class TestIcebergMaterializedView
         int valueFromPtf2 = (int) materializedRows.get(0).getField(0);
         assertThat(valueFromPtf2).isNotEqualTo(valueFromPtf1); // differs because PTF sequence_function is called directly as mv is considered stale
         assertFreshness(viewName, "STALE");
-        assertThat(computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE name = '" + viewName + "'").getOnlyValue()).isNull();
+        assertThat(computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = '" + ICEBERG_CATALOG + "' AND name = '" + viewName + "'").getOnlyValue()).isNull();
 
         assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
         assertFreshness(viewName, "UNKNOWN");
-        ZonedDateTime lastFreshTime = (ZonedDateTime) computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE name = '" + viewName + "'").getOnlyValue();
+        ZonedDateTime lastFreshTime = (ZonedDateTime) computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = '" + ICEBERG_CATALOG + "' AND name = '" + viewName + "'").getOnlyValue();
         assertThat(lastFreshTime).isNotNull();
         materializedRows = computeActual("SELECT * FROM " + viewName).getMaterializedRows();
         assertThat(materializedRows.size()).isEqualTo(1);
@@ -284,7 +290,7 @@ public class TestIcebergMaterializedView
 
     private void assertFreshness(String viewName, String expected)
     {
-        assertThat((String) computeScalar("SELECT freshness FROM system.metadata.materialized_views WHERE name = '" + viewName + "'")).isEqualTo(expected);
+        assertThat((String) computeScalar("SELECT freshness FROM system.metadata.materialized_views WHERE catalog_name = '" + ICEBERG_CATALOG + "' AND name = '" + viewName + "'")).isEqualTo(expected);
     }
 
     public static class SequenceTableFunction

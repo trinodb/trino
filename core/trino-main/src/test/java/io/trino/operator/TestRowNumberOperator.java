@@ -23,7 +23,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.api.AfterAll;
@@ -65,7 +64,7 @@ public class TestRowNumberOperator
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
-    private final JoinCompiler joinCompiler = new JoinCompiler(new TypeOperators());
+    private final FlatHashStrategyCompiler hashStrategyCompiler = new FlatHashStrategyCompiler(new TypeOperators());
 
     @BeforeAll
     public void setUp()
@@ -117,7 +116,7 @@ public class TestRowNumberOperator
                 Optional.empty(),
                 Optional.empty(),
                 10,
-                joinCompiler);
+                hashStrategyCompiler);
 
         MaterializedResult expectedResult = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                 .row(0.3, 1L)
@@ -157,7 +156,7 @@ public class TestRowNumberOperator
                     Optional.empty(),
                     Optional.of(1),
                     1,
-                    joinCompiler);
+                    hashStrategyCompiler);
 
             // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
             GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((RowNumberOperator) operator).getCapacity(), 280_000);
@@ -207,7 +206,7 @@ public class TestRowNumberOperator
                     Optional.of(10),
                     rowPagesBuilder.getHashChannel(),
                     10,
-                    joinCompiler);
+                    hashStrategyCompiler);
 
             MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                     .row(0.3, 1L)
@@ -275,7 +274,7 @@ public class TestRowNumberOperator
                     Optional.of(3),
                     Optional.empty(),
                     10,
-                    joinCompiler);
+                    hashStrategyCompiler);
 
             MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                     .row(0.3, 1L)
@@ -345,7 +344,7 @@ public class TestRowNumberOperator
                 Optional.of(3),
                 Optional.empty(),
                 10,
-                joinCompiler);
+                hashStrategyCompiler);
 
         MaterializedResult expectedRows = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
                 .row(0.3, 1L)

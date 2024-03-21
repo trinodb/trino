@@ -415,6 +415,10 @@
                                     <shadedPattern>${shadeBase}.jakarta.annotation</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>net.bytebuddy</pattern>
+                                    <shadedPattern>${shadeBase}.net.bytebuddy</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>org.joda.time</pattern>
                                     <shadedPattern>${shadeBase}.joda.time</shadedPattern>
                                 </relocation>
@@ -457,6 +461,7 @@
                                         <exclude>org/intellij/**</exclude>
                                         <exclude>com/google/errorprone/**</exclude>
                                         <exclude>META-INF/maven/**</exclude>
+                                        <exclude>META-INF/licenses/**</exclude>
                                         <exclude>META-INF/services/com.fasterxml.**</exclude>
                                         <exclude>META-INF/proguard/**</exclude>
                                         <exclude>LICENSE</exclude>

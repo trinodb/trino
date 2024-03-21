@@ -23,7 +23,6 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
@@ -53,7 +52,7 @@ public class RowNumberOperator
         private final Optional<Integer> hashChannel;
         private final int expectedPositions;
         private boolean closed;
-        private final JoinCompiler joinCompiler;
+        private final FlatHashStrategyCompiler hashStrategyCompiler;
 
         public RowNumberOperatorFactory(
                 int operatorId,
@@ -65,7 +64,7 @@ public class RowNumberOperator
                 Optional<Integer> maxRowsPerPartition,
                 Optional<Integer> hashChannel,
                 int expectedPositions,
-                JoinCompiler joinCompiler)
+                FlatHashStrategyCompiler hashStrategyCompiler)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -78,7 +77,7 @@ public class RowNumberOperator
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             checkArgument(expectedPositions > 0, "expectedPositions < 0");
             this.expectedPositions = expectedPositions;
-            this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+            this.hashStrategyCompiler = requireNonNull(hashStrategyCompiler, "hashStrategyCompiler is null");
         }
 
         @Override
@@ -96,7 +95,7 @@ public class RowNumberOperator
                     maxRowsPerPartition,
                     hashChannel,
                     expectedPositions,
-                    joinCompiler);
+                    hashStrategyCompiler);
         }
 
         @Override
@@ -118,7 +117,7 @@ public class RowNumberOperator
                     maxRowsPerPartition,
                     hashChannel,
                     expectedPositions,
-                    joinCompiler);
+                    hashStrategyCompiler);
         }
     }
 
@@ -152,7 +151,7 @@ public class RowNumberOperator
             Optional<Integer> maxRowsPerPartition,
             Optional<Integer> hashChannel,
             int expectedPositions,
-            JoinCompiler joinCompiler)
+            FlatHashStrategyCompiler hashStrategyCompiler)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
@@ -187,7 +186,7 @@ public class RowNumberOperator
                     partitionTypes,
                     hashChannel.isPresent(),
                     expectedPositions,
-                    joinCompiler,
+                    hashStrategyCompiler,
                     this::updateMemoryReservation));
         }
     }

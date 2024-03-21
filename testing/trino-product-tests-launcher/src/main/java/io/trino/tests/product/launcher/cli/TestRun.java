@@ -266,7 +266,7 @@ public final class TestRun
             if (impactedFeatures.isEmpty()) {
                 return true;
             }
-            if (impactedFeatures.get().size() == 0) {
+            if (impactedFeatures.get().isEmpty()) {
                 return false;
             }
             Map<String, List<String>> featuresByName = impactedFeatures.get().stream().collect(groupingBy(feature -> {

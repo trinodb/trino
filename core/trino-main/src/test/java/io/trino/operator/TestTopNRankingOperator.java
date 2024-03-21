@@ -22,7 +22,6 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.type.BlockTypeOperators;
@@ -66,7 +65,7 @@ public class TestTopNRankingOperator
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     private final TypeOperators typeOperators = new TypeOperators();
-    private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
+    private final FlatHashStrategyCompiler hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
     private final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
 
     @AfterAll
@@ -114,7 +113,7 @@ public class TestTopNRankingOperator
                     Optional.empty(),
                     10,
                     Optional.empty(),
-                    joinCompiler,
+                    hashStrategyCompiler,
                     typeOperators,
                     blockTypeOperators);
 
@@ -170,7 +169,7 @@ public class TestTopNRankingOperator
                     Optional.empty(),
                     10,
                     partial ? Optional.of(DataSize.ofBytes(1)) : Optional.empty(),
-                    joinCompiler,
+                    hashStrategyCompiler,
                     typeOperators,
                     blockTypeOperators);
 
@@ -236,7 +235,7 @@ public class TestTopNRankingOperator
                     Optional.empty(),
                     10,
                     partial ? Optional.of(DataSize.of(1, DataSize.Unit.BYTE)) : Optional.empty(),
-                    joinCompiler,
+                    hashStrategyCompiler,
                     typeOperators,
                     blockTypeOperators);
 
@@ -280,7 +279,7 @@ public class TestTopNRankingOperator
                 Optional.empty(),
                 10,
                 Optional.empty(),
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 blockTypeOperators);
 
@@ -341,7 +340,7 @@ public class TestTopNRankingOperator
                 Optional.empty(),
                 10,
                 Optional.empty(),
-                joinCompiler,
+                hashStrategyCompiler,
                 typeOperators,
                 blockTypeOperators);
 

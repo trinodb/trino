@@ -362,17 +362,11 @@ final class BlockUtil
     static void appendRawBlockRange(Block rawBlock, int offset, int length, BlockBuilder blockBuilder)
     {
         rawBlock = rawBlock.getLoadedBlock();
-        if (rawBlock instanceof RunLengthEncodedBlock rleBlock) {
-            blockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
-        }
-        else if (rawBlock instanceof DictionaryBlock dictionaryBlock) {
-            blockBuilder.appendPositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), offset, length);
-        }
-        else if (rawBlock instanceof ValueBlock valueBlock) {
-            blockBuilder.appendRange(valueBlock, offset, length);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported block type " + rawBlock.getClass().getSimpleName());
+        switch (rawBlock) {
+            case RunLengthEncodedBlock rleBlock -> blockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
+            case DictionaryBlock dictionaryBlock -> blockBuilder.appendPositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), offset, length);
+            case ValueBlock valueBlock -> blockBuilder.appendRange(valueBlock, offset, length);
+            case LazyBlock ignored -> throw new IllegalStateException("Did not expect LazyBlock after loading " + rawBlock.getClass().getSimpleName());
         }
     }
 }

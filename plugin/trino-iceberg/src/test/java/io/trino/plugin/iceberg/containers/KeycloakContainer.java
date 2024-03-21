@@ -30,7 +30,7 @@ import java.util.Set;
 public class KeycloakContainer
         extends BaseTestContainer
 {
-    public static final String DEFAULT_IMAGE = "quay.io/keycloak/keycloak:23.0.3";
+    public static final String DEFAULT_IMAGE = "quay.io/keycloak/keycloak:24.0.1";
     public static final String DEFAULT_HOST_NAME = "keycloak";
 
     public static final String DEFAULT_USER_NAME = "admin";

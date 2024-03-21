@@ -20,7 +20,6 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Collection;
@@ -43,7 +42,7 @@ public class MarkDistinctOperator
         private final Optional<Integer> hashChannel;
         private final List<Integer> markDistinctChannels;
         private final List<Type> types;
-        private final JoinCompiler joinCompiler;
+        private final FlatHashStrategyCompiler hashStrategyCompiler;
         private boolean closed;
 
         public MarkDistinctOperatorFactory(
@@ -52,14 +51,14 @@ public class MarkDistinctOperator
                 List<? extends Type> sourceTypes,
                 Collection<Integer> markDistinctChannels,
                 Optional<Integer> hashChannel,
-                JoinCompiler joinCompiler)
+                FlatHashStrategyCompiler hashStrategyCompiler)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.markDistinctChannels = ImmutableList.copyOf(requireNonNull(markDistinctChannels, "markDistinctChannels is null"));
             checkArgument(!markDistinctChannels.isEmpty(), "markDistinctChannels is empty");
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
-            this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+            this.hashStrategyCompiler = requireNonNull(hashStrategyCompiler, "hashStrategyCompiler is null");
             this.types = ImmutableList.<Type>builder()
                     .addAll(sourceTypes)
                     .add(BOOLEAN)
@@ -71,7 +70,7 @@ public class MarkDistinctOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, MarkDistinctOperator.class.getSimpleName());
-            return new MarkDistinctOperator(operatorContext, types, markDistinctChannels, hashChannel, joinCompiler);
+            return new MarkDistinctOperator(operatorContext, types, markDistinctChannels, hashChannel, hashStrategyCompiler);
         }
 
         @Override
@@ -83,7 +82,7 @@ public class MarkDistinctOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new MarkDistinctOperatorFactory(operatorId, planNodeId, types.subList(0, types.size() - 1), markDistinctChannels, hashChannel, joinCompiler);
+            return new MarkDistinctOperatorFactory(operatorId, planNodeId, types.subList(0, types.size() - 1), markDistinctChannels, hashChannel, hashStrategyCompiler);
         }
     }
 
@@ -98,7 +97,7 @@ public class MarkDistinctOperator
     // for yield when memory is not available
     private Work<Block> unfinishedWork;
 
-    public MarkDistinctOperator(OperatorContext operatorContext, List<Type> types, List<Integer> markDistinctChannels, Optional<Integer> hashChannel, JoinCompiler joinCompiler)
+    public MarkDistinctOperator(OperatorContext operatorContext, List<Type> types, List<Integer> markDistinctChannels, Optional<Integer> hashChannel, FlatHashStrategyCompiler hashStrategyCompiler)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
@@ -120,7 +119,7 @@ public class MarkDistinctOperator
             this.markDistinctChannels = Ints.toArray(markDistinctChannels);
         }
 
-        this.markDistinctHash = new MarkDistinctHash(operatorContext.getSession(), distinctTypes.build(), hashChannel.isPresent(), joinCompiler, this::updateMemoryReservation);
+        this.markDistinctHash = new MarkDistinctHash(operatorContext.getSession(), distinctTypes.build(), hashChannel.isPresent(), hashStrategyCompiler, this::updateMemoryReservation);
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
     }
 

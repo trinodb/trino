@@ -16,7 +16,6 @@ package io.trino.operator;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
 
 import java.util.List;
 
@@ -29,9 +28,9 @@ public class GroupByHashPageIndexer
 {
     private final GroupByHash hash;
 
-    public GroupByHashPageIndexer(List<Type> hashTypes, JoinCompiler joinCompiler)
+    public GroupByHashPageIndexer(List<Type> hashTypes, FlatHashStrategyCompiler hashStrategyCompiler)
     {
-        this(GroupByHash.createGroupByHash(hashTypes, false, 20, false, joinCompiler, NOOP));
+        this(GroupByHash.createGroupByHash(hashTypes, false, 20, false, hashStrategyCompiler, NOOP));
     }
 
     public GroupByHashPageIndexer(GroupByHash hash)

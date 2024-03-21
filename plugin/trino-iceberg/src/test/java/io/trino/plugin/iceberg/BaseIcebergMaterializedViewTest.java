@@ -40,6 +40,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.REFRESH_MATERIALIZED_VIEW;
@@ -111,14 +112,14 @@ public abstract class BaseIcebergMaterializedViewTest
         // test freshness update
         assertQuery(
                 // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
-                format("SELECT freshness FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
+                format("SELECT freshness FROM system.metadata.materialized_views WHERE catalog_name = '%s' AND schema_name = '%s' AND name = '%s'", ICEBERG_CATALOG, schemaName, materializedViewName),
                 "VALUES 'STALE'");
 
         computeActual(format("REFRESH MATERIALIZED VIEW %s", materializedViewName));
 
         assertQuery(
                 // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
-                format("SELECT freshness FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
+                format("SELECT freshness FROM system.metadata.materialized_views WHERE catalog_name = '%s' AND schema_name = '%s' AND name = '%s'", ICEBERG_CATALOG, schemaName, materializedViewName),
                 "VALUES 'FRESH'");
 
         assertUpdate("DROP TABLE small_region");
@@ -772,6 +773,33 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat(query(format("SELECT * FROM %s WHERE ts_9 < localtimestamp", materializedViewName))).succeeds();
         assertThat(query(format("SELECT * FROM %s WHERE tswtz_3 < current_timestamp", materializedViewName))).succeeds();
         assertThat(query(format("SELECT * FROM %s WHERE tswtz_9 < current_timestamp", materializedViewName))).succeeds();
+    }
+
+    @Test
+    public void testDropLegacyMaterializedView()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        String materializedViewName = "test_drop_legacy_materialized_view" + randomNameSuffix();
+        String sourceTableName = "test_source_table_for_mat_view" + randomNameSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
+        assertUpdate(format("CREATE MATERIALIZED VIEW iceberg_legacy_mv.%s.%s AS SELECT * FROM %s", schemaName, materializedViewName, sourceTableName));
+
+        try {
+            // Refresh with legacy enabled
+            assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (2, 2)", sourceTableName), 3);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW iceberg_legacy_mv.%s.%s", schemaName, materializedViewName), 3);
+
+            // Refresh with legacy disabled
+            assertUpdate(format("INSERT INTO %s VALUES (10, 10), (10, 40), (20, 20)", sourceTableName), 3);
+            assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 6);
+
+            assertQuery("SELECT * FROM " + materializedViewName, "VALUES (1, 1), (1, 4), (2, 2), (10, 10), (10, 40), (20, 20)");
+            assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + sourceTableName);
+            assertUpdate(format("DROP MATERIALIZED VIEW IF EXISTS iceberg_legacy_mv.%s.%s", schemaName, materializedViewName));
+        }
     }
 
     protected String getColumnComment(String tableName, String columnName)

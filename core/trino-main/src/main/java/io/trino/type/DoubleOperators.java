@@ -26,6 +26,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -45,6 +46,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.FLOOR;
 import static java.math.RoundingMode.HALF_UP;
+import static java.util.Locale.ENGLISH;
 
 public final class DoubleOperators
 {
@@ -55,7 +57,7 @@ public final class DoubleOperators
     private static final double MIN_BYTE_AS_DOUBLE = -0x1p7;
     private static final double MAX_BYTE_PLUS_ONE_AS_DOUBLE = 0x1p7;
 
-    private static final ThreadLocal<DecimalFormat> FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0.0###################E0"));
+    private static final ThreadLocal<DecimalFormat> FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0.0###################E0", new DecimalFormatSymbols(ENGLISH)));
 
     private DoubleOperators()
     {

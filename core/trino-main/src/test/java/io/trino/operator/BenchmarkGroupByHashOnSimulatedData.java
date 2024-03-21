@@ -28,7 +28,6 @@ import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.gen.JoinCompiler;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -80,7 +79,7 @@ public class BenchmarkGroupByHashOnSimulatedData
     private static final int EXPECTED_GROUP_COUNT = 10_000;
     private static final int DEFAULT_PAGE_SIZE = 8192;
 
-    private final JoinCompiler joinCompiler = new JoinCompiler(new TypeOperators());
+    private final FlatHashStrategyCompiler hashStrategyCompiler = new FlatHashStrategyCompiler(new TypeOperators());
 
     @Benchmark
     @OperationsPerInvocation(DEFAULT_POSITIONS)
@@ -91,7 +90,7 @@ public class BenchmarkGroupByHashOnSimulatedData
                 false,
                 EXPECTED_GROUP_COUNT,
                 false,
-                joinCompiler,
+                hashStrategyCompiler,
                 NOOP);
         List<int[]> results = addInputPages(groupByHash, data.getPages(), data.getWorkType());
 

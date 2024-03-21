@@ -20,7 +20,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
 
 import java.util.List;
 
@@ -32,9 +31,9 @@ public class MarkDistinctHash
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
-    public MarkDistinctHash(Session session, List<Type> types, boolean hasPrecomputedHash, JoinCompiler joinCompiler, UpdateMemory updateMemory)
+    public MarkDistinctHash(Session session, List<Type> types, boolean hasPrecomputedHash, FlatHashStrategyCompiler hashStrategyCompiler, UpdateMemory updateMemory)
     {
-        this.groupByHash = createGroupByHash(session, types, hasPrecomputedHash, 10_000, joinCompiler, updateMemory);
+        this.groupByHash = createGroupByHash(session, types, hasPrecomputedHash, 10_000, hashStrategyCompiler, updateMemory);
     }
 
     public long getEstimatedSize()

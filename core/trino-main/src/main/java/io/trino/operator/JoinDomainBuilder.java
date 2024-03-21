@@ -14,11 +14,13 @@
 package io.trino.operator;
 
 import com.google.common.base.Throwables;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.predicate.Domain;
@@ -162,22 +164,20 @@ public class JoinDomainBuilder
     {
         block = block.getLoadedBlock();
         if (collectDistinctValues) {
-            if (block instanceof ValueBlock valueBlock) {
-                for (int position = 0; position < block.getPositionCount(); position++) {
-                    add(valueBlock, position);
+            switch (block) {
+                case ValueBlock valueBlock -> {
+                    for (int position = 0; position < block.getPositionCount(); position++) {
+                        add(valueBlock, position);
+                    }
                 }
-            }
-            else if (block instanceof RunLengthEncodedBlock rleBlock) {
-                add(rleBlock.getValue(), 0);
-            }
-            else if (block instanceof DictionaryBlock dictionaryBlock) {
-                ValueBlock dictionary = dictionaryBlock.getDictionary();
-                for (int i = 0; i < dictionaryBlock.getPositionCount(); i++) {
-                    add(dictionary, dictionaryBlock.getId(i));
+                case RunLengthEncodedBlock rleBlock -> add(rleBlock.getValue(), 0);
+                case DictionaryBlock dictionaryBlock -> {
+                    ValueBlock dictionary = dictionaryBlock.getDictionary();
+                    for (int i = 0; i < dictionaryBlock.getPositionCount(); i++) {
+                        add(dictionary, dictionaryBlock.getId(i));
+                    }
                 }
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported block type: " + block.getClass().getSimpleName());
+                case LazyBlock ignored -> throw new VerifyException("Did not expect LazyBlock after loading " + block.getClass().getSimpleName());
             }
 
             // if the distinct size is too large, fall back to min max, and drop the distinct values

@@ -45,7 +45,7 @@ public class TestConfiguredFeatures
     @Test(groups = CONFIGURED_FEATURES)
     public void selectConfiguredConnectors()
     {
-        if (configuredConnectors.size() == 0) {
+        if (configuredConnectors.isEmpty()) {
             throw new SkipException("Skip checking configured connectors since none were set in Tempto configuration");
         }
         String sql = "SELECT DISTINCT connector_name FROM system.metadata.catalogs";

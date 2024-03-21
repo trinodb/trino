@@ -96,7 +96,7 @@ public class QueryTemplate
 
     private void replaceAll(String queryTemplate, Consumer<String> queryConsumer, List<List<Parameter>> parametersLists)
     {
-        if (parametersLists.size() == 0) {
+        if (parametersLists.isEmpty()) {
             checkQueryHasAllParametersReplaced(queryTemplate);
             queryConsumer.accept(queryTemplate);
         }
@@ -104,7 +104,7 @@ public class QueryTemplate
             List<List<Parameter>> restParameters = IntStream.range(1, parametersLists.size())
                     .mapToObj(parametersLists::get)
                     .collect(toImmutableList());
-            for (Parameter parameter : parametersLists.get(0)) {
+            for (Parameter parameter : parametersLists.getFirst()) {
                 String intermediateQueryTemplate = resolve(queryTemplate, parameter);
                 replaceAll(intermediateQueryTemplate, queryConsumer, restParameters);
             }

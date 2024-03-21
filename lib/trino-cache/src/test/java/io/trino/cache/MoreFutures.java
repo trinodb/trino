@@ -16,7 +16,8 @@ package io.trino.cache;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
-import static com.google.common.base.Throwables.propagateIfPossible;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 final class MoreFutures
@@ -49,7 +50,8 @@ final class MoreFutures
         }
         catch (ExecutionException e) {
             Throwable cause = e.getCause() == null ? e : e.getCause();
-            propagateIfPossible(cause, exceptionType);
+            throwIfInstanceOf(cause, exceptionType);
+            throwIfUnchecked(cause);
             throw new RuntimeException(cause);
         }
     }

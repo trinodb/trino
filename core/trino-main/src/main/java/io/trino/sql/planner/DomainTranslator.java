@@ -54,7 +54,6 @@ import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.type.LikeFunctions;
 import io.trino.type.LikePattern;
-import io.trino.type.LikePatternType;
 import io.trino.type.TypeCoercion;
 import jakarta.annotation.Nullable;
 
@@ -100,7 +99,6 @@ import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.combineDisjunctsWithDefault;
 import static io.trino.sql.ir.IrUtils.or;
-import static io.trino.sql.planner.IrExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
@@ -525,35 +523,22 @@ public final class DomainTranslator
          */
         private Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(Map<NodeRef<Expression>, Type> expressionTypes, ComparisonExpression comparison)
         {
-            Object left = new IrExpressionInterpreter(comparison.getLeft(), plannerContext, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
-            Object right = new IrExpressionInterpreter(comparison.getRight(), plannerContext, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
-
+            Expression left = comparison.getLeft();
+            Expression right = comparison.getRight();
             Type leftType = expressionTypes.get(NodeRef.of(comparison.getLeft()));
             Type rightType = expressionTypes.get(NodeRef.of(comparison.getRight()));
 
-            checkArgument(leftType.equals(rightType), "left and right type do not match in comparison expression (%s)", comparison);
-
-            if (left instanceof Expression == right instanceof Expression) {
-                // we expect one side to be expression and other to be value.
+            if (left instanceof Constant == right instanceof Constant) {
+                // One of the terms must be a constant and the other a non-constant
                 return Optional.empty();
             }
 
-            Expression symbolExpression;
-            ComparisonExpression.Operator comparisonOperator;
-            NullableValue value;
-
-            if (left instanceof Expression) {
-                symbolExpression = comparison.getLeft();
-                comparisonOperator = comparison.getOperator();
-                value = new NullableValue(rightType, right);
+            if (left instanceof Constant constant) {
+                return Optional.of(new NormalizedSimpleComparison(right, comparison.getOperator().flip(), new NullableValue(leftType, constant.getValue())));
             }
             else {
-                symbolExpression = comparison.getRight();
-                comparisonOperator = comparison.getOperator().flip();
-                value = new NullableValue(leftType, left);
+                return Optional.of(new NormalizedSimpleComparison(left, comparison.getOperator(), new NullableValue(rightType, ((Constant) right).getValue())));
             }
-
-            return Optional.of(new NormalizedSimpleComparison(symbolExpression, comparisonOperator, value));
         }
 
         private boolean isImplicitCoercion(Map<NodeRef<Expression>, Type> expressionTypes, Cast cast)
@@ -944,38 +929,40 @@ public final class DomainTranslator
             List<Expression> excludedExpressions = new ArrayList<>();
 
             for (Expression expression : node.getValueList()) {
-                Object value = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes)
-                        .optimize(NoOpSymbolResolver.INSTANCE);
-                if (value == null) {
-                    if (!complement) {
+                if (expression instanceof Constant constant) {
+                    if (constant.getValue() == null) {
+                        if (complement) {
+                            // NOT IN is equivalent to NOT(s eq v1) AND NOT(s eq v2). When any right value is NULL, the comparison result is NULL, so AND's result can be at most
+                            // NULL (effectively false in predicate context)
+                            return Optional.of(new ExtractionResult(TupleDomain.none(), TRUE_LITERAL));
+                        }
                         // in case of IN, NULL on the right results with NULL comparison result (effectively false in predicate context), so can be ignored, as the
                         // comparison results are OR-ed
-                        continue;
                     }
-                    // NOT IN is equivalent to NOT(s eq v1) AND NOT(s eq v2). When any right value is NULL, the comparison result is NULL, so AND's result can be at most
-                    // NULL (effectively false in predicate context)
-                    return Optional.of(new ExtractionResult(TupleDomain.none(), TRUE_LITERAL));
+                    else if (type instanceof RealType || type instanceof DoubleType) {
+                        // NaN can be ignored: it always compares to false, as if it was not among IN's values
+                        if (!isFloatingPointNaN(type, constant.getValue())) {
+                            if (complement) {
+                                // in case of NOT IN with floating point, the NaN on the left passes the test (unless a NULL is found, and we exited earlier)
+                                // but this cannot currently be described with a Domain other than Domain.all
+                                excludedExpressions.add(expression);
+                            }
+                            else {
+                                inValues.add(constant.getValue());
+                            }
+                        }
+                    }
+                    else {
+                        inValues.add(constant.getValue());
+                    }
                 }
-                if (value instanceof Expression) {
+                else {
                     if (!complement) {
                         // in case of IN, expression on the right side prevents determining the domain: any lhs value can be eligible
                         return Optional.of(new ExtractionResult(TupleDomain.all(), node));
                     }
                     // in case of NOT IN, expression on the right side still allows determining values that are *not* part of the final domain
-                    excludedExpressions.add((Expression) value);
-                    continue;
-                }
-                if (isFloatingPointNaN(type, value)) {
-                    // NaN can be ignored: it always compares to false, as if it was not among IN's values
-                    continue;
-                }
-                if (complement && (type instanceof RealType || type instanceof DoubleType)) {
-                    // in case of NOT IN with floating point, the NaN on the left passes the test (unless a NULL is found, and we exited earlier)
-                    // but this cannot currently be described with a Domain other than Domain.all
                     excludedExpressions.add(expression);
-                }
-                else {
-                    inValues.add(value);
                 }
             }
 
@@ -1026,13 +1013,12 @@ public final class DomainTranslator
 
             Symbol symbol = Symbol.from(value);
 
-            if (!(typeAnalyzer.getType(types, patternArgument) instanceof LikePatternType) ||
-                    !SymbolsExtractor.extractAll(patternArgument).isEmpty()) {
+            if (node.getArguments().size() > 2 || !(patternArgument instanceof Constant patternConstant)) {
                 // dynamic pattern or escape
                 return Optional.empty();
             }
 
-            LikePattern matcher = (LikePattern) evaluateConstantExpression(patternArgument, plannerContext, session);
+            LikePattern matcher = (LikePattern) patternConstant.getValue();
 
             Slice pattern = utf8Slice(matcher.getPattern());
             Optional<Slice> escape = matcher.getEscape()

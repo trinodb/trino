@@ -218,12 +218,9 @@ public class SqlTask
                     switch (newState) {
                         // don't close buffers for a failed query
                         // closed buffers signal to upstream tasks that everything finished cleanly
-                        case FAILED, FAILING, ABORTED, ABORTING ->
-                                outputBuffer.abort();
-                        case FINISHED, CANCELED, CANCELING ->
-                                outputBuffer.destroy();
-                        default ->
-                                throw new IllegalStateException(format("Invalid state for output buffer destruction: %s", newState));
+                        case FAILED, FAILING, ABORTED, ABORTING -> outputBuffer.abort();
+                        case FINISHED, CANCELED, CANCELING -> outputBuffer.destroy();
+                        default -> throw new IllegalStateException(format("Invalid state for output buffer destruction: %s", newState));
                     }
                 }
             }
@@ -372,15 +369,13 @@ public class SqlTask
             fullGcTime = taskContext.getFullGcTime();
             dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
         }
-        else {
-            if (state == FINISHED) {
-                // if task FINISHED successfully but taskHolder is not yet updated with SqlTaskExecution or FinalTaskInfo
-                // we are masking the state and return RUNNING. This is important so coordinator would not consider incomplete
-                // task information (e.g. missing proper dynamicFiltersVersion as final).
-                // This covers only short time window between call to SqlTaskExecution.start() and updating taskHolder reference in tryCreateSqlTaskExecution,
-                // so it will not add any noticable delays.
-                state = RUNNING;
-            }
+        else if (state == FINISHED) {
+            // if task FINISHED successfully but taskHolder is not yet updated with SqlTaskExecution or FinalTaskInfo
+            // we are masking the state and return RUNNING. This is important so coordinator would not consider incomplete
+            // task information (e.g. missing proper dynamicFiltersVersion as final).
+            // This covers only short time window between call to SqlTaskExecution.start() and updating taskHolder reference in tryCreateSqlTaskExecution,
+            // so it will not add any noticable delays.
+            state = RUNNING;
         }
 
         return new TaskStatus(

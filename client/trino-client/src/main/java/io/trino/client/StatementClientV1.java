@@ -141,7 +141,7 @@ class StatementClientV1
         url = url.newBuilder().encodedPath("/v1/statement").build();
 
         Request.Builder builder = prepareRequest(url)
-                .post(RequestBody.create(MEDIA_TYPE_TEXT, query));
+                .post(RequestBody.create(query, MEDIA_TYPE_TEXT));
 
         if (session.getSource() != null) {
             builder.addHeader(TRINO_HEADERS.requestSource(), session.getSource());

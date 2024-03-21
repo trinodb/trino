@@ -54,7 +54,7 @@ public class UnnestedSymbolMatcher
                 .filter(mapping -> mapping.getInput().equals(unnestSymbol))
                 .collect(toImmutableList());
         checkState(matches.size() < 2, "alias matching not supported for repeated unnest symbols");
-        if (matches.size() == 0) {
+        if (matches.isEmpty()) {
             return Optional.empty();
         }
 

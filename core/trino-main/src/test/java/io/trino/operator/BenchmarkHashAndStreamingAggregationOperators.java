@@ -79,7 +79,6 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
 public class BenchmarkHashAndStreamingAggregationOperators
 {
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
-    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
 
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
     private static final TestingAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunction("sum", fromTypes(BIGINT));
@@ -232,7 +231,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     ImmutableList.of(
                             COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
                             LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(sumChannel), OptionalInt.empty())),
-                    JOIN_COMPILER);
+                    new JoinCompiler(TYPE_OPERATORS));
         }
 
         private OperatorFactory createHashAggregationOperatorFactory(
@@ -262,7 +261,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     succinctBytes(8),
                     succinctBytes(Integer.MAX_VALUE),
                     spillerFactory,
-                    JOIN_COMPILER,
+                    new FlatHashStrategyCompiler(TYPE_OPERATORS),
                     TYPE_OPERATORS,
                     Optional.empty());
         }
