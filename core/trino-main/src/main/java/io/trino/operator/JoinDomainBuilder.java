@@ -162,22 +162,20 @@ public class JoinDomainBuilder
     {
         block = block.getLoadedBlock();
         if (collectDistinctValues) {
-            if (block instanceof ValueBlock valueBlock) {
-                for (int position = 0; position < block.getPositionCount(); position++) {
-                    add(valueBlock, position);
+            switch (block) {
+                case ValueBlock valueBlock -> {
+                    for (int position = 0; position < block.getPositionCount(); position++) {
+                        add(valueBlock, position);
+                    }
                 }
-            }
-            else if (block instanceof RunLengthEncodedBlock rleBlock) {
-                add(rleBlock.getValue(), 0);
-            }
-            else if (block instanceof DictionaryBlock dictionaryBlock) {
-                ValueBlock dictionary = dictionaryBlock.getDictionary();
-                for (int i = 0; i < dictionaryBlock.getPositionCount(); i++) {
-                    add(dictionary, dictionaryBlock.getId(i));
+                case RunLengthEncodedBlock rleBlock -> add(rleBlock.getValue(), 0);
+                case DictionaryBlock dictionaryBlock -> {
+                    ValueBlock dictionary = dictionaryBlock.getDictionary();
+                    for (int i = 0; i < dictionaryBlock.getPositionCount(); i++) {
+                        add(dictionary, dictionaryBlock.getId(i));
+                    }
                 }
-            }
-            else {
-                throw new IllegalArgumentException("Unsupported block type: " + block.getClass().getSimpleName());
+                default -> throw new IllegalArgumentException("Unsupported block type: " + block.getClass().getSimpleName());
             }
 
             // if the distinct size is too large, fall back to min max, and drop the distinct values
