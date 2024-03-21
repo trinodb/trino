@@ -595,7 +595,8 @@ public class LocalExecutionPlanner
                     taskCount,
                     taskBucketCount,
                     getWriterScalingMinDataProcessed(taskContext.getSession()).toBytes(),
-                    getSkewedPartitionMinDataProcessedRebalanceThreshold(taskContext.getSession()).toBytes()));
+                    getSkewedPartitionMinDataProcessedRebalanceThreshold(taskContext.getSession()).toBytes(),
+                    taskContext::setScaleWriterRemoteExchangeStats));
         }
         else {
             partitionFunction = nodePartitioningManager.getPartitionFunction(taskContext.getSession(), partitioningScheme, partitionChannelTypes);
@@ -3614,7 +3615,8 @@ public class LocalExecutionPlanner
                     maxLocalExchangeBufferSize,
                     typeOperators,
                     getWriterScalingMinDataProcessed(session),
-                    () -> context.getTaskContext().getQueryMemoryReservation().toBytes());
+                    () -> context.getTaskContext().getQueryMemoryReservation().toBytes(),
+                    context.getTaskContext()::setScaleWriterLocalExchangeStats);
 
             List<Symbol> expectedLayout = getOnlyElement(node.getInputs());
             Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
@@ -3691,7 +3693,8 @@ public class LocalExecutionPlanner
                     maxLocalExchangeBufferSize,
                     typeOperators,
                     getWriterScalingMinDataProcessed(session),
-                    () -> context.getTaskContext().getQueryMemoryReservation().toBytes());
+                    () -> context.getTaskContext().getQueryMemoryReservation().toBytes(),
+                    context.getTaskContext()::setScaleWriterLocalExchangeStats);
             for (int i = 0; i < node.getSources().size(); i++) {
                 DriverFactoryParameters driverFactoryParameters = driverFactoryParametersList.get(i);
                 PhysicalOperation source = driverFactoryParameters.getSource();

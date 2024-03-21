@@ -92,7 +92,6 @@ public class OperatorContext
 
     private final AtomicLong writerInputDataSize = new AtomicLong();
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
-
     private final AtomicReference<SettableFuture<Void>> memoryFuture;
     private final AtomicReference<SettableFuture<Void>> revocableMemoryFuture;
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();

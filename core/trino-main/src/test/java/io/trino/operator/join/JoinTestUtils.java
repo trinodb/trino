@@ -153,7 +153,8 @@ public final class JoinTestUtils
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
                 TYPE_OPERATORS,
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
-                () -> 0L);
+                () -> 0L,
+                scaleWriterStats -> {});
 
         // collect input data into the partitioned exchange
         DriverContext collectDriverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();

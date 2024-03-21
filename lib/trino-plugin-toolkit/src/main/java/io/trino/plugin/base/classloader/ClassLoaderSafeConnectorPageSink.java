@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.metrics.Metrics;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -90,6 +91,14 @@ public class ClassLoaderSafeConnectorPageSink
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.abort();
+        }
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getMetrics();
         }
     }
 }

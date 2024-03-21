@@ -23,8 +23,12 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.operator.output.SkewedPartitionRebalancer.Distribution;
+import static io.trino.operator.output.SkewedPartitionRebalancer.ScaleWriterStats;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -42,7 +46,8 @@ class TestSkewedPartitionRebalancer
                 3,
                 3,
                 MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
-                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                scaleWriterStats -> {});
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -102,7 +107,8 @@ class TestSkewedPartitionRebalancer
                 3,
                 2,
                 MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
-                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                scaleWriterStats -> {});
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -133,7 +139,8 @@ class TestSkewedPartitionRebalancer
                 3,
                 3,
                 MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
-                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                scaleWriterStats -> {});
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -162,7 +169,8 @@ class TestSkewedPartitionRebalancer
                 3,
                 3,
                 minPartitionDataProcessedRebalanceThreshold,
-                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                scaleWriterStats -> {});
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -190,7 +198,8 @@ class TestSkewedPartitionRebalancer
                 3,
                 3,
                 MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
-                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                scaleWriterStats -> {});
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -234,7 +243,8 @@ class TestSkewedPartitionRebalancer
                 3,
                 1,
                 MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
-                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                scaleWriterStats -> {});
         SkewedPartitionFunction function = new SkewedPartitionFunction(
                 new TestPartitionFunction(partitionCount),
                 rebalancer);
@@ -271,6 +281,55 @@ class TestSkewedPartitionRebalancer
                         new IntArrayList(ImmutableList.of(3, 5, 9, 11, 15)));
         assertThat(rebalancer.getPartitionAssignments())
                 .containsExactly(ImmutableList.of(0, 2), ImmutableList.of(1), ImmutableList.of(2, 0));
+    }
+
+    @Test
+    public void testScaleWriterStats()
+    {
+        AtomicReference<Optional<ScaleWriterStats>> scaleWriterStats = new AtomicReference<>(Optional.empty());
+        int partitionCount = 3;
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
+                partitionCount,
+                3,
+                3,
+                MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                stats -> scaleWriterStats.set(Optional.of(stats)));
+
+        rebalancer.addPartitionRowCount(0, 1000);
+        rebalancer.addPartitionRowCount(1, 1000);
+        rebalancer.addPartitionRowCount(2, 1000);
+        rebalancer.addDataProcessed(DataSize.of(40, MEGABYTE).toBytes());
+        // No rebalancing will happen since the data processed is less than 50MB
+        rebalancer.rebalance();
+
+        assertThat(scaleWriterStats.get()).isEqualTo(Optional.empty());
+
+        rebalancer.addPartitionRowCount(0, 1000);
+        rebalancer.addPartitionRowCount(1, 1000);
+        rebalancer.addPartitionRowCount(2, 1000);
+        rebalancer.addDataProcessed(DataSize.of(20, MEGABYTE).toBytes());
+        // Rebalancing will happen since we crossed the data processed limit.
+        // Part0 -> Task1 (Bucket1), Part1 -> Task0 (Bucket1), Part2 -> Task0 (Bucket2)
+        rebalancer.rebalance();
+
+        assertThat(scaleWriterStats.get()).isEqualTo(Optional.of(new ScaleWriterStats(
+                new Distribution(3, 1, 3, 1, 1, 1, 1, 2, 3, 3, 3, 3),
+                3,
+                1.0)));
+
+        rebalancer.addPartitionRowCount(0, 1000);
+        rebalancer.addPartitionRowCount(1, 1000);
+        rebalancer.addPartitionRowCount(2, 1000);
+        rebalancer.addDataProcessed(DataSize.of(200, MEGABYTE).toBytes());
+        // Rebalancing will happen
+        // Part0 -> Task2 (Bucket1), Part1 -> Task2 (Bucket2), Part2 -> Task1 (Bucket2)
+        rebalancer.rebalance();
+
+        assertThat(scaleWriterStats.get()).isEqualTo(Optional.of(new ScaleWriterStats(
+                new Distribution(3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3),
+                6,
+                1.0)));
     }
 
     private static List<List<Integer>> getPartitionPositions(PartitionFunction function, int maxPosition)
