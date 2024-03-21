@@ -15,8 +15,11 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,6 +31,12 @@ public record Row(List<Expression> items)
     {
         requireNonNull(items, "items is null");
         items = ImmutableList.copyOf(items);
+    }
+
+    @Override
+    public Type type()
+    {
+        return RowType.anonymous(items.stream().map(Expression::type).collect(Collectors.toList()));
     }
 
     @Deprecated

@@ -48,7 +48,6 @@ import io.trino.sql.planner.SymbolResolver;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.transaction.TestingTransactionManager;
-import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -61,6 +60,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ExpressionTestUtils.assertExpressionEquals;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -123,20 +123,20 @@ public class TestExpressionInterpreter
                 FALSE_LITERAL);
 
         assertOptimizedEquals(
-                new LogicalExpression(AND, ImmutableList.of(TRUE_LITERAL, new Constant(UnknownType.UNKNOWN, null))),
-                new Constant(UnknownType.UNKNOWN, null));
+                new LogicalExpression(AND, ImmutableList.of(TRUE_LITERAL, new Constant(UNKNOWN, null))),
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
-                new LogicalExpression(AND, ImmutableList.of(FALSE_LITERAL, new Constant(UnknownType.UNKNOWN, null))),
+                new LogicalExpression(AND, ImmutableList.of(FALSE_LITERAL, new Constant(UNKNOWN, null))),
                 FALSE_LITERAL);
         assertOptimizedEquals(
-                new LogicalExpression(AND, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), TRUE_LITERAL)),
-                new Constant(UnknownType.UNKNOWN, null));
+                new LogicalExpression(AND, ImmutableList.of(new Constant(UNKNOWN, null), TRUE_LITERAL)),
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
-                new LogicalExpression(AND, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), FALSE_LITERAL)),
+                new LogicalExpression(AND, ImmutableList.of(new Constant(UNKNOWN, null), FALSE_LITERAL)),
                 FALSE_LITERAL);
         assertOptimizedEquals(
-                new LogicalExpression(AND, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null))),
-                new Constant(UnknownType.UNKNOWN, null));
+                new LogicalExpression(AND, ImmutableList.of(new Constant(UNKNOWN, null), new Constant(UNKNOWN, null))),
+                new Constant(UNKNOWN, null));
     }
 
     @Test
@@ -156,29 +156,29 @@ public class TestExpressionInterpreter
                 FALSE_LITERAL);
 
         assertOptimizedEquals(
-                new LogicalExpression(OR, ImmutableList.of(TRUE_LITERAL, new Constant(UnknownType.UNKNOWN, null))),
+                new LogicalExpression(OR, ImmutableList.of(TRUE_LITERAL, new Constant(UNKNOWN, null))),
                 TRUE_LITERAL);
         assertOptimizedEquals(
-                new LogicalExpression(OR, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), TRUE_LITERAL)),
+                new LogicalExpression(OR, ImmutableList.of(new Constant(UNKNOWN, null), TRUE_LITERAL)),
                 TRUE_LITERAL);
         assertOptimizedEquals(
-                new LogicalExpression(OR, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null))),
-                new Constant(UnknownType.UNKNOWN, null));
+                new LogicalExpression(OR, ImmutableList.of(new Constant(UNKNOWN, null), new Constant(UNKNOWN, null))),
+                new Constant(UNKNOWN, null));
 
         assertOptimizedEquals(
-                new LogicalExpression(OR, ImmutableList.of(FALSE_LITERAL, new Constant(UnknownType.UNKNOWN, null))),
-                new Constant(UnknownType.UNKNOWN, null));
+                new LogicalExpression(OR, ImmutableList.of(FALSE_LITERAL, new Constant(UNKNOWN, null))),
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
-                new LogicalExpression(OR, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), FALSE_LITERAL)),
-                new Constant(UnknownType.UNKNOWN, null));
+                new LogicalExpression(OR, ImmutableList.of(new Constant(UNKNOWN, null), FALSE_LITERAL)),
+                new Constant(UNKNOWN, null));
     }
 
     @Test
     public void testComparison()
     {
         assertOptimizedEquals(
-                new ComparisonExpression(EQUAL, new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null)),
-                new Constant(UnknownType.UNKNOWN, null));
+                new ComparisonExpression(EQUAL, new Constant(UNKNOWN, null), new Constant(UNKNOWN, null)),
+                new Constant(UNKNOWN, null));
 
         assertOptimizedEquals(
                 new ComparisonExpression(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("b"))),
@@ -187,11 +187,11 @@ public class TestExpressionInterpreter
                 new ComparisonExpression(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("a"))),
                 TRUE_LITERAL);
         assertOptimizedEquals(
-                new ComparisonExpression(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(UnknownType.UNKNOWN, null)),
-                new Constant(UnknownType.UNKNOWN, null));
+                new ComparisonExpression(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(UNKNOWN, null)),
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
-                new ComparisonExpression(EQUAL, new Constant(UnknownType.UNKNOWN, null), new Constant(VARCHAR, Slices.utf8Slice("a"))),
-                new Constant(UnknownType.UNKNOWN, null));
+                new ComparisonExpression(EQUAL, new Constant(UNKNOWN, null), new Constant(VARCHAR, Slices.utf8Slice("a"))),
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
                 new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "bound_value"), new Constant(INTEGER, 1234L)),
                 TRUE_LITERAL);
@@ -204,7 +204,7 @@ public class TestExpressionInterpreter
     public void testIsDistinctFrom()
     {
         assertOptimizedEquals(
-                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null)),
+                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(UNKNOWN, null), new Constant(UNKNOWN, null)),
                 FALSE_LITERAL);
 
         assertOptimizedEquals(
@@ -214,20 +214,20 @@ public class TestExpressionInterpreter
                 new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 3L), new Constant(INTEGER, 3L)),
                 FALSE_LITERAL);
         assertOptimizedEquals(
-                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 3L), new Constant(UnknownType.UNKNOWN, null)),
+                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 3L), new Constant(UNKNOWN, null)),
                 TRUE_LITERAL);
         assertOptimizedEquals(
-                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(UnknownType.UNKNOWN, null), new Constant(INTEGER, 3L)),
+                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(UNKNOWN, null), new Constant(INTEGER, 3L)),
                 TRUE_LITERAL);
 
         assertOptimizedMatches(
                 new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)),
                 new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
         assertOptimizedMatches(
-                new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(UnknownType.UNKNOWN, "unbound_value"), new Constant(UnknownType.UNKNOWN, null)),
+                new ComparisonExpression(IS_DISTINCT_FROM, new SymbolReference(UNKNOWN, "unbound_value"), new Constant(UNKNOWN, null)),
                 new NotExpression(new IsNullPredicate(new SymbolReference(INTEGER, "unbound_value"))));
         assertOptimizedMatches(
-                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(UnknownType.UNKNOWN, null), new SymbolReference(INTEGER, "unbound_value")),
+                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(UNKNOWN, null), new SymbolReference(INTEGER, "unbound_value")),
                 new NotExpression(new IsNullPredicate(new SymbolReference(INTEGER, "unbound_value"))));
     }
 
@@ -235,7 +235,7 @@ public class TestExpressionInterpreter
     public void testIsNull()
     {
         assertOptimizedEquals(
-                new IsNullPredicate(new Constant(UnknownType.UNKNOWN, null)),
+                new IsNullPredicate(new Constant(UNKNOWN, null)),
                 TRUE_LITERAL);
         assertOptimizedEquals(
                 new IsNullPredicate(new Constant(INTEGER, 1L)),
@@ -249,7 +249,7 @@ public class TestExpressionInterpreter
     public void testIsNotNull()
     {
         assertOptimizedEquals(
-                new NotExpression(new IsNullPredicate(new Constant(UnknownType.UNKNOWN, null))),
+                new NotExpression(new IsNullPredicate(new Constant(UNKNOWN, null))),
                 FALSE_LITERAL);
         assertOptimizedEquals(
                 new NotExpression(new IsNullPredicate(new Constant(INTEGER, 1L))),
@@ -264,15 +264,15 @@ public class TestExpressionInterpreter
     {
         assertOptimizedEquals(
                 new NullIfExpression(new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("a"))),
-                new Constant(UnknownType.UNKNOWN, null));
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
                 new NullIfExpression(new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("b"))),
                 new Constant(VARCHAR, Slices.utf8Slice("a")));
         assertOptimizedEquals(
-                new NullIfExpression(new Constant(UnknownType.UNKNOWN, null), new Constant(VARCHAR, Slices.utf8Slice("b"))),
-                new Constant(UnknownType.UNKNOWN, null));
+                new NullIfExpression(new Constant(UNKNOWN, null), new Constant(VARCHAR, Slices.utf8Slice("b"))),
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
-                new NullIfExpression(new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(UnknownType.UNKNOWN, null)),
+                new NullIfExpression(new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(UNKNOWN, null)),
                 new Constant(VARCHAR, Slices.utf8Slice("a")));
         assertOptimizedEquals(
                 new NullIfExpression(new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)),
@@ -300,8 +300,8 @@ public class TestExpressionInterpreter
                 new NotExpression(FALSE_LITERAL),
                 TRUE_LITERAL);
         assertOptimizedEquals(
-                new NotExpression(new Constant(UnknownType.UNKNOWN, null)),
-                new Constant(UnknownType.UNKNOWN, null));
+                new NotExpression(new Constant(UNKNOWN, null)),
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
                 new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))),
                 new NotExpression(new ComparisonExpression(EQUAL, new SymbolReference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))));
@@ -336,19 +336,19 @@ public class TestExpressionInterpreter
                 new BetweenPredicate(new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L)),
                 FALSE_LITERAL);
         assertOptimizedEquals(
-                new BetweenPredicate(new Constant(UnknownType.UNKNOWN, null), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
-                new Constant(UnknownType.UNKNOWN, null));
+                new BetweenPredicate(new Constant(UNKNOWN, null), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
-                new BetweenPredicate(new Constant(INTEGER, 3L), new Constant(UnknownType.UNKNOWN, null), new Constant(INTEGER, 4L)),
-                new Constant(UnknownType.UNKNOWN, null));
+                new BetweenPredicate(new Constant(INTEGER, 3L), new Constant(UNKNOWN, null), new Constant(INTEGER, 4L)),
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
-                new BetweenPredicate(new Constant(INTEGER, 3L), new Constant(INTEGER, 2L), new Constant(UnknownType.UNKNOWN, null)),
-                new Constant(UnknownType.UNKNOWN, null));
+                new BetweenPredicate(new Constant(INTEGER, 3L), new Constant(INTEGER, 2L), new Constant(UNKNOWN, null)),
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
-                new BetweenPredicate(new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(UnknownType.UNKNOWN, null)),
+                new BetweenPredicate(new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(UNKNOWN, null)),
                 FALSE_LITERAL);
         assertOptimizedEquals(
-                new BetweenPredicate(new Constant(INTEGER, 8L), new Constant(UnknownType.UNKNOWN, null), new Constant(INTEGER, 6L)),
+                new BetweenPredicate(new Constant(INTEGER, 8L), new Constant(UNKNOWN, null), new Constant(INTEGER, 6L)),
                 FALSE_LITERAL);
 
         assertOptimizedEquals(
@@ -374,10 +374,10 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals(
                 new InPredicate(new Constant(INTEGER, null), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, null), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
-                new Constant(UnknownType.UNKNOWN, null));
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
                 new InPredicate(new Constant(INTEGER, 3L), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, null))),
-                new Constant(UnknownType.UNKNOWN, null));
+                new Constant(UNKNOWN, null));
 
         assertOptimizedEquals(
                 new InPredicate(new SymbolReference(INTEGER, "bound_value"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 1234L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
@@ -443,14 +443,14 @@ public class TestExpressionInterpreter
     public void testTryCast()
     {
         assertOptimizedEquals(
-                new Cast(new Constant(UnknownType.UNKNOWN, null), BIGINT, true),
-                new Constant(UnknownType.UNKNOWN, null));
+                new Cast(new Constant(UNKNOWN, null), BIGINT, true),
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
                 new Cast(new Constant(INTEGER, 123L), BIGINT, true),
                 new Constant(INTEGER, 123L));
         assertOptimizedEquals(
-                new Cast(new Constant(UnknownType.UNKNOWN, null), INTEGER, true),
-                new Constant(UnknownType.UNKNOWN, null));
+                new Cast(new Constant(UNKNOWN, null), INTEGER, true),
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
                 new Cast(new Constant(INTEGER, 123L), INTEGER, true),
                 new Constant(INTEGER, 123L));
@@ -569,7 +569,7 @@ public class TestExpressionInterpreter
                         ImmutableList.of(
                                 new WhenClause(TRUE_LITERAL, new Constant(INTEGER, 33L))),
                         Optional.empty()),
-                new Constant(UnknownType.UNKNOWN, null));
+                new Constant(UNKNOWN, null));
         for (SimpleCaseExpression simpleCaseExpression : Arrays.asList(new SimpleCaseExpression(
                         new Constant(BOOLEAN, null),
                         ImmutableList.of(
@@ -704,7 +704,7 @@ public class TestExpressionInterpreter
                                 new WhenClause(new Constant(INTEGER, 2L), new Constant(INTEGER, 2L)),
                                 new WhenClause(new Constant(INTEGER, 3L), new Constant(INTEGER, 3L))),
                         Optional.empty()),
-                new Constant(UnknownType.UNKNOWN, null));
+                new Constant(UNKNOWN, null));
 
         assertEvaluatedEquals(
                 new SimpleCaseExpression(
@@ -754,8 +754,8 @@ public class TestExpressionInterpreter
                 new CoalesceExpression(new FunctionCall(RANDOM, ImmutableList.of()), new FunctionCall(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 5.0)));
 
         assertOptimizedEquals(
-                new CoalesceExpression(new Constant(UnknownType.UNKNOWN, null), new CoalesceExpression(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null))),
-                new Constant(UnknownType.UNKNOWN, null));
+                new CoalesceExpression(new Constant(UNKNOWN, null), new CoalesceExpression(new Constant(UNKNOWN, null), new Constant(UNKNOWN, null))),
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
                 new CoalesceExpression(new Constant(INTEGER, null), new CoalesceExpression(new Constant(INTEGER, null), new CoalesceExpression(new Constant(INTEGER, null), new Constant(INTEGER, null), new Constant(INTEGER, 1L)))),
                 new Constant(INTEGER, 1L));
@@ -810,19 +810,19 @@ public class TestExpressionInterpreter
                 new Constant(INTEGER, 3L));
         assertOptimizedEquals(
                 ifExpression(FALSE_LITERAL, new Constant(INTEGER, 3L), new Constant(INTEGER, null)),
-                new Constant(UnknownType.UNKNOWN, null));
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
                 ifExpression(TRUE_LITERAL, new Constant(INTEGER, null), new Constant(INTEGER, 4L)),
-                new Constant(UnknownType.UNKNOWN, null));
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
                 ifExpression(FALSE_LITERAL, new Constant(INTEGER, null), new Constant(INTEGER, 4L)),
                 new Constant(INTEGER, 4L));
         assertOptimizedEquals(
                 ifExpression(TRUE_LITERAL, new Constant(INTEGER, null), new Constant(INTEGER, null)),
-                new Constant(UnknownType.UNKNOWN, null));
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
                 ifExpression(FALSE_LITERAL, new Constant(INTEGER, null), new Constant(INTEGER, null)),
-                new Constant(UnknownType.UNKNOWN, null));
+                new Constant(UNKNOWN, null));
 
         assertOptimizedEquals(
                 ifExpression(TRUE_LITERAL, new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L))),
@@ -865,25 +865,40 @@ public class TestExpressionInterpreter
     public void testRowSubscript()
     {
         assertOptimizedEquals(
-                new SubscriptExpression(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("a")), TRUE_LITERAL)), new Constant(INTEGER, 3L)),
+                new SubscriptExpression(BOOLEAN, new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("a")), TRUE_LITERAL)), new Constant(INTEGER, 3L)),
                 TRUE_LITERAL);
         assertOptimizedEquals(
-                new SubscriptExpression(new SubscriptExpression(new SubscriptExpression(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("a")), new Row(ImmutableList.of(new Constant(INTEGER, 2L), new Constant(VARCHAR, Slices.utf8Slice("b")), new Row(ImmutableList.of(new Constant(INTEGER, 3L), new Constant(VARCHAR, Slices.utf8Slice("c")))))))), new Constant(INTEGER, 3L)), new Constant(INTEGER, 3L)), new Constant(INTEGER, 2L)),
+                new SubscriptExpression(
+                        VARCHAR,
+                        new SubscriptExpression(
+                                anonymousRow(INTEGER, VARCHAR),
+                                new SubscriptExpression(
+                                        anonymousRow(INTEGER, VARCHAR, anonymousRow(INTEGER, VARCHAR)),
+                                        new Row(ImmutableList.of(
+                                                new Constant(INTEGER, 1L),
+                                                new Constant(VARCHAR, Slices.utf8Slice("a")),
+                                                new Row(ImmutableList.of(
+                                                        new Constant(INTEGER, 2L),
+                                                        new Constant(VARCHAR, Slices.utf8Slice("b")),
+                                                        new Row(ImmutableList.of(new Constant(INTEGER, 3L), new Constant(VARCHAR, Slices.utf8Slice("c")))))))),
+                                        new Constant(INTEGER, 3L)),
+                                new Constant(INTEGER, 3L)),
+                        new Constant(INTEGER, 2L)),
                 new Constant(VARCHAR, Slices.utf8Slice("c")));
 
         assertOptimizedEquals(
-                new SubscriptExpression(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(UnknownType.UNKNOWN, null))), new Constant(INTEGER, 2L)),
-                new Constant(UnknownType.UNKNOWN, null));
+                new SubscriptExpression(UNKNOWN, new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(UNKNOWN, null))), new Constant(INTEGER, 2L)),
+                new Constant(UNKNOWN, null));
         assertOptimizedEquals(
-                new SubscriptExpression(new Row(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 1L)),
-                new SubscriptExpression(new Row(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 1L)));
+                new SubscriptExpression(INTEGER, new Row(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 1L)),
+                new SubscriptExpression(INTEGER, new Row(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 1L)));
         assertOptimizedEquals(
-                new SubscriptExpression(new Row(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L)),
-                new SubscriptExpression(new Row(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L)));
+                new SubscriptExpression(INTEGER, new Row(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L)),
+                new SubscriptExpression(INTEGER, new Row(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L)));
 
-        assertTrinoExceptionThrownBy(() -> evaluate(new SubscriptExpression(new Row(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L))))
+        assertTrinoExceptionThrownBy(() -> evaluate(new SubscriptExpression(INTEGER, new Row(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L))))
                 .hasErrorCode(DIVISION_BY_ZERO);
-        assertTrinoExceptionThrownBy(() -> evaluate(new SubscriptExpression(new Row(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L))))
+        assertTrinoExceptionThrownBy(() -> evaluate(new SubscriptExpression(INTEGER, new Row(ImmutableList.of(new ArithmeticBinaryExpression(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L))))
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 

@@ -214,7 +214,7 @@ public final class ConnectorExpressionTranslator
 
             if (expression instanceof FieldDereference dereference) {
                 return translate(dereference.getTarget())
-                        .map(base -> new SubscriptExpression(base, new Constant(INTEGER, (long) (dereference.getField() + 1))));
+                        .map(base -> new SubscriptExpression(dereference.getType(), base, new Constant(INTEGER, (long) (dereference.getField() + 1))));
             }
 
             if (expression instanceof Call) {

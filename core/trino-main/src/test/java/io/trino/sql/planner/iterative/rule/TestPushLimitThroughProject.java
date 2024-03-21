@@ -159,8 +159,8 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new Constant(INTEGER, 1L)),
-                                            p.symbol("c"), new SubscriptExpression(a.toSymbolReference(), new Constant(INTEGER, 2L))),
+                                            p.symbol("b"), new SubscriptExpression(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 1L)),
+                                            p.symbol("c"), new SubscriptExpression(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 2L))),
                                     p.values(a)));
                 })
                 .doesNotFire();
@@ -222,13 +222,13 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new Constant(INTEGER, 1L)),
+                                            p.symbol("b"), new SubscriptExpression(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 1L)),
                                             p.symbol("c", rowType), a.toSymbolReference()),
                                     p.values(a)));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(new SymbolReference(rowType, "a"), new Constant(INTEGER, 1L))), "c", expression(new SymbolReference(rowType, "a"))),
+                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new SubscriptExpression(BIGINT, new SymbolReference(rowType, "a"), new Constant(INTEGER, 1L))), "c", expression(new SymbolReference(rowType, "a"))),
                                 limit(1,
                                         values("a"))));
     }

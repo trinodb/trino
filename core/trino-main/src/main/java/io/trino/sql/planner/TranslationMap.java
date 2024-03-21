@@ -657,6 +657,7 @@ public class TranslationMap
         checkState(index >= 0, "could not find field name: %s", fieldName);
 
         return new io.trino.sql.ir.SubscriptExpression(
+                rowType.getFields().get(index).getType(),
                 translateExpression(expression.getBase()),
                 new Constant(INTEGER, (long) (index + 1)));
     }
@@ -939,14 +940,17 @@ public class TranslationMap
     private io.trino.sql.ir.Expression translate(SubscriptExpression node)
     {
         Type baseType = analysis.getType(node.getBase());
-        if (baseType instanceof RowType) {
+        if (baseType instanceof RowType rowType) {
             // Do not rewrite subscript index into symbol. Row subscript index is required to be a literal.
             io.trino.sql.ir.Expression rewrittenBase = translateExpression(node.getBase());
             LongLiteral index = (LongLiteral) node.getIndex();
-            return new io.trino.sql.ir.SubscriptExpression(rewrittenBase, new Constant(INTEGER, index.getParsedValue()));
+            return new io.trino.sql.ir.SubscriptExpression(
+                    analysis.getType(node),
+                    rewrittenBase, new Constant(INTEGER, index.getParsedValue()));
         }
 
         return new io.trino.sql.ir.SubscriptExpression(
+                analysis.getType(node),
                 translateExpression(node.getBase()),
                 translateExpression(node.getIndex()));
     }

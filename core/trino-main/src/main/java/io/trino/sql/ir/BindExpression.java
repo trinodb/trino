@@ -16,10 +16,14 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.Symbol;
+import io.trino.type.FunctionType;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -45,13 +49,24 @@ import static java.util.Objects.requireNonNull;
  * This expression facilitates desugaring.
  */
 @JsonSerialize
-public record BindExpression(List<Expression> values, Expression function)
+public record BindExpression(List<Expression> values, LambdaExpression function)
         implements Expression
 {
     public BindExpression
     {
         requireNonNull(function, "function is null");
         values = ImmutableList.copyOf(values);
+    }
+
+    @Override
+    public Type type()
+    {
+        return new FunctionType(
+                function.arguments()
+                        .subList(values.size(), function.arguments().size()).stream()
+                        .map(Symbol::getType)
+                        .collect(toImmutableList()),
+                ((FunctionType) function.type()).getReturnType());
     }
 
     @Deprecated

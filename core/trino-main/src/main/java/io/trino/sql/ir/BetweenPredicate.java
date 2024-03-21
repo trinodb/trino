@@ -16,9 +16,11 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
@@ -31,6 +33,12 @@ public record BetweenPredicate(Expression value, Expression min, Expression max)
         requireNonNull(value, "value is null");
         requireNonNull(min, "min is null");
         requireNonNull(max, "max is null");
+    }
+
+    @Override
+    public Type type()
+    {
+        return BOOLEAN;
     }
 
     @Deprecated

@@ -15,8 +15,11 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.Type;
 
 import java.util.List;
+
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 @JsonSerialize
 public record InPredicate(Expression value, List<Expression> valueList)
@@ -25,6 +28,12 @@ public record InPredicate(Expression value, List<Expression> valueList)
     public InPredicate
     {
         valueList = ImmutableList.copyOf(valueList);
+    }
+
+    @Override
+    public Type type()
+    {
+        return BOOLEAN;
     }
 
     @Deprecated
