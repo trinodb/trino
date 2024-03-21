@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
@@ -24,7 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 import static java.util.Objects.requireNonNull;
 
 public class JsonRenderer
@@ -69,7 +69,7 @@ public class JsonRenderer
         private final String id;
         private final String name;
         private final Map<String, String> descriptor;
-        private final List<TypedSymbol> outputs;
+        private final List<Symbol> outputs;
         private final List<String> details;
         private final List<PlanNodeStatsAndCostSummary> estimates;
         private final List<JsonRenderedNode> children;
@@ -78,7 +78,7 @@ public class JsonRenderer
                 String id,
                 String name,
                 Map<String, String> descriptor,
-                List<TypedSymbol> outputs,
+                List<Symbol> outputs,
                 List<String> details,
                 List<PlanNodeStatsAndCostSummary> estimates,
                 List<JsonRenderedNode> children)
@@ -111,7 +111,7 @@ public class JsonRenderer
         }
 
         @JsonProperty
-        public List<TypedSymbol> getOutputs()
+        public List<Symbol> getOutputs()
         {
             return outputs;
         }
