@@ -31,7 +31,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.Row;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
@@ -65,7 +64,7 @@ public class TestPushMergeWriterUpdateIntoConnector
         List<String> columnNames = ImmutableList.of("column_1", "column_2");
         MockConnectorFactory factory = MockConnectorFactory.builder().build();
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
-            ruleTester.assertThat(createRule(ruleTester))
+            ruleTester.assertThat(createRule())
                     .on(p -> {
                         Symbol mergeRow = p.symbol("merge_row");
                         Symbol rowId = p.symbol("row_id");
@@ -103,7 +102,7 @@ public class TestPushMergeWriterUpdateIntoConnector
         List<String> columnNames = ImmutableList.of("column_1", "column_2");
         MockConnectorFactory factory = MockConnectorFactory.builder().build();
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
-            ruleTester.assertThat(createRule(ruleTester))
+            ruleTester.assertThat(createRule())
                     .on(p -> {
                         Symbol mergeRow = p.symbol("merge_row");
                         Symbol rowId = p.symbol("row_id");
@@ -142,7 +141,7 @@ public class TestPushMergeWriterUpdateIntoConnector
         List<String> columnNames = ImmutableList.of("column_1", "column_2");
         MockConnectorFactory factory = MockConnectorFactory.builder().build();
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
-            ruleTester.assertThat(createRule(ruleTester))
+            ruleTester.assertThat(createRule())
                     .on(p -> {
                         Symbol mergeRow = p.symbol("merge_row");
                         Symbol rowId = p.symbol("row_id");
@@ -176,11 +175,9 @@ public class TestPushMergeWriterUpdateIntoConnector
         }
     }
 
-    private static PushMergeWriterUpdateIntoConnector createRule(RuleTester tester)
+    private static PushMergeWriterUpdateIntoConnector createRule()
     {
-        IrTypeAnalyzer typeAnalyzer = tester.getTypeAnalyzer();
         return new PushMergeWriterUpdateIntoConnector(
-                typeAnalyzer,
                 new AbstractMockMetadata()
                 {
                     @Override

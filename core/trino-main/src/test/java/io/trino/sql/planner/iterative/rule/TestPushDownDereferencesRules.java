@@ -105,7 +105,7 @@ public class TestPushDownDereferencesRules
     public void testDoesNotFire()
     {
         // rule does not fire for symbols
-        tester().assertThat(new PushDownDereferenceThroughFilter(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferenceThroughFilter())
                 .on(p ->
                         p.filter(
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "x"), new Constant(BIGINT, 5L)),
@@ -113,7 +113,7 @@ public class TestPushDownDereferencesRules
                 .doesNotFire();
 
         // Pushdown is not enabled if dereferences come from an expression that is not a simple dereference chain
-        tester().assertThat(new PushDownDereferenceThroughProject(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferenceThroughProject())
                 .on(p ->
                         p.project(
                                 Assignments.of(
@@ -127,7 +127,7 @@ public class TestPushDownDereferencesRules
                 .doesNotFire();
 
         // Does not fire when base symbols are referenced along with the dereferences
-        tester().assertThat(new PushDownDereferenceThroughProject(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferenceThroughProject())
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("expr", ROW_TYPE), new SymbolReference(BIGINT, "a"), p.symbol("a_x"), new SubscriptExpression(BIGINT, new SymbolReference(BIGINT, "a"), new Constant(INTEGER, 1L))),
@@ -140,7 +140,7 @@ public class TestPushDownDereferencesRules
     @Test
     public void testPushdownDereferenceThroughProject()
     {
-        tester().assertThat(new PushDownDereferenceThroughProject(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferenceThroughProject())
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("x"), new SubscriptExpression(BIGINT, new SymbolReference(ROW_TYPE, "msg"), new Constant(INTEGER, 1L))),
@@ -163,7 +163,7 @@ public class TestPushDownDereferencesRules
     @Test
     public void testPushDownDereferenceThroughJoin()
     {
-        tester().assertThat(new PushDownDereferenceThroughJoin(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferenceThroughJoin())
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -199,7 +199,7 @@ public class TestPushDownDereferencesRules
                                                         values("msg2", "z"))))));
 
         // Verify pushdown for filters
-        tester().assertThat(new PushDownDereferenceThroughJoin(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferenceThroughJoin())
                 .on(p ->
                         p.project(
                                 Assignments.of(
@@ -228,7 +228,7 @@ public class TestPushDownDereferencesRules
     @Test
     public void testPushdownDereferencesThroughSemiJoin()
     {
-        tester().assertThat(new PushDownDereferenceThroughSemiJoin(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferenceThroughSemiJoin())
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -266,7 +266,7 @@ public class TestPushDownDereferencesRules
     public void testPushdownDereferencesThroughUnnest()
     {
         ArrayType arrayType = new ArrayType(BIGINT);
-        tester().assertThat(new PushDownDereferenceThroughUnnest(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferenceThroughUnnest())
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("x"), new SubscriptExpression(BIGINT, new SymbolReference(ROW_TYPE, "msg"), new Constant(INTEGER, 1L))),
@@ -291,7 +291,7 @@ public class TestPushDownDereferencesRules
         RowType rowType = rowType(field("f1", BIGINT), field("f2", BIGINT));
         ArrayType nestedColumnType = new ArrayType(rowType(field("f1", BIGINT), field("f2", rowType)));
 
-        tester().assertThat(new PushDownDereferenceThroughUnnest(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferenceThroughUnnest())
                 .on(p ->
                         p.project(
                                 Assignments.of(
@@ -329,7 +329,7 @@ public class TestPushDownDereferencesRules
                 TestingTransactionHandle.create());
 
         RowType nestedRowType = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("nested"), ROW_TYPE)));
-        tester().assertThat(new ExtractDereferencesFromFilterAboveScan(tester().getTypeAnalyzer()))
+        tester().assertThat(new ExtractDereferencesFromFilterAboveScan())
                 .on(p ->
                         p.filter(
                                 new LogicalExpression(AND, ImmutableList.of(
@@ -363,7 +363,7 @@ public class TestPushDownDereferencesRules
     @Test
     public void testPushdownDereferenceThroughFilter()
     {
-        tester().assertThat(new PushDownDereferenceThroughFilter(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferenceThroughFilter())
                 .on(p ->
                         p.project(
                                 Assignments.of(
@@ -390,7 +390,7 @@ public class TestPushDownDereferencesRules
     @Test
     public void testPushDownDereferenceThroughLimit()
     {
-        tester().assertThat(new PushDownDereferencesThroughLimit(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferencesThroughLimit())
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -424,7 +424,7 @@ public class TestPushDownDereferencesRules
     @Test
     public void testPushDownDereferenceThroughLimitWithPreSortedInputs()
     {
-        tester().assertThat(new PushDownDereferencesThroughLimit(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferencesThroughLimit())
                 .on(p -> p.project(
                         Assignments.builder()
                                 .put(p.symbol("msg1_x"), new SubscriptExpression(BIGINT, new SymbolReference(ROW_TYPE, "msg1"), new Constant(INTEGER, 1L)))
@@ -462,7 +462,7 @@ public class TestPushDownDereferencesRules
     public void testPushDownDereferenceThroughSort()
     {
         // Does not fire if symbols are used in the ordering scheme
-        tester().assertThat(new PushDownDereferencesThroughSort(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferencesThroughSort())
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -475,7 +475,7 @@ public class TestPushDownDereferencesRules
                                         p.values(p.symbol("msg", ROW_TYPE), p.symbol("z")))))
                 .doesNotFire();
 
-        tester().assertThat(new PushDownDereferencesThroughSort(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferencesThroughSort())
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -504,7 +504,7 @@ public class TestPushDownDereferencesRules
     @Test
     public void testPushdownDereferenceThroughRowNumber()
     {
-        tester().assertThat(new PushDownDereferencesThroughRowNumber(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferencesThroughRowNumber())
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -537,7 +537,7 @@ public class TestPushDownDereferencesRules
     @Test
     public void testPushdownDereferenceThroughTopNRanking()
     {
-        tester().assertThat(new PushDownDereferencesThroughTopNRanking(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferencesThroughTopNRanking())
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -578,7 +578,7 @@ public class TestPushDownDereferencesRules
     @Test
     public void testPushdownDereferenceThroughTopN()
     {
-        tester().assertThat(new PushDownDereferencesThroughTopN(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferencesThroughTopN())
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -606,7 +606,7 @@ public class TestPushDownDereferencesRules
     @Test
     public void testPushdownDereferenceThroughWindow()
     {
-        tester().assertThat(new PushDownDereferencesThroughWindow(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferencesThroughWindow())
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -672,7 +672,7 @@ public class TestPushDownDereferencesRules
     @Test
     public void testPushdownDereferenceThroughAssignUniqueId()
     {
-        tester().assertThat(new PushDownDereferencesThroughAssignUniqueId(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferencesThroughAssignUniqueId())
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -697,7 +697,7 @@ public class TestPushDownDereferencesRules
     @Test
     public void testPushdownDereferenceThroughMarkDistinct()
     {
-        tester().assertThat(new PushDownDereferencesThroughMarkDistinct(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferencesThroughMarkDistinct())
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -729,7 +729,7 @@ public class TestPushDownDereferencesRules
     public void testMultiLevelPushdown()
     {
         RowType complexType = rowType(field("f1", rowType(field("f1", BIGINT), field("f2", BIGINT))), field("f2", BIGINT));
-        tester().assertThat(new PushDownDereferenceThroughProject(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferenceThroughProject())
                 .on(p ->
                         p.project(
                                 Assignments.of(

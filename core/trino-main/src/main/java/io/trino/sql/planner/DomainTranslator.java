@@ -49,7 +49,6 @@ import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.type.LikeFunctions;
@@ -288,11 +287,10 @@ public final class DomainTranslator
      * 2) An Expression fragment which represents the part of the original Expression that will need to be re-evaluated
      * after filtering with the TupleDomain.
      */
-    public static ExtractionResult getExtractionResult(PlannerContext plannerContext, Session session, Expression predicate, TypeProvider types)
+    public static ExtractionResult getExtractionResult(PlannerContext plannerContext, Session session, Expression predicate)
     {
         // This is a limited type analyzer for the simple expressions used in this method
-        IrTypeAnalyzer typeAnalyzer = new IrTypeAnalyzer(plannerContext);
-        return new Visitor(plannerContext, session, types, typeAnalyzer).process(predicate, false);
+        return new Visitor(plannerContext, session).process(predicate, false);
     }
 
     private static class Visitor
@@ -300,26 +298,15 @@ public final class DomainTranslator
     {
         private final PlannerContext plannerContext;
         private final Session session;
-        private final TypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
-        private final IrTypeAnalyzer typeAnalyzer;
         private final TypeCoercion typeCoercion;
 
-        private Visitor(PlannerContext plannerContext, Session session, TypeProvider types, IrTypeAnalyzer typeAnalyzer)
+        private Visitor(PlannerContext plannerContext, Session session)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
-            this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
-            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
-        }
-
-        private Type checkedTypeLookup(Symbol symbol)
-        {
-            Type type = types.get(symbol);
-            checkArgument(type != null, "Types is missing info for symbol: %s", symbol);
-            return type;
         }
 
         private static ValueSet complementIfNecessary(ValueSet valueSet, boolean complement)
@@ -443,7 +430,7 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitSymbolReference(SymbolReference node, Boolean complement)
         {
-            if (types.get(Symbol.from(node)).equals(BOOLEAN)) {
+            if (node.type().equals(BOOLEAN)) {
                 ComparisonExpression newNode = new ComparisonExpression(EQUAL, node, TRUE_LITERAL);
                 return visitComparisonExpression(newNode, complement);
             }
@@ -454,8 +441,7 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitComparisonExpression(ComparisonExpression node, Boolean complement)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(node);
-            Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(expressionTypes, node);
+            Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(node);
             if (optionalNormalized.isEmpty()) {
                 return super.visitComparisonExpression(node, complement);
             }
@@ -471,8 +457,8 @@ public final class DomainTranslator
             }
             if (symbolExpression instanceof Cast castExpression) {
                 // type of expression which is then cast to type of value
-                Type castSourceType = requireNonNull(expressionTypes.get(NodeRef.of(castExpression.getExpression())), "No type for Cast source expression");
-                Type castTargetType = requireNonNull(expressionTypes.get(NodeRef.of(castExpression)), "No type for Cast target expression");
+                Type castSourceType = castExpression.expression().type();
+                Type castTargetType = castExpression.type();
                 if (castSourceType instanceof VarcharType && castTargetType == DATE && !castExpression.isSafe()) {
                     Optional<ExtractionResult> result = createVarcharCastToDateComparisonExtractionResult(
                             normalized,
@@ -483,7 +469,7 @@ public final class DomainTranslator
                         return result.get();
                     }
                 }
-                if (!isImplicitCoercion(expressionTypes, castExpression)) {
+                if (!isImplicitCoercion(castExpression)) {
                     //
                     // we cannot use non-coercion cast to literal_type on symbol side to build tuple domain
                     //
@@ -521,12 +507,10 @@ public final class DomainTranslator
         /**
          * Extract a normalized simple comparison between a QualifiedNameReference and a native value if possible.
          */
-        private Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(Map<NodeRef<Expression>, Type> expressionTypes, ComparisonExpression comparison)
+        private Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(ComparisonExpression comparison)
         {
             Expression left = comparison.getLeft();
             Expression right = comparison.getRight();
-            Type leftType = expressionTypes.get(NodeRef.of(comparison.getLeft()));
-            Type rightType = expressionTypes.get(NodeRef.of(comparison.getRight()));
 
             if (left instanceof Constant == right instanceof Constant) {
                 // One of the terms must be a constant and the other a non-constant
@@ -534,23 +518,16 @@ public final class DomainTranslator
             }
 
             if (left instanceof Constant constant) {
-                return Optional.of(new NormalizedSimpleComparison(right, comparison.getOperator().flip(), new NullableValue(leftType, constant.getValue())));
+                return Optional.of(new NormalizedSimpleComparison(right, comparison.getOperator().flip(), new NullableValue(left.type(), constant.getValue())));
             }
             else {
-                return Optional.of(new NormalizedSimpleComparison(left, comparison.getOperator(), new NullableValue(rightType, ((Constant) right).getValue())));
+                return Optional.of(new NormalizedSimpleComparison(left, comparison.getOperator(), new NullableValue(right.type(), ((Constant) right).getValue())));
             }
         }
 
-        private boolean isImplicitCoercion(Map<NodeRef<Expression>, Type> expressionTypes, Cast cast)
+        private boolean isImplicitCoercion(Cast cast)
         {
-            Type castSourceType = requireNonNull(expressionTypes.get(NodeRef.of(cast.getExpression())), "No type for Cast source expression");
-            Type castTargetType = requireNonNull(expressionTypes.get(NodeRef.of(cast)), "No type for Cast expression");
-            return typeCoercion.canCoerce(castSourceType, castTargetType);
-        }
-
-        private Map<NodeRef<Expression>, Type> analyzeExpression(Expression expression)
-        {
-            return typeAnalyzer.getTypes(expression);
+            return typeCoercion.canCoerce(cast.expression().type(), cast.type());
         }
 
         private Optional<ExtractionResult> createVarcharCastToDateComparisonExtractionResult(
@@ -923,8 +900,7 @@ public final class DomainTranslator
                 return Optional.empty();
             }
             Symbol symbol = Symbol.from(node.getValue());
-            Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(node);
-            Type type = expressionTypes.get(NodeRef.of(node.getValue()));
+            Type type = node.value().type();
             List<Object> inValues = new ArrayList<>(node.getValueList().size());
             List<Expression> excludedExpressions = new ArrayList<>();
 
@@ -1005,7 +981,7 @@ public final class DomainTranslator
                 return Optional.empty();
             }
 
-            Type type = typeAnalyzer.getType(value);
+            Type type = value.type();
             if (!(type instanceof VarcharType varcharType)) {
                 // TODO support CharType
                 return Optional.empty();
@@ -1088,7 +1064,7 @@ public final class DomainTranslator
                 return Optional.empty();
             }
 
-            Type type = typeAnalyzer.getType(target);
+            Type type = target.type();
             if (!(type instanceof VarcharType)) {
                 // TODO support CharType
                 return Optional.empty();
@@ -1135,7 +1111,7 @@ public final class DomainTranslator
             }
 
             Symbol symbol = Symbol.from(node.getValue());
-            Type columnType = checkedTypeLookup(symbol);
+            Type columnType = symbol.getType();
             Domain domain = complementIfNecessary(Domain.onlyNull(columnType), complement);
             return new ExtractionResult(
                     TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)),

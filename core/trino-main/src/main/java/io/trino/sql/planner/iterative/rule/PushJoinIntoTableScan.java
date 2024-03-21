@@ -33,9 +33,7 @@ import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTranslation;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
@@ -77,12 +75,10 @@ public class PushJoinIntoTableScan
                     .with(right().matching(tableScan().capturedAs(RIGHT_TABLE_SCAN)));
 
     private final PlannerContext plannerContext;
-    private final IrTypeAnalyzer typeAnalyzer;
 
-    public PushJoinIntoTableScan(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    public PushJoinIntoTableScan(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     @Override
@@ -112,9 +108,7 @@ public class PushJoinIntoTableScan
         Expression effectiveFilter = getEffectiveFilter(joinNode);
         ConnectorExpressionTranslation translation = ConnectorExpressionTranslator.translateConjuncts(
                 context.getSession(),
-                effectiveFilter,
-                context.getSymbolAllocator().getTypes(),
-                typeAnalyzer);
+                effectiveFilter);
 
         if (!translation.remainingExpression().equals(BooleanLiteral.TRUE_LITERAL)) {
             // TODO add extra filter node above join
@@ -226,9 +220,8 @@ public class PushJoinIntoTableScan
             private Optional<BasicRelationStatistics> getBasicRelationStats(PlanNode node, List<Symbol> outputSymbols, Context context)
             {
                 PlanNodeStatsEstimate stats = context.getStatsProvider().getStats(node);
-                TypeProvider types = context.getSymbolAllocator().getTypes();
                 double outputRowCount = stats.getOutputRowCount();
-                double outputSize = stats.getOutputSizeInBytes(outputSymbols, types);
+                double outputSize = stats.getOutputSizeInBytes(outputSymbols);
                 if (isNaN(outputRowCount) || isNaN(outputSize)) {
                     return Optional.empty();
                 }

@@ -17,7 +17,6 @@ package io.trino.cost;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.trino.Session;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.ReorderJoins;
@@ -58,10 +57,10 @@ public class CostCalculatorWithEstimatedExchanges
     }
 
     @Override
-    public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, CostProvider sourcesCosts, Session session, TypeProvider types)
+    public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, CostProvider sourcesCosts, Session session)
     {
-        ExchangeCostEstimator exchangeCostEstimator = new ExchangeCostEstimator(stats, types, taskCountEstimator, session);
-        PlanCostEstimate costEstimate = costCalculator.calculateCost(node, stats, sourcesCosts, session, types);
+        ExchangeCostEstimator exchangeCostEstimator = new ExchangeCostEstimator(stats, taskCountEstimator, session);
+        PlanCostEstimate costEstimate = costCalculator.calculateCost(node, stats, sourcesCosts, session);
         LocalCostEstimate estimatedExchangeCost = node.accept(exchangeCostEstimator, null);
         return addExchangeCost(costEstimate, estimatedExchangeCost);
     }
@@ -88,14 +87,12 @@ public class CostCalculatorWithEstimatedExchanges
             extends PlanVisitor<LocalCostEstimate, Void>
     {
         private final StatsProvider stats;
-        private final TypeProvider types;
         private final TaskCountEstimator taskCountEstimator;
         private final Session session;
 
-        ExchangeCostEstimator(StatsProvider stats, TypeProvider types, TaskCountEstimator taskCountEstimator, Session session)
+        ExchangeCostEstimator(StatsProvider stats, TaskCountEstimator taskCountEstimator, Session session)
         {
             this.stats = requireNonNull(stats, "stats is null");
-            this.types = requireNonNull(types, "types is null");
             this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
             this.session = requireNonNull(session, "session is null");
         }
@@ -117,7 +114,7 @@ public class CostCalculatorWithEstimatedExchanges
         public LocalCostEstimate visitAggregation(AggregationNode node, Void context)
         {
             PlanNode source = node.getSource();
-            double inputSizeInBytes = getStats(source).getOutputSizeInBytes(source.getOutputSymbols(), types);
+            double inputSizeInBytes = getStats(source).getOutputSizeInBytes(source.getOutputSymbols());
 
             LocalCostEstimate remoteRepartitionCost = calculateRemoteRepartitionCost(inputSizeInBytes);
             LocalCostEstimate localRepartitionCost = calculateLocalRepartitionCost(inputSizeInBytes);
@@ -133,7 +130,6 @@ public class CostCalculatorWithEstimatedExchanges
                     node.getLeft(),
                     node.getRight(),
                     stats,
-                    types,
                     Objects.equals(node.getDistributionType(), Optional.of(JoinNode.DistributionType.REPLICATED)),
                     taskCountEstimator.estimateSourceDistributedTaskCount(session));
         }
@@ -145,7 +141,6 @@ public class CostCalculatorWithEstimatedExchanges
                     node.getSource(),
                     node.getFilteringSource(),
                     stats,
-                    types,
                     Objects.equals(node.getDistributionType(), Optional.of(SemiJoinNode.DistributionType.REPLICATED)),
                     taskCountEstimator.estimateSourceDistributedTaskCount(session));
         }
@@ -157,7 +152,6 @@ public class CostCalculatorWithEstimatedExchanges
                     node.getLeft(),
                     node.getRight(),
                     stats,
-                    types,
                     node.getDistributionType() == SpatialJoinNode.DistributionType.REPLICATED,
                     taskCountEstimator.estimateSourceDistributedTaskCount(session));
         }
@@ -169,7 +163,7 @@ public class CostCalculatorWithEstimatedExchanges
             // that is not always true
             // but this estimate is better that returning UNKNOWN, as it sets
             // cumulative cost to unknown
-            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types);
+            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputSymbols());
             return calculateRemoteGatherCost(inputSizeInBytes);
         }
 
@@ -203,7 +197,6 @@ public class CostCalculatorWithEstimatedExchanges
             PlanNode probe,
             PlanNode build,
             StatsProvider stats,
-            TypeProvider types,
             boolean replicated,
             int estimatedSourceDistributedTaskCount)
     {
@@ -212,7 +205,6 @@ public class CostCalculatorWithEstimatedExchanges
                 probe,
                 build,
                 stats,
-                types,
                 replicated,
                 estimatedSourceDistributedTaskCount);
         // TODO: Remove once traits (https://github.com/trinodb/trino/issues/4763) are used to correctly estimate
@@ -220,14 +212,12 @@ public class CostCalculatorWithEstimatedExchanges
         LocalCostEstimate adjustedLocalExchangeCost = adjustReplicatedJoinLocalExchangeCost(
                 build,
                 stats,
-                types,
                 replicated,
                 estimatedSourceDistributedTaskCount);
         LocalCostEstimate inputCost = calculateJoinInputCost(
                 probe,
                 build,
                 stats,
-                types,
                 replicated,
                 estimatedSourceDistributedTaskCount);
         return addPartialComponents(exchangesCost, adjustedLocalExchangeCost, inputCost);
@@ -236,7 +226,6 @@ public class CostCalculatorWithEstimatedExchanges
     public static LocalCostEstimate adjustReplicatedJoinLocalExchangeCost(
             PlanNode build,
             StatsProvider stats,
-            TypeProvider types,
             boolean replicated,
             int estimatedSourceDistributedTaskCount)
     {
@@ -259,7 +248,7 @@ public class CostCalculatorWithEstimatedExchanges
         // Cost of the repartitioning of a single data copy has been already added in
         // CostCalculatorWithEstimatedExchanges#calculateJoinExchangeCost or in CostCalculatorUsingExchanges#visitExchange
         PlanNodeStatsEstimate buildStats = stats.getStats(build);
-        double buildSideSize = buildStats.getOutputSizeInBytes(build.getOutputSymbols(), types);
+        double buildSideSize = buildStats.getOutputSizeInBytes(build.getOutputSymbols());
         double cpuCost = buildSideSize * (estimatedSourceDistributedTaskCount - 1);
         return LocalCostEstimate.of(cpuCost, 0, 0);
     }
@@ -268,12 +257,11 @@ public class CostCalculatorWithEstimatedExchanges
             PlanNode probe,
             PlanNode build,
             StatsProvider stats,
-            TypeProvider types,
             boolean replicated,
             int estimatedSourceDistributedTaskCount)
     {
-        double probeSizeInBytes = stats.getStats(probe).getOutputSizeInBytes(probe.getOutputSymbols(), types);
-        double buildSizeInBytes = stats.getStats(build).getOutputSizeInBytes(build.getOutputSymbols(), types);
+        double probeSizeInBytes = stats.getStats(probe).getOutputSizeInBytes(probe.getOutputSymbols());
+        double buildSizeInBytes = stats.getStats(build).getOutputSizeInBytes(build.getOutputSymbols());
         if (replicated) {
             // assuming the probe side of a replicated join is always source distributed
             LocalCostEstimate replicateCost = calculateRemoteReplicateCost(buildSizeInBytes, estimatedSourceDistributedTaskCount);
@@ -291,7 +279,6 @@ public class CostCalculatorWithEstimatedExchanges
             PlanNode probe,
             PlanNode build,
             StatsProvider stats,
-            TypeProvider types,
             boolean replicated,
             int estimatedSourceDistributedTaskCount)
     {
@@ -300,8 +287,8 @@ public class CostCalculatorWithEstimatedExchanges
         PlanNodeStatsEstimate probeStats = stats.getStats(probe);
         PlanNodeStatsEstimate buildStats = stats.getStats(build);
 
-        double buildSideSize = buildStats.getOutputSizeInBytes(build.getOutputSymbols(), types);
-        double probeSideSize = probeStats.getOutputSizeInBytes(probe.getOutputSymbols(), types);
+        double buildSideSize = buildStats.getOutputSizeInBytes(build.getOutputSymbols());
+        double probeSideSize = probeStats.getOutputSizeInBytes(probe.getOutputSymbols());
 
         double cpuCost = probeSideSize + buildSideSize * buildSizeMultiplier;
         double memoryCost = buildSideSize * buildSizeMultiplier;

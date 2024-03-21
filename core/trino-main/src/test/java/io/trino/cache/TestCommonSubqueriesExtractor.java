@@ -16,6 +16,7 @@ package io.trino.cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
@@ -59,12 +60,10 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
-import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -119,6 +118,7 @@ import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.spi.predicate.Range.greaterThan;
 import static io.trino.spi.predicate.Range.lessThan;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
@@ -130,12 +130,15 @@ import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.ExpressionFormatter.formatExpression;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.extractDisjuncts;
 import static io.trino.sql.ir.LogicalExpression.Operator.AND;
 import static io.trino.sql.ir.LogicalExpression.Operator.OR;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.trino.sql.planner.SymbolsExtractor.extractOutputSymbols;
+import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -290,7 +293,7 @@ public class TestCommonSubqueriesExtractor
         List<String> symbols = commonSubqueries.planAdaptations.values().stream()
                 .map(subplan -> subplan.getCommonSubplanFilteredTableScan().tableScanNode())
                 .flatMap(scan -> scan.getOutputSymbols().stream())
-                .map(Symbol::toString)
+                .map(symbol -> formatExpression(symbol.toSymbolReference()))
                 .collect(toImmutableList());
         String leftNationkey = symbols.get(0);
         String leftRegionkey = symbols.get(1);
@@ -356,7 +359,6 @@ public class TestCommonSubqueriesExtractor
         assertThat(planAdaptations).hasSize(1);
         assertThat(planAdaptations).allSatisfy((node, adaptation) -> assertThat(node).isInstanceOf(TopNRankingNode.class));
         CommonPlanAdaptation topNRanking = planAdaptations.values().stream().findFirst().get();
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
 
         PlanMatchPattern commonSubplan = topNRanking(pattern -> pattern.specification(
                                 ImmutableList.of(),
@@ -371,7 +373,7 @@ public class TestCommonSubqueriesExtractor
                         filter(
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "NATIONKEY"), new Constant(BIGINT, 10L)),
                                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")))));
-        assertTpchPlan(symbolAllocator, topNRanking.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(topNRanking.getCommonSubplan(), commonSubplan);
 
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
         // validate no adaptation is required
@@ -407,7 +409,6 @@ public class TestCommonSubqueriesExtractor
         assertThat(planAdaptations).allSatisfy((node, adaptation) -> assertThat(node).isInstanceOf(TopNRankingNode.class));
         CommonPlanAdaptation topNA = Iterables.get(planAdaptations.values(), 0);
         CommonPlanAdaptation topNB = Iterables.get(planAdaptations.values(), 1);
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
 
         PlanMatchPattern commonSubplan = topNRanking(pattern -> pattern.specification(
                                 ImmutableList.of(),
@@ -422,8 +423,8 @@ public class TestCommonSubqueriesExtractor
                         filter(
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "NATIONKEY"), new Constant(BIGINT, 10L)),
                                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")))));
-        assertTpchPlan(symbolAllocator, topNA.getCommonSubplan(), commonSubplan);
-        assertTpchPlan(symbolAllocator, topNB.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(topNA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(topNB.getCommonSubplan(), commonSubplan);
 
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
         // validate no adaptation is required
@@ -461,7 +462,6 @@ public class TestCommonSubqueriesExtractor
         assertThat(planAdaptations).allSatisfy((node, adaptation) -> assertThat(node).isInstanceOf(TopNRankingNode.class));
         CommonPlanAdaptation topNA = Iterables.get(planAdaptations.values(), 0);
         CommonPlanAdaptation topNB = Iterables.get(planAdaptations.values(), 1);
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
 
         PlanMatchPattern commonSubplanA = topNRanking(pattern -> pattern.specification(
                                 ImmutableList.of(),
@@ -476,7 +476,7 @@ public class TestCommonSubqueriesExtractor
                         filter(
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "NATIONKEY"), new Constant(BIGINT, 10L)),
                                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")))));
-        assertTpchPlan(symbolAllocator, topNA.getCommonSubplan(), commonSubplanA);
+        assertTpchPlan(topNA.getCommonSubplan(), commonSubplanA);
         PlanMatchPattern commonSubplanB = topNRanking(pattern -> pattern.specification(
                                 ImmutableList.of(),
                                 ImmutableList.of("REGIONKEY"),
@@ -490,7 +490,7 @@ public class TestCommonSubqueriesExtractor
                         filter(
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "NATIONKEY"), new Constant(BIGINT, 11L)),
                                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")))));
-        assertTpchPlan(symbolAllocator, topNB.getCommonSubplan(), commonSubplanB);
+        assertTpchPlan(topNB.getCommonSubplan(), commonSubplanB);
 
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
         // validate no adaptation is required
@@ -526,7 +526,6 @@ public class TestCommonSubqueriesExtractor
         assertThat(planAdaptations).hasSize(1);
         assertThat(planAdaptations).allSatisfy((node, adaptation) -> assertThat(node).isInstanceOf(TopNRankingNode.class));
         CommonPlanAdaptation topNRanking = planAdaptations.values().stream().findFirst().get();
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
         PlanMatchPattern commonSubplan = topNRanking(pattern -> pattern.specification(
                                 ImmutableList.of("NAME", "NATIONKEY"),
                                 ImmutableList.of("REGIONKEY"),
@@ -535,7 +534,7 @@ public class TestCommonSubqueriesExtractor
                         .maxRankingPerPartition(1)
                         .partial(true),
                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")));
-        assertTpchPlan(symbolAllocator, topNRanking.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(topNRanking.getCommonSubplan(), commonSubplan);
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
 
         // validate no adaptation is required
@@ -573,7 +572,6 @@ public class TestCommonSubqueriesExtractor
         assertThat(planAdaptations).hasSize(2);
         assertThat(planAdaptations).allSatisfy((node, adaptation) -> assertThat(node).isInstanceOf(TopNRankingNode.class));
 
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
         CommonPlanAdaptation topNA = Iterables.get(planAdaptations.values(), 0);
         CommonPlanAdaptation topNB = Iterables.get(planAdaptations.values(), 1);
 
@@ -587,12 +585,12 @@ public class TestCommonSubqueriesExtractor
                 filter(
                         new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "REGIONKEY"), new Constant(BIGINT, 10L)),
                         tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey"))));
-        assertTpchPlan(symbolAllocator, topNA.getCommonSubplan(), commonSubplan);
-        assertTpchPlan(symbolAllocator, topNB.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(topNA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(topNB.getCommonSubplan(), commonSubplan);
 
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
-        assertTpchPlan(symbolAllocator, topNA.adaptCommonSubplan(topNA.getCommonSubplan(), idAllocator), commonSubplan);
-        assertTpchPlan(symbolAllocator, topNB.adaptCommonSubplan(topNB.getCommonSubplan(), idAllocator), commonSubplan);
+        assertTpchPlan(topNA.adaptCommonSubplan(topNA.getCommonSubplan(), idAllocator), commonSubplan);
+        assertTpchPlan(topNB.adaptCommonSubplan(topNB.getCommonSubplan(), idAllocator), commonSubplan);
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(NATIONKEY_ID, NAME_ID, REGIONKEY_ID);
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, createVarcharType(25), BIGINT);
         assertThat(topNA.getCommonSubplanSignature()).isEqualTo(topNB.getCommonSubplanSignature());
@@ -631,7 +629,6 @@ public class TestCommonSubqueriesExtractor
         planAdaptations = commonSubqueries.planAdaptations();
         assertThat(planAdaptations).allSatisfy((node, adaptation) ->
                 assertThat(node).isInstanceOf(TopNRankingNode.class));
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
         CommonPlanAdaptation topNRankingA = Iterables.get(planAdaptations.values(), 0);
         CommonPlanAdaptation topNRankingB = Iterables.get(planAdaptations.values(), 1);
 
@@ -655,8 +652,8 @@ public class TestCommonSubqueriesExtractor
                 filter(
                         new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "REGIONKEY"), new Constant(BIGINT, 11L)),
                         tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "REGIONKEY", "regionkey"))));
-        assertTpchPlan(symbolAllocator, topNRankingB.getCommonSubplan(), commonSubplanA);
-        assertTpchPlan(symbolAllocator, topNRankingA.getCommonSubplan(), commonSubplanB);
+        assertTpchPlan(topNRankingB.getCommonSubplan(), commonSubplanA);
+        assertTpchPlan(topNRankingA.getCommonSubplan(), commonSubplanB);
         assertThat(topNRankingA.getCommonSubplanSignature()).isNotEqualTo(topNRankingB.getCommonSubplanSignature());
     }
 
@@ -672,7 +669,6 @@ public class TestCommonSubqueriesExtractor
         assertThat(planAdaptations).hasSize(1);
         assertThat(planAdaptations).allSatisfy((node, adaptation) -> assertThat(node).isInstanceOf(TopNNode.class));
         CommonPlanAdaptation topN = planAdaptations.values().stream().findFirst().get();
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
         PlanMatchPattern commonSubplan = topN(
                 10,
                 ImmutableList.of(sort("NAME", Ordering.ASCENDING, NullOrdering.LAST),
@@ -683,7 +679,7 @@ public class TestCommonSubqueriesExtractor
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "REGIONKEY"), new Constant(BIGINT, 10L)),
                                 new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "NATIONKEY"), new Constant(BIGINT, 2L)))),
                         tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey"))));
-        assertTpchPlan(symbolAllocator, topN.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(topN.getCommonSubplan(), commonSubplan);
 
         // validate no adaptation is required
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
@@ -730,7 +726,6 @@ public class TestCommonSubqueriesExtractor
         assertThat(planAdaptations).allSatisfy((node, adaptation) ->
                 assertThat(node).isInstanceOf(TopNNode.class));
 
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
         CommonPlanAdaptation topNA = Iterables.get(planAdaptations.values(), 0);
         CommonPlanAdaptation topNB = Iterables.get(planAdaptations.values(), 1);
 
@@ -741,16 +736,16 @@ public class TestCommonSubqueriesExtractor
                 filter(
                         new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "REGIONKEY"), new Constant(BIGINT, 10L)),
                         tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey"))));
-        assertTpchPlan(symbolAllocator, topNA.getCommonSubplan(), commonSubplan);
-        assertTpchPlan(symbolAllocator, topNB.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(topNA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(topNB.getCommonSubplan(), commonSubplan);
 
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
-        assertTpchPlan(symbolAllocator, topNA.adaptCommonSubplan(topNA.getCommonSubplan(), idAllocator),
+        assertTpchPlan(topNA.adaptCommonSubplan(topNA.getCommonSubplan(), idAllocator),
                 strictProject(ImmutableMap.of(
                                 "NATIONKEY", PlanMatchPattern.expression(new SymbolReference(BIGINT, "NATIONKEY")),
                                 "NAME", PlanMatchPattern.expression(new SymbolReference(createVarcharType(25), "NAME"))),
                         commonSubplan));
-        assertTpchPlan(symbolAllocator, topNB.adaptCommonSubplan(topNB.getCommonSubplan(), idAllocator),
+        assertTpchPlan(topNB.adaptCommonSubplan(topNB.getCommonSubplan(), idAllocator),
                 strictProject(ImmutableMap.of(
                                 "REGIONKEY", PlanMatchPattern.expression(new SymbolReference(BIGINT, "REGIONKEY")),
                                 "NAME", PlanMatchPattern.expression(new SymbolReference(createVarcharType(25), "NAME"))),
@@ -796,8 +791,7 @@ public class TestCommonSubqueriesExtractor
                                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")))));
 
         // validate common subplan
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
-        assertTpchPlan(symbolAllocator, aggregation.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(aggregation.getCommonSubplan(), commonSubplan);
 
         // validate no adaptation is required
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
@@ -839,8 +833,7 @@ public class TestCommonSubqueriesExtractor
                                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey"))));
 
         // validate common subplan
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
-        assertTpchPlan(symbolAllocator, projection.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(projection.getCommonSubplan(), commonSubplan);
 
         // validate no adaptation is required
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
@@ -881,9 +874,8 @@ public class TestCommonSubqueriesExtractor
                 AggregationNode.Step.PARTIAL,
                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey")));
 
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
-        assertTpchPlan(symbolAllocator, aggregationA.getCommonSubplan(), commonSubplan);
-        assertTpchPlan(symbolAllocator, aggregationB.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(aggregationA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(aggregationB.getCommonSubplan(), commonSubplan);
 
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
         assertThat(aggregationA.adaptCommonSubplan(aggregationA.getCommonSubplan(), idAllocator)).isEqualTo(aggregationA.getCommonSubplan());
@@ -938,19 +930,18 @@ public class TestCommonSubqueriesExtractor
                                 "MASK", PlanMatchPattern.expression(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "NATIONKEY"), new Constant(BIGINT, 10L)))),
                         tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "REGIONKEY", "regionkey"))));
 
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
-        assertTpchPlan(symbolAllocator, aggregationA.getCommonSubplan(), commonSubplan);
-        assertTpchPlan(symbolAllocator, aggregationB.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(aggregationA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(aggregationB.getCommonSubplan(), commonSubplan);
         assertAggregationsWithMasks(aggregationA.getCommonSubplan(), 0, 2);
         assertAggregationsWithMasks(aggregationB.getCommonSubplan(), 0, 2);
 
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
-        assertTpchPlan(symbolAllocator, aggregationA.adaptCommonSubplan(aggregationA.getCommonSubplan(), idAllocator),
+        assertTpchPlan(aggregationA.adaptCommonSubplan(aggregationA.getCommonSubplan(), idAllocator),
                 strictProject(ImmutableMap.of(
                                 "SUM", PlanMatchPattern.expression(new SymbolReference(BIGINT, "SUM")),
                                 "MAX_FILTERED", PlanMatchPattern.expression(new SymbolReference(BIGINT, "MAX_FILTERED"))),
                         commonSubplan));
-        assertTpchPlan(symbolAllocator, aggregationB.adaptCommonSubplan(aggregationB.getCommonSubplan(), idAllocator),
+        assertTpchPlan(aggregationB.adaptCommonSubplan(aggregationB.getCommonSubplan(), idAllocator),
                 strictProject(ImmutableMap.of(
                                 "SUM", PlanMatchPattern.expression(new SymbolReference(BIGINT, "SUM")),
                                 "AVG_FILTERED", PlanMatchPattern.expression(new SymbolReference(DOUBLE, "AVG_FILTERED"))),
@@ -961,12 +952,12 @@ public class TestCommonSubqueriesExtractor
         CacheColumnId nationKeyMultiplyBy2 = canonicalExpressionToColumnId(new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference(BIGINT, "[nationkey:bigint]"), new Constant(BIGINT, 2L)));
         Expression max = canonicalAggregation(
                 "max",
-                Optional.of(columnIdToSymbol(nationKeyGreaterThan10)),
+                Optional.of(columnIdToSymbol(nationKeyGreaterThan10, BOOLEAN)),
                 new ExpressionWithType(new SymbolReference(BIGINT, "[regionkey:bigint]"), BIGINT));
         Expression sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
         Expression avg = canonicalAggregation(
                 "avg",
-                Optional.of(columnIdToSymbol(nationKeyGreaterThan10)),
+                Optional.of(columnIdToSymbol(nationKeyGreaterThan10, BOOLEAN)),
                 new ExpressionWithType(nationKeyMultiplyBy2, BIGINT));
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(max), canonicalExpressionToColumnId(sum), canonicalExpressionToColumnId(avg));
@@ -1009,9 +1000,8 @@ public class TestCommonSubqueriesExtractor
                                 "MULTIPLICATION", PlanMatchPattern.expression(new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference(BIGINT, "REGIONKEY"), new Constant(BIGINT, 2L)))),
                         tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "REGIONKEY", "regionkey"))));
 
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
-        assertTpchPlan(symbolAllocator, aggregationA.getCommonSubplan(), commonSubplan);
-        assertTpchPlan(symbolAllocator, aggregationB.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(aggregationA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(aggregationB.getCommonSubplan(), commonSubplan);
 
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
         assertThat(aggregationA.adaptCommonSubplan(aggregationA.getCommonSubplan(), idAllocator)).isEqualTo(aggregationA.getCommonSubplan());
@@ -1073,18 +1063,17 @@ public class TestCommonSubqueriesExtractor
                                         new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "REGIONKEY"), new Constant(BIGINT, 5L)))))),
                         tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "REGIONKEY", "regionkey", "NAME", "name"))));
 
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
-        assertTpchPlan(symbolAllocator, aggregationA.getCommonSubplan(), commonSubplan);
-        assertTpchPlan(symbolAllocator, aggregationB.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(aggregationA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(aggregationB.getCommonSubplan(), commonSubplan);
 
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
-        assertTpchPlan(symbolAllocator, aggregationA.adaptCommonSubplan(aggregationA.getCommonSubplan(), idAllocator),
+        assertTpchPlan(aggregationA.adaptCommonSubplan(aggregationA.getCommonSubplan(), idAllocator),
                 strictProject(ImmutableMap.of(
                                 "REGIONKEY", PlanMatchPattern.expression(new SymbolReference(BIGINT, "REGIONKEY")),
                                 "NAME", PlanMatchPattern.expression(new SymbolReference(createVarcharType(25), "NAME")),
                                 "SUM", PlanMatchPattern.expression(new SymbolReference(BIGINT, "SUM"))),
                         filter(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "REGIONKEY"), new Constant(BIGINT, 10L)), commonSubplan)));
-        assertTpchPlan(symbolAllocator, aggregationB.adaptCommonSubplan(aggregationB.getCommonSubplan(), idAllocator),
+        assertTpchPlan(aggregationB.adaptCommonSubplan(aggregationB.getCommonSubplan(), idAllocator),
                 strictProject(ImmutableMap.of(
                                 "REGIONKEY", PlanMatchPattern.expression(new SymbolReference(BIGINT, "REGIONKEY")),
                                 "NAME", PlanMatchPattern.expression(new SymbolReference(createVarcharType(25), "NAME")),
@@ -1137,14 +1126,13 @@ public class TestCommonSubqueriesExtractor
                                 "EXPR", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "NATIONKEY"), new Constant(BIGINT, 1L)))),
                         tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey"))));
 
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
-        assertTpchPlan(symbolAllocator, aggregationA.getCommonSubplan(), commonSubplan);
-        assertTpchPlan(symbolAllocator, aggregationB.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(aggregationA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(aggregationB.getCommonSubplan(), commonSubplan);
 
         // only subplan B required adaptation (different order for group by columns)
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
         assertThat(aggregationA.adaptCommonSubplan(aggregationA.getCommonSubplan(), idAllocator)).isEqualTo(aggregationA.getCommonSubplan());
-        assertTpchPlan(symbolAllocator, aggregationB.adaptCommonSubplan(aggregationB.getCommonSubplan(), idAllocator),
+        assertTpchPlan(aggregationB.adaptCommonSubplan(aggregationB.getCommonSubplan(), idAllocator),
                 strictProject(ImmutableMap.of(
                                 "REGIONKEY", PlanMatchPattern.expression(new SymbolReference(BIGINT, "REGIONKEY")),
                                 "NAME", PlanMatchPattern.expression(new SymbolReference(createVarcharType(25), "NAME")),
@@ -1193,22 +1181,21 @@ public class TestCommonSubqueriesExtractor
                                 "NATIONKEY_ADD", PlanMatchPattern.expression(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "NATIONKEY"), new Constant(BIGINT, 2L)))),
                         tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey"))));
 
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
-        assertTpchPlan(symbolAllocator, projectionA.getCommonSubplan(), commonSubplan);
-        assertTpchPlan(symbolAllocator, projectionB.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(projectionA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(projectionB.getCommonSubplan(), commonSubplan);
 
         // validate adaptations
         PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
-        assertTpchPlan(symbolAllocator, projectionA.adaptCommonSubplan(projectionA.getCommonSubplan(), idAllocator),
+        assertTpchPlan(projectionA.adaptCommonSubplan(projectionA.getCommonSubplan(), idAllocator),
                 strictProject(ImmutableMap.of("MUL", PlanMatchPattern.expression(new SymbolReference(BIGINT, "MUL"))),
                         commonSubplan));
-        assertTpchPlan(symbolAllocator, projectionB.adaptCommonSubplan(projectionB.getCommonSubplan(), idAllocator),
+        assertTpchPlan(projectionB.adaptCommonSubplan(projectionB.getCommonSubplan(), idAllocator),
                 strictProject(ImmutableMap.of("ADD", PlanMatchPattern.expression(new SymbolReference(BIGINT, "ADD"))),
                         commonSubplan));
 
         // make sure plan signatures are same
-        SymbolReference nationKeyMultiplyReference = columnIdToSymbol(canonicalExpressionToColumnId(new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference(BIGINT, "[nationkey:bigint]"), new Constant(BIGINT, 2L)))).toSymbolReference();
-        SymbolReference nationKeyAddReference = columnIdToSymbol(canonicalExpressionToColumnId(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "[nationkey:bigint]"), new Constant(BIGINT, 2L)))).toSymbolReference();
+        SymbolReference nationKeyMultiplyReference = columnIdToSymbol(canonicalExpressionToColumnId(new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference(BIGINT, "[nationkey:bigint]"), new Constant(BIGINT, 2L))), BIGINT).toSymbolReference();
+        SymbolReference nationKeyAddReference = columnIdToSymbol(canonicalExpressionToColumnId(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "[nationkey:bigint]"), new Constant(BIGINT, 2L))), BIGINT).toSymbolReference();
         Expression multiplyProjection = new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, nationKeyMultiplyReference, nationKeyMultiplyReference);
         Expression addProjection = new ArithmeticBinaryExpression(ADD_BIGINT, ADD, nationKeyAddReference, nationKeyAddReference);
         assertThat(projectionA.getCommonSubplanSignature()).isEqualTo(projectionB.getCommonSubplanSignature());
@@ -1240,9 +1227,8 @@ public class TestCommonSubqueriesExtractor
 
         PlanMatchPattern commonSubplan = tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "REGIONKEY", "regionkey"));
 
-        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
-        assertTpchPlan(symbolAllocator, aggregationA.getCommonSubplan(), commonSubplan);
-        assertTpchPlan(symbolAllocator, aggregationB.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(aggregationA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(aggregationB.getCommonSubplan(), commonSubplan);
 
         // make sure plan signatures are same
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
@@ -1351,12 +1337,12 @@ public class TestCommonSubqueriesExtractor
                                 new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new SymbolReference(BIGINT, "column1"), new Constant(BIGINT, 4L)), new Constant(BIGINT, 0L)),
                                 new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new SymbolReference(BIGINT, "column2"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L)))),
                         commonSubplanTableScan));
-        assertPlan(symbolAllocator, subqueryA.getCommonSubplan(), commonSubplan);
-        assertPlan(symbolAllocator, subqueryB.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryA.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryB.getCommonSubplan(), commonSubplan);
 
         // assert that FilteredTableScan has correct table and predicate for both subplans
-        assertPlan(symbolAllocator, subqueryA.getCommonSubplanFilteredTableScan().tableScanNode(), commonSubplanTableScan);
-        assertPlan(symbolAllocator, subqueryB.getCommonSubplanFilteredTableScan().tableScanNode(), commonSubplanTableScan);
+        assertPlan(subqueryA.getCommonSubplanFilteredTableScan().tableScanNode(), commonSubplanTableScan);
+        assertPlan(subqueryB.getCommonSubplanFilteredTableScan().tableScanNode(), commonSubplanTableScan);
         assertThat(subqueryA.getCommonSubplanFilteredTableScan().filterPredicate()).hasValue(
                 ((FilterNode) PlanNodeSearcher.searchFrom(subqueryA.getCommonSubplan())
                         .whereIsInstanceOfAny(FilterNode.class)
@@ -1405,14 +1391,14 @@ public class TestCommonSubqueriesExtractor
         assertThat(subqueryB.getCommonDynamicFilterDisjuncts()).isEqualTo(TRUE_LITERAL);
 
         // symbols used in common subplans for both subqueries should be unique
-        assertThat(SymbolsExtractor.extractUnique(subqueryA.getCommonSubplan()))
-                .doesNotContainAnyElementsOf(SymbolsExtractor.extractUnique(subqueryB.getCommonSubplan()));
+        assertThat(extractUnique(subqueryA.getCommonSubplan()))
+                .doesNotContainAnyElementsOf(extractUnique(subqueryB.getCommonSubplan()));
 
         // since subqueryA has the same predicate and projections as common subquery, then no adaptation is required
         PlanNode subqueryACommonSubplan = subqueryA.getCommonSubplan();
         assertThat(subqueryA.adaptCommonSubplan(subqueryACommonSubplan, idAllocator)).isEqualTo(subqueryACommonSubplan);
 
-        assertPlan(symbolAllocator, subqueryB.adaptCommonSubplan(subqueryB.getCommonSubplan(), idAllocator),
+        assertPlan(subqueryB.adaptCommonSubplan(subqueryB.getCommonSubplan(), idAllocator),
                 strictProject(ImmutableMap.of("projection", PlanMatchPattern.expression(new SymbolReference(BIGINT, "projection"))),
                         filter(
                                 new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new SymbolReference(BIGINT, "column1"), new Constant(BIGINT, 4L)), new Constant(BIGINT, 0L)),
@@ -1423,7 +1409,7 @@ public class TestCommonSubqueriesExtractor
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference(BIGINT, "[cache_column1]"), new Constant(BIGINT, 10L))), column1);
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, BIGINT);
         assertThat(subqueryA.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(new PlanSignature(
-                combine(scanFilterProjectKey(new CacheTableId(testTableHandle.getCatalogHandle().getId() + ":cache_table_id")), "filters=((([cache_column1] % 4) = bigint '0') OR (([cache_column2] % 2) = bigint '0'))"),
+                combine(scanFilterProjectKey(new CacheTableId(testTableHandle.getCatalogHandle().getId() + ":cache_table_id")), "filters=((([cache_column1] % bigint '4') = bigint '0') OR (([cache_column2] % bigint '2') = bigint '0'))"),
                 Optional.empty(),
                 cacheColumnIds,
                 cacheColumnsTypes),
@@ -1481,7 +1467,7 @@ public class TestCommonSubqueriesExtractor
                 .with(TableScanNode.class, tableScan -> ((MockConnectorTableHandle) tableScan.getTable().getConnectorHandle()).getConstraint().equals(CONSTRAINT_1));
 
         // check whether common predicates were pushed down to common table scan
-        assertPlan(symbolAllocator, subqueryA.getCommonSubplan(), commonTableScan);
+        assertPlan(subqueryA.getCommonSubplan(), commonTableScan);
 
         // There is a FilterNode because of dynamic filters
         PlanMatchPattern commonSubplanB = filter(TRUE_LITERAL, createDynamicFilterExpression(
@@ -1490,7 +1476,7 @@ public class TestCommonSubqueriesExtractor
                         BIGINT,
                         new SymbolReference(BIGINT, "column2")),
                 commonTableScan);
-        assertPlan(symbolAllocator, subqueryB.getCommonSubplan(), commonSubplanB);
+        assertPlan(subqueryB.getCommonSubplan(), commonSubplanB);
     }
 
     @Test
@@ -1537,8 +1523,8 @@ public class TestCommonSubqueriesExtractor
         // check whether common predicates were pushed down to common table scan
         PlanMatchPattern commonSubplan = tableScan(TEST_TABLE)
                 .with(TableScanNode.class, tableScan -> ((MockConnectorTableHandle) tableScan.getTable().getConnectorHandle()).getConstraint().equals(CONSTRAINT_1));
-        assertPlan(symbolAllocator, subqueryA.getCommonSubplan(), commonSubplan);
-        assertPlan(symbolAllocator, subqueryB.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryA.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryB.getCommonSubplan(), commonSubplan);
     }
 
     @Test
@@ -1591,8 +1577,8 @@ public class TestCommonSubqueriesExtractor
                 tableScan(TEST_TABLE, ImmutableMap.of("column1", "column1"))
                         .with(TableScanNode.class, tableScan -> ((MockConnectorTableHandle) tableScan.getTable().getConnectorHandle()).getConstraint().equals(CONSTRAINT_3)));
 
-        assertPlan(symbolAllocator, subqueryA.getCommonSubplan(), commonSubplan);
-        assertPlan(symbolAllocator, subqueryB.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryA.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryB.getCommonSubplan(), commonSubplan);
     }
 
     @Test
@@ -1643,8 +1629,8 @@ public class TestCommonSubqueriesExtractor
                 tableScan(TEST_TABLE, ImmutableMap.of("column1", "column1"))
                         .with(TableScanNode.class, tableScan -> ((MockConnectorTableHandle) tableScan.getTable().getConnectorHandle()).getConstraint().equals(TupleDomain.all())));
 
-        assertPlan(symbolAllocator, subqueryA.getCommonSubplan(), commonSubplan);
-        assertPlan(symbolAllocator, subqueryB.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryA.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryB.getCommonSubplan(), commonSubplan);
     }
 
     @Test
@@ -1710,16 +1696,16 @@ public class TestCommonSubqueriesExtractor
                                 TEST_TABLE,
                                 ImmutableMap.of(
                                         "column1", "column1")));
-        assertPlan(symbolAllocator, subqueryA.getCommonSubplan(), commonSubplan);
-        assertPlan(symbolAllocator, subqueryB.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryA.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryB.getCommonSubplan(), commonSubplan);
 
         // filtering adaptation is required
-        assertPlan(symbolAllocator, subqueryA.adaptCommonSubplan(subqueryA.getCommonSubplan(), idAllocator),
+        assertPlan(subqueryA.adaptCommonSubplan(subqueryA.getCommonSubplan(), idAllocator),
                 filter(
                         new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "column1"), new Constant(BIGINT, 42L)),
                         commonSubplan));
 
-        assertPlan(symbolAllocator, subqueryB.adaptCommonSubplan(subqueryB.getCommonSubplan(), idAllocator),
+        assertPlan(subqueryB.adaptCommonSubplan(subqueryB.getCommonSubplan(), idAllocator),
                 filter(
                         new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "column1"), new Constant(BIGINT, 0L)),
                         commonSubplan));
@@ -1803,15 +1789,15 @@ public class TestCommonSubqueriesExtractor
                         ImmutableMap.of(
                                 "column1", "column1",
                                 "column2", "column2"));
-        assertPlan(symbolAllocator, subqueryA.getCommonSubplan(), commonSubplan);
-        assertPlan(symbolAllocator, subqueryB.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryA.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryB.getCommonSubplan(), commonSubplan);
 
         // only projection adaptation is required
-        assertPlan(symbolAllocator, subqueryA.adaptCommonSubplan(subqueryA.getCommonSubplan(), idAllocator),
+        assertPlan(subqueryA.adaptCommonSubplan(subqueryA.getCommonSubplan(), idAllocator),
                 strictProject(ImmutableMap.of("column1", PlanMatchPattern.expression(new SymbolReference(BIGINT, "column1"))),
                         commonSubplan));
 
-        assertPlan(symbolAllocator, subqueryB.adaptCommonSubplan(subqueryB.getCommonSubplan(), idAllocator),
+        assertPlan(subqueryB.adaptCommonSubplan(subqueryB.getCommonSubplan(), idAllocator),
                 // order of common subquery output needs to shuffled to match original query
                 strictProject(ImmutableMap.of(
                                 "column2", PlanMatchPattern.expression(new SymbolReference(BIGINT, "column2")),
@@ -1885,16 +1871,16 @@ public class TestCommonSubqueriesExtractor
         PlanMatchPattern commonSubplan = strictTableScan(
                 TEST_TABLE,
                 ImmutableMap.of("column1", "column1"));
-        assertPlan(symbolAllocator, subqueryA.getCommonSubplan(), commonSubplan);
-        assertPlan(symbolAllocator, subqueryB.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryA.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryB.getCommonSubplan(), commonSubplan);
 
         // only filtering adaptation is required on subplan a
-        assertPlan(symbolAllocator, subqueryA.adaptCommonSubplan(subqueryA.getCommonSubplan(), idAllocator),
+        assertPlan(subqueryA.adaptCommonSubplan(subqueryA.getCommonSubplan(), idAllocator),
                 filter(
                         new ComparisonExpression(EQUAL, new ArithmeticBinaryExpression(MODULUS_BIGINT, MODULUS, new SymbolReference(BIGINT, "column1"), new Constant(BIGINT, 4L)), new Constant(BIGINT, 0L)),
                         commonSubplan));
 
-        assertPlan(symbolAllocator, subqueryB.adaptCommonSubplan(subqueryB.getCommonSubplan(), idAllocator), commonSubplan);
+        assertPlan(subqueryB.adaptCommonSubplan(subqueryB.getCommonSubplan(), idAllocator), commonSubplan);
     }
 
     @Test
@@ -1979,11 +1965,11 @@ public class TestCommonSubqueriesExtractor
                 filter(
                         new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "column1"), new Constant(BIGINT, 42L)),
                         commonSubplanTableScan));
-        assertPlan(symbolAllocator, subqueryA.getCommonSubplan(), commonSubplan);
-        assertPlan(symbolAllocator, subqueryB.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryA.getCommonSubplan(), commonSubplan);
+        assertPlan(subqueryB.getCommonSubplan(), commonSubplan);
 
         // subquery A should have predicate adaptation
-        assertPlan(symbolAllocator, subqueryA.adaptCommonSubplan(subqueryA.getCommonSubplan(), idAllocator),
+        assertPlan(subqueryA.adaptCommonSubplan(subqueryA.getCommonSubplan(), idAllocator),
                 filter(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "column2"), new Constant(BIGINT, 24L)), commonSubplan));
 
         PlanNode subqueryBCommonSubplan = subqueryB.getCommonSubplan();
@@ -2029,7 +2015,7 @@ public class TestCommonSubqueriesExtractor
     {
         public ExpressionWithType(CacheColumnId columnId, Type type)
         {
-            this(columnIdToSymbol(columnId).toSymbolReference(), type);
+            this(columnIdToSymbol(columnId, type).toSymbolReference(), type);
         }
     }
 
@@ -2055,7 +2041,9 @@ public class TestCommonSubqueriesExtractor
             Plan plan = planTester.createPlan(session, query, planTester.getPlanOptimizers(forceSingleNode), planTester.getAlternativeOptimizers(), OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> getPlanTester().getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
-            SymbolAllocator symbolAllocator = new SymbolAllocator(plan.getTypes().allTypes());
+            SymbolAllocator symbolAllocator = new SymbolAllocator(ImmutableSet.<Symbol>builder()
+                    .addAll(extractUnique(plan.getRoot()))
+                    .addAll(extractOutputSymbols(plan.getRoot())).build());
             PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
             return new CommonSubqueries(
                     CommonSubqueriesExtractor.extractCommonSubqueries(
@@ -2064,7 +2052,6 @@ public class TestCommonSubqueriesExtractor
                             session,
                             idAllocator,
                             symbolAllocator,
-                            new RuleTester(getPlanTester()).getTypeAnalyzer(),
                             plan.getRoot()),
                     symbolAllocator,
                     idAllocator,
@@ -2088,7 +2075,6 @@ public class TestCommonSubqueriesExtractor
                     session,
                     idAllocator,
                     symbolAllocator,
-                    new RuleTester(getPlanTester()).getTypeAnalyzer(),
                     root);
         });
     }
@@ -2110,22 +2096,22 @@ public class TestCommonSubqueriesExtractor
         }
     }
 
-    private void assertPlan(SymbolAllocator symbolAllocator, PlanNode root, PlanMatchPattern expected)
+    private void assertPlan(PlanNode root, PlanMatchPattern expected)
     {
-        assertPlan(TEST_SESSION, symbolAllocator, root, expected);
+        assertPlan(TEST_SESSION, root, expected);
     }
 
-    private void assertTpchPlan(SymbolAllocator symbolAllocator, PlanNode root, PlanMatchPattern expected)
+    private void assertTpchPlan(PlanNode root, PlanMatchPattern expected)
     {
-        assertPlan(TPCH_SESSION, symbolAllocator, root, expected);
+        assertPlan(TPCH_SESSION, root, expected);
     }
 
-    private void assertPlan(Session customSession, SymbolAllocator symbolAllocator, PlanNode root, PlanMatchPattern expected)
+    private void assertPlan(Session customSession, PlanNode root, PlanMatchPattern expected)
     {
         getPlanTester().inTransaction(customSession, session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> getPlanTester().getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
-            Plan plan = new Plan(root, symbolAllocator.getTypes(), StatsAndCosts.empty());
+            Plan plan = new Plan(root, StatsAndCosts.empty());
             PlanAssert.assertPlan(session, getPlanTester().getPlannerContext().getMetadata(), createTestingFunctionManager(), noopStatsCalculator(), plan, expected);
             return null;
         });

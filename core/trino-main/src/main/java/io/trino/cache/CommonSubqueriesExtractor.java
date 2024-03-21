@@ -48,12 +48,10 @@ import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.SymbolMapper;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -104,6 +102,7 @@ import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 
 /**
@@ -131,7 +130,6 @@ public final class CommonSubqueriesExtractor
     private final Session session;
     private final PlanNodeIdAllocator idAllocator;
     private final SymbolAllocator symbolAllocator;
-    private final IrTypeAnalyzer typeAnalyzer;
     private final PlanNode root;
 
     public static Map<PlanNode, CommonPlanAdaptation> extractCommonSubqueries(
@@ -140,10 +138,9 @@ public final class CommonSubqueriesExtractor
             Session session,
             PlanNodeIdAllocator idAllocator,
             SymbolAllocator symbolAllocator,
-            IrTypeAnalyzer typeAnalyzer,
             PlanNode root)
     {
-        return new CommonSubqueriesExtractor(cacheController, plannerContext, session, idAllocator, symbolAllocator, typeAnalyzer, root)
+        return new CommonSubqueriesExtractor(cacheController, plannerContext, session, idAllocator, symbolAllocator, root)
                 .extractCommonSubqueries();
     }
 
@@ -153,7 +150,6 @@ public final class CommonSubqueriesExtractor
             Session session,
             PlanNodeIdAllocator idAllocator,
             SymbolAllocator symbolAllocator,
-            IrTypeAnalyzer typeAnalyzer,
             PlanNode root)
     {
         this.cacheController = requireNonNull(cacheController, "cacheController is null");
@@ -161,7 +157,6 @@ public final class CommonSubqueriesExtractor
         this.session = requireNonNull(session, "session is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.root = requireNonNull(root, "root is null");
     }
 
@@ -570,9 +565,8 @@ public final class CommonSubqueriesExtractor
         // Order group by columns by name
         Optional<List<CacheColumnId>> orderedGroupByColumns = groupByColumns.map(
                 Ordering.from(comparing(CacheColumnId::toString))::immutableSortedCopy);
-        TypeProvider typeProvider = symbolAllocator.getTypes();
         List<Type> projectionColumnsTypes = projections.stream()
-                .map(cacheColumnId -> typeProvider.get(commonColumnIds.get(cacheColumnId)))
+                .map(cacheColumnId -> commonColumnIds.get(cacheColumnId).getType())
                 .collect(toImmutableList());
         if (tupleDomain.isAll() && predicate.equals(TRUE_LITERAL)) {
             return new PlanSignatureWithPredicate(
@@ -587,9 +581,7 @@ public final class CommonSubqueriesExtractor
         ExtractionResult extractionResult = DomainTranslator.getExtractionResult(
                 plannerContext,
                 session,
-                predicate,
-                TypeProvider.viewOf(commonColumnIds.entrySet().stream()
-                        .collect(toImmutableMap(entry -> columnIdToSymbol(entry.getKey()), entry -> typeProvider.get(entry.getValue())))));
+                predicate);
         // Only domains for projected columns can be part of signature predicate
         TupleDomain<CacheColumnId> extractedTupleDomain = extractionResult.getTupleDomain()
                 .transformKeys(CanonicalSubplanExtractor::canonicalSymbolToColumnId)
@@ -606,7 +598,7 @@ public final class CommonSubqueriesExtractor
                 .filter((columnId, domain) -> !retainedColumnIds.contains(columnId));
         if (!remainingTupleDomain.isAll() || !extractionResult.getRemainingExpression().equals(TRUE_LITERAL)) {
             Expression remainingDomainExpression = new DomainTranslator().toPredicate(
-                    remainingTupleDomain.transformKeys(CanonicalSubplanExtractor::columnIdToSymbol));
+                    remainingTupleDomain.transformKeys(id -> columnIdToSymbol(id, commonColumnIds.get(id).getType())));
             signatureKey = combine(
                     signatureKey,
                     "filters=" + formatExpression(combineConjuncts(
@@ -756,9 +748,7 @@ public final class CommonSubqueriesExtractor
                 false,
                 session,
                 idAllocator,
-                symbolAllocator,
                 plannerContext,
-                typeAnalyzer,
                 node -> PlanNodeStatsEstimate.unknown(),
                 new DomainTranslator())
                 .getMainAlternative();
@@ -810,8 +800,9 @@ public final class CommonSubqueriesExtractor
     {
         // Prune and order common subquery output in order to match original subquery.
         Map<CacheColumnId, Expression> projections = canonicalSubplan.getAssignments().keySet().stream()
-                .peek(id -> checkState(subplan.getOutputSymbols().contains(requireNonNull(columnIdMapping.get(id))), "No symbol for column id: %s", id))
-                .collect(toImmutableMap(id -> id, id -> columnIdToSymbol(id).toSymbolReference()));
+                .collect(toImmutableMap(
+                        identity(),
+                        id -> columnIdToSymbol(id, requireNonNull(columnIdMapping.get(id), format("No symbol for column id: %s", id)).getType()).toSymbolReference()));
         return createSubplanAssignments(
                 subplan,
                 projections,

@@ -27,7 +27,6 @@ import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
@@ -37,7 +36,6 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ChooseAlternativeNode;
@@ -67,7 +65,6 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
@@ -140,24 +137,23 @@ public class TestCostCalculator
     public void testTableScan()
     {
         TableScanNode tableScan = tableScan("ts", new Symbol(BIGINT, "orderkey"));
-        Map<String, Type> types = ImmutableMap.of("orderkey", BIGINT);
 
-        assertCost(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)), types)
+        assertCost(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)))
                 .cpu(1000 * IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostEstimatedExchanges(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)), types)
+        assertCostEstimatedExchanges(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)))
                 .cpu(1000 * IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostFragmentedPlan(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)), types)
+        assertCostFragmentedPlan(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)))
                 .cpu(1000 * IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostHasUnknownComponentsForUnknownStats(tableScan, types);
+        assertCostHasUnknownComponentsForUnknownStats(tableScan);
     }
 
     @Test
@@ -169,26 +165,23 @@ public class TestCostCalculator
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "project", statsEstimate(project, 4000),
                 "ts", statsEstimate(tableScan, 1000));
-        Map<String, Type> types = ImmutableMap.of(
-                "orderkey", BIGINT,
-                "string", VARCHAR);
 
-        assertCost(project, costs, stats, types)
+        assertCost(project, costs, stats)
                 .cpu(1000 + 4000 * OFFSET_AND_IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostEstimatedExchanges(project, costs, stats, types)
+        assertCostEstimatedExchanges(project, costs, stats)
                 .cpu(1000 + 4000 * OFFSET_AND_IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostFragmentedPlan(project, costs, stats, types)
+        assertCostFragmentedPlan(project, costs, stats)
                 .cpu(1000 + 4000 * OFFSET_AND_IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostHasUnknownComponentsForUnknownStats(project, types);
+        assertCostHasUnknownComponentsForUnknownStats(project);
     }
 
     @Test
@@ -201,25 +194,23 @@ public class TestCostCalculator
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "filter", statsEstimate(filter, 4000),
                 "ts", statsEstimate(tableScan, 1000));
-        Map<String, Type> types = ImmutableMap.of(
-                "string", VARCHAR);
 
-        assertCost(filter, costs, stats, types)
+        assertCost(filter, costs, stats)
                 .cpu(1000 + 1000 * OFFSET_AND_IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostEstimatedExchanges(filter, costs, stats, types)
+        assertCostEstimatedExchanges(filter, costs, stats)
                 .cpu(1000 + 1000 * OFFSET_AND_IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostFragmentedPlan(filter, costs, stats, types)
+        assertCostFragmentedPlan(filter, costs, stats)
                 .cpu(1000 + 1000 * OFFSET_AND_IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
 
-        assertCostHasUnknownComponentsForUnknownStats(filter, types);
+        assertCostHasUnknownComponentsForUnknownStats(filter);
     }
 
     @Test
@@ -237,28 +228,26 @@ public class TestCostCalculator
                 "alternative2", new PlanCostEstimate(2000, 1500, 1000, NaN));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "chooseAlternative", statsEstimate(chooseAlternativeNode, 5000));
-        Map<String, Type> types = ImmutableMap.of(
-                "string", VARCHAR);
 
-        assertCost(chooseAlternativeNode, costs, stats, types)
+        assertCost(chooseAlternativeNode, costs, stats)
                 .cpu(1000)
                 .memory(3000)
                 .memoryWhenOutputting(NaN)
                 .network(0);
 
-        assertCostEstimatedExchanges(chooseAlternativeNode, costs, stats, types)
+        assertCostEstimatedExchanges(chooseAlternativeNode, costs, stats)
                 .cpu(1000)
                 .memory(3000)
                 .memoryWhenOutputting(NaN)
                 .network(0);
 
-        assertCostFragmentedPlan(chooseAlternativeNode, costs, stats, types)
+        assertCostFragmentedPlan(chooseAlternativeNode, costs, stats)
                 .cpu(1000)
                 .memory(3000)
                 .memoryWhenOutputting(NaN)
                 .network(0);
 
-        assertCostHasUnknownComponentsForUnknownStats(chooseAlternativeNode, types);
+        assertCostHasUnknownComponentsForUnknownStats(chooseAlternativeNode);
     }
 
     @Test
@@ -281,26 +270,23 @@ public class TestCostCalculator
                 "join", statsEstimate(join, 12000),
                 "ts1", statsEstimate(ts1, 6000),
                 "ts2", statsEstimate(ts2, 1000));
-        Map<String, Type> types = ImmutableMap.of(
-                "orderkey", BIGINT,
-                "orderkey_0", BIGINT);
 
-        assertCost(join, costs, stats, types)
+        assertCost(join, costs, stats)
                 .cpu(6000 + 1000 + (12000 + 6000 + 1000) * IS_NULL_OVERHEAD)
                 .memory(1000 * IS_NULL_OVERHEAD)
                 .network(0);
 
-        assertCostEstimatedExchanges(join, costs, stats, types)
+        assertCostEstimatedExchanges(join, costs, stats)
                 .cpu(6000 + 1000 + (12000 + 6000 + 1000 + 6000 + 1000 + 1000) * IS_NULL_OVERHEAD)
                 .memory(1000 * IS_NULL_OVERHEAD)
                 .network((6000 + 1000) * IS_NULL_OVERHEAD);
 
-        assertCostFragmentedPlan(join, costs, stats, types)
+        assertCostFragmentedPlan(join, costs, stats)
                 .cpu(6000 + 1000 + (12000 + 6000 + 1000) * IS_NULL_OVERHEAD)
                 .memory(1000 * IS_NULL_OVERHEAD)
                 .network(0);
 
-        assertCostHasUnknownComponentsForUnknownStats(join, types);
+        assertCostHasUnknownComponentsForUnknownStats(join);
     }
 
     @Test
@@ -324,26 +310,22 @@ public class TestCostCalculator
                 "ts1", statsEstimate(ts1, 6000),
                 "ts2", statsEstimate(ts2, 1000));
 
-        Map<String, Type> types = ImmutableMap.of(
-                "orderkey", BIGINT,
-                "orderkey_0", BIGINT);
-
-        assertCost(join, costs, stats, types)
+        assertCost(join, costs, stats)
                 .cpu(1000 + 6000 + (12000 + 6000 + 10000 + 1000 * (NUMBER_OF_NODES - 1)) * IS_NULL_OVERHEAD)
                 .memory(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD)
                 .network(0);
 
-        assertCostEstimatedExchanges(join, costs, stats, types)
+        assertCostEstimatedExchanges(join, costs, stats)
                 .cpu(1000 + 6000 + (12000 + 6000 + 10000 + 1000 * NUMBER_OF_NODES) * IS_NULL_OVERHEAD)
                 .memory(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD)
                 .network(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD);
 
-        assertCostFragmentedPlan(join, costs, stats, types)
+        assertCostFragmentedPlan(join, costs, stats)
                 .cpu(1000 + 6000 + (12000 + 6000 + 10000 + 1000 * (NUMBER_OF_NODES - 1)) * IS_NULL_OVERHEAD)
                 .memory(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD)
                 .network(0);
 
-        assertCostHasUnknownComponentsForUnknownStats(join, types);
+        assertCostHasUnknownComponentsForUnknownStats(join);
     }
 
     @Test
@@ -385,9 +367,7 @@ public class TestCostCalculator
                 "ts2", statsEstimate(ts2, 1_000),
                 "ts3", statsEstimate(ts3, 100));
 
-        Map<String, Type> types = ImmutableMap.of("key1", BIGINT, "key2", BIGINT, "key3", BIGINT);
-
-        assertCost(join23, costs, stats, types)
+        assertCost(join23, costs, stats)
                 .memory(
                         100 * IS_NULL_OVERHEAD // join23 memory footprint
                                 + 64 + 32) // ts2, ts3 memory footprint
@@ -395,7 +375,7 @@ public class TestCostCalculator
                         100 * IS_NULL_OVERHEAD // join23 memory footprint
                                 + 64); // ts2 memory footprint
 
-        assertCost(join, costs, stats, types)
+        assertCost(join, costs, stats)
                 .memory(
                         2000 * IS_NULL_OVERHEAD // join memory footprint
                                 + 100 * IS_NULL_OVERHEAD + 64 // join23 total memory when outputting
@@ -404,7 +384,7 @@ public class TestCostCalculator
                         2000 * IS_NULL_OVERHEAD // join memory footprint
                                 + 128); // ts1 memory footprint
 
-        assertCostEstimatedExchanges(join23, costs, stats, types)
+        assertCostEstimatedExchanges(join23, costs, stats)
                 .memory(
                         100 * IS_NULL_OVERHEAD // join23 memory footprint
                                 + 64 + 32) // ts2, ts3 memory footprint
@@ -412,7 +392,7 @@ public class TestCostCalculator
                         100 * IS_NULL_OVERHEAD // join23 memory footprint
                                 + 64); // ts2 memory footprint
 
-        assertCostEstimatedExchanges(join, costs, stats, types)
+        assertCostEstimatedExchanges(join, costs, stats)
                 .memory(
                         2000 * IS_NULL_OVERHEAD // join memory footprint
                                 + 100 * IS_NULL_OVERHEAD + 64 // join23 total memory when outputting
@@ -421,7 +401,7 @@ public class TestCostCalculator
                         2000 * IS_NULL_OVERHEAD // join memory footprint
                                 + 128); // ts1 memory footprint
 
-        assertCostFragmentedPlan(join23, costs, stats, types)
+        assertCostFragmentedPlan(join23, costs, stats)
                 .memory(
                         100 * IS_NULL_OVERHEAD // join23 memory footprint
                                 + 64 + 32) // ts2, ts3 memory footprint
@@ -429,7 +409,7 @@ public class TestCostCalculator
                         100 * IS_NULL_OVERHEAD // join23 memory footprint
                                 + 64); // ts2 memory footprint
 
-        assertCostFragmentedPlan(join, costs, stats, types)
+        assertCostFragmentedPlan(join, costs, stats)
                 .memory(
                         2000 * IS_NULL_OVERHEAD // join memory footprint
                                 + 100 * IS_NULL_OVERHEAD + 64 // join23 total memory when outputting
@@ -449,26 +429,23 @@ public class TestCostCalculator
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "ts", statsEstimate(tableScan, 6000),
                 "agg", statsEstimate(aggregation, 13));
-        Map<String, Type> types = ImmutableMap.of(
-                "orderkey", BIGINT,
-                "count", BIGINT);
 
-        assertCost(aggregation, costs, stats, types)
+        assertCost(aggregation, costs, stats)
                 .cpu(6000 * IS_NULL_OVERHEAD + 6000)
                 .memory(13 * IS_NULL_OVERHEAD)
                 .network(0);
 
-        assertCostEstimatedExchanges(aggregation, costs, stats, types)
+        assertCostEstimatedExchanges(aggregation, costs, stats)
                 .cpu((6000 + 6000 + 6000) * IS_NULL_OVERHEAD + 6000)
                 .memory(13 * IS_NULL_OVERHEAD)
                 .network(6000 * IS_NULL_OVERHEAD);
 
-        assertCostFragmentedPlan(aggregation, costs, stats, types)
+        assertCostFragmentedPlan(aggregation, costs, stats)
                 .cpu(6000 + 6000 * IS_NULL_OVERHEAD)
                 .memory(13 * IS_NULL_OVERHEAD)
                 .network(0 * IS_NULL_OVERHEAD);
 
-        assertCostHasUnknownComponentsForUnknownStats(aggregation, types);
+        assertCostHasUnknownComponentsForUnknownStats(aggregation);
     }
 
     @Test
@@ -495,11 +472,8 @@ public class TestCostCalculator
                 .put("ts1", statsEstimate(ts1, 6000))
                 .put("ts2", statsEstimate(ts2, 1000))
                 .buildOrThrow();
-        Map<String, Type> types = ImmutableMap.of(
-                "orderkey", BIGINT,
-                "orderkey_0", BIGINT);
 
-        assertFragmentedEqualsUnfragmented(join, stats, types);
+        assertFragmentedEqualsUnfragmented(join, stats);
     }
 
     @Test
@@ -524,11 +498,8 @@ public class TestCostCalculator
                 .put("ts1", statsEstimate(ts1, 6000))
                 .put("ts2", statsEstimate(ts2, 1000))
                 .buildOrThrow();
-        Map<String, Type> types = ImmutableMap.of(
-                "orderkey", BIGINT,
-                "orderkey_0", BIGINT);
 
-        assertFragmentedEqualsUnfragmented(join, stats, types);
+        assertFragmentedEqualsUnfragmented(join, stats);
     }
 
     @Test
@@ -547,15 +518,11 @@ public class TestCostCalculator
         Map<String, PlanCostEstimate> costs = ImmutableMap.of(
                 "ts1", cpuCost(1000),
                 "ts2", cpuCost(1000));
-        Map<String, Type> types = ImmutableMap.of(
-                "orderkey", BIGINT,
-                "orderkey_0", BIGINT,
-                "orderkey_1", BIGINT);
-        assertCost(union, costs, stats, types)
+        assertCost(union, costs, stats)
                 .cpu(2000)
                 .memory(0)
                 .network(0);
-        assertCostEstimatedExchanges(union, costs, stats, types)
+        assertCostEstimatedExchanges(union, costs, stats)
                 .cpu(2000)
                 .memory(0)
                 .network(5000 * IS_NULL_OVERHEAD);
@@ -571,14 +538,12 @@ public class TestCostCalculator
                 "limit", statsEstimate(ts1, 40)); // 5 * average row size
         Map<String, PlanCostEstimate> costs = ImmutableMap.of(
                 "ts1", cpuCost(1000));
-        Map<String, Type> types = ImmutableMap.of(
-                "orderkey", BIGINT);
         // Do not estimate cost other than CPU for limit node.
-        assertCost(limit, costs, stats, types)
+        assertCost(limit, costs, stats)
                 .cpu(1045) // 1000 + (is null boolean array) + 40
                 .memory(0)
                 .network(0);
-        assertCostEstimatedExchanges(limit, costs, stats, types)
+        assertCostEstimatedExchanges(limit, costs, stats)
                 .cpu(1045)
                 .memory(0)
                 .network(0);
@@ -594,13 +559,11 @@ public class TestCostCalculator
                 "singleRow", statsEstimate(ts1, 8)); // 1 * Average Row Size
         Map<String, PlanCostEstimate> costs = ImmutableMap.of(
                 "ts1", cpuCost(1000));
-        Map<String, Type> types = ImmutableMap.of(
-                "orderkey", BIGINT);
-        assertCost(singleRow, costs, stats, types)
+        assertCost(singleRow, costs, stats)
                 .cpu(1000) // Only count the accumulated cost of source nodes
                 .memory(0)
                 .network(0);
-        assertCostEstimatedExchanges(singleRow, costs, stats, types)
+        assertCostEstimatedExchanges(singleRow, costs, stats)
                 .cpu(1000)
                 .memory(0)
                 .network(0);
@@ -609,32 +572,27 @@ public class TestCostCalculator
     private CostAssertionBuilder assertCost(
             PlanNode node,
             Map<String, PlanCostEstimate> costs,
-            Map<String, PlanNodeStatsEstimate> stats,
-            Map<String, Type> types)
+            Map<String, PlanNodeStatsEstimate> stats)
     {
-        return assertCost(costCalculatorUsingExchanges, node, costs, stats, types);
+        return assertCost(costCalculatorUsingExchanges, node, costs, stats);
     }
 
     private CostAssertionBuilder assertCostEstimatedExchanges(
             PlanNode node,
             Map<String, PlanCostEstimate> costs,
-            Map<String, PlanNodeStatsEstimate> stats,
-            Map<String, Type> types)
+            Map<String, PlanNodeStatsEstimate> stats)
     {
-        return assertCost(costCalculatorWithEstimatedExchanges, node, costs, stats, types);
+        return assertCost(costCalculatorWithEstimatedExchanges, node, costs, stats);
     }
 
     private CostAssertionBuilder assertCostFragmentedPlan(
             PlanNode node,
             Map<String, PlanCostEstimate> costs,
-            Map<String, PlanNodeStatsEstimate> stats,
-            Map<String, Type> types)
+            Map<String, PlanNodeStatsEstimate> stats)
     {
-        TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
-                .collect(toImmutableMap(entry -> new Symbol(entry.getValue(), entry.getKey()), Map.Entry::getValue)));
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, typeProvider, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
-        CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session, typeProvider);
-        SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
+        CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session);
+        SubPlan subPlan = fragment(new Plan(node, StatsAndCosts.create(node, statsProvider, costProvider)));
         return new CostAssertionBuilder(subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown()));
     }
 
@@ -645,15 +603,13 @@ public class TestCostCalculator
         private final CostCalculator costCalculator;
         private final StatsProvider statsProvider;
         private final Session session;
-        private final TypeProvider types;
 
-        private TestingCostProvider(Map<String, PlanCostEstimate> costs, CostCalculator costCalculator, StatsProvider statsProvider, Session session, TypeProvider types)
+        private TestingCostProvider(Map<String, PlanCostEstimate> costs, CostCalculator costCalculator, StatsProvider statsProvider, Session session)
         {
             this.costs = ImmutableMap.copyOf(requireNonNull(costs, "costs is null"));
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");
             this.session = requireNonNull(session, "session is null");
-            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -662,7 +618,7 @@ public class TestCostCalculator
             if (costs.containsKey(node.getId().toString())) {
                 return costs.get(node.getId().toString());
             }
-            return costCalculator.calculateCost(node, statsProvider, this, session, types);
+            return costCalculator.calculateCost(node, statsProvider, this, session);
         }
     }
 
@@ -670,24 +626,21 @@ public class TestCostCalculator
             CostCalculator costCalculator,
             PlanNode node,
             Map<String, PlanCostEstimate> costs,
-            Map<String, PlanNodeStatsEstimate> stats,
-            Map<String, Type> types)
+            Map<String, PlanNodeStatsEstimate> stats)
     {
         Function<PlanNode, PlanNodeStatsEstimate> statsProvider = planNode -> stats.get(planNode.getId().toString());
         PlanCostEstimate cost = calculateCost(
                 costCalculator,
                 node,
-                sourceCostProvider(costCalculator, costs, statsProvider, types),
-                statsProvider,
-                types);
+                sourceCostProvider(costCalculator, costs, statsProvider),
+                statsProvider);
         return new CostAssertionBuilder(cost);
     }
 
     private Function<PlanNode, PlanCostEstimate> sourceCostProvider(
             CostCalculator costCalculator,
             Map<String, PlanCostEstimate> costs,
-            Function<PlanNode, PlanNodeStatsEstimate> statsProvider,
-            Map<String, Type> types)
+            Function<PlanNode, PlanNodeStatsEstimate> statsProvider)
     {
         return node -> {
             PlanCostEstimate providedCost = costs.get(node.getId().toString());
@@ -697,35 +650,32 @@ public class TestCostCalculator
             return calculateCost(
                     costCalculator,
                     node,
-                    sourceCostProvider(costCalculator, costs, statsProvider, types),
-                    statsProvider,
-                    types);
+                    sourceCostProvider(costCalculator, costs, statsProvider),
+                    statsProvider);
         };
     }
 
-    private void assertCostHasUnknownComponentsForUnknownStats(PlanNode node, Map<String, Type> types)
+    private void assertCostHasUnknownComponentsForUnknownStats(PlanNode node)
     {
         new CostAssertionBuilder(calculateCost(
                 costCalculatorUsingExchanges,
                 node,
                 planNode -> PlanCostEstimate.unknown(),
-                planNode -> PlanNodeStatsEstimate.unknown(),
-                types))
+                planNode -> PlanNodeStatsEstimate.unknown()))
                 .hasUnknownComponents();
         new CostAssertionBuilder(calculateCost(
                 costCalculatorWithEstimatedExchanges,
                 node,
                 planNode -> PlanCostEstimate.unknown(),
-                planNode -> PlanNodeStatsEstimate.unknown(),
-                types))
+                planNode -> PlanNodeStatsEstimate.unknown()))
                 .hasUnknownComponents();
     }
 
-    private void assertFragmentedEqualsUnfragmented(PlanNode node, Map<String, PlanNodeStatsEstimate> stats, Map<String, Type> types)
+    private void assertFragmentedEqualsUnfragmented(PlanNode node, Map<String, PlanNodeStatsEstimate> stats)
     {
         StatsCalculator statsCalculator = statsCalculator(stats);
-        PlanCostEstimate costWithExchanges = calculateCost(node, costCalculatorUsingExchanges, statsCalculator, types);
-        PlanCostEstimate costWithFragments = calculateCostFragmentedPlan(node, statsCalculator, types);
+        PlanCostEstimate costWithExchanges = calculateCost(node, costCalculatorUsingExchanges, statsCalculator);
+        PlanCostEstimate costWithFragments = calculateCostFragmentedPlan(node, statsCalculator);
         assertThat(costWithExchanges).isEqualTo(costWithFragments);
     }
 
@@ -738,34 +688,27 @@ public class TestCostCalculator
             CostCalculator costCalculator,
             PlanNode node,
             Function<PlanNode, PlanCostEstimate> costs,
-            Function<PlanNode, PlanNodeStatsEstimate> stats,
-            Map<String, Type> types)
+            Function<PlanNode, PlanNodeStatsEstimate> stats)
     {
         return costCalculator.calculateCost(
                 node,
                 planNode -> requireNonNull(stats.apply(planNode), "no stats for node"),
                 source -> requireNonNull(costs.apply(source), format("no cost for source: %s", source.getId())),
-                session,
-                TypeProvider.copyOf(types.entrySet().stream()
-                        .collect(toImmutableMap(entry -> new Symbol(entry.getValue(), entry.getKey()), Map.Entry::getValue))));
+                session);
     }
 
-    private PlanCostEstimate calculateCost(PlanNode node, CostCalculator costCalculator, StatsCalculator statsCalculator, Map<String, Type> types)
+    private PlanCostEstimate calculateCost(PlanNode node, CostCalculator costCalculator, StatsCalculator statsCalculator)
     {
-        TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
-                .collect(toImmutableMap(entry -> new Symbol(entry.getValue(), entry.getKey()), Map.Entry::getValue)));
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, typeProvider);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session);
         return costProvider.getCost(node);
     }
 
-    private PlanCostEstimate calculateCostFragmentedPlan(PlanNode node, StatsCalculator statsCalculator, Map<String, Type> types)
+    private PlanCostEstimate calculateCostFragmentedPlan(PlanNode node, StatsCalculator statsCalculator)
     {
-        TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
-                .collect(toImmutableMap(entry -> new Symbol(entry.getValue(), entry.getKey()), Map.Entry::getValue)));
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
-        CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session, typeProvider);
-        SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
+        CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session);
+        SubPlan subPlan = fragment(new Plan(node, StatsAndCosts.create(node, statsProvider, costProvider)));
         return subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown());
     }
 

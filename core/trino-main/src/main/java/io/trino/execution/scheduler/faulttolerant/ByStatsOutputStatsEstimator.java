@@ -58,7 +58,7 @@ public class ByStatsOutputStatsEstimator
         }
         PlanNodeStatsEstimate stats = stageExecution.getStats();
         double outputRowCount = stats.getOutputRowCount();
-        double size = stats.getOutputSizeInBytes(stats.getSymbolsWithKnownStatistics(), stageExecution.getTypeProvider());
+        double size = stats.getOutputSizeInBytes(stats.getSymbolsWithKnownStatistics());
         if (!isFinite(outputRowCount) || isNaN(size)) {
             return Optional.empty();
         }

@@ -17,7 +17,6 @@ import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsCalculator;
 import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -83,8 +82,7 @@ public class RuleBuilder
             PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
             PlanBuilder builder = new PlanBuilder(idAllocator, planTester.getPlannerContext(), transactionSession);
             PlanNode plan = planProvider.apply(builder);
-            TypeProvider types = builder.getTypes();
-            return new RuleAssert(rule, planTester, statsCalculator, transactionSession, idAllocator, plan, types);
+            return new RuleAssert(rule, planTester, statsCalculator, transactionSession, idAllocator, plan, builder.getSymbols());
         }
         catch (Throwable t) {
             planTester.getPlannerContext().getMetadata().cleanupQuery(session);

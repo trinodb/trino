@@ -14,17 +14,14 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -36,7 +33,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Double.NaN;
-import static java.util.function.Function.identity;
 
 public class TestStatsNormalizer
 {
@@ -68,7 +64,7 @@ public class TestStatsNormalizer
                 .addSymbolStatistics(c, SymbolStatsEstimate.unknown())
                 .build();
 
-        PlanNodeStatsAssertion.assertThat(normalizer.normalize(estimate, ImmutableList.of(b, c), TypeProvider.copyOf(ImmutableMap.of(b, BIGINT, c, BIGINT))))
+        PlanNodeStatsAssertion.assertThat(normalizer.normalize(estimate, ImmutableList.of(b, c)))
                 .symbolsWithKnownStats(b)
                 .symbolStats(b, symbolAssert -> symbolAssert.distinctValuesCount(30));
     }
@@ -137,26 +133,19 @@ public class TestStatsNormalizer
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(10000000000L)
                 .addSymbolStatistics(symbol, symbolStats).build();
-        assertNormalized(estimate, TypeProvider.copyOf(ImmutableMap.of(symbol, type)))
+        assertNormalized(estimate)
                 .symbolStats(symbol, symbolAssert -> symbolAssert.distinctValuesCount(expectedNormalizedNdv));
 
         // also verify symbol stats normalization without row count
         PlanNodeStatsEstimate estimateWithoutRowCount = PlanNodeStatsEstimate.builder()
                 .addSymbolStatistics(symbol, symbolStats).build();
-        assertNormalized(estimateWithoutRowCount, TypeProvider.copyOf(ImmutableMap.of(symbol, type)))
+        assertNormalized(estimateWithoutRowCount)
                 .symbolStats(symbol, symbolAssert -> symbolAssert.distinctValuesCount(expectedNormalizedNdv));
     }
 
     private PlanNodeStatsAssertion assertNormalized(PlanNodeStatsEstimate estimate)
     {
-        TypeProvider types = TypeProvider.copyOf(estimate.getSymbolsWithKnownStatistics().stream()
-                .collect(toImmutableMap(identity(), symbol -> BIGINT)));
-        return assertNormalized(estimate, types);
-    }
-
-    private PlanNodeStatsAssertion assertNormalized(PlanNodeStatsEstimate estimate, TypeProvider types)
-    {
-        PlanNodeStatsEstimate normalized = normalizer.normalize(estimate, estimate.getSymbolsWithKnownStatistics(), types);
+        PlanNodeStatsEstimate normalized = normalizer.normalize(estimate, estimate.getSymbolsWithKnownStatistics());
         return PlanNodeStatsAssertion.assertThat(normalized);
     }
 

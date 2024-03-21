@@ -30,7 +30,6 @@ import io.trino.sql.ir.CoalesceExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -69,7 +68,7 @@ public class TestScalarStatsCalculator
     private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
 
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-    private final ScalarStatsCalculator calculator = new ScalarStatsCalculator(functionResolution.getPlannerContext(), new IrTypeAnalyzer(functionResolution.getPlannerContext()));
+    private final ScalarStatsCalculator calculator = new ScalarStatsCalculator(functionResolution.getPlannerContext());
     private final Session session = testSessionBuilder().build();
 
     @Test

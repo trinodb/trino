@@ -348,7 +348,6 @@ public class AlternativesOptimizer
                     rule.getClass().getName(),
                     PlanPrinter.textLogicalPlan(
                             node,
-                            context.optimizerContext.symbolAllocator().getTypes(),
                             plannerContext.getMetadata(),
                             plannerContext.getFunctionManager(),
                             StatsAndCosts.empty(),
@@ -357,7 +356,6 @@ public class AlternativesOptimizer
                             false),
                     PlanPrinter.textLogicalPlan(
                             new ChooseAlternativeNode(new PlanNodeId("<TRANSIENT>"), alternatives, originalTableScan),
-                            context.optimizerContext.symbolAllocator().getTypes(),
                             plannerContext.getMetadata(),
                             plannerContext.getFunctionManager(),
                             StatsAndCosts.empty(),
@@ -375,10 +373,9 @@ public class AlternativesOptimizer
                 Optional.of(context.memo),
                 context.lookup,
                 context.optimizerContext.session(),
-                context.optimizerContext.symbolAllocator().getTypes(),
                 context.optimizerContext.tableStatsProvider(),
                 context.optimizerContext.runtimeInfoProvider());
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.optimizerContext.session(), context.optimizerContext.symbolAllocator().getTypes());
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.optimizerContext.session());
 
         return new Rule.Context()
         {

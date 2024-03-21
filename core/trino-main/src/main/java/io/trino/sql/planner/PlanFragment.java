@@ -30,7 +30,6 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -44,7 +43,7 @@ public class PlanFragment
 {
     private final PlanFragmentId id;
     private final PlanNode root;
-    private final Map<Symbol, Type> symbols;
+    private final Set<Symbol> symbols;
     private final PartitioningHandle partitioning;
     private final Optional<Integer> partitionCount;
     private final List<PlanNodeId> partitionedSources;
@@ -63,7 +62,7 @@ public class PlanFragment
     private PlanFragment(
             PlanFragmentId id,
             PlanNode root,
-            Map<Symbol, Type> symbols,
+            Set<Symbol> symbols,
             PartitioningHandle partitioning,
             Optional<Integer> partitionCount,
             List<PlanNodeId> partitionedSources,
@@ -99,7 +98,7 @@ public class PlanFragment
     public PlanFragment(
             @JsonProperty("id") PlanFragmentId id,
             @JsonProperty("root") PlanNode root,
-            @JsonProperty("symbols") Map<Symbol, Type> symbols,
+            @JsonProperty("symbols") Set<Symbol> symbols,
             @JsonProperty("partitioning") PartitioningHandle partitioning,
             @JsonProperty("partitionCount") Optional<Integer> partitionCount,
             @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
@@ -157,7 +156,7 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public Map<Symbol, Type> getSymbols()
+    public Set<Symbol> getSymbols()
     {
         return symbols;
     }

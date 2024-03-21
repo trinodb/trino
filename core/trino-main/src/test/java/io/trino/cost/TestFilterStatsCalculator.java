@@ -14,7 +14,6 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
@@ -25,7 +24,6 @@ import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
@@ -42,9 +40,7 @@ import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
@@ -144,7 +140,7 @@ public class TestFilterStatsCalculator
             .setHighValue(POSITIVE_INFINITY)
             .setNullsFraction(0.34)
             .build();
-    private final FilterStatsCalculator statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, new IrTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer(), new IrTypeAnalyzer(PLANNER_CONTEXT));
+    private final FilterStatsCalculator statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT), new StatsNormalizer());
     private final PlanNodeStatsEstimate standardInputStatistics = PlanNodeStatsEstimate.builder()
             .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
             .addSymbolStatistics(new Symbol(UNKNOWN, "y"), yStats)
@@ -167,16 +163,6 @@ public class TestFilterStatsCalculator
             .addSymbolStatistics(new Symbol(UNKNOWN, "mediumVarchar"), SymbolStatsEstimate.zero())
             .setOutputRowCount(0)
             .build();
-    private final TypeProvider standardTypes = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-            .put(new Symbol(UNKNOWN, "x"), DOUBLE)
-            .put(new Symbol(UNKNOWN, "y"), DOUBLE)
-            .put(new Symbol(UNKNOWN, "z"), DOUBLE)
-            .put(new Symbol(UNKNOWN, "leftOpen"), DOUBLE)
-            .put(new Symbol(UNKNOWN, "rightOpen"), DOUBLE)
-            .put(new Symbol(UNKNOWN, "unknownRange"), DOUBLE)
-            .put(new Symbol(UNKNOWN, "emptyRange"), DOUBLE)
-            .put(new Symbol(UNKNOWN, "mediumVarchar"), MEDIUM_VARCHAR_TYPE)
-            .buildOrThrow());
     private final Session session = testSessionBuilder().build();
 
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
@@ -883,8 +869,7 @@ public class TestFilterStatsCalculator
                     return PlanNodeStatsAssertion.assertThat(statsCalculator.filterStats(
                             inputStatistics,
                             expression,
-                            transactionSession,
-                            standardTypes));
+                            transactionSession));
                 });
     }
 }

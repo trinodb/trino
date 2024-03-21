@@ -21,10 +21,8 @@ import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
@@ -60,7 +58,6 @@ import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static java.lang.Double.isNaN;
-import static java.util.Objects.requireNonNull;
 
 public class PushPartialAggregationThroughJoin
 {
@@ -76,15 +73,6 @@ public class PushPartialAggregationThroughJoin
             return false;
         }
         return aggregationNode.getStep() == PARTIAL && aggregationNode.getGroupingSetCount() == 1;
-    }
-
-    private final PlannerContext plannerContext;
-    private final IrTypeAnalyzer typeAnalyzer;
-
-    public PushPartialAggregationThroughJoin(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
-    {
-        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     public Iterable<Rule<?>> rules()
@@ -156,7 +144,7 @@ public class PushPartialAggregationThroughJoin
         {
             ProjectNode projectNode = (ProjectNode) context.getLookup().resolve(node.getSource());
             Optional<PlanNode> joinNodeOptional = pushProjectionThroughJoin(
-                    projectNode, context.getLookup(), context.getIdAllocator(), typeAnalyzer, context.getSymbolAllocator().getTypes());
+                    projectNode, context.getLookup(), context.getIdAllocator());
             if (joinNodeOptional.isEmpty()) {
                 return Result.empty();
             }

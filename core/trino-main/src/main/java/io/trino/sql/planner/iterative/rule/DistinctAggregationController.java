@@ -23,7 +23,6 @@ import io.trino.metadata.Metadata;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -188,7 +187,7 @@ public class DistinctAggregationController
         }
 
         PlanNodeStatsEstimate stats = context.getStatsProvider().getStats(aggregationNode);
-        double groupingKeysSizeInBytes = stats.getOutputSizeInBytes(aggregationNode.getGroupingKeys(), context.getSymbolAllocator().getTypes());
+        double groupingKeysSizeInBytes = stats.getOutputSizeInBytes(aggregationNode.getGroupingKeys());
         if (isNaN(groupingKeysSizeInBytes) || groupingKeysSizeInBytes > MAX_JOIN_GROUPING_KEYS_SIZE) {
             // estimated group by result size is big so that both calculating aggregation multiple times and join would be inefficient
             return false;
@@ -210,11 +209,10 @@ public class DistinctAggregationController
         TableScanNode tableScanNode = searchFrom(aggregationNode.getSource(), context.getLookup()).whereIsInstanceOfAny(TableScanNode.class).findOnlyElement();
         Set<Symbol> additionalColumns = Sets.difference(ImmutableSet.copyOf(tableScanNode.getOutputSymbols()), distinctInputs);
 
-        TypeProvider typeProvider = context.getSymbolAllocator().getTypes();
         // Group by columns need to read N times, where N is number of sub-queries.
         // Distinct columns are read once.
-        double singleTableScanDataSize = context.getStatsProvider().getStats(tableScanNode).getOutputSizeInBytes(tableScanNode.getOutputSymbols(), typeProvider);
-        double additionalColumnsDataSize = context.getStatsProvider().getStats(tableScanNode).getOutputSizeInBytes(additionalColumns, typeProvider);
+        double singleTableScanDataSize = context.getStatsProvider().getStats(tableScanNode).getOutputSizeInBytes(tableScanNode.getOutputSymbols());
+        double additionalColumnsDataSize = context.getStatsProvider().getStats(tableScanNode).getOutputSizeInBytes(additionalColumns);
         long subqueryCount = distinctAggregationsUniqueArgumentCount(aggregationNode);
         double distinctInputDataSize = singleTableScanDataSize - additionalColumnsDataSize;
         double subqueriesTotalDataSize = additionalColumnsDataSize * subqueryCount + distinctInputDataSize;

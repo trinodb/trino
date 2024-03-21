@@ -119,8 +119,7 @@ public class PushPredicateThroughProjectIntoWindow
         DomainTranslator.ExtractionResult extractionResult = DomainTranslator.getExtractionResult(
                 plannerContext,
                 context.getSession(),
-                filter.getPredicate(),
-                context.getSymbolAllocator().getTypes());
+                filter.getPredicate());
         TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
         OptionalInt upperBound = extractUpperBound(tupleDomain, rankingSymbol);
         if (upperBound.isEmpty()) {

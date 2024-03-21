@@ -130,7 +130,6 @@ public class TestAddExchangesBelowPartialAggregationOverGroupIdRuleSet
     {
         return new AddExchangesBelowPartialAggregationOverGroupIdRuleSet(
                 ruleTester.getPlannerContext(),
-                ruleTester.getTypeAnalyzer(),
                 ruleTester.getPlanTester().getTaskCountEstimator(),
                 new TaskManagerConfig()).belowExchangeRule();
     }

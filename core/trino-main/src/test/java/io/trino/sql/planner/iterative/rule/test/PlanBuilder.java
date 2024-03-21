@@ -51,7 +51,6 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TestingConnectorIndexHandle;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.planner.TestingWriterTarget;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.AggregationFunction;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -1487,8 +1486,8 @@ public class PlanBuilder
         return new AggregationFunction(name, Optional.empty(), Optional.of(orderBy), false, arguments);
     }
 
-    public TypeProvider getTypes()
+    public Collection<Symbol> getSymbols()
     {
-        return TypeProvider.of(symbolsByName.values());
+        return symbolsByName.values();
     }
 }

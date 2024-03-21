@@ -22,7 +22,6 @@ import io.trino.matching.Pattern;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
@@ -88,13 +87,6 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
     private static final Capture<JoinNode> JOIN_CAPTURE = newCapture();
     private static final Pattern<FilterNode> FILTER_PATTERN = filter().with(source().matching(
             join().capturedAs(JOIN_CAPTURE)));
-
-    private final IrTypeAnalyzer typeAnalyzer;
-
-    public PushInequalityFilterExpressionBelowJoinRuleSet(IrTypeAnalyzer typeAnalyzer)
-    {
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-    }
 
     public Iterable<Rule<?>> rules()
     {
@@ -290,7 +282,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
     private Symbol symbolForExpression(Context context, Expression expression)
     {
         checkArgument(!(expression instanceof SymbolReference), "expression '%s' is a SymbolReference", expression);
-        return context.getSymbolAllocator().newSymbol(expression, typeAnalyzer.getType(expression));
+        return context.getSymbolAllocator().newSymbol(expression, expression.type());
     }
 
     private class PushFilterExpressionBelowJoinFilterRule

@@ -91,7 +91,6 @@ public class LocalDynamicFiltersCollector
     public DynamicFilter createDynamicFilter(
             List<Descriptor> descriptors,
             Map<Symbol, ColumnHandle> columnsMap,
-            TypeProvider typeProvider,
             PlannerContext plannerContext)
     {
         Multimap<DynamicFilterId, Descriptor> descriptorMap = extractSourceSymbols(descriptors);
@@ -114,7 +113,8 @@ public class LocalDynamicFiltersCollector
                                                         return requireNonNull(columnsMap.get(probeSymbol), () -> format("Missing probe column for %s", probeSymbol));
                                                     },
                                                     descriptor -> {
-                                                        Type targetType = typeProvider.get(Symbol.from(descriptor.getInput()));
+                                                        Symbol symbol = Symbol.from(descriptor.getInput());
+                                                        Type targetType = symbol.getType();
                                                         Domain updatedDomain = descriptor.applyComparison(domain);
                                                         if (!updatedDomain.getType().equals(targetType)) {
                                                             return applySaturatedCasts(

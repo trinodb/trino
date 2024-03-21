@@ -14,7 +14,6 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
@@ -22,7 +21,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -36,22 +34,15 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.RowType.field;
-import static io.trino.spi.type.RowType.rowType;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.PartialTranslator.extractPartialTranslations;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPartialTranslator
@@ -62,17 +53,6 @@ public class TestPartialTranslator
     private static final Session TEST_SESSION = testSessionBuilder()
             .setTransactionId(TransactionId.create())
             .build();
-    private static final IrTypeAnalyzer TYPE_ANALYZER = new IrTypeAnalyzer(PLANNER_CONTEXT);
-    private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-            .put(new Symbol(UNKNOWN, "double_symbol_1"), DOUBLE)
-            .put(new Symbol(UNKNOWN, "double_symbol_2"), DOUBLE)
-            .put(new Symbol(UNKNOWN, "bigint_symbol_1"), BIGINT)
-            .put(new Symbol(UNKNOWN, "timestamp3_symbol_1"), TIMESTAMP_MILLIS)
-            .put(new Symbol(UNKNOWN, "row_symbol_1"), rowType(
-                    field("int_symbol_1", INTEGER),
-                    field("varchar_symbol_1", createVarcharType(5)),
-                    field("timestamptz3_field_1", TIMESTAMP_TZ_MILLIS)))
-            .buildOrThrow());
 
     @Test
     public void testPartialTranslator()
@@ -96,8 +76,8 @@ public class TestPartialTranslator
 
     private void assertFullTranslation(Expression expression)
     {
-        Map<NodeRef<Expression>, ConnectorExpression> translation = extractPartialTranslations(expression, TEST_SESSION, TYPE_ANALYZER, TYPE_PROVIDER);
+        Map<NodeRef<Expression>, ConnectorExpression> translation = extractPartialTranslations(expression, TEST_SESSION);
         assertThat(getOnlyElement(translation.keySet())).isEqualTo(NodeRef.of(expression));
-        assertThat(getOnlyElement(translation.values())).isEqualTo(translate(TEST_SESSION, expression, TYPE_ANALYZER).get());
+        assertThat(getOnlyElement(translation.values())).isEqualTo(translate(TEST_SESSION, expression).get());
     }
 }

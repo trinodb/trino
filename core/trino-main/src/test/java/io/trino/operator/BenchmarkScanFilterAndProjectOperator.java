@@ -45,7 +45,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
@@ -132,7 +131,6 @@ public class BenchmarkScanFilterAndProjectOperator
     @State(Thread)
     public static class Context
     {
-        private final Map<Symbol, Type> symbolTypes = new HashMap<>();
         private final Map<Symbol, Integer> sourceLayout = new HashMap<>();
 
         private ExecutorService executor;
@@ -161,7 +159,6 @@ public class BenchmarkScanFilterAndProjectOperator
 
             for (int i = 0; i < columnCount; i++) {
                 Symbol symbol = new Symbol(UNKNOWN, type.getDisplayName().toLowerCase(ENGLISH) + i);
-                symbolTypes.put(symbol, type);
                 sourceLayout.put(symbol, i);
             }
 
@@ -257,7 +254,6 @@ public class BenchmarkScanFilterAndProjectOperator
         {
             return SqlToRowExpressionTranslator.translate(
                     expression,
-                    new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(expression),
                     sourceLayout,
                     PLANNER_CONTEXT.getMetadata(),
                     PLANNER_CONTEXT.getFunctionManager(),

@@ -14,15 +14,14 @@
 package io.trino.sql.planner.iterative.rule;
 
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.IrTypeAnalyzer;
 
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
 
 public class CanonicalizeExpressions
         extends ExpressionRewriteRuleSet
 {
-    public CanonicalizeExpressions(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    public CanonicalizeExpressions(PlannerContext plannerContext)
     {
-        super((expression, context) -> rewrite(expression, plannerContext, typeAnalyzer));
+        super((expression, context) -> rewrite(expression, plannerContext));
     }
 }

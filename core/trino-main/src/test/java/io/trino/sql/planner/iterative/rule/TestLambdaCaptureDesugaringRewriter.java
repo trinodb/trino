@@ -14,11 +14,9 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.BindExpression;
 import io.trino.sql.ir.LambdaExpression;
@@ -26,8 +24,6 @@ import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
-
-import java.util.Map;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -43,13 +39,11 @@ public class TestLambdaCaptureDesugaringRewriter
     @Test
     public void testRewriteBasicLambda()
     {
-        Map<Symbol, Type> symbols = ImmutableMap.of(new Symbol(BIGINT, "a"), BIGINT);
-        SymbolAllocator allocator = new SymbolAllocator(symbols);
+        SymbolAllocator allocator = new SymbolAllocator(ImmutableList.of(new Symbol(BIGINT, "a")));
 
         assertThat(
                 rewrite(
                         new LambdaExpression(ImmutableList.of(new Symbol(INTEGER, "x")), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "a"), new SymbolReference(INTEGER, "x"))),
-                        allocator.getTypes(),
                         allocator))
                 .isEqualTo(new BindExpression(
                         ImmutableList.of(new SymbolReference(INTEGER, "a")),

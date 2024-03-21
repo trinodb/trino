@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.metadata.Metadata;
@@ -22,8 +21,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonExpression;
@@ -32,9 +29,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.DateTimes;
@@ -69,8 +64,6 @@ import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static java.lang.String.format;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionEquivalence
@@ -82,8 +75,7 @@ public class TestExpressionEquivalence
     private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(
             PLANNER_CONTEXT.getMetadata(),
             PLANNER_CONTEXT.getFunctionManager(),
-            PLANNER_CONTEXT.getTypeManager(),
-            new IrTypeAnalyzer(PLANNER_CONTEXT));
+            PLANNER_CONTEXT.getTypeManager());
 
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction MOD = FUNCTIONS.resolveFunction("mod", fromTypes(INTEGER, INTEGER));
@@ -214,13 +206,11 @@ public class TestExpressionEquivalence
     private static void assertEquivalent(Expression leftExpression, Expression rightExpression)
     {
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
-        TypeProvider types = TypeProvider.copyOf(symbols.stream()
-                .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
 
-        assertThat(areExpressionEquivalent(leftExpression, rightExpression, types))
+        assertThat(areExpressionEquivalent(leftExpression, rightExpression, symbols))
                 .describedAs(format("Expected (%s) and (%s) to be equivalent", leftExpression, rightExpression))
                 .isTrue();
-        assertThat(areExpressionEquivalent(rightExpression, leftExpression, types))
+        assertThat(areExpressionEquivalent(rightExpression, leftExpression, symbols))
                 .describedAs(format("Expected (%s) and (%s) to be equivalent", rightExpression, leftExpression))
                 .isTrue();
     }
@@ -324,31 +314,23 @@ public class TestExpressionEquivalence
     private static void assertNotEquivalent(Expression leftExpression, Expression rightExpression)
     {
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
-        TypeProvider types = TypeProvider.copyOf(symbols.stream()
-                .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
 
-        assertThat(areExpressionEquivalent(leftExpression, rightExpression, types))
+        assertThat(areExpressionEquivalent(leftExpression, rightExpression, symbols))
                 .describedAs(format("Expected (%s) and (%s) to not be equivalent", leftExpression, rightExpression))
                 .isFalse();
-        assertThat(areExpressionEquivalent(rightExpression, leftExpression, types))
+        assertThat(areExpressionEquivalent(rightExpression, leftExpression, symbols))
                 .describedAs(format("Expected (%s) and (%s) to not be equivalent", rightExpression, leftExpression))
                 .isFalse();
     }
 
-    private static boolean areExpressionEquivalent(Expression leftExpression, Expression rightExpression, TypeProvider types)
+    private static boolean areExpressionEquivalent(Expression leftExpression, Expression rightExpression, Set<Symbol> symbols)
     {
         TransactionManager transactionManager = new TestingTransactionManager();
         Metadata metadata = MetadataManager.testMetadataManagerBuilder().withTransactionManager(transactionManager).build();
         return transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
-                    return EQUIVALENCE.areExpressionsEquivalent(transactionSession, leftExpression, rightExpression, types);
+                    return EQUIVALENCE.areExpressionsEquivalent(transactionSession, leftExpression, rightExpression, symbols);
                 });
-    }
-
-    private static Type generateType(Symbol symbol)
-    {
-        String typeName = Splitter.on('_').limit(2).splitToList(symbol.getName()).get(1);
-        return PLANNER_CONTEXT.getTypeManager().getType(new TypeSignature(typeName, ImmutableList.of()));
     }
 }

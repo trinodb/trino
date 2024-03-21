@@ -39,7 +39,6 @@ public class AlternativesOptimizers
     @Inject
     public AlternativesOptimizers(
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
             StatsCalculator statsCalculator,
             @EstimatedExchanges CostCalculator costCalculatorWithEstimatedExchanges,
             RuleStatsRecorder ruleStats)
@@ -52,7 +51,7 @@ public class AlternativesOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
-                        .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
+                        .add(new PushPredicateIntoTableScan(plannerContext, false))
                         .build());
 
         IterativeOptimizer iterativeOptimizer = new IterativeOptimizer(

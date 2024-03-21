@@ -20,9 +20,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.LocalProperties;
 import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -47,11 +45,9 @@ public class ValidateStreamingAggregations
     public void validate(PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
-            TypeProvider types,
             WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(session, plannerContext, typeAnalyzer, types), null);
+        planNode.accept(new Visitor(session, plannerContext), null);
     }
 
     private static final class Visitor
@@ -59,18 +55,11 @@ public class ValidateStreamingAggregations
     {
         private final Session session;
         private final PlannerContext plannerContext;
-        private final IrTypeAnalyzer typeAnalyzer;
-        private final TypeProvider types;
 
-        private Visitor(Session session,
-                PlannerContext plannerContext,
-                IrTypeAnalyzer typeAnalyzer,
-                TypeProvider types)
+        private Visitor(Session session, PlannerContext plannerContext)
         {
             this.session = session;
             this.plannerContext = plannerContext;
-            this.typeAnalyzer = typeAnalyzer;
-            this.types = types;
         }
 
         @Override
@@ -87,7 +76,7 @@ public class ValidateStreamingAggregations
                 return null;
             }
 
-            StreamProperties properties = derivePropertiesRecursively(node.getSource(), plannerContext, session, types, typeAnalyzer);
+            StreamProperties properties = derivePropertiesRecursively(node.getSource(), plannerContext, session);
 
             List<LocalProperty<Symbol>> desiredProperties = ImmutableList.of(new GroupingProperty<>(node.getPreGroupedSymbols()));
             Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(properties.getLocalProperties(), desiredProperties).iterator();

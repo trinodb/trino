@@ -120,7 +120,6 @@ public class TestAlternativesOptimizer
 
         PlanNode optimized = runOptimizer(
                 plan,
-                planBuilder.getTypes(),
                 ImmutableSet.of(new CreateAlternativesForFilter(FALSE_LITERAL)));
 
         assertPlan(
@@ -135,8 +134,7 @@ public class TestAlternativesOptimizer
                                 ImmutableMap.of(),
                                 PlanMatchPattern.filter(
                                         FALSE_LITERAL,
-                                        PlanMatchPattern.tableScan(tableName)))),
-                planBuilder.getTypes());
+                                        PlanMatchPattern.tableScan(tableName)))));
     }
 
     @Test
@@ -174,7 +172,6 @@ public class TestAlternativesOptimizer
 
         PlanNode optimized = runOptimizer(
                 plan,
-                planBuilder.getTypes(),
                 ImmutableSet.of(new CreateAlternativesForFilter(FALSE_LITERAL)));
 
         assertThat(isCacheChooseAlternativeNode(optimized)).isTrue();
@@ -203,7 +200,6 @@ public class TestAlternativesOptimizer
 
         PlanNode optimized = runOptimizer(
                 plan,
-                planBuilder.getTypes(),
                 ImmutableSet.of(new CreateAlternativesForFilter(FALSE_LITERAL), new CreateAlternativesForProject(FALSE_LITERAL)));
 
         assertPlan(
@@ -228,8 +224,7 @@ public class TestAlternativesOptimizer
                                 ImmutableMap.of(symbol, expression(FALSE_LITERAL)),
                                 PlanMatchPattern.filter(
                                         FALSE_LITERAL,
-                                        PlanMatchPattern.tableScan(tableName)))),
-                planBuilder.getTypes());
+                                        PlanMatchPattern.tableScan(tableName)))));
     }
 
     @Test
@@ -258,7 +253,6 @@ public class TestAlternativesOptimizer
 
         PlanNode optimized = runOptimizer(
                 plan,
-                planBuilder.getTypes(),
                 ImmutableSet.of(
                         new CreateAlternativesForProject(new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, columnName), new Constant(BIGINT, 2L))),
                         new CreateAlternativesForProject(new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, columnName), new Constant(BIGINT, 3L)))));
@@ -287,11 +281,10 @@ public class TestAlternativesOptimizer
                                 ImmutableMap.of(columnName, expression(new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "nationkey"), new Constant(BIGINT, 3L)))),
                                 PlanMatchPattern.filter(
                                         TRUE_LITERAL,
-                                        PlanMatchPattern.tableScan(tableName, ImmutableMap.of("nationkey", "nationkey"))))),
-                planBuilder.getTypes());
+                                        PlanMatchPattern.tableScan(tableName, ImmutableMap.of("nationkey", "nationkey"))))));
     }
 
-    private PlanNode runOptimizer(PlanNode plan, TypeProvider types, Set<Rule<?>> rules)
+    private PlanNode runOptimizer(PlanNode plan, Set<Rule<?>> rules)
     {
         Session session = getPlanTester().getDefaultSession();
 
@@ -306,7 +299,6 @@ public class TestAlternativesOptimizer
                 plan,
                 new PlanOptimizer.Context(
                         session,
-                        types,
                         new SymbolAllocator(),
                         new PlanNodeIdAllocator(),
                         WarningCollector.NOOP,
@@ -315,7 +307,7 @@ public class TestAlternativesOptimizer
                         new StaticRuntimeInfoProvider(ImmutableMap.of(), ImmutableMap.of())));
     }
 
-    private void assertPlan(PlanNode actual, PlanMatchPattern pattern, TypeProvider types)
+    private void assertPlan(PlanNode actual, PlanMatchPattern pattern)
     {
         getPlanTester().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
@@ -325,7 +317,7 @@ public class TestAlternativesOptimizer
                     getPlanTester().getPlannerContext().getMetadata(),
                     getPlanTester().getPlannerContext().getFunctionManager(),
                     getPlanTester().getStatsCalculator(),
-                    new Plan(actual, types, StatsAndCosts.empty()),
+                    new Plan(actual, StatsAndCosts.empty()),
                     pattern);
             return null;
         });

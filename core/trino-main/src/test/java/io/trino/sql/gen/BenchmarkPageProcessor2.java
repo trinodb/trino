@@ -38,9 +38,7 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
@@ -100,12 +98,10 @@ public class BenchmarkPageProcessor2
     private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
 
     private static final Map<String, Type> TYPE_MAP = ImmutableMap.of("bigint", BIGINT, "varchar", VARCHAR);
-    private static final IrTypeAnalyzer TYPE_ANALYZER = new IrTypeAnalyzer(PLANNER_CONTEXT);
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
     private static final int POSITIONS = 1024;
 
     private final DriverYieldSignal yieldSignal = new DriverYieldSignal();
-    private final Map<Symbol, Type> symbolTypes = new HashMap<>();
     private final Map<Symbol, Integer> sourceLayout = new HashMap<>();
 
     private CursorProcessor cursorProcessor;
@@ -130,7 +126,6 @@ public class BenchmarkPageProcessor2
 
         for (int i = 0; i < columnCount; i++) {
             Symbol symbol = new Symbol(UNKNOWN, type.getDisplayName().toLowerCase(ENGLISH) + i);
-            symbolTypes.put(symbol, type);
             sourceLayout.put(symbol, i);
         }
 
@@ -198,10 +193,8 @@ public class BenchmarkPageProcessor2
 
     private RowExpression rowExpression(Expression expression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = TYPE_ANALYZER.getTypes(expression);
         return SqlToRowExpressionTranslator.translate(
                 expression,
-                expressionTypes,
                 sourceLayout,
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),

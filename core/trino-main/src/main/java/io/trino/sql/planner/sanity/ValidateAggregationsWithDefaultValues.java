@@ -16,8 +16,6 @@ package io.trino.sql.planner.sanity;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.ActualProperties;
 import io.trino.sql.planner.optimizations.PropertyDerivations;
 import io.trino.sql.planner.optimizations.StreamPropertyDerivations;
@@ -63,11 +61,9 @@ public class ValidateAggregationsWithDefaultValues
     public void validate(PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
-            TypeProvider types,
             WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(session, plannerContext, typeAnalyzer, types), null);
+        planNode.accept(new Visitor(session, plannerContext), null);
     }
 
     private class Visitor
@@ -75,15 +71,11 @@ public class ValidateAggregationsWithDefaultValues
     {
         final Session session;
         final PlannerContext plannerContext;
-        final IrTypeAnalyzer typeAnalyzer;
-        final TypeProvider types;
 
-        Visitor(Session session, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
+        Visitor(Session session, PlannerContext plannerContext)
         {
             this.session = requireNonNull(session, "session is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -120,14 +112,14 @@ public class ValidateAggregationsWithDefaultValues
 
             // No remote repartition exchange between final and partial aggregation.
             // Make sure that final aggregation operators are executed on a single node.
-            ActualProperties globalProperties = PropertyDerivations.derivePropertiesRecursively(node, plannerContext, session, types, typeAnalyzer);
+            ActualProperties globalProperties = PropertyDerivations.derivePropertiesRecursively(node, plannerContext, session);
             checkArgument(forceSingleNode || globalProperties.isSingleNode(),
                     "Final aggregation with default value not separated from partial aggregation by remote hash exchange");
 
             if (!seenExchanges.localRepartitionExchange) {
                 // No local repartition exchange between final and partial aggregation.
                 // Make sure that final aggregation operators are executed by single thread.
-                StreamProperties localProperties = StreamPropertyDerivations.derivePropertiesRecursively(node, plannerContext, session, types, typeAnalyzer);
+                StreamProperties localProperties = StreamPropertyDerivations.derivePropertiesRecursively(node, plannerContext, session);
                 checkArgument(localProperties.isSingleStream(),
                         "Final aggregation with default value not separated from partial aggregation by local hash exchange");
             }

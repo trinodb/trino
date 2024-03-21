@@ -86,7 +86,7 @@ public class DeterminePreferredDynamicFilterTimeout
         if (dynamicFilters.isEmpty()) {
             return plan;
         }
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, context.types(), context.tableStatsProvider());
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, context.tableStatsProvider());
 
         return SimplePlanRewriter.rewriteWith(
                 new DeterminePreferredDynamicFilterTimeout.Rewriter(

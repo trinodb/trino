@@ -25,7 +25,6 @@ import io.trino.operator.RetryPolicy;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.SystemPartitioningHandle;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -118,7 +117,7 @@ public class DeterminePartitionCount
             return plan;
         }
 
-        return determinePartitionCount(plan, context.session(), context.types(), context.tableStatsProvider(), isWriteQuery)
+        return determinePartitionCount(plan, context.session(), context.tableStatsProvider(), isWriteQuery)
                 .map(partitionCount -> rewriteWith(new Rewriter(partitionCount, taskRetries), plan))
                 .orElse(plan);
     }
@@ -126,7 +125,6 @@ public class DeterminePartitionCount
     private Optional<Integer> determinePartitionCount(
             PlanNode plan,
             Session session,
-            TypeProvider types,
             TableStatsProvider tableStatsProvider,
             boolean isWriteQuery)
     {
@@ -164,14 +162,13 @@ public class DeterminePartitionCount
         verify(minPartitionCount <= maxPartitionCount, "minPartitionCount %s larger than maxPartitionCount %s",
                 minPartitionCount, maxPartitionCount);
 
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, tableStatsProvider);
         long queryMaxMemoryPerNode = getQueryMaxMemoryPerNode(session).toBytes();
 
         // Calculate partition count based on nodes output data size and rows
         Optional<Integer> partitionCountBasedOnOutputSize = getPartitionCountBasedOnOutputSize(
                 plan,
                 statsProvider,
-                types,
                 minInputSizePerTask,
                 queryMaxMemoryPerNode);
         Optional<Integer> partitionCountBasedOnRows = getPartitionCountBasedOnRows(plan, statsProvider, minInputRowsPerTask);
@@ -203,16 +200,15 @@ public class DeterminePartitionCount
     private static Optional<Integer> getPartitionCountBasedOnOutputSize(
             PlanNode plan,
             StatsProvider statsProvider,
-            TypeProvider types,
             long minInputSizePerTask,
             long queryMaxMemoryPerNode)
     {
         double sourceTablesOutputSize = getSourceNodesOutputStats(
                 plan,
-                node -> statsProvider.getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
+                node -> statsProvider.getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
         double expandingNodesMaxOutputSize = getExpandingNodesMaxOutputStats(
                 plan,
-                node -> statsProvider.getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
+                node -> statsProvider.getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
         if (isNaN(sourceTablesOutputSize) || isNaN(expandingNodesMaxOutputSize)) {
             return Optional.empty();
         }

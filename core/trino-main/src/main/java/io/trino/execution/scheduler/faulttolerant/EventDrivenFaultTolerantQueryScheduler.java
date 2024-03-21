@@ -100,7 +100,6 @@ import io.trino.sql.planner.AdaptivePlanner;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -2049,11 +2048,6 @@ public class EventDrivenFaultTolerantQueryScheduler
         public Exchange getExchange()
         {
             return exchange;
-        }
-
-        public TypeProvider getTypeProvider()
-        {
-            return TypeProvider.viewOf(stage.getFragment().getSymbols());
         }
 
         public boolean isExchangeClosed()

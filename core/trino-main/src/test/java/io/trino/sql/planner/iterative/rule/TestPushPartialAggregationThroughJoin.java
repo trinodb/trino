@@ -62,7 +62,7 @@ public class TestPushPartialAggregationThroughJoin
     public void testPushesPartialAggregationThroughJoinToLeftChildWithoutProjection()
     {
         // push to left child
-        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
+        tester().assertThat(new PushPartialAggregationThroughJoin().pushPartialAggregationThroughJoinWithoutProjection())
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
@@ -95,7 +95,7 @@ public class TestPushPartialAggregationThroughJoin
                                         values("RIGHT_EQUI", "RIGHT_NON_EQUI")))));
 
         // push to right child
-        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
+        tester().assertThat(new PushPartialAggregationThroughJoin().pushPartialAggregationThroughJoinWithoutProjection())
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
@@ -131,7 +131,7 @@ public class TestPushPartialAggregationThroughJoin
     @Test
     public void testDoesNotPushPartialAggregationForExpandingJoin()
     {
-        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
+        tester().assertThat(new PushPartialAggregationThroughJoin().pushPartialAggregationThroughJoinWithoutProjection())
                 .overrideStats(CHILD_ID.toString(), new PlanNodeStatsEstimate(10.0, ImmutableMap.of()))
                 .overrideStats(JOIN_ID.toString(), new PlanNodeStatsEstimate(20.0, ImmutableMap.of()))
                 .on(p -> p.aggregation(ab -> ab
@@ -158,7 +158,7 @@ public class TestPushPartialAggregationThroughJoin
     public void testDoesNotPushPartialAggregationIfPushedGroupingSetIsLarger()
     {
         // partial aggregation should not be pushed down because it would require extra grouping symbols
-        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
+        tester().assertThat(new PushPartialAggregationThroughJoin().pushPartialAggregationThroughJoinWithoutProjection())
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
@@ -175,7 +175,7 @@ public class TestPushPartialAggregationThroughJoin
                 .doesNotFire();
 
         // partial aggregation should not be pushed down because it would require extra grouping symbols (with projection)
-        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithProjection())
+        tester().assertThat(new PushPartialAggregationThroughJoin().pushPartialAggregationThroughJoinWithProjection())
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.project(
@@ -202,7 +202,7 @@ public class TestPushPartialAggregationThroughJoin
     @Test
     public void testDoesNotPushPartialAggregationIfPushedGroupingSetIsSame()
     {
-        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
+        tester().assertThat(new PushPartialAggregationThroughJoin().pushPartialAggregationThroughJoinWithoutProjection())
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
@@ -235,7 +235,7 @@ public class TestPushPartialAggregationThroughJoin
     @Test
     public void testDoesNotPushPartialAggregationIfGroupingSymbolHasBigNDV()
     {
-        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
+        tester().assertThat(new PushPartialAggregationThroughJoin().pushPartialAggregationThroughJoinWithoutProjection())
                 .overrideStats(
                         CHILD_ID.toString(),
                         new PlanNodeStatsEstimate(10.0, ImmutableMap.of(
@@ -259,7 +259,7 @@ public class TestPushPartialAggregationThroughJoin
     @Test
     public void testKeepsIntermediateAggregation()
     {
-        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
+        tester().assertThat(new PushPartialAggregationThroughJoin().pushPartialAggregationThroughJoinWithoutProjection())
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
@@ -296,7 +296,7 @@ public class TestPushPartialAggregationThroughJoin
                                                         values("DATE_DIM_DATE_ID", "DATE_DIM_YEAR"))))));
 
         // intermediate aggregation should not be added if pushed aggregation has same (in terms of symbols) or smaller grouping set
-        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
+        tester().assertThat(new PushPartialAggregationThroughJoin().pushPartialAggregationThroughJoinWithoutProjection())
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
@@ -330,7 +330,7 @@ public class TestPushPartialAggregationThroughJoin
     @Test
     public void testPushesPartialAggregationThroughJoinWithProjection()
     {
-        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithProjection())
+        tester().assertThat(new PushPartialAggregationThroughJoin().pushPartialAggregationThroughJoinWithProjection())
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.project(

@@ -136,7 +136,7 @@ public class PushProjectionThroughExchange
                     continue;
                 }
                 Expression translatedExpression = inlineSymbols(translationMap, projection.getValue());
-                Type type = context.getSymbolAllocator().getTypes().get(projection.getKey());
+                Type type = projection.getKey().getType();
                 Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression, type);
                 projections.put(symbol, translatedExpression);
                 inputs.add(symbol);

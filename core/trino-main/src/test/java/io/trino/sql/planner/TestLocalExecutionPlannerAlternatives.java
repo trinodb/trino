@@ -102,7 +102,6 @@ public class TestLocalExecutionPlannerAlternatives
         ImmutableMap<Symbol, ColumnHandle> symbolMapping = ImmutableMap.of(
                 symbol1, new TestingColumnHandle("col1"),
                 symbol2, new TestingColumnHandle("col2"));
-        TypeProvider types = TypeProvider.copyOf(ImmutableMap.of(symbol1, BIGINT, symbol2, BIGINT));
 
         PlanNode plan = AggregationNode.singleAggregation(new PlanNodeId("aggregation"),
                 new ChooseAlternativeNode(chooseAlternativeNodeId,
@@ -120,7 +119,6 @@ public class TestLocalExecutionPlannerAlternatives
         LocalExecutionPlan executionPlan = planner.plan(
                 createTaskContext(executor, scheduledExecutor, TEST_SESSION),
                 plan,
-                types,
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
                 ImmutableList.of(),
                 new TestOutputBuffer());
@@ -139,7 +137,6 @@ public class TestLocalExecutionPlannerAlternatives
         ImmutableMap<Symbol, ColumnHandle> symbolMapping = ImmutableMap.of(
                 symbol1, new TestingColumnHandle("col1"),
                 symbol2, new TestingColumnHandle("col2"));
-        TypeProvider types = TypeProvider.copyOf(ImmutableMap.of(symbol1, BIGINT, symbol2, BIGINT));
 
         PlanNode plan = AggregationNode.singleAggregation(new PlanNodeId("aggregation"),
                 ExchangeNode.partitionedExchange(
@@ -162,7 +159,6 @@ public class TestLocalExecutionPlannerAlternatives
         LocalExecutionPlan executionPlan = planner.plan(
                 createTaskContext(executor, scheduledExecutor, TEST_SESSION),
                 plan,
-                types,
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
                 ImmutableList.of(),
                 new TestOutputBuffer());

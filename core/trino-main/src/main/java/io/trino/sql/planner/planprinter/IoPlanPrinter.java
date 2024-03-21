@@ -193,7 +193,7 @@ public class IoPlanPrinter
                 PlanCostEstimate costEstimate = statsAndCosts.getCosts().get(root.getId());
                 return new EstimatedStatsAndCost(
                         statsEstimate.getOutputRowCount(),
-                        statsEstimate.getOutputSizeInBytes(root.getOutputSymbols(), plan.getTypes()),
+                        statsEstimate.getOutputSizeInBytes(root.getOutputSymbols()),
                         costEstimate.getCpuCost(),
                         costEstimate.getMaxMemory(),
                         costEstimate.getNetworkCost());
@@ -672,8 +672,7 @@ public class IoPlanPrinter
                 DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
                         plannerContext,
                         session,
-                        node.getPredicate(),
-                        plan.getTypes());
+                        node.getPredicate());
                 TupleDomain<ColumnHandle> filterDomain = decomposedPredicate.getTupleDomain()
                         .transformKeys(tableScanNode.getAssignments()::get);
                 addInputTableConstraints(filterDomain, tableScanNode, context);
@@ -737,8 +736,7 @@ public class IoPlanPrinter
                 DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
                         plannerContext,
                         session,
-                        filter,
-                        plan.getTypes());
+                        filter);
                 return decomposedPredicate.getTupleDomain()
                         .transformKeys(scan.getAssignments()::get);
             }).orElse(TupleDomain.all());
@@ -770,7 +768,7 @@ public class IoPlanPrinter
 
             EstimatedStatsAndCost estimatedStatsAndCost = new EstimatedStatsAndCost(
                     stats.getOutputRowCount(),
-                    stats.getOutputSizeInBytes(node.getOutputSymbols(), plan.getTypes()),
+                    stats.getOutputSizeInBytes(node.getOutputSymbols()),
                     cost.getCpuCost(),
                     cost.getMaxMemory(),
                     cost.getNetworkCost());

@@ -26,7 +26,6 @@ import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -39,9 +38,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class LambdaCaptureDesugaringRewriter
 {
-    public static Expression rewrite(Expression expression, TypeProvider symbolTypes, SymbolAllocator symbolAllocator)
+    public static Expression rewrite(Expression expression, SymbolAllocator symbolAllocator)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(symbolTypes, symbolAllocator), expression, new Context());
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(symbolAllocator), expression, new Context());
     }
 
     private LambdaCaptureDesugaringRewriter() {}
@@ -49,12 +48,10 @@ public final class LambdaCaptureDesugaringRewriter
     private static class Visitor
             extends ExpressionRewriter<Context>
     {
-        private final TypeProvider symbolTypes;
         private final SymbolAllocator symbolAllocator;
 
-        public Visitor(TypeProvider symbolTypes, SymbolAllocator symbolAllocator)
+        public Visitor(SymbolAllocator symbolAllocator)
         {
-            this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         }
 
@@ -75,7 +72,7 @@ public final class LambdaCaptureDesugaringRewriter
             ImmutableMap.Builder<Symbol, Symbol> captureSymbolToExtraSymbol = ImmutableMap.builder();
             ImmutableList.Builder<Symbol> newLambdaArguments = ImmutableList.builder();
             for (Symbol captureSymbol : captureSymbols) {
-                Symbol extraSymbol = symbolAllocator.newSymbol(captureSymbol.getName(), symbolTypes.get(captureSymbol));
+                Symbol extraSymbol = symbolAllocator.newSymbol(captureSymbol.getName(), captureSymbol.getType());
                 captureSymbolToExtraSymbol.put(captureSymbol, extraSymbol);
                 newLambdaArguments.add(extraSymbol);
             }
@@ -88,7 +85,7 @@ public final class LambdaCaptureDesugaringRewriter
             Expression rewrittenExpression = lambdaExpression;
             if (captureSymbols.size() != 0) {
                 List<Expression> capturedValues = captureSymbols.stream()
-                        .map(symbol -> new SymbolReference(symbolTypes.get(symbol), symbol.getName()))
+                        .map(symbol -> new SymbolReference(symbol.getType(), symbol.getName()))
                         .collect(toImmutableList());
                 rewrittenExpression = new BindExpression(capturedValues, lambdaExpression);
             }

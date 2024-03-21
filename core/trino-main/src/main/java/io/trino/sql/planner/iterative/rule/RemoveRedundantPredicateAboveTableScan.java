@@ -27,9 +27,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -69,12 +67,10 @@ public class RemoveRedundantPredicateAboveTableScan
                             .matching(node -> !node.getEnforcedConstraint().isAll())));
 
     private final PlannerContext plannerContext;
-    private final IrTypeAnalyzer typeAnalyzer;
 
-    public RemoveRedundantPredicateAboveTableScan(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    public RemoveRedundantPredicateAboveTableScan(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     @Override
@@ -95,8 +91,7 @@ public class RemoveRedundantPredicateAboveTableScan
 
         ExtractionResult decomposedPredicate = getFullyExtractedPredicates(
                 session,
-                deterministicPredicate,
-                context.getSymbolAllocator().getTypes());
+                deterministicPredicate);
 
         if (decomposedPredicate.getTupleDomain().isAll()) {
             // no conjunct could be fully converted to tuple domain
@@ -139,8 +134,6 @@ public class RemoveRedundantPredicateAboveTableScan
         Expression resultingPredicate = createResultingPredicate(
                 plannerContext,
                 session,
-                context.getSymbolAllocator(),
-                typeAnalyzer,
                 TRUE_LITERAL, // Dynamic filters are included in decomposedPredicate.getRemainingExpression()
                 new DomainTranslator().toPredicate(unenforcedDomain.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
@@ -153,10 +146,10 @@ public class RemoveRedundantPredicateAboveTableScan
         return Result.ofPlanNode(node);
     }
 
-    private ExtractionResult getFullyExtractedPredicates(Session session, Expression predicate, TypeProvider types)
+    private ExtractionResult getFullyExtractedPredicates(Session session, Expression predicate)
     {
         Map<Boolean, List<ExtractionResult>> extractedPredicates = extractConjuncts(predicate).stream()
-                .map(conjunct -> DomainTranslator.getExtractionResult(plannerContext, session, conjunct, types))
+                .map(conjunct -> DomainTranslator.getExtractionResult(plannerContext, session, conjunct))
                 .collect(groupingBy(result -> result.getRemainingExpression().equals(TRUE_LITERAL), toList()));
         return new ExtractionResult(
                 intersect(extractedPredicates.getOrDefault(TRUE, ImmutableList.of()).stream()
