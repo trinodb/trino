@@ -973,7 +973,16 @@ public final class MetadataManager
     {
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
+        ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, column);
+
         metadata.dropNotNullConstraint(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), column);
+        if (catalogMetadata.getSecurityManagement() == SYSTEM) {
+            systemSecurityMetadata.columnNotNullConstraintDropped(
+                    session,
+                    getTableName(session, tableHandle),
+                    columnMetadata.getName());
+        }
     }
 
     @Override

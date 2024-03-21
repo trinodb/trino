@@ -233,4 +233,9 @@ public interface SystemSecurityMetadata
      * Column type was changed
      */
     void columnTypeChanged(Session session, CatalogSchemaTableName table, String column, String oldType, String newType);
+
+    /**
+     * Column's NOT NULL constraint was dropped
+     */
+    void columnNotNullConstraintDropped(Session session, CatalogSchemaTableName table, String column);
 }
