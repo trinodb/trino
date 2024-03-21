@@ -20,7 +20,6 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -37,7 +36,6 @@ import static io.trino.sql.planner.iterative.rule.Util.transpose;
 import static io.trino.sql.planner.plan.Patterns.limit;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
-import static java.util.Objects.requireNonNull;
 
 public class PushLimitThroughProject
         implements Rule<LimitNode>
@@ -50,13 +48,6 @@ public class PushLimitThroughProject
                             // do not push limit through identity projection which could be there for column pruning purposes
                             .matching(projectNode -> !projectNode.isIdentity())
                             .capturedAs(CHILD)));
-
-    private final IrTypeAnalyzer typeAnalyzer;
-
-    public PushLimitThroughProject(IrTypeAnalyzer typeAnalyzer)
-    {
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-    }
 
     @Override
     public Pattern<LimitNode> getPattern()
@@ -73,8 +64,8 @@ public class PushLimitThroughProject
         // undoing of PushDownDereferencesThroughLimit. We still push limit in the case of overlapping dereferences since
         // it enables PushDownDereferencesThroughLimit rule to push optimal dereferences.
         Set<Expression> projections = ImmutableSet.copyOf(projectNode.getAssignments().getExpressions());
-        if (!extractRowSubscripts(projections, false, typeAnalyzer).isEmpty()
-                && exclusiveDereferences(projections, typeAnalyzer)) {
+        if (!extractRowSubscripts(projections, false).isEmpty()
+                && exclusiveDereferences(projections)) {
             return Result.empty();
         }
 

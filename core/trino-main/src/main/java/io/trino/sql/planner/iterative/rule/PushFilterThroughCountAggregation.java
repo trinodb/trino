@@ -184,7 +184,7 @@ public class PushFilterThroughCountAggregation
         Symbol countSymbol = getOnlyElement(aggregationNode.getAggregations().keySet());
         Aggregation aggregation = getOnlyElement(aggregationNode.getAggregations().values());
 
-        DomainTranslator.ExtractionResult extractionResult = getExtractionResult(plannerContext, context.getSession(), filterNode.getPredicate(), context.getSymbolAllocator().getTypes());
+        DomainTranslator.ExtractionResult extractionResult = getExtractionResult(plannerContext, context.getSession(), filterNode.getPredicate());
         TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
 
         if (tupleDomain.isNone()) {

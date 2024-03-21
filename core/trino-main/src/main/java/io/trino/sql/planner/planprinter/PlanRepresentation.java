@@ -14,7 +14,6 @@
 package io.trino.sql.planner.planprinter;
 
 import io.airlift.units.Duration;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -27,7 +26,6 @@ import static java.util.Objects.requireNonNull;
 class PlanRepresentation
 {
     private final PlanNode root;
-    private final TypeProvider types;
     private final Optional<Duration> totalCpuTime;
     private final Optional<Duration> totalScheduledTime;
     private final Optional<Duration> totalBlockedTime;
@@ -37,10 +35,9 @@ class PlanRepresentation
     // but the plan node itself changes
     private final Map<PlanNodeId, NodeRepresentation> initialNodeInfo = new HashMap<>();
 
-    public PlanRepresentation(PlanNode root, TypeProvider types, Optional<Duration> totalCpuTime, Optional<Duration> totalScheduledTime, Optional<Duration> totalBlockedTime)
+    public PlanRepresentation(PlanNode root, Optional<Duration> totalCpuTime, Optional<Duration> totalScheduledTime, Optional<Duration> totalBlockedTime)
     {
         this.root = requireNonNull(root, "root is null");
-        this.types = requireNonNull(types, "types is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
@@ -49,11 +46,6 @@ class PlanRepresentation
     public NodeRepresentation getRoot()
     {
         return nodeInfo.get(root.getId());
-    }
-
-    public TypeProvider getTypes()
-    {
-        return types;
     }
 
     public Optional<Duration> getTotalCpuTime()

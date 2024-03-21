@@ -16,7 +16,6 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.LambdaExpression;
@@ -38,17 +37,13 @@ public final class PartialTranslator
      */
     public static Map<NodeRef<Expression>, ConnectorExpression> extractPartialTranslations(
             Expression inputExpression,
-            Session session,
-            IrTypeAnalyzer typeAnalyzer,
-            TypeProvider typeProvider)
+            Session session)
     {
         requireNonNull(inputExpression, "inputExpression is null");
         requireNonNull(session, "session is null");
-        requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-        requireNonNull(typeProvider, "typeProvider is null");
 
         Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = new HashMap<>();
-        new Visitor(session, typeAnalyzer.getTypes(inputExpression), partialTranslations).process(inputExpression);
+        new Visitor(session, partialTranslations).process(inputExpression);
         return ImmutableMap.copyOf(partialTranslations);
     }
 
@@ -58,11 +53,10 @@ public final class PartialTranslator
         private final Map<NodeRef<Expression>, ConnectorExpression> translatedSubExpressions;
         private final ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator translator;
 
-        Visitor(Session session, Map<NodeRef<Expression>, Type> types, Map<NodeRef<Expression>, ConnectorExpression> translatedSubExpressions)
+        Visitor(Session session, Map<NodeRef<Expression>, ConnectorExpression> translatedSubExpressions)
         {
-            requireNonNull(types, "types is null");
             this.translatedSubExpressions = requireNonNull(translatedSubExpressions, "translatedSubExpressions is null");
-            this.translator = new ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator(session, types);
+            this.translator = new ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator(session);
         }
 
         @Override

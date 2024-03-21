@@ -29,15 +29,12 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
@@ -82,12 +79,10 @@ public class PushAggregationIntoTableScan
                     .with(source().matching(tableScan().capturedAs(TABLE_SCAN)));
 
     private final PlannerContext plannerContext;
-    private final IrTypeAnalyzer typeAnalyzer;
 
-    public PushAggregationIntoTableScan(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    public PushAggregationIntoTableScan(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     @Override
@@ -120,14 +115,13 @@ public class PushAggregationIntoTableScan
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        return pushAggregationIntoTableScan(plannerContext, typeAnalyzer, context, node, captures.get(TABLE_SCAN), node.getAggregations(), node.getGroupingSets().getGroupingKeys())
+        return pushAggregationIntoTableScan(plannerContext, context, node, captures.get(TABLE_SCAN), node.getAggregations(), node.getGroupingSets().getGroupingKeys())
                 .map(Rule.Result::ofPlanNode)
                 .orElseGet(Rule.Result::empty);
     }
 
     public static Optional<PlanNode> pushAggregationIntoTableScan(
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
             Context context,
             PlanNode aggregationNode,
             TableScanNode tableScan,
@@ -149,7 +143,7 @@ public class PushAggregationIntoTableScan
 
         List<AggregateFunction> aggregateFunctions = aggregationsList.stream()
                 .map(Entry::getValue)
-                .map(aggregation -> toAggregateFunction(context, aggregation))
+                .map(aggregation -> toAggregateFunction(aggregation))
                 .collect(toImmutableList());
 
         List<Symbol> aggregationOutputSymbols = aggregationsList.stream()
@@ -195,13 +189,12 @@ public class PushAggregationIntoTableScan
                     Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
-                    Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(translated);
-                    Object optimized = new IrExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
+                    Object optimized = new IrExpressionInterpreter(translated, plannerContext, session)
                             .optimize(NoOpSymbolResolver.INSTANCE);
 
                     return optimized instanceof Expression optimizedExpression ?
                             optimizedExpression :
-                            new Constant(translatedExpressionTypes.get(NodeRef.of(translated)), optimized);
+                            new Constant(translated.type(), optimized);
                 })
                 .collect(toImmutableList());
 
@@ -239,7 +232,7 @@ public class PushAggregationIntoTableScan
                         assignmentBuilder.build()));
     }
 
-    private static AggregateFunction toAggregateFunction(Context context, AggregationNode.Aggregation aggregation)
+    private static AggregateFunction toAggregateFunction(AggregationNode.Aggregation aggregation)
     {
         BoundSignature signature = aggregation.getResolvedFunction().getSignature();
 
@@ -253,7 +246,7 @@ public class PushAggregationIntoTableScan
         Optional<List<SortItem>> sortBy = orderingScheme.map(OrderingScheme::toSortItems);
 
         Optional<ConnectorExpression> filter = aggregation.getFilter()
-                .map(symbol -> new Variable(symbol.getName(), context.getSymbolAllocator().getTypes().get(symbol)));
+                .map(symbol -> new Variable(symbol.getName(), symbol.getType()));
 
         return new AggregateFunction(
                 signature.getName().getFunctionName(),

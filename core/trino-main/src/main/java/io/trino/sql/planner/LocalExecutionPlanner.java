@@ -192,7 +192,6 @@ import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.optimizations.IndexJoinOptimizer;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
@@ -293,7 +292,6 @@ import static com.google.common.collect.DiscreteDomain.integers;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static com.google.common.collect.Sets.difference;
@@ -396,7 +394,6 @@ public class LocalExecutionPlanner
 
     private final PlannerContext plannerContext;
     private final Metadata metadata;
-    private final IrTypeAnalyzer typeAnalyzer;
     private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
     private final PageSourceProvider pageSourceProvider;
     private final IndexManager indexManager;
@@ -452,7 +449,6 @@ public class LocalExecutionPlanner
     @Inject
     public LocalExecutionPlanner(
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
             Optional<ExplainAnalyzeContext> explainAnalyzeContext,
             PageSourceProvider pageSourceProvider,
             IndexManager indexManager,
@@ -486,7 +482,6 @@ public class LocalExecutionPlanner
         this.indexManager = requireNonNull(indexManager, "indexManager is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.directExchangeClientSupplier = directExchangeClientSupplier;
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
         this.expressionCompiler = requireNonNull(expressionCompiler, "expressionCompiler is null");
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
@@ -531,7 +526,6 @@ public class LocalExecutionPlanner
     public LocalExecutionPlan plan(
             TaskContext taskContext,
             PlanNode plan,
-            TypeProvider types,
             PartitioningScheme partitioningScheme,
             List<PlanNodeId> partitionedSourceOrder,
             OutputBuffer outputBuffer)
@@ -543,7 +537,7 @@ public class LocalExecutionPlanner
                 partitioningScheme.getPartitioning().getHandle().equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(COORDINATOR_DISTRIBUTION)) {
-            return plan(taskContext, plan, outputLayout, types, partitionedSourceOrder, new TaskOutputFactory(outputBuffer));
+            return plan(taskContext, plan, outputLayout, partitionedSourceOrder, new TaskOutputFactory(outputBuffer));
         }
 
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
@@ -577,7 +571,7 @@ public class LocalExecutionPlanner
                         if (argument.isConstant()) {
                             return argument.getConstant().getType();
                         }
-                        return types.get(argument.getColumn());
+                        return argument.getColumn().getType();
                     })
                     .collect(toImmutableList());
         }
@@ -613,7 +607,6 @@ public class LocalExecutionPlanner
                 taskContext,
                 plan,
                 outputLayout,
-                types,
                 partitionedSourceOrder,
                 new PartitionedOutputFactory(
                         partitionFunction,
@@ -634,19 +627,18 @@ public class LocalExecutionPlanner
             TaskContext taskContext,
             PlanNode plan,
             List<Symbol> outputLayout,
-            TypeProvider types,
             List<PlanNodeId> partitionedSourceOrder,
             OutputFactory outputOperatorFactory)
     {
         Session session = taskContext.getSession();
-        LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, types);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext);
 
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session), context);
 
         Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(outputLayout, physicalOperation.getLayout());
 
         List<Type> outputTypes = outputLayout.stream()
-                .map(types::get)
+                .map(symbol -> symbol.getType())
                 .collect(toImmutableList());
 
         context.addDriverFactory(
@@ -675,7 +667,6 @@ public class LocalExecutionPlanner
     private static class LocalExecutionPlanContext
     {
         private final TaskContext taskContext;
-        private final TypeProvider types;
         private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
 
@@ -686,11 +677,10 @@ public class LocalExecutionPlanner
         private boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
 
-        public LocalExecutionPlanContext(TaskContext taskContext, TypeProvider types)
+        public LocalExecutionPlanContext(TaskContext taskContext)
         {
             this(
                     taskContext,
-                    types,
                     new ArrayList<>(),
                     Optional.empty(),
                     new AtomicInteger(0));
@@ -698,13 +688,11 @@ public class LocalExecutionPlanner
 
         private LocalExecutionPlanContext(
                 TaskContext taskContext,
-                TypeProvider types,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
                 AtomicInteger nextPipelineId)
         {
             this.taskContext = taskContext;
-            this.types = types;
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
             this.nextPipelineId = nextPipelineId;
@@ -765,11 +753,6 @@ public class LocalExecutionPlanner
             return taskContext.getTaskId();
         }
 
-        public TypeProvider getTypes()
-        {
-            return types;
-        }
-
         public LocalDynamicFiltersCollector getDynamicFiltersCollector()
         {
             return taskContext.getLocalDynamicFiltersCollector();
@@ -822,12 +805,12 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(indexSourceContext.isEmpty(), "index build plan cannot have sub-contexts");
-            return new LocalExecutionPlanContext(taskContext, types, driverFactories, indexSourceContext, nextPipelineId);
+            return new LocalExecutionPlanContext(taskContext, driverFactories, indexSourceContext, nextPipelineId);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(taskContext, types, driverFactories, Optional.of(indexSourceContext), nextPipelineId);
+            return new LocalExecutionPlanContext(taskContext, driverFactories, Optional.of(indexSourceContext), nextPipelineId);
         }
 
         public OptionalInt getDriverInstanceCount()
@@ -915,7 +898,7 @@ public class LocalExecutionPlanner
             List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), layout);
             List<SortOrder> sortOrder = orderingScheme.getOrderingList();
 
-            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            List<Type> types = getSourceOperatorTypes(node);
             ImmutableList<Integer> outputChannels = IntStream.range(0, types.size())
                     .boxed()
                     .collect(toImmutableList());
@@ -931,7 +914,7 @@ public class LocalExecutionPlanner
                     sortChannels,
                     sortOrder);
 
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         private PhysicalOperation createRemoteSource(RemoteSourceNode node, LocalExecutionPlanContext context)
@@ -948,7 +931,7 @@ public class LocalExecutionPlanner
                     node.getRetryPolicy(),
                     exchangeManagerRegistry);
 
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         @Override
@@ -965,7 +948,7 @@ public class LocalExecutionPlanner
                     plannerContext.getFunctionManager(),
                     node.isVerbose(),
                     version);
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
 
         @Override
@@ -1011,7 +994,7 @@ public class LocalExecutionPlanner
                     hashChannel,
                     10_000,
                     hashStrategyCompiler);
-            return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), context, source);
+            return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), source);
         }
 
         @Override
@@ -1069,7 +1052,7 @@ public class LocalExecutionPlanner
                     plannerContext.getTypeOperators(),
                     blockTypeOperators);
 
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
 
         @Override
@@ -1194,7 +1177,7 @@ public class LocalExecutionPlanner
                     ImmutableList.of(),
                     new RegularPartitionerSupplier());
 
-            return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), context, source);
+            return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), source);
         }
 
         private WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
@@ -1352,10 +1335,10 @@ public class LocalExecutionPlanner
             ImmutableList.Builder<EvaluationSupplier> evaluationsBuilder = ImmutableList.builder();
             for (ExpressionAndValuePointers expressionAndValuePointers : node.getVariableDefinitions().values()) {
                 // compile the rewritten expression
-                Supplier<PageProjection> pageProjectionSupplier = prepareProjection(expressionAndValuePointers, context);
+                Supplier<PageProjection> pageProjectionSupplier = prepareProjection(expressionAndValuePointers);
 
                 // prepare physical value accessors to provide input for the expression
-                ValueAccessors valueAccessors = preparePhysicalValuePointers(expressionAndValuePointers, mapping, source, connectorSession, context, firstUnusedChannel, matchAggregationIndex);
+                ValueAccessors valueAccessors = preparePhysicalValuePointers(expressionAndValuePointers, mapping, source, connectorSession, firstUnusedChannel, matchAggregationIndex);
 
                 firstUnusedChannel = valueAccessors.getFirstUnusedChannel();
                 matchAggregationIndex = valueAccessors.getAggregationIndex();
@@ -1389,10 +1372,10 @@ public class LocalExecutionPlanner
                 ExpressionAndValuePointers expressionAndValuePointers = measure.getExpressionAndValuePointers();
 
                 // compile the rewritten expression
-                Supplier<PageProjection> pageProjectionSupplier = prepareProjection(expressionAndValuePointers, context);
+                Supplier<PageProjection> pageProjectionSupplier = prepareProjection(expressionAndValuePointers);
 
                 // prepare physical value accessors to provide input for the expression
-                ValueAccessors valueAccessors = preparePhysicalValuePointers(expressionAndValuePointers, mapping, source, connectorSession, context, firstUnusedChannel, matchAggregationIndex);
+                ValueAccessors valueAccessors = preparePhysicalValuePointers(expressionAndValuePointers, mapping, source, connectorSession, firstUnusedChannel, matchAggregationIndex);
 
                 firstUnusedChannel = valueAccessors.getFirstUnusedChannel();
                 matchAggregationIndex = valueAccessors.getAggregationIndex();
@@ -1451,10 +1434,10 @@ public class LocalExecutionPlanner
                             .collect(toImmutableList()),
                     partitionerSupplier);
 
-            return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), context, source);
+            return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), source);
         }
 
-        private Supplier<PageProjection> prepareProjection(ExpressionAndValuePointers expressionAndValuePointers, LocalExecutionPlanContext context)
+        private Supplier<PageProjection> prepareProjection(ExpressionAndValuePointers expressionAndValuePointers)
         {
             Expression rewritten = expressionAndValuePointers.getExpression();
 
@@ -1472,12 +1455,12 @@ public class LocalExecutionPlanner
                             case AggregationValuePointer pointer -> pointer.getFunction().getSignature().getReturnType();
                             case ClassifierValuePointer pointer -> VARCHAR;
                             case MatchNumberValuePointer pointer -> BIGINT;
-                            case ScalarValuePointer pointer -> context.getTypes().get(pointer.getInputSymbol());
+                            case ScalarValuePointer pointer -> pointer.getInputSymbol().getType();
                         });
             }
 
             // compile expression using input layout and input types
-            RowExpression rowExpression = toRowExpression(rewritten, typeAnalyzer.getTypes(rewritten), inputLayout.buildOrThrow());
+            RowExpression rowExpression = toRowExpression(rewritten, inputLayout.buildOrThrow());
             return pageFunctionCompiler.compileProjection(rowExpression, Optional.empty());
         }
 
@@ -1486,7 +1469,6 @@ public class LocalExecutionPlanner
                 Map<IrLabel, Integer> mapping,
                 PhysicalOperation source,
                 ConnectorSession connectorSession,
-                LocalExecutionPlanContext context,
                 int firstUnusedChannel,
                 int matchAggregationIndex)
         {
@@ -1515,7 +1497,7 @@ public class LocalExecutionPlanner
                     case ScalarValuePointer pointer -> {
                         valueAccessors.add(new PhysicalValuePointer(
                                 getOnlyElement(getChannelsForSymbols(ImmutableList.of(pointer.getInputSymbol()), sourceLayout)),
-                                context.getTypes().get(pointer.getInputSymbol()),
+                                pointer.getInputSymbol().getType(),
                                 pointer.getLogicalIndexPointer().toLogicalIndexNavigation(mapping)));
                     }
                     case AggregationValuePointer pointer -> {
@@ -1625,7 +1607,7 @@ public class LocalExecutionPlanner
             }
 
             // compile expression using input layout and input types
-            RowExpression rowExpression = toRowExpression(argument, typeAnalyzer.getTypes(argument), inputLayout.buildOrThrow());
+            RowExpression rowExpression = toRowExpression(argument, inputLayout.buildOrThrow());
             return pageFunctionCompiler.compileProjection(rowExpression, Optional.empty());
         }
 
@@ -1647,7 +1629,7 @@ public class LocalExecutionPlanner
                         node.getHandle().getCatalogHandle(),
                         processorProvider,
                         node.getHandle().getFunctionHandle());
-                return new PhysicalOperation(operatorFactory, makeLayout(node), context);
+                return new PhysicalOperation(operatorFactory, makeLayout(node));
             }
 
             PhysicalOperation source = node.getSource().orElseThrow().accept(this, context);
@@ -1724,7 +1706,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(passThroughSymbol, outputChannel++);
             }
 
-            return new PhysicalOperation(operator, outputMappings.buildOrThrow(), context, source);
+            return new PhysicalOperation(operator, outputMappings.buildOrThrow(), source);
         }
 
         @Override
@@ -1750,7 +1732,7 @@ public class LocalExecutionPlanner
                     sortOrders,
                     plannerContext.getTypeOperators());
 
-            return new PhysicalOperation(operator, source.getLayout(), context, source);
+            return new PhysicalOperation(operator, source.getLayout(), source);
         }
 
         @Override
@@ -1787,7 +1769,7 @@ public class LocalExecutionPlanner
                     Optional.of(spillerFactory),
                     orderingCompiler);
 
-            return new PhysicalOperation(operator, source.getLayout(), context, source);
+            return new PhysicalOperation(operator, source.getLayout(), source);
         }
 
         @Override
@@ -1799,7 +1781,7 @@ public class LocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
 
             OperatorFactory operatorFactory = new LimitOperatorFactory(context.getNextOperatorId(), node.getId(), node.getCount());
-            return new PhysicalOperation(operatorFactory, source.getLayout(), context, source);
+            return new PhysicalOperation(operatorFactory, source.getLayout(), source);
         }
 
         @Override
@@ -1818,7 +1800,7 @@ public class LocalExecutionPlanner
                     node.getLimit(),
                     hashChannel,
                     hashStrategyCompiler);
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
 
         @Override
@@ -1868,7 +1850,7 @@ public class LocalExecutionPlanner
                     outputTypes.build(),
                     mappings.build());
 
-            return new PhysicalOperation(groupIdOperatorFactory, newLayout, context, source);
+            return new PhysicalOperation(groupIdOperatorFactory, newLayout, source);
         }
 
         @Override
@@ -1894,7 +1876,7 @@ public class LocalExecutionPlanner
             List<Integer> channels = getChannelsForSymbols(node.getDistinctSymbols(), source.getLayout());
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
             MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), node.getId(), source.getTypes(), channels, hashChannel, hashStrategyCompiler);
-            return new PhysicalOperation(operator, makeLayout(node), context, source);
+            return new PhysicalOperation(operator, makeLayout(node), source);
         }
 
         @Override
@@ -2009,12 +1991,9 @@ public class LocalExecutionPlanner
                 projections.add(assignments.get(symbol));
             }
 
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(
-                    concat(staticFilters.map(ImmutableList::of).orElse(ImmutableList.of()), assignments.getExpressions()));
-
-            Optional<RowExpression> translatedFilter = staticFilters.map(filter -> toRowExpression(filter, expressionTypes, sourceLayout));
+            Optional<RowExpression> translatedFilter = staticFilters.map(filter -> toRowExpression(filter, sourceLayout));
             List<RowExpression> translatedProjections = projections.stream()
-                    .map(expression -> toRowExpression(expression, expressionTypes, sourceLayout))
+                    .map(expression -> toRowExpression(expression, sourceLayout))
                     .collect(toImmutableList());
 
             try {
@@ -2032,11 +2011,11 @@ public class LocalExecutionPlanner
                             table,
                             columns,
                             dynamicFilter,
-                            getTypes(projections, expressionTypes),
+                            getTypes(projections),
                             getFilterAndProjectMinOutputPageSize(session),
                             getFilterAndProjectMinOutputPageRowCount(session));
 
-                    return new PhysicalOperation(operatorFactory, outputMappings, context);
+                    return new PhysicalOperation(operatorFactory, outputMappings);
                 }
                 Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
 
@@ -2044,11 +2023,11 @@ public class LocalExecutionPlanner
                         context.getNextOperatorId(),
                         planNodeId,
                         pageProcessor,
-                        getTypes(projections, expressionTypes),
+                        getTypes(projections),
                         getFilterAndProjectMinOutputPageSize(session),
                         getFilterAndProjectMinOutputPageRowCount(session));
 
-                return new PhysicalOperation(operatorFactory, outputMappings, context, source);
+                return new PhysicalOperation(operatorFactory, outputMappings, source);
             }
             catch (TrinoException e) {
                 throw e;
@@ -2062,9 +2041,9 @@ public class LocalExecutionPlanner
             }
         }
 
-        private RowExpression toRowExpression(Expression expression, Map<NodeRef<Expression>, Type> types, Map<Symbol, Integer> layout)
+        private RowExpression toRowExpression(Expression expression, Map<Symbol, Integer> layout)
         {
-            return SqlToRowExpressionTranslator.translate(expression, types, layout, metadata, plannerContext.getFunctionManager(), plannerContext.getTypeManager(), session, true);
+            return SqlToRowExpressionTranslator.translate(expression, layout, metadata, plannerContext.getFunctionManager(), plannerContext.getTypeManager(), session, true);
         }
 
         @Override
@@ -2082,7 +2061,7 @@ public class LocalExecutionPlanner
 
             DynamicFilter dynamicFilter = getDynamicFilter(node, filterExpression, context);
             OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceProvider, node.getTable(), columns, dynamicFilter);
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         private Optional<Expression> getStaticFilter(Expression filterExpression)
@@ -2111,7 +2090,6 @@ public class LocalExecutionPlanner
             return context.getDynamicFiltersCollector().createDynamicFilter(
                     dynamicFilters,
                     tableScanNode.getAssignments(),
-                    context.getTypes(),
                     plannerContext);
         }
 
@@ -2123,10 +2101,10 @@ public class LocalExecutionPlanner
 
             if (node.getRowCount() == 0) {
                 OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), node.getId(), ImmutableList.of());
-                return new PhysicalOperation(operatorFactory, makeLayout(node), context);
+                return new PhysicalOperation(operatorFactory, makeLayout(node));
             }
 
-            List<Type> outputTypes = getSymbolTypes(node.getOutputSymbols(), context.getTypes());
+            List<Type> outputTypes = getSymbolTypes(node.getOutputSymbols());
             PageBuilder pageBuilder = new PageBuilder(node.getRowCount(), outputTypes);
             for (int i = 0; i < node.getRowCount(); i++) {
                 // declare position for every row
@@ -2134,10 +2112,9 @@ public class LocalExecutionPlanner
                 // evaluate values for non-empty rows
                 if (node.getRows().isPresent()) {
                     Expression row = node.getRows().get().get(i);
-                    Map<NodeRef<Expression>, Type> types = typeAnalyzer.getTypes(row);
-                    checkState(types.get(NodeRef.of(row)) instanceof RowType, "unexpected type of Values row: %s", types);
+                    checkState(row.type() instanceof RowType, "unexpected type of Values row: %s", row.type());
                     // evaluate the literal value
-                    SqlRow result = (SqlRow) new IrExpressionInterpreter(row, plannerContext, session, types).evaluate();
+                    SqlRow result = (SqlRow) new IrExpressionInterpreter(row, plannerContext, session).evaluate();
                     int rawIndex = result.getRawIndex();
                     for (int j = 0; j < outputTypes.size(); j++) {
                         // divide row into fields
@@ -2148,7 +2125,7 @@ public class LocalExecutionPlanner
             }
 
             OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), node.getId(), ImmutableList.of(pageBuilder.build()));
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         @Override
@@ -2158,7 +2135,7 @@ public class LocalExecutionPlanner
 
             ImmutableList.Builder<Type> replicateTypes = ImmutableList.builder();
             for (Symbol symbol : node.getReplicateSymbols()) {
-                replicateTypes.add(context.getTypes().get(symbol));
+                replicateTypes.add(symbol.getType());
             }
 
             List<Symbol> unnestSymbols = node.getMappings().stream()
@@ -2167,10 +2144,10 @@ public class LocalExecutionPlanner
 
             ImmutableList.Builder<Type> unnestTypes = ImmutableList.builder();
             for (Symbol symbol : unnestSymbols) {
-                unnestTypes.add(context.getTypes().get(symbol));
+                unnestTypes.add(symbol.getType());
             }
             Optional<Symbol> ordinalitySymbol = node.getOrdinalitySymbol();
-            Optional<Type> ordinalityType = ordinalitySymbol.map(context.getTypes()::get);
+            Optional<Type> ordinalityType = ordinalitySymbol.map(Symbol::getType);
             ordinalityType.ifPresent(type -> checkState(type.equals(BIGINT), "Type of ordinalitySymbol must always be BIGINT."));
 
             List<Integer> replicateChannels = getChannelsForSymbols(node.getReplicateSymbols(), source.getLayout());
@@ -2205,7 +2182,7 @@ public class LocalExecutionPlanner
                     unnestTypes.build(),
                     ordinalityType.isPresent(),
                     outer);
-            return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), context, source);
+            return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), source);
         }
 
         private ImmutableMap<Symbol, Integer> makeLayout(PlanNode node)
@@ -2264,7 +2241,7 @@ public class LocalExecutionPlanner
             ConnectorIndex index = indexManager.getIndex(session, node.getIndexHandle(), lookupSchema, outputSchema);
 
             OperatorFactory operatorFactory = new IndexSourceOperator.IndexSourceOperatorFactory(context.getNextOperatorId(), node.getId(), index, probeKeyNormalizer);
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         /**
@@ -2429,7 +2406,7 @@ public class LocalExecutionPlanner
                         unsupportedPartitioningSpillerFactory(),
                         typeOperators);
             };
-            return new PhysicalOperation(lookupJoinOperatorFactory, outputMappings.buildOrThrow(), context, probeSource);
+            return new PhysicalOperation(lookupJoinOperatorFactory, outputMappings.buildOrThrow(), probeSource);
         }
 
         @Override
@@ -2607,8 +2584,7 @@ public class LocalExecutionPlanner
                         node,
                         partitioned,
                         buildContext.getDriverInstanceCount().orElse(1) == 1,
-                        buildSource,
-                        buildContext);
+                        buildSource);
             }
 
             context.addDriverFactory(
@@ -2628,7 +2604,7 @@ public class LocalExecutionPlanner
             List<Integer> buildChannels = getChannelsForSymbols(node.getRightOutputSymbols(), buildSource.getLayout());
 
             OperatorFactory operatorFactory = new NestedLoopJoinOperatorFactory(context.getNextOperatorId(), node.getId(), nestedLoopJoinBridgeManager, probeChannels, buildChannels);
-            return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), context, probeSource);
+            return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), probeSource);
         }
 
         private PhysicalOperation createSpatialLookupJoin(
@@ -2664,7 +2640,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(symbol, i);
             }
 
-            return new PhysicalOperation(operator, outputMappings.buildOrThrow(), context, probeSource);
+            return new PhysicalOperation(operator, outputMappings.buildOrThrow(), probeSource);
         }
 
         private OperatorFactory createSpatialLookupJoin(
@@ -2838,8 +2814,7 @@ public class LocalExecutionPlanner
                         node,
                         partitioned,
                         buildContext.getDriverInstanceCount().orElse(1) == 1,
-                        buildSource,
-                        buildContext);
+                        buildSource);
             }
 
             int taskConcurrency = getTaskConcurrency(session);
@@ -2960,7 +2935,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(symbol, i);
             }
 
-            return new PhysicalOperation(operator, outputMappings.buildOrThrow(), context, probeSource);
+            return new PhysicalOperation(operator, outputMappings.buildOrThrow(), probeSource);
         }
 
         @Override
@@ -3002,8 +2977,7 @@ public class LocalExecutionPlanner
                     node,
                     false,
                     false,
-                    source,
-                    context);
+                    source);
         }
 
         private PhysicalOperation createDynamicFilterSourceOperatorFactory(
@@ -3012,8 +2986,7 @@ public class LocalExecutionPlanner
                 PlanNode node,
                 boolean partitioned,
                 boolean isBuildSideSingle,
-                PhysicalOperation buildSource,
-                LocalExecutionPlanContext context)
+                PhysicalOperation buildSource)
         {
             List<DynamicFilterSourceOperator.Channel> filterBuildChannels = dynamicFilter.getBuildChannels().entrySet().stream()
                     .map(entry -> {
@@ -3035,7 +3008,6 @@ public class LocalExecutionPlanner
                             multipleIf(getDynamicFilteringRangeRowLimitPerDriver(session, partitioned), taskConcurrency, isBuildSideSingle),
                             typeOperators),
                     buildSource.getLayout(),
-                    context,
                     buildSource);
         }
 
@@ -3090,7 +3062,7 @@ public class LocalExecutionPlanner
         {
             Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
 
-            RowExpression translatedFilter = toRowExpression(filterExpression, typeAnalyzer.getTypes(filterExpression), joinSourcesLayout);
+            RowExpression translatedFilter = toRowExpression(filterExpression, joinSourcesLayout);
             return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size());
         }
 
@@ -3160,7 +3132,6 @@ public class LocalExecutionPlanner
                                 getDynamicFilteringRangeRowLimitPerDriver(session, partitioned),
                                 typeOperators),
                         buildSource.getLayout(),
-                        buildContext,
                         buildSource);
             }
 
@@ -3189,7 +3160,7 @@ public class LocalExecutionPlanner
                     .buildOrThrow();
 
             OperatorFactory operator = HashSemiJoinOperator.createOperatorFactory(context.getNextOperatorId(), node.getId(), setProvider, probeSource.getTypes(), probeChannel, probeHashChannel);
-            return new PhysicalOperation(operator, outputMappings, context, probeSource);
+            return new PhysicalOperation(operator, outputMappings, probeSource);
         }
 
         private static Set<DynamicFilterId> getCoordinatorDynamicFilters(Set<DynamicFilterId> dynamicFilters, PlanNode node, TaskId taskId)
@@ -3215,7 +3186,7 @@ public class LocalExecutionPlanner
         {
             context.setDriverInstanceCount(1);
             OperatorFactory operatorFactory = new RefreshMaterializedViewOperatorFactory(context.getNextOperatorId(), node.getId(), metadata, node.getViewName());
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         @Override
@@ -3285,9 +3256,9 @@ public class LocalExecutionPlanner
                     inputChannels,
                     session,
                     statisticsAggregation,
-                    getSymbolTypes(node.getOutputSymbols(), context.getTypes()));
+                    getSymbolTypes(node.getOutputSymbols()));
 
-            return new PhysicalOperation(operatorFactory, outputMapping.buildOrThrow(), context, source);
+            return new PhysicalOperation(operatorFactory, outputMapping.buildOrThrow(), source);
         }
 
         @Override
@@ -3303,7 +3274,7 @@ public class LocalExecutionPlanner
                     computedStatistics -> metadata.finishStatisticsCollection(session, ((StatisticsWriterNode.WriteStatisticsHandle) node.getTarget()).getHandle(), computedStatistics),
                     node.isRowCountEnabled(),
                     descriptor);
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
 
         @Override
@@ -3362,7 +3333,7 @@ public class LocalExecutionPlanner
                     session);
             Map<Symbol, Integer> layout = ImmutableMap.of(getOnlyElement(node.getOutputSymbols()), 0);
 
-            return new PhysicalOperation(operatorFactory, layout, context, source);
+            return new PhysicalOperation(operatorFactory, layout, source);
         }
 
         @Override
@@ -3377,7 +3348,7 @@ public class LocalExecutionPlanner
                             session,
                             node.getExecuteHandle());
 
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         @Override
@@ -3410,9 +3381,9 @@ public class LocalExecutionPlanner
                     inputChannels,
                     session,
                     new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()), // statistics are not calculated
-                    getSymbolTypes(node.getOutputSymbols(), context.getTypes()));
+                    getSymbolTypes(node.getOutputSymbols()));
 
-            return new PhysicalOperation(operatorFactory, outputMapping.buildOrThrow(), context, source);
+            return new PhysicalOperation(operatorFactory, outputMapping.buildOrThrow(), source);
         }
 
         private int getWriterCount(Session session, WriterScalingOptions connectorScalingOptions, Optional<PartitioningScheme> partitioningScheme, PlanNode source)
@@ -3474,7 +3445,7 @@ public class LocalExecutionPlanner
             Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(node.getProjectedSymbols(), source.getLayout());
 
             OperatorFactory operatorFactory = new MergeWriterOperatorFactory(context.getNextOperatorId(), node.getId(), pageSinkManager, node.getTarget(), session, pagePreprocessor);
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
 
         @Override
@@ -3506,7 +3477,7 @@ public class LocalExecutionPlanner
                     redistributionColumns,
                     dataColumnChannels,
                     pagePreprocessor);
-            return new PhysicalOperation(operatorFactory, nodeLayout, context, source);
+            return new PhysicalOperation(operatorFactory, nodeLayout, source);
         }
 
         @Override
@@ -3514,7 +3485,7 @@ public class LocalExecutionPlanner
         {
             OperatorFactory operatorFactory = new TableMutationOperatorFactory(context.getNextOperatorId(), node.getId(), () -> metadata.executeDelete(session, node.getTarget()));
 
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         @Override
@@ -3522,7 +3493,7 @@ public class LocalExecutionPlanner
         {
             OperatorFactory operatorFactory = new TableMutationOperatorFactory(context.getNextOperatorId(), node.getId(), () -> metadata.executeUpdate(session, node.getTarget()));
 
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context);
+            return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
         @Override
@@ -3537,7 +3508,7 @@ public class LocalExecutionPlanner
             PhysicalOperation source = node.getSource().accept(this, context);
 
             OperatorFactory operatorFactory = new EnforceSingleRowOperator.EnforceSingleRowOperatorFactory(context.getNextOperatorId(), node.getId(), source.getTypes());
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
 
         @Override
@@ -3548,7 +3519,7 @@ public class LocalExecutionPlanner
             OperatorFactory operatorFactory = AssignUniqueIdOperator.createOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId());
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
 
         @Override
@@ -3587,7 +3558,7 @@ public class LocalExecutionPlanner
             PhysicalOperation source = sourceNode.accept(this, subContext);
 
             int operatorsCount = subContext.getDriverInstanceCount().orElse(1);
-            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            List<Type> types = getSourceOperatorTypes(node);
             LocalExchange localExchange = new LocalExchange(
                     nodePartitioningManager,
                     session,
@@ -3628,7 +3599,7 @@ public class LocalExecutionPlanner
                     orderingCompiler,
                     sortChannels,
                     orderings);
-            return new PhysicalOperation(operatorFactory, layout, context);
+            return new PhysicalOperation(operatorFactory, layout);
         }
 
         private PhysicalOperation createLocalExchange(ExchangeNode node, LocalExecutionPlanContext context)
@@ -3646,7 +3617,7 @@ public class LocalExecutionPlanner
                 context.setDriverInstanceCount(driverInstanceCount);
             }
 
-            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            List<Type> types = getSourceOperatorTypes(node);
             List<Integer> partitionChannels = node.getPartitioningScheme().getPartitioning().getArguments().stream()
                     .map(argument -> node.getOutputSymbols().indexOf(argument.getColumn()))
                     .collect(toImmutableList());
@@ -3704,7 +3675,7 @@ public class LocalExecutionPlanner
             verify(context.getDriverInstanceCount().getAsInt() == localExchange.getBufferCount(),
                     "driver instance count must match the number of exchange partitions");
 
-            return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchange), makeLayout(node), context);
+            return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchange), makeLayout(node));
         }
 
         @Override
@@ -3719,15 +3690,15 @@ public class LocalExecutionPlanner
             throw new UnsupportedOperationException("not yet implemented");
         }
 
-        private List<Type> getSourceOperatorTypes(PlanNode node, TypeProvider types)
+        private List<Type> getSourceOperatorTypes(PlanNode node)
         {
-            return getSymbolTypes(node.getOutputSymbols(), types);
+            return getSymbolTypes(node.getOutputSymbols());
         }
 
-        private List<Type> getSymbolTypes(List<Symbol> symbols, TypeProvider types)
+        private List<Type> getSymbolTypes(List<Symbol> symbols)
         {
             return symbols.stream()
-                    .map(types::get)
+                    .map(symbol -> symbol.getType())
                     .collect(toImmutableList());
         }
 
@@ -3859,15 +3830,8 @@ public class LocalExecutionPlanner
                                 lambdaExpression.getArguments().get(j),
                                 functionType.getArgumentTypes().get(j));
                     }
-                    Map<NodeRef<Expression>, Type> expressionTypes = ImmutableMap.<NodeRef<Expression>, Type>builder()
-                            // the lambda expression itself
-                            .put(NodeRef.of(lambdaExpression), functionType)
-                            // expressions from lambda arguments
-                            // expressions from lambda body
-                            .putAll(typeAnalyzer.getTypes(lambdaExpression.getBody()))
-                            .buildOrThrow();
 
-                    LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) toRowExpression(lambdaExpression, expressionTypes, ImmutableMap.of());
+                    LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) toRowExpression(lambdaExpression, ImmutableMap.of());
                     Class<? extends Supplier<Object>> lambdaProviderClass = compileLambdaProvider(lambda, plannerContext.getFunctionManager(), lambdaInterfaces.get(i));
                     try {
                         lambdaProviders.add(lambdaProviderClass.getConstructor(ConnectorSession.class).newInstance(session.toConnectorSession()));
@@ -3891,7 +3855,7 @@ public class LocalExecutionPlanner
                     outputMappings,
                     source,
                     context);
-            return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), context, source);
+            return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), source);
         }
 
         private AggregationOperatorFactory createAggregationOperatorFactory(
@@ -3941,7 +3905,7 @@ public class LocalExecutionPlanner
                     mappings,
                     10_000,
                     Optional.of(maxPartialAggregationMemorySize));
-            return new PhysicalOperation(operatorFactory, mappings.buildOrThrow(), context, source);
+            return new PhysicalOperation(operatorFactory, mappings.buildOrThrow(), source);
         }
 
         private OperatorFactory createHashAggregationOperatorFactory(
@@ -4108,11 +4072,10 @@ public class LocalExecutionPlanner
         return smallMaxSizePerOperator;
     }
 
-    private static List<Type> getTypes(List<Expression> expressions, Map<NodeRef<Expression>, Type> expressionTypes)
+    private static List<Type> getTypes(List<Expression> expressions)
     {
         return expressions.stream()
-                .map(NodeRef::of)
-                .map(expressionTypes::get)
+                .map(Expression::type)
                 .collect(toImmutableList());
     }
 
@@ -4206,33 +4169,31 @@ public class LocalExecutionPlanner
         private final Map<Symbol, Integer> layout;
         private final List<Type> types;
 
-        public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, LocalExecutionPlanContext context)
+        public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout)
         {
-            this(operatorFactory, layout, context.getTypes(), Optional.empty());
+            this(operatorFactory, layout, Optional.empty());
         }
 
-        public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, LocalExecutionPlanContext context, PhysicalOperation source)
+        public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, PhysicalOperation source)
         {
-            this(operatorFactory, layout, context.getTypes(), Optional.of(requireNonNull(source, "source is null")));
+            this(operatorFactory, layout, Optional.of(requireNonNull(source, "source is null")));
         }
 
         public PhysicalOperation(OperatorFactory outputOperatorFactory, PhysicalOperation source)
         {
-            this(outputOperatorFactory, ImmutableMap.of(), TypeProvider.empty(), Optional.of(requireNonNull(source, "source is null")));
+            this(outputOperatorFactory, ImmutableMap.of(), Optional.of(requireNonNull(source, "source is null")));
         }
 
         private PhysicalOperation(
                 OperatorFactory operatorFactory,
                 Map<Symbol, Integer> layout,
-                TypeProvider typeProvider,
                 Optional<PhysicalOperation> source)
         {
             requireNonNull(operatorFactory, "operatorFactory is null");
             requireNonNull(layout, "layout is null");
-            requireNonNull(typeProvider, "typeProvider is null");
             requireNonNull(source, "source is null");
 
-            this.types = toTypes(layout, typeProvider);
+            this.types = toTypes(layout);
             this.operatorFactories = ImmutableList.<OperatorFactory>builder()
                     .addAll(source.map(PhysicalOperation::getOperatorFactories).orElse(ImmutableList.of()))
                     .add(operatorFactory)
@@ -4240,7 +4201,7 @@ public class LocalExecutionPlanner
             this.layout = ImmutableMap.copyOf(layout);
         }
 
-        private static List<Type> toTypes(Map<Symbol, Integer> layout, TypeProvider typeProvider)
+        private static List<Type> toTypes(Map<Symbol, Integer> layout)
         {
             // verify layout covers all values
             int channelCount = layout.values().stream().mapToInt(Integer::intValue).max().orElse(-1) + 1;
@@ -4251,7 +4212,7 @@ public class LocalExecutionPlanner
 
             return range(0, channelCount)
                     .mapToObj(channelLayout::get)
-                    .map(typeProvider::get)
+                    .map(symbol -> symbol.getType())
                     .collect(toImmutableList());
         }
 

@@ -920,8 +920,7 @@ public class TestDetermineJoinDistributionType
         assertThat(getSourceTablesSizeInBytes(
                 planBuilder.values(symbol),
                 noLookup(),
-                node -> PlanNodeStatsEstimate.unknown(),
-                planBuilder.getTypes())).isNaN();
+                node -> PlanNodeStatsEstimate.unknown())).isNaN();
 
         // two source plan nodes
         PlanNodeStatsEstimate sourceStatsEstimate1 = PlanNodeStatsEstimate.builder()
@@ -952,8 +951,7 @@ public class TestDetermineJoinDistributionType
                     }
 
                     return PlanNodeStatsEstimate.unknown();
-                },
-                planBuilder.getTypes())).isEqualTo(270.0);
+                })).isEqualTo(270.0);
 
         // join node
         assertThat(getSourceTablesSizeInBytes(
@@ -962,8 +960,7 @@ public class TestDetermineJoinDistributionType
                         planBuilder.values(sourceSymbol1),
                         planBuilder.values(sourceSymbol2)),
                 noLookup(),
-                node -> sourceStatsEstimate1,
-                planBuilder.getTypes())).isNaN();
+                node -> sourceStatsEstimate1)).isNaN();
 
         // unnest node
         assertThat(getSourceTablesSizeInBytes(
@@ -972,8 +969,7 @@ public class TestDetermineJoinDistributionType
                         ImmutableList.of(new UnnestNode.Mapping(sourceSymbol1, ImmutableList.of(sourceSymbol1))),
                         planBuilder.values(sourceSymbol1)),
                 noLookup(),
-                node -> sourceStatsEstimate1,
-                planBuilder.getTypes())).isNaN();
+                node -> sourceStatsEstimate1)).isNaN();
     }
 
     @Test
@@ -988,8 +984,7 @@ public class TestDetermineJoinDistributionType
         assertThat(getFirstKnownOutputSizeInBytes(
                 planBuilder.values(symbol),
                 noLookup(),
-                node -> PlanNodeStatsEstimate.unknown(),
-                planBuilder.getTypes())).isNaN();
+                node -> PlanNodeStatsEstimate.unknown())).isNaN();
 
         // two source plan nodes
         PlanNodeStatsEstimate sourceStatsEstimate1 = PlanNodeStatsEstimate.builder()
@@ -1037,8 +1032,7 @@ public class TestDetermineJoinDistributionType
                     }
 
                     return PlanNodeStatsEstimate.unknown();
-                },
-                planBuilder.getTypes())).isEqualTo((unionInputRowCount / sourceRowCount) * sourceSizeInBytes);
+                })).isEqualTo((unionInputRowCount / sourceRowCount) * sourceSizeInBytes);
 
         // join node with known estimate
         assertThat(getFirstKnownOutputSizeInBytes(
@@ -1047,8 +1041,7 @@ public class TestDetermineJoinDistributionType
                         planBuilder.values(sourceSymbol1),
                         planBuilder.values(sourceSymbol2)),
                 noLookup(),
-                node -> sourceStatsEstimate1,
-                planBuilder.getTypes())).isEqualTo(sourceStatsEstimate1.getOutputRowCount() * 2 * (BIGINT.getFixedSize() + 1));
+                node -> sourceStatsEstimate1)).isEqualTo(sourceStatsEstimate1.getOutputRowCount() * 2 * (BIGINT.getFixedSize() + 1));
 
         // un-estimated join with non-expanding source
         assertThat(getFirstKnownOutputSizeInBytes(
@@ -1068,8 +1061,7 @@ public class TestDetermineJoinDistributionType
                     }
 
                     return PlanNodeStatsEstimate.unknown();
-                },
-                planBuilder.getTypes())).isNaN();
+                })).isNaN();
 
         // un-estimated union with estimated expanding source
         assertThat(getFirstKnownOutputSizeInBytes(
@@ -1094,8 +1086,7 @@ public class TestDetermineJoinDistributionType
                     }
 
                     return PlanNodeStatsEstimate.unknown();
-                },
-                planBuilder.getTypes())).isEqualTo(sourceSizeInBytes);
+                })).isEqualTo(sourceSizeInBytes);
 
         // un-estimated union with un-estimated expanding source
         assertThat(getFirstKnownOutputSizeInBytes(
@@ -1117,8 +1108,7 @@ public class TestDetermineJoinDistributionType
                     }
 
                     return PlanNodeStatsEstimate.unknown();
-                },
-                planBuilder.getTypes())).isNaN();
+                })).isNaN();
     }
 
     private RuleBuilder assertDetermineJoinDistributionType()

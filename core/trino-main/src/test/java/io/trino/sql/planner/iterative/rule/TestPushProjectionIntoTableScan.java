@@ -44,7 +44,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
@@ -124,8 +123,6 @@ public class TestPushProjectionIntoTableScan
         // Create catalog with applyProjection enabled
         MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, columnHandle), Optional.of(this::mockApplyProjection));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
-            IrTypeAnalyzer typeAnalyzer = new IrTypeAnalyzer(ruleTester.getPlannerContext());
-
             // Prepare project node symbols and types
             Symbol identity = new Symbol(UNKNOWN, "symbol_identity");
             Symbol dereference = new Symbol(UNKNOWN, "symbol_dereference");
@@ -147,7 +144,7 @@ public class TestPushProjectionIntoTableScan
             TransactionId transactionId = ruleTester.getPlanTester().getTransactionManager().beginTransaction(false);
             Session session = MOCK_SESSION.beginTransactionId(transactionId, ruleTester.getPlanTester().getTransactionManager(), ruleTester.getPlanTester().getAccessControl());
             ImmutableMap<Symbol, String> connectorNames = inputProjections.entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, e -> translate(session, e.getValue(), typeAnalyzer).get().toString()));
+                    .collect(toImmutableMap(Map.Entry::getKey, e -> translate(session, e.getValue()).get().toString()));
             ImmutableMap<Symbol, String> newNames = ImmutableMap.of(
                     identity, "projected_variable_" + connectorNames.get(identity),
                     dereference, "projected_dereference_" + connectorNames.get(dereference));
@@ -317,11 +314,9 @@ public class TestPushProjectionIntoTableScan
     private static PushProjectionIntoTableScan createRule(RuleTester tester)
     {
         PlannerContext plannerContext = tester.getPlannerContext();
-        IrTypeAnalyzer typeAnalyzer = tester.getTypeAnalyzer();
         return new PushProjectionIntoTableScan(
                 plannerContext,
-                typeAnalyzer,
-                new ScalarStatsCalculator(plannerContext, typeAnalyzer));
+                new ScalarStatsCalculator(plannerContext));
     }
 
     private static ColumnHandle column(String name, Type type)

@@ -48,7 +48,6 @@ import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
@@ -277,8 +276,7 @@ public class DynamicFilterService
     public DynamicFilter createDynamicFilter(
             QueryId queryId,
             List<DynamicFilters.Descriptor> dynamicFilterDescriptors,
-            Map<Symbol, ColumnHandle> columnHandles,
-            TypeProvider typeProvider)
+            Map<Symbol, ColumnHandle> columnHandles)
     {
         Multimap<DynamicFilterId, DynamicFilters.Descriptor> symbolsMap = extractSourceSymbols(dynamicFilterDescriptors);
         Set<DynamicFilterId> dynamicFilters = ImmutableSet.copyOf(symbolsMap.keySet());
@@ -355,7 +353,7 @@ public class DynamicFilterService
 
                 TupleDomain<ColumnHandle> dynamicFilter = TupleDomain.intersect(
                         completedDynamicFilters.entrySet().stream()
-                                .map(filter -> translateSummaryToTupleDomain(context.getSession(), filter.getKey(), filter.getValue(), symbolsMap, columnHandles, typeProvider))
+                                .map(filter -> translateSummaryToTupleDomain(context.getSession(), filter.getKey(), filter.getValue(), symbolsMap, columnHandles))
                                 .collect(toImmutableList()));
 
                 // It could happen that two threads update currentDynamicFilter concurrently.
@@ -435,8 +433,7 @@ public class DynamicFilterService
             DynamicFilterId filterId,
             Domain summary,
             Multimap<DynamicFilterId, DynamicFilters.Descriptor> descriptorMultimap,
-            Map<Symbol, ColumnHandle> columnHandles,
-            TypeProvider typeProvider)
+            Map<Symbol, ColumnHandle> columnHandles)
     {
         Collection<DynamicFilters.Descriptor> descriptors = descriptorMultimap.get(filterId);
         return TupleDomain.withColumnDomains(descriptors.stream()
@@ -446,7 +443,8 @@ public class DynamicFilterService
                             return requireNonNull(columnHandles.get(probeSymbol), () -> format("Missing probe column for %s", probeSymbol));
                         },
                         descriptor -> {
-                            Type targetType = typeProvider.get(Symbol.from(descriptor.getInput()));
+                            Symbol symbol = Symbol.from(descriptor.getInput());
+                            Type targetType = symbol.getType();
                             Domain updatedSummary = descriptor.applyComparison(summary);
                             if (!updatedSummary.getType().equals(targetType)) {
                                 return applySaturatedCasts(metadata, functionManager, typeOperators, session, updatedSummary, targetType);

@@ -58,7 +58,7 @@ public class StatsCalculatorTester
         try {
             PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getPlannerContext(), transactionSession);
             PlanNode planNode = planProvider.apply(planBuilder);
-            return new StatsCalculatorAssertion(queryRunner, transactionSession, planNode, planBuilder.getTypes());
+            return new StatsCalculatorAssertion(queryRunner, transactionSession, planNode);
         }
         catch (Throwable t) {
             queryRunner.getTransactionManager().asyncAbort(transactionId);

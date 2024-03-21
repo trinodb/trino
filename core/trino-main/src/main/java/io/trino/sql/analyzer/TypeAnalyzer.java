@@ -21,7 +21,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 
@@ -48,14 +47,13 @@ public class TypeAnalyzer
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
     }
 
-    public Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, Iterable<Expression> expressions)
+    public Map<NodeRef<Expression>, Type> getTypes(Session session, Iterable<Expression> expressions)
     {
         return analyzeExpressions(
                 session,
                 plannerContext,
                 statementAnalyzerFactory,
                 new AllowAllAccessControl(),
-                inputTypes,
                 expressions,
                 ImmutableMap.of(),
                 WarningCollector.NOOP,
@@ -63,13 +61,13 @@ public class TypeAnalyzer
                 .getExpressionTypes();
     }
 
-    public Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, Expression expression)
+    public Map<NodeRef<Expression>, Type> getTypes(Session session, Expression expression)
     {
-        return getTypes(session, inputTypes, ImmutableList.of(expression));
+        return getTypes(session, ImmutableList.of(expression));
     }
 
-    public Type getType(Session session, TypeProvider inputTypes, Expression expression)
+    public Type getType(Session session, Expression expression)
     {
-        return getTypes(session, inputTypes, expression).get(NodeRef.of(expression));
+        return getTypes(session, expression).get(NodeRef.of(expression));
     }
 }

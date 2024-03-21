@@ -29,15 +29,12 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
@@ -75,38 +72,34 @@ import static java.util.Objects.requireNonNull;
 public class UnwrapYearInComparison
         extends ExpressionRewriteRuleSet
 {
-    public UnwrapYearInComparison(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    public UnwrapYearInComparison(PlannerContext plannerContext)
     {
-        super(createRewrite(plannerContext, typeAnalyzer));
+        super(createRewrite(plannerContext));
     }
 
-    private static ExpressionRewriter createRewrite(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    private static ExpressionRewriter createRewrite(PlannerContext plannerContext)
     {
         requireNonNull(plannerContext, "plannerContext is null");
-        requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> unwrapYear(context.getSession(), plannerContext, typeAnalyzer, expression);
+        return (expression, context) -> unwrapYear(context.getSession(), plannerContext, expression);
     }
 
     private static Expression unwrapYear(Session session,
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
             Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer, session), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, session), expression);
     }
 
     private static class Visitor
             extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         private final PlannerContext plannerContext;
-        private final IrTypeAnalyzer typeAnalyzer;
         private final Session session;
 
-        public Visitor(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, Session session)
+        public Visitor(PlannerContext plannerContext, Session session)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
         }
 
@@ -155,12 +148,10 @@ public class UnwrapYearInComparison
                 return expression;
             }
 
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(expression);
-
             Expression argument = getOnlyElement(call.getArguments());
-            Type argumentType = expressionTypes.get(NodeRef.of(argument));
+            Type argumentType = argument.type();
 
-            Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session, expressionTypes)
+            Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session)
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
             if (right == null) {

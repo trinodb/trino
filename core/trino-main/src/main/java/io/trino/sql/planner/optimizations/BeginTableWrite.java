@@ -80,7 +80,7 @@ public class BeginTableWrite
         catch (RuntimeException e) {
             try {
                 int nestLevel = 4; // so that it renders reasonably within exception stacktrace
-                String explain = textLogicalPlan(plan, context.types(), metadata, functionManager, StatsAndCosts.empty(), context.session(), nestLevel, false);
+                String explain = textLogicalPlan(plan, metadata, functionManager, StatsAndCosts.empty(), context.session(), nestLevel, false);
                 e.addSuppressed(new Exception("Current plan:\n" + explain));
             }
             catch (RuntimeException ignore) {

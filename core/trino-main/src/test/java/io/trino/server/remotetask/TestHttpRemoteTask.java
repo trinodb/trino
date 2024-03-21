@@ -265,8 +265,7 @@ public class TestHttpRemoteTask
                         new DynamicFilters.Descriptor(filterId2, df2)),
                 ImmutableMap.of(
                         symbol1, handle1,
-                        symbol2, handle2),
-                symbolAllocator.getTypes());
+                        symbol2, handle2));
 
         // make sure initial dynamic filters are collected
         CompletableFuture<?> future = dynamicFilter.isBlocked();
@@ -338,8 +337,7 @@ public class TestHttpRemoteTask
                         new DynamicFilters.Descriptor(filterId2, df2)),
                 ImmutableMap.of(
                         symbol1, handle1,
-                        symbol2, handle2),
-                symbolAllocator.getTypes());
+                        symbol2, handle2));
 
         // make sure initial dynamic filter is collected
         CompletableFuture<?> future = dynamicFilter.isBlocked();

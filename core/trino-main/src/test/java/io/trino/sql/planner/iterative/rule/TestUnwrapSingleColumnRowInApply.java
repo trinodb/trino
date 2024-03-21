@@ -18,7 +18,6 @@ import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.SetExpressionMatcher;
@@ -46,7 +45,7 @@ public class TestUnwrapSingleColumnRowInApply
     @Test
     public void testDoesNotFireOnNoSingleColumnRow()
     {
-        tester().assertThat(new UnwrapSingleColumnRowInApply(new IrTypeAnalyzer(tester().getPlannerContext())))
+        tester().assertThat(new UnwrapSingleColumnRowInApply())
                 .on(p -> p.apply(
                         ImmutableMap.<Symbol, ApplyNode.SetExpression>builder()
                                 .put(p.symbol("output1", BOOLEAN), new ApplyNode.In(new Symbol(UNKNOWN, "value"), new Symbol(UNKNOWN, "element")))
@@ -61,7 +60,7 @@ public class TestUnwrapSingleColumnRowInApply
     @Test
     public void testUnwrapInPredicate()
     {
-        tester().assertThat(new UnwrapSingleColumnRowInApply(new IrTypeAnalyzer(tester().getPlannerContext())))
+        tester().assertThat(new UnwrapSingleColumnRowInApply())
                 .on(p -> p.apply(
                         ImmutableMap.<Symbol, ApplyNode.SetExpression>builder()
                                 .put(p.symbol("unwrapped", BOOLEAN), new ApplyNode.In(new Symbol(RowType.anonymousRow(INTEGER), "rowValue"), new Symbol(RowType.anonymousRow(INTEGER), "rowElement")))
@@ -99,7 +98,7 @@ public class TestUnwrapSingleColumnRowInApply
     @Test
     public void testUnwrapQuantifiedComparison()
     {
-        tester().assertThat(new UnwrapSingleColumnRowInApply(new IrTypeAnalyzer(tester().getPlannerContext())))
+        tester().assertThat(new UnwrapSingleColumnRowInApply())
                 .on(p -> p.apply(
                         ImmutableMap.<Symbol, ApplyNode.SetExpression>builder()
                                 .put(p.symbol("unwrapped", BOOLEAN), new ApplyNode.QuantifiedComparison(EQUAL, ALL, new Symbol(RowType.anonymousRow(INTEGER), "rowValue"), new Symbol(RowType.anonymousRow(INTEGER), "rowElement")))

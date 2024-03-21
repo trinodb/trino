@@ -138,7 +138,7 @@ public class SetOperationNodeTranslator
         Assignments.Builder assignments = Assignments.builder();
         // add existing intersect symbols to projection
         for (Map.Entry<Symbol, SymbolReference> entry : projections.entrySet()) {
-            Symbol symbol = symbolAllocator.newSymbol(entry.getKey().getName(), symbolAllocator.getTypes().get(entry.getKey()));
+            Symbol symbol = symbolAllocator.newSymbol(entry.getKey().getName(), entry.getKey().getType());
             assignments.put(symbol, entry.getValue());
         }
 

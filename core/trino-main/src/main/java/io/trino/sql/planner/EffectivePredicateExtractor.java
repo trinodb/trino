@@ -31,7 +31,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -64,7 +63,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -109,9 +107,9 @@ public class EffectivePredicateExtractor
         this.useTableProperties = useTableProperties;
     }
 
-    public Expression extract(Session session, PlanNode node, TypeProvider types, IrTypeAnalyzer typeAnalyzer)
+    public Expression extract(Session session, PlanNode node)
     {
-        return node.accept(new Visitor(domainTranslator, plannerContext, session, types, typeAnalyzer, useTableProperties), null);
+        return node.accept(new Visitor(domainTranslator, plannerContext, session, useTableProperties), null);
     }
 
     private static class Visitor
@@ -121,18 +119,14 @@ public class EffectivePredicateExtractor
         private final PlannerContext plannerContext;
         private final Metadata metadata;
         private final Session session;
-        private final TypeProvider types;
-        private final IrTypeAnalyzer typeAnalyzer;
         private final boolean useTableProperties;
 
-        public Visitor(DomainTranslator domainTranslator, PlannerContext plannerContext, Session session, TypeProvider types, IrTypeAnalyzer typeAnalyzer, boolean useTableProperties)
+        public Visitor(DomainTranslator domainTranslator, PlannerContext plannerContext, Session session, boolean useTableProperties)
         {
             this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.metadata = plannerContext.getMetadata();
             this.session = requireNonNull(session, "session is null");
-            this.types = requireNonNull(types, "types is null");
-            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.useTableProperties = useTableProperties;
         }
 
@@ -340,16 +334,6 @@ public class EffectivePredicateExtractor
             // - if the row is of type Row, evaluate fields of the row
             // - otherwise evaluate the whole expression and then analyze fields of the resulting row
             checkState(node.getRows().isPresent(), "rows is empty");
-            List<Expression> processedExpressions = node.getRows().get().stream()
-                    .flatMap(row -> {
-                        if (row instanceof Row) {
-                            return ((Row) row).getItems().stream();
-                        }
-                        return Stream.of(row);
-                    })
-                    .collect(toImmutableList());
-
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(processedExpressions);
 
             boolean[] hasNull = new boolean[node.getOutputSymbols().size()];
             boolean[] hasNaN = new boolean[node.getOutputSymbols().size()];
@@ -368,7 +352,7 @@ public class EffectivePredicateExtractor
                             nonDeterministic[i] = true;
                         }
                         else {
-                            IrExpressionInterpreter interpreter = new IrExpressionInterpreter(value, plannerContext, session, expressionTypes);
+                            IrExpressionInterpreter interpreter = new IrExpressionInterpreter(value, plannerContext, session);
                             Object item = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
                             if (item instanceof Expression) {
                                 return TRUE_LITERAL;
@@ -377,7 +361,7 @@ public class EffectivePredicateExtractor
                                 hasNull[i] = true;
                             }
                             else {
-                                Type type = types.get(node.getOutputSymbols().get(i));
+                                Type type = node.getOutputSymbols().get(i).getType();
                                 if (!type.isComparable() && !type.isOrderable()) {
                                     return TRUE_LITERAL;
                                 }
@@ -398,7 +382,7 @@ public class EffectivePredicateExtractor
                     if (!DeterminismEvaluator.isDeterministic(row)) {
                         return TRUE_LITERAL;
                     }
-                    IrExpressionInterpreter interpreter = new IrExpressionInterpreter(row, plannerContext, session, expressionTypes);
+                    IrExpressionInterpreter interpreter = new IrExpressionInterpreter(row, plannerContext, session);
                     Object evaluated = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
                     if (evaluated instanceof Expression) {
                         return TRUE_LITERAL;
@@ -406,7 +390,7 @@ public class EffectivePredicateExtractor
                     SqlRow sqlRow = (SqlRow) evaluated;
                     int rawIndex = sqlRow.getRawIndex();
                     for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                        Type type = types.get(node.getOutputSymbols().get(i));
+                        Type type = node.getOutputSymbols().get(i).getType();
                         Block fieldBlock = sqlRow.getRawFieldBlock(i);
                         Object item = readNativeValue(type, fieldBlock, rawIndex);
                         if (item == null) {
@@ -434,7 +418,7 @@ public class EffectivePredicateExtractor
             ImmutableMap.Builder<Symbol, Domain> domains = ImmutableMap.builder();
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                 Symbol symbol = node.getOutputSymbols().get(i);
-                Type type = types.get(symbol);
+                Type type = symbol.getType();
                 if (nonDeterministic[i]) {
                     // We can't describe a predicate for this column because at least
                     // one cell is non-deterministic, so skip it.

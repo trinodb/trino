@@ -22,12 +22,10 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.tree.Expression;
 import io.trino.type.TypeCoercion;
 
-import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
@@ -62,19 +60,15 @@ public class ConstantEvaluator
         TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, ImmutableMap.of(), ImmutableList.of(), session, plannerContext);
         io.trino.sql.ir.Expression rewritten = translationMap.rewrite(expression);
 
-        IrTypeAnalyzer analyzer = new IrTypeAnalyzer(plannerContext);
-        Map<io.trino.sql.ir.NodeRef<io.trino.sql.ir.Expression>, Type> types = analyzer.getTypes(rewritten);
-
-        Type actualType = types.get(io.trino.sql.ir.NodeRef.of(rewritten));
+        Type actualType = rewritten.type();
         if (!new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(actualType, expectedType)) {
             throw semanticException(TYPE_MISMATCH, expression, "Cannot cast type %s to %s", actualType.getDisplayName(), expectedType.getDisplayName());
         }
 
         if (!actualType.equals(expectedType)) {
             rewritten = new Cast(rewritten, expectedType, false);
-            types = analyzer.getTypes(rewritten);
         }
 
-        return new IrExpressionInterpreter(rewritten, plannerContext, session, types).evaluate();
+        return new IrExpressionInterpreter(rewritten, plannerContext, session).evaluate();
     }
 }

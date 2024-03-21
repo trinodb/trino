@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import io.trino.cost.StatsAndCosts;
 import io.trino.operator.RetryPolicy;
@@ -192,7 +193,7 @@ public class TestTopologicalOrderSubPlanVisitor
         PlanFragment planFragment = new PlanFragment(
                 new PlanFragmentId(fragmentId),
                 plan,
-                ImmutableMap.of(symbol, VARCHAR),
+                ImmutableSet.of(symbol),
                 SOURCE_DISTRIBUTION,
                 Optional.empty(),
                 ImmutableList.of(valuesNodeId),

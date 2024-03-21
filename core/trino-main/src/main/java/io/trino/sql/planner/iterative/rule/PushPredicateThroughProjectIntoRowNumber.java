@@ -107,8 +107,7 @@ public class PushPredicateThroughProjectIntoRowNumber
         ExtractionResult extractionResult = DomainTranslator.getExtractionResult(
                 plannerContext,
                 context.getSession(),
-                filter.getPredicate(),
-                context.getSymbolAllocator().getTypes());
+                filter.getPredicate());
         TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
         OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
         if (upperBound.isEmpty()) {

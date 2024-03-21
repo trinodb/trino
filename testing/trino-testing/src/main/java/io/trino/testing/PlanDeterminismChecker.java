@@ -55,7 +55,6 @@ public class PlanDeterminismChecker
             Plan plan = queryRunner.createPlan(transactionSession, sql);
             return PlanPrinter.textLogicalPlan(
                     plan.getRoot(),
-                    plan.getTypes(),
                     queryRunner.getPlannerContext().getMetadata(),
                     queryRunner.getPlannerContext().getFunctionManager(),
                     plan.getStatsAndCosts(),

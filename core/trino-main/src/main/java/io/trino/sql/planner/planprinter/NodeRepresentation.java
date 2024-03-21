@@ -23,7 +23,6 @@ import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -34,7 +33,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -170,9 +168,6 @@ public class NodeRepresentation
         }
 
         ImmutableList.Builder<PlanNodeStatsAndCostSummary> estimates = ImmutableList.builder();
-        TypeProvider typeProvider = TypeProvider.copyOf(outputs.stream()
-                .distinct()
-                .collect(toImmutableMap(TypedSymbol::getSymbol, TypedSymbol::getTrinoType)));
         for (int i = 0; i < getEstimatedStats().size(); i++) {
             PlanNodeStatsEstimate stats = getEstimatedStats().get(i);
             LocalCostEstimate cost = getEstimatedCost().get(i).getRootNodeLocalCostEstimate();
@@ -183,7 +178,7 @@ public class NodeRepresentation
 
             estimates.add(new PlanNodeStatsAndCostSummary(
                     stats.getOutputRowCount(),
-                    stats.getOutputSizeInBytes(outputSymbols, typeProvider),
+                    stats.getOutputSizeInBytes(outputSymbols),
                     cost.getCpuCost(),
                     cost.getMaxMemory(),
                     cost.getNetworkCost()));

@@ -124,7 +124,7 @@ public class TestPlanFragmentPartitionCount
                                         ImmutableList.of(b),
                                         3))));
 
-        Plan plan = new Plan(output, p.getTypes(), StatsAndCosts.empty());
+        Plan plan = new Plan(output, StatsAndCosts.empty());
         SubPlan rootSubPlan = fragment(plan);
         ImmutableMap.Builder<PlanFragmentId, Optional<Integer>> actualPartitionCount = ImmutableMap.builder();
         Traverser.forTree(SubPlan::getChildren).depthFirstPreOrder(rootSubPlan).forEach(subPlan ->

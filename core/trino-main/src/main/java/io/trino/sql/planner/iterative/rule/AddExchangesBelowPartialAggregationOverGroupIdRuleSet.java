@@ -26,7 +26,6 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
@@ -129,18 +128,15 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
     private static final double ANTI_SKEWNESS_MARGIN = 3;
 
     private final PlannerContext plannerContext;
-    private final IrTypeAnalyzer typeAnalyzer;
     private final TaskCountEstimator taskCountEstimator;
     private final DataSize maxPartialAggregationMemoryUsage;
 
     public AddExchangesBelowPartialAggregationOverGroupIdRuleSet(
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
             TaskCountEstimator taskCountEstimator,
             TaskManagerConfig taskManagerConfig)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
         this.maxPartialAggregationMemoryUsage = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
     }
@@ -317,7 +313,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
                         .map(groupId.getGroupingColumns()::get)
                         .collect(toImmutableList());
 
-                double keyWidth = sourceStats.getOutputSizeInBytes(sourceSymbols, context.getSymbolAllocator().getTypes()) / sourceStats.getOutputRowCount();
+                double keyWidth = sourceStats.getOutputSizeInBytes(sourceSymbols) / sourceStats.getOutputRowCount();
                 double keyNdv = min(estimatedGroupCount(sourceSymbols, sourceStats), sourceStats.getOutputRowCount());
 
                 keysMemoryRequirements += keyWidth * keyNdv;
@@ -350,7 +346,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
             List<StreamProperties> inputProperties = resolvedPlanNode.getSources().stream()
                     .map(source -> derivePropertiesRecursively(source, context))
                     .collect(toImmutableList());
-            return deriveProperties(resolvedPlanNode, inputProperties, plannerContext, context.getSession(), context.getSymbolAllocator().getTypes(), typeAnalyzer);
+            return deriveProperties(resolvedPlanNode, inputProperties, plannerContext, context.getSession());
         }
     }
 }

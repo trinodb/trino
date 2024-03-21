@@ -22,7 +22,6 @@ import io.trino.matching.Pattern;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -42,7 +41,6 @@ import static io.trino.sql.planner.iterative.rule.DereferencePushdown.getBase;
 import static io.trino.sql.planner.plan.Patterns.limit;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Transforms:
@@ -63,12 +61,6 @@ public class PushDownDereferencesThroughLimit
         implements Rule<ProjectNode>
 {
     private static final Capture<LimitNode> CHILD = newCapture();
-    private final IrTypeAnalyzer typeAnalyzer;
-
-    public PushDownDereferencesThroughLimit(IrTypeAnalyzer typeAnalyzer)
-    {
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-    }
 
     @Override
     public Pattern<ProjectNode> getPattern()
@@ -83,7 +75,7 @@ public class PushDownDereferencesThroughLimit
         LimitNode limitNode = captures.get(CHILD);
 
         // Extract dereferences from project node assignments for pushdown
-        Set<SubscriptExpression> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false, typeAnalyzer);
+        Set<SubscriptExpression> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false);
 
         // Exclude dereferences on symbols being used in tiesResolvingScheme and requiresPreSortedInputs
         Set<Symbol> excludedSymbols = ImmutableSet.<Symbol>builder()
@@ -101,7 +93,7 @@ public class PushDownDereferencesThroughLimit
         }
 
         // Create new symbols for dereference expressions
-        Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSymbolAllocator(), typeAnalyzer);
+        Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSymbolAllocator());
 
         // Rewrite project node assignments using new symbols for dereference expressions
         Map<Expression, SymbolReference> mappings = HashBiMap.create(dereferenceAssignments.getMap())

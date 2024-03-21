@@ -30,19 +30,15 @@ import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.util.DisjointSet;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
@@ -82,25 +78,22 @@ public class FilterStatsCalculator
     private final PlannerContext plannerContext;
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final StatsNormalizer normalizer;
-    private final IrTypeAnalyzer typeAnalyzer;
 
     @Inject
-    public FilterStatsCalculator(PlannerContext plannerContext, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer, IrTypeAnalyzer typeAnalyzer)
+    public FilterStatsCalculator(PlannerContext plannerContext, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
         this.normalizer = requireNonNull(normalizer, "normalizer is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     public PlanNodeStatsEstimate filterStats(
             PlanNodeStatsEstimate statsEstimate,
             Expression predicate,
-            Session session,
-            TypeProvider types)
+            Session session)
     {
         Expression simplifiedExpression = simplifyExpression(session, predicate);
-        return new FilterExpressionStatsCalculatingVisitor(statsEstimate, session, types)
+        return new FilterExpressionStatsCalculatingVisitor(statsEstimate, session)
                 .process(simplifiedExpression);
     }
 
@@ -108,8 +101,7 @@ public class FilterStatsCalculator
     {
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
 
-        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(predicate);
-        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(predicate, plannerContext, session, expressionTypes);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(predicate, plannerContext, session);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
         if (value instanceof Expression expression) {
@@ -129,13 +121,11 @@ public class FilterStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
-        private final TypeProvider types;
 
-        FilterExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, Session session, TypeProvider types)
+        FilterExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, Session session)
         {
             this.input = input;
             this.session = session;
-            this.types = types;
         }
 
         @Override
@@ -148,7 +138,7 @@ public class FilterStatsCalculator
             else {
                 output = super.process(node, context);
             }
-            return normalizer.normalize(output, types);
+            return normalizer.normalize(output);
         }
 
         @Override
@@ -197,7 +187,7 @@ public class FilterStatsCalculator
             if (isNaN(outputRowCount)) {
                 return PlanNodeStatsEstimate.unknown();
             }
-            return normalizer.normalize(new PlanNodeStatsEstimate(outputRowCount, intersectCorrelatedStats(estimates)), types);
+            return normalizer.normalize(new PlanNodeStatsEstimate(outputRowCount, intersectCorrelatedStats(estimates)));
         }
 
         /**
@@ -220,7 +210,7 @@ public class FilterStatsCalculator
                         estimate = process(expression);
                     }
                     else {
-                        estimate = new FilterExpressionStatsCalculatingVisitor(combinedEstimate, session, types)
+                        estimate = new FilterExpressionStatsCalculatingVisitor(combinedEstimate, session)
                                 .process(expression);
                     }
 
@@ -254,7 +244,7 @@ public class FilterStatsCalculator
                     return PlanNodeStatsEstimate.unknown();
                 }
 
-                PlanNodeStatsEstimate andEstimate = new FilterExpressionStatsCalculatingVisitor(previous, session, types).process(terms.get(i));
+                PlanNodeStatsEstimate andEstimate = new FilterExpressionStatsCalculatingVisitor(previous, session).process(terms.get(i));
                 if (andEstimate.isOutputRowCountUnknown()) {
                     return PlanNodeStatsEstimate.unknown();
                 }
@@ -399,7 +389,7 @@ public class FilterStatsCalculator
             SymbolStatsEstimate leftStats = getExpressionStats(left);
             Optional<Symbol> leftSymbol = left instanceof SymbolReference ? Optional.of(Symbol.from(left)) : Optional.empty();
             if (right instanceof Constant) {
-                Type type = getType(left);
+                Type type = left.type();
                 Object literalValue = evaluateConstantExpression(right, plannerContext, session);
                 if (literalValue == null) {
                     // Possible when we process `x IN (..., NULL)` case.
@@ -426,16 +416,6 @@ public class FilterStatsCalculator
                 return process(BooleanLiteral.TRUE_LITERAL, context);
             }
             return PlanNodeStatsEstimate.unknown();
-        }
-
-        private Type getType(Expression expression)
-        {
-            if (expression instanceof SymbolReference) {
-                Symbol symbol = Symbol.from(expression);
-                return requireNonNull(types.get(symbol), () -> format("No type for symbol %s", symbol));
-            }
-
-            return typeAnalyzer.getType(expression);
         }
 
         private SymbolStatsEstimate getExpressionStats(Expression expression)
