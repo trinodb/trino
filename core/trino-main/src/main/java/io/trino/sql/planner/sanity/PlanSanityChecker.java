@@ -19,8 +19,6 @@ import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.IrTypeAnalyzer;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
 
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
@@ -75,33 +73,27 @@ public final class PlanSanityChecker
             PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
-            TypeProvider types,
             WarningCollector warningCollector)
     {
-        validate(Stage.FINAL, planNode, session, plannerContext, typeAnalyzer, types, warningCollector);
+        validate(Stage.FINAL, planNode, session, plannerContext, warningCollector);
     }
 
     public void validateIntermediatePlan(
             PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
-            TypeProvider types,
             WarningCollector warningCollector)
     {
-        validate(Stage.INTERMEDIATE, planNode, session, plannerContext, typeAnalyzer, types, warningCollector);
+        validate(Stage.INTERMEDIATE, planNode, session, plannerContext, warningCollector);
     }
 
     public void validateAdaptivePlan(
             PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
-            TypeProvider types,
             WarningCollector warningCollector)
     {
-        validate(Stage.AFTER_ADAPTIVE_PLANNING, planNode, session, plannerContext, typeAnalyzer, types, warningCollector);
+        validate(Stage.AFTER_ADAPTIVE_PLANNING, planNode, session, plannerContext, warningCollector);
     }
 
     private void validate(
@@ -109,19 +101,16 @@ public final class PlanSanityChecker
             PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
-            TypeProvider types,
             WarningCollector warningCollector)
     {
         try {
-            checkers.get(stage).forEach(checker -> checker.validate(planNode, session, plannerContext, typeAnalyzer, types, warningCollector));
+            checkers.get(stage).forEach(checker -> checker.validate(planNode, session, plannerContext, warningCollector));
         }
         catch (RuntimeException e) {
             try {
                 int nestLevel = 4; // so that it renders reasonably within exception stacktrace
                 String explain = textLogicalPlan(
                         planNode,
-                        types,
                         plannerContext.getMetadata(),
                         plannerContext.getFunctionManager(),
                         StatsAndCosts.empty(),
@@ -143,8 +132,6 @@ public final class PlanSanityChecker
                 PlanNode planNode,
                 Session session,
                 PlannerContext plannerContext,
-                IrTypeAnalyzer typeAnalyzer,
-                TypeProvider types,
                 WarningCollector warningCollector);
     }
 

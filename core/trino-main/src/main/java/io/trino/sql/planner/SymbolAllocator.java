@@ -22,6 +22,7 @@ import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.SymbolReference;
 import jakarta.annotation.Nullable;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,10 +40,10 @@ public class SymbolAllocator
         symbols = new HashMap<>();
     }
 
-    public SymbolAllocator(Map<Symbol, Type> initial)
+    public SymbolAllocator(Collection<Symbol> initial)
     {
-        symbols = new HashMap<>(initial.entrySet().stream()
-                .collect(toMap(e -> e.getKey().getName(), Map.Entry::getKey)));
+        symbols = new HashMap<>(initial.stream()
+                .collect(toMap(Symbol::getName, e -> e)));
     }
 
     public Symbol newSymbol(Symbol symbolHint)
@@ -123,9 +124,9 @@ public class SymbolAllocator
         return newSymbol(nameHint, field.getType());
     }
 
-    public TypeProvider getTypes()
+    public Collection<Symbol> getSymbols()
     {
-        return TypeProvider.of(symbols.values());
+        return symbols.values();
     }
 
     private int nextId()

@@ -14,7 +14,6 @@
 package io.trino.sql.relational;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -38,7 +37,6 @@ import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullIfExpression;
 import io.trino.sql.ir.Row;
@@ -91,7 +89,6 @@ public final class SqlToRowExpressionTranslator
 
     public static RowExpression translate(
             Expression expression,
-            Map<NodeRef<Expression>, Type> types,
             Map<Symbol, Integer> layout,
             Metadata metadata,
             FunctionManager functionManager,
@@ -99,7 +96,7 @@ public final class SqlToRowExpressionTranslator
             Session session,
             boolean optimize)
     {
-        Visitor visitor = new Visitor(metadata, typeManager, types, layout);
+        Visitor visitor = new Visitor(metadata, typeManager, layout);
         RowExpression result = visitor.process(expression, null);
 
         requireNonNull(result, "result is null");
@@ -117,26 +114,18 @@ public final class SqlToRowExpressionTranslator
     {
         private final Metadata metadata;
         private final TypeCoercion typeCoercion;
-        private final Map<NodeRef<Expression>, Type> types;
         private final Map<Symbol, Integer> layout;
         private final StandardFunctionResolution standardFunctionResolution;
 
         protected Visitor(
                 Metadata metadata,
                 TypeManager typeManager,
-                Map<NodeRef<Expression>, Type> types,
                 Map<Symbol, Integer> layout)
         {
             this.metadata = metadata;
             this.typeCoercion = new TypeCoercion(typeManager::getType);
-            this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.layout = layout;
             standardFunctionResolution = new StandardFunctionResolution(metadata);
-        }
-
-        private Type getType(Expression node)
-        {
-            return types.get(NodeRef.of(node));
         }
 
         @Override
@@ -195,10 +184,10 @@ public final class SqlToRowExpressionTranslator
         {
             Integer field = layout.get(Symbol.from(node));
             if (field != null) {
-                return field(field, getType(node));
+                return field(field, ((Expression) node).type());
             }
 
-            return new VariableReferenceExpression(node.getName(), getType(node));
+            return new VariableReferenceExpression(node.getName(), ((Expression) node).type());
         }
 
         @Override
@@ -222,7 +211,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression function = process(node.getFunction(), context);
             argumentsBuilder.add(function);
 
-            return new SpecialForm(BIND, getType(node), argumentsBuilder.build());
+            return new SpecialForm(BIND, ((Expression) node).type(), argumentsBuilder.build());
         }
 
         @Override
@@ -273,7 +262,7 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression value = process(node.getExpression(), context);
 
-            Type returnType = getType(node);
+            Type returnType = ((Expression) node).type();
             if (typeCoercion.isTypeOnlyCoercion(value.getType(), returnType)) {
                 return changeType(value, returnType);
             }
@@ -349,7 +338,7 @@ public final class SqlToRowExpressionTranslator
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
 
-            return new SpecialForm(COALESCE, getType(node), arguments);
+            return new SpecialForm(COALESCE, ((Expression) node).type(), arguments);
         }
 
         @Override
@@ -369,12 +358,12 @@ public final class SqlToRowExpressionTranslator
 
                 arguments.add(new SpecialForm(
                         WHEN,
-                        getType(clause.getResult()),
+                        clause.getResult().type(),
                         operand,
                         result));
             }
 
-            Type returnType = getType(node);
+            Type returnType = ((Expression) node).type();
 
             arguments.add(node.getDefaultValue()
                     .map(defaultValue -> process(defaultValue, context))
@@ -408,12 +397,12 @@ public final class SqlToRowExpressionTranslator
              */
             RowExpression expression = node.getDefaultValue()
                     .map(value -> process(value, context))
-                    .orElse(constantNull(getType(node)));
+                    .orElse(constantNull(((Expression) node).type()));
 
             for (WhenClause clause : node.getWhenClauses().reversed()) {
                 expression = new SpecialForm(
                         IF,
-                        getType(node),
+                        ((Expression) node).type(),
                         process(clause.getOperand(), context),
                         process(clause.getResult(), context),
                         expression);
@@ -477,7 +466,7 @@ public final class SqlToRowExpressionTranslator
 
             return new SpecialForm(
                     NULL_IF,
-                    getType(node),
+                    ((Expression) node).type(),
                     ImmutableList.of(first, second),
                     functionDependencies);
         }
@@ -505,9 +494,9 @@ public final class SqlToRowExpressionTranslator
             RowExpression base = process(node.getBase(), context);
             RowExpression index = process(node.getIndex(), context);
 
-            if (getType(node.getBase()) instanceof RowType) {
+            if (node.getBase().type() instanceof RowType) {
                 long value = (Long) ((ConstantExpression) index).getValue();
-                return new SpecialForm(DEREFERENCE, getType(node), base, constant(value - 1, INTEGER));
+                return new SpecialForm(DEREFERENCE, ((Expression) node).type(), base, constant(value - 1, INTEGER));
             }
 
             return call(
@@ -522,7 +511,7 @@ public final class SqlToRowExpressionTranslator
             List<RowExpression> arguments = node.getItems().stream()
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
-            Type returnType = getType(node);
+            Type returnType = ((Expression) node).type();
             return new SpecialForm(ROW_CONSTRUCTOR, returnType, arguments);
         }
     }

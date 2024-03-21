@@ -33,10 +33,8 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -359,7 +357,7 @@ public class TestDynamicFiltersChecker
         getPlanTester().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new DynamicFiltersChecker().validate(root, session, plannerContext, new IrTypeAnalyzer(plannerContext), TypeProvider.empty(), WarningCollector.NOOP);
+            new DynamicFiltersChecker().validate(root, session, plannerContext, WarningCollector.NOOP);
             return null;
         });
     }

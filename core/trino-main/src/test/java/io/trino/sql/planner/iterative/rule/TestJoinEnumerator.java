@@ -121,15 +121,13 @@ public class TestJoinEnumerator
                 Optional.empty(),
                 noLookup(),
                 planTester.getDefaultSession(),
-                symbolAllocator.getTypes(),
                 new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), planTester.getDefaultSession()),
                 RuntimeInfoProvider.noImplementation());
         CachingCostProvider costProvider = new CachingCostProvider(
                 planTester.getCostCalculator(),
                 statsProvider,
                 Optional.empty(),
-                planTester.getDefaultSession(),
-                symbolAllocator.getTypes());
+                planTester.getDefaultSession());
 
         return new Rule.Context()
         {

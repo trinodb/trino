@@ -17,7 +17,6 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.graph.Traverser;
 import io.trino.Session;
 import io.trino.cost.CachingTableStatsProvider;
@@ -25,7 +24,6 @@ import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.optimizations.AdaptivePlanOptimizer;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
@@ -46,10 +44,10 @@ import java.util.Set;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.SimplePlanRewriter.rewriteWith;
@@ -61,25 +59,25 @@ import static java.util.Objects.requireNonNull;
  * reordering of join or mitigation of skewness. It will significantly impact cost and
  * performance if the plan chosen by the static optimiser isn’t the best due to the
  * underestimation of statistics or lack of statistics.
- *
+ * <p>
  * Re-planning Steps:
  * 1. It first merges all SubPlans into a single PlanNode where RemoteSourceNode for stages
  * that haven’t finished will get replaced with Remote Exchanges. On the other hand,
  * RemoteSourceNode for finished stages will remain as it is in the plan.
- *
+ * <p>
  * 2. Once we have a merged plan which contains all the unfinished parts, we will reoptimize it using
  * a set of PlanOptimizers.
- *
+ * <p>
  * 3. During re-optimization, it is possible that some new exchanges need to be added due to the change
  * in partitioning strategy. For instance, if a rule changes the distribution type of the join
  * from BROADCAST to PARTITIONED. It is also possible that some remote exchanges are removed.
  * For example, while changing the order of the join.
- *
+ * <p>
  * 4. Ultimately, the planner will fragment the optimized PlanNode again and generate the SubPlans with
  * new PlanFragmentIds. The re-fragmentation will only happen if the old plan and the new
  * plan have some differences. To check these differences, we rely on
  * PlanOptimizer#optimizeAndMarkPlanChanges api which also returns changed plan ids.
- *
+ * <p>
  * Note: We do not change the fragment ids which have no changes and are not downstream of the
  * changed plan nodes. This optimization is done to avoid unnecessary stage restart due to speculative execution.
  */
@@ -90,7 +88,6 @@ public class AdaptivePlanner
     private final List<AdaptivePlanOptimizer> planOptimizers;
     private final PlanFragmenter planFragmenter;
     private final PlanSanityChecker planSanityChecker;
-    private final IrTypeAnalyzer typeAnalyzer;
     private final WarningCollector warningCollector;
     private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
     private final CachingTableStatsProvider tableStatsProvider;
@@ -101,7 +98,6 @@ public class AdaptivePlanner
             List<AdaptivePlanOptimizer> planOptimizers,
             PlanFragmenter planFragmenter,
             PlanSanityChecker planSanityChecker,
-            IrTypeAnalyzer typeAnalyzer,
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector,
             CachingTableStatsProvider tableStatsProvider)
@@ -111,7 +107,6 @@ public class AdaptivePlanner
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.planSanityChecker = requireNonNull(planSanityChecker, "planSanityChecker is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
         this.tableStatsProvider = requireNonNull(tableStatsProvider, "tableStatsProvider is null");
@@ -134,7 +129,7 @@ public class AdaptivePlanner
 
         // rewrite remote source nodes to exchange nodes, except for fragments which are finisher or whose stats are
         // estimated by progress.
-        ReplaceUnchangedFragmentsWithRemoteSourcesRewriter rewriter = new ReplaceUnchangedFragmentsWithRemoteSourcesRewriter(runtimeInfoProvider, symbolAllocator.getTypes());
+        ReplaceUnchangedFragmentsWithRemoteSourcesRewriter rewriter = new ReplaceUnchangedFragmentsWithRemoteSourcesRewriter(runtimeInfoProvider);
         PlanNode currentAdaptivePlan = rewriteWith(rewriter, root.getFragment().getRoot(), root.getChildren());
 
         // Remove the adaptive plan node and replace it with initial plan
@@ -158,16 +153,16 @@ public class AdaptivePlanner
         }
 
         // Add the adaptive plan node recursively where initialPlan remain as it is and optimizedPlan as new currentPlan
-        PlanNode adaptivePlan = addAdaptivePlanNode(idAllocator, initialPlan, optimizationResult.plan(), symbolAllocator.getTypes(), optimizationResult.changedPlanNodes());
+        PlanNode adaptivePlan = addAdaptivePlanNode(idAllocator, initialPlan, optimizationResult.plan(), optimizationResult.changedPlanNodes());
         // validate the adaptive plan
         try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-adaptive-plan")) {
-            planSanityChecker.validateAdaptivePlan(adaptivePlan, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+            planSanityChecker.validateAdaptivePlan(adaptivePlan, session, plannerContext, warningCollector);
         }
 
         // Fragment the adaptive plan
         return planFragmenter.createSubPlans(
                 session,
-                new Plan(adaptivePlan, symbolAllocator.getTypes(), StatsAndCosts.empty()),
+                new Plan(adaptivePlan, StatsAndCosts.empty()),
                 false,
                 warningCollector,
                 fragmentIdAllocator,
@@ -191,7 +186,6 @@ public class AdaptivePlanner
                     result.plan(),
                     new PlanOptimizer.Context(
                             session,
-                            symbolAllocator.getTypes(),
                             symbolAllocator,
                             idAllocator,
                             warningCollector,
@@ -207,7 +201,6 @@ public class AdaptivePlanner
             PlanNodeIdAllocator idAllocator,
             PlanNode initialPlan,
             PlanNode optimizedPlanNode,
-            TypeProvider types,
             Set<PlanNodeId> changedPlanNodes)
     {
         // We should check optimizedPlanNode here instead of initialPlan since it is possible that new
@@ -217,7 +210,7 @@ public class AdaptivePlanner
             return new AdaptivePlanNode(
                     idAllocator.getNextId(),
                     initialPlan,
-                    getFilteredSymbols(initialPlan, types),
+                    SymbolsExtractor.extractOutputSymbols(initialPlan),
                     optimizedPlanNode);
         }
 
@@ -228,7 +221,7 @@ public class AdaptivePlanner
         for (int i = 0; i < initialPlan.getSources().size(); i++) {
             PlanNode initialSource = initialPlan.getSources().get(i);
             PlanNode optimizedSource = optimizedPlanNode.getSources().get(i);
-            sources.add(addAdaptivePlanNode(idAllocator, initialSource, optimizedSource, types, changedPlanNodes));
+            sources.add(addAdaptivePlanNode(idAllocator, initialSource, optimizedSource, changedPlanNodes));
         }
         return optimizedPlanNode.replaceChildren(sources.build());
     }
@@ -274,12 +267,12 @@ public class AdaptivePlanner
 
     private SymbolAllocator createSymbolAllocator(List<SubPlan> subPlans)
     {
-        Map<Symbol, Type> usedSymbols = new HashMap<>();
-        subPlans.stream()
-                .map(SubPlan::getFragment)
-                .map(PlanFragment::getSymbols)
-                .forEach(usedSymbols::putAll);
-        return new SymbolAllocator(usedSymbols);
+        return new SymbolAllocator(
+                subPlans.stream()
+                        .map(SubPlan::getFragment)
+                        .map(PlanFragment::getSymbols)
+                        .flatMap(Set::stream)
+                        .collect(toImmutableSet()));
     }
 
     private int getMaxPlanFragmentId(List<SubPlan> subPlans)
@@ -317,12 +310,10 @@ public class AdaptivePlanner
             extends SimplePlanRewriter<List<SubPlan>>
     {
         private final RuntimeInfoProvider runtimeInfoProvider;
-        private final TypeProvider types;
 
-        private ReplaceUnchangedFragmentsWithRemoteSourcesRewriter(RuntimeInfoProvider runtimeInfoProvider, TypeProvider types)
+        private ReplaceUnchangedFragmentsWithRemoteSourcesRewriter(RuntimeInfoProvider runtimeInfoProvider)
         {
             this.runtimeInfoProvider = requireNonNull(runtimeInfoProvider, "runtimeInfoProvider is null");
-            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -332,7 +323,7 @@ public class AdaptivePlanner
             // rewrite them as well.
             PlanNode initialPlan = context.rewrite(node.getInitialPlan(), context.get());
             PlanNode currentPlan = context.rewrite(node.getCurrentPlan(), context.get());
-            return new AdaptivePlanNode(node.getId(), initialPlan, getFilteredSymbols(initialPlan, types), currentPlan);
+            return new AdaptivePlanNode(node.getId(), initialPlan, SymbolsExtractor.extractOutputSymbols(initialPlan), currentPlan);
         }
 
         @Override
@@ -458,12 +449,6 @@ public class AdaptivePlanner
         return PlanNodeSearcher.searchFrom(node)
                 .whereIsInstanceOfAny(AdaptivePlanNode.class)
                 .matches();
-    }
-
-    private static Map<Symbol, Type> getFilteredSymbols(PlanNode node, TypeProvider types)
-    {
-        Set<Symbol> dependencies = SymbolsExtractor.extractOutputSymbols(node);
-        return Maps.filterKeys(types.allTypes(), in(dependencies));
     }
 
     public record ExchangeSourceId(PlanNodeId exchangeId, PlanNodeId sourceId)

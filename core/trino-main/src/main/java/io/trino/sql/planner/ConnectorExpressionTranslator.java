@@ -49,7 +49,6 @@ import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullIfExpression;
 import io.trino.sql.ir.SubscriptExpression;
@@ -119,22 +118,17 @@ public final class ConnectorExpressionTranslator
                 .orElseThrow(() -> new UnsupportedOperationException("Expression is not supported: " + expression.toString()));
     }
 
-    public static Optional<ConnectorExpression> translate(Session session, Expression expression, IrTypeAnalyzer typeAnalyzer)
+    public static Optional<ConnectorExpression> translate(Session session, Expression expression)
     {
-        return new SqlToConnectorExpressionTranslator(session, typeAnalyzer.getTypes(expression))
+        return new SqlToConnectorExpressionTranslator(session)
                 .process(expression);
     }
 
     public static ConnectorExpressionTranslation translateConjuncts(
             Session session,
-            Expression expression,
-            TypeProvider types,
-            IrTypeAnalyzer typeAnalyzer)
+            Expression expression)
     {
-        Map<NodeRef<Expression>, Type> remainingExpressionTypes = typeAnalyzer.getTypes(expression);
-        SqlToConnectorExpressionTranslator translator = new SqlToConnectorExpressionTranslator(
-                session,
-                remainingExpressionTypes);
+        SqlToConnectorExpressionTranslator translator = new SqlToConnectorExpressionTranslator(session);
 
         List<Expression> conjuncts = extractConjuncts(expression);
         List<Expression> remaining = new ArrayList<>();
@@ -541,18 +535,16 @@ public final class ConnectorExpressionTranslator
             extends IrVisitor<Optional<ConnectorExpression>, Void>
     {
         private final Session session;
-        private final Map<NodeRef<Expression>, Type> types;
 
-        public SqlToConnectorExpressionTranslator(Session session, Map<NodeRef<Expression>, Type> types)
+        public SqlToConnectorExpressionTranslator(Session session)
         {
             this.session = requireNonNull(session, "session is null");
-            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
         protected Optional<ConnectorExpression> visitSymbolReference(SymbolReference node, Void context)
         {
-            return Optional.of(new Variable(node.getName(), typeOf(node)));
+            return Optional.of(new Variable(node.getName(), ((Expression) node).type()));
         }
 
         @Override
@@ -590,7 +582,7 @@ public final class ConnectorExpressionTranslator
             }
 
             return process(node.getLeft()).flatMap(left -> process(node.getRight()).map(right ->
-                    new Call(typeOf(node), functionNameForComparisonOperator(node.getOperator()), ImmutableList.of(left, right))));
+                    new Call(((Expression) node).type(), functionNameForComparisonOperator(node.getOperator()), ImmutableList.of(left, right))));
         }
 
         @Override
@@ -600,7 +592,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
             return process(node.getLeft()).flatMap(left -> process(node.getRight()).map(right ->
-                    new Call(typeOf(node), functionNameForArithmeticBinaryOperator(node.getOperator()), ImmutableList.of(left, right))));
+                    new Call(((Expression) node).type(), functionNameForArithmeticBinaryOperator(node.getOperator()), ImmutableList.of(left, right))));
         }
 
         @Override
@@ -626,13 +618,13 @@ public final class ConnectorExpressionTranslator
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
             }
-            return process(node.getValue()).map(value -> new Call(typeOf(node), NEGATE_FUNCTION_NAME, ImmutableList.of(value)));
+            return process(node.getValue()).map(value -> new Call(((Expression) node).type(), NEGATE_FUNCTION_NAME, ImmutableList.of(value)));
         }
 
         @Override
         protected Optional<ConnectorExpression> visitCast(Cast node, Void context)
         {
-            if (isSpecialType(typeOf(node))) {
+            if (isSpecialType(((Expression) node).type())) {
                 // We don't want to expose some internal types to connectors.
                 // These should be constant-folded (if appropriate) separately and
                 // handled by the regular visitConstant path
@@ -689,7 +681,7 @@ public final class ConnectorExpressionTranslator
             else {
                 name = new FunctionName(Optional.of(new CatalogSchemaName(functionName.getCatalogName(), functionName.getSchemaName())), functionName.getFunctionName());
             }
-            return Optional.of(new Call(typeOf(node), name, arguments.build()));
+            return Optional.of(new Call(((Expression) node).type(), name, arguments.build()));
         }
 
         private Optional<ConnectorExpression> translateLike(FunctionCall node)
@@ -733,7 +725,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            return Optional.of(new Call(typeOf(node), StandardFunctions.LIKE_FUNCTION_NAME, arguments.build()));
+            return Optional.of(new Call(((Expression) node).type(), StandardFunctions.LIKE_FUNCTION_NAME, arguments.build()));
         }
 
         @Override
@@ -786,7 +778,7 @@ public final class ConnectorExpressionTranslator
             Optional<ConnectorExpression> firstValue = process(node.getFirst());
             Optional<ConnectorExpression> secondValue = process(node.getSecond());
             if (firstValue.isPresent() && secondValue.isPresent()) {
-                return Optional.of(new Call(typeOf(node), NULLIF_FUNCTION_NAME, ImmutableList.of(firstValue.get(), secondValue.get())));
+                return Optional.of(new Call(((Expression) node).type(), NULLIF_FUNCTION_NAME, ImmutableList.of(firstValue.get(), secondValue.get())));
             }
             return Optional.empty();
         }
@@ -794,7 +786,7 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitSubscriptExpression(SubscriptExpression node, Void context)
         {
-            if (!(typeOf(node.getBase()) instanceof RowType)) {
+            if (!(node.getBase().type() instanceof RowType)) {
                 return Optional.empty();
             }
 
@@ -803,7 +795,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            return Optional.of(new FieldDereference(typeOf(node), translatedBase.get(), (int) ((long) ((Constant) node.getIndex()).getValue() - 1)));
+            return Optional.of(new FieldDereference(((Expression) node).type(), translatedBase.get(), (int) ((long) ((Constant) node.getIndex()).getValue() - 1)));
         }
 
         @Override
@@ -831,19 +823,14 @@ public final class ConnectorExpressionTranslator
                 values.add(processedValue.get());
             }
 
-            ConnectorExpression arrayExpression = new Call(new ArrayType(typeOf(node.getValue())), ARRAY_CONSTRUCTOR_FUNCTION_NAME, values.build());
-            return Optional.of(new Call(typeOf(node), IN_PREDICATE_FUNCTION_NAME, List.of(valueExpression.get(), arrayExpression)));
+            ConnectorExpression arrayExpression = new Call(new ArrayType(node.getValue().type()), ARRAY_CONSTRUCTOR_FUNCTION_NAME, values.build());
+            return Optional.of(new Call(((Expression) node).type(), IN_PREDICATE_FUNCTION_NAME, List.of(valueExpression.get(), arrayExpression)));
         }
 
         @Override
         protected Optional<ConnectorExpression> visitExpression(Expression node, Void context)
         {
             return Optional.empty();
-        }
-
-        private Type typeOf(Expression node)
-        {
-            return types.get(NodeRef.of(node));
         }
     }
 }

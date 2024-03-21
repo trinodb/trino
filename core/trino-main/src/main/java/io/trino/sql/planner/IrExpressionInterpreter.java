@@ -14,7 +14,6 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
@@ -49,7 +48,6 @@ import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullIfExpression;
 import io.trino.sql.ir.Row;
@@ -109,28 +107,24 @@ public class IrExpressionInterpreter
     private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final ConnectorSession connectorSession;
-    private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final InterpretedFunctionInvoker functionInvoker;
     private final TypeCoercion typeCoercion;
 
     private final IdentityHashMap<List<Expression>, Set<?>> inListCache = new IdentityHashMap<>();
 
-    public IrExpressionInterpreter(Expression expression, PlannerContext plannerContext, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
+    public IrExpressionInterpreter(Expression expression, PlannerContext plannerContext, Session session)
     {
         this.expression = requireNonNull(expression, "expression is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
         this.connectorSession = session.toConnectorSession();
-        this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
-        verify(expressionTypes.containsKey(NodeRef.of(expression)));
         this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
     }
 
     public static Object evaluateConstantExpression(Expression expression, PlannerContext plannerContext, Session session)
     {
-        Map<NodeRef<Expression>, Type> types = new IrTypeAnalyzer(plannerContext).getTypes(expression);
-        return new IrExpressionInterpreter(expression, plannerContext, session, types).evaluate();
+        return new IrExpressionInterpreter(expression, plannerContext, session).evaluate();
     }
 
     public Object evaluate()
@@ -202,7 +196,7 @@ public class IrExpressionInterpreter
             Object value = processWithExceptionHandling(node.getValue(), context);
 
             if (value instanceof Expression) {
-                return new IsNullPredicate(toExpression(value, type(node.getValue())));
+                return new IsNullPredicate(toExpression(value, node.getValue().type()));
             }
 
             return value == null;
@@ -221,8 +215,8 @@ public class IrExpressionInterpreter
                 if (whenOperand instanceof Expression) {
                     // cannot fully evaluate, add updated whenClause
                     whenClauses.add(new WhenClause(
-                            toExpression(whenOperand, type(whenClause.getOperand())),
-                            toExpression(processWithExceptionHandling(whenClause.getResult(), context), type(whenClause.getResult()))));
+                            toExpression(whenOperand, whenClause.getOperand().type()),
+                            toExpression(processWithExceptionHandling(whenClause.getResult(), context), whenClause.getResult().type())));
                 }
                 else if (Boolean.TRUE.equals(whenOperand)) {
                     // condition is true, use this as default
@@ -244,7 +238,8 @@ public class IrExpressionInterpreter
                 return defaultResult;
             }
 
-            Expression defaultExpression = (defaultResult == null) ? null : toExpression(defaultResult, type(node));
+            Expression defaultExpression;
+            defaultExpression = defaultResult == null ? null : toExpression(defaultResult, ((Expression) node).type());
             return new SearchedCaseExpression(whenClauses, Optional.ofNullable(defaultExpression));
         }
 
@@ -252,7 +247,7 @@ public class IrExpressionInterpreter
         protected Object visitSimpleCaseExpression(SimpleCaseExpression node, Object context)
         {
             Object operand = processWithExceptionHandling(node.getOperand(), context);
-            Type operandType = type(node.getOperand());
+            Type operandType = node.getOperand().type();
 
             // if operand is null, return defaultValue
             if (operand == null) {
@@ -269,14 +264,16 @@ public class IrExpressionInterpreter
                 if (whenOperand instanceof Expression || operand instanceof Expression) {
                     // cannot fully evaluate, add updated whenClause
                     whenClauses.add(new WhenClause(
-                            toExpression(whenOperand, type(whenClause.getOperand())),
-                            toExpression(processWithExceptionHandling(whenClause.getResult(), context), type(whenClause.getResult()))));
+                            toExpression(whenOperand, whenClause.getOperand().type()),
+                            toExpression(processWithExceptionHandling(whenClause.getResult(), context), whenClause.getResult().type())));
                 }
-                else if (whenOperand != null && isEqual(operand, operandType, whenOperand, type(whenClause.getOperand()))) {
-                    // condition is true, use this as default
-                    foundNewDefault = true;
-                    newDefault = processWithExceptionHandling(whenClause.getResult(), context);
-                    break;
+                else {
+                    if (whenOperand != null && isEqual(operand, operandType, whenOperand, whenClause.getOperand().type())) {
+                        // condition is true, use this as default
+                        foundNewDefault = true;
+                        newDefault = processWithExceptionHandling(whenClause.getResult(), context);
+                        break;
+                    }
                 }
             }
 
@@ -292,20 +289,14 @@ public class IrExpressionInterpreter
                 return defaultResult;
             }
 
-            Expression defaultExpression = (defaultResult == null) ? null : toExpression(defaultResult, type(node));
-            return new SimpleCaseExpression(toExpression(operand, type(node.getOperand())), whenClauses, Optional.ofNullable(defaultExpression));
+            Expression defaultExpression;
+            defaultExpression = defaultResult == null ? null : toExpression(defaultResult, ((Expression) node).type());
+            return new SimpleCaseExpression(toExpression(operand, node.getOperand().type()), whenClauses, Optional.ofNullable(defaultExpression));
         }
 
         private boolean isEqual(Object operand1, Type type1, Object operand2, Type type2)
         {
             return Boolean.TRUE.equals(invokeOperator(OperatorType.EQUAL, ImmutableList.of(type1, type2), ImmutableList.of(operand1, operand2)));
-        }
-
-        private Type type(Expression expression)
-        {
-            Type type = expressionTypes.get(NodeRef.of(expression));
-            checkState(type != null, "Type not found for expression: %s", expression);
-            return type;
         }
 
         @Override
@@ -319,7 +310,7 @@ public class IrExpressionInterpreter
                 return getOnlyElement(newOperands);
             }
             return new CoalesceExpression(newOperands.stream()
-                    .map(value -> toExpression(value, type(node)))
+                    .map(value -> toExpression(value, ((Expression) node).type()))
                     .collect(toImmutableList()));
         }
 
@@ -368,7 +359,7 @@ public class IrExpressionInterpreter
                 return null;
             }
 
-            Type type = type(node.getValue());
+            Type type = node.getValue().type();
             if (!(value instanceof Expression) &&
                     !(type instanceof ArrayType) && // equals/hashcode doesn't work for complex types that may contain nulls
                     !(type instanceof MapType) &&
@@ -412,7 +403,7 @@ public class IrExpressionInterpreter
                     // skip interpreting of literal IN term since it cannot be compared
                     // with unresolved "value" and it cannot be simplified further
                     values.add(expression);
-                    types.add(type(expression));
+                    types.add(expression.type());
                     continue;
                 }
 
@@ -425,7 +416,7 @@ public class IrExpressionInterpreter
                 if (value instanceof Expression || inValue instanceof Expression) {
                     hasUnresolvedValue = true;
                     values.add(inValue);
-                    types.add(type(expression));
+                    types.add(expression.type());
                     continue;
                 }
 
@@ -477,7 +468,7 @@ public class IrExpressionInterpreter
                 return null;
             }
             if (value instanceof Expression) {
-                Expression valueExpression = toExpression(value, type(node.getValue()));
+                Expression valueExpression = toExpression(value, node.getValue().type());
                 if (valueExpression instanceof ArithmeticNegation argument) {
                     return argument.getValue();
                 }
@@ -514,7 +505,7 @@ public class IrExpressionInterpreter
             }
 
             if (hasUnresolvedValue(left, right)) {
-                return new ArithmeticBinaryExpression(node.getFunction(), node.getOperator(), toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
+                return new ArithmeticBinaryExpression(node.getFunction(), node.getOperator(), toExpression(left, node.getLeft().type()), toExpression(right, node.getRight().type()));
             }
 
             return functionInvoker.invoke(node.getFunction(), connectorSession, ImmutableList.of(left, right));
@@ -568,7 +559,7 @@ public class IrExpressionInterpreter
             }
 
             if (left instanceof Expression || right instanceof Expression) {
-                return new ComparisonExpression(Operator.IS_DISTINCT_FROM, toExpression(left, type(leftExpression)), toExpression(right, type(rightExpression)));
+                return new ComparisonExpression(Operator.IS_DISTINCT_FROM, toExpression(left, leftExpression.type()), toExpression(right, rightExpression.type()));
             }
 
             return invokeOperator(OperatorType.valueOf(Operator.IS_DISTINCT_FROM.name()), types(leftExpression, rightExpression), Arrays.asList(left, right));
@@ -587,7 +578,7 @@ public class IrExpressionInterpreter
             }
 
             if (left instanceof Expression || right instanceof Expression) {
-                return new ComparisonExpression(operator, toExpression(left, type(leftExpression)), toExpression(right, type(rightExpression)));
+                return new ComparisonExpression(operator, toExpression(left, leftExpression.type()), toExpression(right, rightExpression.type()));
             }
 
             return invokeOperator(OperatorType.valueOf(operator.name()), types(leftExpression, rightExpression), ImmutableList.of(left, right));
@@ -619,9 +610,9 @@ public class IrExpressionInterpreter
 
             if (value instanceof Expression || min instanceof Expression || max instanceof Expression) {
                 return new BetweenPredicate(
-                        toExpression(value, type(node.getValue())),
-                        toExpression(min, type(node.getMin())),
-                        toExpression(max, type(node.getMax())));
+                        toExpression(value, node.getValue().type()),
+                        toExpression(min, node.getMin().type()),
+                        toExpression(max, node.getMax().type()));
             }
 
             Boolean greaterOrEqualToMin = null;
@@ -654,8 +645,8 @@ public class IrExpressionInterpreter
                 return first;
             }
 
-            Type firstType = type(node.getFirst());
-            Type secondType = type(node.getSecond());
+            Type firstType = node.getFirst().type();
+            Type secondType = node.getSecond().type();
 
             if (hasUnresolvedValue(first, second)) {
                 return new NullIfExpression(toExpression(first, firstType), toExpression(second, secondType));
@@ -689,7 +680,7 @@ public class IrExpressionInterpreter
             }
 
             if (value instanceof Expression) {
-                return new NotExpression(toExpression(value, type(node.getValue())));
+                return new NotExpression(toExpression(value, node.getValue().type()));
             }
 
             return !(Boolean) value;
@@ -711,7 +702,7 @@ public class IrExpressionInterpreter
                         }
                         if (!Boolean.TRUE.equals(processed)) {
                             terms.add(processed);
-                            types.add(type(term));
+                            types.add(term.type());
                         }
                     }
                     case OR -> {
@@ -720,7 +711,7 @@ public class IrExpressionInterpreter
                         }
                         if (!Boolean.FALSE.equals(processed)) {
                             terms.add(processed);
-                            types.add(type(term));
+                            types.add(term.type());
                         }
                     }
                 }
@@ -755,7 +746,7 @@ public class IrExpressionInterpreter
             List<Object> argumentValues = new ArrayList<>();
             for (Expression expression : node.getArguments()) {
                 Object value = processWithExceptionHandling(expression, context);
-                Type type = type(expression);
+                Type type = expression.type();
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
@@ -795,7 +786,7 @@ public class IrExpressionInterpreter
                     optimizedBody = (Expression) value;
                 }
                 else {
-                    Type type = type(node.getBody());
+                    Type type = node.getBody().type();
                     optimizedBody = toExpression(value, type);
                 }
                 return new LambdaExpression(node.getArguments(), optimizedBody);
@@ -805,7 +796,7 @@ public class IrExpressionInterpreter
             List<String> argumentNames = node.getArguments().stream()
                     .map(Symbol::getName)
                     .toList();
-            FunctionType functionType = (FunctionType) expressionTypes.get(NodeRef.<Expression>of(node));
+            FunctionType functionType = (FunctionType) node.type();
             checkArgument(argumentNames.size() == functionType.getArgumentTypes().size());
 
             return generateVarArgsToMapAdapter(
@@ -829,7 +820,7 @@ public class IrExpressionInterpreter
             if (hasUnresolvedValue(values) || hasUnresolvedValue(function)) {
                 ImmutableList.Builder<Expression> builder = ImmutableList.builder();
                 for (int i = 0; i < values.size(); i++) {
-                    builder.add(toExpression(values.get(i), type(node.getValues().get(i))));
+                    builder.add(toExpression(values.get(i), node.getValues().get(i).type()));
                 }
 
                 return new BindExpression(builder.build(), (LambdaExpression) function);
@@ -843,7 +834,7 @@ public class IrExpressionInterpreter
         {
             Object value = processWithExceptionHandling(node.getExpression(), context);
             Type targetType = node.getType();
-            Type sourceType = type(node.getExpression());
+            Type sourceType = node.getExpression().type();
             if (value instanceof Expression) {
                 if (targetType.equals(sourceType)) {
                     return value;
@@ -872,7 +863,7 @@ public class IrExpressionInterpreter
         @Override
         protected Object visitRow(Row node, Object context)
         {
-            RowType rowType = (RowType) type(node);
+            RowType rowType = (RowType) ((Expression) node).type();
             List<Type> parameterTypes = rowType.getTypeParameters();
             List<Expression> arguments = node.getItems();
 
@@ -902,12 +893,12 @@ public class IrExpressionInterpreter
             if (index == null) {
                 return null;
             }
-            if ((index instanceof Long) && isArray(type(node.getBase()))) {
+            if ((index instanceof Long) && isArray(node.getBase().type())) {
                 ArraySubscriptOperator.checkArrayIndex((Long) index);
             }
 
             if (hasUnresolvedValue(base, index)) {
-                return new SubscriptExpression(node.type(), toExpression(base, type(node.getBase())), toExpression(index, type(node.getIndex())));
+                return new SubscriptExpression(node.type(), toExpression(base, node.getBase().type()), toExpression(index, node.getIndex().type()));
             }
 
             // Subscript on Row hasn't got a dedicated operator. It is interpreted by hand.
@@ -916,7 +907,7 @@ public class IrExpressionInterpreter
                 if (fieldIndex < 0 || fieldIndex >= row.getFieldCount()) {
                     throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "ROW index out of bounds: " + (fieldIndex + 1));
                 }
-                Type returnType = type(node.getBase()).getTypeParameters().get(fieldIndex);
+                Type returnType = node.getBase().type().getTypeParameters().get(fieldIndex);
                 return readNativeValue(returnType, row.getRawFieldBlock(fieldIndex), row.getRawIndex());
             }
 
@@ -933,8 +924,7 @@ public class IrExpressionInterpreter
         private List<Type> types(Expression... expressions)
         {
             return Stream.of(expressions)
-                    .map(NodeRef::of)
-                    .map(expressionTypes::get)
+                    .map(Expression::type)
                     .collect(toImmutableList());
         }
 

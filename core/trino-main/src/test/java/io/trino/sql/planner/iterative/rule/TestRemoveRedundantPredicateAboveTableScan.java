@@ -70,7 +70,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
     @BeforeAll
     public void setUpBeforeClass()
     {
-        removeRedundantPredicateAboveTableScan = new RemoveRedundantPredicateAboveTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
+        removeRedundantPredicateAboveTableScan = new RemoveRedundantPredicateAboveTableScan(tester().getPlannerContext());
         CatalogHandle catalogHandle = tester().getCurrentCatalogHandle();
         TpchTableHandle nation = new TpchTableHandle("sf1", "nation", 1.0);
         nationTableHandle = new TableHandle(

@@ -16,7 +16,6 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
@@ -35,7 +34,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
-import io.trino.spi.type.Type;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -71,7 +69,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getQueryMaxStageCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
@@ -153,7 +150,6 @@ public class PlanFragmenter
                 session,
                 metadata,
                 functionManager,
-                plan.getTypes(),
                 plan.getStatsAndCosts(),
                 activeCatalogs,
                 languageScalarFunctions,
@@ -249,7 +245,6 @@ public class PlanFragmenter
         private final Session session;
         private final Metadata metadata;
         private final FunctionManager functionManager;
-        private final TypeProvider types;
         private final StatsAndCosts statsAndCosts;
         private final List<CatalogProperties> activeCatalogs;
         private final List<LanguageScalarFunctionData> languageFunctions;
@@ -261,7 +256,6 @@ public class PlanFragmenter
                 Session session,
                 Metadata metadata,
                 FunctionManager functionManager,
-                TypeProvider types,
                 StatsAndCosts statsAndCosts,
                 List<CatalogProperties> activeCatalogs,
                 List<LanguageScalarFunctionData> languageFunctions,
@@ -271,7 +265,6 @@ public class PlanFragmenter
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.functionManager = requireNonNull(functionManager, "functionManager is null");
-            this.types = requireNonNull(types, "types is null");
             this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
             this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
             this.languageFunctions = requireNonNull(languageFunctions, "languageFunctions is null");
@@ -293,12 +286,10 @@ public class PlanFragmenter
             boolean equals = properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder));
             checkArgument(equals, "Expected scheduling order (%s) to contain an entry for all partitioned sources (%s)", schedulingOrder, properties.getPartitionedSources());
 
-            Map<Symbol, Type> symbols = Maps.filterKeys(types.allTypes(), in(dependencies));
-
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
                     root,
-                    symbols,
+                    dependencies,
                     properties.getPartitioningHandle(),
                     properties.getPartitionCount(),
                     schedulingOrder,
@@ -306,7 +297,7 @@ public class PlanFragmenter
                     statsAndCosts.getForSubplan(root),
                     activeCatalogs,
                     languageFunctions,
-                    Optional.of(jsonFragmentPlan(root, symbols, metadata, functionManager, session)));
+                    Optional.of(jsonFragmentPlan(root, metadata, functionManager, session)));
 
             return new SubPlan(fragment, properties.getChildren());
         }
@@ -475,8 +466,7 @@ public class PlanFragmenter
             ExchangeNodeToRemoteSourceRewriter rewriter = new ExchangeNodeToRemoteSourceRewriter(remoteSourceNodes, unchangedSubPlans.keySet());
             PlanNode newInitialPlan = SimplePlanRewriter.rewriteWith(rewriter, adaptivePlan.getInitialPlan());
             Set<Symbol> dependencies = SymbolsExtractor.extractOutputSymbols(newInitialPlan);
-            Map<Symbol, Type> filteredSymbols = Maps.filterKeys(types.allTypes(), in(dependencies));
-            return new AdaptivePlanNode(adaptivePlan.getId(), newInitialPlan, filteredSymbols, adaptivePlan.getCurrentPlan());
+            return new AdaptivePlanNode(adaptivePlan.getId(), newInitialPlan, dependencies, adaptivePlan.getCurrentPlan());
         }
 
         @Override

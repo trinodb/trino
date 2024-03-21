@@ -35,10 +35,8 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
 
 import java.lang.invoke.MethodHandle;
@@ -46,7 +44,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
@@ -94,39 +91,35 @@ import static java.util.Objects.requireNonNull;
 public class UnwrapDateTruncInComparison
         extends ExpressionRewriteRuleSet
 {
-    public UnwrapDateTruncInComparison(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    public UnwrapDateTruncInComparison(PlannerContext plannerContext)
     {
-        super(createRewrite(plannerContext, typeAnalyzer));
+        super(createRewrite(plannerContext));
     }
 
-    private static ExpressionRewriter createRewrite(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    private static ExpressionRewriter createRewrite(PlannerContext plannerContext)
     {
         requireNonNull(plannerContext, "plannerContext is null");
-        requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> unwrapDateTrunc(context.getSession(), plannerContext, typeAnalyzer, expression);
+        return (expression, context) -> unwrapDateTrunc(context.getSession(), plannerContext, expression);
     }
 
     private static Expression unwrapDateTrunc(Session session,
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
             Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer, session), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, session), expression);
     }
 
     private static class Visitor
             extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         private final PlannerContext plannerContext;
-        private final IrTypeAnalyzer typeAnalyzer;
         private final Session session;
         private final InterpretedFunctionInvoker functionInvoker;
 
-        public Visitor(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, Session session)
+        public Visitor(PlannerContext plannerContext, Session session)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
         }
@@ -150,24 +143,23 @@ public class UnwrapDateTruncInComparison
                 return expression;
             }
 
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(expression);
             Expression unitExpression = call.getArguments().get(0);
-            if (!(expressionTypes.get(NodeRef.of(unitExpression)) instanceof VarcharType) || !(unitExpression instanceof Constant)) {
+            if (!(unitExpression.type() instanceof VarcharType) || !(unitExpression instanceof Constant)) {
                 return expression;
             }
-            Slice unitName = (Slice) new IrExpressionInterpreter(unitExpression, plannerContext, session, expressionTypes)
+            Slice unitName = (Slice) new IrExpressionInterpreter(unitExpression, plannerContext, session)
                     .optimize(NoOpSymbolResolver.INSTANCE);
             if (unitName == null) {
                 return expression;
             }
 
             Expression argument = call.getArguments().get(1);
-            Type argumentType = expressionTypes.get(NodeRef.of(argument));
+            Type argumentType = argument.type();
 
-            Type rightType = expressionTypes.get(NodeRef.of(expression.getRight()));
+            Type rightType = expression.right().type();
             verify(argumentType.equals(rightType), "Mismatched types: %s and %s", argumentType, rightType);
 
-            Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session, expressionTypes)
+            Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session)
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
             if (right == null) {

@@ -168,7 +168,7 @@ public class TestNoMemoryAwarePartitionMemoryEstimator
         return new PlanFragment(
                 new PlanFragmentId("parent"),
                 new RemoteSourceNode(new PlanNodeId("rsn"), childFragmentIds, ImmutableList.of(), Optional.empty(), ExchangeNode.Type.GATHER, RetryPolicy.TASK),
-                ImmutableMap.of(),
+                ImmutableSet.of(),
                 SOURCE_DISTRIBUTION,
                 Optional.empty(),
                 ImmutableList.of(),
@@ -214,7 +214,7 @@ public class TestNoMemoryAwarePartitionMemoryEstimator
         return new PlanFragment(
                 new PlanFragmentId(fragmentId),
                 informationSchemaViewsTableScan,
-                ImmutableMap.of(),
+                ImmutableSet.of(),
                 SOURCE_DISTRIBUTION,
                 Optional.empty(),
                 ImmutableList.of(),

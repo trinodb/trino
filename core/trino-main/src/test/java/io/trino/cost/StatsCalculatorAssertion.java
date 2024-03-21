@@ -16,7 +16,6 @@ package io.trino.cost;
 import io.trino.Session;
 import io.trino.cost.ComposableStatsCalculator.Rule;
 import io.trino.cost.StatsCalculator.Context;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -37,19 +36,17 @@ public class StatsCalculatorAssertion
     private final QueryRunner queryRunner;
     private final Session session;
     private final PlanNode planNode;
-    private final TypeProvider types;
 
     private final Map<PlanNode, PlanNodeStatsEstimate> sourcesStats;
     private RuntimeInfoProvider runtimeInfoProvider = RuntimeInfoProvider.noImplementation();
 
     private Optional<TableStatsProvider> tableStatsProvider = Optional.empty();
 
-    StatsCalculatorAssertion(QueryRunner queryRunner, Session session, PlanNode planNode, TypeProvider types)
+    StatsCalculatorAssertion(QueryRunner queryRunner, Session session, PlanNode planNode)
     {
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
         this.session = requireNonNull(session, "session cannot be null");
         this.planNode = requireNonNull(planNode, "planNode is null");
-        this.types = requireNonNull(types, "types is null");
 
         sourcesStats = new HashMap<>();
         planNode.getSources().forEach(child -> sourcesStats.put(child, PlanNodeStatsEstimate.unknown()));
@@ -101,7 +98,6 @@ public class StatsCalculatorAssertion
                         this::getSourceStats,
                         noLookup(),
                         session,
-                        types,
                         tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), session)),
                         runtimeInfoProvider));
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate));
@@ -117,7 +113,6 @@ public class StatsCalculatorAssertion
                         this::getSourceStats,
                         noLookup(),
                         session,
-                        types,
                         tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), session)),
                         runtimeInfoProvider));
         checkState(statsEstimate.isPresent(), "Expected stats estimates to be present");

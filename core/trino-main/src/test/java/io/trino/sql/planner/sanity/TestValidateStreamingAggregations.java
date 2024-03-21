@@ -22,9 +22,7 @@ import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.PlanNode;
@@ -41,7 +39,6 @@ public class TestValidateStreamingAggregations
         extends BasePlanTest
 {
     private PlannerContext plannerContext;
-    private IrTypeAnalyzer typeAnalyzer;
     private PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private TableHandle nationTableHandle;
 
@@ -49,7 +46,6 @@ public class TestValidateStreamingAggregations
     public void setup()
     {
         plannerContext = getPlanTester().getPlannerContext();
-        typeAnalyzer = new IrTypeAnalyzer(plannerContext);
 
         CatalogHandle catalogHandle = getCurrentCatalogHandle();
         nationTableHandle = new TableHandle(
@@ -106,11 +102,10 @@ public class TestValidateStreamingAggregations
         getPlanTester().inTransaction(session -> {
             PlanBuilder builder = new PlanBuilder(idAllocator, plannerContext, session);
             PlanNode planNode = planProvider.apply(builder);
-            TypeProvider types = builder.getTypes();
 
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> plannerContext.getMetadata().getCatalogHandle(session, catalog));
-            new ValidateStreamingAggregations().validate(planNode, session, plannerContext, typeAnalyzer, types, WarningCollector.NOOP);
+            new ValidateStreamingAggregations().validate(planNode, session, plannerContext, WarningCollector.NOOP);
             return null;
         });
     }

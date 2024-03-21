@@ -43,7 +43,6 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.type.TypeCoercion;
 
@@ -120,39 +119,35 @@ import static java.util.Objects.requireNonNull;
 public class UnwrapCastInComparison
         extends ExpressionRewriteRuleSet
 {
-    public UnwrapCastInComparison(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    public UnwrapCastInComparison(PlannerContext plannerContext)
     {
-        super(createRewrite(plannerContext, typeAnalyzer));
+        super(createRewrite(plannerContext));
     }
 
-    private static ExpressionRewriter createRewrite(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    private static ExpressionRewriter createRewrite(PlannerContext plannerContext)
     {
         requireNonNull(plannerContext, "plannerContext is null");
-        requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> unwrapCasts(context.getSession(), plannerContext, typeAnalyzer, expression);
+        return (expression, context) -> unwrapCasts(context.getSession(), plannerContext, expression);
     }
 
     public static Expression unwrapCasts(Session session,
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
             Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer, session), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, session), expression);
     }
 
     private static class Visitor
             extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         private final PlannerContext plannerContext;
-        private final IrTypeAnalyzer typeAnalyzer;
         private final Session session;
         private final InterpretedFunctionInvoker functionInvoker;
 
-        public Visitor(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, Session session)
+        public Visitor(PlannerContext plannerContext, Session session)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
         }
@@ -171,7 +166,7 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session, typeAnalyzer.getTypes(expression.getRight()))
+            Object right = new IrExpressionInterpreter(expression.getRight(), plannerContext, session)
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
             ComparisonExpression.Operator operator = expression.getOperator();
@@ -187,8 +182,8 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Type sourceType = typeAnalyzer.getType(cast.getExpression());
-            Type targetType = typeAnalyzer.getType(expression.getRight());
+            Type sourceType = cast.expression().type();
+            Type targetType = expression.right().type();
 
             if (sourceType instanceof TimestampType && targetType == DATE) {
                 return unwrapTimestampToDateCast((TimestampType) sourceType, operator, cast.getExpression(), (long) right).orElse(expression);

@@ -21,7 +21,6 @@ import com.google.common.collect.Maps;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 
@@ -79,12 +78,12 @@ public class Assignments
         return builder().put(symbol1, expression1).put(symbol2, expression2).build();
     }
 
-    public static Assignments of(Collection<? extends Expression> expressions, SymbolAllocator symbolAllocator, IrTypeAnalyzer typeAnalyzer)
+    public static Assignments of(Collection<? extends Expression> expressions, SymbolAllocator symbolAllocator)
     {
         Assignments.Builder assignments = Assignments.builder();
 
         for (Expression expression : expressions) {
-            Type type = typeAnalyzer.getType(expression);
+            Type type = expression.type();
             assignments.put(symbolAllocator.newSymbol(expression, type), expression);
         }
 

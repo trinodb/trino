@@ -21,24 +21,17 @@ import static java.util.Objects.requireNonNull;
 public class Plan
 {
     private final PlanNode root;
-    private final TypeProvider types;
     private final StatsAndCosts statsAndCosts;
 
-    public Plan(PlanNode root, TypeProvider types, StatsAndCosts statsAndCosts)
+    public Plan(PlanNode root, StatsAndCosts statsAndCosts)
     {
         this.root = requireNonNull(root, "root is null");
-        this.types = requireNonNull(types, "types is null");
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
     }
 
     public PlanNode getRoot()
     {
         return root;
-    }
-
-    public TypeProvider getTypes()
-    {
-        return types;
     }
 
     public StatsAndCosts getStatsAndCosts()

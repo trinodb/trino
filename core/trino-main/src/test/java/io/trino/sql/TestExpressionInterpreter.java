@@ -14,12 +14,11 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
 import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.BetweenPredicate;
@@ -32,7 +31,6 @@ import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.InPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.NullIfExpression;
 import io.trino.sql.ir.Row;
@@ -42,17 +40,15 @@ import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolResolver;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.transaction.TestingTransactionManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
-import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -83,10 +79,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionInterpreter
 {
-    private static final TypeProvider SYMBOL_TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-            .put(new Symbol(UNKNOWN, "bound_value"), INTEGER)
-            .put(new Symbol(UNKNOWN, "unbound_value"), INTEGER)
-            .buildOrThrow());
+    private static final Set<Symbol> SYMBOLS = ImmutableSet.of(
+            new Symbol(INTEGER, "bound_value"),
+            new Symbol(INTEGER, "unbound_value"));
 
     private static final SymbolResolver INPUTS = symbol -> {
         if (symbol.getName().toLowerCase(ENGLISH).equals("bound_value")) {
@@ -911,22 +906,18 @@ public class TestExpressionInterpreter
     {
         Expression actualOptimized = (Expression) optimize(actual);
 
-        ImmutableMap.Builder<String, SymbolReference> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Type> entry : SYMBOL_TYPES.allTypes().entrySet()) {
-            builder.put(entry.getKey().getName(), new SymbolReference(entry.getValue(), entry.getKey().getName()));
+        SymbolAliases.Builder aliases = SymbolAliases.builder();
+
+        for (Symbol symbol : SYMBOLS) {
+            aliases.put(symbol.getName(), symbol.toSymbolReference());
         }
 
-        SymbolAliases aliases = SymbolAliases.builder()
-                .putAll(builder.buildOrThrow())
-                .build();
-
-        assertExpressionEquals(actualOptimized, expected, aliases);
+        assertExpressionEquals(actualOptimized, expected, aliases.build());
     }
 
     static Object optimize(Expression parsedExpression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(parsedExpression);
-        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION);
         return interpreter.optimize(INPUTS);
     }
 
@@ -937,8 +928,7 @@ public class TestExpressionInterpreter
 
     private static Object evaluate(Expression expression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(expression);
-        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION);
 
         return interpreter.evaluate(INPUTS);
     }

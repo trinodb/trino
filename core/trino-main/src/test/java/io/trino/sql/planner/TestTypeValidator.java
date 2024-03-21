@@ -330,7 +330,7 @@ public class TestTypeValidator
 
     private void assertTypesValid(PlanNode node)
     {
-        TYPE_VALIDATOR.validate(node, TEST_SESSION, PLANNER_CONTEXT, new IrTypeAnalyzer(PLANNER_CONTEXT), symbolAllocator.getTypes(), WarningCollector.NOOP);
+        TYPE_VALIDATOR.validate(node, TEST_SESSION, PLANNER_CONTEXT, WarningCollector.NOOP);
     }
 
     private static PlanNodeId newId()

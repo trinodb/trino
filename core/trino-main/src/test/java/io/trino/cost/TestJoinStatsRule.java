@@ -14,13 +14,9 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.trino.spi.type.Type;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.trino.sql.planner.plan.JoinType;
@@ -93,17 +89,9 @@ public class TestJoinStatsRule
 
     private static final StatsNormalizer NORMALIZER = new StatsNormalizer();
     private static final JoinStatsRule JOIN_STATS_RULE = new JoinStatsRule(
-            new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, new IrTypeAnalyzer(PLANNER_CONTEXT)), NORMALIZER, new IrTypeAnalyzer(PLANNER_CONTEXT)),
+            new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT), NORMALIZER),
             NORMALIZER,
             1.0);
-    private static final TypeProvider TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-            .put(new Symbol(UNKNOWN, LEFT_JOIN_COLUMN), BIGINT)
-            .put(new Symbol(UNKNOWN, LEFT_JOIN_COLUMN_2), DOUBLE)
-            .put(new Symbol(UNKNOWN, RIGHT_JOIN_COLUMN), BIGINT)
-            .put(new Symbol(UNKNOWN, RIGHT_JOIN_COLUMN_2), DOUBLE)
-            .put(new Symbol(UNKNOWN, LEFT_OTHER_COLUMN), DOUBLE)
-            .put(new Symbol(UNKNOWN, RIGHT_OTHER_COLUMN), BIGINT)
-            .buildOrThrow());
 
     @Test
     public void testStatsForInnerJoin()
@@ -237,8 +225,7 @@ public class TestJoinStatsRule
                 Optional.empty(),
                 ImmutableList.of(new EquiJoinClause(new Symbol(UNKNOWN, LEFT_JOIN_COLUMN), new Symbol(UNKNOWN, RIGHT_JOIN_COLUMN))),
                 LEFT_STATS,
-                RIGHT_STATS,
-                TYPES);
+                RIGHT_STATS);
         Assertions.assertThat(actual).isEqualTo(expected);
     }
 
@@ -249,27 +236,24 @@ public class TestJoinStatsRule
                 planNodeStats(
                         RIGHT_ROWS_COUNT * RIGHT_JOIN_COLUMN_NULLS,
                         symbolStatistics(RIGHT_JOIN_COLUMN, NaN, NaN, 1.0, 0),
-                        RIGHT_OTHER_COLUMN_STATS),
-                TYPES);
+                        RIGHT_OTHER_COLUMN_STATS));
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
                 ImmutableList.of(new EquiJoinClause(new Symbol(UNKNOWN, RIGHT_JOIN_COLUMN), new Symbol(UNKNOWN, LEFT_JOIN_COLUMN))),
                 RIGHT_STATS,
-                LEFT_STATS,
-                TYPES);
+                LEFT_STATS);
         Assertions.assertThat(actual).isEqualTo(expected);
     }
 
     @Test
     public void testLeftJoinComplementStatsWithNoClauses()
     {
-        PlanNodeStatsEstimate expected = NORMALIZER.normalize(LEFT_STATS.mapOutputRowCount(rowCount -> 0.0), TYPES);
+        PlanNodeStatsEstimate expected = NORMALIZER.normalize(LEFT_STATS.mapOutputRowCount(rowCount -> 0.0));
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
                 ImmutableList.of(),
                 LEFT_STATS,
-                RIGHT_STATS,
-                TYPES);
+                RIGHT_STATS);
         Assertions.assertThat(actual).isEqualTo(expected);
     }
 
@@ -285,8 +269,7 @@ public class TestJoinStatsRule
                 Optional.empty(),
                 ImmutableList.of(new EquiJoinClause(new Symbol(UNKNOWN, LEFT_JOIN_COLUMN), new Symbol(UNKNOWN, RIGHT_JOIN_COLUMN)), new EquiJoinClause(new Symbol(UNKNOWN, LEFT_OTHER_COLUMN), new Symbol(UNKNOWN, RIGHT_OTHER_COLUMN))),
                 LEFT_STATS,
-                RIGHT_STATS,
-                TYPES);
+                RIGHT_STATS);
         Assertions.assertThat(actual).isEqualTo(expected);
     }
 

@@ -157,7 +157,6 @@ public class TestUnaliasSymbolReferences
                     plan,
                     new PlanOptimizer.Context(
                             session,
-                            planBuilder.getTypes(),
                             symbolAllocator,
                             idAllocator,
                             WarningCollector.NOOP,
@@ -165,7 +164,7 @@ public class TestUnaliasSymbolReferences
                             new CachingTableStatsProvider(metadata, session),
                             RuntimeInfoProvider.noImplementation()));
 
-            Plan actual = new Plan(optimized, planBuilder.getTypes(), StatsAndCosts.empty());
+            Plan actual = new Plan(optimized, StatsAndCosts.empty());
             PlanAssert.assertPlan(session, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), planTester.getStatsCalculator(), actual, pattern);
             return null;
         });

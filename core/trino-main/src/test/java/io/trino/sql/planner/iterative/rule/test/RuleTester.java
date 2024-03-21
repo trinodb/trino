@@ -25,7 +25,6 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.testing.PlanTester;
 
@@ -48,7 +47,6 @@ public class RuleTester
     private final PlanTester planTester;
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
-    private final IrTypeAnalyzer typeAnalyzer;
     private final FunctionManager functionManager;
 
     public static RuleTester defaultRuleTester()
@@ -64,7 +62,6 @@ public class RuleTester
         this.functionManager = planTester.getPlannerContext().getFunctionManager();
         this.splitManager = planTester.getSplitManager();
         this.pageSourceManager = planTester.getPageSourceManager();
-        this.typeAnalyzer = new IrTypeAnalyzer(planTester.getPlannerContext());
     }
 
     public RuleBuilder assertThat(Rule<?> rule)
@@ -106,11 +103,6 @@ public class RuleTester
     public PageSourceManager getPageSourceManager()
     {
         return pageSourceManager;
-    }
-
-    public IrTypeAnalyzer getTypeAnalyzer()
-    {
-        return typeAnalyzer;
     }
 
     public CatalogHandle getCurrentCatalogHandle()

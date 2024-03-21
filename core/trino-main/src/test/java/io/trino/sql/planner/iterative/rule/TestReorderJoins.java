@@ -23,7 +23,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.ArithmeticNegation;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.Symbol;
@@ -51,7 +50,6 @@ import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.AUTOMATIC;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -671,6 +669,6 @@ public class TestReorderJoins
 
     private RuleBuilder assertReorderJoins()
     {
-        return tester.assertThat(new ReorderJoins(new CostComparator(1, 1, 1), new IrTypeAnalyzer(PLANNER_CONTEXT)));
+        return tester.assertThat(new ReorderJoins(new CostComparator(1, 1, 1)));
     }
 }

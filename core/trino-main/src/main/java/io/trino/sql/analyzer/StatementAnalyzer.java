@@ -122,7 +122,6 @@ import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.ScopeAware;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
@@ -3012,7 +3011,6 @@ class StatementAnalyzer
                             plannerContext,
                             statementAnalyzerFactory,
                             accessControl,
-                            TypeProvider.empty(),
                             ImmutableList.of(samplePercentage),
                             analysis.getParameters(),
                             WarningCollector.NOOP,

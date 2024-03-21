@@ -21,7 +21,6 @@ import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
@@ -66,7 +65,6 @@ public class RemoteSourceStatsRule
             PlanNodeStatsEstimate stageEstimatedStats = getEstimatedStats(runtimeInfoProvider, context.statsProvider(), planFragmentId);
             PlanNodeStatsEstimate adjustedStageStats = adjustStats(
                     node.getOutputSymbols(),
-                    context.types(),
                     stageRuntimeStats,
                     stageEstimatedStats);
 
@@ -97,7 +95,6 @@ public class RemoteSourceStatsRule
 
     private PlanNodeStatsEstimate adjustStats(
             List<Symbol> outputs,
-            TypeProvider typeProvider,
             OutputStatsEstimateResult runtimeStats,
             PlanNodeStatsEstimate estimateStats)
     {
@@ -114,7 +111,7 @@ public class RemoteSourceStatsRule
         double variableTypeValuesCount = 0;
 
         for (Symbol outputSymbol : outputs) {
-            Type type = typeProvider.get(outputSymbol);
+            Type type = outputSymbol.getType();
             SymbolStatsEstimate symbolStatistics = estimateStats.getSymbolStatistics(outputSymbol);
             double nullsFraction = firstNonNaN(symbolStatistics.getNullsFraction(), 0d);
             double numberOfNonNullRows = runtimeStats.outputRowCountEstimate() * (1.0 - nullsFraction);
@@ -135,7 +132,7 @@ public class RemoteSourceStatsRule
 
         for (Symbol outputSymbol : outputs) {
             SymbolStatsEstimate symbolStatistics = estimateStats.getSymbolStatistics(outputSymbol);
-            Type type = typeProvider.get(outputSymbol);
+            Type type = outputSymbol.getType();
             if (!(isNaN(variableTypeValueAverageSize) || type instanceof FixedWidthType)) {
                 symbolStatistics = SymbolStatsEstimate.buildFrom(symbolStatistics)
                         .setAverageRowSize(variableTypeValueAverageSize)

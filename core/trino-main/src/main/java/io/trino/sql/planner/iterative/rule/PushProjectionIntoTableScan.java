@@ -30,14 +30,12 @@ import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -74,13 +72,11 @@ public class PushProjectionIntoTableScan
             tableScan().capturedAs(TABLE_SCAN)));
 
     private final PlannerContext plannerContext;
-    private final IrTypeAnalyzer typeAnalyzer;
     private final ScalarStatsCalculator scalarStatsCalculator;
 
-    public PushProjectionIntoTableScan(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, ScalarStatsCalculator scalarStatsCalculator)
+    public PushProjectionIntoTableScan(PlannerContext plannerContext, ScalarStatsCalculator scalarStatsCalculator)
     {
         this.plannerContext = plannerContext;
-        this.typeAnalyzer = typeAnalyzer;
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
     }
 
@@ -109,9 +105,7 @@ public class PushProjectionIntoTableScan
                 .flatMap(expression ->
                         extractPartialTranslations(
                                 expression.getValue(),
-                                session,
-                                typeAnalyzer,
-                                context.getSymbolAllocator().getTypes()
+                                session
                         ).entrySet().stream())
                 // Filter out constant expressions. Constant expressions should not be pushed to the connector.
                 .filter(entry -> !(entry.getValue() instanceof io.trino.spi.expression.Constant))
@@ -155,13 +149,12 @@ public class PushProjectionIntoTableScan
                     Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
-                    Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(translated);
-                    Object optimized = new IrExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
+                    Object optimized = new IrExpressionInterpreter(translated, plannerContext, session)
                             .optimize(NoOpSymbolResolver.INSTANCE);
 
                     return optimized instanceof Expression optimizedExpression ?
                             optimizedExpression :
-                            new Constant(translatedExpressionTypes.get(NodeRef.of(translated)), optimized);
+                            new Constant(translated.type(), optimized);
                 })
                 .collect(toImmutableList());
 

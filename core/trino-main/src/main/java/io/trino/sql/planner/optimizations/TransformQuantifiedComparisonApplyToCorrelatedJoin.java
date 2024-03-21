@@ -27,7 +27,6 @@ import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
@@ -77,21 +76,19 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
     @Override
     public PlanNode optimize(PlanNode plan, Context context)
     {
-        return rewriteWith(new Rewriter(context.idAllocator(), context.types(), context.symbolAllocator(), metadata), plan, null);
+        return rewriteWith(new Rewriter(context.idAllocator(), context.symbolAllocator(), metadata), plan, null);
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<PlanNode>
     {
         private final PlanNodeIdAllocator idAllocator;
-        private final TypeProvider types;
         private final SymbolAllocator symbolAllocator;
         private final Metadata metadata;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, TypeProvider types, SymbolAllocator symbolAllocator, Metadata metadata)
+        public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Metadata metadata)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-            this.types = requireNonNull(types, "types is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
         }
@@ -116,7 +113,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             PlanNode subqueryPlan = context.rewrite(node.getSubquery());
 
             Symbol outputColumn = getOnlyElement(subqueryPlan.getOutputSymbols());
-            Type outputColumnType = types.get(outputColumn);
+            Type outputColumnType = outputColumn.getType();
             checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
 
             Symbol minValue = symbolAllocator.newSymbol("min", outputColumnType);

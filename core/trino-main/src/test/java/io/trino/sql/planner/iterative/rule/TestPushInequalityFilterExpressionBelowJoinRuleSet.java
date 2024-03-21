@@ -55,7 +55,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
     @BeforeAll
     public void setUpBeforeClass()
     {
-        ruleSet = new PushInequalityFilterExpressionBelowJoinRuleSet(tester().getTypeAnalyzer());
+        ruleSet = new PushInequalityFilterExpressionBelowJoinRuleSet();
     }
 
     @Test

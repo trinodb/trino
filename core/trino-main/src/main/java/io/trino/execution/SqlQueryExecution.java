@@ -61,7 +61,6 @@ import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.planner.AdaptivePlanner;
 import io.trino.sql.planner.InputExtractor;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
@@ -140,7 +139,6 @@ public class SqlQueryExecution
     private final CostCalculator costCalculator;
     private final DynamicFilterService dynamicFilterService;
     private final TableExecuteContextManager tableExecuteContextManager;
-    private final IrTypeAnalyzer typeAnalyzer;
     private final SqlTaskManager coordinatorTaskManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory;
@@ -178,7 +176,6 @@ public class SqlQueryExecution
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector,
             TableExecuteContextManager tableExecuteContextManager,
-            IrTypeAnalyzer typeAnalyzer,
             SqlTaskManager coordinatorTaskManager,
             ExchangeManagerRegistry exchangeManagerRegistry,
             EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory,
@@ -230,7 +227,6 @@ public class SqlQueryExecution
             });
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
-            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
             this.eventDrivenTaskSourceFactory = requireNonNull(eventDrivenTaskSourceFactory, "taskSourceFactory is null");
@@ -490,7 +486,6 @@ public class SqlQueryExecution
                 planOptimizers,
                 idAllocator,
                 plannerContext,
-                typeAnalyzer,
                 statsCalculator,
                 costCalculator,
                 stateMachine.getWarningCollector(),
@@ -582,7 +577,6 @@ public class SqlQueryExecution
                                 adaptivePlanOptimizers,
                                 planFragmenter,
                                 DISTRIBUTED_PLAN_SANITY_CHECKER,
-                                typeAnalyzer,
                                 stateMachine.getWarningCollector(),
                                 planOptimizersStatsCollector,
                                 tableStatsProvider),
@@ -801,7 +795,6 @@ public class SqlQueryExecution
         private final CostCalculator costCalculator;
         private final DynamicFilterService dynamicFilterService;
         private final TableExecuteContextManager tableExecuteContextManager;
-        private final IrTypeAnalyzer typeAnalyzer;
         private final SqlTaskManager coordinatorTaskManager;
         private final ExchangeManagerRegistry exchangeManagerRegistry;
         private final EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory;
@@ -833,7 +826,6 @@ public class SqlQueryExecution
                 CostCalculator costCalculator,
                 DynamicFilterService dynamicFilterService,
                 TableExecuteContextManager tableExecuteContextManager,
-                IrTypeAnalyzer typeAnalyzer,
                 SqlTaskManager coordinatorTaskManager,
                 ExchangeManagerRegistry exchangeManagerRegistry,
                 EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory,
@@ -865,7 +857,6 @@ public class SqlQueryExecution
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
-            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
             this.eventDrivenTaskSourceFactory = requireNonNull(eventDrivenTaskSourceFactory, "eventDrivenTaskSourceFactory is null");
@@ -915,7 +906,6 @@ public class SqlQueryExecution
                     warningCollector,
                     planOptimizersStatsCollector,
                     tableExecuteContextManager,
-                    typeAnalyzer,
                     coordinatorTaskManager,
                     exchangeManagerRegistry,
                     eventDrivenTaskSourceFactory,

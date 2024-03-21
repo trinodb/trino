@@ -81,7 +81,6 @@ import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS
 import static io.trino.execution.StateMachine.StateChangeListener;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -117,7 +116,7 @@ public class MockRemoteTaskFactory
                         ImmutableMap.of(symbol, new TestingColumnHandle("column")),
                         false,
                         Optional.empty()),
-                ImmutableMap.of(symbol, VARCHAR),
+                ImmutableSet.of(symbol),
                 SOURCE_DISTRIBUTION,
                 Optional.empty(),
                 ImmutableList.of(sourceId),

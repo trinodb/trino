@@ -1461,7 +1461,7 @@ class RelationPlanner
                 defaultErrorOnError,
                 parametersType,
                 properOutputs.stream()
-                        .map(symbolAllocator.getTypes()::get)
+                        .map(Symbol::getType)
                         .toArray(Type[]::new));
 
         TableFunctionNode tableFunctionNode = new TableFunctionNode(
@@ -1716,7 +1716,7 @@ class RelationPlanner
         // The node is an intermediate stage of planning json_table. There's no recorded relation type available for this node.
         // The returned RowType is only used in plan printer
         return RowType.from(node.getOutputSymbols().stream()
-                .map(symbol -> new RowType.Field(Optional.of(symbol.getName()), symbolAllocator.getTypes().get(symbol)))
+                .map(symbol -> new RowType.Field(Optional.of(symbol.getName()), symbol.getType()))
                 .collect(toImmutableList()));
     }
 

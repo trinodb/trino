@@ -30,44 +30,38 @@ import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.MULTIPLY;
-import static java.util.Objects.requireNonNull;
 
 public final class CanonicalizeExpressionRewriter
 {
-    public static Expression canonicalizeExpression(Expression expression, IrTypeAnalyzer typeAnalyzer, PlannerContext plannerContext)
+    public static Expression canonicalizeExpression(Expression expression, PlannerContext plannerContext)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext), expression);
     }
 
     private CanonicalizeExpressionRewriter() {}
 
-    public static Expression rewrite(Expression expression, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+    public static Expression rewrite(Expression expression, PlannerContext plannerContext)
     {
-        requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-
         if (expression instanceof SymbolReference) {
             return expression;
         }
 
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext), expression);
     }
 
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
         private final PlannerContext plannerContext;
-        private final IrTypeAnalyzer typeAnalyzer;
 
-        public Visitor(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
+        public Visitor(PlannerContext plannerContext)
         {
             this.plannerContext = plannerContext;
-            this.typeAnalyzer = typeAnalyzer;
         }
 
         @SuppressWarnings("ArgumentSelectionDefectChecker")
@@ -116,7 +110,7 @@ public final class CanonicalizeExpressionRewriter
             CatalogSchemaFunctionName functionName = node.getFunction().getName();
             if (functionName.equals(builtinFunctionName("date")) && node.getArguments().size() == 1) {
                 Expression argument = node.getArguments().get(0);
-                Type argumentType = typeAnalyzer.getType(argument);
+                Type argumentType = argument.type();
                 if (argumentType instanceof TimestampType
                         || argumentType instanceof TimestampWithTimeZoneType
                         || argumentType instanceof VarcharType) {

@@ -117,9 +117,6 @@ public class TestDomainTranslator
     private static final Symbol C_DATE = new Symbol(DATE, "c_date");
     private static final Symbol C_COLOR = new Symbol(COLOR, "c_color");
     private static final Symbol C_HYPER_LOG_LOG = new Symbol(HYPER_LOG_LOG, "c_hyper_log_log");
-    private static final Symbol C_VARBINARY = new Symbol(VARBINARY, "c_varbinary");
-    private static final Symbol C_DECIMAL_26_5 = new Symbol(createDecimalType(26, 5), "c_decimal_26_5");
-    private static final Symbol C_DECIMAL_23_4 = new Symbol(createDecimalType(23, 4), "c_decimal_23_4");
     private static final Symbol C_INTEGER = new Symbol(INTEGER, "c_integer");
     private static final Symbol C_INTEGER_1 = new Symbol(INTEGER, "c_integer_1");
     private static final Symbol C_CHAR = new Symbol(UNKNOWN, "c_char");
@@ -128,44 +125,10 @@ public class TestDomainTranslator
     private static final Symbol C_DECIMAL_12_2 = new Symbol(createDecimalType(12, 2), "c_decimal_12_2");
     private static final Symbol C_DECIMAL_6_1 = new Symbol(createDecimalType(6, 1), "c_decimal_6_1");
     private static final Symbol C_DECIMAL_6_1_1 = new Symbol(createDecimalType(6, 1), "c_decimal_6_1_1");
-    private static final Symbol C_DECIMAL_3_0 = new Symbol(createDecimalType(3, 0), "c_decimal_3_0");
-    private static final Symbol C_DECIMAL_2_0 = new Symbol(createDecimalType(2, 0), "c_decimal_2_0");
     private static final Symbol C_SMALLINT = new Symbol(SMALLINT, "c_smallint");
     private static final Symbol C_TINYINT = new Symbol(TINYINT, "c_tinyint");
     private static final Symbol C_REAL = new Symbol(REAL, "c_real");
     private static final Symbol C_REAL_1 = new Symbol(REAL, "c_real_1");
-
-    private static final TypeProvider TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-            .put(C_BIGINT, BIGINT)
-            .put(C_DOUBLE, DOUBLE)
-            .put(C_VARCHAR, VARCHAR)
-            .put(C_BOOLEAN, BOOLEAN)
-            .put(C_BIGINT_1, BIGINT)
-            .put(C_DOUBLE_1, DOUBLE)
-            .put(C_VARCHAR_1, VARCHAR)
-            .put(C_BOOLEAN_1, BOOLEAN)
-            .put(C_TIMESTAMP, TIMESTAMP_MILLIS)
-            .put(C_DATE, DATE)
-            .put(C_COLOR, COLOR) // Equatable, but not orderable
-            .put(C_HYPER_LOG_LOG, HYPER_LOG_LOG) // Not Equatable or orderable
-            .put(C_VARBINARY, VARBINARY)
-            .put(C_DECIMAL_26_5, createDecimalType(26, 5))
-            .put(C_DECIMAL_23_4, createDecimalType(23, 4))
-            .put(C_INTEGER, INTEGER)
-            .put(C_INTEGER_1, INTEGER)
-            .put(C_CHAR, createCharType(10))
-            .put(C_DECIMAL_21_3, createDecimalType(21, 3))
-            .put(C_DECIMAL_21_3_1, createDecimalType(21, 3))
-            .put(C_DECIMAL_12_2, createDecimalType(12, 2))
-            .put(C_DECIMAL_6_1, createDecimalType(6, 1))
-            .put(C_DECIMAL_6_1_1, createDecimalType(6, 1))
-            .put(C_DECIMAL_3_0, createDecimalType(3, 0))
-            .put(C_DECIMAL_2_0, createDecimalType(2, 0))
-            .put(C_SMALLINT, SMALLINT)
-            .put(C_TINYINT, TINYINT)
-            .put(C_REAL, REAL)
-            .put(C_REAL_1, REAL)
-            .buildOrThrow());
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
     private static final long DATE_VALUE = TimeUnit.MILLISECONDS.toDays(new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis());
@@ -1828,7 +1791,7 @@ public class TestDomainTranslator
 
     private ExtractionResult fromPredicate(Expression originalPredicate)
     {
-        return DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), TEST_SESSION, originalPredicate, TYPES);
+        return DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), TEST_SESSION, originalPredicate);
     }
 
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
@@ -1932,7 +1895,7 @@ public class TestDomainTranslator
 
     private InPredicate in(Symbol symbol, List<?> values)
     {
-        return in(symbol.toSymbolReference(), TYPES.get(symbol), values);
+        return in(symbol.toSymbolReference(), symbol.getType(), values);
     }
 
     private static BetweenPredicate between(Symbol symbol, Expression min, Expression max)
@@ -2121,7 +2084,7 @@ public class TestDomainTranslator
         private NumericValues(Symbol column, T min, T integerNegative, T fractionalNegative, T integerPositive, T fractionalPositive, T max)
         {
             this.column = requireNonNull(column, "column is null");
-            this.type = requireNonNull(TYPES.get(column), "type for column not found: " + column);
+            this.type = requireNonNull(column.getType(), "type for column not found: " + column);
             this.min = requireNonNull(min, "min is null");
             this.integerNegative = requireNonNull(integerNegative, "integerNegative is null");
             this.fractionalNegative = requireNonNull(fractionalNegative, "fractionalNegative is null");

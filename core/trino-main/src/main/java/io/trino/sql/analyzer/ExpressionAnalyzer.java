@@ -64,7 +64,6 @@ import io.trino.sql.analyzer.PatternRecognitionAnalysis.Navigation;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationMode;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.ScalarInputDescriptor;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
@@ -304,7 +303,6 @@ public class ExpressionAnalyzer
     private final AccessControl accessControl;
     private final BiFunction<Node, CorrelationSupport, StatementAnalyzer> statementAnalyzerFactory;
     private final LiteralInterpreter literalInterpreter;
-    private final TypeProvider symbolTypes;
     private final boolean isDescribe;
 
     // Cache from SQL type name to Type; every Type in the cache has a CAST defined from VARCHAR
@@ -372,7 +370,6 @@ public class ExpressionAnalyzer
             StatementAnalyzerFactory statementAnalyzerFactory,
             Analysis analysis,
             Session session,
-            TypeProvider types,
             WarningCollector warningCollector)
     {
         this(
@@ -384,7 +381,6 @@ public class ExpressionAnalyzer
                         warningCollector,
                         correlationSupport),
                 session,
-                types,
                 analysis.getParameters(),
                 warningCollector,
                 analysis.isDescribe(),
@@ -397,7 +393,6 @@ public class ExpressionAnalyzer
             AccessControl accessControl,
             BiFunction<Node, CorrelationSupport, StatementAnalyzer> statementAnalyzerFactory,
             Session session,
-            TypeProvider symbolTypes,
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe,
@@ -409,7 +404,6 @@ public class ExpressionAnalyzer
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
         this.session = requireNonNull(session, "session is null");
-        this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -1738,7 +1732,6 @@ public class ExpressionAnalyzer
                                         accessControl,
                                         statementAnalyzerFactory,
                                         session,
-                                        symbolTypes,
                                         parameters,
                                         warningCollector,
                                         isDescribe,
@@ -3581,7 +3574,7 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             Set<String> labels)
     {
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, warningCollector);
         analyzer.analyze(expression, scope, labels, false);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
@@ -3602,14 +3595,13 @@ public class ExpressionAnalyzer
             PlannerContext plannerContext,
             StatementAnalyzerFactory statementAnalyzerFactory,
             AccessControl accessControl,
-            TypeProvider types,
             Iterable<Expression> expressions,
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             QueryType queryType)
     {
         Analysis analysis = new Analysis(null, parameters, queryType);
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, types, warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, warningCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(
                     expression,
@@ -3640,7 +3632,7 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, warningCollector);
         analyzer.analyze(expression, scope, correlationSupport);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
@@ -3668,7 +3660,7 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, warningCollector);
         RowType parametersRowType = analyzer.analyzeJsonPathInvocation(node, scope, correlationSupport);
         updateAnalysis(analysis, analyzer, session, accessControl);
         return new ParametersTypeAndAnalysis(
@@ -3698,7 +3690,7 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, warningCollector);
         Type type = analyzer.analyzeJsonValueExpression(column, pathAnalysis, scope, correlationSupport);
         updateAnalysis(analysis, analyzer, session, accessControl);
         return new TypeAndAnalysis(type, new ExpressionAnalysis(
@@ -3722,7 +3714,7 @@ public class ExpressionAnalyzer
             Analysis analysis,
             WarningCollector warningCollector)
     {
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, warningCollector);
         Type type = analyzer.analyzeJsonQueryExpression(column, scope);
         updateAnalysis(analysis, analyzer, session, accessControl);
         return type;
@@ -3747,7 +3739,6 @@ public class ExpressionAnalyzer
                     throw semanticException(errorCode, node, "%s", message);
                 },
                 session,
-                TypeProvider.empty(),
                 analysis.getParameters(),
                 warningCollector,
                 analysis.isDescribe(),
@@ -3771,7 +3762,7 @@ public class ExpressionAnalyzer
             ResolvedWindow window,
             Node originalNode)
     {
-        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, warningCollector);
         analyzer.analyzeWindow(window, scope, originalNode, correlationSupport);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
@@ -3864,7 +3855,6 @@ public class ExpressionAnalyzer
                 plannerContext,
                 accessControl,
                 session,
-                TypeProvider.empty(),
                 parameters,
                 node -> semanticException(errorCode, node, "%s", message),
                 warningCollector,
@@ -3875,7 +3865,6 @@ public class ExpressionAnalyzer
             PlannerContext plannerContext,
             AccessControl accessControl,
             Session session,
-            TypeProvider symbolTypes,
             Map<NodeRef<Parameter>, Expression> parameters,
             Function<? super Node, ? extends RuntimeException> statementAnalyzerRejection,
             WarningCollector warningCollector,
@@ -3888,7 +3877,6 @@ public class ExpressionAnalyzer
                     throw statementAnalyzerRejection.apply(node);
                 },
                 session,
-                symbolTypes,
                 parameters,
                 warningCollector,
                 isDescribe,

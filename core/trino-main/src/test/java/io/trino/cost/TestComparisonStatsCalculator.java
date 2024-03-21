@@ -13,17 +13,13 @@
  */
 package io.trino.cost;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.Session;
-import io.trino.spi.type.Type;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -55,21 +51,8 @@ import static java.util.stream.Collectors.joining;
 
 public class TestComparisonStatsCalculator
 {
-    private final FilterStatsCalculator filterStatsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, new IrTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer(), new IrTypeAnalyzer(PLANNER_CONTEXT));
+    private final FilterStatsCalculator filterStatsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT), new StatsNormalizer());
     private final Session session = testSessionBuilder().build();
-    private final TypeProvider types = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-            .put(new Symbol(DOUBLE, "u"), DOUBLE)
-            .put(new Symbol(DOUBLE, "w"), DOUBLE)
-            .put(new Symbol(DOUBLE, "x"), DOUBLE)
-            .put(new Symbol(DOUBLE, "y"), DOUBLE)
-            .put(new Symbol(DOUBLE, "z"), DOUBLE)
-            .put(new Symbol(DOUBLE, "leftOpen"), DOUBLE)
-            .put(new Symbol(DOUBLE, "rightOpen"), DOUBLE)
-            .put(new Symbol(DOUBLE, "unknownRange"), DOUBLE)
-            .put(new Symbol(DOUBLE, "emptyRange"), DOUBLE)
-            .put(new Symbol(DOUBLE, "unknownNdvRange"), DOUBLE)
-            .put(new Symbol(createVarcharType(10), "varchar"), createVarcharType(10))
-            .buildOrThrow());
     private final SymbolStatsEstimate uStats = SymbolStatsEstimate.builder()
             .setAverageRowSize(8.0)
             .setDistinctValuesCount(300)
@@ -201,7 +184,7 @@ public class TestComparisonStatsCalculator
 
     private PlanNodeStatsAssertion assertCalculate(Expression comparisonExpression)
     {
-        return PlanNodeStatsAssertion.assertThat(filterStatsCalculator.filterStats(standardInputStatistics, comparisonExpression, session, types));
+        return PlanNodeStatsAssertion.assertThat(filterStatsCalculator.filterStats(standardInputStatistics, comparisonExpression, session));
     }
 
     @Test
@@ -212,8 +195,7 @@ public class TestComparisonStatsCalculator
                 new StatsNormalizer(),
                 "standardInputStatistics",
                 standardInputStatistics,
-                standardInputStatistics.getSymbolsWithKnownStatistics(),
-                types);
+                standardInputStatistics.getSymbolsWithKnownStatistics());
     }
 
     @Test
@@ -907,9 +889,9 @@ public class TestComparisonStatsCalculator
                 .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
     }
 
-    private static void checkConsistent(StatsNormalizer normalizer, String source, PlanNodeStatsEstimate stats, Collection<Symbol> outputSymbols, TypeProvider types)
+    private static void checkConsistent(StatsNormalizer normalizer, String source, PlanNodeStatsEstimate stats, Collection<Symbol> outputSymbols)
     {
-        PlanNodeStatsEstimate normalized = normalizer.normalize(stats, outputSymbols, types);
+        PlanNodeStatsEstimate normalized = normalizer.normalize(stats, outputSymbols);
         if (Objects.equals(stats, normalized)) {
             return;
         }

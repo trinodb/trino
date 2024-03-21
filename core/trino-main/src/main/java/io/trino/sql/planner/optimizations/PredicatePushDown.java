@@ -28,20 +28,17 @@ import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NotExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.EffectivePredicateExtractor;
 import io.trino.sql.planner.EqualityInference;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
@@ -121,18 +118,15 @@ public class PredicatePushDown
             LESS_THAN_OR_EQUAL);
 
     private final PlannerContext plannerContext;
-    private final IrTypeAnalyzer typeAnalyzer;
     private final boolean useTableProperties;
     private final boolean dynamicFiltering;
 
     public PredicatePushDown(
             PlannerContext plannerContext,
-            IrTypeAnalyzer typeAnalyzer,
             boolean useTableProperties,
             boolean dynamicFiltering)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.useTableProperties = useTableProperties;
         this.dynamicFiltering = dynamicFiltering;
     }
@@ -143,7 +137,7 @@ public class PredicatePushDown
         requireNonNull(plan, "plan is null");
 
         return SimplePlanRewriter.rewriteWith(
-                new Rewriter(context.symbolAllocator(), context.idAllocator(), plannerContext, typeAnalyzer, context.session(), context.types(), useTableProperties, dynamicFiltering),
+                new Rewriter(context.symbolAllocator(), context.idAllocator(), plannerContext, context.session(), useTableProperties, dynamicFiltering),
                 plan,
                 TRUE_LITERAL);
     }
@@ -155,9 +149,7 @@ public class PredicatePushDown
         private final PlanNodeIdAllocator idAllocator;
         private final PlannerContext plannerContext;
         private final Metadata metadata;
-        private final IrTypeAnalyzer typeAnalyzer;
         private final Session session;
-        private final TypeProvider types;
         private final ExpressionEquivalence expressionEquivalence;
         private final boolean dynamicFiltering;
         private final EffectivePredicateExtractor effectivePredicateExtractor;
@@ -166,9 +158,7 @@ public class PredicatePushDown
                 SymbolAllocator symbolAllocator,
                 PlanNodeIdAllocator idAllocator,
                 PlannerContext plannerContext,
-                IrTypeAnalyzer typeAnalyzer,
                 Session session,
-                TypeProvider types,
                 boolean useTableProperties,
                 boolean dynamicFiltering)
         {
@@ -176,10 +166,8 @@ public class PredicatePushDown
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.metadata = plannerContext.getMetadata();
-            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
-            this.types = requireNonNull(types, "types is null");
-            this.expressionEquivalence = new ExpressionEquivalence(plannerContext.getMetadata(), plannerContext.getFunctionManager(), plannerContext.getTypeManager(), typeAnalyzer);
+            this.expressionEquivalence = new ExpressionEquivalence(plannerContext.getMetadata(), plannerContext.getFunctionManager(), plannerContext.getTypeManager());
             this.dynamicFiltering = dynamicFiltering;
 
             this.effectivePredicateExtractor = new EffectivePredicateExtractor(
@@ -283,8 +271,8 @@ public class PredicatePushDown
 
             List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
                     .map(entry -> inlineSymbols(node.getAssignments().getMap(), entry))
-                    .map(conjunct -> canonicalizeExpression(conjunct, typeAnalyzer, plannerContext)) // normalize expressions to a form that unwrapCasts understands
-                    .map(conjunct -> unwrapCasts(session, plannerContext, typeAnalyzer, conjunct))
+                    .map(conjunct -> canonicalizeExpression(conjunct, plannerContext)) // normalize expressions to a form that unwrapCasts understands
+                    .map(conjunct -> unwrapCasts(session, plannerContext, conjunct))
                     .collect(Collectors.toList());
 
             PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(inlinedDeterministicConjuncts));
@@ -408,8 +396,8 @@ public class PredicatePushDown
             // See if we can rewrite outer joins in terms of a plain inner join
             node = tryNormalizeToOuterToInnerJoin(node, inheritedPredicate);
 
-            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, node.getLeft(), types, typeAnalyzer);
-            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, node.getRight(), types, typeAnalyzer);
+            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, node.getLeft());
+            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, node.getRight());
             Expression joinPredicate = extractJoinPredicate(node);
 
             Expression leftPredicate;
@@ -650,7 +638,7 @@ public class PredicatePushDown
                         Expression probeExpression = comparison.getLeft();
                         Symbol buildSymbol = Symbol.from(comparison.getRight());
                         // we can take type of buildSymbol instead probeExpression as comparison expression must have the same type on both sides
-                        Type type = symbolAllocator.getTypes().get(buildSymbol);
+                        Type type = buildSymbol.getType();
                         DynamicFilterId id = requireNonNull(buildSymbolToDynamicFilter.get(buildSymbol), () -> "missing dynamic filter for symbol " + buildSymbol);
                         return createDynamicFilterExpression(metadata, id, type, probeExpression, comparison.getOperator(), clause.isNullAllowed());
                     })
@@ -728,8 +716,8 @@ public class PredicatePushDown
                 node = new SpatialJoinNode(node.getId(), SpatialJoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getOutputSymbols(), node.getFilter(), node.getLeftPartitionSymbol(), node.getRightPartitionSymbol(), node.getKdbTree());
             }
 
-            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, node.getLeft(), types, typeAnalyzer);
-            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, node.getRight(), types, typeAnalyzer);
+            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, node.getLeft());
+            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, node.getRight());
             Expression joinPredicate = node.getFilter();
 
             Expression leftPredicate;
@@ -816,7 +804,7 @@ public class PredicatePushDown
                 return Symbol.from(expression);
             }
 
-            return symbolAllocator.newSymbol(expression, typeAnalyzer.getType(expression));
+            return symbolAllocator.newSymbol(expression, expression.type());
         }
 
         private OuterJoinPushDownResult processLimitedOuterJoin(
@@ -1187,18 +1175,17 @@ public class PredicatePushDown
         // Temporary implementation for joins because the SimplifyExpressions optimizers cannot run properly on join clauses
         private Expression simplifyExpression(Expression expression)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(expression);
-            IrExpressionInterpreter optimizer = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes);
+            IrExpressionInterpreter optimizer = new IrExpressionInterpreter(expression, plannerContext, session);
             Object object = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
 
             return object instanceof Expression optimized ?
                     optimized :
-                    new Constant(expressionTypes.get(NodeRef.of(expression)), object);
+                    new Constant(expression.type(), object);
         }
 
         private boolean areExpressionsEquivalent(Expression leftExpression, Expression rightExpression)
         {
-            return expressionEquivalence.areExpressionsEquivalent(session, leftExpression, rightExpression, types);
+            return expressionEquivalence.areExpressionsEquivalent(session, leftExpression, rightExpression, ImmutableSet.copyOf(symbolAllocator.getSymbols()));
         }
 
         /**
@@ -1206,8 +1193,7 @@ public class PredicatePushDown
          */
         private Object nullInputEvaluator(Collection<Symbol> nullSymbols, Expression expression)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(expression);
-            return new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes)
+            return new IrExpressionInterpreter(expression, plannerContext, session)
                     .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
         }
 
@@ -1226,8 +1212,8 @@ public class PredicatePushDown
                 }
                 comparison = (ComparisonExpression) notExpression.getValue();
                 Set<Type> expressionTypes = ImmutableSet.of(
-                        typeAnalyzer.getType(comparison.getLeft()),
-                        typeAnalyzer.getType(comparison.getRight()));
+                        comparison.left().type(),
+                        comparison.right().type());
                 // Dynamic filtering is not supported with IS NOT DISTINCT FROM clause on REAL or DOUBLE types to avoid dealing with NaN values
                 if (expressionTypes.contains(REAL) || expressionTypes.contains(DOUBLE)) {
                     return false;
@@ -1328,8 +1314,8 @@ public class PredicatePushDown
         {
             Expression inheritedPredicate = context.get();
             Expression deterministicInheritedPredicate = filterDeterministicConjuncts(metadata, inheritedPredicate);
-            Expression sourceEffectivePredicate = filterDeterministicConjuncts(metadata, effectivePredicateExtractor.extract(session, node.getSource(), types, typeAnalyzer));
-            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(metadata, effectivePredicateExtractor.extract(session, node.getFilteringSource(), types, typeAnalyzer));
+            Expression sourceEffectivePredicate = filterDeterministicConjuncts(metadata, effectivePredicateExtractor.extract(session, node.getSource()));
+            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(metadata, effectivePredicateExtractor.extract(session, node.getFilteringSource()));
             Expression joinExpression = new ComparisonExpression(
                     EQUAL,
                     node.getSourceJoinSymbol().toSymbolReference(),
@@ -1396,7 +1382,7 @@ public class PredicatePushDown
                 sourceConjuncts.add(createDynamicFilterExpression(
                         metadata,
                         dynamicFilterId.get(),
-                        symbolAllocator.getTypes().get(sourceSymbol),
+                        sourceSymbol.getType(),
                         sourceSymbol.toSymbolReference(),
                         EQUAL));
             }
