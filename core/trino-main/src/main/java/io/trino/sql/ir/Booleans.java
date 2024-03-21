@@ -15,10 +15,10 @@ package io.trino.sql.ir;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 
-public final class BooleanLiteral
+public final class Booleans
 {
-    public static final Constant TRUE_LITERAL = new Constant(BOOLEAN, true);
-    public static final Constant FALSE_LITERAL = new Constant(BOOLEAN, false);
+    public static final Constant TRUE = new Constant(BOOLEAN, true);
+    public static final Constant FALSE = new Constant(BOOLEAN, false);
 
-    private BooleanLiteral() {}
+    private Booleans() {}
 }

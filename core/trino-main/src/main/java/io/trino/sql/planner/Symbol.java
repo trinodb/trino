@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,7 +31,7 @@ public class Symbol
 
     public static Symbol from(Expression expression)
     {
-        if (!(expression instanceof SymbolReference symbol)) {
+        if (!(expression instanceof Reference symbol)) {
             throw new IllegalArgumentException("Unexpected expression: " + expression);
         }
         return new Symbol(symbol.type(), symbol.name());
@@ -58,9 +58,9 @@ public class Symbol
         return type;
     }
 
-    public SymbolReference toSymbolReference()
+    public Reference toSymbolReference()
     {
-        return new SymbolReference(type, name);
+        return new Reference(type, name);
     }
 
     @Override

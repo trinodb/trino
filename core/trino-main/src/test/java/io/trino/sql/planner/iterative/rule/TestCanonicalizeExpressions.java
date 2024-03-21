@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 
 public class TestCanonicalizeExpressions
@@ -27,7 +27,7 @@ public class TestCanonicalizeExpressions
     {
         CanonicalizeExpressions canonicalizeExpressions = new CanonicalizeExpressions(tester().getPlannerContext());
         tester().assertThat(canonicalizeExpressions.filterExpressionRewrite())
-                .on(p -> p.filter(FALSE_LITERAL, p.values()))
+                .on(p -> p.filter(FALSE, p.values()))
                 .doesNotFire();
     }
 
@@ -45,7 +45,7 @@ public class TestCanonicalizeExpressions
     {
         CanonicalizeExpressions canonicalizeExpressions = new CanonicalizeExpressions(tester().getPlannerContext());
         tester().assertThat(canonicalizeExpressions.joinExpressionRewrite())
-                .on(p -> p.join(INNER, p.values(), p.values(), FALSE_LITERAL))
+                .on(p -> p.join(INNER, p.values(), p.values(), FALSE))
                 .doesNotFire();
     }
 }

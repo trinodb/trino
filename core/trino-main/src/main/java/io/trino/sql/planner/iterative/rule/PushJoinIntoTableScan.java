@@ -29,7 +29,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTranslation;
@@ -110,7 +110,7 @@ public class PushJoinIntoTableScan
                 context.getSession(),
                 effectiveFilter);
 
-        if (!translation.remainingExpression().equals(BooleanLiteral.TRUE_LITERAL)) {
+        if (!translation.remainingExpression().equals(Booleans.TRUE)) {
             // TODO add extra filter node above join
             return Result.empty();
         }

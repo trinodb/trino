@@ -31,9 +31,9 @@ import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsProvider;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.EqualityInference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -69,8 +69,8 @@ import static com.google.common.collect.Sets.powerSet;
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.getJoinReorderingStrategy;
 import static io.trino.SystemSessionProperties.getMaxReorderedJoins;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
@@ -107,7 +107,7 @@ public class ReorderJoins
         this.pattern = join().matching(
                 joinNode -> joinNode.getDistributionType().isEmpty()
                         && joinNode.getType() == INNER
-                        && isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL)));
+                        && isDeterministic(joinNode.getFilter().orElse(TRUE)));
     }
 
     @Override
@@ -268,7 +268,7 @@ public class ReorderJoins
             List<Expression> joinPredicates = getJoinPredicates(leftSymbols, rightSymbols);
             List<EquiJoinClause> joinConditions = joinPredicates.stream()
                     .filter(JoinEnumerator::isJoinEqualityCondition)
-                    .map(predicate -> toEquiJoinClause((ComparisonExpression) predicate, leftSymbols))
+                    .map(predicate -> toEquiJoinClause((Comparison) predicate, leftSymbols))
                     .collect(toImmutableList());
             if (joinConditions.isEmpty()) {
                 return INFINITE_COST_RESULT;
@@ -371,7 +371,7 @@ public class ReorderJoins
                         .filter(Objects::nonNull)
                         .forEach(predicates::add);
                 Expression filter = combineConjuncts(predicates.build());
-                if (!TRUE_LITERAL.equals(filter)) {
+                if (!TRUE.equals(filter)) {
                     planNode = new FilterNode(idAllocator.getNextId(), planNode, filter);
                 }
                 return createJoinEnumerationResult(planNode);
@@ -381,13 +381,13 @@ public class ReorderJoins
 
         private static boolean isJoinEqualityCondition(Expression expression)
         {
-            return expression instanceof ComparisonExpression
-                    && ((ComparisonExpression) expression).operator() == EQUAL
-                    && ((ComparisonExpression) expression).left() instanceof SymbolReference
-                    && ((ComparisonExpression) expression).right() instanceof SymbolReference;
+            return expression instanceof Comparison
+                    && ((Comparison) expression).operator() == EQUAL
+                    && ((Comparison) expression).left() instanceof Reference
+                    && ((Comparison) expression).right() instanceof Reference;
         }
 
-        private static EquiJoinClause toEquiJoinClause(ComparisonExpression equality, Set<Symbol> leftSymbols)
+        private static EquiJoinClause toEquiJoinClause(Comparison equality, Set<Symbol> leftSymbols)
         {
             Symbol leftSymbol = Symbol.from(equality.left());
             Symbol rightSymbol = Symbol.from(equality.right());
@@ -616,7 +616,7 @@ public class ReorderJoins
                     return;
                 }
 
-                if (joinNode.getType() != INNER || !isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL)) || joinNode.getDistributionType().isPresent()) {
+                if (joinNode.getType() != INNER || !isDeterministic(joinNode.getFilter().orElse(TRUE)) || joinNode.getDistributionType().isPresent()) {
                     sources.add(node);
                     return;
                 }

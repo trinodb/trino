@@ -19,10 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.util.DisjointSet;
 
 import java.util.ArrayList;
@@ -73,7 +73,7 @@ public class EqualityInference
                 .flatMap(expression -> extractConjuncts(expression).stream())
                 .filter(expression -> isInferenceCandidate(expression))
                 .forEach(expression -> {
-                    ComparisonExpression comparison = (ComparisonExpression) expression;
+                    Comparison comparison = (Comparison) expression;
                     Expression expression1 = comparison.left();
                     Expression expression2 = comparison.right();
 
@@ -203,14 +203,14 @@ public class EqualityInference
             if (scopeExpressions.size() >= 2) {
                 scopeExpressions.stream()
                         .filter(expression -> !expression.equals(matchingCanonical))
-                        .map(expression -> new ComparisonExpression(ComparisonExpression.Operator.EQUAL, matchingCanonical, expression))
+                        .map(expression -> new Comparison(Comparison.Operator.EQUAL, matchingCanonical, expression))
                         .forEach(scopeEqualities::add);
             }
             Expression complementCanonical = getCanonical(scopeComplementExpressions.stream());
             if (scopeComplementExpressions.size() >= 2) {
                 scopeComplementExpressions.stream()
                         .filter(expression -> !expression.equals(complementCanonical))
-                        .map(expression -> new ComparisonExpression(ComparisonExpression.Operator.EQUAL, complementCanonical, expression))
+                        .map(expression -> new Comparison(Comparison.Operator.EQUAL, complementCanonical, expression))
                         .forEach(scopeComplementEqualities::add);
             }
 
@@ -224,7 +224,7 @@ public class EqualityInference
                     .filter(expression -> SymbolsExtractor.extractAll(expression).isEmpty() || rewrite(expression, scope::contains, false) == null)
                     .min(canonicalComparator);
             if (matchingConnecting.isPresent() && complementConnecting.isPresent() && !matchingConnecting.equals(complementConnecting)) {
-                scopeStraddlingEqualities.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, matchingConnecting.get(), complementConnecting.get()));
+                scopeStraddlingEqualities.add(new Comparison(Comparison.Operator.EQUAL, matchingConnecting.get(), complementConnecting.get()));
             }
 
             // Compile the scope straddling equality expressions.
@@ -243,7 +243,7 @@ public class EqualityInference
             if (connectingCanonical != null) {
                 straddlingExpressions.stream()
                         .filter(expression -> !expression.equals(connectingCanonical))
-                        .map(expression -> new ComparisonExpression(ComparisonExpression.Operator.EQUAL, connectingCanonical, expression))
+                        .map(expression -> new Comparison(Comparison.Operator.EQUAL, connectingCanonical, expression))
                         .forEach(scopeStraddlingEqualities::add);
             }
         }
@@ -256,10 +256,10 @@ public class EqualityInference
      */
     public static boolean isInferenceCandidate(Expression expression)
     {
-        if (expression instanceof ComparisonExpression comparison &&
+        if (expression instanceof Comparison comparison &&
                 isDeterministic(expression) &&
                 !mayReturnNullOnNonNullInput(expression)) {
-            if (comparison.operator() == ComparisonExpression.Operator.EQUAL) {
+            if (comparison.operator() == Comparison.Operator.EQUAL) {
                 // We should only consider equalities that have distinct left and right components
                 return !comparison.left().equals(comparison.right());
             }
@@ -323,9 +323,9 @@ public class EqualityInference
         }
 
         Collection<Expression> equivalences = equalitySets.get(canonicalIndex);
-        if (expression instanceof SymbolReference) {
+        if (expression instanceof Reference) {
             boolean inScope = equivalences.stream()
-                    .filter(SymbolReference.class::isInstance)
+                    .filter(Reference.class::isInstance)
                     .map(Symbol::from)
                     .anyMatch(symbolScope);
 

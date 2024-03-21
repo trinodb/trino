@@ -19,7 +19,7 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.SimpleCaseExpression;
+import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -39,7 +39,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
@@ -83,7 +83,7 @@ public class TransformCorrelatedScalarSubquery
 {
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
             .with(nonEmpty(correlation()))
-            .with(filter().equalTo(TRUE_LITERAL));
+            .with(filter().equalTo(TRUE));
 
     private final Metadata metadata;
 
@@ -159,10 +159,10 @@ public class TransformCorrelatedScalarSubquery
         FilterNode filterNode = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 markDistinctNode,
-                new SimpleCaseExpression(
+                new Switch(
                         isDistinct.toSymbolReference(),
                         ImmutableList.of(
-                                new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
+                                new WhenClause(TRUE, TRUE)),
                         Optional.of(new Cast(
                                 failFunction(metadata, SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                                 BOOLEAN))));

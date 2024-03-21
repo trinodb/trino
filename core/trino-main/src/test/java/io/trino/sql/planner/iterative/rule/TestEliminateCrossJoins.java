@@ -18,10 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticNegation;
+import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Negation;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -47,7 +47,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -229,14 +229,14 @@ public class TestEliminateCrossJoins
                             INNER,
                             p.project(
                                     Assignments.of(
-                                            a2, new ArithmeticNegation(new SymbolReference(BIGINT, "a1")),
-                                            f, new SymbolReference(BIGINT, "f")),
+                                            a2, new Negation(new Reference(BIGINT, "a1")),
+                                            f, new Reference(BIGINT, "f")),
                                     p.join(
                                             INNER,
                                             p.project(
                                                     Assignments.of(
-                                                            a1, new SymbolReference(BIGINT, "a1"),
-                                                            f, new ArithmeticNegation(new SymbolReference(BIGINT, "b"))),
+                                                            a1, new Reference(BIGINT, "a1"),
+                                                            f, new Negation(new Reference(BIGINT, "b"))),
                                                     p.join(
                                                             INNER,
                                                             p.values(a1),
@@ -259,18 +259,18 @@ public class TestEliminateCrossJoins
                                                                 .left(
                                                                         strictProject(
                                                                                 ImmutableMap.of(
-                                                                                        "a2", expression(new ArithmeticNegation(new SymbolReference(BIGINT, "a1"))),
-                                                                                        "a1", expression(new SymbolReference(BIGINT, "a1"))),
+                                                                                        "a2", expression(new Negation(new Reference(BIGINT, "a1"))),
+                                                                                        "a1", expression(new Reference(BIGINT, "a1"))),
                                                                                 PlanMatchPattern.values("a1")))
                                                                 .right(
                                                                         strictProject(
                                                                                 ImmutableMap.of(
-                                                                                        "e", expression(new SymbolReference(BIGINT, "e"))),
+                                                                                        "e", expression(new Reference(BIGINT, "e"))),
                                                                                 PlanMatchPattern.values("e")))))
                                                 .right(any())))
                                         .right(
                                                 strictProject(
-                                                        ImmutableMap.of("f", expression(new ArithmeticNegation(new SymbolReference(BIGINT, "b")))),
+                                                        ImmutableMap.of("f", expression(new Negation(new Reference(BIGINT, "b")))),
                                                         PlanMatchPattern.values("b"))))));
     }
 
@@ -284,9 +284,9 @@ public class TestEliminateCrossJoins
                                         values("a1"),
                                         values("b")),
                                 "a2",
-                                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "a1"), new SymbolReference(INTEGER, "b")),
+                                new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "a1"), new Reference(INTEGER, "b")),
                                 "b",
-                                new SymbolReference(INTEGER, "b")),
+                                new Reference(INTEGER, "b")),
                         values("c"),
                         "a2", "c",
                         "b", "c");

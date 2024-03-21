@@ -27,7 +27,7 @@ import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
@@ -82,7 +82,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.planner.LogicalPlanner.buildLambdaDeclarationToSymbolMap;
 import static io.trino.sql.relational.Expressions.call;
 import static io.trino.sql.relational.Expressions.constantNull;
@@ -404,13 +404,13 @@ public final class SqlRoutinePlanner
         }
 
         @Override
-        protected RowExpression visitSymbolReference(SymbolReference node, Void context)
+        protected RowExpression visitReference(Reference node, Void context)
         {
             IrVariable variable = variables.get(node.name());
             if (variable != null) {
                 return field(variable.field(), variable.type());
             }
-            return super.visitSymbolReference(node, context);
+            return super.visitReference(node, context);
         }
     }
 }

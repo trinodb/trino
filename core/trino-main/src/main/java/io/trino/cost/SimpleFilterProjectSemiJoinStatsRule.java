@@ -18,8 +18,8 @@ import io.trino.Session;
 import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -134,15 +134,15 @@ public class SimpleFilterProjectSemiJoinStatsRule
         Expression remainingPredicate = combineConjuncts(conjuncts.stream()
                 .filter(conjunct -> conjunct != semiJoinOutputReference)
                 .collect(toImmutableList()));
-        boolean negated = semiJoinOutputReference instanceof NotExpression;
+        boolean negated = semiJoinOutputReference instanceof Not;
         return Optional.of(new SemiJoinOutputFilter(negated, remainingPredicate));
     }
 
     private static boolean isSemiJoinOutputReference(Expression conjunct, Symbol semiJoinOutput)
     {
-        SymbolReference semiJoinOutputSymbolReference = semiJoinOutput.toSymbolReference();
+        Reference semiJoinOutputSymbolReference = semiJoinOutput.toSymbolReference();
         return conjunct.equals(semiJoinOutputSymbolReference) ||
-                (conjunct instanceof NotExpression && ((NotExpression) conjunct).value().equals(semiJoinOutputSymbolReference));
+                (conjunct instanceof Not && ((Not) conjunct).value().equals(semiJoinOutputSymbolReference));
     }
 
     private static class SemiJoinOutputFilter

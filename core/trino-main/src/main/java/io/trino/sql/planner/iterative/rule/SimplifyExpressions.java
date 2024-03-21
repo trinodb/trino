@@ -18,7 +18,7 @@ import io.trino.Session;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.iterative.Rule;
@@ -36,7 +36,7 @@ public class SimplifyExpressions
     public static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext)
     {
         requireNonNull(plannerContext, "plannerContext is null");
-        if (expression instanceof SymbolReference) {
+        if (expression instanceof Reference) {
             return expression;
         }
         expression = pushDownNegations(expression);

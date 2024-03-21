@@ -26,15 +26,15 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.Between;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.InPredicate;
-import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.In;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Not;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.type.LikePattern;
 import io.trino.type.LikePatternType;
@@ -70,15 +70,15 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -152,7 +152,7 @@ public class TestDomainTranslator
     {
         TupleDomain<Symbol> tupleDomain = TupleDomain.none();
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
-        assertThat(result.getRemainingExpression()).isEqualTo(TRUE_LITERAL);
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
         assertThat(result.getTupleDomain()).isEqualTo(tupleDomain);
     }
 
@@ -161,7 +161,7 @@ public class TestDomainTranslator
     {
         TupleDomain<Symbol> tupleDomain = TupleDomain.all();
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
-        assertThat(result.getRemainingExpression()).isEqualTo(TRUE_LITERAL);
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
         assertThat(result.getTupleDomain()).isEqualTo(tupleDomain);
     }
 
@@ -247,7 +247,7 @@ public class TestDomainTranslator
                 .put(C_BOOLEAN, Domain.none(BOOLEAN))
                 .buildOrThrow());
 
-        assertThat(toPredicate(tupleDomain)).isEqualTo(FALSE_LITERAL);
+        assertThat(toPredicate(tupleDomain)).isEqualTo(FALSE);
     }
 
     @Test
@@ -261,7 +261,7 @@ public class TestDomainTranslator
                 .buildOrThrow());
 
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
-        assertThat(result.getRemainingExpression()).isEqualTo(TRUE_LITERAL);
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
         assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(ImmutableMap.<Symbol, Domain>builder()
                 .put(C_BIGINT, Domain.singleValue(BIGINT, 1L))
                 .put(C_DOUBLE, Domain.onlyNull(DOUBLE))
@@ -281,10 +281,10 @@ public class TestDomainTranslator
         assertThat(toPredicate(tupleDomain)).isEqualTo(isNull(C_BIGINT));
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.none(BIGINT));
-        assertThat(toPredicate(tupleDomain)).isEqualTo(FALSE_LITERAL);
+        assertThat(toPredicate(tupleDomain)).isEqualTo(FALSE);
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.all(BIGINT));
-        assertThat(toPredicate(tupleDomain)).isEqualTo(TRUE_LITERAL);
+        assertThat(toPredicate(tupleDomain)).isEqualTo(TRUE);
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L)), false));
         assertThat(toPredicate(tupleDomain)).isEqualTo(greaterThan(C_BIGINT, bigintLiteral(1L)));
@@ -524,18 +524,18 @@ public class TestDomainTranslator
         Expression originalPredicate = C_BOOLEAN.toSymbolReference();
         ExtractionResult result = fromPredicate(originalPredicate);
         assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BOOLEAN, Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)), false)));
-        assertThat(result.getRemainingExpression()).isEqualTo(TRUE_LITERAL);
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
 
         originalPredicate = not(C_BOOLEAN.toSymbolReference());
         result = fromPredicate(originalPredicate);
         assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BOOLEAN, Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)).complement(), false)));
-        assertThat(result.getRemainingExpression()).isEqualTo(TRUE_LITERAL);
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
 
         originalPredicate = and(C_BOOLEAN.toSymbolReference(), C_BOOLEAN_1.toSymbolReference());
         result = fromPredicate(originalPredicate);
         Domain domain = Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)), false);
         assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BOOLEAN, domain, C_BOOLEAN_1, domain));
-        assertThat(result.getRemainingExpression()).isEqualTo(TRUE_LITERAL);
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
 
         originalPredicate = or(C_BOOLEAN.toSymbolReference(), C_BOOLEAN_1.toSymbolReference());
         result = fromPredicate(originalPredicate);
@@ -554,7 +554,7 @@ public class TestDomainTranslator
         assertUnsupportedPredicate(not(and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT))));
         assertUnsupportedPredicate(not(unprocessableExpression1(C_BIGINT)));
 
-        assertPredicateIsAlwaysFalse(not(TRUE_LITERAL));
+        assertPredicateIsAlwaysFalse(not(TRUE));
 
         assertPredicateTranslates(
                 not(equal(C_BIGINT, bigintLiteral(1L))),
@@ -943,12 +943,12 @@ public class TestDomainTranslator
     @Test
     public void testFromUnprocessableInPredicate()
     {
-        assertUnsupportedPredicate(new InPredicate(unprocessableExpression1(C_BIGINT), ImmutableList.of(TRUE_LITERAL)));
-        assertUnsupportedPredicate(new InPredicate(C_BOOLEAN.toSymbolReference(), ImmutableList.of(unprocessableExpression1(C_BOOLEAN))));
+        assertUnsupportedPredicate(new In(unprocessableExpression1(C_BIGINT), ImmutableList.of(TRUE)));
+        assertUnsupportedPredicate(new In(C_BOOLEAN.toSymbolReference(), ImmutableList.of(unprocessableExpression1(C_BOOLEAN))));
         assertUnsupportedPredicate(
-                new InPredicate(C_BOOLEAN.toSymbolReference(), ImmutableList.of(TRUE_LITERAL, unprocessableExpression1(C_BOOLEAN))));
+                new In(C_BOOLEAN.toSymbolReference(), ImmutableList.of(TRUE, unprocessableExpression1(C_BOOLEAN))));
         assertPredicateTranslates(
-                not(new InPredicate(C_BOOLEAN.toSymbolReference(), ImmutableList.of(unprocessableExpression1(C_BOOLEAN)))),
+                not(new In(C_BOOLEAN.toSymbolReference(), ImmutableList.of(unprocessableExpression1(C_BOOLEAN)))),
                 tupleDomain(C_BOOLEAN, Domain.notNull(BOOLEAN)),
                 not(equal(C_BOOLEAN, unprocessableExpression1(C_BOOLEAN))));
     }
@@ -1064,7 +1064,7 @@ public class TestDomainTranslator
         assertPredicateTranslates(
                 not(in(symbol, List.of(oneExpression, nullExpression, twoExpression))),
                 TupleDomain.none(),
-                TRUE_LITERAL);
+                TRUE);
 
         // NOT IN, with expression
         assertPredicateTranslates(
@@ -1206,11 +1206,11 @@ public class TestDomainTranslator
     @Test
     public void testFromInPredicateWithCastsAndNulls()
     {
-        assertPredicateIsAlwaysFalse(new InPredicate(
+        assertPredicateIsAlwaysFalse(new In(
                 C_BIGINT.toSymbolReference(),
                 ImmutableList.of(new Constant(BIGINT, null))));
 
-        assertUnsupportedPredicate(not(new InPredicate(
+        assertUnsupportedPredicate(not(new In(
                 cast(C_SMALLINT, BIGINT),
                 ImmutableList.of(new Constant(BIGINT, null)))));
     }
@@ -1277,10 +1277,10 @@ public class TestDomainTranslator
     @Test
     public void testFromBooleanLiteralPredicate()
     {
-        assertPredicateIsAlwaysTrue(TRUE_LITERAL);
-        assertPredicateIsAlwaysFalse(not(TRUE_LITERAL));
-        assertPredicateIsAlwaysFalse(FALSE_LITERAL);
-        assertPredicateIsAlwaysTrue(not(FALSE_LITERAL));
+        assertPredicateIsAlwaysTrue(TRUE);
+        assertPredicateIsAlwaysFalse(not(TRUE));
+        assertPredicateIsAlwaysFalse(FALSE);
+        assertPredicateIsAlwaysTrue(not(FALSE));
     }
 
     @Test
@@ -1475,10 +1475,10 @@ public class TestDomainTranslator
     @Test
     public void testUnsupportedFunctions()
     {
-        assertUnsupportedPredicate(new FunctionCall(
+        assertUnsupportedPredicate(new Call(
                 functionResolution.resolveFunction("length", fromTypes(VARCHAR)),
                 ImmutableList.of(C_VARCHAR.toSymbolReference())));
-        assertUnsupportedPredicate(new FunctionCall(
+        assertUnsupportedPredicate(new Call(
                 functionResolution.resolveFunction("replace", fromTypes(VARCHAR, VARCHAR)),
                 ImmutableList.of(C_VARCHAR.toSymbolReference(), stringLiteral("abc"))));
     }
@@ -1497,12 +1497,12 @@ public class TestDomainTranslator
 
     private void assertPredicateIsAlwaysTrue(Expression expression)
     {
-        assertPredicateTranslates(expression, TupleDomain.all(), TRUE_LITERAL);
+        assertPredicateTranslates(expression, TupleDomain.all(), TRUE);
     }
 
     private void assertPredicateIsAlwaysFalse(Expression expression)
     {
-        assertPredicateTranslates(expression, TupleDomain.none(), TRUE_LITERAL);
+        assertPredicateTranslates(expression, TupleDomain.none(), TRUE);
     }
 
     private void assertUnsupportedPredicate(Expression expression)
@@ -1512,7 +1512,7 @@ public class TestDomainTranslator
 
     private void assertPredicateTranslates(Expression expression, TupleDomain<Symbol> tupleDomain)
     {
-        assertPredicateTranslates(expression, tupleDomain, TRUE_LITERAL);
+        assertPredicateTranslates(expression, tupleDomain, TRUE);
     }
 
     private void assertPredicateDerives(Expression expression, TupleDomain<Symbol> tupleDomain)
@@ -1531,7 +1531,7 @@ public class TestDomainTranslator
     {
         ExtractionResult result = fromPredicate(expression);
         assertThat(result.getRemainingExpression())
-                .isNotEqualTo(TRUE_LITERAL);
+                .isNotEqualTo(TRUE);
     }
 
     private ExtractionResult fromPredicate(Expression originalPredicate)
@@ -1556,74 +1556,74 @@ public class TestDomainTranslator
 
     private Expression randPredicate(Symbol symbol, Type type)
     {
-        FunctionCall rand = functionResolution
+        Call rand = functionResolution
                 .functionCallBuilder("rand")
                 .build();
         return comparison(GREATER_THAN, symbol.toSymbolReference(), cast(rand, type));
     }
 
-    private static ComparisonExpression equal(Symbol symbol, Expression expression)
+    private static Comparison equal(Symbol symbol, Expression expression)
     {
         return equal(symbol.toSymbolReference(), expression);
     }
 
-    private static ComparisonExpression notEqual(Symbol symbol, Expression expression)
+    private static Comparison notEqual(Symbol symbol, Expression expression)
     {
         return notEqual(symbol.toSymbolReference(), expression);
     }
 
-    private static ComparisonExpression greaterThan(Symbol symbol, Expression expression)
+    private static Comparison greaterThan(Symbol symbol, Expression expression)
     {
         return greaterThan(symbol.toSymbolReference(), expression);
     }
 
-    private static ComparisonExpression greaterThanOrEqual(Symbol symbol, Expression expression)
+    private static Comparison greaterThanOrEqual(Symbol symbol, Expression expression)
     {
         return greaterThanOrEqual(symbol.toSymbolReference(), expression);
     }
 
-    private static ComparisonExpression lessThan(Symbol symbol, Expression expression)
+    private static Comparison lessThan(Symbol symbol, Expression expression)
     {
         return lessThan(symbol.toSymbolReference(), expression);
     }
 
-    private static ComparisonExpression lessThanOrEqual(Symbol symbol, Expression expression)
+    private static Comparison lessThanOrEqual(Symbol symbol, Expression expression)
     {
         return lessThanOrEqual(symbol.toSymbolReference(), expression);
     }
 
-    private static ComparisonExpression isDistinctFrom(Symbol symbol, Expression expression)
+    private static Comparison isDistinctFrom(Symbol symbol, Expression expression)
     {
         return isDistinctFrom(symbol.toSymbolReference(), expression);
     }
 
-    private FunctionCall like(Symbol symbol, String pattern)
+    private Call like(Symbol symbol, String pattern)
     {
-        return new FunctionCall(
+        return new Call(
                 functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)),
                 ImmutableList.of(symbol.toSymbolReference(), new Constant(LikePatternType.LIKE_PATTERN, LikePattern.compile(pattern, Optional.empty()))));
     }
 
-    private FunctionCall like(Symbol symbol, Expression pattern, Expression escape)
+    private Call like(Symbol symbol, Expression pattern, Expression escape)
     {
-        FunctionCall likePattern = new FunctionCall(
+        Call likePattern = new Call(
                 functionResolution.resolveFunction(LIKE_PATTERN_FUNCTION_NAME, fromTypes(VARCHAR, VARCHAR)),
                 ImmutableList.of(symbol.toSymbolReference(), pattern, escape));
-        return new FunctionCall(
+        return new Call(
                 functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)),
                 ImmutableList.of(symbol.toSymbolReference(), pattern, likePattern));
     }
 
-    private FunctionCall like(Symbol symbol, String pattern, Character escape)
+    private Call like(Symbol symbol, String pattern, Character escape)
     {
-        return new FunctionCall(
+        return new Call(
                 functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)),
                 ImmutableList.of(symbol.toSymbolReference(), new Constant(LikePatternType.LIKE_PATTERN, LikePattern.compile(pattern, Optional.of(escape)))));
     }
 
-    private FunctionCall startsWith(Symbol symbol, Expression expression)
+    private Call startsWith(Symbol symbol, Expression expression)
     {
-        return new FunctionCall(
+        return new Call(
                 functionResolution.resolveFunction("starts_with", fromTypes(VARCHAR, VARCHAR)),
                 ImmutableList.of(symbol.toSymbolReference(), expression));
     }
@@ -1633,29 +1633,29 @@ public class TestDomainTranslator
         return isNotNull(symbol.toSymbolReference());
     }
 
-    private static IsNullPredicate isNull(Symbol symbol)
+    private static IsNull isNull(Symbol symbol)
     {
-        return new IsNullPredicate(symbol.toSymbolReference());
+        return new IsNull(symbol.toSymbolReference());
     }
 
-    private InPredicate in(Symbol symbol, List<?> values)
+    private In in(Symbol symbol, List<?> values)
     {
         return in(symbol.toSymbolReference(), symbol.getType(), values);
     }
 
-    private static BetweenPredicate between(Symbol symbol, Expression min, Expression max)
+    private static Between between(Symbol symbol, Expression min, Expression max)
     {
-        return new BetweenPredicate(symbol.toSymbolReference(), min, max);
+        return new Between(symbol.toSymbolReference(), min, max);
     }
 
     private static Expression isNotNull(Expression expression)
     {
-        return new NotExpression(new IsNullPredicate(expression));
+        return new Not(new IsNull(expression));
     }
 
-    private InPredicate in(Expression expression, Type type, List<?> values)
+    private In in(Expression expression, Type type, List<?> values)
     {
-        return new InPredicate(
+        return new In(
                 expression,
                 values.stream()
                         .map(value -> value instanceof Expression valueExpression ?
@@ -1664,54 +1664,54 @@ public class TestDomainTranslator
                         .collect(toImmutableList()));
     }
 
-    private static BetweenPredicate between(Expression expression, Expression min, Expression max)
+    private static Between between(Expression expression, Expression min, Expression max)
     {
-        return new BetweenPredicate(expression, min, max);
+        return new Between(expression, min, max);
     }
 
-    private static ComparisonExpression equal(Expression left, Expression right)
+    private static Comparison equal(Expression left, Expression right)
     {
         return comparison(EQUAL, left, right);
     }
 
-    private static ComparisonExpression notEqual(Expression left, Expression right)
+    private static Comparison notEqual(Expression left, Expression right)
     {
         return comparison(NOT_EQUAL, left, right);
     }
 
-    private static ComparisonExpression greaterThan(Expression left, Expression right)
+    private static Comparison greaterThan(Expression left, Expression right)
     {
         return comparison(GREATER_THAN, left, right);
     }
 
-    private static ComparisonExpression greaterThanOrEqual(Expression left, Expression right)
+    private static Comparison greaterThanOrEqual(Expression left, Expression right)
     {
         return comparison(GREATER_THAN_OR_EQUAL, left, right);
     }
 
-    private static ComparisonExpression lessThan(Expression left, Expression expression)
+    private static Comparison lessThan(Expression left, Expression expression)
     {
         return comparison(LESS_THAN, left, expression);
     }
 
-    private static ComparisonExpression lessThanOrEqual(Expression left, Expression right)
+    private static Comparison lessThanOrEqual(Expression left, Expression right)
     {
         return comparison(LESS_THAN_OR_EQUAL, left, right);
     }
 
-    private static ComparisonExpression isDistinctFrom(Expression left, Expression right)
+    private static Comparison isDistinctFrom(Expression left, Expression right)
     {
         return comparison(IS_DISTINCT_FROM, left, right);
     }
 
-    private static NotExpression not(Expression expression)
+    private static Not not(Expression expression)
     {
-        return new NotExpression(expression);
+        return new Not(expression);
     }
 
-    private static ComparisonExpression comparison(ComparisonExpression.Operator operator, Expression expression1, Expression expression2)
+    private static Comparison comparison(Comparison.Operator operator, Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(operator, expression1, expression2);
+        return new Comparison(operator, expression1, expression2);
     }
 
     private static Constant bigintLiteral(long value)
@@ -1761,7 +1761,7 @@ public class TestDomainTranslator
 
     private void testSimpleComparison(Expression expression, Symbol symbol, Domain expectedDomain)
     {
-        testSimpleComparison(expression, symbol, TRUE_LITERAL, expectedDomain);
+        testSimpleComparison(expression, symbol, TRUE, expectedDomain);
     }
 
     private void testSimpleComparison(Expression expression, Symbol symbol, Expression expectedRemainingExpression, Domain expectedDomain)

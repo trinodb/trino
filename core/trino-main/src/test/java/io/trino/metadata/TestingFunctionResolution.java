@@ -26,8 +26,8 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.planner.TestingPlannerContext;
 import io.trino.testing.QueryRunner;
 import io.trino.transaction.TransactionManager;
@@ -213,9 +213,9 @@ public class TestingFunctionResolution
             return this;
         }
 
-        public FunctionCall build()
+        public Call build()
         {
-            return new FunctionCall(
+            return new Call(
                     resolveFunction(name, TypeSignatureProvider.fromTypeSignatures(argumentTypes)),
                     argumentValues);
         }

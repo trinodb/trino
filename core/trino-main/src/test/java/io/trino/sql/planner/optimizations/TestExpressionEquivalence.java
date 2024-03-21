@@ -22,13 +22,13 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Decimals;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -49,17 +49,17 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.NOT_EQUAL;
-import static io.trino.sql.ir.LogicalExpression.Operator.AND;
-import static io.trino.sql.ir.LogicalExpression.Operator.OR;
+import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -87,11 +87,11 @@ public class TestExpressionEquivalence
                 new Constant(BIGINT, null),
                 new Constant(BIGINT, null));
         assertEquivalent(
-                new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(DOUBLE, "b_double")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "b_double"), new SymbolReference(BIGINT, "a_bigint")));
+                new Comparison(LESS_THAN, new Reference(BIGINT, "a_bigint"), new Reference(DOUBLE, "b_double")),
+                new Comparison(GREATER_THAN, new Reference(DOUBLE, "b_double"), new Reference(BIGINT, "a_bigint")));
         assertEquivalent(
-                TRUE_LITERAL,
-                TRUE_LITERAL);
+                TRUE,
+                TRUE);
         assertEquivalent(
                 new Constant(INTEGER, 4L),
                 new Constant(INTEGER, 4L));
@@ -103,104 +103,104 @@ public class TestExpressionEquivalence
                 new Constant(VARCHAR, Slices.utf8Slice("foo")));
 
         assertEquivalent(
-                new ComparisonExpression(EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
-                new ComparisonExpression(EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)));
+                new Comparison(EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
+                new Comparison(EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)));
         assertEquivalent(
-                new ComparisonExpression(EQUAL, new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("4.4"))), new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("5.5")))),
-                new ComparisonExpression(EQUAL, new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("5.5"))), new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("4.4")))));
+                new Comparison(EQUAL, new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("4.4"))), new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("5.5")))),
+                new Comparison(EQUAL, new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("5.5"))), new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("4.4")))));
         assertEquivalent(
-                new ComparisonExpression(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("foo")), new Constant(VARCHAR, Slices.utf8Slice("bar"))),
-                new ComparisonExpression(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("bar")), new Constant(VARCHAR, Slices.utf8Slice("foo"))));
+                new Comparison(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("foo")), new Constant(VARCHAR, Slices.utf8Slice("bar"))),
+                new Comparison(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("bar")), new Constant(VARCHAR, Slices.utf8Slice("foo"))));
         assertEquivalent(
-                new ComparisonExpression(NOT_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
-                new ComparisonExpression(NOT_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)));
+                new Comparison(NOT_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
+                new Comparison(NOT_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)));
         assertEquivalent(
-                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
-                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)));
+                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
+                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)));
         assertEquivalent(
-                new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
-                new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)));
+                new Comparison(LESS_THAN, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
+                new Comparison(GREATER_THAN, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)));
         assertEquivalent(
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
-                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)));
+                new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
+                new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)));
         assertEquivalent(
-                new ComparisonExpression(EQUAL, new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-05-10 12:34:56.123456789")), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2021-05-10 12:34:56.123456789"))),
-                new ComparisonExpression(EQUAL, new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2021-05-10 12:34:56.123456789")), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-05-10 12:34:56.123456789"))));
+                new Comparison(EQUAL, new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-05-10 12:34:56.123456789")), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2021-05-10 12:34:56.123456789"))),
+                new Comparison(EQUAL, new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2021-05-10 12:34:56.123456789")), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-05-10 12:34:56.123456789"))));
         assertEquivalent(
-                new ComparisonExpression(EQUAL, new Constant(createTimestampWithTimeZoneType(9), DateTimes.parseTimestampWithTimeZone(9, "2020-05-10 12:34:56.123456789 +8")), new Constant(createTimestampWithTimeZoneType(9), DateTimes.parseTimestampWithTimeZone(9, "2021-05-10 12:34:56.123456789 +8"))),
-                new ComparisonExpression(EQUAL, new Constant(createTimestampWithTimeZoneType(9), DateTimes.parseTimestampWithTimeZone(9, "2021-05-10 12:34:56.123456789 +8")), new Constant(createTimestampWithTimeZoneType(9), DateTimes.parseTimestampWithTimeZone(9, "2020-05-10 12:34:56.123456789 +8"))));
+                new Comparison(EQUAL, new Constant(createTimestampWithTimeZoneType(9), DateTimes.parseTimestampWithTimeZone(9, "2020-05-10 12:34:56.123456789 +8")), new Constant(createTimestampWithTimeZoneType(9), DateTimes.parseTimestampWithTimeZone(9, "2021-05-10 12:34:56.123456789 +8"))),
+                new Comparison(EQUAL, new Constant(createTimestampWithTimeZoneType(9), DateTimes.parseTimestampWithTimeZone(9, "2021-05-10 12:34:56.123456789 +8")), new Constant(createTimestampWithTimeZoneType(9), DateTimes.parseTimestampWithTimeZone(9, "2020-05-10 12:34:56.123456789 +8"))));
 
         assertEquivalent(
-                new FunctionCall(MOD, ImmutableList.of(new Constant(INTEGER, 4L), new Constant(INTEGER, 5L))),
-                new FunctionCall(MOD, ImmutableList.of(new Constant(INTEGER, 4L), new Constant(INTEGER, 5L))));
+                new Call(MOD, ImmutableList.of(new Constant(INTEGER, 4L), new Constant(INTEGER, 5L))),
+                new Call(MOD, ImmutableList.of(new Constant(INTEGER, 4L), new Constant(INTEGER, 5L))));
 
         assertEquivalent(
-                new SymbolReference(BIGINT, "a_bigint"),
-                new SymbolReference(BIGINT, "a_bigint"));
+                new Reference(BIGINT, "a_bigint"),
+                new Reference(BIGINT, "a_bigint"));
         assertEquivalent(
-                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")),
-                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "a_bigint")));
+                new Comparison(EQUAL, new Reference(BIGINT, "a_bigint"), new Reference(BIGINT, "b_bigint")),
+                new Comparison(EQUAL, new Reference(BIGINT, "b_bigint"), new Reference(BIGINT, "a_bigint")));
         assertEquivalent(
-                new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "a_bigint")));
+                new Comparison(LESS_THAN, new Reference(BIGINT, "a_bigint"), new Reference(BIGINT, "b_bigint")),
+                new Comparison(GREATER_THAN, new Reference(BIGINT, "b_bigint"), new Reference(BIGINT, "a_bigint")));
 
         assertEquivalent(
-                new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(DOUBLE, "b_double")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "b_double"), new SymbolReference(BIGINT, "a_bigint")));
+                new Comparison(LESS_THAN, new Reference(BIGINT, "a_bigint"), new Reference(DOUBLE, "b_double")),
+                new Comparison(GREATER_THAN, new Reference(DOUBLE, "b_double"), new Reference(BIGINT, "a_bigint")));
 
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(TRUE_LITERAL, FALSE_LITERAL)),
-                new LogicalExpression(AND, ImmutableList.of(FALSE_LITERAL, TRUE_LITERAL)));
+                new Logical(AND, ImmutableList.of(TRUE, FALSE)),
+                new Logical(AND, ImmutableList.of(FALSE, TRUE)));
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)))));
+                new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new Comparison(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
+                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)))));
         assertEquivalent(
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)))));
+                new Logical(OR, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new Comparison(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
+                new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)))));
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "c_bigint"), new SymbolReference(BIGINT, "d_bigint")))),
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "d_bigint"), new SymbolReference(BIGINT, "c_bigint")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "a_bigint")))));
+                new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "a_bigint"), new Reference(BIGINT, "b_bigint")), new Comparison(LESS_THAN, new Reference(BIGINT, "c_bigint"), new Reference(BIGINT, "d_bigint")))),
+                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "d_bigint"), new Reference(BIGINT, "c_bigint")), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "b_bigint"), new Reference(BIGINT, "a_bigint")))));
         assertEquivalent(
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "c_bigint"), new SymbolReference(BIGINT, "d_bigint")))),
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "d_bigint"), new SymbolReference(BIGINT, "c_bigint")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "a_bigint")))));
+                new Logical(OR, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "a_bigint"), new Reference(BIGINT, "b_bigint")), new Comparison(LESS_THAN, new Reference(BIGINT, "c_bigint"), new Reference(BIGINT, "d_bigint")))),
+                new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "d_bigint"), new Reference(BIGINT, "c_bigint")), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "b_bigint"), new Reference(BIGINT, "a_bigint")))));
 
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)))),
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)));
+                new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)))),
+                new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)));
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)))));
+                new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new Comparison(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
+                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)), new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)))));
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 2L), new Constant(INTEGER, 3L)), new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 2L)))));
+                new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 2L), new Constant(INTEGER, 3L)), new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new Comparison(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
+                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)), new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 2L)))));
 
         assertEquivalent(
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)))),
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)));
+                new Logical(OR, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)))),
+                new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)));
         assertEquivalent(
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)))));
+                new Logical(OR, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new Comparison(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
+                new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)), new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)))));
         assertEquivalent(
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 2L), new Constant(INTEGER, 3L)), new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 2L)))));
+                new Logical(OR, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 2L), new Constant(INTEGER, 3L)), new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new Comparison(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
+                new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)), new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 3L), new Constant(INTEGER, 2L)))));
 
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "a_boolean"), new SymbolReference(BOOLEAN, "b_boolean"), new SymbolReference(BOOLEAN, "c_boolean"))),
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "c_boolean"), new SymbolReference(BOOLEAN, "b_boolean"), new SymbolReference(BOOLEAN, "a_boolean"))));
+                new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a_boolean"), new Reference(BOOLEAN, "b_boolean"), new Reference(BOOLEAN, "c_boolean"))),
+                new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "c_boolean"), new Reference(BOOLEAN, "b_boolean"), new Reference(BOOLEAN, "a_boolean"))));
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "a_boolean"), new SymbolReference(BOOLEAN, "b_boolean"))), new SymbolReference(BOOLEAN, "c_boolean"))),
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "c_boolean"), new SymbolReference(BOOLEAN, "b_boolean"))), new SymbolReference(BOOLEAN, "a_boolean"))));
+                new Logical(AND, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a_boolean"), new Reference(BOOLEAN, "b_boolean"))), new Reference(BOOLEAN, "c_boolean"))),
+                new Logical(AND, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "c_boolean"), new Reference(BOOLEAN, "b_boolean"))), new Reference(BOOLEAN, "a_boolean"))));
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "a_boolean"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "b_boolean"), new SymbolReference(BOOLEAN, "c_boolean"))))),
-                new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "a_boolean"), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "c_boolean"), new SymbolReference(BOOLEAN, "b_boolean"))), new SymbolReference(BOOLEAN, "a_boolean"))));
+                new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a_boolean"), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "b_boolean"), new Reference(BOOLEAN, "c_boolean"))))),
+                new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a_boolean"), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "c_boolean"), new Reference(BOOLEAN, "b_boolean"))), new Reference(BOOLEAN, "a_boolean"))));
 
         assertEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "a_boolean"), new SymbolReference(BOOLEAN, "b_boolean"), new SymbolReference(BOOLEAN, "c_boolean"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "d_boolean"), new SymbolReference(BOOLEAN, "e_boolean"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "f_boolean"), new SymbolReference(BOOLEAN, "g_boolean"), new SymbolReference(BOOLEAN, "h_boolean"))))),
-                new LogicalExpression(AND, ImmutableList.of(new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "h_boolean"), new SymbolReference(BOOLEAN, "g_boolean"), new SymbolReference(BOOLEAN, "f_boolean"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "b_boolean"), new SymbolReference(BOOLEAN, "a_boolean"), new SymbolReference(BOOLEAN, "c_boolean"))), new LogicalExpression(OR, ImmutableList.of(new SymbolReference(BOOLEAN, "e_boolean"), new SymbolReference(BOOLEAN, "d_boolean"))))));
+                new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "a_boolean"), new Reference(BOOLEAN, "b_boolean"), new Reference(BOOLEAN, "c_boolean"))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "d_boolean"), new Reference(BOOLEAN, "e_boolean"))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "f_boolean"), new Reference(BOOLEAN, "g_boolean"), new Reference(BOOLEAN, "h_boolean"))))),
+                new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "h_boolean"), new Reference(BOOLEAN, "g_boolean"), new Reference(BOOLEAN, "f_boolean"))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "b_boolean"), new Reference(BOOLEAN, "a_boolean"), new Reference(BOOLEAN, "c_boolean"))), new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "e_boolean"), new Reference(BOOLEAN, "d_boolean"))))));
 
         assertEquivalent(
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "a_boolean"), new SymbolReference(BOOLEAN, "b_boolean"), new SymbolReference(BOOLEAN, "c_boolean"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "d_boolean"), new SymbolReference(BOOLEAN, "e_boolean"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "f_boolean"), new SymbolReference(BOOLEAN, "g_boolean"), new SymbolReference(BOOLEAN, "h_boolean"))))),
-                new LogicalExpression(OR, ImmutableList.of(new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "h_boolean"), new SymbolReference(BOOLEAN, "g_boolean"), new SymbolReference(BOOLEAN, "f_boolean"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "b_boolean"), new SymbolReference(BOOLEAN, "a_boolean"), new SymbolReference(BOOLEAN, "c_boolean"))), new LogicalExpression(AND, ImmutableList.of(new SymbolReference(BOOLEAN, "e_boolean"), new SymbolReference(BOOLEAN, "d_boolean"))))));
+                new Logical(OR, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a_boolean"), new Reference(BOOLEAN, "b_boolean"), new Reference(BOOLEAN, "c_boolean"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "d_boolean"), new Reference(BOOLEAN, "e_boolean"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "f_boolean"), new Reference(BOOLEAN, "g_boolean"), new Reference(BOOLEAN, "h_boolean"))))),
+                new Logical(OR, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "h_boolean"), new Reference(BOOLEAN, "g_boolean"), new Reference(BOOLEAN, "f_boolean"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "b_boolean"), new Reference(BOOLEAN, "a_boolean"), new Reference(BOOLEAN, "c_boolean"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "e_boolean"), new Reference(BOOLEAN, "d_boolean"))))));
     }
 
     private static void assertEquivalent(Expression leftExpression, Expression rightExpression)
@@ -220,13 +220,13 @@ public class TestExpressionEquivalence
     {
         assertNotEquivalent(
                 new Constant(BOOLEAN, null),
-                FALSE_LITERAL);
+                FALSE);
         assertNotEquivalent(
-                FALSE_LITERAL,
+                FALSE,
                 new Constant(BOOLEAN, null));
         assertNotEquivalent(
-                TRUE_LITERAL,
-                FALSE_LITERAL);
+                TRUE,
+                FALSE);
         assertNotEquivalent(
                 new Constant(INTEGER, 4L),
                 new Constant(INTEGER, 5L));
@@ -238,51 +238,51 @@ public class TestExpressionEquivalence
                 new Constant(VARCHAR, Slices.utf8Slice("'bar'")));
 
         assertNotEquivalent(
-                new ComparisonExpression(EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
-                new ComparisonExpression(EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)));
+                new Comparison(EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
+                new Comparison(EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)));
         assertNotEquivalent(
-                new ComparisonExpression(NOT_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
-                new ComparisonExpression(NOT_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)));
+                new Comparison(NOT_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
+                new Comparison(NOT_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)));
         assertNotEquivalent(
-                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
-                new ComparisonExpression(IS_DISTINCT_FROM, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)));
+                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
+                new Comparison(IS_DISTINCT_FROM, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)));
         assertNotEquivalent(
-                new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
-                new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)));
+                new Comparison(LESS_THAN, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
+                new Comparison(GREATER_THAN, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)));
         assertNotEquivalent(
-                new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
-                new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)));
+                new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
+                new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)));
 
         assertNotEquivalent(
-                new FunctionCall(MOD, ImmutableList.of(new Constant(INTEGER, 4L), new Constant(INTEGER, 5L))),
-                new FunctionCall(MOD, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 4L))));
+                new Call(MOD, ImmutableList.of(new Constant(INTEGER, 4L), new Constant(INTEGER, 5L))),
+                new Call(MOD, ImmutableList.of(new Constant(INTEGER, 5L), new Constant(INTEGER, 4L))));
 
         assertNotEquivalent(
-                new SymbolReference(BIGINT, "a_bigint"),
-                new SymbolReference(BIGINT, "b_bigint"));
+                new Reference(BIGINT, "a_bigint"),
+                new Reference(BIGINT, "b_bigint"));
         assertNotEquivalent(
-                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")),
-                new ComparisonExpression(EQUAL, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "c_bigint")));
+                new Comparison(EQUAL, new Reference(BIGINT, "a_bigint"), new Reference(BIGINT, "b_bigint")),
+                new Comparison(EQUAL, new Reference(BIGINT, "b_bigint"), new Reference(BIGINT, "c_bigint")));
         assertNotEquivalent(
-                new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "c_bigint")));
+                new Comparison(LESS_THAN, new Reference(BIGINT, "a_bigint"), new Reference(BIGINT, "b_bigint")),
+                new Comparison(GREATER_THAN, new Reference(BIGINT, "b_bigint"), new Reference(BIGINT, "c_bigint")));
 
         assertNotEquivalent(
-                new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(DOUBLE, "b_double")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference(DOUBLE, "b_double"), new SymbolReference(BIGINT, "c_bigint")));
+                new Comparison(LESS_THAN, new Reference(BIGINT, "a_bigint"), new Reference(DOUBLE, "b_double")),
+                new Comparison(GREATER_THAN, new Reference(DOUBLE, "b_double"), new Reference(BIGINT, "c_bigint")));
 
         assertNotEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)))));
+                new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new Comparison(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
+                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)))));
         assertNotEquivalent(
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new ComparisonExpression(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)))));
+                new Logical(OR, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new Comparison(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),
+                new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Constant(INTEGER, 7L), new Constant(INTEGER, 6L)), new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 6L)))));
         assertNotEquivalent(
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "c_bigint"), new SymbolReference(BIGINT, "d_bigint")))),
-                new LogicalExpression(AND, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "d_bigint"), new SymbolReference(BIGINT, "c_bigint")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "c_bigint")))));
+                new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "a_bigint"), new Reference(BIGINT, "b_bigint")), new Comparison(LESS_THAN, new Reference(BIGINT, "c_bigint"), new Reference(BIGINT, "d_bigint")))),
+                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "d_bigint"), new Reference(BIGINT, "c_bigint")), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "b_bigint"), new Reference(BIGINT, "c_bigint")))));
         assertNotEquivalent(
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "a_bigint"), new SymbolReference(BIGINT, "b_bigint")), new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "c_bigint"), new SymbolReference(BIGINT, "d_bigint")))),
-                new LogicalExpression(OR, ImmutableList.of(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "d_bigint"), new SymbolReference(BIGINT, "c_bigint")), new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(BIGINT, "b_bigint"), new SymbolReference(BIGINT, "c_bigint")))));
+                new Logical(OR, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "a_bigint"), new Reference(BIGINT, "b_bigint")), new Comparison(LESS_THAN, new Reference(BIGINT, "c_bigint"), new Reference(BIGINT, "d_bigint")))),
+                new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "d_bigint"), new Reference(BIGINT, "c_bigint")), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "b_bigint"), new Reference(BIGINT, "c_bigint")))));
 
         assertNotEquivalent(
                 new Cast(new Constant(createTimeWithTimeZoneType(3), DateTimes.parseTimeWithTimeZone(3, "12:34:56.123 +00:00")), VARCHAR),

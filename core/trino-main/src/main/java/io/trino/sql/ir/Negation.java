@@ -19,41 +19,38 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record CoalesceExpression(List<Expression> operands)
+public record Negation(Expression value)
         implements Expression
 {
-    public CoalesceExpression(Expression first, Expression second, Expression... additional)
+    public Negation
     {
-        this(ImmutableList.<Expression>builder()
-                .add(first, second)
-                .add(additional)
-                .build());
+        requireNonNull(value, "value is null");
     }
 
     @Override
     public Type type()
     {
-        return operands.getFirst().type();
-    }
-
-    public CoalesceExpression
-    {
-        checkArgument(operands.size() >= 2, "must have at least two operands");
-        operands = ImmutableList.copyOf(operands);
+        return value.type();
     }
 
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitCoalesceExpression(this, context);
+        return visitor.visitNegation(this, context);
     }
 
     @Override
-    public List<? extends Expression> getChildren()
+    public List<? extends Expression> children()
     {
-        return operands;
+        return ImmutableList.of(value);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "-(%s)".formatted(value);
     }
 }

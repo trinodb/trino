@@ -21,10 +21,10 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.IsNull;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -56,9 +56,9 @@ import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.iterative.rule.ImplementLimitWithTies.rewriteLimitWithTiesWithPartitioning;
@@ -146,7 +146,7 @@ public class DecorrelateUnnest
 {
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
             .with(nonEmpty(correlation()))
-            .with(filter().equalTo(TRUE_LITERAL))
+            .with(filter().equalTo(TRUE))
             .matching(node -> node.getType() == JoinType.INNER || node.getType() == JoinType.LEFT);
 
     private final Metadata metadata;
@@ -260,7 +260,7 @@ public class DecorrelateUnnest
                 assignments.put(
                         subquerySymbol,
                         ifExpression(
-                                new IsNullPredicate(ordinalitySymbol.toSymbolReference()),
+                                new IsNull(ordinalitySymbol.toSymbolReference()),
                                 new Constant(subquerySymbol.getType(), null),
                                 subquerySymbol.toSymbolReference()));
             }
@@ -401,14 +401,14 @@ public class DecorrelateUnnest
                         Optional.empty());
             }
             Expression predicate = ifExpression(
-                    new ComparisonExpression(
+                    new Comparison(
                             GREATER_THAN,
                             rowNumberSymbol.toSymbolReference(),
                             new Constant(BIGINT, 1L)),
                     new Cast(
                             failFunction(metadata, SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                             BOOLEAN),
-                    TRUE_LITERAL);
+                    TRUE);
 
             return new RewriteResult(new FilterNode(idAllocator.getNextId(), sourceNode, predicate), Optional.of(rowNumberSymbol));
         }
@@ -447,7 +447,7 @@ public class DecorrelateUnnest
                     new FilterNode(
                             idAllocator.getNextId(),
                             sourceNode,
-                            new ComparisonExpression(LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), new Constant(BIGINT, node.getCount()))),
+                            new Comparison(LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), new Constant(BIGINT, node.getCount()))),
                     Optional.of(rowNumberSymbol));
         }
 
@@ -476,7 +476,7 @@ public class DecorrelateUnnest
                     new FilterNode(
                             idAllocator.getNextId(),
                             windowNode,
-                            new ComparisonExpression(LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), new Constant(BIGINT, node.getCount()))),
+                            new Comparison(LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), new Constant(BIGINT, node.getCount()))),
                     Optional.of(rowNumberSymbol));
         }
 

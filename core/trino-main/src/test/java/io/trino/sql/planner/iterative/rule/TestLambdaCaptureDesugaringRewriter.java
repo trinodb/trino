@@ -17,17 +17,17 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.BindExpression;
-import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Bind;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter.rewrite;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -43,12 +43,12 @@ public class TestLambdaCaptureDesugaringRewriter
 
         assertThat(
                 rewrite(
-                        new LambdaExpression(ImmutableList.of(new Symbol(INTEGER, "x")), new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "a"), new SymbolReference(INTEGER, "x"))),
+                        new Lambda(ImmutableList.of(new Symbol(INTEGER, "x")), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "a"), new Reference(INTEGER, "x"))),
                         allocator))
-                .isEqualTo(new BindExpression(
-                        ImmutableList.of(new SymbolReference(INTEGER, "a")),
-                        new LambdaExpression(
+                .isEqualTo(new Bind(
+                        ImmutableList.of(new Reference(INTEGER, "a")),
+                        new Lambda(
                                 ImmutableList.of(new Symbol(INTEGER, "a_0"), new Symbol(INTEGER, "x")),
-                                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, new SymbolReference(INTEGER, "a_0"), new SymbolReference(INTEGER, "x")))));
+                                new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "a_0"), new Reference(INTEGER, "x")))));
     }
 }

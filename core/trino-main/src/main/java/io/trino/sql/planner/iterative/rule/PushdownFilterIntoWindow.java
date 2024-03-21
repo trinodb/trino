@@ -23,7 +23,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
@@ -123,7 +123,7 @@ public class PushdownFilterIntoWindow
                 extractionResult.getRemainingExpression(),
                 new DomainTranslator().toPredicate(newTupleDomain));
 
-        if (newPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
+        if (newPredicate.equals(Booleans.TRUE)) {
             return Result.ofPlanNode(newSource);
         }
         return Result.ofPlanNode(new FilterNode(node.getId(), newSource, newPredicate));

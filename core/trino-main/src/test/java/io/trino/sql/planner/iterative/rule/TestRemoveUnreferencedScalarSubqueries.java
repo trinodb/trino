@@ -15,15 +15,15 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.BigintType;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -53,7 +53,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                             emptyList(),
                             p.values(emptyList(), ImmutableList.of(emptyList())),
                             LEFT,
-                            TRUE_LITERAL,
+                            TRUE,
                             p.values(2, b));
                 })
                 .matches(values("b"));
@@ -65,7 +65,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                             emptyList(),
                             p.values(emptyList(), ImmutableList.of(emptyList())),
                             RIGHT,
-                            TRUE_LITERAL,
+                            TRUE,
                             p.values(2, b));
                 })
                 .matches(values("b"));
@@ -77,7 +77,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                             emptyList(),
                             p.values(emptyList(), ImmutableList.of(emptyList())),
                             FULL,
-                            TRUE_LITERAL,
+                            TRUE,
                             p.values(2, b));
                 })
                 .matches(values("b"));
@@ -93,9 +93,9 @@ public class TestRemoveUnreferencedScalarSubqueries
                             emptyList(),
                             p.values(emptyList(), ImmutableList.of(emptyList())),
                             LEFT,
-                            TRUE_LITERAL,
+                            TRUE,
                             p.filter(
-                                    new ComparisonExpression(
+                                    new Comparison(
                                             LESS_THAN,
                                             b.toSymbolReference(),
                                             new Constant(INTEGER, 3L)),
@@ -110,9 +110,9 @@ public class TestRemoveUnreferencedScalarSubqueries
                             emptyList(),
                             p.values(emptyList(), ImmutableList.of(emptyList())),
                             FULL,
-                            TRUE_LITERAL,
+                            TRUE,
                             p.filter(
-                                    new ComparisonExpression(
+                                    new Comparison(
                                             LESS_THAN,
                                             b.toSymbolReference(),
                                             new Constant(INTEGER, 3L)),
@@ -151,7 +151,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                         emptyList(),
                         p.values(p.symbol("b", BigintType.BIGINT)),
                         LEFT,
-                        TRUE_LITERAL,
+                        TRUE,
                         p.values(emptyList(), ImmutableList.of(emptyList()))))
                 .matches(values("b"));
 
@@ -160,7 +160,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                         emptyList(),
                         p.values(p.symbol("b", BigintType.BIGINT)),
                         RIGHT,
-                        TRUE_LITERAL,
+                        TRUE,
                         p.values(emptyList(), ImmutableList.of(emptyList()))))
                 .matches(values("b"));
 
@@ -169,7 +169,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                         emptyList(),
                         p.values(p.symbol("b", BigintType.BIGINT)),
                         FULL,
-                        TRUE_LITERAL,
+                        TRUE,
                         p.values(emptyList(), ImmutableList.of(emptyList()))))
                 .matches(values("b"));
     }

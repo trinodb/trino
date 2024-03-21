@@ -37,7 +37,7 @@ import java.util.OptionalInt;
 
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Range.range;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.project;
@@ -140,7 +140,7 @@ public class PushPredicateThroughProjectIntoRowNumber
         Expression newPredicate = combineConjuncts(
                 extractionResult.getRemainingExpression(),
                 new DomainTranslator().toPredicate(newTupleDomain));
-        if (newPredicate.equals(TRUE_LITERAL)) {
+        if (newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(project);
         }
         return Result.ofPlanNode(new FilterNode(filter.getId(), project, newPredicate));

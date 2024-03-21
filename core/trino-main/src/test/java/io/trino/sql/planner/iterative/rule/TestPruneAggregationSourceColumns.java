@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -58,10 +58,10 @@ public class TestPruneAggregationSourceColumns
                                 SINGLE,
                                 strictProject(
                                         ImmutableMap.of(
-                                                "input", expression(new SymbolReference(BIGINT, "input")),
-                                                "key", expression(new SymbolReference(BIGINT, "key")),
-                                                "keyHash", expression(new SymbolReference(BIGINT, "keyHash")),
-                                                "mask", expression(new SymbolReference(BOOLEAN, "mask"))),
+                                                "input", expression(new Reference(BIGINT, "input")),
+                                                "key", expression(new Reference(BIGINT, "key")),
+                                                "keyHash", expression(new Reference(BIGINT, "keyHash")),
+                                                "mask", expression(new Reference(BOOLEAN, "mask"))),
                                         values("input", "key", "keyHash", "mask", "unused"))));
     }
 
@@ -84,7 +84,7 @@ public class TestPruneAggregationSourceColumns
         List<Symbol> sourceSymbols = ImmutableList.of(input, key, keyHash, mask, unused);
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                 .singleGroupingSet(key)
-                .addAggregation(avg, PlanBuilder.aggregation("avg", ImmutableList.of(new SymbolReference(BIGINT, "input"))), ImmutableList.of(BIGINT), mask)
+                .addAggregation(avg, PlanBuilder.aggregation("avg", ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT), mask)
                 .hashSymbol(keyHash)
                 .source(
                         planBuilder.values(

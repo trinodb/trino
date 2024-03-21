@@ -136,7 +136,7 @@ import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -528,7 +528,7 @@ public class PlanBuilder
 
     public CorrelatedJoinNode correlatedJoin(List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
-        return correlatedJoin(correlation, input, JoinType.INNER, TRUE_LITERAL, subquery);
+        return correlatedJoin(correlation, input, JoinType.INNER, TRUE, subquery);
     }
 
     public CorrelatedJoinNode correlatedJoin(List<Symbol> correlation, PlanNode input, JoinType type, Expression filter, PlanNode subquery)

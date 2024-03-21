@@ -13,26 +13,26 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticNegation;
-import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Between;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.CoalesceExpression;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.LogicalExpression;
-import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Negation;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.SearchedCaseExpression;
-import io.trino.sql.ir.SimpleCaseExpression;
-import io.trino.sql.ir.SubscriptExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Subscript;
+import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 
 import java.util.List;
@@ -87,9 +87,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitSymbolReference(SymbolReference actual, Expression expectedExpression)
+    protected Boolean visitReference(Reference actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof SymbolReference expected)) {
+        if (!(expectedExpression instanceof Reference expected)) {
             return false;
         }
 
@@ -118,9 +118,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitIsNullPredicate(IsNullPredicate actual, Expression expectedExpression)
+    protected Boolean visitIsNull(IsNull actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof IsNullPredicate expected)) {
+        if (!(expectedExpression instanceof IsNull expected)) {
             return false;
         }
 
@@ -128,9 +128,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitInPredicate(InPredicate actual, Expression expectedExpression)
+    protected Boolean visitIn(In actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof InPredicate expected)) {
+        if (!(expectedExpression instanceof In expected)) {
             return false;
         }
 
@@ -139,9 +139,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitComparisonExpression(ComparisonExpression actual, Expression expectedExpression)
+    protected Boolean visitComparison(Comparison actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof ComparisonExpression expected)) {
+        if (!(expectedExpression instanceof Comparison expected)) {
             return false;
         }
 
@@ -157,9 +157,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitBetweenPredicate(BetweenPredicate actual, Expression expectedExpression)
+    protected Boolean visitBetween(Between actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof BetweenPredicate expected)) {
+        if (!(expectedExpression instanceof Between expected)) {
             return false;
         }
 
@@ -169,9 +169,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitArithmeticNegation(ArithmeticNegation actual, Expression expectedExpression)
+    protected Boolean visitNegation(Negation actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof ArithmeticNegation expected)) {
+        if (!(expectedExpression instanceof Negation expected)) {
             return false;
         }
 
@@ -179,9 +179,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitArithmeticBinary(ArithmeticBinaryExpression actual, Expression expectedExpression)
+    protected Boolean visitArithmetic(Arithmetic actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof ArithmeticBinaryExpression expected)) {
+        if (!(expectedExpression instanceof Arithmetic expected)) {
             return false;
         }
 
@@ -191,9 +191,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitNotExpression(NotExpression actual, Expression expectedExpression)
+    protected Boolean visitNot(Not actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof NotExpression expected)) {
+        if (!(expectedExpression instanceof Not expected)) {
             return false;
         }
 
@@ -201,9 +201,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitLogicalExpression(LogicalExpression actual, Expression expectedExpression)
+    protected Boolean visitLogical(Logical actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof LogicalExpression expected)) {
+        if (!(expectedExpression instanceof Logical expected)) {
             return false;
         }
 
@@ -221,9 +221,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitCoalesceExpression(CoalesceExpression actual, Expression expectedExpression)
+    protected Boolean visitCoalesce(Coalesce actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof CoalesceExpression expected)) {
+        if (!(expectedExpression instanceof Coalesce expected)) {
             return false;
         }
 
@@ -240,9 +240,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitSimpleCaseExpression(SimpleCaseExpression actual, Expression expectedExpression)
+    protected Boolean visitSwitch(Switch actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof SimpleCaseExpression expected)) {
+        if (!(expectedExpression instanceof Switch expected)) {
             return false;
         }
 
@@ -252,9 +252,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitSearchedCaseExpression(SearchedCaseExpression actual, Expression expected)
+    protected Boolean visitCase(Case actual, Expression expected)
     {
-        if (!(expected instanceof SearchedCaseExpression expectedCase)) {
+        if (!(expected instanceof Case expectedCase)) {
             return false;
         }
 
@@ -289,9 +289,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitFunctionCall(FunctionCall actual, Expression expectedExpression)
+    protected Boolean visitCall(Call actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof FunctionCall expected)) {
+        if (!(expectedExpression instanceof Call expected)) {
             return false;
         }
 
@@ -300,18 +300,18 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitLambdaExpression(LambdaExpression actual, Expression expected)
+    protected Boolean visitLambda(Lambda actual, Expression expected)
     {
-        if (!(expected instanceof LambdaExpression lambdaExpression)) {
+        if (!(expected instanceof Lambda lambda)) {
             return false;
         }
 
         // todo this should allow the arguments to have different names
-        if (!actual.arguments().equals(lambdaExpression.arguments())) {
+        if (!actual.arguments().equals(lambda.arguments())) {
             return false;
         }
 
-        return process(actual.body(), lambdaExpression.body());
+        return process(actual.body(), lambda.body());
     }
 
     @Override
@@ -325,9 +325,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitSubscriptExpression(SubscriptExpression actual, Expression expectedExpression)
+    protected Boolean visitSubscript(Subscript actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof SubscriptExpression expected)) {
+        if (!(expectedExpression instanceof Subscript expected)) {
             return false;
         }
 

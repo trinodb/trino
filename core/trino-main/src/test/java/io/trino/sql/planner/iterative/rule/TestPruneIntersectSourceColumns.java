@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
@@ -49,7 +49,7 @@ public class TestPruneIntersectSourceColumns
                 })
                 .matches(intersect(
                         strictProject(
-                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a"))),
+                                ImmutableMap.of("a", expression(new Reference(BIGINT, "a"))),
                                 values("a", "b")),
                         values("c"),
                         values("d")));
@@ -76,13 +76,13 @@ public class TestPruneIntersectSourceColumns
                 })
                 .matches(intersect(
                         strictProject(
-                                ImmutableMap.of("a", expression(new SymbolReference(BIGINT, "a"))),
+                                ImmutableMap.of("a", expression(new Reference(BIGINT, "a"))),
                                 values("a", "b")),
                         strictProject(
-                                ImmutableMap.of("c", expression(new SymbolReference(BIGINT, "c"))),
+                                ImmutableMap.of("c", expression(new Reference(BIGINT, "c"))),
                                 values("c", "d")),
                         strictProject(
-                                ImmutableMap.of("e", expression(new SymbolReference(BIGINT, "e"))),
+                                ImmutableMap.of("e", expression(new Reference(BIGINT, "e"))),
                                 values("e", "f"))));
     }
 

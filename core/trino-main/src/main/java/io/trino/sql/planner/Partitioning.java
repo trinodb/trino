@@ -23,7 +23,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -306,12 +306,12 @@ public final class Partitioning
 
         public boolean isVariable()
         {
-            return expression instanceof SymbolReference;
+            return expression instanceof Reference;
         }
 
         public Symbol getColumn()
         {
-            verify(expression instanceof SymbolReference, "Expect the expression to be a SymbolReference");
+            verify(expression instanceof Reference, "Expect the expression to be a SymbolReference");
             return Symbol.from(expression);
         }
 

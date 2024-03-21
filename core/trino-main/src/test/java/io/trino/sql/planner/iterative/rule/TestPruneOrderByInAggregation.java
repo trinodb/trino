@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.SortOrder;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -79,7 +79,7 @@ public class TestPruneOrderByInAggregation
                 .singleGroupingSet(key)
                 .addAggregation(avg, PlanBuilder.aggregation(
                         "avg",
-                        ImmutableList.of(new SymbolReference(BIGINT, "input")),
+                        ImmutableList.of(new Reference(BIGINT, "input")),
                         new OrderingScheme(
                                 ImmutableList.of(new Symbol(UNKNOWN, "input")),
                                 ImmutableMap.of(new Symbol(UNKNOWN, "input"), SortOrder.ASC_NULLS_LAST))),
@@ -87,7 +87,7 @@ public class TestPruneOrderByInAggregation
                         mask)
                 .addAggregation(arrayAgg, PlanBuilder.aggregation(
                         "array_agg",
-                        ImmutableList.of(new SymbolReference(BIGINT, "input")),
+                        ImmutableList.of(new Reference(BIGINT, "input")),
                         new OrderingScheme(
                                 ImmutableList.of(new Symbol(UNKNOWN, "input")),
                                 ImmutableMap.of(new Symbol(UNKNOWN, "input"), SortOrder.ASC_NULLS_LAST))),

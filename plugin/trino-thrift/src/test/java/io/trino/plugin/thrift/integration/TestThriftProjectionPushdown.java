@@ -28,7 +28,7 @@ import io.trino.plugin.thrift.ThriftTransactionHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
@@ -184,7 +184,7 @@ public class TestThriftProjectionPushdown
                                     ImmutableMap.of(orderStatusSymbol, columnHandle)));
                 })
                 .matches(project(
-                        ImmutableMap.of("expr_2", expression(new SymbolReference(VARCHAR, columnName))),
+                        ImmutableMap.of("expr_2", expression(new Reference(VARCHAR, columnName))),
                         tableScan(
                                 projectedThriftHandle::equals,
                                 TupleDomain.all(),
@@ -217,7 +217,7 @@ public class TestThriftProjectionPushdown
                                             .buildOrThrow()));
                 })
                 .matches(project(
-                        ImmutableMap.of("expr", expression(new SymbolReference(BIGINT, nationKeyColumn.getColumnName()))),
+                        ImmutableMap.of("expr", expression(new Reference(BIGINT, nationKeyColumn.getColumnName()))),
                         tableScan(
                                 new ThriftTableHandle(
                                         TINY_SCHEMA,

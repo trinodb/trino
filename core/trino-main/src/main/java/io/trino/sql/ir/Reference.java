@@ -22,10 +22,10 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record SymbolReference(Type type, String name)
+public record Reference(Type type, String name)
         implements Expression
 {
-    public SymbolReference
+    public Reference
     {
         requireNonNull(name, "name is null");
     }
@@ -39,11 +39,11 @@ public record SymbolReference(Type type, String name)
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitSymbolReference(this, context);
+        return visitor.visitReference(this, context);
     }
 
     @Override
-    public List<? extends Expression> getChildren()
+    public List<? extends Expression> children()
     {
         return ImmutableList.of();
     }

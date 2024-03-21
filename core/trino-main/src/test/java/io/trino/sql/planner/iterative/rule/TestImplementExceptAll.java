@@ -19,11 +19,11 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.FunctionCall;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.SetOperationOutputMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -35,9 +35,9 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.SUBTRACT;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Arithmetic.Operator.SUBTRACT;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -93,17 +93,17 @@ public class TestImplementExceptAll
                 .matches(
                         strictProject(
                                 ImmutableMap.of(
-                                        "a", expression(new SymbolReference(BIGINT, "a")),
-                                        "b", expression(new SymbolReference(BIGINT, "b"))),
+                                        "a", expression(new Reference(BIGINT, "a")),
+                                        "b", expression(new Reference(BIGINT, "b"))),
                                 filter(
-                                        new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(BIGINT, "row_number"), new FunctionCall(GREATEST, ImmutableList.of(new ArithmeticBinaryExpression(SUBTRACT_BIGINT, SUBTRACT, new SymbolReference(BIGINT, "count_1"), new SymbolReference(BIGINT, "count_2")), new Constant(BIGINT, 0L)))),
+                                        new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "row_number"), new Call(GREATEST, ImmutableList.of(new Arithmetic(SUBTRACT_BIGINT, SUBTRACT, new Reference(BIGINT, "count_1"), new Reference(BIGINT, "count_2")), new Constant(BIGINT, 0L)))),
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "a", expression(new SymbolReference(BIGINT, "a")),
-                                                        "b", expression(new SymbolReference(BIGINT, "b")),
-                                                        "count_1", expression(new SymbolReference(BIGINT, "count_1")),
-                                                        "count_2", expression(new SymbolReference(BIGINT, "count_2")),
-                                                        "row_number", expression(new SymbolReference(BIGINT, "row_number"))),
+                                                        "a", expression(new Reference(BIGINT, "a")),
+                                                        "b", expression(new Reference(BIGINT, "b")),
+                                                        "count_1", expression(new Reference(BIGINT, "count_1")),
+                                                        "count_2", expression(new Reference(BIGINT, "count_2")),
+                                                        "row_number", expression(new Reference(BIGINT, "row_number"))),
                                                 window(builder -> builder
                                                                 .specification(specification(
                                                                         ImmutableList.of("a", "b"),
@@ -121,17 +121,17 @@ public class TestImplementExceptAll
                                                         union(
                                                                 project(
                                                                         ImmutableMap.of(
-                                                                                "a1", expression(new SymbolReference(BIGINT, "a_1")),
-                                                                                "b1", expression(new SymbolReference(BIGINT, "b_1")),
-                                                                                "marker_left_1", expression(TRUE_LITERAL),
+                                                                                "a1", expression(new Reference(BIGINT, "a_1")),
+                                                                                "b1", expression(new Reference(BIGINT, "b_1")),
+                                                                                "marker_left_1", expression(TRUE),
                                                                                 "marker_left_2", expression(new Constant(BOOLEAN, null))),
                                                                         values("a_1", "b_1")),
                                                                 project(
                                                                         ImmutableMap.of(
-                                                                                "a2", expression(new SymbolReference(BIGINT, "a_2")),
-                                                                                "b2", expression(new SymbolReference(BIGINT, "b_2")),
+                                                                                "a2", expression(new Reference(BIGINT, "a_2")),
+                                                                                "b2", expression(new Reference(BIGINT, "b_2")),
                                                                                 "marker_right_1", expression(new Constant(BOOLEAN, null)),
-                                                                                "marker_right_2", expression(TRUE_LITERAL)),
+                                                                                "marker_right_2", expression(TRUE)),
                                                                         values("a_2", "b_2")))
                                                                 .withAlias("a", new SetOperationOutputMatcher(0))
                                                                 .withAlias("b", new SetOperationOutputMatcher(1))

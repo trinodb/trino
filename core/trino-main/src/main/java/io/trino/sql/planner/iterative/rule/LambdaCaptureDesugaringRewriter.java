@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.trino.sql.ir.BindExpression;
+import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 
@@ -56,7 +56,7 @@ public final class LambdaCaptureDesugaringRewriter
         }
 
         @Override
-        public Expression rewriteLambdaExpression(LambdaExpression node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
+        public Expression rewriteLambda(Lambda node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
         {
             // Use linked hash set to guarantee deterministic iteration order
             LinkedHashSet<Symbol> referencedSymbols = new LinkedHashSet<>();
@@ -80,14 +80,14 @@ public final class LambdaCaptureDesugaringRewriter
 
             ImmutableMap<Symbol, Symbol> symbolsMap = captureSymbolToExtraSymbol.buildOrThrow();
             Function<Symbol, Expression> symbolMapping = symbol -> symbolsMap.getOrDefault(symbol, symbol).toSymbolReference();
-            LambdaExpression lambdaExpression = new LambdaExpression(newLambdaArguments.build(), inlineSymbols(symbolMapping, rewrittenBody));
+            Lambda lambda = new Lambda(newLambdaArguments.build(), inlineSymbols(symbolMapping, rewrittenBody));
 
-            Expression rewrittenExpression = lambdaExpression;
+            Expression rewrittenExpression = lambda;
             if (captureSymbols.size() != 0) {
                 List<Expression> capturedValues = captureSymbols.stream()
-                        .map(symbol -> new SymbolReference(symbol.getType(), symbol.getName()))
+                        .map(symbol -> new Reference(symbol.getType(), symbol.getName()))
                         .collect(toImmutableList());
-                rewrittenExpression = new BindExpression(capturedValues, lambdaExpression);
+                rewrittenExpression = new Bind(capturedValues, lambda);
             }
 
             context.getReferencedSymbols().addAll(captureSymbols);
@@ -95,7 +95,7 @@ public final class LambdaCaptureDesugaringRewriter
         }
 
         @Override
-        public Expression rewriteSymbolReference(SymbolReference node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
+        public Expression rewriteReference(Reference node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
         {
             context.getReferencedSymbols().add(new Symbol(node.type(), node.name()));
             return null;

@@ -14,8 +14,8 @@
 package io.trino.sql.planner;
 
 import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,8 +51,8 @@ public class ResolvedFunctionCallBuilder
         return this;
     }
 
-    public FunctionCall build()
+    public Call build()
     {
-        return new FunctionCall(resolvedFunction, argumentValues);
+        return new Call(resolvedFunction, argumentValues);
     }
 }

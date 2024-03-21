@@ -22,19 +22,19 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.InPredicate;
-import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.NullIfExpression;
-import io.trino.sql.ir.SearchedCaseExpression;
-import io.trino.sql.ir.SimpleCaseExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.In;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.NullIf;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.type.FunctionType;
 import io.trino.type.UnknownType;
@@ -52,8 +52,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.EqualityInference.isInferenceCandidate;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -72,21 +72,21 @@ public class TestEqualityInference
     {
         EqualityInference inference = new EqualityInference(
                 equals("a1", "b1"),
-                equals(add(new SymbolReference(BIGINT, "a1"), number(1)), number(0)),
-                equals(new SymbolReference(BIGINT, "a2"), add(new SymbolReference(BIGINT, "a1"), number(2))),
-                equals(new SymbolReference(BIGINT, "a1"), add("a3", "b3")),
-                equals(new SymbolReference(BIGINT, "b2"), add("a4", "b4")));
+                equals(add(new Reference(BIGINT, "a1"), number(1)), number(0)),
+                equals(new Reference(BIGINT, "a2"), add(new Reference(BIGINT, "a1"), number(2))),
+                equals(new Reference(BIGINT, "a1"), add("a3", "b3")),
+                equals(new Reference(BIGINT, "b2"), add("a4", "b4")));
         EqualityInference.EqualityPartition partition = inference.generateEqualitiesPartitionedBy(symbols("a1", "a2", "a3", "a4"));
         assertThat(partition.getScopeEqualities()).containsExactly(
-                equals(number(0), add(new SymbolReference(BIGINT, "a1"), number(1))),
-                equals(new SymbolReference(BIGINT, "a2"), add(new SymbolReference(BIGINT, "a1"), number(2))));
+                equals(number(0), add(new Reference(BIGINT, "a1"), number(1))),
+                equals(new Reference(BIGINT, "a2"), add(new Reference(BIGINT, "a1"), number(2))));
         assertThat(partition.getScopeComplementEqualities()).containsExactly(
-                equals(number(0), add(new SymbolReference(BIGINT, "b1"), number(1))));
+                equals(number(0), add(new Reference(BIGINT, "b1"), number(1))));
         // there shouldn't be equality a2 = b1 + 1 as it can be derived from a2 = a1 + 1, a1 = b1
         assertThat(partition.getScopeStraddlingEqualities()).containsExactly(
                 equals("a1", "b1"),
-                equals(new SymbolReference(BIGINT, "a1"), add("a3", "b3")),
-                equals(new SymbolReference(BIGINT, "b2"), add("a4", "b4")));
+                equals(new Reference(BIGINT, "a1"), add("a3", "b3")),
+                equals(new Reference(BIGINT, "b2"), add("a4", "b4")));
     }
 
     @Test
@@ -109,8 +109,8 @@ public class TestEqualityInference
         assertThat(inference.rewrite(someExpression("a1", "a2"), symbols("b1", "d2", "c3"))).isEqualTo(someExpression("b1", "d2"));
 
         // Both starting expressions should canonicalize to the same expression
-        assertThat(inference.getScopedCanonical(new SymbolReference(BIGINT, "a2"), matchesSymbols("c2", "d2"))).isEqualTo(inference.getScopedCanonical(new SymbolReference(BIGINT, "b2"), matchesSymbols("c2", "d2")));
-        Expression canonical = inference.getScopedCanonical(new SymbolReference(BIGINT, "a2"), matchesSymbols("c2", "d2"));
+        assertThat(inference.getScopedCanonical(new Reference(BIGINT, "a2"), matchesSymbols("c2", "d2"))).isEqualTo(inference.getScopedCanonical(new Reference(BIGINT, "b2"), matchesSymbols("c2", "d2")));
+        Expression canonical = inference.getScopedCanonical(new Reference(BIGINT, "a2"), matchesSymbols("c2", "d2"));
 
         // Given multiple translatable candidates, should choose the canonical
         assertThat(inference.rewrite(someExpression("a2", "b2"), symbols("c2", "d2"))).isEqualTo(someExpression(canonical, canonical));
@@ -155,21 +155,21 @@ public class TestEqualityInference
                 and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")));
 
         // Able to rewrite to c1 due to equalities
-        assertThat(new SymbolReference(BIGINT, "c1")).isEqualTo(inference.rewrite(new SymbolReference(BIGINT, "a1"), symbols("c1")));
+        assertThat(new Reference(BIGINT, "c1")).isEqualTo(inference.rewrite(new Reference(BIGINT, "a1"), symbols("c1")));
 
         // But not be able to rewrite to d1 which is not connected via equality
-        assertThat(inference.rewrite(new SymbolReference(BIGINT, "a1"), symbols("d1"))).isNull();
+        assertThat(inference.rewrite(new Reference(BIGINT, "a1"), symbols("d1"))).isNull();
     }
 
     @Test
     public void testEqualityPartitionGeneration()
     {
         EqualityInference inference = new EqualityInference(
-                equals(new SymbolReference(BIGINT, "a1"), new SymbolReference(BIGINT, "b1")),
-                equals(add("a1", "a1"), multiply(new SymbolReference(BIGINT, "a1"), number(2))),
-                equals(new SymbolReference(BIGINT, "b1"), new SymbolReference(BIGINT, "c1")),
-                equals(add("a1", "a1"), new SymbolReference(BIGINT, "c1")),
-                equals(add("a1", "b1"), new SymbolReference(BIGINT, "c1")));
+                equals(new Reference(BIGINT, "a1"), new Reference(BIGINT, "b1")),
+                equals(add("a1", "a1"), multiply(new Reference(BIGINT, "a1"), number(2))),
+                equals(new Reference(BIGINT, "b1"), new Reference(BIGINT, "c1")),
+                equals(add("a1", "a1"), new Reference(BIGINT, "c1")),
+                equals(add("a1", "b1"), new Reference(BIGINT, "c1")));
 
         EqualityInference.EqualityPartition emptyScopePartition = inference.generateEqualitiesPartitionedBy(ImmutableSet.of());
         // Cannot generate any scope equalities with no matching symbols
@@ -261,18 +261,18 @@ public class TestEqualityInference
     public void testSubExpressionRewrites()
     {
         EqualityInference inference = new EqualityInference(
-                equals(new SymbolReference(BIGINT, "a1"), add("b", "c")), // a1 = b + c
-                equals(new SymbolReference(BIGINT, "a2"), multiply(new SymbolReference(BIGINT, "b"), add("b", "c"))), // a2 = b * (b + c)
-                equals(new SymbolReference(BIGINT, "a3"), multiply(new SymbolReference(BIGINT, "a1"), add("b", "c")))); // a3 = a1 * (b + c)
+                equals(new Reference(BIGINT, "a1"), add("b", "c")), // a1 = b + c
+                equals(new Reference(BIGINT, "a2"), multiply(new Reference(BIGINT, "b"), add("b", "c"))), // a2 = b * (b + c)
+                equals(new Reference(BIGINT, "a3"), multiply(new Reference(BIGINT, "a1"), add("b", "c")))); // a3 = a1 * (b + c)
 
         // Expression (b + c) should get entirely rewritten as a1
-        assertThat(inference.rewrite(add("b", "c"), symbols("a1", "a2"))).isEqualTo(new SymbolReference(BIGINT, "a1"));
+        assertThat(inference.rewrite(add("b", "c"), symbols("a1", "a2"))).isEqualTo(new Reference(BIGINT, "a1"));
 
         // Only the sub-expression (b + c) should get rewritten in terms of a*
-        assertThat(inference.rewrite(multiply(new SymbolReference(BIGINT, "ax"), add("b", "c")), symbols("ax", "a1", "a2", "a3"))).isEqualTo(multiply(new SymbolReference(BIGINT, "ax"), new SymbolReference(BIGINT, "a1")));
+        assertThat(inference.rewrite(multiply(new Reference(BIGINT, "ax"), add("b", "c")), symbols("ax", "a1", "a2", "a3"))).isEqualTo(multiply(new Reference(BIGINT, "ax"), new Reference(BIGINT, "a1")));
 
         // To be compliant, could rewrite either the whole expression, or just the sub-expression. Rewriting larger expressions are preferred
-        assertThat(inference.rewrite(multiply(new SymbolReference(BIGINT, "a1"), add("b", "c")), symbols("a1", "a2", "a3"))).isEqualTo(new SymbolReference(BIGINT, "a3"));
+        assertThat(inference.rewrite(multiply(new Reference(BIGINT, "a1"), add("b", "c")), symbols("a1", "a2", "a3"))).isEqualTo(new Reference(BIGINT, "a3"));
     }
 
     @Test
@@ -281,15 +281,15 @@ public class TestEqualityInference
         EqualityInference inference = new EqualityInference(
                 equals("a1", "b1"),
                 equals("b1", "c1"),
-                equals(new SymbolReference(BIGINT, "c1"), number(1)));
+                equals(new Reference(BIGINT, "c1"), number(1)));
 
         // Should always prefer a constant if available (constant is part of all scopes)
-        assertThat(inference.rewrite(new SymbolReference(BIGINT, "a1"), symbols("a1", "b1"))).isEqualTo(number(1));
+        assertThat(inference.rewrite(new Reference(BIGINT, "a1"), symbols("a1", "b1"))).isEqualTo(number(1));
 
         // All scope equalities should utilize the constant if possible
         EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(symbols("a1", "b1"));
-        assertThat(equalitiesAsSets(equalityPartition.getScopeEqualities())).isEqualTo(set(set(new SymbolReference(BIGINT, "a1"), number(1)), set(new SymbolReference(BIGINT, "b1"), number(1))));
-        assertThat(equalitiesAsSets(equalityPartition.getScopeComplementEqualities())).isEqualTo(set(set(new SymbolReference(BIGINT, "c1"), number(1))));
+        assertThat(equalitiesAsSets(equalityPartition.getScopeEqualities())).isEqualTo(set(set(new Reference(BIGINT, "a1"), number(1)), set(new Reference(BIGINT, "b1"), number(1))));
+        assertThat(equalitiesAsSets(equalityPartition.getScopeComplementEqualities())).isEqualTo(set(set(new Reference(BIGINT, "c1"), number(1))));
 
         // There should be no scope straddling equalities as the full set of equalities should be already represented by the scope and inverse scope
         assertThat(equalityPartition.getScopeStraddlingEqualities().isEmpty()).isTrue();
@@ -299,36 +299,36 @@ public class TestEqualityInference
     public void testEqualityGeneration()
     {
         EqualityInference inference = new EqualityInference(
-                equals(new SymbolReference(BIGINT, "a1"), add("b", "c")), // a1 = b + c
-                equals(new SymbolReference(BIGINT, "e1"), add("b", "d")), // e1 = b + d
+                equals(new Reference(BIGINT, "a1"), add("b", "c")), // a1 = b + c
+                equals(new Reference(BIGINT, "e1"), add("b", "d")), // e1 = b + d
                 equals("c", "d"));
 
-        Expression scopedCanonical = inference.getScopedCanonical(new SymbolReference(BIGINT, "e1"), symbolBeginsWith("a"));
-        assertThat(scopedCanonical).isEqualTo(new SymbolReference(BIGINT, "a1"));
+        Expression scopedCanonical = inference.getScopedCanonical(new Reference(BIGINT, "e1"), symbolBeginsWith("a"));
+        assertThat(scopedCanonical).isEqualTo(new Reference(BIGINT, "a1"));
     }
 
     @Test
     public void testExpressionsThatMayReturnNullOnNonNullInput()
     {
         List<Expression> candidates = ImmutableList.of(
-                new Cast(new SymbolReference(BIGINT, "b"), BIGINT, true), // try_cast
+                new Cast(new Reference(BIGINT, "b"), BIGINT, true), // try_cast
                 functionResolution
                         .functionCallBuilder(TryFunction.NAME)
-                        .addArgument(new FunctionType(ImmutableList.of(), VARCHAR), new LambdaExpression(ImmutableList.of(), new SymbolReference(BIGINT, "b")))
+                        .addArgument(new FunctionType(ImmutableList.of(), VARCHAR), new Lambda(ImmutableList.of(), new Reference(BIGINT, "b")))
                         .build(),
-                new NullIfExpression(new SymbolReference(BIGINT, "b"), number(1)),
-                new InPredicate(new SymbolReference(BIGINT, "b"), ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))),
-                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new NotExpression(new IsNullPredicate(new SymbolReference(BIGINT, "b"))), new Constant(UnknownType.UNKNOWN, null))), Optional.empty()),
-                new SimpleCaseExpression(new SymbolReference(BIGINT, "b"), ImmutableList.of(new WhenClause(number(1), new Constant(UnknownType.UNKNOWN, null))), Optional.empty()));
+                new NullIf(new Reference(BIGINT, "b"), number(1)),
+                new In(new Reference(BIGINT, "b"), ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))),
+                new Case(ImmutableList.of(new WhenClause(new Not(new IsNull(new Reference(BIGINT, "b"))), new Constant(UnknownType.UNKNOWN, null))), Optional.empty()),
+                new Switch(new Reference(BIGINT, "b"), ImmutableList.of(new WhenClause(number(1), new Constant(UnknownType.UNKNOWN, null))), Optional.empty()));
 
         for (Expression candidate : candidates) {
             EqualityInference inference = new EqualityInference(
-                    equals(new SymbolReference(BIGINT, "b"), new SymbolReference(BIGINT, "x")),
-                    equals(new SymbolReference(BIGINT, "a"), candidate));
+                    equals(new Reference(BIGINT, "b"), new Reference(BIGINT, "x")),
+                    equals(new Reference(BIGINT, "a"), candidate));
 
             List<Expression> equalities = inference.generateEqualitiesPartitionedBy(symbols("b")).getScopeStraddlingEqualities();
             assertThat(equalities.size()).isEqualTo(1);
-            assertThat(equalities.get(0).equals(equals(new SymbolReference(BIGINT, "x"), new SymbolReference(BIGINT, "b"))) || equalities.get(0).equals(equals(new SymbolReference(BIGINT, "b"), new SymbolReference(BIGINT, "x")))).isTrue();
+            assertThat(equalities.get(0).equals(equals(new Reference(BIGINT, "x"), new Reference(BIGINT, "b"))) || equalities.get(0).equals(equals(new Reference(BIGINT, "b"), new Reference(BIGINT, "x")))).isTrue();
         }
     }
 
@@ -347,37 +347,37 @@ public class TestEqualityInference
 
     private static Expression someExpression(String symbol1, String symbol2)
     {
-        return someExpression(new SymbolReference(BIGINT, symbol1), new SymbolReference(BIGINT, symbol2));
+        return someExpression(new Reference(BIGINT, symbol1), new Reference(BIGINT, symbol2));
     }
 
     private static Expression someExpression(Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(GREATER_THAN, expression1, expression2);
+        return new Comparison(GREATER_THAN, expression1, expression2);
     }
 
     private static Expression add(String symbol1, String symbol2)
     {
-        return add(new SymbolReference(BIGINT, symbol1), new SymbolReference(BIGINT, symbol2));
+        return add(new Reference(BIGINT, symbol1), new Reference(BIGINT, symbol2));
     }
 
     private static Expression add(Expression expression1, Expression expression2)
     {
-        return new ArithmeticBinaryExpression(ADD_BIGINT, ArithmeticBinaryExpression.Operator.ADD, expression1, expression2);
+        return new Arithmetic(ADD_BIGINT, Arithmetic.Operator.ADD, expression1, expression2);
     }
 
     private static Expression multiply(Expression expression1, Expression expression2)
     {
-        return new ArithmeticBinaryExpression(MULTIPLY_BIGINT, ArithmeticBinaryExpression.Operator.MULTIPLY, expression1, expression2);
+        return new Arithmetic(MULTIPLY_BIGINT, Arithmetic.Operator.MULTIPLY, expression1, expression2);
     }
 
     private static Expression equals(String symbol1, String symbol2)
     {
-        return equals(new SymbolReference(BIGINT, symbol1), new SymbolReference(BIGINT, symbol2));
+        return equals(new Reference(BIGINT, symbol1), new Reference(BIGINT, symbol2));
     }
 
     private static Expression equals(Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(EQUAL, expression1, expression2);
+        return new Comparison(EQUAL, expression1, expression2);
     }
 
     private static Constant number(long number)
@@ -438,10 +438,10 @@ public class TestEqualityInference
 
     private static Set<Expression> equalityAsSet(Expression expression)
     {
-        checkArgument(expression instanceof ComparisonExpression);
-        ComparisonExpression comparisonExpression = (ComparisonExpression) expression;
-        checkArgument(comparisonExpression.operator() == EQUAL);
-        return ImmutableSet.of(comparisonExpression.left(), comparisonExpression.right());
+        checkArgument(expression instanceof Comparison);
+        Comparison comparison = (Comparison) expression;
+        checkArgument(comparison.operator() == EQUAL);
+        return ImmutableSet.of(comparison.left(), comparison.right());
     }
 
     @SafeVarargs

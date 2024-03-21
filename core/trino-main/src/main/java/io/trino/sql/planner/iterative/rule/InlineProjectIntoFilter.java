@@ -19,7 +19,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.plan.Patterns.filter;
@@ -108,7 +108,7 @@ public class InlineProjectIntoFilter
         List<Expression> filterConjuncts = extractConjuncts(node.getPredicate());
 
         Map<Boolean, List<Expression>> conjuncts = filterConjuncts.stream()
-                .collect(partitioningBy(SymbolReference.class::isInstance));
+                .collect(partitioningBy(Reference.class::isInstance));
         List<Expression> simpleConjuncts = conjuncts.get(true);
         List<Expression> complexConjuncts = conjuncts.get(false);
 
@@ -138,7 +138,7 @@ public class InlineProjectIntoFilter
         for (Expression conjunct : filterConjuncts) {
             if (simpleConjunctsToInline.contains(conjunct)) {
                 Expression expression = projectNode.getAssignments().get(Symbol.from(conjunct));
-                if (expression == null || expression instanceof SymbolReference) {
+                if (expression == null || expression instanceof Reference) {
                     // expression == null -> The symbol is not produced by the underlying projection (i.e. it is a correlation symbol).
                     // expression instanceof SymbolReference -> Do not inline trivial projections.
                     newConjuncts.add(conjunct);
@@ -146,7 +146,7 @@ public class InlineProjectIntoFilter
                 else {
                     newConjuncts.add(expression);
                     newAssignments.putIdentities(SymbolsExtractor.extractUnique(expression));
-                    postFilterAssignmentsBuilder.put(Symbol.from(conjunct), TRUE_LITERAL);
+                    postFilterAssignmentsBuilder.put(Symbol.from(conjunct), TRUE);
                 }
             }
             else {

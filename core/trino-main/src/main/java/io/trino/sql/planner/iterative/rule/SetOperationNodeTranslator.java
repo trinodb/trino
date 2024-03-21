@@ -23,7 +23,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -46,7 +46,7 @@ import static com.google.common.collect.Iterables.concat;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
@@ -133,18 +133,18 @@ public class SetOperationNodeTranslator
         return result.build();
     }
 
-    private static PlanNode appendMarkers(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, PlanNode source, int markerIndex, List<Symbol> markers, Map<Symbol, SymbolReference> projections)
+    private static PlanNode appendMarkers(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, PlanNode source, int markerIndex, List<Symbol> markers, Map<Symbol, Reference> projections)
     {
         Assignments.Builder assignments = Assignments.builder();
         // add existing intersect symbols to projection
-        for (Map.Entry<Symbol, SymbolReference> entry : projections.entrySet()) {
+        for (Map.Entry<Symbol, Reference> entry : projections.entrySet()) {
             Symbol symbol = symbolAllocator.newSymbol(entry.getKey().getName(), entry.getKey().getType());
             assignments.put(symbol, entry.getValue());
         }
 
         // add extra marker fields to the projection
         for (int i = 0; i < markers.size(); ++i) {
-            Expression expression = (i == markerIndex) ? TRUE_LITERAL : new Constant(BOOLEAN, null);
+            Expression expression = (i == markerIndex) ? TRUE : new Constant(BOOLEAN, null);
             assignments.put(symbolAllocator.newSymbol(markers.get(i).getName(), BOOLEAN), expression);
         }
 

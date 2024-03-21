@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -53,7 +53,7 @@ public class TestPruneApplySourceColumns
                                 ImmutableMap.of("in_result", setExpression(new ApplyNode.In(new Symbol(UNKNOWN, "a"), new Symbol(UNKNOWN, "subquery_symbol_1")))),
                                 values("a"),
                                 project(
-                                        ImmutableMap.of("subquery_symbol_1", expression(new SymbolReference(BIGINT, "subquery_symbol_1"))),
+                                        ImmutableMap.of("subquery_symbol_1", expression(new Reference(BIGINT, "subquery_symbol_1"))),
                                         values("subquery_symbol_1", "subquery_symbol_2"))));
     }
 

@@ -16,9 +16,9 @@ package io.trino.plugin.geospatial;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 
@@ -38,43 +38,43 @@ public abstract class AbstractTestExtractSpatial
         super(new GeoPlugin());
     }
 
-    protected FunctionCall containsCall(Expression left, Expression right)
+    protected Call containsCall(Expression left, Expression right)
     {
         return functionCall("st_contains", ImmutableList.of(GEOMETRY, GEOMETRY), ImmutableList.of(left, right));
     }
 
-    protected FunctionCall distanceCall(Expression left, Expression right)
+    protected Call distanceCall(Expression left, Expression right)
     {
         return functionCall("st_distance", ImmutableList.of(GEOMETRY, GEOMETRY), ImmutableList.of(left, right));
     }
 
-    protected FunctionCall sphericalDistanceCall(Expression left, Expression right)
+    protected Call sphericalDistanceCall(Expression left, Expression right)
     {
         return functionCall("st_distance", ImmutableList.of(SPHERICAL_GEOGRAPHY, SPHERICAL_GEOGRAPHY), ImmutableList.of(left, right));
     }
 
-    protected FunctionCall geometryFromTextCall(Symbol symbol)
+    protected Call geometryFromTextCall(Symbol symbol)
     {
         return functionCall("st_geometryfromtext", ImmutableList.of(VARCHAR), ImmutableList.of(symbol.toSymbolReference()));
     }
 
-    protected FunctionCall geometryFromTextCall(String text)
+    protected Call geometryFromTextCall(String text)
     {
         return functionCall("st_geometryfromtext", ImmutableList.of(VARCHAR), ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice(text))));
     }
 
-    protected FunctionCall toSphericalGeographyCall(Symbol symbol)
+    protected Call toSphericalGeographyCall(Symbol symbol)
     {
         return functionCall("to_spherical_geography", ImmutableList.of(GEOMETRY), ImmutableList.of(geometryFromTextCall(symbol)));
     }
 
-    protected FunctionCall toPointCall(Expression x, Expression y)
+    protected Call toPointCall(Expression x, Expression y)
     {
         return functionCall("st_point", ImmutableList.of(BIGINT, BIGINT), ImmutableList.of(x, y));
     }
 
-    private FunctionCall functionCall(String name, List<Type> types, List<Expression> arguments)
+    private Call functionCall(String name, List<Type> types, List<Expression> arguments)
     {
-        return new FunctionCall(tester().getMetadata().resolveBuiltinFunction(name, fromTypes(types)), arguments);
+        return new Call(tester().getMetadata().resolveBuiltinFunction(name, fromTypes(types)), arguments);
     }
 }

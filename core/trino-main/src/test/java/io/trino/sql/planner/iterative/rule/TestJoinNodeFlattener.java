@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.ArithmeticNegation;
-import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Negation;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -53,12 +53,12 @@ import static io.trino.cost.PlanNodeStatsEstimate.unknown;
 import static io.trino.cost.StatsAndCosts.empty;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.ADD;
-import static io.trino.sql.ir.ArithmeticBinaryExpression.Operator.SUBTRACT;
-import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.ir.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.ir.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.ir.ComparisonExpression.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.Arithmetic.Operator.ADD;
+import static io.trino.sql.ir.Arithmetic.Operator.SUBTRACT;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -166,7 +166,7 @@ public class TestJoinNodeFlattener
         JoinNode joinNode = p.join(
                 INNER,
                 p.project(
-                        Assignments.of(d, new ArithmeticNegation(a.toSymbolReference())),
+                        Assignments.of(d, new Negation(a.toSymbolReference())),
                         p.join(
                                 INNER,
                                 valuesA,
@@ -210,7 +210,7 @@ public class TestJoinNodeFlattener
         JoinNode joinNode = p.join(
                 INNER,
                 p.project(
-                        Assignments.of(d, new ArithmeticBinaryExpression(SUBTRACT_INTEGER, SUBTRACT, a.toSymbolReference(), b.toSymbolReference())),
+                        Assignments.of(d, new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, a.toSymbolReference(), b.toSymbolReference())),
                         p.join(
                                 INNER,
                                 valuesA,
@@ -285,12 +285,12 @@ public class TestJoinNodeFlattener
         ValuesNode valuesB = p.values(b1, b2);
         ValuesNode valuesC = p.values(c1, c2);
         Expression bcFilter = and(
-                new ComparisonExpression(GREATER_THAN, c2.toSymbolReference(), new Constant(INTEGER, 0L)),
-                new ComparisonExpression(NOT_EQUAL, c2.toSymbolReference(), new Constant(INTEGER, 7L)),
-                new ComparisonExpression(GREATER_THAN, b2.toSymbolReference(), c2.toSymbolReference()));
-        ComparisonExpression abcFilter = new ComparisonExpression(
+                new Comparison(GREATER_THAN, c2.toSymbolReference(), new Constant(INTEGER, 0L)),
+                new Comparison(NOT_EQUAL, c2.toSymbolReference(), new Constant(INTEGER, 7L)),
+                new Comparison(GREATER_THAN, b2.toSymbolReference(), c2.toSymbolReference()));
+        Comparison abcFilter = new Comparison(
                 LESS_THAN,
-                new ArithmeticBinaryExpression(ADD_INTEGER, ADD, a1.toSymbolReference(), c1.toSymbolReference()),
+                new Arithmetic(ADD_INTEGER, ADD, a1.toSymbolReference(), c1.toSymbolReference()),
                 b1.toSymbolReference());
         JoinNode joinNode = p.join(
                 INNER,
@@ -309,7 +309,7 @@ public class TestJoinNodeFlattener
                 Optional.of(abcFilter));
         MultiJoinNode expected = new MultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(valuesA, valuesB, valuesC)),
-                and(new ComparisonExpression(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), new ComparisonExpression(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()), bcFilter, abcFilter),
+                and(new Comparison(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), new Comparison(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()), bcFilter, abcFilter),
                 ImmutableList.of(a1, b1, b2, c1, c2),
                 false);
         assertThat(toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build())).isEqualTo(expected);
@@ -429,9 +429,9 @@ public class TestJoinNodeFlattener
         assertThat(toMultiJoinNode(joinNode, noLookup(), planNodeIdAllocator, 2, false, testSessionBuilder().build())).isEqualTo(expected);
     }
 
-    private ComparisonExpression createEqualsExpression(Symbol left, Symbol right)
+    private Comparison createEqualsExpression(Symbol left, Symbol right)
     {
-        return new ComparisonExpression(EQUAL, left.toSymbolReference(), right.toSymbolReference());
+        return new Comparison(EQUAL, left.toSymbolReference(), right.toSymbolReference());
     }
 
     private EquiJoinClause equiJoinClause(Symbol symbol1, Symbol symbol2)

@@ -28,9 +28,9 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.IsNullPredicate;
-import io.trino.sql.ir.NotExpression;
-import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Not;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import org.junit.jupiter.api.Test;
 
@@ -166,8 +166,8 @@ public class TestIgniteClient
         // c_varchar IS NULL
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
-                                new IsNullPredicate(
-                                        new SymbolReference(VARCHAR, "c_varchar_symbol"))),
+                                new IsNull(
+                                        new Reference(VARCHAR, "c_varchar_symbol"))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(`c_varchar`) IS NULL");
@@ -180,7 +180,7 @@ public class TestIgniteClient
         // c_varchar IS NOT NULL
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
-                                new NotExpression(new IsNullPredicate(new SymbolReference(VARCHAR, "c_varchar_symbol")))),
+                                new Not(new IsNull(new Reference(VARCHAR, "c_varchar_symbol")))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(`c_varchar`) IS NOT NULL");
@@ -193,8 +193,8 @@ public class TestIgniteClient
         // NOT(expression)
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
                         translateToConnectorExpression(
-                                new NotExpression(
-                                        new NotExpression(new IsNullPredicate(new SymbolReference(VARCHAR, "c_varchar_symbol"))))),
+                                new Not(
+                                        new Not(new IsNull(new Reference(VARCHAR, "c_varchar_symbol"))))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("NOT ((`c_varchar`) IS NOT NULL)");
