@@ -917,20 +917,20 @@ public class TranslationMap
         if (escape.isPresent()) {
             patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName(LIKE_PATTERN_FUNCTION_NAME)
-                    .addArgument(analysis.getType(node.getPattern()), pattern)
-                    .addArgument(analysis.getType(node.getEscape().get()), escape.get())
+                    .addArgument(VARCHAR, new io.trino.sql.ir.Cast(pattern, VARCHAR))
+                    .addArgument(VARCHAR, new io.trino.sql.ir.Cast(escape.get(), VARCHAR))
                     .build();
         }
         else {
             patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName(LIKE_PATTERN_FUNCTION_NAME)
-                    .addArgument(analysis.getType(node.getPattern()), pattern)
+                    .addArgument(VARCHAR, new io.trino.sql.ir.Cast(pattern, VARCHAR))
                     .build();
         }
 
         Call call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                 .setName(LIKE_FUNCTION_NAME)
-                .addArgument(analysis.getType(node.getValue()), value)
+                .addArgument(value.type(), value)
                 .addArgument(LIKE_PATTERN, patternCall)
                 .build();
 
