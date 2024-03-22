@@ -142,7 +142,8 @@ public class TestCreateViewTask
                 query,
                 replace,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableList.of());
         return new CreateViewTask(metadata, new AllowAllAccessControl(), parser, analyzerFactory).execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }
