@@ -113,7 +113,7 @@ public class CheckpointWriter
         ProtocolEntry protocolEntry = entries.protocolEntry();
 
         RowType metadataEntryType = checkpointSchemaManager.getMetadataEntryType();
-        RowType protocolEntryType = checkpointSchemaManager.getProtocolEntryType(protocolEntry.getReaderFeatures().isPresent(), protocolEntry.getWriterFeatures().isPresent());
+        RowType protocolEntryType = checkpointSchemaManager.getProtocolEntryType(protocolEntry.readerFeatures().isPresent(), protocolEntry.writerFeatures().isPresent());
         RowType txnEntryType = checkpointSchemaManager.getTxnEntryType();
         RowType addEntryType = checkpointSchemaManager.getAddEntryType(
                 entries.metadataEntry(),
@@ -201,19 +201,19 @@ public class CheckpointWriter
         pageBuilder.declarePosition();
         ((RowBlockBuilder) pageBuilder.getBlockBuilder(PROTOCOL_BLOCK_CHANNEL)).buildEntry(fieldBuilders -> {
             int fieldId = 0;
-            writeLong(fieldBuilders.get(fieldId), entryType, fieldId, "minReaderVersion", (long) protocolEntry.getMinReaderVersion());
+            writeLong(fieldBuilders.get(fieldId), entryType, fieldId, "minReaderVersion", (long) protocolEntry.minReaderVersion());
             fieldId++;
 
-            writeLong(fieldBuilders.get(fieldId), entryType, fieldId, "minWriterVersion", (long) protocolEntry.getMinWriterVersion());
+            writeLong(fieldBuilders.get(fieldId), entryType, fieldId, "minWriterVersion", (long) protocolEntry.minWriterVersion());
             fieldId++;
 
-            if (protocolEntry.getReaderFeatures().isPresent()) {
-                writeStringList(fieldBuilders.get(fieldId), entryType, fieldId, "readerFeatures", protocolEntry.getReaderFeatures().get().stream().collect(toImmutableList()));
+            if (protocolEntry.readerFeatures().isPresent()) {
+                writeStringList(fieldBuilders.get(fieldId), entryType, fieldId, "readerFeatures", protocolEntry.readerFeatures().get().stream().collect(toImmutableList()));
                 fieldId++;
             }
 
-            if (protocolEntry.getWriterFeatures().isPresent()) {
-                writeStringList(fieldBuilders.get(fieldId), entryType, fieldId, "writerFeatures", protocolEntry.getWriterFeatures().get().stream().collect(toImmutableList()));
+            if (protocolEntry.writerFeatures().isPresent()) {
+                writeStringList(fieldBuilders.get(fieldId), entryType, fieldId, "writerFeatures", protocolEntry.writerFeatures().get().stream().collect(toImmutableList()));
             }
         });
 
