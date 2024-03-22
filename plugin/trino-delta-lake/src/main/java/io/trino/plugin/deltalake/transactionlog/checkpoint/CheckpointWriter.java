@@ -105,19 +105,19 @@ public class CheckpointWriter
     public void write(CheckpointEntries entries, TrinoOutputFile outputFile)
             throws IOException
     {
-        Map<String, String> configuration = entries.getMetadataEntry().getConfiguration();
+        Map<String, String> configuration = entries.metadataEntry().getConfiguration();
         boolean writeStatsAsJson = Boolean.parseBoolean(configuration.getOrDefault(DELTA_CHECKPOINT_WRITE_STATS_AS_JSON_PROPERTY, "true"));
         // The default value is false in https://github.com/delta-io/delta/blob/master/PROTOCOL.md#checkpoint-format, but Databricks defaults to true
         boolean writeStatsAsStruct = Boolean.parseBoolean(configuration.getOrDefault(DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY, "true"));
 
-        ProtocolEntry protocolEntry = entries.getProtocolEntry();
+        ProtocolEntry protocolEntry = entries.protocolEntry();
 
         RowType metadataEntryType = checkpointSchemaManager.getMetadataEntryType();
         RowType protocolEntryType = checkpointSchemaManager.getProtocolEntryType(protocolEntry.getReaderFeatures().isPresent(), protocolEntry.getWriterFeatures().isPresent());
         RowType txnEntryType = checkpointSchemaManager.getTxnEntryType();
         RowType addEntryType = checkpointSchemaManager.getAddEntryType(
-                entries.getMetadataEntry(),
-                entries.getProtocolEntry(),
+                entries.metadataEntry(),
+                entries.protocolEntry(),
                 alwaysTrue(),
                 writeStatsAsJson,
                 writeStatsAsStruct,
@@ -151,19 +151,19 @@ public class CheckpointWriter
 
         PageBuilder pageBuilder = new PageBuilder(columnTypes);
 
-        writeMetadataEntry(pageBuilder, metadataEntryType, entries.getMetadataEntry());
-        writeProtocolEntry(pageBuilder, protocolEntryType, entries.getProtocolEntry());
-        for (TransactionEntry transactionEntry : entries.getTransactionEntries()) {
+        writeMetadataEntry(pageBuilder, metadataEntryType, entries.metadataEntry());
+        writeProtocolEntry(pageBuilder, protocolEntryType, entries.protocolEntry());
+        for (TransactionEntry transactionEntry : entries.transactionEntries()) {
             writeTransactionEntry(pageBuilder, txnEntryType, transactionEntry);
         }
-        List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(entries.getMetadataEntry(), entries.getProtocolEntry(), typeManager);
+        List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(entries.metadataEntry(), entries.protocolEntry(), typeManager);
         List<RowType.Field> partitionValuesParsedFieldTypes = partitionColumns.stream()
                 .map(column -> RowType.field(column.getColumnName(), column.getType()))
                 .collect(toImmutableList());
-        for (AddFileEntry addFileEntry : entries.getAddFileEntries()) {
-            writeAddFileEntry(pageBuilder, addEntryType, addFileEntry, entries.getMetadataEntry(), entries.getProtocolEntry(), partitionColumns, partitionValuesParsedFieldTypes, writeStatsAsJson, writeStatsAsStruct);
+        for (AddFileEntry addFileEntry : entries.addFileEntries()) {
+            writeAddFileEntry(pageBuilder, addEntryType, addFileEntry, entries.metadataEntry(), entries.protocolEntry(), partitionColumns, partitionValuesParsedFieldTypes, writeStatsAsJson, writeStatsAsStruct);
         }
-        for (RemoveFileEntry removeFileEntry : entries.getRemoveFileEntries()) {
+        for (RemoveFileEntry removeFileEntry : entries.removeFileEntries()) {
             writeRemoveFileEntry(pageBuilder, removeEntryType, removeFileEntry);
         }
         // Not writing commit infos for now. DB does not keep them in the checkpoints by default
