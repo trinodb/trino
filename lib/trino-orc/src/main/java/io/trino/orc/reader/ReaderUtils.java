@@ -22,6 +22,7 @@ import io.trino.spi.type.Type;
 import java.util.function.Predicate;
 
 import static java.lang.Math.max;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 final class ReaderUtils
@@ -42,9 +43,9 @@ final class ReaderUtils
         throw new OrcCorruptionException(
                 column.getOrcDataSourceId(),
                 "Cannot read SQL type '%s' from ORC stream '%s' of type %s with attributes %s",
-                type,
+                type.toString().toUpperCase(ENGLISH),
                 column.getPath(),
-                column.getColumnType(),
+                column.getColumnType().toString().toUpperCase(ENGLISH),
                 column.getAttributes());
     }
 

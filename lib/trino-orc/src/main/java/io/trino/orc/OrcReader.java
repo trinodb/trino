@@ -335,7 +335,13 @@ public class OrcReader
             ColumnMetadata<OrcType> types,
             OrcDataSourceId orcDataSourceId)
     {
-        String path = fieldName.isEmpty() ? parentStreamName : parentStreamName + "." + fieldName;
+        String path;
+        if (fieldName.isEmpty()) {
+            path = parentStreamName;
+        }
+        else {
+            path = parentStreamName.isEmpty() ? fieldName : parentStreamName + "." + fieldName;
+        }
         OrcType orcType = types.get(columnId);
 
         List<OrcColumn> nestedColumns = ImmutableList.of();

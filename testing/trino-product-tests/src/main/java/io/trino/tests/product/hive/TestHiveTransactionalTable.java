@@ -1117,7 +1117,7 @@ public class TestHiveTransactionalTable
                     .containsOnly(row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
             log.info("This shows that Trino gets an exception trying to widen the type");
             assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM " + tableName))
-                    .hasMessageMatching(".*Malformed ORC file. Cannot read SQL type 'integer' from ORC stream '.*.age' of type BYTE with attributes.*");
+                    .hasMessageMatching(".*Malformed ORC file. Cannot read SQL type 'INTEGER' from ORC stream '.*age' of type BYTE with attributes.*");
         });
     }
 
