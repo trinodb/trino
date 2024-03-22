@@ -963,10 +963,14 @@ public class TranslationMap
                     rewrittenBase, new Constant(INTEGER, index.getParsedValue()));
         }
 
-        return new Subscript(
-                analysis.getType(node),
-                translateExpression(node.getBase()),
-                translateExpression(node.getIndex()));
+        ResolvedFunction operator = plannerContext.getMetadata()
+                .resolveOperator(OperatorType.SUBSCRIPT, ImmutableList.of(getCoercedType(node.getBase()), getCoercedType(node.getIndex())));
+
+        return new Call(
+                operator,
+                ImmutableList.of(
+                    new io.trino.sql.ir.Cast(translateExpression(node.getBase()), operator.getSignature().getArgumentType(0)),
+                    new io.trino.sql.ir.Cast(translateExpression(node.getIndex()), operator.getSignature().getArgumentType(1))));
     }
 
     private io.trino.sql.ir.Expression translate(LambdaExpression node)
