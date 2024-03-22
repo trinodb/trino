@@ -507,7 +507,7 @@ public abstract class BaseSqlServerTypeMapping
         assertUpdate(format("CREATE TABLE %s (test_date date)", tableName));
         try {
             assertQueryFails(format("INSERT INTO %s VALUES (date %s)", tableName, unsupportedDate),
-                    "Failed to insert data: Conversion failed when converting date and/or time from character string.");
+                    "Insert failed: Conversion failed when converting date and/or time from character string.");
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);

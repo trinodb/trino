@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.base.util.Exceptions.messageOrToString;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -61,7 +62,7 @@ public class JdbcRemoteIdentifiers
             return tableNames.build();
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to list tables: " + messageOrToString(e), e);
         }
     }
 
@@ -97,7 +98,7 @@ public class JdbcRemoteIdentifiers
                 return storesUpperCaseIdentifiers;
             }
             catch (SQLException e) {
-                throw new TrinoException(JDBC_ERROR, e);
+                throw new TrinoException(JDBC_ERROR, "Failed to inspect database metadata: " + messageOrToString(e), e);
             }
         }
     }

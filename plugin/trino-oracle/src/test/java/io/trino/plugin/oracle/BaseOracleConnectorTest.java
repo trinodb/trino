@@ -451,7 +451,7 @@ public abstract class BaseOracleConnectorTest
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessage("ORA-00972: identifier is too long\n");
+        assertThat(e).hasMessage("Schema creation failed: ORA-00972: identifier is too long\n");
     }
 
     @Override

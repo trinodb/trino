@@ -348,11 +348,11 @@ public class TestSingleStoreTypeMapping
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
                     "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
+                    "Failed to read value: Rounding necessary");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 0),
                     "SELECT d_col FROM " + testTable.getName(),
-                    "Decimal overflow");
+                    "Failed to read value: Decimal overflow");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
                     format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
@@ -379,7 +379,7 @@ public class TestSingleStoreTypeMapping
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
                     "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
+                    "Failed to read value: Rounding necessary");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 0),
                     "SELECT d_col FROM " + testTable.getName(),
@@ -391,7 +391,7 @@ public class TestSingleStoreTypeMapping
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 8),
                     "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
+                    "Failed to read value: Rounding necessary");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 8),
                     "SELECT d_col FROM " + testTable.getName(),
@@ -403,7 +403,7 @@ public class TestSingleStoreTypeMapping
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 20),
                     "SELECT d_col FROM " + testTable.getName(),
-                    "Decimal overflow");
+                    "Failed to read value: Decimal overflow");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 9),
                     "SELECT d_col FROM " + testTable.getName(),
@@ -440,7 +440,7 @@ public class TestSingleStoreTypeMapping
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
                     "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
+                    "Failed to read value: Rounding necessary");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 0),
                     "SELECT d_col FROM " + testTable.getName(),
@@ -456,7 +456,7 @@ public class TestSingleStoreTypeMapping
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 3),
                     "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
+                    "Failed to read value: Rounding necessary");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 8),
                     format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),

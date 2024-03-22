@@ -168,7 +168,7 @@ public abstract class BaseJdbcClient
             return schemaNames.build();
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to list schemas: " + messageOrToString(e), e);
         }
     }
 
@@ -201,7 +201,7 @@ public abstract class BaseJdbcClient
             }
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to list tables: " + messageOrToString(e), e);
         }
     }
 
@@ -228,7 +228,7 @@ public abstract class BaseJdbcClient
             }
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to get table: " + messageOrToString(e), e);
         }
     }
 
@@ -348,7 +348,7 @@ public abstract class BaseJdbcClient
             return ImmutableList.copyOf(columns);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to get columns for table %s: %s".formatted(schemaTableName, messageOrToString(e)), e);
         }
     }
 
@@ -388,7 +388,7 @@ public abstract class BaseJdbcClient
                     .collect(toImmutableList());
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to get column mappings for %s: %s".formatted(typeHandles, messageOrToString(e)), e);
         }
     }
 
@@ -468,7 +468,7 @@ public abstract class BaseJdbcClient
             return prepareQuery(session, connection, table, groupingSets, columns, columnExpressions, Optional.empty());
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to prepare query: " + messageOrToString(e), e);
         }
     }
 
@@ -546,7 +546,7 @@ public abstract class BaseJdbcClient
                     joinConditions));
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to prepare join query: " + messageOrToString(e), e);
         }
     }
 
@@ -581,7 +581,7 @@ public abstract class BaseJdbcClient
                     rightAssignments));
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to prepare join query: " + messageOrToString(e), e);
         }
     }
 
@@ -613,7 +613,7 @@ public abstract class BaseJdbcClient
             createTable(session, tableMetadata, tableMetadata.getTable().getTableName());
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to create table: " + messageOrToString(e), e);
         }
     }
 
@@ -634,7 +634,7 @@ public abstract class BaseJdbcClient
             }
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to create table: " + messageOrToString(e), e);
         }
     }
 
@@ -775,7 +775,7 @@ public abstract class BaseJdbcClient
                     columns);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Insert failed: " + messageOrToString(e), e);
         }
     }
 
@@ -848,7 +848,7 @@ public abstract class BaseJdbcClient
             execute(session, connection, sql);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Insert failed to create staging table: " + messageOrToString(e), e);
         }
     }
 
@@ -890,7 +890,7 @@ public abstract class BaseJdbcClient
             renameTable(session, connection, catalogName, remoteSchemaName, remoteTableName, newRemoteSchemaName, newRemoteTableName);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Rename failed: " + messageOrToString(e), e);
         }
     }
 
@@ -995,14 +995,14 @@ public abstract class BaseJdbcClient
             execute(session, connection, insertSql);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Insert failed: " + messageOrToString(e), e);
         }
         finally {
             try {
                 closer.close();
             }
             catch (IOException e) {
-                throw new TrinoException(JDBC_ERROR, e);
+                throw new TrinoException(JDBC_ERROR, "Insert failed: " + messageOrToString(e), e);
             }
         }
     }
@@ -1030,7 +1030,7 @@ public abstract class BaseJdbcClient
             addColumn(session, connection, table, column);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to add column: " + messageOrToString(e), e);
         }
     }
 
@@ -1058,7 +1058,7 @@ public abstract class BaseJdbcClient
             renameColumn(session, connection, handle.asPlainTable().getRemoteTableName(), jdbcColumn.getColumnName(), newRemoteColumnName);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Renaming column failed: " + messageOrToString(e), e);
         }
     }
 
@@ -1086,7 +1086,7 @@ public abstract class BaseJdbcClient
             execute(session, connection, sql);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Dropping column failed: " + messageOrToString(e), e);
         }
     }
 
@@ -1104,7 +1104,7 @@ public abstract class BaseJdbcClient
             execute(session, connection, sql);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Setting column type failed: " + messageOrToString(e), e);
         }
     }
 
@@ -1121,7 +1121,7 @@ public abstract class BaseJdbcClient
             execute(session, connection, sql);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Dropping NOT NULL constraint failed: " + messageOrToString(e), e);
         }
     }
 
@@ -1235,7 +1235,7 @@ public abstract class BaseJdbcClient
             createSchema(session, connection, schemaName);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Schema creation failed: " + messageOrToString(e), e);
         }
     }
 
@@ -1255,7 +1255,7 @@ public abstract class BaseJdbcClient
             dropSchema(session, connection, schemaName, cascade);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Dropping schema failed: " + messageOrToString(e), e);
         }
     }
 
@@ -1282,7 +1282,7 @@ public abstract class BaseJdbcClient
             renameSchema(session, connection, remoteSchemaName, newRemoteSchemaName);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Renaming schema failed: " + messageOrToString(e), e);
         }
     }
 
@@ -1298,6 +1298,7 @@ public abstract class BaseJdbcClient
             execute(session, connection, query);
         }
         catch (SQLException e) {
+            // TODO provide meaningful error message, perhaps by letting the caller of this method handle the exception
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
@@ -1431,7 +1432,7 @@ public abstract class BaseJdbcClient
             }
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Delete failed: " + messageOrToString(e), e);
         }
     }
 
@@ -1458,7 +1459,7 @@ public abstract class BaseJdbcClient
             }
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Update failed: " + messageOrToString(e), e);
         }
     }
 
@@ -1492,7 +1493,7 @@ public abstract class BaseJdbcClient
             return OptionalInt.of(maxColumnNameLength);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to get max column name length: " + messageOrToString(e), e);
         }
     }
 

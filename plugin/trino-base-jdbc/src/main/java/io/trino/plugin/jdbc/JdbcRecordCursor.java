@@ -35,7 +35,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.base.util.Exceptions.messageOrToString;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -121,7 +123,7 @@ public class JdbcRecordCursor
             }
         }
         catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
+            throw handleSqlException("Failed to prepare query", e);
         }
     }
 
@@ -184,7 +186,7 @@ public class JdbcRecordCursor
             return resultSet.next();
         }
         catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
+            throw handleSqlException("Failed to advance cursor", e);
         }
     }
 
@@ -197,7 +199,7 @@ public class JdbcRecordCursor
             return booleanReadFunctions[field].readBoolean(resultSet, field + 1);
         }
         catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
+            throw handleSqlException("Failed to read value", e);
         }
     }
 
@@ -210,7 +212,7 @@ public class JdbcRecordCursor
             return longReadFunctions[field].readLong(resultSet, field + 1);
         }
         catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
+            throw handleSqlException("Failed to read value", e);
         }
     }
 
@@ -223,7 +225,7 @@ public class JdbcRecordCursor
             return doubleReadFunctions[field].readDouble(resultSet, field + 1);
         }
         catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
+            throw handleSqlException("Failed to read value", e);
         }
     }
 
@@ -236,7 +238,7 @@ public class JdbcRecordCursor
             return sliceReadFunctions[field].readSlice(resultSet, field + 1);
         }
         catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
+            throw handleSqlException("Failed to read value", e);
         }
     }
 
@@ -249,7 +251,7 @@ public class JdbcRecordCursor
             return objectReadFunctions[field].readObject(resultSet, field + 1);
         }
         catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
+            throw handleSqlException("Failed to read value", e);
         }
     }
 
@@ -264,7 +266,7 @@ public class JdbcRecordCursor
             return readFunctions[field].isNull(resultSet, field + 1);
         }
         catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
+            throw handleSqlException("Failed to inspect value nullity", e);
         }
     }
 
@@ -298,7 +300,7 @@ public class JdbcRecordCursor
         }
     }
 
-    private RuntimeException handleSqlException(Exception e)
+    private RuntimeException handleSqlException(String messageBase, Exception e)
     {
         try {
             close();
@@ -309,6 +311,7 @@ public class JdbcRecordCursor
                 e.addSuppressed(closeException);
             }
         }
-        return new TrinoException(JDBC_ERROR, e);
+        throwIfInstanceOf(e, TrinoException.class);
+        return new TrinoException(JDBC_ERROR, "%s: %s".formatted(messageBase, messageOrToString(e)), e);
     }
 }

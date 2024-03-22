@@ -708,7 +708,7 @@ public class SingleStoreClient
                 return rounded;
             }
             catch (DateTimeParseException e) {
-                throw new IllegalStateException(format("Supported Trino TIME type range is between 00:00:00 and 23:59:59.999999 but got %s", timeString), e);
+                throw new TrinoException(JDBC_ERROR, format("Supported Trino TIME type range is between 00:00:00 and 23:59:59.999999 but got %s", timeString), e);
             }
         };
     }

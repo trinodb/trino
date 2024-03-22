@@ -64,7 +64,7 @@ public class JdbcPageSink
             connection = jdbcClient.getConnection(session, handle);
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Connection failed: " + messageOrToString(e), e);
         }
 
         try {
@@ -77,7 +77,7 @@ public class JdbcPageSink
         }
         catch (SQLException e) {
             closeAllSuppress(e, connection);
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Configuring connection failed: " + messageOrToString(e), e);
         }
 
         this.pageSinkId = pageSinkId;
@@ -121,7 +121,7 @@ public class JdbcPageSink
         }
         catch (SQLException e) {
             closeAllSuppress(e, connection);
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to prepare statement: " + messageOrToString(e), e);
         }
 
         // Making batch size configurable allows performance tuning for insert/write-heavy workloads over multiple connections.
@@ -158,7 +158,7 @@ public class JdbcPageSink
             }
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Insert failed: " + messageOrToString(e), e);
         }
         return NOT_BLOCKED;
     }
@@ -206,7 +206,7 @@ public class JdbcPageSink
             }
         }
         catch (SQLNonTransientException e) {
-            throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, e);
+            throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, "Insert failed: " + messageOrToString(e), e);
         }
         catch (SQLException e) {
             // Convert chained SQLExceptions to suppressed exceptions, so they are visible in the stack trace
@@ -217,7 +217,7 @@ public class JdbcPageSink
                 }
                 nextException = nextException.getNextException();
             }
-            throw new TrinoException(JDBC_ERROR, "Failed to insert data: " + messageOrToString(e), e);
+            throw new TrinoException(JDBC_ERROR, "Insert failed: " + messageOrToString(e), e);
         }
         // pass the successful page sink id
         Slice value = Slices.allocate(Long.BYTES);
@@ -238,7 +238,7 @@ public class JdbcPageSink
             }
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, "Failed to close connection: " + messageOrToString(e), e);
         }
     }
 }

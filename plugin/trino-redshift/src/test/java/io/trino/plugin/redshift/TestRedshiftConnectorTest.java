@@ -634,7 +634,7 @@ public class TestRedshiftConnectorTest
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessage("Schema name must be shorter than or equal to '127' characters but got '128'");
+        assertThat(e).hasMessage("Schema creation failed: Schema name must be shorter than or equal to '127' characters but got '128'");
     }
 
     @Override

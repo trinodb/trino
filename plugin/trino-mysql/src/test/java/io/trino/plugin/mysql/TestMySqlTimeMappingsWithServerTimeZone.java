@@ -615,10 +615,10 @@ public class TestMySqlTimeMappingsWithServerTimeZone
             // Verify Trino writes
             assertQueryFails(
                     "INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '1970-01-01 00:00:00 UTC')", // min - 1
-                    "Failed to insert data: Data truncation: Incorrect datetime value: '1969-12-31 16:00:00' for column 'data' at row 1");
+                    "Insert failed: Data truncation: Incorrect datetime value: '1969-12-31 16:00:00' for column 'data' at row 1");
             assertQueryFails(
                     "INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '2038-01-19 03:14:08 UTC')", // max + 1
-                    "Failed to insert data: Data truncation: Incorrect datetime value: '2038-01-18 21:14:08' for column 'data' at row 1");
+                    "Insert failed: Data truncation: Incorrect datetime value: '2038-01-18 21:14:08' for column 'data' at row 1");
         }
     }
 

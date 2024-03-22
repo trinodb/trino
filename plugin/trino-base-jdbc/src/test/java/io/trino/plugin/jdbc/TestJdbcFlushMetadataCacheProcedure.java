@@ -123,7 +123,7 @@ public class TestJdbcFlushMetadataCacheProcedure
 
         // Should fail as Trino has old lowercase identifier mapping to uppercase cached
         assertThatThrownBy(() -> getQueryRunner().execute(query))
-                .hasMessageMatching("(?s)Table \"CACHED_NAME\" not found.*");
+                .hasMessageMatching("Failed to prepare query: Table \"CACHED_NAME\" not found(?s:.*)");
 
         // Should succeed after flushing Trino cache
         getQueryRunner().execute(getSession(), "CALL system.flush_metadata_cache()");

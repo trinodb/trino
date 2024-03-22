@@ -454,7 +454,7 @@ public class TestIgniteConnectorTest
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("Failed to insert data: Null value is not allowed for column '%s'", columnName.toUpperCase(Locale.ENGLISH));
+        return format("Insert failed: Null value is not allowed for column '%s'", columnName.toUpperCase(Locale.ENGLISH));
     }
 
     @Test
