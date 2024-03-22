@@ -165,13 +165,13 @@ public class TestPagesSerde
             for (int column = 0; column < types.size(); column++) {
                 Type type = types.get(column);
                 if (BIGINT.equals(type)) {
-                    BIGINT.writeLong(pageBuilder.getBlockBuilder(column), lineItem.getOrderKey());
+                    BIGINT.writeLong(pageBuilder.getBlockBuilder(column), lineItem.orderKey());
                 }
                 else if (VARCHAR.equals(type)) {
-                    VARCHAR.writeString(pageBuilder.getBlockBuilder(column), lineItem.getComment());
+                    VARCHAR.writeString(pageBuilder.getBlockBuilder(column), lineItem.comment());
                 }
                 else if (DOUBLE.equals(type)) {
-                    DOUBLE.writeDouble(pageBuilder.getBlockBuilder(column), lineItem.getExtendedPrice());
+                    DOUBLE.writeDouble(pageBuilder.getBlockBuilder(column), lineItem.extendedPrice());
                 }
             }
         }
