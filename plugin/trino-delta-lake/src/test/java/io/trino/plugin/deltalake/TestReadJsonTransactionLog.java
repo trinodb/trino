@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.math.BigInteger;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.Arrays;
@@ -87,7 +86,7 @@ public class TestReadJsonTransactionLog
     {
         LastCheckpoint lastCheckpoint = objectMapper.readValue("{\"version\":10,\"size\":17}", LastCheckpoint.class);
         assertThat(lastCheckpoint.getVersion()).isEqualTo(10L);
-        assertThat(lastCheckpoint.getSize()).isEqualTo(BigInteger.valueOf(17L));
+        assertThat(lastCheckpoint.getSize()).isEqualTo(17);
         assertThat(lastCheckpoint.getParts()).isEqualTo(Optional.empty());
     }
 
@@ -97,7 +96,7 @@ public class TestReadJsonTransactionLog
     {
         LastCheckpoint lastCheckpoint = objectMapper.readValue("{\"version\":237580,\"size\":658573,\"parts\":2}", LastCheckpoint.class);
         assertThat(lastCheckpoint.getVersion()).isEqualTo(237580L);
-        assertThat(lastCheckpoint.getSize()).isEqualTo(BigInteger.valueOf(658573L));
+        assertThat(lastCheckpoint.getSize()).isEqualTo(658573L);
         assertThat(lastCheckpoint.getParts()).isEqualTo(Optional.of(2));
     }
 
