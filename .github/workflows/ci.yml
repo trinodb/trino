@@ -434,7 +434,7 @@ jobs:
       - name: Maven install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw clean install ${MAVEN_FAST_INSTALL} -am -pl ${{ matrix.modules }}
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} -am -pl ${{ matrix.modules }}
       - name: Run Salesforce tests
         if: contains(matrix.modules, 'starburst-salesforce')
         env:
@@ -443,7 +443,7 @@ jobs:
           SALESFORCE_BASIC_AUTH_USER_SECURITY_TOKEN: ${{ secrets.SALESFORCE_BASIC_AUTH_USER_SECURITY_TOKEN }}
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} \
+          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} \
             -Dsalesforce.test.basic.auth.user="${SALESFORCE_BASIC_AUTH_USER_USERNAME}" \
             -Dsalesforce.test.basic.auth.password="${SALESFORCE_BASIC_AUTH_USER_PASSWORD}" \
             -Dsalesforce.test.basic.auth.security-token="${SALESFORCE_BASIC_AUTH_USER_SECURITY_TOKEN}"
@@ -785,7 +785,7 @@ jobs:
           (env.SNOWFLAKE_ACCOUNT_NAME != '' || env.SNOWFLAKE_PASSWORD != '')
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }} \
+          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }} \
           -Dsnowflake.test.server.url=jdbc:snowflake://"${SNOWFLAKE_ACCOUNT_NAME}".snowflakecomputing.com/ \
           -Dsnowflake.test.server.user=test_user \
           -Dsnowflake.test.server.password="${SNOWFLAKE_PASSWORD}" \
@@ -804,7 +804,7 @@ jobs:
           (env.SNOWFLAKE_AZURE_ACCOUNT_NAME != '' || env.SNOWFLAKE_AZURE_PASSWORD != '' || env.SNOWFLAKE_AZURE_REGION != '')
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }} \
+          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }} \
           -Dsnowflake.test.server.url=jdbc:snowflake://"${SNOWFLAKE_AZURE_ACCOUNT_NAME}"."${SNOWFLAKE_AZURE_REGION}".azure.snowflakecomputing.com/ \
           -Dsnowflake.test.server.user=test_user \
           -Dsnowflake.test.server.password="${SNOWFLAKE_AZURE_PASSWORD}" \
@@ -822,7 +822,7 @@ jobs:
           (env.SYNAPSE_ENDPOINT != '' || env.SYNAPSE_USER != '' || env.SYNAPSE_PASSWORD != '')
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }} \
+          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }} \
             -Dtest.synapse.jdbc.endpoint="${SYNAPSE_ENDPOINT}" \
             -Dtest.synapse.jdbc.user="${SYNAPSE_USER}" \
             -Dtest.synapse.jdbc.password="${SYNAPSE_PASSWORD}"
