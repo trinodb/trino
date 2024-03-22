@@ -225,9 +225,9 @@ public class CheckpointWriter
     {
         pageBuilder.declarePosition();
         ((RowBlockBuilder) pageBuilder.getBlockBuilder(TXN_BLOCK_CHANNEL)).buildEntry(fieldBuilders -> {
-            writeString(fieldBuilders.get(0), entryType, 0, "appId", transactionEntry.getAppId());
-            writeLong(fieldBuilders.get(1), entryType, 1, "version", transactionEntry.getVersion());
-            writeLong(fieldBuilders.get(2), entryType, 2, "lastUpdated", transactionEntry.getLastUpdated());
+            writeString(fieldBuilders.get(0), entryType, 0, "appId", transactionEntry.appId());
+            writeLong(fieldBuilders.get(1), entryType, 1, "version", transactionEntry.version());
+            writeLong(fieldBuilders.get(2), entryType, 2, "lastUpdated", transactionEntry.lastUpdated());
         });
 
         // null for others
