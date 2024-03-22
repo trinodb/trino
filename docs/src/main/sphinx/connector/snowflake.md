@@ -92,3 +92,27 @@ statements, the connector supports the following features:
 - {doc}`/sql/alter-table`
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
+
+## Performance
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+(snowflake-pushdown)=
+### Pushdown
+
+The connector supports pushdown for a number of operations:
+
+- [](limit-pushdown)
+- [](topn-pushdown)
+
+{ref}`Aggregate pushdown <aggregation-pushdown>` for the following functions:
+
+- {func}`avg`
+- {func}`count`
+- {func}`max`
+- {func}`min`
+- {func}`sum`
+
+```{include} pushdown-correctness-behavior.fragment
+```
