@@ -105,6 +105,7 @@ jobs:
       matrix:
         include:
           - { java-version: 22, cache: 'true', cleanup-node: 'false' }
+          - { java-version: 23-ea, cache: 'restore', cleanup-node: 'true' }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
