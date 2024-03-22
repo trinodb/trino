@@ -355,7 +355,7 @@ public class TransactionLogAccess
                     addFilesInTransaction.put(deltaLakeTransactionLogEntry.getAdd().getPath(), deltaLakeTransactionLogEntry.getAdd());
                 }
                 else if (deltaLakeTransactionLogEntry.getRemove() != null) {
-                    removedFilesInTransaction.add(deltaLakeTransactionLogEntry.getRemove().getPath());
+                    removedFilesInTransaction.add(deltaLakeTransactionLogEntry.getRemove().path());
                 }
             });
 

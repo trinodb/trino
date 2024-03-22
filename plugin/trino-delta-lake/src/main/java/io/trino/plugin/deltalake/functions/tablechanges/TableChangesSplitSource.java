@@ -102,7 +102,7 @@ public class TableChangesSplitSource
                                         cdcEntry.getPath(),
                                         cdcEntry.getCanonicalPartitionValues()));
                             }
-                            if (entry.getRemove() != null && entry.getRemove().isDataChange()) {
+                            if (entry.getRemove() != null && entry.getRemove().dataChange()) {
                                 containsRemoveEntry = true;
                             }
                         }

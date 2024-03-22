@@ -66,7 +66,7 @@ public class TestReadJsonTransactionLog
                 .map(this::deserialize)
                 .map(DeltaLakeTransactionLogEntry::getRemove)
                 .filter(Objects::nonNull)
-                .map(RemoveFileEntry::getPath)
+                .map(RemoveFileEntry::path)
                 .filter(Objects::nonNull)
                 .count()).isEqualTo(6);
 
@@ -74,7 +74,7 @@ public class TestReadJsonTransactionLog
                 .map(this::deserialize)
                 .map(DeltaLakeTransactionLogEntry::getRemove)
                 .filter(Objects::nonNull)
-                .map(RemoveFileEntry::getPath)
+                .map(RemoveFileEntry::path)
                 .filter(Objects::nonNull)
                 .count()).isEqualTo(6);
     }
