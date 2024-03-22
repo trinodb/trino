@@ -25,7 +25,7 @@ import org.antlr.v4.runtime.atn.PredictionMode;
 
 import java.util.function.Function;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static io.trino.plugin.base.util.Exceptions.messageOrToString;
 
 public final class SparkExpressionParser
 {
@@ -53,7 +53,7 @@ public final class SparkExpressionParser
             return (SparkExpression) invokeParser(expression, SparkExpressionBaseParser::standaloneExpression);
         }
         catch (Exception e) {
-            throw new ParsingException("Cannot parse Spark expression [%s]: %s".formatted(expression, firstNonNull(e.getMessage(), e)), e);
+            throw new ParsingException("Cannot parse Spark expression [%s]: %s".formatted(expression, messageOrToString(e)), e);
         }
     }
 
