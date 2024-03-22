@@ -180,8 +180,8 @@ public class TestTransactionLogAccess
         assertThat(metadataEntry.getLowercasePartitionColumns()).containsOnly("age");
 
         MetadataEntry.Format format = metadataEntry.getFormat();
-        assertThat(format.getOptions().keySet().size()).isEqualTo(0);
-        assertThat(format.getProvider()).isEqualTo("parquet");
+        assertThat(format.options().keySet()).isEmpty();
+        assertThat(format.provider()).isEqualTo("parquet");
 
         assertThat(tableSnapshot.getCachedMetadata()).isEqualTo(Optional.of(metadataEntry));
     }
@@ -376,8 +376,8 @@ public class TestTransactionLogAccess
         assertThat(metadataEntry.getOriginalPartitionColumns()).containsOnly("age");
 
         MetadataEntry.Format format = metadataEntry.getFormat();
-        assertThat(format.getOptions().keySet().size()).isEqualTo(0);
-        assertThat(format.getProvider()).isEqualTo("parquet");
+        assertThat(format.options().keySet()).isEmpty();
+        assertThat(format.provider()).isEqualTo("parquet");
     }
 
     @Test

@@ -182,8 +182,8 @@ public class CheckpointWriter
 
             RowType formatType = getInternalRowType(entryType, 3, "format");
             ((RowBlockBuilder) fieldBuilders.get(3)).buildEntry(formatBlockBuilders -> {
-                writeString(formatBlockBuilders.get(0), formatType, 0, "provider", metadataEntry.getFormat().getProvider());
-                writeStringMap(formatBlockBuilders.get(1), formatType, 1, "options", metadataEntry.getFormat().getOptions());
+                writeString(formatBlockBuilders.get(0), formatType, 0, "provider", metadataEntry.getFormat().provider());
+                writeStringMap(formatBlockBuilders.get(1), formatType, 1, "options", metadataEntry.getFormat().options());
             });
 
             writeString(fieldBuilders.get(4), entryType, 4, "schemaString", metadataEntry.getSchemaString());
