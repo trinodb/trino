@@ -13,78 +13,14 @@
  */
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class LastCheckpoint
+public record LastCheckpoint(long version, long size, Optional<Integer> parts)
 {
-    private final long version;
-    private final long size;
-    private final Optional<Integer> parts;
-
-    @JsonCreator
-    public LastCheckpoint(
-            @JsonProperty("version") long version,
-            @JsonProperty("size") long size,
-            @JsonProperty("parts") Optional<Integer> parts)
+    public LastCheckpoint
     {
-        this.version = version;
-        this.size = size;
-        this.parts = requireNonNull(parts, "parts is null");
-    }
-
-    @JsonProperty
-    public long getVersion()
-    {
-        return version;
-    }
-
-    @JsonProperty
-    public long getSize()
-    {
-        return size;
-    }
-
-    @JsonProperty
-    public Optional<Integer> getParts()
-    {
-        return parts;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        LastCheckpoint that = (LastCheckpoint) o;
-        return version == that.version &&
-                size == that.size &&
-                parts.equals(that.parts);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(version, size, parts);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .addValue(version)
-                .add("size", size)
-                .add("parts", parts)
-                .toString();
+        requireNonNull(parts, "parts is null");
     }
 }
