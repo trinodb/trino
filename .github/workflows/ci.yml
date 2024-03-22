@@ -1056,6 +1056,7 @@ jobs:
             ${{ steps.tests.outcome == 'failure'
               || steps.tests-snowflake-aws.outcome == 'failure'
               || steps.tests-snowflake-azure.outcome == 'failure'
+              || steps.tests-synapse.outcome == 'failure'
               || steps.tests-hdfs-isolated.outcome == 'failure'
               || steps.tests-hdfs.outcome == 'failure'
               || steps.tests-s3.outcome == 'failure'
