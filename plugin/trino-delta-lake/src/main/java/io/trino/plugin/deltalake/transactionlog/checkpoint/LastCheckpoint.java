@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.math.BigInteger;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -26,17 +25,17 @@ import static java.util.Objects.requireNonNull;
 public class LastCheckpoint
 {
     private final long version;
-    private final BigInteger size;
+    private final long size;
     private final Optional<Integer> parts;
 
     @JsonCreator
     public LastCheckpoint(
             @JsonProperty("version") long version,
-            @JsonProperty("size") BigInteger size,
+            @JsonProperty("size") long size,
             @JsonProperty("parts") Optional<Integer> parts)
     {
         this.version = version;
-        this.size = requireNonNull(size, "size is null");
+        this.size = size;
         this.parts = requireNonNull(parts, "parts is null");
     }
 
@@ -47,7 +46,7 @@ public class LastCheckpoint
     }
 
     @JsonProperty
-    public BigInteger getSize()
+    public long getSize()
     {
         return size;
     }
@@ -69,7 +68,7 @@ public class LastCheckpoint
         }
         LastCheckpoint that = (LastCheckpoint) o;
         return version == that.version &&
-                size.equals(that.size) &&
+                size == that.size &&
                 parts.equals(that.parts);
     }
 
