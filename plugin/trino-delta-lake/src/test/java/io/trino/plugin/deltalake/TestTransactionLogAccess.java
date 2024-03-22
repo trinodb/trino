@@ -421,8 +421,8 @@ public class TestTransactionLogAccess
         setupTransactionLogAccessFromResources(tableName, resourcePath);
 
         try (Stream<RemoveFileEntry> removeEntries = transactionLogAccess.getRemoveEntries(SESSION, tableSnapshot)) {
-            Set<String> removedPaths = removeEntries.map(RemoveFileEntry::getPath).collect(Collectors.toSet());
-            Set<String> expectedPaths = EXPECTED_REMOVE_ENTRIES.stream().map(RemoveFileEntry::getPath).collect(Collectors.toSet());
+            Set<String> removedPaths = removeEntries.map(RemoveFileEntry::path).collect(Collectors.toSet());
+            Set<String> expectedPaths = EXPECTED_REMOVE_ENTRIES.stream().map(RemoveFileEntry::path).collect(Collectors.toSet());
 
             assertThat(removedPaths).isEqualTo(expectedPaths);
         }
