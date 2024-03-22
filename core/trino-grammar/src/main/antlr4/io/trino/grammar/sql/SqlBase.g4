@@ -104,7 +104,8 @@ statement
         (WITH properties)? AS rootQuery                                #createMaterializedView
     | CREATE (OR REPLACE)? VIEW qualifiedName
         (COMMENT string)?
-        (SECURITY (DEFINER | INVOKER))? AS rootQuery                   #createView
+        (SECURITY (DEFINER | INVOKER))?
+        (WITH properties)? AS rootQuery                                #createView
     | REFRESH MATERIALIZED VIEW qualifiedName                          #refreshMaterializedView
     | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView
     | ALTER MATERIALIZED VIEW (IF EXISTS)? from=qualifiedName

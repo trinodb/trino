@@ -37,6 +37,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -73,6 +74,9 @@ public class CreateViewTask
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
+        if (!statement.getProperties().isEmpty()) {
+            throw semanticException(NOT_SUPPORTED, statement, "Creating views with properties is not supported");
+        }
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
