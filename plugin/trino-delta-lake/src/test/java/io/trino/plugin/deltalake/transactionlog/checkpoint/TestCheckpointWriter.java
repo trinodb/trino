@@ -196,11 +196,11 @@ public class TestCheckpointWriter
         writer.write(entries, createOutputFile(targetPath));
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
-        assertThat(readEntries.getTransactionEntries()).isEqualTo(entries.getTransactionEntries());
-        assertThat(readEntries.getRemoveFileEntries()).isEqualTo(entries.getRemoveFileEntries());
-        assertThat(readEntries.getMetadataEntry()).isEqualTo(entries.getMetadataEntry());
-        assertThat(readEntries.getProtocolEntry()).isEqualTo(entries.getProtocolEntry());
-        assertThat(readEntries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
+        assertThat(readEntries.transactionEntries()).isEqualTo(entries.transactionEntries());
+        assertThat(readEntries.removeFileEntries()).isEqualTo(entries.removeFileEntries());
+        assertThat(readEntries.metadataEntry()).isEqualTo(entries.metadataEntry());
+        assertThat(readEntries.protocolEntry()).isEqualTo(entries.protocolEntry());
+        assertThat(readEntries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
     }
 
     @Test
@@ -333,11 +333,11 @@ public class TestCheckpointWriter
         writer.write(entries, createOutputFile(targetPath));
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
-        assertThat(readEntries.getTransactionEntries()).isEqualTo(entries.getTransactionEntries());
-        assertThat(readEntries.getRemoveFileEntries()).isEqualTo(entries.getRemoveFileEntries());
-        assertThat(readEntries.getMetadataEntry()).isEqualTo(entries.getMetadataEntry());
-        assertThat(readEntries.getProtocolEntry()).isEqualTo(entries.getProtocolEntry());
-        assertThat(readEntries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
+        assertThat(readEntries.transactionEntries()).isEqualTo(entries.transactionEntries());
+        assertThat(readEntries.removeFileEntries()).isEqualTo(entries.removeFileEntries());
+        assertThat(readEntries.metadataEntry()).isEqualTo(entries.metadataEntry());
+        assertThat(readEntries.protocolEntry()).isEqualTo(entries.protocolEntry());
+        assertThat(readEntries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
     }
 
     @Test
@@ -401,7 +401,7 @@ public class TestCheckpointWriter
         writer.write(entries, createOutputFile(targetPath));
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, false);
-        AddFileEntry addFileEntry = getOnlyElement(readEntries.getAddFileEntries());
+        AddFileEntry addFileEntry = getOnlyElement(readEntries.addFileEntries());
         assertThat(addFileEntry.getStats()).isPresent();
 
         DeltaLakeParquetFileStatistics fileStatistics = (DeltaLakeParquetFileStatistics) addFileEntry.getStats().get();
