@@ -64,7 +64,7 @@ public class TestHiveConfig
                 .setRecursiveDirWalkerEnabled(false)
                 .setIgnoreAbsentPartitions(false)
                 .setHiveStorageFormat(HiveStorageFormat.ORC)
-                .setHiveCompressionCodec(HiveCompressionOption.GZIP)
+                .setHiveCompressionCodec(HiveCompressionOption.SNAPPY)
                 .setRespectTableFormat(true)
                 .setImmutablePartitions(false)
                 .setInsertExistingPartitionsBehavior(APPEND)
