@@ -889,7 +889,7 @@ public class TranslationMap
 
         Call call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                 .setName(FormatFunction.NAME)
-                .addArgument(VARCHAR, arguments.get(0))
+                .addArgument(VARCHAR, new io.trino.sql.ir.Cast(arguments.get(0), VARCHAR))
                 .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new io.trino.sql.ir.Row(arguments.subList(1, arguments.size())))
                 .build();
 
