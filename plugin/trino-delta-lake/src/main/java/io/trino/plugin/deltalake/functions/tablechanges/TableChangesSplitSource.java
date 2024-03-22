@@ -154,9 +154,9 @@ public class TableChangesSplitSource
                 path,
                 length,
                 canonicalPartitionValues,
-                commitInfoEntry.getTimestamp(),
+                commitInfoEntry.timestamp(),
                 source,
-                commitInfoEntry.getVersion());
+                commitInfoEntry.version());
     }
 
     @Override
