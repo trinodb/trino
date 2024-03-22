@@ -3458,7 +3458,7 @@ public abstract class BaseConnectorTest
         String tableName = "test_long_column" + randomNameSuffix();
         String baseColumnName = "col";
 
-        int maxLength = maxColumnNameLength()
+        int maxLength = maxColumnNameLengthForCreatingTable()
                 // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
                 .orElse(65536 + 5);
 
@@ -3467,13 +3467,13 @@ public abstract class BaseConnectorTest
         assertThat(columnExists(tableName, validColumnName)).isTrue();
         assertUpdate("DROP TABLE " + tableName);
 
-        if (maxColumnNameLength().isEmpty()) {
+        if (maxColumnNameLengthForCreatingTable().isEmpty()) {
             return;
         }
 
         String invalidColumnName = validColumnName + "z";
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableName + " (" + invalidColumnName + " bigint)"))
-                .satisfies(this::verifyColumnNameLengthFailurePermissible);
+                .satisfies(this::verifyColumnNameLengthFailurePermissibleForCreatingTable);
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
@@ -3488,7 +3488,7 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
 
         String baseColumnName = "col";
-        int maxLength = maxColumnNameLength()
+        int maxLength = maxColumnNameLengthForCreatingTable()
                 // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
                 .orElse(65536 + 5);
 
@@ -3498,14 +3498,14 @@ public abstract class BaseConnectorTest
         assertQuery("SELECT x FROM " + tableName, "VALUES 123");
         assertUpdate("DROP TABLE " + tableName);
 
-        if (maxColumnNameLength().isEmpty()) {
+        if (maxColumnNameLengthForCreatingTable().isEmpty()) {
             return;
         }
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
         String invalidTargetColumnName = validTargetColumnName + "z";
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + invalidTargetColumnName + " int"))
-                .satisfies(this::verifyColumnNameLengthFailurePermissible);
+                .satisfies(this::verifyColumnNameLengthFailurePermissibleForCreatingTable);
         assertQuery("SELECT x FROM " + tableName, "VALUES 123");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -3562,6 +3562,16 @@ public abstract class BaseConnectorTest
     protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
         throw new AssertionError("Unexpected column name length failure", e);
+    }
+
+    protected OptionalInt maxColumnNameLengthForCreatingTable()
+    {
+        return maxColumnNameLength();
+    }
+
+    protected void verifyColumnNameLengthFailurePermissibleForCreatingTable(Throwable e)
+    {
+        verifyColumnNameLengthFailurePermissible(e);
     }
 
     @Test

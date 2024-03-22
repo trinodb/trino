@@ -38,8 +38,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -233,28 +231,6 @@ public class TestSnowflakeConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
-    @Test
-    @Override
-    public void testCreateTableWithLongColumnName()
-    {
-        String tableName = "test_long_column" + randomNameSuffix();
-        String baseColumnName = "col";
-
-        int maxLength = maxColumnNameLength()
-                // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
-                .orElse(65536 + 5);
-
-        String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
-        assertUpdate("CREATE TABLE " + tableName + " (" + validColumnName + " bigint)");
-        assertTrue(columnExists(tableName, validColumnName));
-        assertUpdate("DROP TABLE " + tableName);
-
-        if (maxColumnNameLength().isEmpty()) {
-            return;
-        }
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-    }
-
     @Override
     protected OptionalInt maxSchemaNameLength()
     {
@@ -280,60 +256,27 @@ public class TestSnowflakeConnectorTest
     }
 
     @Override
+    public void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("exceeds maximum length limit of 255 characters");
+    }
+
+    @Override
     protected OptionalInt maxColumnNameLength()
     {
-        return OptionalInt.of(251);
+        return OptionalInt.of(255);
     }
 
-    @Test
     @Override
-    public void testAlterTableAddLongColumnName()
+    protected OptionalInt maxColumnNameLengthForCreatingTable()
     {
-        String tableName = "test_long_column" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
-
-        String baseColumnName = "col";
-        int maxLength = maxColumnNameLength()
-                // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
-                .orElse(65536 + 5);
-
-        String validTargetColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + validTargetColumnName + " int");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
-        assertQuery("SELECT x FROM " + tableName, "VALUES 123");
-        assertUpdate("DROP TABLE " + tableName);
-
-        if (maxColumnNameLength().isEmpty()) {
-            return;
-        }
-
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
-        assertQuery("SELECT x FROM " + tableName, "VALUES 123");
+        return OptionalInt.of(9982);
     }
 
-    @Test
     @Override
-    public void testAlterTableRenameColumnToLongName()
+    protected void verifyColumnNameLengthFailurePermissibleForCreatingTable(Throwable e)
     {
-        String tableName = "test_long_column" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
-
-        String baseColumnName = "col";
-        int maxLength = maxColumnNameLength()
-                // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
-                .orElse(65536 + 5);
-
-        String validTargetColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
-        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO " + validTargetColumnName);
-        assertQuery("SELECT " + validTargetColumnName + " FROM " + tableName, "VALUES 123");
-        assertUpdate("DROP TABLE " + tableName);
-
-        if (maxColumnNameLength().isEmpty()) {
-            return;
-        }
-
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
-        assertQuery("SELECT x FROM " + tableName, "VALUES 123");
+        assertThat(e).hasMessageContaining("Processing aborted due to error 300002:");
     }
 
     @Test
