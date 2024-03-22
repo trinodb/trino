@@ -446,8 +446,8 @@ public class TestTransactionLogAccess
         try (Stream<ProtocolEntry> protocolEntryStream = transactionLogAccess.getProtocolEntries(SESSION, tableSnapshot)) {
             List<ProtocolEntry> protocolEntries = protocolEntryStream.toList();
             assertThat(protocolEntries.size()).isEqualTo(1);
-            assertThat(protocolEntries.get(0).getMinReaderVersion()).isEqualTo(1);
-            assertThat(protocolEntries.get(0).getMinWriterVersion()).isEqualTo(2);
+            assertThat(protocolEntries.get(0).minReaderVersion()).isEqualTo(1);
+            assertThat(protocolEntries.get(0).minWriterVersion()).isEqualTo(2);
         }
     }
 
