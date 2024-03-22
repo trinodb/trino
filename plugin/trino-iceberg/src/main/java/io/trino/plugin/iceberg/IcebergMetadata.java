@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import com.linkedin.coral.$internal.org.checkerframework.checker.nullness.Opt;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -103,13 +104,7 @@ import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
-import io.trino.spi.type.LongTimestamp;
-import io.trino.spi.type.LongTimestampWithTimeZone;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TimestampWithTimeZoneType;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.*;
 import org.apache.datasketches.theta.CompactSketch;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
@@ -281,6 +276,7 @@ import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
@@ -929,6 +925,12 @@ public class IcebergMetadata
         }
         if (type instanceof TimeType) {
             return Optional.of(TIME_MICROS);
+        }
+        if (type instanceof TinyintType || type instanceof SmallintType){
+            return Optional.of(INTEGER);
+        }
+        if (type instanceof CharType) {
+            return Optional.of(CharType.createCharType(((CharType) type).getLength()));
         }
         return Optional.empty();
     }
