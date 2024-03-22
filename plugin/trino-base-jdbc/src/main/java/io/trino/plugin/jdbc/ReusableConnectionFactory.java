@@ -17,7 +17,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalNotification;
 import com.google.errorprone.annotations.ThreadSafe;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.spi.TrinoException;
@@ -39,7 +38,6 @@ public final class ReusableConnectionFactory
 {
     private static final Logger log = Logger.get(ReusableConnectionFactory.class);
 
-    @GuardedBy("this")
     private final Cache<String, Connection> connections;
     private final ConnectionFactory delegate;
 
