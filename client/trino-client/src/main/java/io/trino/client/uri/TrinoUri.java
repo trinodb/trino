@@ -664,7 +664,7 @@ public class TrinoUri
                 if (!useSecureConnection) {
                     throw new SQLException("TLS/SSL required for authentication using an access token");
                 }
-                builder.addInterceptor(tokenAuth(accessToken.get()));
+                builder.addNetworkInterceptor(tokenAuth(accessToken.get()));
             }
 
             if (externalAuthentication.orElse(false)) {
@@ -692,7 +692,7 @@ public class TrinoUri
                         redirectHandler, poller, knownTokenCache.create(), timeout);
 
                 builder.authenticator(authenticator);
-                builder.addInterceptor(authenticator);
+                builder.addNetworkInterceptor(authenticator);
             }
 
             Optional<String> resolverContext = DNS_RESOLVER_CONTEXT.getValue(properties);
