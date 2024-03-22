@@ -232,13 +232,6 @@ public class TestSnowflakeConnectorTest
 
     @Test
     @Override
-    public void testLimitPushdown()
-    {
-        abort("TODO");
-    }
-
-    @Test
-    @Override
     public void testInsertIntoNotNullColumn()
     {
         // TODO: java.lang.UnsupportedOperationException: This method should be overridden
