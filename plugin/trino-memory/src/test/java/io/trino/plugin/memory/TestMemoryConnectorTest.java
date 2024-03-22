@@ -547,6 +547,9 @@ public class TestMemoryConnectorTest
 
         assertThat(computeScalar("SELECT count(*) FROM schema1.nation")).isEqualTo(13L);
         assertThat(computeScalar("SELECT count(*) FROM schema2.nation")).isEqualTo(12L);
+
+        assertUpdate("DROP SCHEMA schema2 CASCADE");
+        assertUpdate("DROP SCHEMA schema1 CASCADE");
     }
 
     @Test
