@@ -75,6 +75,7 @@ public class ElasticsearchConfig
     private String truststorePassword;
     private boolean ignorePublishAddress;
     private boolean verifyHostnames = true;
+    private boolean isPassthroughQuerySplitEnable;
 
     private Security security;
 
@@ -355,6 +356,18 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setSecurity(Security security)
     {
         this.security = security;
+        return this;
+    }
+
+    public boolean isPassthroughQuerySplit()
+    {
+        return isPassthroughQuerySplitEnable;
+    }
+
+    @Config("elasticsearch.passthrough-query-split")
+    public ElasticsearchConfig setPassthroughQuerySplit(boolean isPassthroughQuerySplitEnable)
+    {
+        this.isPassthroughQuerySplitEnable = isPassthroughQuerySplitEnable;
         return this;
     }
 }
