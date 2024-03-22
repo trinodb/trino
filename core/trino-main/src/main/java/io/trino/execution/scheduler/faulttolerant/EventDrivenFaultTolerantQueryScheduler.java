@@ -2127,7 +2127,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         public void noMorePartitions()
         {
             noMorePartitions = true;
-            nextPartitionId = partitions.keySet().intStream().max().orElseThrow() + 1;
+            nextPartitionId = partitions.keySet().intStream().max().orElse(0) + 1;
             if (getState().isDone()) {
                 return;
             }
