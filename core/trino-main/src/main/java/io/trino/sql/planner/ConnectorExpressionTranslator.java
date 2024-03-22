@@ -95,6 +95,7 @@ import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -467,14 +468,14 @@ public final class ConnectorExpressionTranslator
 
                     patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                             .setName(LIKE_PATTERN_FUNCTION_NAME)
-                            .addArgument(pattern.getType(), translatedPattern.get())
-                            .addArgument(escape.get().getType(), translatedEscape.get())
+                            .addArgument(VARCHAR, castIfNecessary(translatedPattern.get(), VARCHAR))
+                            .addArgument(VARCHAR, castIfNecessary(translatedEscape.get(), VARCHAR))
                             .build();
                 }
                 else {
                     patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                             .setName(LIKE_PATTERN_FUNCTION_NAME)
-                            .addArgument(pattern.getType(), translatedPattern.get())
+                            .addArgument(VARCHAR, castIfNecessary(translatedPattern.get(), VARCHAR))
                             .build();
                 }
 
@@ -527,6 +528,15 @@ public final class ConnectorExpressionTranslator
             }
 
             return Optional.of(translatedExpressions.build());
+        }
+
+        private static Expression castIfNecessary(Expression expression, Type type)
+        {
+            if (expression.type().equals(type)) {
+                return expression;
+            }
+
+            return new Cast(expression, type);
         }
     }
 
