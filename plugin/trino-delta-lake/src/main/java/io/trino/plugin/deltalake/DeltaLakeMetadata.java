@@ -569,11 +569,11 @@ public class DeltaLakeMetadata
         if (protocolEntry == null) {
             return new CorruptedDeltaLakeTableHandle(tableName, managed, tableLocation, new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
         }
-        if (protocolEntry.getMinReaderVersion() > MAX_READER_VERSION) {
-            LOG.debug("Skip %s because the reader version is unsupported: %d", tableName, protocolEntry.getMinReaderVersion());
+        if (protocolEntry.minReaderVersion() > MAX_READER_VERSION) {
+            LOG.debug("Skip %s because the reader version is unsupported: %d", tableName, protocolEntry.minReaderVersion());
             return null;
         }
-        Set<String> unsupportedReaderFeatures = unsupportedReaderFeatures(protocolEntry.getReaderFeatures().orElse(ImmutableSet.of()));
+        Set<String> unsupportedReaderFeatures = unsupportedReaderFeatures(protocolEntry.readerFeatures().orElse(ImmutableSet.of()));
         if (!unsupportedReaderFeatures.isEmpty()) {
             LOG.debug("Skip %s because the table contains unsupported reader features: %s", tableName, unsupportedReaderFeatures);
             return null;
@@ -1461,14 +1461,14 @@ public class DeltaLakeMetadata
         }
 
         return new ProtocolEntry(
-                max(protocolEntry.getMinReaderVersion(), TIMESTAMP_NTZ_SUPPORTED_READER_VERSION),
-                max(protocolEntry.getMinWriterVersion(), TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION),
+                max(protocolEntry.minReaderVersion(), TIMESTAMP_NTZ_SUPPORTED_READER_VERSION),
+                max(protocolEntry.minWriterVersion(), TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION),
                 Optional.of(ImmutableSet.<String>builder()
-                        .addAll(protocolEntry.getReaderFeatures().orElse(ImmutableSet.of()))
+                        .addAll(protocolEntry.readerFeatures().orElse(ImmutableSet.of()))
                         .add(TIMESTAMP_NTZ_FEATURE_NAME)
                         .build()),
                 Optional.of(ImmutableSet.<String>builder()
-                        .addAll(protocolEntry.getWriterFeatures().orElse(ImmutableSet.of()))
+                        .addAll(protocolEntry.writerFeatures().orElse(ImmutableSet.of()))
                         .add(TIMESTAMP_NTZ_FEATURE_NAME)
                         .build()));
     }
@@ -2341,7 +2341,7 @@ public class DeltaLakeMetadata
 
     private static void checkUnsupportedWriterFeatures(ProtocolEntry protocolEntry)
     {
-        Set<String> unsupportedWriterFeatures = unsupportedWriterFeatures(protocolEntry.getWriterFeatures().orElse(ImmutableSet.of()));
+        Set<String> unsupportedWriterFeatures = unsupportedWriterFeatures(protocolEntry.writerFeatures().orElse(ImmutableSet.of()));
         if (!unsupportedWriterFeatures.isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported writer features: " + unsupportedWriterFeatures);
         }
@@ -2357,7 +2357,7 @@ public class DeltaLakeMetadata
 
     private void checkSupportedWriterVersion(DeltaLakeTableHandle handle)
     {
-        int requiredWriterVersion = handle.getProtocolEntry().getMinWriterVersion();
+        int requiredWriterVersion = handle.getProtocolEntry().minWriterVersion();
         if (requiredWriterVersion > MAX_WRITER_VERSION) {
             throw new TrinoException(
                     NOT_SUPPORTED,
@@ -2528,7 +2528,7 @@ public class DeltaLakeMetadata
 
         long createdTime = Instant.now().toEpochMilli();
 
-        int requiredWriterVersion = currentProtocolEntry.getMinWriterVersion();
+        int requiredWriterVersion = currentProtocolEntry.minWriterVersion();
         Optional<MetadataEntry> metadataEntry = Optional.empty();
         if (properties.containsKey(CHANGE_DATA_FEED_ENABLED_PROPERTY)) {
             boolean changeDataFeedEnabled = (Boolean) properties.get(CHANGE_DATA_FEED_ENABLED_PROPERTY)
@@ -2550,8 +2550,8 @@ public class DeltaLakeMetadata
         long commitVersion = readVersion + 1;
 
         Optional<ProtocolEntry> protocolEntry = Optional.empty();
-        if (requiredWriterVersion != currentProtocolEntry.getMinWriterVersion()) {
-            protocolEntry = Optional.of(new ProtocolEntry(currentProtocolEntry.getMinReaderVersion(), requiredWriterVersion, currentProtocolEntry.getReaderFeatures(), currentProtocolEntry.getWriterFeatures()));
+        if (requiredWriterVersion != currentProtocolEntry.minWriterVersion()) {
+            protocolEntry = Optional.of(new ProtocolEntry(currentProtocolEntry.minReaderVersion(), requiredWriterVersion, currentProtocolEntry.readerFeatures(), currentProtocolEntry.writerFeatures()));
         }
 
         try {

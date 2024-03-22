@@ -107,17 +107,17 @@ public class DeltaLakePropertiesTable
 
         pagesBuilder.beginRow();
         pagesBuilder.appendVarchar(MIN_READER_VERSION_KEY);
-        pagesBuilder.appendVarchar(String.valueOf(protocolEntry.getMinReaderVersion()));
+        pagesBuilder.appendVarchar(String.valueOf(protocolEntry.minReaderVersion()));
         pagesBuilder.endRow();
 
         pagesBuilder.beginRow();
         pagesBuilder.appendVarchar(MIN_WRITER_VERSION_KEY);
-        pagesBuilder.appendVarchar(String.valueOf(protocolEntry.getMinWriterVersion()));
+        pagesBuilder.appendVarchar(String.valueOf(protocolEntry.minWriterVersion()));
         pagesBuilder.endRow();
 
         ImmutableSet.<String>builder()
-                .addAll(protocolEntry.getReaderFeatures().orElseGet(ImmutableSet::of))
-                .addAll(protocolEntry.getWriterFeatures().orElseGet(ImmutableSet::of))
+                .addAll(protocolEntry.readerFeatures().orElseGet(ImmutableSet::of))
+                .addAll(protocolEntry.writerFeatures().orElseGet(ImmutableSet::of))
                 .build().forEach(feature -> {
                     pagesBuilder.beginRow();
                     pagesBuilder.appendVarchar(DELTA_FEATURE_PREFIX + feature);
