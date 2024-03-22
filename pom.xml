@@ -1727,7 +1727,7 @@
             <dependency>
                 <groupId>io.trino.tpch</groupId>
                 <artifactId>tpch</artifactId>
-                <version>1.2</version>
+                <version>1.4</version>
             </dependency>
 
             <dependency>
