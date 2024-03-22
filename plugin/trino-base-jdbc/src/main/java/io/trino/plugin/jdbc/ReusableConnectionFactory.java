@@ -19,6 +19,7 @@ import com.google.common.cache.RemovalNotification;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
@@ -36,6 +37,8 @@ import static java.util.Objects.requireNonNull;
 public final class ReusableConnectionFactory
         implements ConnectionFactory, JdbcQueryEventListener
 {
+    private static final Logger log = Logger.get(ReusableConnectionFactory.class);
+
     @GuardedBy("this")
     private final Cache<String, Connection> connections;
     private final ConnectionFactory delegate;
@@ -75,8 +78,8 @@ public final class ReusableConnectionFactory
             requireNonNull(notification.getValue(), "notification.getValue() is null");
             notification.getValue().close();
         }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+        catch (SQLException | RuntimeException e) {
+            log.warn(e, "Failed to close connection %s for %s", notification.getValue(), notification.getKey());
         }
     }
 
