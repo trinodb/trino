@@ -257,16 +257,16 @@ public class ShowStatsRewrite
             if (type.equals(DATE)) {
                 return new StringLiteral(LocalDate.ofEpochDay(round(value)).toString());
             }
-            if (type instanceof TimestampType) {
+            if (type instanceof TimestampType timestampType) {
                 @SuppressWarnings("NumericCastThatLosesPrecision")
                 long epochMicros = (long) value;
-                int outputPrecision = min(((TimestampType) type).getPrecision(), TimestampType.MAX_SHORT_PRECISION);
+                int outputPrecision = min(timestampType.getPrecision(), TimestampType.MAX_SHORT_PRECISION);
                 return new StringLiteral(TimestampToVarcharCast.cast(outputPrecision, epochMicros).toStringUtf8());
             }
-            if (type instanceof TimestampWithTimeZoneType) {
+            if (type instanceof TimestampWithTimeZoneType zoneType) {
                 @SuppressWarnings("NumericCastThatLosesPrecision")
                 long millisUtc = (long) value;
-                int outputPrecision = min(((TimestampWithTimeZoneType) type).getPrecision(), TimestampWithTimeZoneType.MAX_SHORT_PRECISION);
+                int outputPrecision = min(zoneType.getPrecision(), TimestampWithTimeZoneType.MAX_SHORT_PRECISION);
                 return new StringLiteral(TimestampWithTimeZoneToVarcharCast.cast(outputPrecision, packDateTimeWithZone(millisUtc, UTC_KEY)).toStringUtf8());
             }
             throw new IllegalArgumentException("Unexpected type: " + type);

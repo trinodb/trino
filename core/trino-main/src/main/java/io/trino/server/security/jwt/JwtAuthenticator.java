@@ -85,13 +85,13 @@ public class JwtAuthenticator
             throw new InvalidClaimException(format("Expected %s claim to be: %s, but was not present in the JWT claims.", AUDIENCE, requiredAudience.get()));
         }
 
-        if (tokenAudience instanceof String) {
-            if (!requiredAudience.get().equals((String) tokenAudience)) {
+        if (tokenAudience instanceof String string) {
+            if (!requiredAudience.get().equals(string)) {
                 throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience.get()));
             }
         }
-        else if (tokenAudience instanceof Collection) {
-            if (((Collection<?>) tokenAudience).stream().map(String.class::cast).noneMatch(aud -> requiredAudience.get().equals(aud))) {
+        else if (tokenAudience instanceof Collection collection) {
+            if (collection.stream().map(String.class::cast).noneMatch(aud -> requiredAudience.get().equals(aud))) {
                 throw new InvalidClaimException(format("Invalid Audience: %s. Allowed audiences: %s", tokenAudience, requiredAudience.get()));
             }
         }

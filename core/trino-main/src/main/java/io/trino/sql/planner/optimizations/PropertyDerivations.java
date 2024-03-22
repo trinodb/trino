@@ -776,8 +776,8 @@ public final class PropertyDerivations
                 // ("ROW comparison not supported for fields with null elements", etc)
                 Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
 
-                if (value instanceof Reference) {
-                    Symbol symbol = Symbol.from((Reference) value);
+                if (value instanceof Reference reference) {
+                    Symbol symbol = Symbol.from(reference);
                     NullableValue existingConstantValue = constants.get(symbol);
                     if (existingConstantValue != null) {
                         constants.put(assignment.getKey(), new NullableValue(type, value));

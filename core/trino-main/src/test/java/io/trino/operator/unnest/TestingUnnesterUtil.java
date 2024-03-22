@@ -331,8 +331,8 @@ public final class TestingUnnesterUtil
             Type type = unnestTypes.get(i);
             Block inputBlock = page.getBlock(replicatedTypes.size() + i);
 
-            if (type instanceof ArrayType) {
-                Type elementType = ((ArrayType) type).getElementType();
+            if (type instanceof ArrayType arrayType) {
+                Type elementType = arrayType.getElementType();
                 if (elementType instanceof RowType) {
                     List<Type> rowTypes = elementType.getTypeParameters();
                     Block[] blocks = buildExpectedUnnestedArrayOfRowBlock(inputBlock, rowTypes, maxCardinalities, totalEntries);
@@ -372,10 +372,10 @@ public final class TestingUnnesterUtil
         }
 
         for (Type unnestType : unnestTypes) {
-            if (unnestType instanceof ArrayType) {
-                Type elementType = ((ArrayType) unnestType).getElementType();
-                if (elementType instanceof RowType) {
-                    List<Type> rowTypes = ((RowType) elementType).getTypeParameters();
+            if (unnestType instanceof ArrayType type) {
+                Type elementType = type.getElementType();
+                if (elementType instanceof RowType type) {
+                    List<Type> rowTypes = type.getTypeParameters();
                     for (Type rowType : rowTypes) {
                         outputTypes.add(rowType);
                     }
@@ -384,9 +384,9 @@ public final class TestingUnnesterUtil
                     outputTypes.add(elementType);
                 }
             }
-            else if (unnestType instanceof MapType) {
-                outputTypes.add(((MapType) unnestType).getKeyType());
-                outputTypes.add(((MapType) unnestType).getValueType());
+            else if (unnestType instanceof MapType type) {
+                outputTypes.add(type.getKeyType());
+                outputTypes.add(type.getValueType());
             }
         }
 

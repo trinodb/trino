@@ -483,7 +483,7 @@ class AggregationAnalyzer
 
             if (node.getWindow().isPresent()) {
                 Window window = node.getWindow().get();
-                if (window instanceof WindowSpecification && !process((WindowSpecification) window, context)) {
+                if (window instanceof WindowSpecification specification && !process(specification, context)) {
                     return false;
                 }
             }

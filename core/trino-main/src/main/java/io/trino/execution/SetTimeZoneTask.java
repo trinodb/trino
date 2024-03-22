@@ -113,11 +113,11 @@ public class SetTimeZoneTask
                 accessControl);
 
         TimeZoneKey timeZoneKey;
-        if (timeZoneValue instanceof Slice) {
-            timeZoneKey = getTimeZoneKey(((Slice) timeZoneValue).toStringUtf8());
+        if (timeZoneValue instanceof Slice slice) {
+            timeZoneKey = getTimeZoneKey(slice.toStringUtf8());
         }
-        else if (timeZoneValue instanceof Long) {
-            timeZoneKey = getTimeZoneKeyForOffset(getZoneOffsetMinutes((Long) timeZoneValue));
+        else if (timeZoneValue instanceof Long long1) {
+            timeZoneKey = getTimeZoneKeyForOffset(getZoneOffsetMinutes(long1));
         }
         else {
             throw new IllegalStateException(format("TIME ZONE expression '%s' not supported", expression));

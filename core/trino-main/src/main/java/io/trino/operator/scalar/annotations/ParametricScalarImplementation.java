@@ -702,8 +702,8 @@ public class ParametricScalarImplementation
                 checkArgument(containsImplementationDependencyAnnotation(annotations), "Constructors may only have meta parameters [%s]", constructor);
                 checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", constructor);
                 Annotation annotation = annotations[0];
-                if (annotation instanceof TypeParameter) {
-                    checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value(), ImmutableSet.of()), typeParameterNames, method);
+                if (annotation instanceof TypeParameter parameter) {
+                    checkTypeParameters(parseTypeSignature(parameter.value(), ImmutableSet.of()), typeParameterNames, method);
                 }
                 constructorDependencies.add(createDependency(annotation, literalParameters, constructor.getParameterTypes()[i]));
             }

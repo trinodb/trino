@@ -132,11 +132,11 @@ public class TestRowBlock
                             fieldBuilders.get(i).appendNull();
                         }
                         else {
-                            if (fieldValue instanceof Long) {
-                                BIGINT.writeLong(fieldBuilders.get(i), ((Long) fieldValue).longValue());
+                            if (fieldValue instanceof Long long1) {
+                                BIGINT.writeLong(fieldBuilders.get(i), long1.longValue());
                             }
-                            else if (fieldValue instanceof String) {
-                                VARCHAR.writeSlice(fieldBuilders.get(i), utf8Slice((String) fieldValue));
+                            else if (fieldValue instanceof String string) {
+                                VARCHAR.writeSlice(fieldBuilders.get(i), utf8Slice(string));
                             }
                             else {
                                 throw new IllegalArgumentException();
@@ -173,11 +173,11 @@ public class TestRowBlock
                 assertThat(rawFieldBlock.isNull(rawIndex)).isTrue();
             }
             else {
-                if (fieldValue instanceof Long) {
-                    assertThat(BIGINT.getLong(rawFieldBlock, rawIndex)).isEqualTo(((Long) fieldValue).longValue());
+                if (fieldValue instanceof Long long1) {
+                    assertThat(BIGINT.getLong(rawFieldBlock, rawIndex)).isEqualTo(long1.longValue());
                 }
-                else if (fieldValue instanceof String) {
-                    assertThat(VARCHAR.getSlice(rawFieldBlock, rawIndex)).isEqualTo(utf8Slice((String) fieldValue));
+                else if (fieldValue instanceof String string) {
+                    assertThat(VARCHAR.getSlice(rawFieldBlock, rawIndex)).isEqualTo(utf8Slice(string));
                 }
                 else {
                     throw new IllegalArgumentException();

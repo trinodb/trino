@@ -381,10 +381,10 @@ public class ReorderJoins
 
         private static boolean isJoinEqualityCondition(Expression expression)
         {
-            return expression instanceof Comparison
-                    && ((Comparison) expression).operator() == EQUAL
-                    && ((Comparison) expression).left() instanceof Reference
-                    && ((Comparison) expression).right() instanceof Reference;
+            return expression instanceof Comparison c
+                    && c.operator() == EQUAL
+                    && c.left() instanceof Reference
+                    && c.right() instanceof Reference;
         }
 
         private static EquiJoinClause toEquiJoinClause(Comparison equality, Set<Symbol> leftSymbols)
@@ -593,13 +593,13 @@ public class ReorderJoins
             {
                 PlanNode resolved = lookup.resolve(node);
 
-                if (resolved instanceof ProjectNode) {
+                if (resolved instanceof ProjectNode projectNode) {
                     if (!pushProjectionsThroughJoin) {
                         sources.add(node);
                         return;
                     }
 
-                    Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin((ProjectNode) resolved, lookup, planNodeIdAllocator);
+                    Optional<PlanNode> rewrittenNode = pushProjectionThroughJoin(projectNode, lookup, planNodeIdAllocator);
                     if (rewrittenNode.isEmpty()) {
                         sources.add(node);
                         return;

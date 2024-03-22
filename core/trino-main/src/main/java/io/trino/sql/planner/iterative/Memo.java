@@ -120,8 +120,8 @@ public class Memo
                 old.getOutputSymbols(),
                 node.getOutputSymbols());
 
-        if (node instanceof GroupReference) {
-            node = getNode(((GroupReference) node).getGroupId());
+        if (node instanceof GroupReference reference) {
+            node = getNode(reference.getGroupId());
         }
         else {
             node = insertChildrenAndRewrite(node);
@@ -221,8 +221,8 @@ public class Memo
 
     private int insertRecursive(PlanNode node)
     {
-        if (node instanceof GroupReference) {
-            return ((GroupReference) node).getGroupId();
+        if (node instanceof GroupReference reference) {
+            return reference.getGroupId();
         }
 
         int group = nextGroupId();

@@ -320,9 +320,9 @@ public class IrExpressionInterpreter
             Set<Expression> uniqueNewOperands = new HashSet<>();
             for (Expression operand : node.operands()) {
                 Object value = processWithExceptionHandling(operand, context);
-                if (value instanceof Coalesce) {
+                if (value instanceof Coalesce coalesce) {
                     // The nested CoalesceExpression was recursively processed. It does not contain null.
-                    for (Expression nestedOperand : ((Coalesce) value).operands()) {
+                    for (Expression nestedOperand : coalesce.operands()) {
                         // Skip duplicates unless they are non-deterministic.
                         if (!isDeterministic(nestedOperand) || uniqueNewOperands.add(nestedOperand)) {
                             newOperands.add(nestedOperand);
@@ -529,15 +529,15 @@ public class IrExpressionInterpreter
                 if (result == null) {
                     return null;
                 }
-                if (result instanceof Comparison) {
-                    return flipComparison((Comparison) result);
+                if (result instanceof Comparison comparison) {
+                    return flipComparison(comparison);
                 }
                 return !(Boolean) result;
             }
             if (node.operator() == Operator.GREATER_THAN || node.operator() == Operator.GREATER_THAN_OR_EQUAL) {
                 Object result = visitComparison(flipComparison(node), context);
-                if (result instanceof Comparison) {
-                    return flipComparison((Comparison) result);
+                if (result instanceof Comparison comparison) {
+                    return flipComparison(comparison);
                 }
                 return result;
             }
@@ -550,12 +550,12 @@ public class IrExpressionInterpreter
             Object left = processWithExceptionHandling(leftExpression, context);
             Object right = processWithExceptionHandling(rightExpression, context);
 
-            if (left == null && right instanceof Expression) {
-                return new Not(new IsNull(((Expression) right)));
+            if (left == null && right instanceof Expression expression1) {
+                return new Not(new IsNull(expression1));
             }
 
-            if (right == null && left instanceof Expression) {
-                return new Not(new IsNull(((Expression) left)));
+            if (right == null && left instanceof Expression expression1) {
+                return new Not(new IsNull(expression1));
             }
 
             if (left instanceof Expression || right instanceof Expression) {
@@ -782,8 +782,8 @@ public class IrExpressionInterpreter
                 Expression optimizedBody;
 
                 // value may be null, converted to an expression by toExpression(value, type)
-                if (value instanceof Expression) {
-                    optimizedBody = (Expression) value;
+                if (value instanceof Expression expression1) {
+                    optimizedBody = expression1;
                 }
                 else {
                     Type type = node.body().type();
@@ -835,12 +835,12 @@ public class IrExpressionInterpreter
             Object value = processWithExceptionHandling(node.expression(), context);
             Type targetType = node.type();
             Type sourceType = node.expression().type();
-            if (value instanceof Expression) {
+            if (value instanceof Expression expression1) {
                 if (targetType.equals(sourceType)) {
                     return value;
                 }
 
-                return new Cast((Expression) value, node.type(), node.safe());
+                return new Cast(expression1, node.type(), node.safe());
             }
 
             if (value == null) {
@@ -893,8 +893,8 @@ public class IrExpressionInterpreter
             if (index == null) {
                 return null;
             }
-            if ((index instanceof Long) && isArray(node.base().type())) {
-                ArraySubscriptOperator.checkArrayIndex((Long) index);
+            if ((index instanceof Long long1) && isArray(node.base().type())) {
+                ArraySubscriptOperator.checkArrayIndex(long1);
             }
 
             if (hasUnresolvedValue(base, index)) {

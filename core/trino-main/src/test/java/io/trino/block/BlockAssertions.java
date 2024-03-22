@@ -170,8 +170,8 @@ public final class BlockAssertions
         if (type == VARCHAR) {
             return createRandomStringBlock(positionCount, nullRate, MAX_STRING_SIZE);
         }
-        if (type instanceof CharType) {
-            return createRandomCharsBlock((CharType) type, positionCount, nullRate);
+        if (type instanceof CharType charType) {
+            return createRandomCharsBlock(charType, positionCount, nullRate);
         }
         if (type == DOUBLE) {
             return createRandomDoublesBlock(positionCount, nullRate);
@@ -228,8 +228,8 @@ public final class BlockAssertions
         }
 
         // Builds the nested block of size offsets[positionCount].
-        if (type instanceof ArrayType) {
-            ValueBlock valuesBlock = createRandomBlockForType(((ArrayType) type).getElementType(), offsets[positionCount], nullRate);
+        if (type instanceof ArrayType arrayType) {
+            ValueBlock valuesBlock = createRandomBlockForType(arrayType.getElementType(), offsets[positionCount], nullRate);
             return fromElementBlock(positionCount, Optional.ofNullable(isNull), offsets, valuesBlock);
         }
         if (type instanceof MapType mapType) {
@@ -626,26 +626,26 @@ public final class BlockAssertions
                         continue;
                     }
 
-                    if (fieldValue instanceof String) {
-                        fieldType.writeSlice(fieldBuilders.get(fieldIndex), utf8Slice((String) fieldValue));
+                    if (fieldValue instanceof String string) {
+                        fieldType.writeSlice(fieldBuilders.get(fieldIndex), utf8Slice(string));
                     }
-                    else if (fieldValue instanceof Slice) {
-                        fieldType.writeSlice(fieldBuilders.get(fieldIndex), (Slice) fieldValue);
+                    else if (fieldValue instanceof Slice slice) {
+                        fieldType.writeSlice(fieldBuilders.get(fieldIndex), slice);
                     }
-                    else if (fieldValue instanceof Double) {
-                        fieldType.writeDouble(fieldBuilders.get(fieldIndex), (Double) fieldValue);
+                    else if (fieldValue instanceof Double double1) {
+                        fieldType.writeDouble(fieldBuilders.get(fieldIndex), double1);
                     }
-                    else if (fieldValue instanceof Long) {
-                        fieldType.writeLong(fieldBuilders.get(fieldIndex), (Long) fieldValue);
+                    else if (fieldValue instanceof Long long1) {
+                        fieldType.writeLong(fieldBuilders.get(fieldIndex), long1);
                     }
-                    else if (fieldValue instanceof Boolean) {
-                        fieldType.writeBoolean(fieldBuilders.get(fieldIndex), (Boolean) fieldValue);
+                    else if (fieldValue instanceof Boolean boolean1) {
+                        fieldType.writeBoolean(fieldBuilders.get(fieldIndex), boolean1);
                     }
                     else if (fieldValue instanceof Block) {
                         fieldType.writeObject(fieldBuilders.get(fieldIndex), fieldValue);
                     }
-                    else if (fieldValue instanceof Integer) {
-                        fieldType.writeLong(fieldBuilders.get(fieldIndex), (Integer) fieldValue);
+                    else if (fieldValue instanceof Integer integer) {
+                        fieldType.writeLong(fieldBuilders.get(fieldIndex), integer);
                     }
                     else {
                         throw new IllegalArgumentException();

@@ -156,9 +156,9 @@ public class ExpressionEquivalence
             Form form = specialForm.getForm();
             ImmutableList.Builder<RowExpression> newArguments = ImmutableList.builder();
             for (RowExpression argument : specialForm.getArguments()) {
-                if (argument instanceof SpecialForm && form == ((SpecialForm) argument).getForm()) {
+                if (argument instanceof SpecialForm specialForm1 && form == specialForm1.getForm()) {
                     // same special form type, so flatten the args
-                    newArguments.addAll(flattenNestedCallArgs((SpecialForm) argument));
+                    newArguments.addAll(flattenNestedCallArgs(specialForm1));
                 }
                 else {
                     newArguments.add(argument);
@@ -253,10 +253,10 @@ public class ExpressionEquivalence
                 if (javaType == float.class || javaType == double.class) {
                     return Double.compare(((Number) leftValue).doubleValue(), ((Number) rightValue).doubleValue());
                 }
-                if (leftValue instanceof Comparable) {
+                if (leftValue instanceof Comparable comparable) {
                     try {
                         //noinspection unchecked,rawtypes
-                        return ((Comparable) leftValue).compareTo(rightValue);
+                        return comparable.compareTo(rightValue);
                     }
                     catch (RuntimeException ignored) {
                     }

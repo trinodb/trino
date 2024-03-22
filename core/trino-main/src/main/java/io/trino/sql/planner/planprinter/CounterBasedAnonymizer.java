@@ -167,9 +167,9 @@ public class CounterBasedAnonymizer
         partitioningHandle.getCatalogHandle()
                 .ifPresent(catalog -> result.put("catalog", anonymize(catalog.getCatalogName().toString(), ObjectType.CATALOG)));
 
-        if (connectorHandle instanceof SystemPartitioningHandle) {
-            result.put("partitioning", ((SystemPartitioningHandle) connectorHandle).getPartitioningName())
-                    .put("function", ((SystemPartitioningHandle) connectorHandle).getFunction().name());
+        if (connectorHandle instanceof SystemPartitioningHandle handle) {
+            result.put("partitioning", handle.getPartitioningName())
+                    .put("function", handle.getFunction().name());
         }
         return formatMap(result.buildOrThrow());
     }
@@ -177,20 +177,20 @@ public class CounterBasedAnonymizer
     @Override
     public String anonymize(WriterTarget target)
     {
-        if (target instanceof CreateTarget) {
-            return anonymize((CreateTarget) target);
+        if (target instanceof CreateTarget createTarget) {
+            return anonymize(createTarget);
         }
-        if (target instanceof InsertTarget) {
-            return anonymize((InsertTarget) target);
+        if (target instanceof InsertTarget insertTarget) {
+            return anonymize(insertTarget);
         }
-        if (target instanceof MergeTarget) {
-            return anonymize((MergeTarget) target);
+        if (target instanceof MergeTarget mergeTarget) {
+            return anonymize(mergeTarget);
         }
-        if (target instanceof RefreshMaterializedViewTarget) {
-            return anonymize((RefreshMaterializedViewTarget) target);
+        if (target instanceof RefreshMaterializedViewTarget viewTarget) {
+            return anonymize(viewTarget);
         }
-        if (target instanceof TableExecuteTarget) {
-            return anonymize((TableExecuteTarget) target);
+        if (target instanceof TableExecuteTarget executeTarget) {
+            return anonymize(executeTarget);
         }
         throw new UnsupportedOperationException("Anonymization is not supported for WriterTarget type: " + target.getClass().getSimpleName());
     }
@@ -198,9 +198,9 @@ public class CounterBasedAnonymizer
     @Override
     public String anonymize(WriteStatisticsTarget target)
     {
-        if (target instanceof WriteStatisticsHandle) {
+        if (target instanceof WriteStatisticsHandle handle) {
             return anonymize(
-                    ((WriteStatisticsHandle) target).getHandle().getCatalogHandle().getCatalogName().toString(),
+                    handle.getHandle().getCatalogHandle().getCatalogName().toString(),
                     ObjectType.CATALOG);
         }
         throw new UnsupportedOperationException("Anonymization is not supported for WriterTarget type: " + target.getClass().getSimpleName());

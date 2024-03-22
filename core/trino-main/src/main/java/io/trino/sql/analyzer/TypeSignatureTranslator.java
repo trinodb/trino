@@ -81,17 +81,17 @@ public class TypeSignatureTranslator
 
     private static TypeSignature toTypeSignature(DataType type, Set<String> typeVariables)
     {
-        if (type instanceof DateTimeDataType) {
-            return toTypeSignature((DateTimeDataType) type, typeVariables);
+        if (type instanceof DateTimeDataType dataType) {
+            return toTypeSignature(dataType, typeVariables);
         }
-        if (type instanceof IntervalDayTimeDataType) {
-            return toTypeSignature((IntervalDayTimeDataType) type);
+        if (type instanceof IntervalDayTimeDataType dataType) {
+            return toTypeSignature(dataType);
         }
-        if (type instanceof RowDataType) {
-            return toTypeSignature((RowDataType) type, typeVariables);
+        if (type instanceof RowDataType dataType) {
+            return toTypeSignature(dataType, typeVariables);
         }
-        if (type instanceof GenericDataType) {
-            return toTypeSignature((GenericDataType) type, typeVariables);
+        if (type instanceof GenericDataType dataType) {
+            return toTypeSignature(dataType, typeVariables);
         }
 
         throw new UnsupportedOperationException("Unsupported DataType: " + type.getClass().getName());
@@ -117,8 +117,8 @@ public class TypeSignatureTranslator
         checkArgument(!typeVariables.contains(type.getName().getValue()), "Base type name cannot be a type variable");
 
         for (DataTypeParameter parameter : type.getArguments()) {
-            if (parameter instanceof NumericParameter) {
-                String value = ((NumericParameter) parameter).getValue();
+            if (parameter instanceof NumericParameter numericParameter) {
+                String value = numericParameter.getValue();
                 try {
                     parameters.add(numericParameter(Long.parseLong(value)));
                 }
@@ -126,10 +126,10 @@ public class TypeSignatureTranslator
                     throw semanticException(TYPE_MISMATCH, parameter, "Invalid type parameter: %s", value);
                 }
             }
-            else if (parameter instanceof TypeParameter) {
-                DataType value = ((TypeParameter) parameter).getValue();
-                if (value instanceof GenericDataType && ((GenericDataType) value).getArguments().isEmpty() && typeVariables.contains(((GenericDataType) value).getName().getValue())) {
-                    parameters.add(typeVariable(((GenericDataType) value).getName().getValue()));
+            else if (parameter instanceof TypeParameter typeParameter) {
+                DataType value = typeParameter.getValue();
+                if (value instanceof GenericDataType dataType && dataType.getArguments().isEmpty() && typeVariables.contains(dataType.getName().getValue())) {
+                    parameters.add(typeVariable(dataType.getName().getValue()));
                 }
                 else {
                     parameters.add(typeParameter(toTypeSignature(value, typeVariables)));
@@ -187,12 +187,12 @@ public class TypeSignatureTranslator
 
         if (type.getPrecision().isPresent()) {
             DataTypeParameter precision = type.getPrecision().get();
-            if (precision instanceof NumericParameter) {
-                parameters.add(TypeSignatureParameter.numericParameter(Long.parseLong(((NumericParameter) precision).getValue())));
+            if (precision instanceof NumericParameter parameter) {
+                parameters.add(TypeSignatureParameter.numericParameter(Long.parseLong(parameter.getValue())));
             }
-            else if (precision instanceof TypeParameter) {
-                DataType typeVariable = ((TypeParameter) precision).getValue();
-                checkArgument(typeVariable instanceof GenericDataType && ((GenericDataType) typeVariable).getArguments().isEmpty());
+            else if (precision instanceof TypeParameter parameter) {
+                DataType typeVariable = parameter.getValue();
+                checkArgument(typeVariable instanceof GenericDataType gdt && gdt.getArguments().isEmpty());
                 String variable = ((GenericDataType) typeVariable).getName().getValue();
                 checkArgument(typeVariables.contains(variable), "Parameter to datetime type must be either a number or a type variable: %s", variable);
                 parameters.add(TypeSignatureParameter.typeVariable(variable));

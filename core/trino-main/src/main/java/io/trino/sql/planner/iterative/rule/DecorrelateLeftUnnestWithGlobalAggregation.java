@@ -217,7 +217,7 @@ public class DecorrelateLeftUnnestWithGlobalAggregation
                 .collect(toImmutableList());
         PlanNode unnestSource = lookup.resolve(unnestNode.getSource());
         boolean basedOnCorrelation = ImmutableSet.copyOf(correlation).containsAll(unnestSymbols) ||
-                unnestSource instanceof ProjectNode && ImmutableSet.copyOf(correlation).containsAll(SymbolsExtractor.extractUnique(((ProjectNode) unnestSource).getAssignments().getExpressions()));
+                unnestSource instanceof ProjectNode pn && ImmutableSet.copyOf(correlation).containsAll(SymbolsExtractor.extractUnique(pn.getAssignments().getExpressions()));
 
         return isScalar(unnestNode.getSource(), lookup) &&
                 unnestNode.getReplicateSymbols().isEmpty() &&

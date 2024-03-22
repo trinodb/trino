@@ -273,8 +273,8 @@ public final class JwkDecoder
         public Optional<String> getStringProperty(String name)
         {
             Object value = other.get(name);
-            if (value instanceof String && !Strings.isNullOrEmpty((String) value)) {
-                return Optional.of((String) value);
+            if (value instanceof String string && !Strings.isNullOrEmpty(string)) {
+                return Optional.of(string);
             }
             return Optional.empty();
         }

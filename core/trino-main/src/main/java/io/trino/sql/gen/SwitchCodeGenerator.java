@@ -53,7 +53,7 @@ public class SwitchCodeGenerator
         value = arguments.get(0);
 
         RowExpression last = arguments.get(arguments.size() - 1);
-        if (last instanceof SpecialForm && ((SpecialForm) last).getForm() == WHEN) {
+        if (last instanceof SpecialForm form && form.getForm() == WHEN) {
             whenClauses = arguments.subList(1, arguments.size()).stream()
                     .map(SpecialForm.class::cast)
                     .collect(toImmutableList());

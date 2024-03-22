@@ -190,8 +190,8 @@ public class MeasureComputation
         Block[] nulls = new Block[expectedLayout.size()];
         for (int i = 0; i < expectedLayout.size(); i++) {
             PhysicalValueAccessor accessor = expectedLayout.get(i);
-            if (accessor instanceof PhysicalValuePointer) {
-                nulls[i] = nativeValueToBlock(((PhysicalValuePointer) accessor).getType(), null);
+            if (accessor instanceof PhysicalValuePointer pointer) {
+                nulls[i] = nativeValueToBlock(pointer.getType(), null);
             }
         }
         return nulls;

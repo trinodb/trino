@@ -115,8 +115,8 @@ public final class IrRowPatternFlattener
             // flatten alternation
             children = children.stream()
                     .flatMap(child -> {
-                        if (child instanceof IrAlternation) {
-                            return ((IrAlternation) child).getPatterns().stream();
+                        if (child instanceof IrAlternation alternation) {
+                            return alternation.getPatterns().stream();
                         }
                         return Stream.of(child);
                     })
@@ -169,8 +169,8 @@ public final class IrRowPatternFlattener
             // flatten concatenation and remove all empty children
             children = children.stream()
                     .flatMap(child -> {
-                        if (child instanceof IrConcatenation) {
-                            return ((IrConcatenation) child).getPatterns().stream();
+                        if (child instanceof IrConcatenation concatenation) {
+                            return concatenation.getPatterns().stream();
                         }
                         return Stream.of(child);
                     })

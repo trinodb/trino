@@ -180,8 +180,8 @@ public class InlineProjections
                     // skip dereferences, otherwise, inlining can cause conflicts with PushdownDereferences
                     Expression assignment = child.getAssignments().get(entry.getKey());
 
-                    if (assignment instanceof Subscript) {
-                        if (((Subscript) assignment).base().type() instanceof RowType) {
+                    if (assignment instanceof Subscript subscript) {
+                        if (subscript.base().type() instanceof RowType) {
                             return false;
                         }
                     }

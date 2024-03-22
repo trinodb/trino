@@ -135,17 +135,17 @@ public class TableWriterOperator
 
         private ConnectorPageSink createPageSink(DriverContext driverContext)
         {
-            if (target instanceof CreateTarget) {
-                return pageSinkManager.createPageSink(session, ((CreateTarget) target).getHandle(), PageSinkId.fromTaskId(driverContext.getTaskId()));
+            if (target instanceof CreateTarget createTarget) {
+                return pageSinkManager.createPageSink(session, createTarget.getHandle(), PageSinkId.fromTaskId(driverContext.getTaskId()));
             }
-            if (target instanceof InsertTarget) {
-                return pageSinkManager.createPageSink(session, ((InsertTarget) target).getHandle(), PageSinkId.fromTaskId(driverContext.getTaskId()));
+            if (target instanceof InsertTarget insertTarget) {
+                return pageSinkManager.createPageSink(session, insertTarget.getHandle(), PageSinkId.fromTaskId(driverContext.getTaskId()));
             }
-            if (target instanceof TableWriterNode.RefreshMaterializedViewTarget) {
-                return pageSinkManager.createPageSink(session, ((TableWriterNode.RefreshMaterializedViewTarget) target).getInsertHandle(), PageSinkId.fromTaskId(driverContext.getTaskId()));
+            if (target instanceof TableWriterNode.RefreshMaterializedViewTarget viewTarget) {
+                return pageSinkManager.createPageSink(session, viewTarget.getInsertHandle(), PageSinkId.fromTaskId(driverContext.getTaskId()));
             }
-            if (target instanceof TableWriterNode.TableExecuteTarget) {
-                return pageSinkManager.createPageSink(session, ((TableWriterNode.TableExecuteTarget) target).getExecuteHandle(), PageSinkId.fromTaskId(driverContext.getTaskId()));
+            if (target instanceof TableWriterNode.TableExecuteTarget executeTarget) {
+                return pageSinkManager.createPageSink(session, executeTarget.getExecuteHandle(), PageSinkId.fromTaskId(driverContext.getTaskId()));
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }

@@ -98,7 +98,7 @@ public class TransformFilteringSemiJoinToInnerJoin
 
         // Do not transform semi-join in context of DELETE
         if (PlanNodeSearcher.searchFrom(semiJoin.getSource(), context.getLookup())
-                .where(node -> node instanceof TableScanNode && ((TableScanNode) node).isUpdateTarget())
+                .where(node -> node instanceof TableScanNode tsn && tsn.isUpdateTarget())
                 .matches()) {
             return Result.empty();
         }

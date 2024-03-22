@@ -351,8 +351,8 @@ public class PreAggregateCaseAggregations
         Expression projection = projectNode.getAssignments().get(projectionSymbol);
         Expression unwrappedProjection;
         // unwrap top-level cast
-        if (projection instanceof Cast) {
-            unwrappedProjection = ((Cast) projection).expression();
+        if (projection instanceof Cast cast) {
+            unwrappedProjection = cast.expression();
         }
         else {
             unwrappedProjection = projection;
