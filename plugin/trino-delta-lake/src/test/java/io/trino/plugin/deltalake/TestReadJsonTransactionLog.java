@@ -29,7 +29,6 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
@@ -85,9 +84,9 @@ public class TestReadJsonTransactionLog
             throws JsonProcessingException
     {
         LastCheckpoint lastCheckpoint = objectMapper.readValue("{\"version\":10,\"size\":17}", LastCheckpoint.class);
-        assertThat(lastCheckpoint.getVersion()).isEqualTo(10L);
-        assertThat(lastCheckpoint.getSize()).isEqualTo(17);
-        assertThat(lastCheckpoint.getParts()).isEqualTo(Optional.empty());
+        assertThat(lastCheckpoint.version()).isEqualTo(10L);
+        assertThat(lastCheckpoint.size()).isEqualTo(17);
+        assertThat(lastCheckpoint.parts()).isEmpty();
     }
 
     @Test
@@ -95,9 +94,9 @@ public class TestReadJsonTransactionLog
             throws JsonProcessingException
     {
         LastCheckpoint lastCheckpoint = objectMapper.readValue("{\"version\":237580,\"size\":658573,\"parts\":2}", LastCheckpoint.class);
-        assertThat(lastCheckpoint.getVersion()).isEqualTo(237580L);
-        assertThat(lastCheckpoint.getSize()).isEqualTo(658573L);
-        assertThat(lastCheckpoint.getParts()).isEqualTo(Optional.of(2));
+        assertThat(lastCheckpoint.version()).isEqualTo(237580L);
+        assertThat(lastCheckpoint.size()).isEqualTo(658573L);
+        assertThat(lastCheckpoint.parts()).hasValue(2);
     }
 
     private Stream<String> readJsonTransactionLogs(String location)
