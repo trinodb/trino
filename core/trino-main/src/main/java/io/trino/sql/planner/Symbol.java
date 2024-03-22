@@ -16,16 +16,25 @@ package io.trino.sql.planner;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.google.common.base.CharMatcher;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize(keyUsing = SymbolKeySerializer.class)
 public class Symbol
         implements Comparable<Symbol>
 {
+    // Allow limited set of characters in symbol names to avoid ambiguities in the rendered plans.
+    public static final CharMatcher SYMBOL_NAME_MATCHER = CharMatcher.inRange('a', 'z')
+            .or(CharMatcher.inRange('A', 'Z'))
+            .or(CharMatcher.inRange('0', '9'))
+            .or(CharMatcher.anyOf("[]:_$"))
+            .precomputed();
+
     private final String name;
     private final Type type;
 
@@ -40,8 +49,9 @@ public class Symbol
     @JsonCreator
     public Symbol(Type type, String name)
     {
-        requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
+        checkArgument(!name.isEmpty(), "name cannot be empty");
+        checkArgument(SYMBOL_NAME_MATCHER.matchesAllOf(name), "Invalid characters in symbol name: [%s]", name);
         this.type = type;
         this.name = name;
     }

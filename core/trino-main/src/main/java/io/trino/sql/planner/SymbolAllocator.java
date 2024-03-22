@@ -26,6 +26,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.sql.planner.Symbol.SYMBOL_NAME_MATCHER;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
@@ -85,9 +87,10 @@ public class SymbolAllocator
             }
         }
 
-        String unique = nameHint;
+        String unique = SYMBOL_NAME_MATCHER.retainFrom(nameHint);
 
         if (suffix != null) {
+            checkArgument(SYMBOL_NAME_MATCHER.matchesAllOf(suffix), "Invalid characters in symbol suffix: [%s]", suffix);
             unique = unique + "$" + suffix;
         }
 
