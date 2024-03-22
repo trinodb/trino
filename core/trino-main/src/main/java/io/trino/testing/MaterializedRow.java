@@ -63,14 +63,14 @@ public class MaterializedRow
         if (value instanceof Float float1) {
             return new ApproximateFloat(float1, precision);
         }
-        if (value instanceof List list) {
+        if (value instanceof List<?> list) {
             return list.stream()
                     .map(element -> processValue(precision, element))
                     .collect(toList());
         }
-        if (value instanceof Map map1) {
+        if (value instanceof Map<?, ?> mapValue) {
             Map<Object, Object> map = new HashMap<>();
-            for (Entry<?, ?> entry : map1.entrySet()) {
+            for (Entry<?, ?> entry : mapValue.entrySet()) {
                 map.put(processValue(precision, entry.getKey()), processValue(precision, entry.getValue()));
             }
             return map;
@@ -109,14 +109,14 @@ public class MaterializedRow
         if (value instanceof ApproximateNumeric numeric) {
             return numeric.getValue();
         }
-        if (value instanceof List list) {
+        if (value instanceof List<?> list) {
             return list.stream()
                     .map(MaterializedRow::processField)
                     .collect(toList());
         }
-        if (value instanceof Map map1) {
+        if (value instanceof Map<?, ?> mapValue) {
             Map<Object, Object> map = new HashMap<>();
-            for (Entry<?, ?> entry : map1.entrySet()) {
+            for (Entry<?, ?> entry : mapValue.entrySet()) {
                 map.put(processField(entry.getKey()), processField(entry.getValue()));
             }
             return map;

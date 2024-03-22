@@ -1619,8 +1619,8 @@ class StatementAnalyzer
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType type) {
                     Type elementType = type.getElementType();
-                    if (elementType instanceof RowType type) {
-                        type.getFields().stream()
+                    if (elementType instanceof RowType rowType) {
+                        rowType.getFields().stream()
                                 .map(field -> Field.newUnqualified(field.getName(), field.getType()))
                                 .forEach(expressionOutputs::add);
                     }

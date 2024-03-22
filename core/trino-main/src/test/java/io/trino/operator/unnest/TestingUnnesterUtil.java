@@ -365,20 +365,12 @@ public final class TestingUnnesterUtil
 
     static List<Type> buildOutputTypes(List<Type> replicatedTypes, List<Type> unnestTypes, boolean withOrdinality)
     {
-        List<Type> outputTypes = new ArrayList<>();
-
-        for (Type replicatedType : replicatedTypes) {
-            outputTypes.add(replicatedType);
-        }
-
+        List<Type> outputTypes = new ArrayList<>(replicatedTypes);
         for (Type unnestType : unnestTypes) {
-            if (unnestType instanceof ArrayType type) {
-                Type elementType = type.getElementType();
-                if (elementType instanceof RowType type) {
-                    List<Type> rowTypes = type.getTypeParameters();
-                    for (Type rowType : rowTypes) {
-                        outputTypes.add(rowType);
-                    }
+            if (unnestType instanceof ArrayType arrayType) {
+                Type elementType = arrayType.getElementType();
+                if (elementType instanceof RowType rowType) {
+                    outputTypes.addAll(rowType.getTypeParameters());
                 }
                 else {
                     outputTypes.add(elementType);

@@ -679,10 +679,8 @@ public class PlanFragmenter
         {
             ConnectorPartitioningHandle currentHandle = partitioningHandle.get().getConnectorHandle();
             ConnectorPartitioningHandle distributionHandle = distribution.getConnectorHandle();
-            if ((currentHandle instanceof SystemPartitioningHandle handle) &&
-                    (distributionHandle instanceof SystemPartitioningHandle handle)) {
-                return handle.getPartitioning() ==
-                        handle.getPartitioning();
+            if ((currentHandle instanceof SystemPartitioningHandle partitioningHandle) && (distributionHandle instanceof SystemPartitioningHandle handle)) {
+                return partitioningHandle.getPartitioning() == handle.getPartitioning();
             }
             return false;
         }
