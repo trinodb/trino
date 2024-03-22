@@ -734,7 +734,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), StandardFunctions.LIKE_FUNCTION_NAME, arguments.build()));
+            return Optional.of(new io.trino.spi.expression.Call(node.type(), StandardFunctions.LIKE_FUNCTION_NAME, arguments.build()));
         }
 
         @Override
