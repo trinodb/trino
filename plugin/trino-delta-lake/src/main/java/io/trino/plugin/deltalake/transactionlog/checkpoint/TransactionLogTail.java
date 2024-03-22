@@ -118,7 +118,7 @@ public class TransactionLogTail
             String line = reader.readLine();
             while (line != null) {
                 DeltaLakeTransactionLogEntry deltaLakeTransactionLogEntry = parseJson(line);
-                if (deltaLakeTransactionLogEntry.getCommitInfo() != null && deltaLakeTransactionLogEntry.getCommitInfo().getVersion() == 0L) {
+                if (deltaLakeTransactionLogEntry.getCommitInfo() != null && deltaLakeTransactionLogEntry.getCommitInfo().version() == 0L) {
                     // In case that the commit info version is missing, use the version from the transaction log file name
                     deltaLakeTransactionLogEntry = deltaLakeTransactionLogEntry.withCommitInfo(deltaLakeTransactionLogEntry.getCommitInfo().withVersion(entryNumber));
                 }
