@@ -1464,6 +1464,32 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("ipv6_column", "2001:db8:0:0:1:0:0:1")
                 .buildOrThrow());
 
+        // filter push down 'not equal' ('<>' or '!=' ) correctly
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE keyword_column <> ''", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE keyword_column = ''", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE keyword_column = '0'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE text_column != ''", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column <> 0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE byte_column <> 1", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column <> 0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE short_column <> 2", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column <> 0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE integer_column <> 3", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column <> 0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE long_column <> 4", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column <> 0.0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE float_column <> 1.0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column <> 0.0", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE double_column <> 1.0", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE binary_column <> x''", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE binary_column <> x'CAFE'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column <> TIMESTAMP '2019-10-01 00:00:11'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column <> TIMESTAMP '2019-10-01 00:00:00'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE ipv4_column <> IPADDRESS '1.1.1.1'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE ipv4_column <> IPADDRESS '1.2.3.4'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE ipv6_column <> IPADDRESS '2001:2001::1:0:0:9'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_pushdown WHERE ipv6_column <> IPADDRESS '2001:db8::1:0:0:1'", "VALUES 0");
+
         // _score column
         assertQuery("SELECT count(*) FROM \"filter_pushdown: cool\" WHERE _score > 0", "VALUES 1");
 

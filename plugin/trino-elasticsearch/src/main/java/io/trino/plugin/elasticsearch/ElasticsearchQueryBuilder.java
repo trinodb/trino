@@ -159,7 +159,7 @@ public final class ElasticsearchQueryBuilder
             return Float.intBitsToFloat(toIntExact(((Long) value)));
         }
         if (type.equals(VARCHAR)) {
-            return ((Slice) value).toStringUtf8();
+            return ((Slice) value).length() == 0 ? 0 : ((Slice) value).toStringUtf8();
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
             return Instant.ofEpochMilli(floorDiv((Long) value, MICROSECONDS_PER_MILLISECOND))
