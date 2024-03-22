@@ -234,7 +234,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitIn(In node, Void context)
         {
-            return "(" + process(node.value(), context) + " IN " + joinExpressions(node.valueList()) + ")";
+            return "(" + process(node.value(), context) + " IN (" + joinExpressions(node.valueList()) + "))";
         }
 
         private String formatBinaryExpression(String operator, Expression left, Expression right)
