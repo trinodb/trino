@@ -92,7 +92,7 @@ public class TableSnapshot
             int domainCompactionThreshold)
             throws IOException
     {
-        Optional<Long> lastCheckpointVersion = lastCheckpoint.map(LastCheckpoint::getVersion);
+        Optional<Long> lastCheckpointVersion = lastCheckpoint.map(LastCheckpoint::version);
         TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tableLocation, lastCheckpointVersion, Optional.empty());
 
         return new TableSnapshot(
@@ -114,7 +114,7 @@ public class TableSnapshot
             Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
             if (lastCheckpoint.isPresent()) {
                 long ourCheckpointVersion = getLastCheckpointVersion().orElse(0L);
-                if (ourCheckpointVersion != lastCheckpoint.get().getVersion()) {
+                if (ourCheckpointVersion != lastCheckpoint.get().version()) {
                     // There is a new checkpoint in the table, load anew
                     return Optional.of(TableSnapshot.load(
                             table,
@@ -219,7 +219,7 @@ public class TableSnapshot
 
     public Optional<Long> getLastCheckpointVersion()
     {
-        return lastCheckpoint.map(LastCheckpoint::getVersion);
+        return lastCheckpoint.map(LastCheckpoint::version);
     }
 
     private CheckpointEntryIterator getCheckpointTransactionLogEntries(
@@ -275,13 +275,13 @@ public class TableSnapshot
     {
         Location transactionLogDir = Location.of(getTransactionLogDir(tableLocation));
         ImmutableList.Builder<Location> paths = ImmutableList.builder();
-        if (checkpoint.getParts().isEmpty()) {
-            paths.add(transactionLogDir.appendPath("%020d.checkpoint.parquet".formatted(checkpoint.getVersion())));
+        if (checkpoint.parts().isEmpty()) {
+            paths.add(transactionLogDir.appendPath("%020d.checkpoint.parquet".formatted(checkpoint.version())));
         }
         else {
-            int partsCount = checkpoint.getParts().get();
+            int partsCount = checkpoint.parts().get();
             for (int i = 1; i <= partsCount; i++) {
-                paths.add(transactionLogDir.appendPath("%020d.checkpoint.%010d.%010d.parquet".formatted(checkpoint.getVersion(), i, partsCount)));
+                paths.add(transactionLogDir.appendPath("%020d.checkpoint.%010d.%010d.parquet".formatted(checkpoint.version(), i, partsCount)));
             }
         }
         return paths.build();
