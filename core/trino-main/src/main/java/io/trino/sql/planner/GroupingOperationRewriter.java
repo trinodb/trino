@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
 import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.Type;
@@ -24,9 +25,9 @@ import io.trino.sql.analyzer.FieldId;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.NodeRef;
 
@@ -91,17 +92,18 @@ public final class GroupingOperationRewriter
                 .collect(toImmutableList());
 
         // It is necessary to add a 1 to the groupId because the underlying array is indexed starting at 1
-        return new Subscript(
-                type,
-                BuiltinFunctionCallBuilder.resolve(metadata)
-                        .setName(ArrayConstructor.NAME)
-                        .setArguments(Collections.nCopies(groupingResults.size(), type), groupingResults)
-                        .build(),
-                new Arithmetic(
-                        metadata.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT)),
-                        ADD,
-                        groupIdSymbol.get().toSymbolReference(),
-                        new Constant(BIGINT, 1L)));
+        return new Call(
+                metadata.resolveOperator(OperatorType.SUBSCRIPT, ImmutableList.of(new ArrayType(type), BIGINT)),
+                ImmutableList.of(
+                        BuiltinFunctionCallBuilder.resolve(metadata)
+                                .setName(ArrayConstructor.NAME)
+                                .setArguments(Collections.nCopies(groupingResults.size(), type), groupingResults)
+                                .build(),
+                        new Arithmetic(
+                                metadata.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT)),
+                                ADD,
+                                groupIdSymbol.get().toSymbolReference(),
+                                new Constant(BIGINT, 1L))));
     }
 
     private static int translateFieldToInteger(FieldId fieldId, RelationId requiredOriginRelationId)
