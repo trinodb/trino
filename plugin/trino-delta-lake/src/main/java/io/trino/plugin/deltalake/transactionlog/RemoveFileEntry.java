@@ -13,88 +13,20 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.annotation.Nullable;
 
 import java.util.Map;
-import java.util.Objects;
 
-public class RemoveFileEntry
+import static java.util.Objects.requireNonNull;
+
+public record RemoveFileEntry(
+        String path,
+        @Nullable Map<String, String> partitionValues,
+        long deletionTimestamp,
+        boolean dataChange)
 {
-    private final String path;
-    private final Map<String, String> partitionValues;
-    private final long deletionTimestamp;
-    private final boolean dataChange;
-
-    @JsonCreator
-    public RemoveFileEntry(
-            @JsonProperty("path") String path,
-            @JsonProperty("partitionValues") @Nullable Map<String, String> partitionValues,
-            @JsonProperty("deletionTimestamp") long deletionTimestamp,
-            @JsonProperty("dataChange") boolean dataChange)
+    public RemoveFileEntry
     {
-        this.path = path;
-        this.partitionValues = partitionValues;
-        this.deletionTimestamp = deletionTimestamp;
-        this.dataChange = dataChange;
-    }
-
-    @JsonProperty
-    public String getPath()
-    {
-        return path;
-    }
-
-    @Nullable
-    @JsonProperty
-    public Map<String, String> getPartitionValues()
-    {
-        return partitionValues;
-    }
-
-    @JsonProperty
-    public long getDeletionTimestamp()
-    {
-        return deletionTimestamp;
-    }
-
-    @JsonProperty
-    public boolean isDataChange()
-    {
-        return dataChange;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        RemoveFileEntry that = (RemoveFileEntry) o;
-        return deletionTimestamp == that.deletionTimestamp &&
-                dataChange == that.dataChange &&
-                Objects.equals(path, that.path) &&
-                Objects.equals(partitionValues, that.partitionValues);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(path, partitionValues, deletionTimestamp, dataChange);
-    }
-
-    @Override
-    public String toString()
-    {
-        return "RemoveFileEntry{" +
-                "path='" + path + '\'' +
-                ", partitionValues=" + partitionValues +
-                ", deletionTimestamp=" + deletionTimestamp +
-                ", dataChange=" + dataChange +
-                '}';
+        requireNonNull(path, "path is null");
     }
 }

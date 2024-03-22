@@ -78,8 +78,8 @@ public class CheckpointBuilder
         if (entry == null) {
             return;
         }
-        removeFileEntries.put(entry.getPath(), entry);
-        addFileEntries.remove(entry.getPath());
+        removeFileEntries.put(entry.path(), entry);
+        addFileEntries.remove(entry.path());
     }
 
     public CheckpointEntries build()

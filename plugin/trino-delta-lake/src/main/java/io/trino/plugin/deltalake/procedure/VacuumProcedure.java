@@ -221,7 +221,7 @@ public class VacuumProcedure
                                                         .collect(toImmutableList()))
                                         .map(DeltaLakeTransactionLogEntry::getRemove)
                                         .filter(Objects::nonNull)
-                                        .map(RemoveFileEntry::getPath))
+                                        .map(RemoveFileEntry::path))
                         .peek(path -> checkState(!path.startsWith(tableLocation), "Unexpected absolute path in transaction log: %s", path))
                         .collect(toImmutableSet());
             }
