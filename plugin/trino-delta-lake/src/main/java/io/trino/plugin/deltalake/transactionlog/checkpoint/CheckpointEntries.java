@@ -20,7 +20,6 @@ import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 
-import java.math.BigInteger;
 import java.util.Objects;
 import java.util.Set;
 import java.util.StringJoiner;
@@ -74,10 +73,10 @@ public class CheckpointEntries
         return removeFileEntries;
     }
 
-    public BigInteger size()
+    public long size()
     {
         // The additional 2 are for the MetadataEntry and ProtocolEntry
-        return BigInteger.valueOf(transactionEntries.size() + addFileEntries.size() + removeFileEntries.size() + 2);
+        return transactionEntries.size() + addFileEntries.size() + removeFileEntries.size() + 2;
     }
 
     @Override
