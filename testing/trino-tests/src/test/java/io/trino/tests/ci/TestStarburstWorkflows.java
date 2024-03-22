@@ -13,6 +13,8 @@
  */
 package io.trino.tests.ci;
 
+import io.airlift.log.Logger;
+import jakarta.annotation.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -25,12 +27,13 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,7 +44,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class TestStarburstWorkflows
 {
-    private static final Path CI_YML = Paths.get("../../.github/workflows/ci.yml");
+    private static final Logger log = Logger.get(TestStarburstWorkflows.class);
+
+    private static final Path CI_YML_REPO_PATH = Paths.get(".github/workflows/ci.yml");
 
     @ParameterizedTest
     @MethodSource("listWorkflows")
@@ -50,11 +55,11 @@ public class TestStarburstWorkflows
         try {
             Yaml yaml = new Yaml();
             Map<?, ?> workflow = yaml.load(new StringReader(Files.readString(path)));
-            Map<?, ?> jobs = (Map<?, ?>) workflow.get("jobs");
+            Map<String, ?> jobs = getMap(workflow, "jobs");
             jobs.forEach((jobName, jobDefinition) -> {
                 Map<?, ?> job = (Map<?, ?>) jobDefinition;
 
-                String condition = (String) job.get("if");
+                String condition = ifPresent(job, "if", TestStarburstWorkflows::getString);
                 if (condition != null && (condition.equals("github.repository == 'trinodb/trino'") ||
                         condition.equals("github.repository_owner == 'trinodb'") ||
                         condition.equals("${{ github.event.issue.pull_request }} && github.repository_owner == 'trinodb'"))) {
@@ -77,7 +82,7 @@ public class TestStarburstWorkflows
     public static List<Path> listWorkflows()
             throws Exception
     {
-        try (Stream<Path> walk = Files.walk(Paths.get("../../.github/workflows"))) {
+        try (Stream<Path> walk = Files.walk(findRepositoryRoot().resolve(".github/workflows"))) {
             return walk
                     .filter(path -> path.toString().endsWith(".yml"))
                     .collect(toImmutableList());
@@ -91,19 +96,17 @@ public class TestStarburstWorkflows
         String buildSuccessJobName = "build-success";
 
         Yaml yaml = new Yaml();
-        Map<?, ?> workflow = yaml.load(new StringReader(Files.readString(CI_YML)));
-        Map<?, ?> jobs = (Map<?, ?>) workflow.get("jobs");
+        Map<?, ?> workflow = yaml.load(new StringReader(Files.readString(findRepositoryRoot().resolve(CI_YML_REPO_PATH))));
+        Map<String, ?> jobs = getMap(workflow, "jobs");
 
-        Set<String> allJobNames = jobs.keySet().stream()
-                .map(String.class::cast)
-                .collect(toImmutableSet());
+        Set<String> allJobNames = jobs.keySet();
         assertThat(allJobNames).as("allJobNames").contains(buildSuccessJobName);
         List<String> testJobNames = allJobNames.stream().filter(Predicate.not(buildSuccessJobName::equals))
                 .sorted()
                 .toList();
-        Map<?, ?> buildSuccessJob = (Map<?, ?>) jobs.get(buildSuccessJobName);
+        Map<?, ?> buildSuccessJob = getMap(jobs, buildSuccessJobName);
 
-        List<String> buildSuccessDependencies = ((List<?>) buildSuccessJob.get("needs")).stream()
+        List<String> buildSuccessDependencies = getList(buildSuccessJob, "needs").stream()
                 .map(String.class::cast)
                 .collect(toImmutableList());
         assertThat(buildSuccessDependencies).as("dependencies for %s", buildSuccessJobName)
@@ -116,10 +119,53 @@ public class TestStarburstWorkflows
         testJobNames.stream()
                 .map("echo '${{ needs.%1$s.result }}' | grep -xE 'success|skipped' || { echo 'Job \"%1$s\" failed' >&2; exit 1; }\n"::formatted)
                 .forEachOrdered(expectedRunDefinition::append);
-        Map<?, ?> runDefinition = (Map<?, ?>) ((List<?>) buildSuccessJob.get("steps")).stream()
-                .filter(step -> "Check results".equals(((Map<?, ?>) step).get("name")))
+        Map<?, ?> runDefinition = getList(buildSuccessJob, "steps").stream()
+                .map(step -> (Map<?, ?>) step)
+                .filter(step -> "Check results".equals(ifPresent(step, "name", TestStarburstWorkflows::getString)))
                 .collect(onlyElement());
         assertThat(runDefinition.get("run")).as("run script")
                 .isEqualTo(expectedRunDefinition.toString());
+    }
+
+    private static Path findRepositoryRoot()
+    {
+        Path workingDirectory = Paths.get("").toAbsolutePath();
+        log.info("Current working directory: %s", workingDirectory);
+        for (Path path = workingDirectory; path != null; path = path.getParent()) {
+            if (Files.isDirectory(path.resolve(".git"))) {
+                return path;
+            }
+        }
+        throw new RuntimeException("Failed to find repository root from " + workingDirectory);
+    }
+
+    private static String getString(Map<?, ?> map, String key)
+    {
+        Object value = map.get(key);
+        verifyNotNull(value, "No or null entry for key [%s] in %s", key, map);
+        return (String) value;
+    }
+
+    private static List<?> getList(Map<?, ?> map, String key)
+    {
+        Object value = map.get(key);
+        verifyNotNull(value, "No or null entry for key [%s] in %s", key, map);
+        return (List<?>) value;
+    }
+
+    private static Map<String, ?> getMap(Map<?, ?> map, String key)
+    {
+        Object value = map.get(key);
+        verifyNotNull(value, "No or null entry for key [%s] in %s", key, map);
+        return ((Map<?, ?>) value).entrySet().stream()
+                .collect(toImmutableMap(e -> (String) e.getKey(), Map.Entry::getValue));
+    }
+
+    private static <T> @Nullable T ifPresent(Map<?, ?> map, String key, BiFunction<? super Map<?, ?>, ? super String, ? extends T> get)
+    {
+        if (!map.containsKey(key)) {
+            return null;
+        }
+        return get.apply(map, key);
     }
 }
