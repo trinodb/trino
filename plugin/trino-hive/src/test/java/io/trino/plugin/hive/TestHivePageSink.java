@@ -181,8 +181,8 @@ public class TestHivePageSink
         List<HiveColumnHandle> columnHandles = getPartitionedColumnHandles(SHIP_MODE.getColumnName());
         Location location = makeFileName(config);
         ConnectorPageSink pageSink = createPageSink(fileSystemFactory, transaction, config, sortingFileWriterConfig, metastore, location, stats, columnHandles);
-        Page truckPage = createPage(lineItem -> lineItem.getShipMode().equals("TRUCK"));
-        Page shipPage = createPage(lineItem -> lineItem.getShipMode().equals("SHIP"));
+        Page truckPage = createPage(lineItem -> lineItem.shipMode().equals("TRUCK"));
+        Page shipPage = createPage(lineItem -> lineItem.shipMode().equals("SHIP"));
 
         pageSink.appendPage(truckPage);
         pageSink.appendPage(shipPage);
