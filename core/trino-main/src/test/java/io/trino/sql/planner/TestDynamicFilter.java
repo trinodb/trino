@@ -88,7 +88,7 @@ public class TestDynamicFilter
         extends BasePlanTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction MOD = FUNCTIONS.resolveFunction("mod", fromTypes(INTEGER, INTEGER));
+    private static final ResolvedFunction MOD_BIGINT = FUNCTIONS.resolveFunction("mod", fromTypes(BIGINT, BIGINT));
     private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
     private static final ResolvedFunction SUBTRACT_BIGINT = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT));
 
@@ -861,7 +861,7 @@ public class TestDynamicFilter
                                         .right(
                                                 anyTree(
                                                         project(
-                                                                ImmutableMap.of("mod", expression(new Call(MOD, ImmutableList.of(new Reference(BIGINT, "n_nationkey"), new Constant(BIGINT, 2L))))),
+                                                                ImmutableMap.of("mod", expression(new Call(MOD_BIGINT, ImmutableList.of(new Reference(BIGINT, "n_nationkey"), new Constant(BIGINT, 2L))))),
                                                                 tableScan("nation", ImmutableMap.of("n_nationkey", "nationkey")))))))));
     }
 

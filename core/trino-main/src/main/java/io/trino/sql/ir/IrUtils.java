@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.graph.SuccessorsFunction;
 import com.google.common.graph.Traverser;
 import io.trino.metadata.Metadata;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
@@ -31,6 +32,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
@@ -42,6 +44,11 @@ import static java.util.stream.Collectors.toList;
 public final class IrUtils
 {
     private IrUtils() {}
+
+    static void validateType(Type expected, Expression expression)
+    {
+        checkArgument(expected.equals(expression.type()), "Expected '%s' type but found '%s' for expression: %s", expected, expression.type(), expression);
+    }
 
     public static List<Expression> extractConjuncts(Expression expression)
     {

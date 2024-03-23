@@ -260,29 +260,29 @@ public class TestFilterStatsCalculator
         assertExpression(new Comparison(GREATER_THAN, new Reference(DOUBLE, "x"), new Reference(DOUBLE, "emptyRange")))
                 .outputRowsCount(0);
 
-        assertExpression(new Comparison(GREATER_THAN, new Reference(DOUBLE, "x"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "y"), new Constant(INTEGER, 20L))))
+        assertExpression(new Comparison(GREATER_THAN, new Reference(INTEGER, "x"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "y"), new Constant(INTEGER, 20L))))
                 .outputRowsCount(0);
-        assertExpression(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(DOUBLE, "x"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "y"), new Constant(INTEGER, 20L))))
+        assertExpression(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "x"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "y"), new Constant(INTEGER, 20L))))
                 .outputRowsCount(0);
-        assertExpression(new Comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "y"), new Constant(INTEGER, 25L))))
+        assertExpression(new Comparison(LESS_THAN, new Reference(INTEGER, "x"), new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "y"), new Constant(INTEGER, 25L))))
                 .outputRowsCount(0);
-        assertExpression(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "x"), new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "y"), new Constant(INTEGER, 25L))))
+        assertExpression(new Comparison(LESS_THAN_OR_EQUAL, new Reference(INTEGER, "x"), new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "y"), new Constant(INTEGER, 25L))))
                 .outputRowsCount(0);
 
         double nullsFractionY = 0.5;
         double inputRowCount = standardInputStatistics.getOutputRowCount();
         double nonNullRowCount = inputRowCount * (1 - nullsFractionY);
         SymbolStatsEstimate nonNullStatsX = xStats.mapNullsFraction(nullsFraction -> 0.0);
-        assertExpression(new Comparison(GREATER_THAN, new Reference(DOUBLE, "x"), new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "y"), new Constant(INTEGER, 25L))))
+        assertExpression(new Comparison(GREATER_THAN, new Reference(DOUBLE, "x"), new Arithmetic(SUBTRACT_DOUBLE, SUBTRACT, new Reference(DOUBLE, "y"), new Constant(DOUBLE, 25.0))))
                 .outputRowsCount(nonNullRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
-        assertExpression(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(DOUBLE, "x"), new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "y"), new Constant(INTEGER, 25L))))
+        assertExpression(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(DOUBLE, "x"), new Arithmetic(SUBTRACT_DOUBLE, SUBTRACT, new Reference(DOUBLE, "y"), new Constant(DOUBLE, 25.0))))
                 .outputRowsCount(nonNullRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
-        assertExpression(new Comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "y"), new Constant(INTEGER, 20L))))
+        assertExpression(new Comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Arithmetic(ADD_DOUBLE, ADD, new Reference(DOUBLE, "y"), new Constant(DOUBLE, 20.0))))
                 .outputRowsCount(nonNullRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
-        assertExpression(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "x"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "y"), new Constant(INTEGER, 20L))))
+        assertExpression(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "x"), new Arithmetic(ADD_DOUBLE, ADD, new Reference(DOUBLE, "y"), new Constant(DOUBLE, 20.0))))
                 .outputRowsCount(nonNullRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
     }

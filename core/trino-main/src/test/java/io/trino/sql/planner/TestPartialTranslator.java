@@ -23,6 +23,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.NodeRef;
@@ -34,7 +35,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -58,10 +58,10 @@ public class TestPartialTranslator
     public void testPartialTranslator()
     {
         Expression rowSymbolReference = new Reference(RowType.anonymousRow(INTEGER, INTEGER), "row_symbol_1");
-        Expression dereferenceExpression1 = new Subscript(INTEGER, rowSymbolReference, new Constant(INTEGER, 1L));
-        Expression dereferenceExpression2 = new Subscript(INTEGER, rowSymbolReference, new Constant(INTEGER, 2L));
+        Expression dereferenceExpression1 = new Subscript(rowSymbolReference, new Constant(INTEGER, 1L));
+        Expression dereferenceExpression2 = new Subscript(rowSymbolReference, new Constant(INTEGER, 2L));
         Expression stringLiteral = new Constant(VARCHAR, Slices.utf8Slice("abcd"));
-        Expression symbolReference1 = new Reference(DOUBLE, "double_symbol_1");
+        Expression symbolReference1 = new Reference(INTEGER, "double_symbol_1");
 
         assertFullTranslation(symbolReference1);
         assertFullTranslation(dereferenceExpression1);
@@ -70,7 +70,7 @@ public class TestPartialTranslator
 
         Expression functionCallExpression = new Call(
                 PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("concat", fromTypes(VARCHAR, VARCHAR)),
-                ImmutableList.of(stringLiteral, dereferenceExpression2));
+                ImmutableList.of(stringLiteral, new Cast(dereferenceExpression2, VARCHAR)));
         assertFullTranslation(functionCallExpression);
     }
 

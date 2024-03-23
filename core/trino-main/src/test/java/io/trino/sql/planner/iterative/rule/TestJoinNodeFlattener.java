@@ -52,7 +52,7 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.cost.PlanNodeStatsEstimate.unknown;
 import static io.trino.cost.StatsAndCosts.empty;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
-import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.ir.Arithmetic.Operator.SUBTRACT;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
@@ -78,8 +78,8 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestJoinNodeFlattener
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
-    private static final ResolvedFunction SUBTRACT_INTEGER = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction SUBTRACT_BIGINT = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT));
 
     private static final int DEFAULT_JOIN_LIMIT = 10;
 
@@ -210,7 +210,7 @@ public class TestJoinNodeFlattener
         JoinNode joinNode = p.join(
                 INNER,
                 p.project(
-                        Assignments.of(d, new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, a.toSymbolReference(), b.toSymbolReference())),
+                        Assignments.of(d, new Arithmetic(SUBTRACT_BIGINT, SUBTRACT, a.toSymbolReference(), b.toSymbolReference())),
                         p.join(
                                 INNER,
                                 valuesA,
@@ -285,12 +285,12 @@ public class TestJoinNodeFlattener
         ValuesNode valuesB = p.values(b1, b2);
         ValuesNode valuesC = p.values(c1, c2);
         Expression bcFilter = and(
-                new Comparison(GREATER_THAN, c2.toSymbolReference(), new Constant(INTEGER, 0L)),
-                new Comparison(NOT_EQUAL, c2.toSymbolReference(), new Constant(INTEGER, 7L)),
+                new Comparison(GREATER_THAN, c2.toSymbolReference(), new Constant(BIGINT, 0L)),
+                new Comparison(NOT_EQUAL, c2.toSymbolReference(), new Constant(BIGINT, 7L)),
                 new Comparison(GREATER_THAN, b2.toSymbolReference(), c2.toSymbolReference()));
         Comparison abcFilter = new Comparison(
                 LESS_THAN,
-                new Arithmetic(ADD_INTEGER, ADD, a1.toSymbolReference(), c1.toSymbolReference()),
+                new Arithmetic(ADD_BIGINT, ADD, a1.toSymbolReference(), c1.toSymbolReference()),
                 b1.toSymbolReference());
         JoinNode joinNode = p.join(
                 INNER,

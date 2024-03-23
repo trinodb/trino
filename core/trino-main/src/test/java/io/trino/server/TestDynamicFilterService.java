@@ -85,7 +85,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1020,8 +1019,8 @@ public class TestDynamicFilterService
             PartitioningHandle stagePartitioning,
             ExchangeNode.Type exchangeType)
     {
-        Symbol symbol = new Symbol(UNKNOWN, "column");
-        Symbol buildSymbol = new Symbol(UNKNOWN, "buildColumn");
+        Symbol symbol = new Symbol(VARCHAR, "column");
+        Symbol buildSymbol = new Symbol(VARCHAR, "buildColumn");
 
         PlanNodeId tableScanNodeId = new PlanNodeId("plan_id");
         TableScanNode tableScan = TableScanNode.newInstance(

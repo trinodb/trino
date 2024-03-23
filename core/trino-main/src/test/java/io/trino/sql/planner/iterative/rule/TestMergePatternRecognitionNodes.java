@@ -117,13 +117,13 @@ public class TestMergePatternRecognitionNodes
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new Comparison(GREATER_THAN, new Call(count, ImmutableList.of(new Reference(INTEGER, "a"))), new Constant(INTEGER, 5L)))
+                                new Comparison(GREATER_THAN, new Call(count, ImmutableList.of(new Reference(BIGINT, "a"))), new Constant(BIGINT, 5L)))
                         .source(p.patternRecognition(childBuilder -> childBuilder
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(
                                         new IrLabel("X"),
-                                        new Comparison(GREATER_THAN, new Call(count, ImmutableList.of(new Reference(INTEGER, "b"))), new Constant(INTEGER, 5L)))
-                                .source(p.values(p.symbol("a"), p.symbol("b")))))))
+                                        new Comparison(GREATER_THAN, new Call(count, ImmutableList.of(new Reference(BIGINT, "b"))), new Constant(BIGINT, 5L)))
+                                .source(p.values(p.symbol("a"), p.symbol("b", INTEGER)))))))
                 .doesNotFire();
     }
 

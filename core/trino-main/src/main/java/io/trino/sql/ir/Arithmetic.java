@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
+import static io.trino.sql.ir.IrUtils.validateType;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
@@ -48,10 +49,9 @@ public record Arithmetic(ResolvedFunction function, Operator operator, Expressio
 
     public Arithmetic
     {
-        requireNonNull(function, "function is null");
         requireNonNull(operator, "operator is null");
-        requireNonNull(left, "left is null");
-        requireNonNull(right, "right is null");
+        validateType(function.getSignature().getArgumentType(0), left);
+        validateType(function.getSignature().getArgumentType(1), right);
     }
 
     @Override

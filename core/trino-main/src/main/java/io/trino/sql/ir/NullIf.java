@@ -32,6 +32,8 @@ public record NullIf(Expression first, Expression second)
     {
         requireNonNull(first, "first is null");
         requireNonNull(second, "second is null");
+
+        // TODO: verify that first and second can be coerced to the same type
     }
 
     @Override

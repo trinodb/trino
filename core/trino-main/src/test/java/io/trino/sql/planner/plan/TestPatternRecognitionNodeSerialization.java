@@ -29,6 +29,7 @@ import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Negation;
@@ -139,7 +140,7 @@ public class TestPatternRecognitionNodeSerialization
         assertJsonRoundTrip(EXPRESSION_AND_VALUE_POINTERS_CODEC, new ExpressionAndValuePointers(
                 ifExpression(
                         new Comparison(GREATER_THAN, new Reference(VARCHAR, "classifier"), new Reference(VARCHAR, "x")),
-                        new Call(RANDOM, ImmutableList.of()),
+                        new Cast(new Call(RANDOM, ImmutableList.of()), INTEGER),
                         new Negation(new Reference(INTEGER, "match_number"))),
                 ImmutableList.of(
                         new ExpressionAndValuePointers.Assignment(
@@ -168,7 +169,7 @@ public class TestPatternRecognitionNodeSerialization
                         ifExpression(
                                 new Comparison(GREATER_THAN, new Reference(INTEGER, "match_number"), new Reference(INTEGER, "x")),
                                 new Constant(BIGINT, 10L),
-                                new Negation(new Reference(INTEGER, "y"))),
+                                new Negation(new Reference(BIGINT, "y"))),
                         ImmutableList.of(
                                 new ExpressionAndValuePointers.Assignment(
                                         new Symbol(BIGINT, "match_number"),

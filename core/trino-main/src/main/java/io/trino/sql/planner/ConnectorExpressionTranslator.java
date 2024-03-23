@@ -208,7 +208,7 @@ public final class ConnectorExpressionTranslator
 
             if (expression instanceof FieldDereference dereference) {
                 return translate(dereference.getTarget())
-                        .map(base -> new Subscript(dereference.getType(), base, new Constant(INTEGER, (long) (dereference.getField() + 1))));
+                        .map(base -> new Subscript(base, new Constant(INTEGER, (long) (dereference.getField() + 1))));
             }
 
             if (expression instanceof io.trino.spi.expression.Call call) {

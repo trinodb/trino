@@ -55,7 +55,6 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Arithmetic.Operator.MODULUS;
@@ -88,8 +87,8 @@ public class TestHivePlans
             .build();
 
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction LIKE = FUNCTIONS.resolveFunction("$like", fromTypes(VARCHAR, LIKE_PATTERN));
-    private static final ResolvedFunction SUBSTRING = FUNCTIONS.resolveFunction("substring", fromTypes(VARCHAR, BIGINT));
+    private static final ResolvedFunction LIKE = FUNCTIONS.resolveFunction("$like", fromTypes(createVarcharType(5), LIKE_PATTERN));
+    private static final ResolvedFunction SUBSTRING = FUNCTIONS.resolveFunction("substring", fromTypes(createVarcharType(5), BIGINT));
     private static final ResolvedFunction MODULUS_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(INTEGER, INTEGER));
 
     private File baseDir;
@@ -156,7 +155,9 @@ public class TestHivePlans
                 "SELECT * FROM table_str_partitioned WHERE str_part LIKE 't%'",
                 output(
                         filter(
-                                new Call(LIKE, ImmutableList.of(new Reference(VARCHAR, "STR_PART"), new Constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))),
+                                new Call(
+                                        FUNCTIONS.resolveFunction("$like", fromTypes(createVarcharType(55), LIKE_PATTERN)),
+                                        ImmutableList.of(new Reference(createVarcharType(55), "STR_PART"), new Constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))),
                                 tableScan("table_str_partitioned", Map.of("INT_COL", "int_col", "STR_PART", "str_part")))));
     }
 
@@ -178,12 +179,12 @@ public class TestHivePlans
                                 .left(
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new Call(LIKE, ImmutableList.of(new Reference(VARCHAR, "L_STR_PART"), new Constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))),
+                                                        new Call(LIKE, ImmutableList.of(new Reference(createVarcharType(5), "L_STR_PART"), new Constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))),
                                                         tableScan("table_str_partitioned", Map.of("L_INT_COL", "int_col", "L_STR_PART", "str_part")))))
                                 .right(exchange(LOCAL,
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new Logical(AND, ImmutableList.of(new In(new Reference(VARCHAR, "R_STR_COL"), ImmutableList.of(new Constant(createVarcharType(5), Slices.utf8Slice("three")), new Constant(createVarcharType(5), Slices.utf8Slice("two")))), new Call(LIKE, ImmutableList.of(new Reference(VARCHAR, "R_STR_COL"), new Constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))))),
+                                                        new Logical(AND, ImmutableList.of(new In(new Reference(createVarcharType(5), "R_STR_COL"), ImmutableList.of(new Constant(createVarcharType(5), Slices.utf8Slice("three")), new Constant(createVarcharType(5), Slices.utf8Slice("two")))), new Call(LIKE, ImmutableList.of(new Reference(createVarcharType(5), "R_STR_COL"), new Constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))))),
                                                         tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -254,7 +255,7 @@ public class TestHivePlans
                                 .left(
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new Comparison(NOT_EQUAL, new Call(SUBSTRING, ImmutableList.of(new Reference(VARCHAR, "L_STR_COL"), new Constant(BIGINT, 2L))), new Constant(createVarcharType(5), Slices.utf8Slice("hree"))),
+                                                        new Comparison(NOT_EQUAL, new Call(SUBSTRING, ImmutableList.of(new Reference(createVarcharType(5), "L_STR_COL"), new Constant(BIGINT, 2L))), new Constant(createVarcharType(5), Slices.utf8Slice("hree"))),
                                                         tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))))
                                 .right(
                                         exchange(LOCAL,

@@ -101,7 +101,7 @@ public class TestWindowFrameRange
                                 project(// coerce sort key to compare sort key values with frame start values
                                         ImmutableMap.of("key_for_frame_start_comparison", expression(new Cast(new Reference(INTEGER, "key"), createDecimalType(12, 1)))),
                                         project(// calculate frame start value (sort key - frame offset)
-                                                ImmutableMap.of("frame_start_value", expression(new Call(SUBTRACT_DECIMAL_10_0, ImmutableList.of(new Reference(INTEGER, "key_for_frame_start_calculation"), new Reference(DOUBLE, "x"))))),
+                                                ImmutableMap.of("frame_start_value", expression(new Call(SUBTRACT_DECIMAL_10_0, ImmutableList.of(new Reference(createDecimalType(10, 0), "key_for_frame_start_calculation"), new Reference(createDecimalType(10, 0), "x"))))),
                                                 project(// coerce sort key to calculate frame start values
                                                         ImmutableMap.of("key_for_frame_start_calculation", expression(new Cast(new Reference(INTEGER, "key"), createDecimalType(10, 0)))),
                                                         filter(// validate offset values
@@ -149,7 +149,7 @@ public class TestWindowFrameRange
                                 project(// coerce sort key to compare sort key values with frame end values
                                         ImmutableMap.of("key_for_frame_end_comparison", expression(new Cast(new Reference(INTEGER, "key"), createDecimalType(12, 1)))),
                                         project(// calculate frame end value (sort key + frame offset)
-                                                ImmutableMap.of("frame_end_value", expression(new Call(ADD_DECIMAL_10_0, ImmutableList.of(new Reference(INTEGER, "key"), new Reference(INTEGER, "offset"))))),
+                                                ImmutableMap.of("frame_end_value", expression(new Call(ADD_DECIMAL_10_0, ImmutableList.of(new Reference(createDecimalType(10, 0), "key"), new Reference(createDecimalType(10, 0), "offset"))))),
                                                 filter(// validate offset values
                                                         ifExpression(
                                                                 new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createDecimalType(10, 0), "offset"), new Constant(createDecimalType(10, 0), 0L)),

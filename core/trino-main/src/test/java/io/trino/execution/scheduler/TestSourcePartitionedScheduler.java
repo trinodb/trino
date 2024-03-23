@@ -106,7 +106,6 @@ import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Integer.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -675,8 +674,8 @@ public class TestSourcePartitionedScheduler
 
     private static PlanFragment createFragment()
     {
-        Symbol symbol = new Symbol(UNKNOWN, "column");
-        Symbol buildSymbol = new Symbol(UNKNOWN, "buildColumn");
+        Symbol symbol = new Symbol(VARCHAR, "column");
+        Symbol buildSymbol = new Symbol(VARCHAR, "buildColumn");
 
         // table scan with splitCount splits
         TableScanNode tableScan = TableScanNode.newInstance(

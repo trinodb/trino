@@ -26,7 +26,7 @@ import java.util.List;
 
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
-import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 
@@ -70,7 +70,7 @@ public abstract class AbstractTestExtractSpatial
 
     protected Call toPointCall(Expression x, Expression y)
     {
-        return functionCall("st_point", ImmutableList.of(BIGINT, BIGINT), ImmutableList.of(x, y));
+        return functionCall("st_point", ImmutableList.of(DOUBLE, DOUBLE), ImmutableList.of(x, y));
     }
 
     private Call functionCall(String name, List<Type> types, List<Expression> arguments)

@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -168,7 +169,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                                 resolve(tester().getMetadata())
                                                         .setName("rand")
                                                         .build(),
-                                                new Constant(BIGINT, 42L)),
+                                                new Constant(DOUBLE, 42.0)),
                                         new Comparison(
                                                 EQUAL,
                                                 new Arithmetic(MODULUS_BIGINT, MODULUS, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L)),
@@ -190,7 +191,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                                 resolve(tester().getMetadata())
                                                         .setName("rand")
                                                         .build(),
-                                                new Constant(BIGINT, 42L)),
+                                                new Constant(DOUBLE, 42.0)),
                                         new Comparison(
                                                 EQUAL,
                                                 new Arithmetic(MODULUS_BIGINT, MODULUS, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L)),
@@ -212,7 +213,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                 resolve(tester().getMetadata())
                                         .setName("rand")
                                         .build(),
-                                new Constant(BIGINT, 42L)),
+                                new Constant(DOUBLE, 42.0)),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -226,7 +227,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
     {
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new Logical(AND, ImmutableList.of(new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 17L)), new Constant(BIGINT, 44L)), new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 15L)), new Constant(BIGINT, 43L)))),
+                        new Logical(AND, ImmutableList.of(new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 17L)), new Constant(INTEGER, 44L)), new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 15L)), new Constant(INTEGER, 43L)))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),

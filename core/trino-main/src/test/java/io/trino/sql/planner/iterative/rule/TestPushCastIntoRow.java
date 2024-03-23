@@ -65,8 +65,8 @@ public class TestPushCastIntoRow
 
         // expression nested in another unrelated expression
         test(
-                new Subscript(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L))), anonymousRow(BIGINT)), new Constant(INTEGER, 1L)),
-                new Subscript(BIGINT, new Row(ImmutableList.of(new Cast(new Constant(INTEGER, 1L), BIGINT))), new Constant(INTEGER, 1L)));
+                new Subscript(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L))), anonymousRow(BIGINT)), new Constant(INTEGER, 1L)),
+                new Subscript(new Row(ImmutableList.of(new Cast(new Constant(INTEGER, 1L), BIGINT))), new Constant(INTEGER, 1L)));
 
         // don't insert CAST(x AS unknown)
         test(

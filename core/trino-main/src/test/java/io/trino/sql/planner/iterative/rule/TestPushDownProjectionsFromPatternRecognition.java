@@ -40,7 +40,6 @@ import java.util.Optional;
 
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Arithmetic.Operator.ADD;
@@ -56,12 +55,12 @@ public class TestPushDownProjectionsFromPatternRecognition
         extends BaseRuleTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
     private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
     private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
 
     private static final ResolvedFunction CONCAT = FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR));
     private static final ResolvedFunction MAX_BY = createTestMetadataManager().resolveBuiltinFunction("max_by", fromTypes(BIGINT, BIGINT));
+    private static final ResolvedFunction MAX_BY_BIGINT_VARCHAR = createTestMetadataManager().resolveBuiltinFunction("max_by", fromTypes(BIGINT, VARCHAR));
 
     @Test
     public void testNoAggregations()
@@ -82,13 +81,13 @@ public class TestPushDownProjectionsFromPatternRecognition
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new Comparison(GREATER_THAN, new Call(MAX_BY, ImmutableList.of(
-                                        new Arithmetic(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new Reference(INTEGER, "match")),
+                                new Comparison(GREATER_THAN, new Call(MAX_BY_BIGINT_VARCHAR, ImmutableList.of(
+                                        new Arithmetic(ADD_BIGINT, ADD, new Constant(BIGINT, 1L), new Reference(BIGINT, "match")),
                                         new Call(CONCAT, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("x")), new Reference(VARCHAR, "classifier"))))),
-                                        new Constant(INTEGER, 5L)),
+                                        new Constant(BIGINT, 5L)),
                                 ImmutableMap.of(
                                         new Symbol(VARCHAR, "classifier"), new ClassifierValuePointer(new LogicalIndexPointer(ImmutableSet.of(), true, true, 0, 0)),
-                                        new Symbol(INTEGER, "match"), new MatchNumberValuePointer()))
+                                        new Symbol(BIGINT, "match"), new MatchNumberValuePointer()))
                         .source(p.values(p.symbol("a")))))
                 .doesNotFire();
     }
@@ -101,7 +100,7 @@ public class TestPushDownProjectionsFromPatternRecognition
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
                                 new IrLabel("X"),
-                                new Comparison(GREATER_THAN, new Call(MAX_BY, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))), new Constant(INTEGER, 5L)))
+                                new Comparison(GREATER_THAN, new Call(MAX_BY, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))), new Constant(BIGINT, 5L)))
                         .source(p.values(p.symbol("a"), p.symbol("b")))))
                 .doesNotFire();
     }

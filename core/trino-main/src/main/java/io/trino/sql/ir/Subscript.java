@@ -15,26 +15,35 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
 import java.util.List;
 
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.ir.IrUtils.validateType;
 
 @JsonSerialize
-public record Subscript(Type type, Expression base, Expression index)
+public record Subscript(Expression base, Expression index)
         implements Expression
 {
     public Subscript
     {
-        requireNonNull(base, "base is null");
-        requireNonNull(index, "index is null");
+        if (!(base.type() instanceof RowType rowType)) {
+            throw new IllegalArgumentException("Expected 'row' type but found '%s' for expression: %s".formatted(base.type(), base));
+        }
+
+        validateType(INTEGER, index);
+        int field = (int) (long) ((Constant) index).value() - 1;
+        checkArgument(field < rowType.getFields().size(), "Expected 'row' type to have at least %s fields, but has: %s", field + 1, rowType.getFields().size());
     }
 
     @Override
     public Type type()
     {
-        return type;
+        int field = (int) (long) ((Constant) index).value() - 1;
+        return ((RowType) base.type()).getFields().get(field).getType();
     }
 
     @Override
