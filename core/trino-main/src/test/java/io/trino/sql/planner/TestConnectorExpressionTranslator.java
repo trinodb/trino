@@ -146,7 +146,7 @@ public class TestConnectorExpressionTranslator
         assertTranslationRoundTrips(
                 new FieldReference(
                         new Reference(ROW_TYPE, "row_symbol_1"),
-                        new Constant(INTEGER, 1L)),
+                        0),
                 new FieldDereference(
                         INTEGER,
                         new Variable("row_symbol_1", ROW_TYPE),

@@ -64,7 +64,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitFieldReference(FieldReference node, Void context)
         {
-            return formatExpression(node.base()) + "[" + formatExpression(node.index()) + "]";
+            return formatExpression(node.base()) + "." + node.field();
         }
 
         @Override

@@ -56,7 +56,6 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitFieldReference(FieldReference node, C context)
     {
         process(node.base(), context);
-        process(node.index(), context);
 
         return null;
     }
