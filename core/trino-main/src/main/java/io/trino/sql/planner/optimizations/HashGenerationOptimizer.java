@@ -510,7 +510,7 @@ public class HashGenerationOptimizer
             List<HashComputation> hashSymbolOrder = ImmutableList.copyOf(preference.getHashes());
             Map<HashComputation, Symbol> newHashSymbols = new HashMap<>();
             for (HashComputation preferredHashSymbol : hashSymbolOrder) {
-                newHashSymbols.put(preferredHashSymbol, symbolAllocator.newHashSymbol());
+                newHashSymbols.put(preferredHashSymbol, symbolAllocator.newSymbol("$hashValue", BIGINT));
             }
 
             // rewrite partition function to include new symbols (and precomputed hash)
@@ -576,7 +576,7 @@ public class HashGenerationOptimizer
             // create new hash symbols
             Map<HashComputation, Symbol> newHashSymbols = new HashMap<>();
             for (HashComputation preferredHashSymbol : preference.getHashes()) {
-                newHashSymbols.put(preferredHashSymbol, symbolAllocator.newHashSymbol());
+                newHashSymbols.put(preferredHashSymbol, symbolAllocator.newSymbol("$hashValue", BIGINT));
             }
 
             // add hash symbols to sources
@@ -628,7 +628,7 @@ public class HashGenerationOptimizer
                 Symbol hashSymbol = child.getHashSymbols().get(hashComputation);
                 Expression hashExpression;
                 if (hashSymbol == null) {
-                    hashSymbol = symbolAllocator.newHashSymbol();
+                    hashSymbol = symbolAllocator.newSymbol("$hashValue", BIGINT);
                     hashExpression = hashComputation.getHashExpression(metadata);
                 }
                 else {
@@ -746,7 +746,7 @@ public class HashGenerationOptimizer
             for (HashComputation hashComputation : requiredHashes.getHashes()) {
                 if (!planWithProperties.getHashSymbols().containsKey(hashComputation)) {
                     Expression hashExpression = hashComputation.getHashExpression(metadata);
-                    Symbol hashSymbol = symbolAllocator.newHashSymbol();
+                    Symbol hashSymbol = symbolAllocator.newSymbol("$hashValue", BIGINT);
                     assignments.put(hashSymbol, hashExpression);
                     outputHashSymbols.put(hashComputation, hashSymbol);
                 }
