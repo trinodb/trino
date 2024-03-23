@@ -45,6 +45,7 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
@@ -341,14 +342,14 @@ public class TestReorderJoins
                 .on(p ->
                         p.join(
                                 INNER,
-                                p.values(new PlanNodeId("valuesA"), p.symbol("A1")),
-                                p.values(new PlanNodeId("valuesB"), p.symbol("B1")),
-                                ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
-                                ImmutableList.of(p.symbol("A1")),
-                                ImmutableList.of(p.symbol("B1")),
+                                p.values(new PlanNodeId("valuesA"), p.symbol("A1", DOUBLE)),
+                                p.values(new PlanNodeId("valuesB"), p.symbol("B1", DOUBLE)),
+                                ImmutableList.of(new EquiJoinClause(p.symbol("A1", DOUBLE), p.symbol("B1", DOUBLE))),
+                                ImmutableList.of(p.symbol("A1", DOUBLE)),
+                                ImmutableList.of(p.symbol("B1", DOUBLE)),
                                 Optional.of(new Comparison(
                                         LESS_THAN,
-                                        p.symbol("A1").toSymbolReference(),
+                                        p.symbol("A1", DOUBLE).toSymbolReference(),
                                         new TestingFunctionResolution().functionCallBuilder("random").build()))))
                 .doesNotFire();
     }

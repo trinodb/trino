@@ -31,8 +31,6 @@ import static io.trino.SystemSessionProperties.JOIN_MULTI_CLAUSE_INDEPENDENCE_FA
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.cost.PlanNodeStatsAssertion.assertThat;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -121,9 +119,9 @@ public class TestJoinStatsRule
                         testSessionBuilder().setSystemProperty(JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, "0.5").build(),
                         pb -> {
                             Symbol leftJoinColumnSymbol = pb.symbol(LEFT_JOIN_COLUMN, BIGINT);
-                            Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, DOUBLE);
+                            Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, BIGINT);
                             Symbol leftOtherColumnSymbol = pb.symbol(LEFT_OTHER_COLUMN, BIGINT);
-                            Symbol rightOtherColumnSymbol = pb.symbol(RIGHT_OTHER_COLUMN, DOUBLE);
+                            Symbol rightOtherColumnSymbol = pb.symbol(RIGHT_OTHER_COLUMN, BIGINT);
                             return pb.join(
                                     INNER,
                                     pb.values(leftJoinColumnSymbol, leftOtherColumnSymbol),
@@ -147,9 +145,9 @@ public class TestJoinStatsRule
 
         Function<PlanBuilder, PlanNode> planProvider = pb -> {
             Symbol leftJoinColumnSymbol = pb.symbol(LEFT_JOIN_COLUMN, BIGINT);
-            Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, DOUBLE);
+            Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, BIGINT);
             Symbol leftJoinColumnSymbol2 = pb.symbol(LEFT_JOIN_COLUMN_2, BIGINT);
-            Symbol rightJoinColumnSymbol2 = pb.symbol(RIGHT_JOIN_COLUMN_2, DOUBLE);
+            Symbol rightJoinColumnSymbol2 = pb.symbol(RIGHT_JOIN_COLUMN_2, BIGINT);
             return pb.join(
                     INNER,
                     pb.values(leftJoinColumnSymbol, leftJoinColumnSymbol2),
@@ -196,10 +194,10 @@ public class TestJoinStatsRule
                         testSessionBuilder().setSystemProperty(JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, "0.5").build(),
                         pb -> {
                             Symbol leftJoinColumnSymbol = pb.symbol(LEFT_JOIN_COLUMN, BIGINT);
-                            Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, DOUBLE);
+                            Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, BIGINT);
                             Symbol leftJoinColumnSymbol2 = pb.symbol(LEFT_JOIN_COLUMN_2, BIGINT);
-                            Symbol rightJoinColumnSymbol2 = pb.symbol(RIGHT_JOIN_COLUMN_2, DOUBLE);
-                            Comparison leftJoinColumnLessThanTen = new Comparison(Comparison.Operator.LESS_THAN, leftJoinColumnSymbol.toSymbolReference(), new Constant(INTEGER, 10L));
+                            Symbol rightJoinColumnSymbol2 = pb.symbol(RIGHT_JOIN_COLUMN_2, BIGINT);
+                            Comparison leftJoinColumnLessThanTen = new Comparison(Comparison.Operator.LESS_THAN, leftJoinColumnSymbol.toSymbolReference(), new Constant(BIGINT, 10L));
                             return pb.join(
                                     INNER,
                                     pb.values(leftJoinColumnSymbol, leftJoinColumnSymbol2),
@@ -383,9 +381,9 @@ public class TestJoinStatsRule
     {
         tester().assertStatsFor(pb -> {
             Symbol leftJoinColumnSymbol = pb.symbol(leftJoinColumn, BIGINT);
-            Symbol rightJoinColumnSymbol = pb.symbol(rightJoinColumn, DOUBLE);
+            Symbol rightJoinColumnSymbol = pb.symbol(rightJoinColumn, BIGINT);
             Symbol leftOtherColumnSymbol = pb.symbol(leftOtherColumn, BIGINT);
-            Symbol rightOtherColumnSymbol = pb.symbol(rightOtherColumn, DOUBLE);
+            Symbol rightOtherColumnSymbol = pb.symbol(rightOtherColumn, BIGINT);
             return pb
                     .join(
                             joinType,

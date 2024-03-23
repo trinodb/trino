@@ -182,7 +182,7 @@ public class TestCanonicalizeExpressionRewriter
     {
         Call date = new Call(
                 PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("date", fromTypes(type)),
-                ImmutableList.of(new Reference(VARCHAR, symbolName)));
+                ImmutableList.of(new Reference(type, symbolName)));
         assertRewritten(date, new Cast(new Reference(VARCHAR, symbolName), DATE));
     }
 

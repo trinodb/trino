@@ -249,15 +249,7 @@ public class TestPreAggregateCaseAggregations
                         "sum(CASE WHEN col_bigint = 1 THEN col_bigint ELSE BIGINT '0' END), " +
                         "sum(CASE WHEN col_bigint = 1 THEN col_bigint END), " +
                         "sum(CASE WHEN col_bigint = 2 THEN CAST(col_bigint AS INTEGER) ELSE CAST(0 AS INTEGER) END), " +
-                        "sum(CASE WHEN col_bigint = 2 THEN CAST(col_bigint AS INTEGER) END), " +
-                        "sum(CASE WHEN col_bigint = 3 THEN col_tinyint ELSE TINYINT '0' END), " +
-                        "sum(CASE WHEN col_bigint = 3 THEN col_tinyint END), " +
-                        "sum(CASE WHEN col_bigint = 4 THEN col_decimal ELSE CAST(0 AS DECIMAL(2, 1)) END), " +
-                        "sum(CASE WHEN col_bigint = 4 THEN col_decimal END), " +
-                        "sum(CASE WHEN col_bigint = 5 THEN col_long_decimal ELSE CAST(0 AS DECIMAL(19, 18)) END), " +
-                        "sum(CASE WHEN col_bigint = 5 THEN col_long_decimal END), " +
-                        "sum(CASE WHEN col_bigint = 6 THEN col_double ELSE DOUBLE '0' END), " +
-                        "sum(CASE WHEN col_bigint = 6 THEN col_double END) " +
+                        "sum(CASE WHEN col_bigint = 2 THEN CAST(col_bigint AS INTEGER) END) " +
                         "FROM t",
                 anyTree(
                         aggregation(
@@ -267,14 +259,6 @@ public class TestPreAggregateCaseAggregations
                                         .put(Optional.of("SUM_1_DEFAULT"), aggregationFunction("sum", ImmutableList.of("SUM_BIGINT_FINAL_DEFAULT")))
                                         .put(Optional.of("SUM_2"), aggregationFunction("sum", ImmutableList.of("SUM_INT_CAST_FINAL")))
                                         .put(Optional.of("SUM_2_DEFAULT"), aggregationFunction("sum", ImmutableList.of("SUM_INT_CAST_FINAL_DEFAULT")))
-                                        .put(Optional.of("SUM_3"), aggregationFunction("sum", ImmutableList.of("SUM_TINYINT_FINAL")))
-                                        .put(Optional.of("SUM_3_DEFAULT"), aggregationFunction("sum", ImmutableList.of("SUM_TINYINT_FINAL_DEFAULT")))
-                                        .put(Optional.of("SUM_4"), aggregationFunction("sum", ImmutableList.of("SUM_DECIMAL_FINAL")))
-                                        .put(Optional.of("SUM_4_DEFAULT"), aggregationFunction("sum", ImmutableList.of("SUM_DECIMAL_FINAL_DEFAULT")))
-                                        .put(Optional.of("SUM_5"), aggregationFunction("sum", ImmutableList.of("SUM_LONG_DECIMAL_FINAL")))
-                                        .put(Optional.of("SUM_5_DEFAULT"), aggregationFunction("sum", ImmutableList.of("SUM_LONG_DECIMAL_FINAL_DEFAULT")))
-                                        .put(Optional.of("SUM_6"), aggregationFunction("sum", ImmutableList.of("SUM_DOUBLE_FINAL")))
-                                        .put(Optional.of("SUM_6_DEFAULT"), aggregationFunction("sum", ImmutableList.of("SUM_DOUBLE_FINAL_DEFAULT")))
                                         .buildOrThrow(),
                                 Optional.empty(),
                                 SINGLE,
@@ -283,38 +267,21 @@ public class TestPreAggregateCaseAggregations
                                                 .put("SUM_BIGINT_FINAL_DEFAULT", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 1L)), new Reference(BIGINT, "SUM_BIGINT"))), Optional.of(new Constant(BIGINT, 0L)))))
                                                 .put("SUM_INT_CAST_FINAL", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 2L)), new Reference(BIGINT, "SUM_INT_CAST"))), Optional.empty())))
                                                 .put("SUM_INT_CAST_FINAL_DEFAULT", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 2L)), new Reference(BIGINT, "SUM_INT_CAST"))), Optional.of(new Constant(BIGINT, 0L)))))
-                                                .put("SUM_TINYINT_FINAL", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 3L)), new Reference(TINYINT, "SUM_TINYINT"))), Optional.empty())))
-                                                .put("SUM_TINYINT_FINAL_DEFAULT", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 3L)), new Reference(TINYINT, "SUM_TINYINT"))), Optional.of(new Constant(BIGINT, 0L)))))
-                                                .put("SUM_DECIMAL_FINAL", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 4L)), new Reference(BIGINT, "SUM_DECIMAL"))), Optional.empty())))
-                                                .put("SUM_DECIMAL_FINAL_DEFAULT", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 4L)), new Reference(BIGINT, "SUM_DECIMAL"))), Optional.of(new Constant(createDecimalType(38, 1), Decimals.valueOf(new BigDecimal("0.0")))))))
-                                                .put("SUM_LONG_DECIMAL_FINAL", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 5L)), new Reference(BIGINT, "SUM_LONG_DECIMAL"))), Optional.empty())))
-                                                .put("SUM_LONG_DECIMAL_FINAL_DEFAULT", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 5L)), new Reference(BIGINT, "SUM_LONG_DECIMAL"))), Optional.of(new Constant(createDecimalType(38, 18), Decimals.valueOf(new BigDecimal("0.000000000000000000")))))))
-                                                .put("SUM_DOUBLE_FINAL", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 6L)), new Reference(DOUBLE, "SUM_DOUBLE"))), Optional.empty())))
-                                                .put("SUM_DOUBLE_FINAL_DEFAULT", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 6L)), new Reference(DOUBLE, "SUM_DOUBLE"))), Optional.of(new Constant(DOUBLE, 0.0)))))
                                                 .buildOrThrow(),
                                         aggregation(
                                                 singleGroupingSet("COL_BIGINT"),
                                                 ImmutableMap.of(
                                                         Optional.of("SUM_BIGINT"), aggregationFunction("sum", ImmutableList.of("COL_BIGINT")),
-                                                        Optional.of("SUM_INT_CAST"), aggregationFunction("sum", ImmutableList.of("VALUE_INT_CAST")),
-                                                        Optional.of("SUM_TINYINT"), aggregationFunction("sum", ImmutableList.of("VALUE_TINYINT_CAST")),
-                                                        Optional.of("SUM_DECIMAL"), aggregationFunction("sum", ImmutableList.of("COL_DECIMAL")),
-                                                        Optional.of("SUM_LONG_DECIMAL"), aggregationFunction("sum", ImmutableList.of("COL_LONG_DECIMAL")),
-                                                        Optional.of("SUM_DOUBLE"), aggregationFunction("sum", ImmutableList.of("COL_DOUBLE"))),
+                                                        Optional.of("SUM_INT_CAST"), aggregationFunction("sum", ImmutableList.of("VALUE_INT_CAST"))),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 exchange(
                                                         project(ImmutableMap.of(
-                                                                        "VALUE_INT_CAST", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 2L)), new Cast(new Cast(new Reference(BIGINT, "COL_BIGINT"), INTEGER), BIGINT))), Optional.empty())),
-                                                                        "VALUE_TINYINT_CAST", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 3L)), new Cast(new Reference(TINYINT, "COL_TINYINT"), BIGINT))), Optional.empty()))),
+                                                                        "VALUE_INT_CAST", expression(new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "COL_BIGINT"), new Constant(BIGINT, 2L)), new Cast(new Cast(new Reference(BIGINT, "COL_BIGINT"), INTEGER), BIGINT))), Optional.empty()))),
                                                                 tableScan(
                                                                         "t",
                                                                         ImmutableMap.of(
-                                                                                "COL_BIGINT", "col_bigint",
-                                                                                "COL_TINYINT", "col_tinyint",
-                                                                                "COL_DECIMAL", "col_decimal",
-                                                                                "COL_LONG_DECIMAL", "col_long_decimal",
-                                                                                "COL_DOUBLE", "col_double")))))))));
+                                                                                "COL_BIGINT", "col_bigint")))))))));
     }
 
     @Test

@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ir.IrUtils.validateType;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
@@ -48,6 +49,11 @@ public record Logical(Operator operator, List<Expression> terms)
     {
         requireNonNull(operator, "operator is null");
         checkArgument(terms.size() >= 2, "Expected at least 2 terms");
+
+        for (Expression term : terms) {
+            validateType(BOOLEAN, term);
+        }
+
         terms = ImmutableList.copyOf(terms);
     }
 

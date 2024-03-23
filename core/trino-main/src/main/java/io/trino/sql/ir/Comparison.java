@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ir.IrUtils.validateType;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
@@ -87,8 +88,7 @@ public record Comparison(Operator operator, Expression left, Expression right)
     public Comparison
     {
         requireNonNull(operator, "operator is null");
-        requireNonNull(left, "left is null");
-        requireNonNull(right, "right is null");
+        validateType(left.type(), right);
     }
 
     @Override

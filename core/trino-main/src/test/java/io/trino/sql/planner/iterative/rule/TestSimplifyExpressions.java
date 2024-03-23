@@ -30,7 +30,6 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.type.Reals;
-import io.trino.type.UnknownType;
 import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
 
@@ -48,7 +47,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.Arithmetic.Operator.DIVIDE;
 import static io.trino.sql.ir.Booleans.FALSE;
@@ -277,17 +275,17 @@ public class TestSimplifyExpressions
     public void testMultipleNulls()
     {
         assertSimplifies(
-                new Logical(AND, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), FALSE)),
+                new Logical(AND, ImmutableList.of(new Constant(BOOLEAN, null), new Constant(BOOLEAN, null), new Constant(BOOLEAN, null), FALSE)),
                 FALSE);
         assertSimplifies(
-                new Logical(AND, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Reference(BOOLEAN, "B1"))),
-                new Logical(AND, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Reference(BOOLEAN, "B1"))));
+                new Logical(AND, ImmutableList.of(new Constant(BOOLEAN, null), new Constant(BOOLEAN, null), new Constant(BOOLEAN, null), new Reference(BOOLEAN, "B1"))),
+                new Logical(AND, ImmutableList.of(new Constant(BOOLEAN, null), new Reference(BOOLEAN, "B1"))));
         assertSimplifies(
-                new Logical(OR, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), TRUE)),
+                new Logical(OR, ImmutableList.of(new Constant(BOOLEAN, null), new Constant(BOOLEAN, null), new Constant(BOOLEAN, null), TRUE)),
                 TRUE);
         assertSimplifies(
-                new Logical(OR, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null), new Reference(BOOLEAN, "B1"))),
-                new Logical(OR, ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Reference(BOOLEAN, "B1"))));
+                new Logical(OR, ImmutableList.of(new Constant(BOOLEAN, null), new Constant(BOOLEAN, null), new Constant(BOOLEAN, null), new Reference(BOOLEAN, "B1"))),
+                new Logical(OR, ImmutableList.of(new Constant(BOOLEAN, null), new Reference(BOOLEAN, "B1"))));
     }
 
     @Test
@@ -309,8 +307,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(BIGINT, -12300000000L), createVarcharType(3)),
                 new Cast(new Constant(BIGINT, -12300000000L), createVarcharType(3)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(BIGINT, 12300000000L), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("12300000000"))),
-                new Comparison(EQUAL, new Cast(new Constant(BIGINT, 12300000000L), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("12300000000"))));
+                new Comparison(EQUAL, new Cast(new Constant(BIGINT, 12300000000L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("12300000000"))),
+                new Comparison(EQUAL, new Cast(new Constant(BIGINT, 12300000000L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("12300000000"))));
     }
 
     @Test
@@ -332,8 +330,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)),
                 new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1234"))),
-                new Comparison(EQUAL, new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1234"))));
+                new Comparison(EQUAL, new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1234"))),
+                new Comparison(EQUAL, new Cast(new Constant(INTEGER, 1234L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1234"))));
     }
 
     @Test
@@ -355,8 +353,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(SMALLINT, -1234L), createVarcharType(3)),
                 new Cast(new Constant(SMALLINT, -1234L), createVarcharType(3)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(SMALLINT, 1234L), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1234"))),
-                new Comparison(EQUAL, new Cast(new Constant(SMALLINT, 1234L), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1234"))));
+                new Comparison(EQUAL, new Cast(new Constant(SMALLINT, 1234L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1234"))),
+                new Comparison(EQUAL, new Cast(new Constant(SMALLINT, 1234L), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1234"))));
     }
 
     @Test
@@ -378,8 +376,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(TINYINT, -123L), createVarcharType(2)),
                 new Cast(new Constant(TINYINT, -123L), createVarcharType(2)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(TINYINT, 123L), createVarcharType(2)), new Constant(VARCHAR, Slices.utf8Slice("123"))),
-                new Comparison(EQUAL, new Cast(new Constant(TINYINT, 123L), createVarcharType(2)), new Constant(VARCHAR, Slices.utf8Slice("123"))));
+                new Comparison(EQUAL, new Cast(new Constant(TINYINT, 123L), createVarcharType(2)), new Constant(createVarcharType(2), Slices.utf8Slice("12"))),
+                new Comparison(EQUAL, new Cast(new Constant(TINYINT, 123L), createVarcharType(2)), new Constant(createVarcharType(2), Slices.utf8Slice("12"))));
     }
 
     @Test
@@ -401,8 +399,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("-12.4"))), createVarcharType(3)),
                 new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("-12.4"))), createVarcharType(3)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("12.4"))),
-                new Comparison(EQUAL, new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("12.4"))));
+                new Comparison(EQUAL, new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("12.4"))),
+                new Comparison(EQUAL, new Cast(new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("12.4"))), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("12.4"))));
     }
 
     @Test
@@ -424,8 +422,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("-100000000000000000.1"))), createVarcharType(3)),
                 new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("-100000000000000000.1"))), createVarcharType(3)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("100000000000000000.1"))),
-                new Comparison(EQUAL, new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("100000000000000000.1"))));
+                new Comparison(EQUAL, new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("100000000000000000.1"))),
+                new Comparison(EQUAL, new Cast(new Constant(createDecimalType(19, 1), Decimals.valueOf(new BigDecimal("100000000000000000.1"))), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("100000000000000000.1"))));
     }
 
     @Test
@@ -465,8 +463,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(DOUBLE, Double.POSITIVE_INFINITY), createVarcharType(7)),
                 new Cast(new Constant(DOUBLE, Double.POSITIVE_INFINITY), createVarcharType(7)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(DOUBLE, 1200.0), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1200.0"))),
-                new Comparison(EQUAL, new Cast(new Constant(DOUBLE, 1200.0), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1200.0"))));
+                new Comparison(EQUAL, new Cast(new Constant(DOUBLE, 1200.0), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1200.0"))),
+                new Comparison(EQUAL, new Cast(new Constant(DOUBLE, 1200.0), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1200.0"))));
     }
 
     @Test
@@ -506,8 +504,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(7)),
                 new Cast(new Constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(7)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1200.0"))),
-                new Comparison(EQUAL, new Cast(new Constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("1200.0"))));
+                new Comparison(EQUAL, new Cast(new Constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1200.0"))),
+                new Comparison(EQUAL, new Cast(new Constant(REAL, Reals.toReal(12e2f)), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("1200.0"))));
     }
 
     @Test
@@ -526,8 +524,8 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)),
                 new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)));
         assertSimplifies(
-                new Comparison(EQUAL, new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("2013-02-02"))),
-                new Comparison(EQUAL, new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), new Constant(VARCHAR, Slices.utf8Slice("2013-02-02"))));
+                new Comparison(EQUAL, new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("2013-02-02"))),
+                new Comparison(EQUAL, new Cast(new Constant(DATE, (long) DateTimeUtils.parseDate("2013-02-02")), createVarcharType(3)), new Constant(createVarcharType(3), Slices.utf8Slice("2013-02-02"))));
     }
 
     private static void assertSimplifies(Expression expression, Expression expected)

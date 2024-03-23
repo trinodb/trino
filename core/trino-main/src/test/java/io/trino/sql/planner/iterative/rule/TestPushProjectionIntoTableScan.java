@@ -101,7 +101,7 @@ public class TestPushProjectionIntoTableScan
                     .on(p -> {
                         Symbol symbol = p.symbol(columnName, columnType);
                         return p.project(
-                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new Subscript(BIGINT, symbol.toSymbolReference(), new Constant(INTEGER, 1L))),
+                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new Subscript(symbol.toSymbolReference(), new Constant(INTEGER, 1L))),
                                 p.tableScan(
                                         ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE),
                                         ImmutableList.of(symbol),
@@ -136,7 +136,7 @@ public class TestPushProjectionIntoTableScan
             // Prepare project node assignments
             Assignments inputProjections = Assignments.builder()
                     .put(identity, baseColumn.toSymbolReference())
-                    .put(dereference, new Subscript(BIGINT, baseColumn.toSymbolReference(), new Constant(INTEGER, 1L)))
+                    .put(dereference, new Subscript(baseColumn.toSymbolReference(), new Constant(INTEGER, 1L)))
                     .put(constant, new Constant(INTEGER, 5L))
                     .build();
 

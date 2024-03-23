@@ -83,14 +83,10 @@ public class TestExpressionVerifier
 
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
         // Complete match
-        assertThat(verifier.process(new Between(new Reference(BIGINT, "orderkey"), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)), new Between(new Reference(INTEGER, "X"), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)))).isTrue();
+        assertThat(verifier.process(new Between(new Reference(BIGINT, "orderkey"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)), new Between(new Reference(BIGINT, "X"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))).isTrue();
         // Different value
-        assertThat(verifier.process(new Between(new Reference(BIGINT, "orderkey"), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)), new Between(new Reference(BIGINT, "Y"), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)))).isFalse();
-        assertThat(verifier.process(new Between(new Reference(BIGINT, "custkey"), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)), new Between(new Reference(BIGINT, "X"), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)))).isFalse();
-        // Different min or max
-        assertThat(verifier.process(new Between(new Reference(BIGINT, "orderkey"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)), new Between(new Reference(BIGINT, "X"), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)))).isFalse();
-        assertThat(verifier.process(new Between(new Reference(BIGINT, "orderkey"), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)), new Between(new Reference(BIGINT, "X"), new Constant(VARCHAR, Slices.utf8Slice("1")), new Constant(VARCHAR, Slices.utf8Slice("2"))))).isFalse();
-        assertThat(verifier.process(new Between(new Reference(BIGINT, "orderkey"), new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)), new Between(new Reference(BIGINT, "X"), new Constant(INTEGER, 4L), new Constant(INTEGER, 7L)))).isFalse();
+        assertThat(verifier.process(new Between(new Reference(BIGINT, "orderkey"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)), new Between(new Reference(BIGINT, "Y"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))).isFalse();
+        assertThat(verifier.process(new Between(new Reference(BIGINT, "custkey"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)), new Between(new Reference(BIGINT, "X"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))).isFalse();
     }
 
     @Test

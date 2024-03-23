@@ -24,7 +24,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.type.FunctionType;
-import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -45,7 +44,7 @@ public class TestDeterminismEvaluator
     {
         assertThat(DeterminismEvaluator.isDeterministic(function("rand"))).isFalse();
         assertThat(DeterminismEvaluator.isDeterministic(function("random"))).isFalse();
-        assertThat(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new Constant(UnknownType.UNKNOWN, null)))
+        assertThat(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new Constant(new ArrayType(VARCHAR), null)))
         )).isFalse();
         assertThat(DeterminismEvaluator.isDeterministic(function("uuid"))).isFalse();
         assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(new Reference(DOUBLE, "symbol"))))).isTrue();
@@ -60,13 +59,13 @@ public class TestDeterminismEvaluator
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
-                        ImmutableList.of(lambda(new Symbol(INTEGER, "a"), comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)))))
+                        ImmutableList.of(new Constant(new ArrayType(INTEGER), null), lambda(new Symbol(INTEGER, "a"), comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)))))
         )).isTrue();
         assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
-                        ImmutableList.of(lambda(new Symbol(INTEGER, "a"), comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(new Reference(INTEGER, "a"))), new Constant(INTEGER, 0L)))))
+                        ImmutableList.of(new Constant(new ArrayType(INTEGER), null), lambda(new Symbol(INTEGER, "a"), comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(new Reference(INTEGER, "a"))), new Constant(INTEGER, 0L)))))
         )).isFalse();
     }
 

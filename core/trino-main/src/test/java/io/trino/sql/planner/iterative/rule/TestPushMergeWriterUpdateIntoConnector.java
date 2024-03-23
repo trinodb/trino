@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -52,7 +53,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 public class TestPushMergeWriterUpdateIntoConnector
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
 
     private static final String TEST_SCHEMA = "test_schema";
     private static final String TEST_TABLE = "test_table";
@@ -109,7 +110,7 @@ public class TestPushMergeWriterUpdateIntoConnector
                         Symbol rowCount = p.symbol("row_count");
                         // set arithmetic expression which we don't support yet
                         Expression updateMergeRowExpression = new Row(ImmutableList.of(p.symbol("column_1").toSymbolReference(),
-                                new Arithmetic(MULTIPLY_INTEGER, Arithmetic.Operator.MULTIPLY, p.symbol("col1").toSymbolReference(), new Constant(INTEGER, 5L))));
+                                new Arithmetic(MULTIPLY_BIGINT, Arithmetic.Operator.MULTIPLY, p.symbol("col1").toSymbolReference(), new Constant(BIGINT, 5L))));
 
                         return p.tableFinish(
                                 p.merge(

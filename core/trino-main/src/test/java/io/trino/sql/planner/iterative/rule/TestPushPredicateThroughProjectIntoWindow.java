@@ -266,7 +266,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Reference(BIGINT, "ranking"), new Constant(BIGINT, 5L)), new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "ranking"), new Constant(INTEGER, 2L)), new Constant(BIGINT, 0L)))),
+                            new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Reference(BIGINT, "ranking"), new Constant(BIGINT, 5L)), new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "ranking"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)))),
                             p.project(
                                     Assignments.identity(ranking),
                                     p.window(
@@ -277,7 +277,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             p.values(a))));
                 })
                 .matches(filter(
-                        new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "ranking"), new Constant(INTEGER, 2L)), new Constant(BIGINT, 0L)),
+                        new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "ranking"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)),
                         project(
                                 ImmutableMap.of("ranking", expression(new Reference(BIGINT, "ranking"))),
                                 topNRanking(
