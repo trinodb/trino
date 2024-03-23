@@ -341,7 +341,7 @@ class QueryPlanner
         List<NodeAndMappings> recursionStepsToUnion = recursionSteps.build();
 
         List<Symbol> unionOutputSymbols = anchorPlan.getFieldMappings().stream()
-                .map(symbol -> symbolAllocator.newSymbol(symbol, "_expanded"))
+                .map(symbol -> symbolAllocator.newSymbol("expanded_" + symbol.getName(), symbol.getType()))
                 .collect(toImmutableList());
 
         ImmutableListMultimap.Builder<Symbol, Symbol> unionSymbolMapping = ImmutableListMultimap.builder();
@@ -1144,7 +1144,7 @@ class QueryPlanner
         Symbol[] fields = new Symbol[subPlan.getTranslations().getFieldSymbols().size()];
         for (FieldId field : groupingSetAnalysis.getAllFields()) {
             Symbol input = subPlan.getTranslations().getFieldSymbols().get(field.getFieldIndex());
-            Symbol output = symbolAllocator.newSymbol(input, "gid");
+            Symbol output = symbolAllocator.newSymbol(input.getName() + "_gid", input.getType());
             fields[field.getFieldIndex()] = output;
             groupingSetMappings.put(output, input);
         }
@@ -1153,7 +1153,7 @@ class QueryPlanner
         for (io.trino.sql.tree.Expression expression : groupingSetAnalysis.getComplexExpressions()) {
             if (!complexExpressions.containsKey(scopeAwareKey(expression, analysis, subPlan.getScope()))) {
                 Symbol input = subPlan.translate(expression);
-                Symbol output = symbolAllocator.newSymbol("expr", analysis.getType(expression), "gid");
+                Symbol output = symbolAllocator.newSymbol("gid", analysis.getType(expression));
                 complexExpressions.put(scopeAwareKey(expression, analysis, subPlan.getScope()), output);
                 groupingSetMappings.put(output, input);
             }

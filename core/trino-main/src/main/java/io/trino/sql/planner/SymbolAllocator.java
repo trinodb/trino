@@ -19,7 +19,6 @@ import io.trino.sql.analyzer.Field;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
-import jakarta.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -47,20 +46,10 @@ public class SymbolAllocator
 
     public Symbol newSymbol(Symbol symbolHint)
     {
-        return newSymbol(symbolHint, null);
-    }
-
-    public Symbol newSymbol(Symbol symbolHint, String suffix)
-    {
-        return newSymbol(symbolHint.getName(), symbolHint.getType(), suffix);
+        return newSymbol(symbolHint.getName(), symbolHint.getType());
     }
 
     public Symbol newSymbol(String nameHint, Type type)
-    {
-        return newSymbol(nameHint, type, null);
-    }
-
-    public Symbol newSymbol(String nameHint, Type type, @Nullable String suffix)
     {
         requireNonNull(nameHint, "nameHint is null");
         requireNonNull(type, "type is null");
@@ -79,15 +68,9 @@ public class SymbolAllocator
             }
         }
 
-        String unique = nameHint;
-
-        if (suffix != null) {
-            unique = unique + "$" + suffix;
-        }
-
-        Symbol symbol = new Symbol(type, unique);
+        Symbol symbol = new Symbol(type, nameHint);
         while (symbols.putIfAbsent(symbol.getName(), symbol) != null) {
-            symbol = new Symbol(type, unique + "_" + nextId());
+            symbol = new Symbol(type, nameHint + "_" + nextId());
         }
 
         return symbol;
@@ -95,18 +78,13 @@ public class SymbolAllocator
 
     public Symbol newSymbol(Expression expression)
     {
-        return newSymbol(expression, null);
-    }
-
-    public Symbol newSymbol(Expression expression, String suffix)
-    {
         String nameHint = switch (expression) {
             case Call call -> call.function().getName().getFunctionName();
             case Reference reference -> reference.name();
             default -> "expr";
         };
 
-        return newSymbol(nameHint, expression.type(), suffix);
+        return newSymbol(nameHint, expression.type());
     }
 
     public Symbol newSymbol(Field field)
