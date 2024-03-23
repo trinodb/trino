@@ -65,8 +65,8 @@ public class TestPushCastIntoRow
 
         // expression nested in another unrelated expression
         test(
-                new FieldReference(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L))), anonymousRow(BIGINT)), new Constant(INTEGER, 1L)),
-                new FieldReference(new Row(ImmutableList.of(new Cast(new Constant(INTEGER, 1L), BIGINT))), new Constant(INTEGER, 1L)));
+                new FieldReference(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L))), anonymousRow(BIGINT)), 0),
+                new FieldReference(new Row(ImmutableList.of(new Cast(new Constant(INTEGER, 1L), BIGINT))), 0));
 
         // don't insert CAST(x AS unknown)
         test(

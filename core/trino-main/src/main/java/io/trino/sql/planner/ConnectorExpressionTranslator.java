@@ -94,7 +94,6 @@ import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
@@ -208,7 +207,7 @@ public final class ConnectorExpressionTranslator
 
             if (expression instanceof FieldDereference dereference) {
                 return translate(dereference.getTarget())
-                        .map(base -> new FieldReference(base, new Constant(INTEGER, (long) (dereference.getField() + 1))));
+                        .map(base -> new FieldReference(base, dereference.getField()));
             }
 
             if (expression instanceof io.trino.spi.expression.Call call) {
@@ -804,7 +803,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            return Optional.of(new FieldDereference(((Expression) node).type(), translatedBase.get(), (int) ((long) ((Constant) node.index()).value() - 1)));
+            return Optional.of(new FieldDereference(((Expression) node).type(), translatedBase.get(), node.field()));
         }
 
         @Override

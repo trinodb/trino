@@ -20,7 +20,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Arithmetic;
-import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -31,7 +30,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -159,8 +157,8 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new FieldReference(a.toSymbolReference(), new Constant(INTEGER, 1L)),
-                                            p.symbol("c"), new FieldReference(a.toSymbolReference(), new Constant(INTEGER, 2L))),
+                                            p.symbol("b"), new FieldReference(a.toSymbolReference(), 0),
+                                            p.symbol("c"), new FieldReference(a.toSymbolReference(), 1)),
                                     p.values(a)));
                 })
                 .doesNotFire();
@@ -222,13 +220,13 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new FieldReference(a.toSymbolReference(), new Constant(INTEGER, 1L)),
+                                            p.symbol("b"), new FieldReference(a.toSymbolReference(), 0),
                                             p.symbol("c", rowType), a.toSymbolReference()),
                                     p.values(a)));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new FieldReference(new Reference(rowType, "a"), new Constant(INTEGER, 1L))), "c", expression(new Reference(rowType, "a"))),
+                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new FieldReference(new Reference(rowType, "a"), 0)), "c", expression(new Reference(rowType, "a"))),
                                 limit(1,
                                         values("a"))));
     }

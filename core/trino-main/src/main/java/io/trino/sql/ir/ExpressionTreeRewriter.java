@@ -146,10 +146,9 @@ public final class ExpressionTreeRewriter<C>
             }
 
             Expression base = rewrite(node.base(), context.get());
-            Expression index = rewrite(node.index(), context.get());
 
-            if (base != node.base() || index != node.index()) {
-                return new FieldReference(base, index);
+            if (base != node.base()) {
+                return new FieldReference(base, node.field());
             }
 
             return node;

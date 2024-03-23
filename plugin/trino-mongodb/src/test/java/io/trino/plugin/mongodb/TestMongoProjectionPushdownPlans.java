@@ -133,7 +133,7 @@ public class TestMongoProjectionPushdownPlans
                 session,
                 any(
                         project(
-                                ImmutableMap.of("expr_1", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), new Constant(INTEGER, 1L))), "expr_2", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), new Constant(INTEGER, 2L)))),
+                                ImmutableMap.of("expr_1", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), 0)), "expr_2", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "col0"), 1))),
                                 tableScan(tableName, ImmutableMap.of("col0", "col0")))));
     }
 
@@ -205,9 +205,9 @@ public class TestMongoProjectionPushdownPlans
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "expr_0_x", expression(new FieldReference(new Reference(RowType.anonymousRow(INTEGER), "expr_0"), new Constant(INTEGER, 1L))),
+                                        "expr_0_x", expression(new FieldReference(new Reference(RowType.anonymousRow(INTEGER), "expr_0"), 0)),
                                         "expr_0", expression(new Reference(RowType.anonymousRow(INTEGER), "expr_0")),
-                                        "expr_0_y", expression(new FieldReference(new Reference(RowType.anonymousRow(INTEGER, INTEGER), "expr_0"), new Constant(INTEGER, 2L)))),
+                                        "expr_0_y", expression(new FieldReference(new Reference(RowType.anonymousRow(INTEGER, INTEGER), "expr_0"), 1))),
                                 PlanMatchPattern.join(INNER, builder -> builder
                                         .equiCriteria("t_expr_1", "s_expr_1")
                                         .left(

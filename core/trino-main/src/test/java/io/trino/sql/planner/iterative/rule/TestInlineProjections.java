@@ -75,7 +75,7 @@ public class TestInlineProjections
                                                 .put(p.symbol("complex"), new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "x"), new Constant(INTEGER, 2L)))
                                                 .put(p.symbol("literal"), new Constant(INTEGER, 1L))
                                                 .put(p.symbol("complex_2"), new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "x"), new Constant(INTEGER, 1L)))
-                                                .put(p.symbol("z"), new FieldReference(new Reference(MSG_TYPE, "msg"), new Constant(INTEGER, 1L)))
+                                                .put(p.symbol("z"), new FieldReference(new Reference(MSG_TYPE, "msg"), 0))
                                                 .put(p.symbol("v"), new Reference(INTEGER, "x"))
                                                 .build(),
                                         p.values(p.symbol("x", INTEGER), p.symbol("msg", MSG_TYPE)))))
@@ -95,7 +95,7 @@ public class TestInlineProjections
                                         ImmutableMap.of(
                                                 "x", PlanMatchPattern.expression(new Reference(INTEGER, "x")),
                                                 "y", PlanMatchPattern.expression(new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "x"), new Constant(INTEGER, 2L))),
-                                                "z", PlanMatchPattern.expression(new FieldReference(new Reference(MSG_TYPE, "msg"), new Constant(INTEGER, 1L)))),
+                                                "z", PlanMatchPattern.expression(new FieldReference(new Reference(MSG_TYPE, "msg"), 0))),
                                         values(ImmutableMap.of("x", 0, "msg", 1)))));
     }
 

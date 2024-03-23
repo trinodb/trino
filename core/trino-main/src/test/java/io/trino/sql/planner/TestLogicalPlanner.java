@@ -304,8 +304,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "row"), new Constant(INTEGER, 1L))),
-                                        "output_2", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "row"), new Constant(INTEGER, 2L)))),
+                                        "output_1", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "row"), 0)),
+                                        "output_2", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "row"), 1))),
                                 project(
                                         ImmutableMap.of("row", expression(new Row(ImmutableList.of(new Reference(BIGINT, "min"), new Reference(BIGINT, "max"))))),
                                         aggregation(
@@ -333,8 +333,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 1L))),
-                                        "output_2", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 2L)))),
+                                        "output_1", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), 0)),
+                                        "output_2", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), 1))),
                                 project(
                                         ImmutableMap.of("row", expression(new Row(ImmutableList.of(new Reference(DOUBLE, "rand"), new Reference(DOUBLE, "rand"))))),
                                         values(
@@ -345,8 +345,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "r"), new Constant(INTEGER, 1L))),
-                                        "output_2", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "r"), new Constant(INTEGER, 2L)))),
+                                        "output_1", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "r"), 0)),
+                                        "output_2", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "r"), 1))),
                                 values(
                                         ImmutableList.of("r"),
                                         ImmutableList.of(ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))))))));
@@ -358,8 +358,8 @@ public class TestLogicalPlanner
                                 any(
                                         project(
                                                 ImmutableMap.of(
-                                                        "output_1", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 1L))),
-                                                        "output_2", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 2L)))),
+                                                        "output_1", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), 0)),
+                                                        "output_2", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), 1))),
                                                 values(
                                                         ImmutableList.of("row"),
                                                         ImmutableList.of(
