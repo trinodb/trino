@@ -126,13 +126,6 @@ public class IrExpressionInterpreter
         return result;
     }
 
-    public Object evaluate(SymbolResolver inputs)
-    {
-        Object result = new Visitor(false).processWithExceptionHandling(expression, inputs);
-        verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
-        return result;
-    }
-
     public Object optimize(SymbolResolver inputs)
     {
         return new Visitor(true).processWithExceptionHandling(expression, inputs);
