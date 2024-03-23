@@ -21,7 +21,6 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Booleans;
-import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -33,7 +32,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -161,8 +159,8 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(p.symbol("c")),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new FieldReference(a.toSymbolReference(), new Constant(INTEGER, 1L)))
-                                            .put(p.symbol("c"), new FieldReference(a.toSymbolReference(), new Constant(INTEGER, 2L)))
+                                            .put(p.symbol("b"), new FieldReference(a.toSymbolReference(), 0))
+                                            .put(p.symbol("c"), new FieldReference(a.toSymbolReference(), 1))
                                             .build(),
                                     p.values(a)));
                 }).doesNotFire();
@@ -180,7 +178,7 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(d),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new FieldReference(a.toSymbolReference(), new Constant(INTEGER, 1L)))
+                                            .put(p.symbol("b"), new FieldReference(a.toSymbolReference(), 0))
                                             .put(p.symbol("c", rowType), a.toSymbolReference())
                                             .putIdentity(d)
                                             .build(),
@@ -188,7 +186,7 @@ public class TestPushTopNThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", expression(new FieldReference(new Reference(rowType, "a"), new Constant(INTEGER, 1L))), "c", expression(new Reference(BIGINT, "a")), "d", expression(new Reference(BIGINT, "d"))),
+                                ImmutableMap.of("b", expression(new FieldReference(new Reference(rowType, "a"), 0)), "c", expression(new Reference(BIGINT, "a")), "d", expression(new Reference(BIGINT, "d"))),
                                 topN(
                                         1,
                                         ImmutableList.of(sort("d", ASCENDING, FIRST)),

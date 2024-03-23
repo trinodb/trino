@@ -96,7 +96,7 @@ public class TestPushProjectionThroughUnion
                     return p.project(
                             Assignments.of(
                                     cTimes3, new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, c.toSymbolReference(), new Constant(BIGINT, 3L)),
-                                    dX, new FieldReference(new Reference(ROW_TYPE, "d"), new Constant(INTEGER, 1L))),
+                                    dX, new FieldReference(new Reference(ROW_TYPE, "d"), 0)),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()
                                             .put(c, a)
@@ -111,10 +111,10 @@ public class TestPushProjectionThroughUnion
                 .matches(
                         union(
                                 project(
-                                        ImmutableMap.of("a_times_3", expression(new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "a"), new Constant(BIGINT, 3L))), "z_x", expression(new FieldReference(new Reference(ROW_TYPE, "z"), new Constant(INTEGER, 1L)))),
+                                        ImmutableMap.of("a_times_3", expression(new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "a"), new Constant(BIGINT, 3L))), "z_x", expression(new FieldReference(new Reference(ROW_TYPE, "z"), 0))),
                                         values(ImmutableList.of("a", "z"))),
                                 project(
-                                        ImmutableMap.of("b_times_3", expression(new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "b"), new Constant(BIGINT, 3L))), "w_x", expression(new FieldReference(new Reference(ROW_TYPE, "w"), new Constant(INTEGER, 1L)))),
+                                        ImmutableMap.of("b_times_3", expression(new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "b"), new Constant(BIGINT, 3L))), "w_x", expression(new FieldReference(new Reference(ROW_TYPE, "w"), 0))),
                                         values(ImmutableList.of("b", "w"))))
                                 .withNumberOfOutputColumns(2)
                                 .withAlias("a_times_3")

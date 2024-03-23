@@ -18,7 +18,6 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.planner.Symbol;
@@ -32,7 +31,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.plan.Patterns.applyNode;
 import static java.util.Objects.requireNonNull;
 
@@ -148,8 +146,8 @@ public class UnwrapSingleColumnRowInApply
                 Symbol valueSymbol = context.getSymbolAllocator().newSymbol("input", elementType);
                 Symbol listSymbol = context.getSymbolAllocator().newSymbol("subquery", elementType);
 
-                Assignment inputAssignment = new Assignment(valueSymbol, new FieldReference(value, new Constant(INTEGER, 1L)));
-                Assignment nestedPlanAssignment = new Assignment(listSymbol, new FieldReference(list, new Constant(INTEGER, 1L)));
+                Assignment inputAssignment = new Assignment(valueSymbol, new FieldReference(value, 0));
+                Assignment nestedPlanAssignment = new Assignment(listSymbol, new FieldReference(list, 0));
                 ApplyNode.SetExpression comparison = function.apply(valueSymbol, listSymbol);
 
                 return Optional.of(new Unwrapping(comparison, inputAssignment, nestedPlanAssignment));

@@ -137,7 +137,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -157,6 +156,7 @@ import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static io.trino.util.DateTimeUtils.parseDayTimeInterval;
 import static io.trino.util.DateTimeUtils.parseYearMonthInterval;
 import static io.trino.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -669,9 +669,7 @@ public class TranslationMap
 
         checkState(index >= 0, "could not find field name: %s", fieldName);
 
-        return new FieldReference(
-                translateExpression(expression.getBase()),
-                new Constant(INTEGER, (long) (index + 1)));
+        return new FieldReference(translateExpression(expression.getBase()), index);
     }
 
     private io.trino.sql.ir.Expression translate(Array expression)
@@ -957,7 +955,7 @@ public class TranslationMap
             io.trino.sql.ir.Expression rewrittenBase = translateExpression(node.getBase());
             LongLiteral index = (LongLiteral) node.getIndex();
             return new FieldReference(
-                    rewrittenBase, new Constant(INTEGER, index.getParsedValue()));
+                    rewrittenBase, toIntExact(index.getParsedValue() - 1));
         }
 
         ResolvedFunction operator = plannerContext.getMetadata()
