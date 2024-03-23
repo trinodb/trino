@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.PartitioningScheme;
@@ -136,8 +135,7 @@ public class PushProjectionThroughExchange
                     continue;
                 }
                 Expression translatedExpression = inlineSymbols(translationMap, projection.getValue());
-                Type type = projection.getKey().getType();
-                Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression, type);
+                Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression);
                 projections.put(symbol, translatedExpression);
                 inputs.add(symbol);
             }

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -77,8 +76,7 @@ public class PushProjectionThroughUnion
             // Translate the assignments in the ProjectNode using symbols of the source of the UnionNode
             for (Map.Entry<Symbol, Expression> entry : parent.getAssignments().entrySet()) {
                 Expression translatedExpression = inlineSymbols(outputToInput, entry.getValue());
-                Type type = entry.getKey().getType();
-                Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression, type);
+                Symbol symbol = context.getSymbolAllocator().newSymbol(translatedExpression);
                 assignments.put(symbol, translatedExpression);
                 projectSymbolMapping.put(entry.getKey(), symbol);
             }

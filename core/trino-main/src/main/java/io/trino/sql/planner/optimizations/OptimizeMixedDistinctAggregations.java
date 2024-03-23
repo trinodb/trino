@@ -423,7 +423,7 @@ public class OptimizeMixedDistinctAggregations
             for (Map.Entry<Symbol, Aggregation> entry : aggregateInfo.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
                 if (aggregation.getMask().isEmpty()) {
-                    Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey().toSymbolReference(), entry.getKey().getType());
+                    Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey().toSymbolReference());
                     aggregationOutputSymbolsMapBuilder.put(newSymbol, entry.getKey());
                     if (!duplicatedDistinctSymbol.equals(distinctSymbol)) {
                         // Handling for cases when mask symbol appears in non distinct aggregations too

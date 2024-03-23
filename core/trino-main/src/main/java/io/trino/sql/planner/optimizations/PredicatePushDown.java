@@ -804,7 +804,7 @@ public class PredicatePushDown
                 return Symbol.from(expression);
             }
 
-            return symbolAllocator.newSymbol(expression, expression.type());
+            return symbolAllocator.newSymbol(expression);
         }
 
         private OuterJoinPushDownResult processLimitedOuterJoin(
