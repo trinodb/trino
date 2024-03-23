@@ -926,6 +926,6 @@ public class TestExpressionInterpreter
     {
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION);
 
-        return interpreter.evaluate(INPUTS);
+        return interpreter.evaluate();
     }
 }
