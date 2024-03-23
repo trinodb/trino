@@ -1506,7 +1506,7 @@ class RelationPlanner
                     result = new Cast(result, expectedType);
                 }
 
-                Symbol output = symbolAllocator.newSymbol(result, expectedType);
+                Symbol output = symbolAllocator.newSymbol(result);
                 outputLayout.add(output);
                 assignments.put(output, result);
             }
