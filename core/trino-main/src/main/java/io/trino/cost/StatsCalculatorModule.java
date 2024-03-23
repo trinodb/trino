@@ -20,7 +20,6 @@ import com.google.inject.Module;
 import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
-import io.trino.sql.PlannerContext;
 
 import java.util.List;
 
@@ -44,15 +43,13 @@ public class StatsCalculatorModule
     public static class StatsRulesProvider
             implements Provider<List<ComposableStatsCalculator.Rule<?>>>
     {
-        private final PlannerContext plannerContext;
         private final ScalarStatsCalculator scalarStatsCalculator;
         private final FilterStatsCalculator filterStatsCalculator;
         private final StatsNormalizer normalizer;
 
         @Inject
-        public StatsRulesProvider(PlannerContext plannerContext, ScalarStatsCalculator scalarStatsCalculator, FilterStatsCalculator filterStatsCalculator, StatsNormalizer normalizer)
+        public StatsRulesProvider(ScalarStatsCalculator scalarStatsCalculator, FilterStatsCalculator filterStatsCalculator, StatsNormalizer normalizer)
         {
-            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
             this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator is null");
             this.normalizer = requireNonNull(normalizer, "normalizer is null");
@@ -68,7 +65,7 @@ public class StatsCalculatorModule
             rules.add(new SimpleFilterProjectSemiJoinStatsRule(normalizer, filterStatsCalculator)); // this must be before FilterStatsRule
             rules.add(new FilterProjectAggregationStatsRule(normalizer, filterStatsCalculator)); // this must be before FilterStatsRule
             rules.add(new FilterStatsRule(normalizer, filterStatsCalculator));
-            rules.add(new ValuesStatsRule(plannerContext));
+            rules.add(new ValuesStatsRule());
             rules.add(new LimitStatsRule(normalizer));
             rules.add(new DistinctLimitStatsRule(normalizer));
             rules.add(new TopNStatsRule(normalizer));
