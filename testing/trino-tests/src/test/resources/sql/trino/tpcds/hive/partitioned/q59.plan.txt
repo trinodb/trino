@@ -31,7 +31,7 @@ local exchange (GATHER, SINGLE, [])
                                     dynamic filter ([Reference[type=char(16), name=s_store_id]])
                                         scan store
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [$operator$subtract, s_store_id_122])
+                        remote exchange (REPARTITION, HASH, [operator_subtract, s_store_id_122])
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
                                     final aggregation over (d_week_seq_80, ss_store_sk_55)

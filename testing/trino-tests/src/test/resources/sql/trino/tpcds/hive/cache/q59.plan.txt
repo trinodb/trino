@@ -31,7 +31,7 @@ local exchange (GATHER, SINGLE, [])
                                                                             scan date_dim
                                                                     load from cache
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [$operator$subtract, s_store_sk])
+                        remote exchange (REPARTITION, HASH, [operator_subtract, s_store_sk])
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, [ss_store_sk_56])
                                     join (INNER, REPLICATED):

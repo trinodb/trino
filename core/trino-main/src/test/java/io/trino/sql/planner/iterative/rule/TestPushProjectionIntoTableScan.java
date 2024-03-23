@@ -155,8 +155,6 @@ public class TestPushProjectionIntoTableScan
                             Map.Entry::getValue,
                             e -> column(e.getValue(), types.get(e.getKey()))));
 
-            String name = newNames.get(dereference);
-            String name1 = newNames.get(identity);
             ruleTester.assertThat(createRule(ruleTester))
                     .withSession(MOCK_SESSION)
                     .on(p -> {
@@ -195,15 +193,7 @@ public class TestPushProjectionIntoTableScan
                                             Optional.of(ImmutableList.copyOf(expectedColumns.values())))::equals,
                                     TupleDomain.all(),
                                     expectedColumns.entrySet().stream()
-                                            .collect(toImmutableMap(Map.Entry::getKey, e -> e.getValue()::equals)),
-                                    Optional.of(PlanNodeStatsEstimate.builder()
-                                            .setOutputRowCount(42)
-                                            .addSymbolStatistics(new Symbol(UNKNOWN, name1), SymbolStatsEstimate.builder()
-                                                    .setDistinctValuesCount(33)
-                                                    .setNullsFraction(0)
-                                                    .build())
-                                            .addSymbolStatistics(new Symbol(UNKNOWN, name), SymbolStatsEstimate.unknown())
-                                            .build())::equals)));
+                                            .collect(toImmutableMap(Map.Entry::getKey, e -> e.getValue()::equals)))));
         }
     }
 
