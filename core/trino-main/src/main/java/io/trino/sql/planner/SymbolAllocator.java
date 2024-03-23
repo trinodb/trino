@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Ints;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Field;
@@ -30,6 +31,11 @@ import static java.util.stream.Collectors.toMap;
 
 public class SymbolAllocator
 {
+    public static final CharMatcher EXCLUDED_CHARACTERS = CharMatcher.inRange('a', 'z')
+            .or(CharMatcher.inRange('0', '9'))
+            .negate()
+            .precomputed();
+
     private final Map<String, Symbol> symbols;
     private int nextId;
 
@@ -54,8 +60,7 @@ public class SymbolAllocator
         requireNonNull(nameHint, "nameHint is null");
         requireNonNull(type, "type is null");
 
-        // TODO: workaround for the fact that QualifiedName lowercases parts
-        nameHint = nameHint.toLowerCase(ENGLISH);
+        nameHint = EXCLUDED_CHARACTERS.trimAndCollapseFrom(nameHint.toLowerCase(ENGLISH), '_');
 
         // don't strip the tail if the only _ is the first character
         int index = nameHint.lastIndexOf("_");
