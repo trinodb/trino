@@ -14,7 +14,6 @@
 package io.trino.sql.planner;
 
 import com.google.common.primitives.Ints;
-import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.ir.Call;
@@ -59,11 +58,6 @@ public class SymbolAllocator
     public Symbol newSymbol(String nameHint, Type type)
     {
         return newSymbol(nameHint, type, null);
-    }
-
-    public Symbol newHashSymbol()
-    {
-        return newSymbol("$hashValue", BigintType.BIGINT);
     }
 
     public Symbol newSymbol(String nameHint, Type type, @Nullable String suffix)
