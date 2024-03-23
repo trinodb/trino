@@ -119,11 +119,6 @@ public class IrExpressionInterpreter
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
     }
 
-    public static Object evaluateConstantExpression(Expression expression, PlannerContext plannerContext, Session session)
-    {
-        return new IrExpressionInterpreter(expression, plannerContext, session).evaluate();
-    }
-
     public Object evaluate()
     {
         Object result = new Visitor(false).processWithExceptionHandling(expression, null);

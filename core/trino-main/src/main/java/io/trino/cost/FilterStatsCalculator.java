@@ -62,7 +62,6 @@ import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
-import static io.trino.sql.planner.IrExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
@@ -388,9 +387,9 @@ public class FilterStatsCalculator
 
             SymbolStatsEstimate leftStats = getExpressionStats(left);
             Optional<Symbol> leftSymbol = left instanceof Reference ? Optional.of(Symbol.from(left)) : Optional.empty();
-            if (right instanceof Constant) {
-                Type type = left.type();
-                Object literalValue = evaluateConstantExpression(right, plannerContext, session);
+            if (right instanceof Constant constant) {
+                Type type = right.type();
+                Object literalValue = constant.value();
                 if (literalValue == null) {
                     // Possible when we process `x IN (..., NULL)` case.
                     return input.mapOutputRowCount(rowCountEstimate -> 0.);
