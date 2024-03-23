@@ -34,7 +34,6 @@ import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.MERGE_PROJECT_WITH_VALUES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Arithmetic.Operator.MULTIPLY;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
@@ -68,7 +67,7 @@ public class TestDereferencePushDown
                 output(ImmutableList.of("a_msg_x", "a_msg", "b_msg_y"),
                         strictProject(
                                 ImmutableMap.of(
-                                        "a_msg_x", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "a_msg"), new Constant(INTEGER, 1L))),
+                                        "a_msg_x", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "a_msg"), 0)),
                                         "a_msg", expression(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "a_msg")),
                                         "b_msg_y", expression(new Reference(DOUBLE, "b_msg_y"))),
                                 join(INNER, builder -> builder
@@ -191,8 +190,8 @@ public class TestDereferencePushDown
                                         "msg1", expression(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "msg1")), // not pushed down because used in partition by
                                         "msg2", expression(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "msg2")), // not pushed down because used in order by
                                         "msg3", expression(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "msg3")), // not pushed down because used in window function
-                                        "msg4_x", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "msg4"), new Constant(INTEGER, 1L))), // pushed down because msg4.x used in window function
-                                        "msg5_x", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "msg5"), new Constant(INTEGER, 1L)))), // pushed down because window node does not refer it
+                                        "msg4_x", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "msg4"), 0)), // pushed down because msg4.x used in window function
+                                        "msg5_x", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "msg5"), 0))), // pushed down because window node does not refer it
                                 values("msg1", "msg2", "msg3", "msg4", "msg5"))));
     }
 
@@ -210,7 +209,7 @@ public class TestDereferencePushDown
                 anyTree(
                         semiJoin("a_x", "b_z", "semi_join_symbol",
                                 project(
-                                        ImmutableMap.of("a_y", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, DOUBLE, BIGINT), "msg"), new Constant(INTEGER, 2L)))),
+                                        ImmutableMap.of("a_y", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, DOUBLE, BIGINT), "msg"), 1))),
                                         values(ImmutableList.of("msg", "a_x"), ImmutableList.of())),
                                 values(ImmutableList.of("b_z"), ImmutableList.of()))));
     }
@@ -223,7 +222,7 @@ public class TestDereferencePushDown
                 anyTree(
                         strictProject(ImmutableMap.of("x_into_3", expression(new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "msg_x"), new Constant(BIGINT, 3L)))),
                                 limit(1,
-                                        strictProject(ImmutableMap.of("msg_x", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "msg"), new Constant(INTEGER, 1L)))),
+                                        strictProject(ImmutableMap.of("msg_x", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "msg"), 0))),
                                                 values("msg"))))));
 
         // dereference pushdown + constant folding

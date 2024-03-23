@@ -21,11 +21,9 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.IrUtils.validateType;
 
 @JsonSerialize
-public record FieldReference(Expression base, Expression index)
+public record FieldReference(Expression base, int field)
         implements Expression
 {
     public FieldReference
@@ -34,15 +32,12 @@ public record FieldReference(Expression base, Expression index)
             throw new IllegalArgumentException("Expected 'row' type but found '%s' for expression: %s".formatted(base.type(), base));
         }
 
-        validateType(INTEGER, index);
-        int field = (int) (long) ((Constant) index).value() - 1;
         checkArgument(field < rowType.getFields().size(), "Expected 'row' type to have at least %s fields, but has: %s", field + 1, rowType.getFields().size());
     }
 
     @Override
     public Type type()
     {
-        int field = (int) (long) ((Constant) index).value() - 1;
         return ((RowType) base.type()).getFields().get(field).getType();
     }
 
@@ -55,6 +50,6 @@ public record FieldReference(Expression base, Expression index)
     @Override
     public List<? extends Expression> children()
     {
-        return ImmutableList.of(base, index);
+        return ImmutableList.of(base);
     }
 }

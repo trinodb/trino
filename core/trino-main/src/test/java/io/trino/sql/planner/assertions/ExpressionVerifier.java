@@ -331,7 +331,7 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return process(actual.base(), expected.base()) && process(actual.index(), expected.index());
+        return process(actual.base(), expected.base()) && actual.field() == expected.field();
     }
 
     private <T extends Expression> boolean process(List<T> actuals, List<T> expecteds)
