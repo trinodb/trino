@@ -19,8 +19,8 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -79,7 +79,7 @@ public class PushDownDereferencesThroughWindow
         WindowNode windowNode = captures.get(CHILD);
 
         // Extract dereferences for pushdown
-        Set<Subscript> dereferences = extractRowSubscripts(
+        Set<FieldReference> dereferences = extractRowSubscripts(
                 ImmutableList.<Expression>builder()
                         .addAll(projectNode.getAssignments().getExpressions())
                         // also include dereference projections used in window functions

@@ -18,8 +18,8 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -66,7 +66,7 @@ public class PushDownDereferenceThroughProject
         ProjectNode child = captures.get(CHILD);
 
         // Extract dereferences from project node assignments for pushdown
-        Set<Subscript> dereferences = extractRowSubscripts(node.getAssignments().getExpressions(), false);
+        Set<FieldReference> dereferences = extractRowSubscripts(node.getAssignments().getExpressions(), false);
 
         // Exclude dereferences on symbols being synthesized within child
         dereferences = dereferences.stream()

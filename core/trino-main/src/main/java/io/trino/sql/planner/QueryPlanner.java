@@ -48,11 +48,11 @@ import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.RelationPlanner.PatternRecognitionComponents;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -81,7 +81,6 @@ import io.trino.sql.planner.plan.WindowFrameType;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.FetchFirst;
-import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall.NullTreatment;
 import io.trino.sql.tree.Join;
@@ -513,7 +512,7 @@ class QueryPlanner
             builder = filter(builder, node.getWhere().get(), node);
         }
 
-        FieldReference reference = analysis.getRowIdField(table);
+        io.trino.sql.tree.FieldReference reference = analysis.getRowIdField(table);
         Symbol rowIdSymbol = builder.translate(reference);
         List<Symbol> outputs = ImmutableList.of(
                 symbolAllocator.newSymbol("partialrows", BIGINT),
@@ -655,7 +654,7 @@ class QueryPlanner
             }
         }
 
-        FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
+        io.trino.sql.tree.FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
         assignments.putIdentity(relationPlan.getFieldMappings().get(rowIdReference.getFieldIndex()));
 
         // Add the "present" field
@@ -770,7 +769,7 @@ class QueryPlanner
 
         PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
-        FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
+        io.trino.sql.tree.FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
         Symbol rowIdSymbol = planWithPresentColumn.getFieldMappings().get(rowIdReference.getFieldIndex());
 
         // Build the SearchedCaseExpression that creates the project merge_row
@@ -889,7 +888,7 @@ class QueryPlanner
                 subPlanProject,
                 Assignments.builder()
                         .putIdentities(subPlanProject.getOutputSymbols())
-                        .put(caseNumberSymbol, new Subscript(mergeRowSymbol.toSymbolReference(), new Constant(INTEGER, (long) mergeAnalysis.getMergeRowType().getFields().size())))
+                        .put(caseNumberSymbol, new FieldReference(mergeRowSymbol.toSymbolReference(), new Constant(INTEGER, (long) mergeAnalysis.getMergeRowType().getFields().size())))
                         .build());
 
         // Mark distinct combinations of the unique_id value and the case_number

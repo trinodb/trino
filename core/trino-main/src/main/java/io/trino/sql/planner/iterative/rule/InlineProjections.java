@@ -22,8 +22,8 @@ import io.trino.matching.Pattern;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
@@ -180,8 +180,8 @@ public class InlineProjections
                     // skip dereferences, otherwise, inlining can cause conflicts with PushdownDereferences
                     Expression assignment = child.getAssignments().get(entry.getKey());
 
-                    if (assignment instanceof Subscript) {
-                        if (((Subscript) assignment).base().type() instanceof RowType) {
+                    if (assignment instanceof FieldReference) {
+                        if (((FieldReference) assignment).base().type() instanceof RowType) {
                             return false;
                         }
                     }

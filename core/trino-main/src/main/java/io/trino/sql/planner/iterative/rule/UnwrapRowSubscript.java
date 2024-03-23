@@ -19,8 +19,8 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Subscript;
 import io.trino.type.UnknownType;
 
 import java.util.ArrayDeque;
@@ -48,7 +48,7 @@ public class UnwrapRowSubscript
             extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         @Override
-        public Expression rewriteSubscript(Subscript node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteSubscript(FieldReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             Expression base = treeRewriter.rewrite(node.base(), context);
 

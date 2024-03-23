@@ -47,6 +47,7 @@ import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
@@ -55,7 +56,6 @@ import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.ir.Switch;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
@@ -79,7 +79,6 @@ import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Extract;
-import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
@@ -274,7 +273,7 @@ public class TranslationMap
     {
         if (astToSymbols.containsKey(scopeAwareKey(expression, analysis, scope)) ||
                 substitutions.containsKey(NodeRef.of(expression)) ||
-                expression instanceof FieldReference) {
+                expression instanceof io.trino.sql.tree.FieldReference) {
             return true;
         }
 
@@ -308,7 +307,7 @@ public class TranslationMap
         }
         else {
             result = switch (expr) {
-                case FieldReference expression -> translate(expression);
+                case io.trino.sql.tree.FieldReference expression -> translate(expression);
                 case Identifier expression -> translate(expression);
                 case FunctionCall expression -> translate(expression);
                 case DereferenceExpression expression -> translate(expression);
@@ -611,7 +610,7 @@ public class TranslationMap
         return new Constant(analysis.getType(expression), expression.getParsedValue());
     }
 
-    private io.trino.sql.ir.Expression translate(FieldReference expression)
+    private io.trino.sql.ir.Expression translate(io.trino.sql.tree.FieldReference expression)
     {
         return getSymbolForColumn(expression)
                 .map(Symbol::toSymbolReference)
@@ -670,7 +669,7 @@ public class TranslationMap
 
         checkState(index >= 0, "could not find field name: %s", fieldName);
 
-        return new Subscript(
+        return new FieldReference(
                 translateExpression(expression.getBase()),
                 new Constant(INTEGER, (long) (index + 1)));
     }
@@ -957,7 +956,7 @@ public class TranslationMap
             // Do not rewrite subscript index into symbol. Row subscript index is required to be a literal.
             io.trino.sql.ir.Expression rewrittenBase = translateExpression(node.getBase());
             LongLiteral index = (LongLiteral) node.getIndex();
-            return new Subscript(
+            return new FieldReference(
                     rewrittenBase, new Constant(INTEGER, index.getParsedValue()));
         }
 
