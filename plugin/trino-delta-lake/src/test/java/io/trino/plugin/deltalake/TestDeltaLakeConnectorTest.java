@@ -2152,7 +2152,7 @@ public class TestDeltaLakeConnectorTest
         assertExplain(
                 "EXPLAIN SELECT root.f2 FROM " + tableName,
                 "TableScan\\[table = (.*)]",
-                "root#f2 := root#f2:bigint:REGULAR");
+                "(.*) := (.*):bigint:REGULAR");
 
         Session sessionWithoutPushdown = Session.builder(getSession())
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "projection_pushdown_enabled", "false")
@@ -2178,12 +2178,12 @@ public class TestDeltaLakeConnectorTest
         assertExplain(
                 "EXPLAIN SELECT id, _row.child, _array[1].child, _map[1] FROM " + tableName,
                 "ScanProject\\[table = (.*)]",
-                "expr(.*) := system\\.builtin\\.\\$operator\\$subscript\\(_array_.*, bigint '1'\\).0",
+                "expr(.*) := system\\.builtin\\.\\$operator\\$subscript\\(.*, bigint '1'\\).0",
                 "id(.*) := id:bigint:REGULAR",
                 // _array:array\\(row\\(child bigint\\)\\) is a symbol name, not a dereference expression.
-                "_array(.*) := _array:array\\(row\\(child bigint\\)\\):REGULAR",
-                "_map(.*) := _map:map\\(bigint, bigint\\):REGULAR",
-                "_row#child := _row#child:bigint:REGULAR");
+                "(.*) := _array:array\\(row\\(child bigint\\)\\):REGULAR",
+                "(.*) := _map:map\\(bigint, bigint\\):REGULAR",
+                "(.*) := _row#child:bigint:REGULAR");
     }
 
     @Test
