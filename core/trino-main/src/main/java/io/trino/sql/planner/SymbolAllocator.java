@@ -93,12 +93,12 @@ public class SymbolAllocator
         return symbol;
     }
 
-    public Symbol newSymbol(Expression expression, Type type)
+    public Symbol newSymbol(Expression expression)
     {
-        return newSymbol(expression, type, null);
+        return newSymbol(expression, null);
     }
 
-    public Symbol newSymbol(Expression expression, Type type, String suffix)
+    public Symbol newSymbol(Expression expression, String suffix)
     {
         String nameHint = switch (expression) {
             case Call call -> call.function().getName().getFunctionName();
@@ -106,7 +106,7 @@ public class SymbolAllocator
             default -> "expr";
         };
 
-        return newSymbol(nameHint, type, suffix);
+        return newSymbol(nameHint, expression.type(), suffix);
     }
 
     public Symbol newSymbol(Field field)

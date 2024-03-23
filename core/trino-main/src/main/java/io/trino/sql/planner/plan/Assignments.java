@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -83,8 +82,7 @@ public class Assignments
         Assignments.Builder assignments = Assignments.builder();
 
         for (Expression expression : expressions) {
-            Type type = expression.type();
-            assignments.put(symbolAllocator.newSymbol(expression, type), expression);
+            assignments.put(symbolAllocator.newSymbol(expression), expression);
         }
 
         return assignments.build();

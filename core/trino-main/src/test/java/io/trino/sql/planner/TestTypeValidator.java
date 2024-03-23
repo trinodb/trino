@@ -99,8 +99,8 @@ public class TestTypeValidator
         Expression expression1 = new Cast(columnB.toSymbolReference(), BIGINT);
         Expression expression2 = new Cast(columnC.toSymbolReference(), BIGINT);
         Assignments assignments = Assignments.builder()
-                .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1)
-                .put(symbolAllocator.newSymbol(expression2, BIGINT), expression2)
+                .put(symbolAllocator.newSymbol(expression1), expression1)
+                .put(symbolAllocator.newSymbol(expression2), expression2)
                 .build();
         PlanNode node = new ProjectNode(
                 newId(),
@@ -182,11 +182,11 @@ public class TestTypeValidator
     @Test
     public void testInvalidProject()
     {
-        Expression expression1 = new Cast(columnB.toSymbolReference(), INTEGER);
+        Expression expression1 = new Cast(columnB.toSymbolReference(), BIGINT);
         Expression expression2 = new Cast(columnA.toSymbolReference(), INTEGER);
         Assignments assignments = Assignments.builder()
-                .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1) // should be INTEGER
-                .put(symbolAllocator.newSymbol(expression1, INTEGER), expression2)
+                .put(symbolAllocator.newSymbol(expression1), expression1) // should be INTEGER
+                .put(symbolAllocator.newSymbol(expression1), expression2)
                 .build();
         PlanNode node = new ProjectNode(
                 newId(),

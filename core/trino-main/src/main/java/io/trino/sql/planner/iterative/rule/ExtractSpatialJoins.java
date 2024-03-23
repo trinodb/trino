@@ -37,9 +37,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -384,8 +382,8 @@ public class ExtractSpatialJoins
             return Result.empty();
         }
 
-        Optional<Symbol> newFirstSymbol = newGeometrySymbol(context, firstArgument, plannerContext.getTypeManager());
-        Optional<Symbol> newSecondSymbol = newGeometrySymbol(context, secondArgument, plannerContext.getTypeManager());
+        Optional<Symbol> newFirstSymbol = newGeometrySymbol(context, firstArgument);
+        Optional<Symbol> newSecondSymbol = newGeometrySymbol(context, secondArgument);
 
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
@@ -551,13 +549,13 @@ public class ExtractSpatialJoins
         return optionalSymbol.map(symbol -> (Expression) symbol.toSymbolReference()).orElse(defaultExpression);
     }
 
-    private static Optional<Symbol> newGeometrySymbol(Context context, Expression expression, TypeManager typeManager)
+    private static Optional<Symbol> newGeometrySymbol(Context context, Expression expression)
     {
         if (expression instanceof Reference) {
             return Optional.empty();
         }
 
-        return Optional.of(context.getSymbolAllocator().newSymbol(expression, typeManager.getType(GEOMETRY_TYPE_SIGNATURE)));
+        return Optional.of(context.getSymbolAllocator().newSymbol(expression));
     }
 
     private static Optional<Symbol> newRadiusSymbol(Context context, Expression expression)
@@ -566,7 +564,7 @@ public class ExtractSpatialJoins
             return Optional.empty();
         }
 
-        return Optional.of(context.getSymbolAllocator().newSymbol(expression, DOUBLE));
+        return Optional.of(context.getSymbolAllocator().newSymbol(expression));
     }
 
     private static PlanNode addProjection(Context context, PlanNode node, Symbol symbol, Expression expression)
@@ -595,7 +593,7 @@ public class ExtractSpatialJoins
         radius.ifPresent(value -> spatialPartitionsCall.addArgument(DOUBLE, value));
         Call partitioningFunction = spatialPartitionsCall.build();
 
-        Symbol partitionsSymbol = context.getSymbolAllocator().newSymbol(partitioningFunction, new ArrayType(INTEGER));
+        Symbol partitionsSymbol = context.getSymbolAllocator().newSymbol(partitioningFunction);
         projections.put(partitionsSymbol, partitioningFunction);
 
         return new UnnestNode(

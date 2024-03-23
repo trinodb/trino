@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -35,7 +34,6 @@ import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -142,7 +140,6 @@ public class PushDownProjectionsFromPatternRecognition
                                     .filter(Optional::isPresent)
                                     .map(Optional::get)
                                     .collect(toImmutableSet());
-                            List<Type> argumentTypes = pointer.getFunction().getSignature().getArgumentTypes();
 
                             ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
                             for (int i = 0; i < pointer.getArguments().size(); i++) {
@@ -152,7 +149,7 @@ public class PushDownProjectionsFromPatternRecognition
                                     rewrittenArguments.add(argument);
                                 }
                                 else {
-                                    Symbol symbol = context.getSymbolAllocator().newSymbol(argument, argumentTypes.get(i));
+                                    Symbol symbol = context.getSymbolAllocator().newSymbol(argument);
                                     assignments.put(symbol, argument);
                                     rewrittenArguments.add(symbol.toSymbolReference());
                                 }
