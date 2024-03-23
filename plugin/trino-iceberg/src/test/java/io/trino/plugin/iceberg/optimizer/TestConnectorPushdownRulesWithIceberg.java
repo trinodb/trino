@@ -43,9 +43,9 @@ import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
@@ -220,7 +220,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_deref", BIGINT), new Subscript(p.symbol("struct_of_int", baseType).toSymbolReference(), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_deref", BIGINT), new FieldReference(p.symbol("struct_of_int", baseType).toSymbolReference(), new Constant(INTEGER, 1L))),
                                 p.tableScan(
                                         table,
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
@@ -414,12 +414,12 @@ public class TestConnectorPushdownRulesWithIceberg
         // Test Dereference pushdown
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p -> {
-                    Subscript subscript = new Subscript(p.symbol("struct_of_bigint", ROW_TYPE).toSymbolReference(), new Constant(INTEGER, 1L));
-                    Expression sum = new Arithmetic(ADD_BIGINT, ADD, subscript, new Constant(BIGINT, 2L));
+                    FieldReference fieldReference = new FieldReference(p.symbol("struct_of_bigint", ROW_TYPE).toSymbolReference(), new Constant(INTEGER, 1L));
+                    Expression sum = new Arithmetic(ADD_BIGINT, ADD, fieldReference, new Constant(BIGINT, 2L));
                     return p.project(
                             Assignments.of(
                                     // The subscript expression instance is part of both the assignments
-                                    p.symbol("expr_deref", BIGINT), subscript,
+                                    p.symbol("expr_deref", BIGINT), fieldReference,
                                     p.symbol("expr_deref_2", BIGINT), sum),
                             p.tableScan(
                                     table,

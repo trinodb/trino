@@ -20,8 +20,8 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -92,7 +92,7 @@ public class PushDownDereferenceThroughJoin
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
         expressionsBuilder.addAll(projectNode.getAssignments().getExpressions());
         joinNode.getFilter().ifPresent(expressionsBuilder::add);
-        Set<Subscript> dereferences = extractRowSubscripts(expressionsBuilder.build(), false);
+        Set<FieldReference> dereferences = extractRowSubscripts(expressionsBuilder.build(), false);
 
         // Exclude criteria symbols
         ImmutableSet.Builder<Symbol> criteriaSymbolsBuilder = ImmutableSet.builder();

@@ -19,8 +19,8 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
@@ -78,7 +78,7 @@ public class ExtractDereferencesFromFilterAboveScan
     @Override
     public Result apply(FilterNode node, Captures captures, Context context)
     {
-        Set<Subscript> dereferences = extractRowSubscripts(ImmutableList.of(node.getPredicate()), true);
+        Set<FieldReference> dereferences = extractRowSubscripts(ImmutableList.of(node.getPredicate()), true);
         if (dereferences.isEmpty()) {
             return Result.empty();
         }

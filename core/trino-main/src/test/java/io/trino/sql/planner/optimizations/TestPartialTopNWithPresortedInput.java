@@ -29,8 +29,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.testing.PlanTester;
@@ -213,9 +213,9 @@ public class TestPartialTopNWithPresortedInput
                         topN(1, ImmutableList.of(sort("k", ASCENDING, LAST)), FINAL,
                                 anyTree(
                                         limit(1, ImmutableList.of(), true, ImmutableList.of("k"),
-                                                project(ImmutableMap.of("k", expression(new Subscript(new Reference(RowType.from(ImmutableList.of(RowType.field("k", INTEGER))), "nested"), new Constant(INTEGER, 1L)))),
+                                                project(ImmutableMap.of("k", expression(new FieldReference(new Reference(RowType.from(ImmutableList.of(RowType.field("k", INTEGER))), "nested"), new Constant(INTEGER, 1L)))),
                                                         filter(
-                                                                new Comparison(EQUAL, new Subscript(new Reference(RowType.from(ImmutableList.of(RowType.field("k", INTEGER))), "nested"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)),
+                                                                new Comparison(EQUAL, new FieldReference(new Reference(RowType.from(ImmutableList.of(RowType.field("k", INTEGER))), "nested"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)),
                                                                 tableScan("with_nested_field", ImmutableMap.of("nested", "nested")))))))));
     }
 }

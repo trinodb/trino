@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.Symbol;
 
 import java.util.Collection;
@@ -38,7 +38,7 @@ class DereferencePushdown
 {
     private DereferencePushdown() {}
 
-    public static Set<Subscript> extractRowSubscripts(Collection<Expression> expressions, boolean allowOverlap)
+    public static Set<FieldReference> extractRowSubscripts(Collection<Expression> expressions, boolean allowOverlap)
     {
         Set<Expression> symbolReferencesAndRowSubscripts = expressions.stream()
                 .flatMap(expression -> getSymbolReferencesAndRowSubscripts(expression).stream())
@@ -54,8 +54,8 @@ class DereferencePushdown
 
         // Retain row subscript expressions
         return candidateExpressions.stream()
-                .filter(Subscript.class::isInstance)
-                .map(Subscript.class::cast)
+                .filter(FieldReference.class::isInstance)
+                .map(FieldReference.class::cast)
                 .collect(toImmutableSet());
     }
 
@@ -63,19 +63,19 @@ class DereferencePushdown
     {
         return projections.stream()
                 .allMatch(expression -> expression instanceof Reference ||
-                        (expression instanceof Subscript subscript &&
-                                isRowSubscriptChain(subscript) &&
+                        (expression instanceof FieldReference fieldReference &&
+                                isRowSubscriptChain(fieldReference) &&
                                 !prefixExists(expression, projections)));
     }
 
-    public static Symbol getBase(Subscript expression)
+    public static Symbol getBase(FieldReference expression)
     {
         return getOnlyElement(extractAll(expression));
     }
 
     /**
-     * Extract the sub-expressions of type {@link Subscript} or {@link Reference} from the expression
-     * in a top-down manner. The expressions within the base of a valid {@link Subscript} sequence are not extracted.
+     * Extract the sub-expressions of type {@link FieldReference} or {@link Reference} from the expression
+     * in a top-down manner. The expressions within the base of a valid {@link FieldReference} sequence are not extracted.
      */
     private static List<Expression> getSymbolReferencesAndRowSubscripts(Expression expression)
     {
@@ -84,7 +84,7 @@ class DereferencePushdown
         new DefaultTraversalVisitor<ImmutableList.Builder<Expression>>()
         {
             @Override
-            protected Void visitSubscript(Subscript node, ImmutableList.Builder<Expression> context)
+            protected Void visitFieldReference(FieldReference node, ImmutableList.Builder<Expression> context)
             {
                 if (isRowSubscriptChain(node)) {
                     context.add(node);
@@ -109,21 +109,21 @@ class DereferencePushdown
         return builder.build();
     }
 
-    private static boolean isRowSubscriptChain(Subscript expression)
+    private static boolean isRowSubscriptChain(FieldReference expression)
     {
         if (!(expression.base().type() instanceof RowType)) {
             return false;
         }
 
         return (expression.base() instanceof Reference) ||
-                ((expression.base() instanceof Subscript subscript) && isRowSubscriptChain(subscript));
+                ((expression.base() instanceof FieldReference fieldReference) && isRowSubscriptChain(fieldReference));
     }
 
     private static boolean prefixExists(Expression expression, Set<Expression> expressions)
     {
         Expression current = expression;
-        while (current instanceof Subscript subscript) {
-            current = subscript.base();
+        while (current instanceof FieldReference fieldReference) {
+            current = fieldReference.base();
             if (expressions.contains(current)) {
                 return true;
             }
