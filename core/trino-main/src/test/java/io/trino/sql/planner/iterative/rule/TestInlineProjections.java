@@ -37,7 +37,6 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.ir.Arithmetic.Operator.MULTIPLY;
 import static io.trino.sql.ir.Arithmetic.Operator.SUBTRACT;
@@ -53,7 +52,7 @@ public class TestInlineProjections
     private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
     private static final ResolvedFunction ADD_DECIMAL_8_4 = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(createDecimalType(8, 4), createDecimalType(8, 4)));
     private static final ResolvedFunction MULTIPLY_DECIMAL_8_4 = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(createDecimalType(8, 4), createDecimalType(8, 4)));
-    private static final RowType MSG_TYPE = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), VARCHAR), new RowType.Field(Optional.of("y"), VARCHAR)));
+    private static final RowType MSG_TYPE = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), INTEGER), new RowType.Field(Optional.of("y"), INTEGER)));
 
     @Test
     public void test()
@@ -72,18 +71,18 @@ public class TestInlineProjections
                                         .put(p.symbol("multi_symbol_reference"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "v"), new Reference(INTEGER, "v")))
                                         .build(),
                                 p.project(Assignments.builder()
-                                                .put(p.symbol("symbol"), new Reference(BIGINT, "x"))
+                                                .put(p.symbol("symbol"), new Reference(INTEGER, "x"))
                                                 .put(p.symbol("complex"), new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "x"), new Constant(INTEGER, 2L)))
                                                 .put(p.symbol("literal"), new Constant(INTEGER, 1L))
                                                 .put(p.symbol("complex_2"), new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "x"), new Constant(INTEGER, 1L)))
-                                                .put(p.symbol("z"), new Subscript(VARCHAR, new Reference(MSG_TYPE, "msg"), new Constant(INTEGER, 1L)))
-                                                .put(p.symbol("v"), new Reference(BIGINT, "x"))
+                                                .put(p.symbol("z"), new Subscript(new Reference(MSG_TYPE, "msg"), new Constant(INTEGER, 1L)))
+                                                .put(p.symbol("v"), new Reference(INTEGER, "x"))
                                                 .build(),
-                                        p.values(p.symbol("x"), p.symbol("msg", MSG_TYPE)))))
+                                        p.values(p.symbol("x", INTEGER), p.symbol("msg", MSG_TYPE)))))
                 .matches(
                         project(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                        .put("out1", PlanMatchPattern.expression(new Reference(BIGINT, "x")))
+                                        .put("out1", PlanMatchPattern.expression(new Reference(INTEGER, "x")))
                                         .put("out2", PlanMatchPattern.expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "y"), new Constant(INTEGER, 1L))))
                                         .put("out3", PlanMatchPattern.expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "y"), new Constant(INTEGER, 2L))))
                                         .put("out4", PlanMatchPattern.expression(new Arithmetic(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new Constant(INTEGER, 1L))))
@@ -94,9 +93,9 @@ public class TestInlineProjections
                                         .buildOrThrow(),
                                 project(
                                         ImmutableMap.of(
-                                                "x", PlanMatchPattern.expression(new Reference(BIGINT, "x")),
+                                                "x", PlanMatchPattern.expression(new Reference(INTEGER, "x")),
                                                 "y", PlanMatchPattern.expression(new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "x"), new Constant(INTEGER, 2L))),
-                                                "z", PlanMatchPattern.expression(new Subscript(VARCHAR, new Reference(MSG_TYPE, "msg"), new Constant(INTEGER, 1L)))),
+                                                "z", PlanMatchPattern.expression(new Subscript(new Reference(MSG_TYPE, "msg"), new Constant(INTEGER, 1L)))),
                                         values(ImmutableMap.of("x", 0, "msg", 1)))));
     }
 

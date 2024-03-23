@@ -43,7 +43,7 @@ public class TestPushProjectionThroughUnion
         extends BaseRuleTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
     private static final RowType ROW_TYPE = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BIGINT)));
 
     @Test
@@ -85,18 +85,18 @@ public class TestPushProjectionThroughUnion
     {
         tester().assertThat(new PushProjectionThroughUnion())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol c = p.symbol("c");
+                    Symbol a = p.symbol("a", BIGINT);
+                    Symbol b = p.symbol("b", BIGINT);
+                    Symbol c = p.symbol("c", BIGINT);
                     Symbol d = p.symbol("d", ROW_TYPE);
-                    Symbol cTimes3 = p.symbol("c_times_3");
-                    Symbol dX = p.symbol("d_x");
+                    Symbol cTimes3 = p.symbol("c_times_3", BIGINT);
+                    Symbol dX = p.symbol("d_x", BIGINT);
                     Symbol z = p.symbol("z", ROW_TYPE);
                     Symbol w = p.symbol("w", ROW_TYPE);
                     return p.project(
                             Assignments.of(
-                                    cTimes3, new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, c.toSymbolReference(), new Constant(INTEGER, 3L)),
-                                    dX, new Subscript(INTEGER, new Reference(ROW_TYPE, "d"), new Constant(INTEGER, 1L))),
+                                    cTimes3, new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, c.toSymbolReference(), new Constant(BIGINT, 3L)),
+                                    dX, new Subscript(new Reference(ROW_TYPE, "d"), new Constant(INTEGER, 1L))),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()
                                             .put(c, a)
@@ -111,10 +111,10 @@ public class TestPushProjectionThroughUnion
                 .matches(
                         union(
                                 project(
-                                        ImmutableMap.of("a_times_3", expression(new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "a"), new Constant(INTEGER, 3L))), "z_x", expression(new Subscript(INTEGER, new Reference(ROW_TYPE, "z"), new Constant(INTEGER, 1L)))),
+                                        ImmutableMap.of("a_times_3", expression(new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "a"), new Constant(BIGINT, 3L))), "z_x", expression(new Subscript(new Reference(ROW_TYPE, "z"), new Constant(INTEGER, 1L)))),
                                         values(ImmutableList.of("a", "z"))),
                                 project(
-                                        ImmutableMap.of("b_times_3", expression(new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "b"), new Constant(INTEGER, 3L))), "w_x", expression(new Subscript(INTEGER, new Reference(ROW_TYPE, "w"), new Constant(INTEGER, 1L)))),
+                                        ImmutableMap.of("b_times_3", expression(new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "b"), new Constant(BIGINT, 3L))), "w_x", expression(new Subscript(new Reference(ROW_TYPE, "w"), new Constant(INTEGER, 1L)))),
                                         values(ImmutableList.of("b", "w"))))
                                 .withNumberOfOutputColumns(2)
                                 .withAlias("a_times_3")

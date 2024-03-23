@@ -49,9 +49,9 @@ public class TestPruneSpatialJoinColumns
     {
         tester().assertThat(new PruneSpatialJoinColumns())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol r = p.symbol("r");
+                    Symbol a = p.symbol("a", GEOMETRY);
+                    Symbol b = p.symbol("b", GEOMETRY);
+                    Symbol r = p.symbol("r", DOUBLE);
                     return p.project(
                             Assignments.identity(a),
                             p.spatialJoin(

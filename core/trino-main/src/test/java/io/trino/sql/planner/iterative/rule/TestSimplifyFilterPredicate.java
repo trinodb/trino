@@ -30,12 +30,12 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.ir.Booleans.FALSE;
@@ -71,7 +71,7 @@ public class TestSimplifyFilterPredicate
         // true result iff the condition is true
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        ifExpression(new Reference(BOOLEAN, "a"), TRUE, new Constant(UnknownType.UNKNOWN, null)),
+                        ifExpression(new Reference(BOOLEAN, "a"), TRUE, new Constant(BOOLEAN, null)),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
@@ -91,7 +91,7 @@ public class TestSimplifyFilterPredicate
         // true result iff the condition is null or false
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        ifExpression(new Reference(BOOLEAN, "a"), new Constant(UnknownType.UNKNOWN, null), TRUE),
+                        ifExpression(new Reference(BOOLEAN, "a"), new Constant(BOOLEAN, null), TRUE),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
@@ -136,15 +136,15 @@ public class TestSimplifyFilterPredicate
                 .on(p -> p.filter(
                         ifExpression(
                                 new Reference(BOOLEAN, "a"),
-                                new Comparison(EQUAL, randomFunction, new Constant(INTEGER, 0L)),
-                                new Comparison(EQUAL, randomFunction, new Constant(INTEGER, 0L))),
+                                new Comparison(EQUAL, randomFunction, new Constant(DOUBLE, 0.0)),
+                                new Comparison(EQUAL, randomFunction, new Constant(DOUBLE, 0.0))),
                         p.values(p.symbol("a"))))
                 .doesNotFire();
 
         // always null (including the default) -> simplified to FALSE
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
-                        ifExpression(new Reference(BOOLEAN, "a"), new Constant(UnknownType.UNKNOWN, null)),
+                        ifExpression(new Reference(BOOLEAN, "a"), new Constant(BOOLEAN, null)),
                         p.values(p.symbol("a"))))
                 .matches(
                         filter(
@@ -239,7 +239,7 @@ public class TestSimplifyFilterPredicate
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
-                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(UnknownType.UNKNOWN, null)),
+                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
                                 new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE)),
                                 Optional.of(FALSE)),
                         p.values(p.symbol("a"))))
@@ -253,7 +253,7 @@ public class TestSimplifyFilterPredicate
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
-                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(UnknownType.UNKNOWN, null)),
+                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
                                 new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE)),
                                 Optional.empty()),
                         p.values(p.symbol("a"))))
@@ -267,7 +267,7 @@ public class TestSimplifyFilterPredicate
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
-                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(UnknownType.UNKNOWN, null)),
+                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
                                 new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE)),
                                 Optional.of(FALSE)),
                         p.values(p.symbol("a"))))
@@ -281,7 +281,7 @@ public class TestSimplifyFilterPredicate
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), TRUE),
-                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(UnknownType.UNKNOWN, null)),
+                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
                                 new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE)),
                                 Optional.of(FALSE)),
                         p.values(p.symbol("a"))))
@@ -295,7 +295,7 @@ public class TestSimplifyFilterPredicate
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE),
-                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(UnknownType.UNKNOWN, null)),
+                                new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), new Constant(BOOLEAN, null)),
                                 new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)), FALSE)),
                                 Optional.of(TRUE)),
                         p.values(p.symbol("a"))))
@@ -319,7 +319,7 @@ public class TestSimplifyFilterPredicate
                         new Case(ImmutableList.of(
                                 new WhenClause(FALSE, new Reference(BOOLEAN, "a")),
                                 new WhenClause(FALSE, new Reference(BOOLEAN, "a")),
-                                new WhenClause(new Constant(UnknownType.UNKNOWN, null), new Reference(BOOLEAN, "a"))),
+                                new WhenClause(new Constant(BOOLEAN, null), new Reference(BOOLEAN, "a"))),
                                 Optional.of(new Reference(BOOLEAN, "b"))),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -333,7 +333,7 @@ public class TestSimplifyFilterPredicate
                         new Case(ImmutableList.of(
                                 new WhenClause(FALSE, new Reference(BOOLEAN, "a")),
                                 new WhenClause(FALSE, new Not(new Reference(BOOLEAN, "a"))),
-                                new WhenClause(new Constant(UnknownType.UNKNOWN, null), new Reference(BOOLEAN, "a"))),
+                                new WhenClause(new Constant(BOOLEAN, null), new Reference(BOOLEAN, "a"))),
                                 Optional.empty()),
                         p.values(p.symbol("a"))))
                 .matches(
@@ -346,7 +346,7 @@ public class TestSimplifyFilterPredicate
                 .on(p -> p.filter(
                         new Case(ImmutableList.of(
                                 new WhenClause(FALSE, new Reference(BOOLEAN, "a")),
-                                new WhenClause(new Constant(UnknownType.UNKNOWN, null), new Not(new Reference(BOOLEAN, "a"))),
+                                new WhenClause(new Constant(BOOLEAN, null), new Not(new Reference(BOOLEAN, "a"))),
                                 new WhenClause(TRUE, new Reference(BOOLEAN, "b"))),
                                 Optional.empty()),
                         p.values(p.symbol("a"), p.symbol("b"))))
@@ -407,7 +407,7 @@ public class TestSimplifyFilterPredicate
                                         new Reference(BOOLEAN, "a"),
                                         ImmutableList.of(
                                                 new WhenClause(new Reference(BOOLEAN, "b"), TRUE),
-                                                new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 1L)), FALSE)),
+                                                new WhenClause(new Comparison(EQUAL, new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 0L)), FALSE)),
                                         Optional.of(TRUE)),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
@@ -416,9 +416,9 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new Switch(
-                                new Constant(UnknownType.UNKNOWN, null),
+                                new Constant(BOOLEAN, null),
                                 ImmutableList.of(
-                                        new WhenClause(new Constant(UnknownType.UNKNOWN, null), TRUE),
+                                        new WhenClause(new Constant(BOOLEAN, null), TRUE),
                                         new WhenClause(new Reference(BOOLEAN, "a"), FALSE)),
                                 Optional.of(new Reference(BOOLEAN, "b"))),
                         p.values(p.symbol("a"), p.symbol("b"))))
@@ -431,9 +431,9 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new Switch(
-                                new Constant(UnknownType.UNKNOWN, null),
+                                new Constant(BOOLEAN, null),
                                 ImmutableList.of(
-                                        new WhenClause(new Constant(UnknownType.UNKNOWN, null), TRUE),
+                                        new WhenClause(new Constant(BOOLEAN, null), TRUE),
                                         new WhenClause(new Reference(BOOLEAN, "a"), FALSE)),
                                 Optional.empty()),
                         p.values(p.symbol("a"))))
@@ -446,7 +446,7 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new Switch(
-                                new Reference(BOOLEAN, "a"),
+                                new Reference(INTEGER, "a"),
                                 ImmutableList.of(
                                         new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 1L)), TRUE),
                                         new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 2L)), TRUE)),
@@ -461,10 +461,10 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new Switch(
-                                new Reference(BOOLEAN, "a"),
+                                new Reference(INTEGER, "a"),
                                 ImmutableList.of(
                                         new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 1L)), FALSE),
-                                        new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 2L)), new Constant(UnknownType.UNKNOWN, null))),
+                                        new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 2L)), new Constant(BOOLEAN, null))),
                                 Optional.of(FALSE)),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -476,10 +476,10 @@ public class TestSimplifyFilterPredicate
         tester().assertThat(new SimplifyFilterPredicate())
                 .on(p -> p.filter(
                         new Switch(
-                                new Reference(BOOLEAN, "a"),
+                                new Reference(INTEGER, "a"),
                                 ImmutableList.of(
                                         new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 1L)), FALSE),
-                                        new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 2L)), new Constant(UnknownType.UNKNOWN, null))),
+                                        new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 2L)), new Constant(BOOLEAN, null))),
                                 Optional.empty()),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(

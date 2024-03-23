@@ -14,14 +14,13 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.type.BigintType;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -98,7 +97,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                                     new Comparison(
                                             LESS_THAN,
                                             b.toSymbolReference(),
-                                            new Constant(INTEGER, 3L)),
+                                            new Constant(BIGINT, 3L)),
                                     p.values(2, b)));
                 })
                 .doesNotFire();
@@ -115,7 +114,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                                     new Comparison(
                                             LESS_THAN,
                                             b.toSymbolReference(),
-                                            new Constant(INTEGER, 3L)),
+                                            new Constant(BIGINT, 3L)),
                                     p.values(2, b)));
                 })
                 .doesNotFire();
@@ -142,14 +141,14 @@ public class TestRemoveUnreferencedScalarSubqueries
         tester().assertThat(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
                         emptyList(),
-                        p.values(p.symbol("b", BigintType.BIGINT)),
+                        p.values(p.symbol("b", BIGINT)),
                         p.values(emptyList(), ImmutableList.of(emptyList()))))
                 .matches(values("b"));
 
         tester().assertThat(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
                         emptyList(),
-                        p.values(p.symbol("b", BigintType.BIGINT)),
+                        p.values(p.symbol("b", BIGINT)),
                         LEFT,
                         TRUE,
                         p.values(emptyList(), ImmutableList.of(emptyList()))))
@@ -158,7 +157,7 @@ public class TestRemoveUnreferencedScalarSubqueries
         tester().assertThat(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
                         emptyList(),
-                        p.values(p.symbol("b", BigintType.BIGINT)),
+                        p.values(p.symbol("b", BIGINT)),
                         RIGHT,
                         TRUE,
                         p.values(emptyList(), ImmutableList.of(emptyList()))))
@@ -167,7 +166,7 @@ public class TestRemoveUnreferencedScalarSubqueries
         tester().assertThat(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
                         emptyList(),
-                        p.values(p.symbol("b", BigintType.BIGINT)),
+                        p.values(p.symbol("b", BIGINT)),
                         FULL,
                         TRUE,
                         p.values(emptyList(), ImmutableList.of(emptyList()))))

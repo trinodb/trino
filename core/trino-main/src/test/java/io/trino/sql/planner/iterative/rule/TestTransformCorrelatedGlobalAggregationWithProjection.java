@@ -269,8 +269,8 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                         p.values(p.symbol("corr")),
                         p.project(Assignments.of(p.symbol("expr"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
                                 p.aggregation(ab -> ab
-                                        .source(p.values(p.symbol("a"), p.symbol("mask")))
-                                        .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT), p.symbol("mask"))
+                                        .source(p.values(p.symbol("a"), p.symbol("mask", BOOLEAN)))
+                                        .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT), p.symbol("mask", BOOLEAN))
                                         .globalGrouping()))))
                 .matches(
                         project(ImmutableMap.of("corr", expression(new Reference(BIGINT, "corr")), "expr", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum_1"), new Constant(INTEGER, 1L)))),

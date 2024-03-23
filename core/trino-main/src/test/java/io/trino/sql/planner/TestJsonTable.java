@@ -108,7 +108,7 @@ public class TestJsonTable
                         ImmutableList.of("json_col", "int_col", "bigint_col", "formatted_varchar_col"),
                         anyTree(
                                 project(
-                                        ImmutableMap.of("formatted_varchar_col", expression(new Call(JSON_TO_VARCHAR, ImmutableList.of(new Reference(VARCHAR, "varchar_col"), new Constant(TINYINT, 1L), FALSE)))),
+                                        ImmutableMap.of("formatted_varchar_col", expression(new Call(JSON_TO_VARCHAR, ImmutableList.of(new Reference(JSON_2016, "varchar_col"), new Constant(TINYINT, 1L), FALSE)))),
                                         tableFunction(builder -> builder
                                                         .name("$json_table")
                                                         .addTableArgument(

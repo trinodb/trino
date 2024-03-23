@@ -29,7 +29,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
@@ -146,7 +146,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
         tester().assertThat(new OptimizeDuplicateInsensitiveJoins())
                 .on(p -> {
                     Symbol symbolA = p.symbol("a");
-                    Symbol symbolB = p.symbol("b");
+                    Symbol symbolB = p.symbol("b", DOUBLE);
                     Symbol symbolC = p.symbol("c");
                     return p.aggregation(a -> a
                             .singleGroupingSet(symbolA)
@@ -162,7 +162,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
                 .matches(
                         aggregation(ImmutableMap.of(),
                                 join(INNER, builder -> builder
-                                        .filter(new Comparison(GREATER_THAN, new Reference(BIGINT, "B"), new Call(RANDOM, ImmutableList.of())))
+                                        .filter(new Comparison(GREATER_THAN, new Reference(DOUBLE, "B"), new Call(RANDOM, ImmutableList.of())))
                                         .left(values("A"))
                                         .right(
                                                 join(INNER, rightJoinBuilder -> rightJoinBuilder
@@ -182,7 +182,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
         tester().assertThat(new OptimizeDuplicateInsensitiveJoins())
                 .on(p -> {
                     Symbol symbolA = p.symbol("a");
-                    Symbol symbolB = p.symbol("b");
+                    Symbol symbolB = p.symbol("b", DOUBLE);
                     return p.aggregation(a -> a
                             .singleGroupingSet(symbolA)
                             .source(p.filter(new Comparison(GREATER_THAN, symbolB.toSymbolReference(), randomFunction),

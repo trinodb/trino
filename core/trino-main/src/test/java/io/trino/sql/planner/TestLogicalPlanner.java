@@ -299,8 +299,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression(new Subscript(BIGINT, new Reference(RowType.anonymousRow(BIGINT, BIGINT), "row"), new Constant(INTEGER, 1L))),
-                                        "output_2", expression(new Subscript(BIGINT, new Reference(RowType.anonymousRow(BIGINT, BIGINT), "row"), new Constant(INTEGER, 2L)))),
+                                        "output_1", expression(new Subscript(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "row"), new Constant(INTEGER, 1L))),
+                                        "output_2", expression(new Subscript(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "row"), new Constant(INTEGER, 2L)))),
                                 project(
                                         ImmutableMap.of("row", expression(new Row(ImmutableList.of(new Reference(BIGINT, "min"), new Reference(BIGINT, "max"))))),
                                         aggregation(
@@ -328,8 +328,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression(new Subscript(DOUBLE, new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 1L))),
-                                        "output_2", expression(new Subscript(DOUBLE, new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 2L)))),
+                                        "output_1", expression(new Subscript(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 1L))),
+                                        "output_2", expression(new Subscript(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 2L)))),
                                 project(
                                         ImmutableMap.of("row", expression(new Row(ImmutableList.of(new Reference(DOUBLE, "rand"), new Reference(DOUBLE, "rand"))))),
                                         values(
@@ -340,8 +340,8 @@ public class TestLogicalPlanner
                 any(
                         project(
                                 ImmutableMap.of(
-                                        "output_1", expression(new Subscript(DOUBLE, new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "r"), new Constant(INTEGER, 1L))),
-                                        "output_2", expression(new Subscript(DOUBLE, new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "r"), new Constant(INTEGER, 2L)))),
+                                        "output_1", expression(new Subscript(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "r"), new Constant(INTEGER, 1L))),
+                                        "output_2", expression(new Subscript(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "r"), new Constant(INTEGER, 2L)))),
                                 values(
                                         ImmutableList.of("r"),
                                         ImmutableList.of(ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))))))));
@@ -353,8 +353,8 @@ public class TestLogicalPlanner
                                 any(
                                         project(
                                                 ImmutableMap.of(
-                                                        "output_1", expression(new Subscript(DOUBLE, new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 1L))),
-                                                        "output_2", expression(new Subscript(DOUBLE, new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 2L)))),
+                                                        "output_1", expression(new Subscript(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 1L))),
+                                                        "output_2", expression(new Subscript(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), new Constant(INTEGER, 2L)))),
                                                 values(
                                                         ImmutableList.of("row"),
                                                         ImmutableList.of(
@@ -1946,7 +1946,7 @@ public class TestLogicalPlanner
                                                         ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O")))))))
                                 .right(
                                         filter(
-                                                new In(new Reference(VARCHAR, "expr"), ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("F")), new Constant(createVarcharType(1), utf8Slice("O")))),
+                                                new In(new Reference(createVarcharType(1), "expr"), ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("F")), new Constant(createVarcharType(1), utf8Slice("O")))),
                                                 values(
                                                         ImmutableList.of("expr"),
                                                         ImmutableList.of(ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("O"))), ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("F"))))))))));
@@ -2049,7 +2049,7 @@ public class TestLogicalPlanner
                                                         ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O")))))))
                                 .right(
                                         filter(
-                                                new In(new Reference(VARCHAR, "expr"), ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("F")), new Constant(createVarcharType(1), utf8Slice("O")))),
+                                                new In(new Reference(createVarcharType(1), "expr"), ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("F")), new Constant(createVarcharType(1), utf8Slice("O")))),
                                                 values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("O"))), ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("F"))))))))));
 
         // Constraint for the table is derived, based on constant values in the other branch of the join.

@@ -47,6 +47,7 @@ public class TestPushProjectionThroughExchange
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
 
     @Test
     public void testDoesNotFireNoExchange()
@@ -122,9 +123,9 @@ public class TestPushProjectionThroughExchange
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
+                    Symbol a = p.symbol("a", INTEGER);
                     Symbol h1 = p.symbol("h_1");
-                    Symbol c = p.symbol("c");
+                    Symbol c = p.symbol("c", INTEGER);
                     Symbol h = p.symbol("h");
                     Symbol cTimes5 = p.symbol("c_times_5");
                     return p.project(
@@ -161,8 +162,8 @@ public class TestPushProjectionThroughExchange
         // this assignment is omitted. Otherwise the doubled assignment would cause an error.
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol aTimes5 = p.symbol("a_times_5");
+                    Symbol a = p.symbol("a", INTEGER);
+                    Symbol aTimes5 = p.symbol("a_times_5", INTEGER);
                     return p.project(
                             Assignments.of(
                                     aTimes5, new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
@@ -186,12 +187,12 @@ public class TestPushProjectionThroughExchange
         // this assignment is omitted. Otherwise the doubled assignment would cause an error.
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol bTimes5 = p.symbol("b_times_5");
-                    Symbol b = p.symbol("b");
+                    Symbol a = p.symbol("a", BIGINT);
+                    Symbol bTimes5 = p.symbol("b_times_5", BIGINT);
+                    Symbol b = p.symbol("b", BIGINT);
                     return p.project(
                             Assignments.of(
-                                    bTimes5, new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
+                                    bTimes5, new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "b"), new Constant(BIGINT, 5L)),
                                     b, b.toSymbolReference()),
                             p.exchange(e -> e
                                     .addSource(p.values(a))
@@ -201,7 +202,7 @@ public class TestPushProjectionThroughExchange
                 .matches(
                         exchange(
                                 strictProject(
-                                        ImmutableMap.of("a_0", expression(new Reference(INTEGER, "a")), "a_times_5", expression(new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)))),
+                                        ImmutableMap.of("a_0", expression(new Reference(BIGINT, "a")), "a_times_5", expression(new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "a"), new Constant(BIGINT, 5L)))),
                                         values(ImmutableList.of("a")))));
     }
 
@@ -216,8 +217,8 @@ public class TestPushProjectionThroughExchange
         // the translated assignment is added too, so that the input symbol 'a' can be passed to the Exchange's output.
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol aTimes5 = p.symbol("a_times_5");
+                    Symbol a = p.symbol("a", INTEGER);
+                    Symbol aTimes5 = p.symbol("a_times_5", INTEGER);
                     return p.project(
                             Assignments.of(
                                     aTimes5, new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
@@ -241,12 +242,12 @@ public class TestPushProjectionThroughExchange
         // the translated assignment is added too, so that the input symbol 'a' can be passed to the Exchange's output.
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol bTimes5 = p.symbol("b_times_5");
-                    Symbol b = p.symbol("b");
+                    Symbol a = p.symbol("a", BIGINT);
+                    Symbol bTimes5 = p.symbol("b_times_5", BIGINT);
+                    Symbol b = p.symbol("b", BIGINT);
                     return p.project(
                             Assignments.of(
-                                    bTimes5, new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
+                                    bTimes5, new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "b"), new Constant(BIGINT, 5L)),
                                     b, b.toSymbolReference()),
                             p.exchange(e -> e
                                     .addSource(p.values(a))
@@ -257,8 +258,8 @@ public class TestPushProjectionThroughExchange
                         exchange(
                                 strictProject(
                                         ImmutableMap.of(
-                                                "a_0", expression(new Reference(INTEGER, "a")),
-                                                "a_times_5", expression(new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)))),
+                                                "a_0", expression(new Reference(BIGINT, "a")),
+                                                "a_times_5", expression(new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "a"), new Constant(BIGINT, 5L)))),
                                         values(ImmutableList.of("a")))));
     }
 
@@ -267,12 +268,12 @@ public class TestPushProjectionThroughExchange
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol h = p.symbol("h");
-                    Symbol aTimes5 = p.symbol("a_times_5");
-                    Symbol bTimes5 = p.symbol("b_times_5");
-                    Symbol hTimes5 = p.symbol("h_times_5");
+                    Symbol a = p.symbol("a", INTEGER);
+                    Symbol b = p.symbol("b", INTEGER);
+                    Symbol h = p.symbol("h", INTEGER);
+                    Symbol aTimes5 = p.symbol("a_times_5", INTEGER);
+                    Symbol bTimes5 = p.symbol("b_times_5", INTEGER);
+                    Symbol hTimes5 = p.symbol("h_times_5", INTEGER);
                     return p.project(
                             Assignments.builder()
                                     .put(aTimes5, new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)))
@@ -309,12 +310,12 @@ public class TestPushProjectionThroughExchange
     {
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol h = p.symbol("h");
-                    Symbol aTimes5 = p.symbol("a_times_5");
-                    Symbol bTimes5 = p.symbol("b_times_5");
-                    Symbol hTimes5 = p.symbol("h_times_5");
+                    Symbol a = p.symbol("a", INTEGER);
+                    Symbol b = p.symbol("b", INTEGER);
+                    Symbol h = p.symbol("h", INTEGER);
+                    Symbol aTimes5 = p.symbol("a_times_5", INTEGER);
+                    Symbol bTimes5 = p.symbol("b_times_5", INTEGER);
+                    Symbol hTimes5 = p.symbol("h_times_5", INTEGER);
                     Symbol sortSymbol = p.symbol("sortSymbol");
                     OrderingScheme orderingScheme = new OrderingScheme(ImmutableList.of(sortSymbol), ImmutableMap.of(sortSymbol, SortOrder.ASC_NULLS_FIRST));
                     return p.project(

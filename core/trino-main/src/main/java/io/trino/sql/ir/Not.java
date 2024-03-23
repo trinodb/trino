@@ -20,7 +20,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static java.util.Objects.requireNonNull;
+import static io.trino.sql.ir.IrUtils.validateType;
 
 @JsonSerialize
 public record Not(Expression value)
@@ -28,7 +28,7 @@ public record Not(Expression value)
 {
     public Not
     {
-        requireNonNull(value, "value is null");
+        validateType(BOOLEAN, value);
     }
 
     @Override

@@ -41,27 +41,25 @@ public class TestUnwrapRowSubscript
     @Test
     public void testSimpleSubscript()
     {
-        test(new Subscript(INTEGER, new Row(ImmutableList.of(new Constant(INTEGER, 1L))), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L));
-        test(new Subscript(INTEGER, new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L));
-        test(new Subscript(INTEGER, new Subscript(anonymousRow(INTEGER), new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))), new Constant(INTEGER, 1L)), new Constant(INTEGER, 2L)), new Constant(INTEGER, 2L));
+        test(new Subscript(new Row(ImmutableList.of(new Constant(INTEGER, 1L))), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L));
+        test(new Subscript(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L));
+        test(new Subscript(new Subscript(new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))), new Constant(INTEGER, 1L)), new Constant(INTEGER, 2L)), new Constant(INTEGER, 2L));
     }
 
     @Test
     public void testWithCast()
     {
         test(
-                new Subscript(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), rowType(field("a", BIGINT), field("b", BIGINT))), new Constant(INTEGER, 1L)),
+                new Subscript(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), rowType(field("a", BIGINT), field("b", BIGINT))), new Constant(INTEGER, 1L)),
                 new Cast(new Constant(INTEGER, 1L), BIGINT));
 
         test(
-                new Subscript(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), anonymousRow(BIGINT, BIGINT)), new Constant(INTEGER, 1L)),
+                new Subscript(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), anonymousRow(BIGINT, BIGINT)), new Constant(INTEGER, 1L)),
                 new Cast(new Constant(INTEGER, 1L), BIGINT));
 
         test(
                 new Subscript(
-                        BIGINT,
                         new Cast(new Subscript(
-                                anonymousRow(SMALLINT, SMALLINT),
                                 new Cast(
                                         new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))),
                                         anonymousRow(anonymousRow(SMALLINT, SMALLINT), BIGINT)),
@@ -75,15 +73,15 @@ public class TestUnwrapRowSubscript
     public void testWithTryCast()
     {
         test(
-                new Subscript(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), rowType(field("a", BIGINT), field("b", BIGINT)), true), new Constant(INTEGER, 1L)),
+                new Subscript(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), rowType(field("a", BIGINT), field("b", BIGINT)), true), new Constant(INTEGER, 1L)),
                 new Cast(new Constant(INTEGER, 1L), BIGINT, true));
 
         test(
-                new Subscript(BIGINT, new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), anonymousRow(BIGINT, BIGINT), true), new Constant(INTEGER, 1L)),
+                new Subscript(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), anonymousRow(BIGINT, BIGINT), true), new Constant(INTEGER, 1L)),
                 new Cast(new Constant(INTEGER, 1L), BIGINT, true));
 
         test(
-                new Subscript(BIGINT, new Cast(new Subscript(rowType(field("x", BIGINT), field("y", BIGINT)), new Cast(new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))), anonymousRow(anonymousRow(SMALLINT, SMALLINT), BIGINT), true), new Constant(INTEGER, 1L)), rowType(field("x", BIGINT), field("y", BIGINT)), true), new Constant(INTEGER, 2L)),
+                new Subscript(new Cast(new Subscript(new Cast(new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))), anonymousRow(anonymousRow(SMALLINT, SMALLINT), BIGINT), true), new Constant(INTEGER, 1L)), rowType(field("x", BIGINT), field("y", BIGINT)), true), new Constant(INTEGER, 2L)),
                 new Cast(new Cast(new Constant(INTEGER, 2L), SMALLINT, true), BIGINT, true));
     }
 

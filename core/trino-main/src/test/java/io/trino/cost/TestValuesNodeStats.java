@@ -105,19 +105,19 @@ public class TestValuesNodeStats
     {
         PlanNodeStatsEstimate nullAStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(1)
-                .addSymbolStatistics(new Symbol(UNKNOWN, "a"), SymbolStatsEstimate.zero())
+                .addSymbolStatistics(new Symbol(INTEGER, "a"), SymbolStatsEstimate.zero())
                 .build();
 
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT)),
                                 ImmutableList.of(
-                                        ImmutableList.of(new Arithmetic(ADD_INTEGER, ADD, new Constant(INTEGER, 3L), new Constant(UNKNOWN, null))))))
+                                        ImmutableList.of(new Arithmetic(ADD_INTEGER, ADD, new Constant(INTEGER, 3L), new Constant(INTEGER, null))))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT)),
                                 ImmutableList.of(
-                                        ImmutableList.of(new Constant(UNKNOWN, null)))))
+                                        ImmutableList.of(new Constant(BIGINT, null)))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
         tester().assertStatsFor(pb -> pb

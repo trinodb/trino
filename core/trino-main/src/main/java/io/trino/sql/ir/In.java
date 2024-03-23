@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ir.IrUtils.validateType;
 
 @JsonSerialize
 public record In(Expression value, List<Expression> valueList)
@@ -28,6 +29,10 @@ public record In(Expression value, List<Expression> valueList)
     public In
     {
         valueList = ImmutableList.copyOf(valueList);
+
+        for (Expression item : valueList) {
+            validateType(value.type(), item);
+        }
     }
 
     @Override

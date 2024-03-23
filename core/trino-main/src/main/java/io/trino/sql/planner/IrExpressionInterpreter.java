@@ -898,7 +898,7 @@ public class IrExpressionInterpreter
             }
 
             if (hasUnresolvedValue(base, index)) {
-                return new Subscript(node.type(), toExpression(base, node.base().type()), toExpression(index, node.index().type()));
+                return new Subscript(toExpression(base, node.base().type()), toExpression(index, node.index().type()));
             }
 
             // Subscript on Row hasn't got a dedicated operator. It is interpreted by hand.

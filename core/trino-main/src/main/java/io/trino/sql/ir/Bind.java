@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Objects.requireNonNull;
+import static io.trino.sql.ir.IrUtils.validateType;
 
 /**
  * Bind(value, targetFunction)
@@ -54,8 +54,10 @@ public record Bind(List<Expression> values, Lambda function)
 {
     public Bind
     {
-        requireNonNull(function, "function is null");
         values = ImmutableList.copyOf(values);
+        for (int i = 0; i < values.size(); i++) {
+            validateType(function.arguments().get(i).getType(), values.get(i));
+        }
     }
 
     @Override

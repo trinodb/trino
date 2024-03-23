@@ -85,7 +85,7 @@ public class TestConnectorPushdownRulesWithHive
         extends BaseRuleTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
 
     private static final String SCHEMA_NAME = "test_schema";
 
@@ -195,7 +195,7 @@ public class TestConnectorPushdownRulesWithHive
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_deref", BIGINT), new Subscript(INTEGER, p.symbol("struct_of_int", baseType).toSymbolReference(), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_deref", BIGINT), new Subscript(p.symbol("struct_of_int", baseType).toSymbolReference(), new Constant(INTEGER, 1L))),
                                 p.tableScan(
                                         table,
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
@@ -336,8 +336,8 @@ public class TestConnectorPushdownRulesWithHive
         // Test Dereference pushdown
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p -> {
-                    Subscript subscript = new Subscript(BIGINT, p.symbol("struct_of_bigint", ROW_TYPE).toSymbolReference(), new Constant(INTEGER, 1L));
-                    Expression sum = new Arithmetic(ADD_INTEGER, ADD, subscript, new Constant(INTEGER, 2L));
+                    Subscript subscript = new Subscript(p.symbol("struct_of_bigint", ROW_TYPE).toSymbolReference(), new Constant(INTEGER, 1L));
+                    Expression sum = new Arithmetic(ADD_BIGINT, ADD, subscript, new Constant(BIGINT, 2L));
                     return p.project(
                             Assignments.of(
                                     // The subscript expression instance is part of both the assignments
@@ -350,8 +350,8 @@ public class TestConnectorPushdownRulesWithHive
                 })
                 .matches(project(
                         ImmutableMap.of(
-                                "expr_deref", expression(new Reference(INTEGER, "struct_of_bigint#a")),
-                                "expr_deref_2", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "struct_of_bigint#a"), new Constant(INTEGER, 2L)))),
+                                "expr_deref", expression(new Reference(BIGINT, "struct_of_bigint#a")),
+                                "expr_deref_2", expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "struct_of_bigint#a"), new Constant(BIGINT, 2L)))),
                         tableScan(
                                 hiveTable.withProjectedColumns(ImmutableSet.of(partialColumn))::equals,
                                 TupleDomain.all(),

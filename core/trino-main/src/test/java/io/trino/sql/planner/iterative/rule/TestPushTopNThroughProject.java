@@ -161,8 +161,8 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(p.symbol("c")),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new Subscript(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 1L)))
-                                            .put(p.symbol("c"), new Subscript(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 2L)))
+                                            .put(p.symbol("b"), new Subscript(a.toSymbolReference(), new Constant(INTEGER, 1L)))
+                                            .put(p.symbol("c"), new Subscript(a.toSymbolReference(), new Constant(INTEGER, 2L)))
                                             .build(),
                                     p.values(a)));
                 }).doesNotFire();
@@ -180,7 +180,7 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(d),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new Subscript(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 1L)))
+                                            .put(p.symbol("b"), new Subscript(a.toSymbolReference(), new Constant(INTEGER, 1L)))
                                             .put(p.symbol("c", rowType), a.toSymbolReference())
                                             .putIdentity(d)
                                             .build(),
@@ -188,7 +188,7 @@ public class TestPushTopNThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new Subscript(BIGINT, new Reference(BIGINT, "a"), new Constant(INTEGER, 1L))), "c", expression(new Reference(BIGINT, "a")), "d", expression(new Reference(BIGINT, "d"))),
+                                ImmutableMap.of("b", expression(new Subscript(new Reference(rowType, "a"), new Constant(INTEGER, 1L))), "c", expression(new Reference(BIGINT, "a")), "d", expression(new Reference(BIGINT, "d"))),
                                 topN(
                                         1,
                                         ImmutableList.of(sort("d", ASCENDING, FIRST)),
