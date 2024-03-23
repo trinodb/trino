@@ -100,14 +100,11 @@ public class SymbolAllocator
 
     public Symbol newSymbol(Expression expression, Type type, String suffix)
     {
-        String nameHint = "expr";
-        if (expression instanceof Call call) {
-            // symbol allocation can happen during planning, before function calls are rewritten
-            nameHint = call.function().getName().getFunctionName();
-        }
-        else if (expression instanceof Reference reference) {
-            nameHint = reference.name();
-        }
+        String nameHint = switch (expression) {
+            case Call call -> call.function().getName().getFunctionName();
+            case Reference reference -> reference.name();
+            default -> "expr";
+        };
 
         return newSymbol(nameHint, type, suffix);
     }
