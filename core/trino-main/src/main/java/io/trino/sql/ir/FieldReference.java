@@ -25,10 +25,10 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.IrUtils.validateType;
 
 @JsonSerialize
-public record Subscript(Expression base, Expression index)
+public record FieldReference(Expression base, Expression index)
         implements Expression
 {
-    public Subscript
+    public FieldReference
     {
         if (!(base.type() instanceof RowType rowType)) {
             throw new IllegalArgumentException("Expected 'row' type but found '%s' for expression: %s".formatted(base.type(), base));
@@ -49,7 +49,7 @@ public record Subscript(Expression base, Expression index)
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitSubscript(this, context);
+        return visitor.visitFieldReference(this, context);
     }
 
     @Override

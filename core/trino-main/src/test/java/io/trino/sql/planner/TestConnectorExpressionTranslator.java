@@ -38,6 +38,7 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
@@ -45,7 +46,6 @@ import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Subscript;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -144,7 +144,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateRowSubscript()
     {
         assertTranslationRoundTrips(
-                new Subscript(
+                new FieldReference(
                         new Reference(ROW_TYPE, "row_symbol_1"),
                         new Constant(INTEGER, 1L)),
                 new FieldDereference(

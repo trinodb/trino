@@ -53,7 +53,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitSubscript(Subscript node, C context)
+    protected Void visitFieldReference(FieldReference node, C context)
     {
         process(node.base(), context);
         process(node.index(), context);

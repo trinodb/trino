@@ -26,9 +26,9 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Subscript;
 import io.trino.transaction.TransactionId;
 import org.junit.jupiter.api.Test;
 
@@ -58,8 +58,8 @@ public class TestPartialTranslator
     public void testPartialTranslator()
     {
         Expression rowSymbolReference = new Reference(RowType.anonymousRow(INTEGER, INTEGER), "row_symbol_1");
-        Expression dereferenceExpression1 = new Subscript(rowSymbolReference, new Constant(INTEGER, 1L));
-        Expression dereferenceExpression2 = new Subscript(rowSymbolReference, new Constant(INTEGER, 2L));
+        Expression dereferenceExpression1 = new FieldReference(rowSymbolReference, new Constant(INTEGER, 1L));
+        Expression dereferenceExpression2 = new FieldReference(rowSymbolReference, new Constant(INTEGER, 2L));
         Expression stringLiteral = new Constant(VARCHAR, Slices.utf8Slice("abcd"));
         Expression symbolReference1 = new Reference(INTEGER, "double_symbol_1");
 

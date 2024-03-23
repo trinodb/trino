@@ -19,9 +19,9 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.NullIf;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.ir.Switch;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -97,7 +97,7 @@ public final class NullabilityAnalyzer
         }
 
         @Override
-        protected Void visitSubscript(Subscript node, AtomicBoolean result)
+        protected Void visitFieldReference(FieldReference node, AtomicBoolean result)
         {
             result.set(true);
             return null;

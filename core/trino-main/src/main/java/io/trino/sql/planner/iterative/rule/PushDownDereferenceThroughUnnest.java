@@ -19,8 +19,8 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
@@ -79,7 +79,7 @@ public class PushDownDereferenceThroughUnnest
         expressionsBuilder.addAll(projectNode.getAssignments().getExpressions());
 
         // Extract dereferences for pushdown
-        Set<Subscript> dereferences = extractRowSubscripts(expressionsBuilder.build(), false);
+        Set<FieldReference> dereferences = extractRowSubscripts(expressionsBuilder.build(), false);
 
         // Only retain dereferences on replicate symbols
         dereferences = dereferences.stream()

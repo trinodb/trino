@@ -32,6 +32,7 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Comparison.Operator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
@@ -42,7 +43,6 @@ import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
@@ -489,7 +489,7 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
-        protected RowExpression visitSubscript(Subscript node, Void context)
+        protected RowExpression visitFieldReference(FieldReference node, Void context)
         {
             RowExpression base = process(node.base(), context);
             RowExpression index = process(node.index(), context);

@@ -43,6 +43,7 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Comparison.Operator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
@@ -53,7 +54,6 @@ import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.type.FunctionType;
@@ -883,7 +883,7 @@ public class IrExpressionInterpreter
         }
 
         @Override
-        protected Object visitSubscript(Subscript node, Object context)
+        protected Object visitFieldReference(FieldReference node, Object context)
         {
             Object base = processWithExceptionHandling(node.base(), context);
             if (base == null) {
@@ -898,7 +898,7 @@ public class IrExpressionInterpreter
             }
 
             if (hasUnresolvedValue(base, index)) {
-                return new Subscript(toExpression(base, node.base().type()), toExpression(index, node.index().type()));
+                return new FieldReference(toExpression(base, node.base().type()), toExpression(index, node.index().type()));
             }
 
             // Subscript on Row hasn't got a dedicated operator. It is interpreted by hand.
