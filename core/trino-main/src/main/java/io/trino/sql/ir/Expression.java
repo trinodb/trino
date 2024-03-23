@@ -42,13 +42,13 @@ import java.util.List;
         @JsonSubTypes.Type(value = Row.class, name = "row"),
         @JsonSubTypes.Type(value = Case.class, name = "case"),
         @JsonSubTypes.Type(value = Switch.class, name = "switch"),
-        @JsonSubTypes.Type(value = Subscript.class, name = "subscript"),
+        @JsonSubTypes.Type(value = FieldReference.class, name = "field"),
         @JsonSubTypes.Type(value = Reference.class, name = "reference"),
 })
 public sealed interface Expression
         permits Arithmetic, Between, Bind, Call, Case, Cast, Coalesce,
-        Comparison, Constant, In, IsNull, Lambda, Logical, Negation,
-        Not, NullIf, Reference, Row, Subscript, Switch
+        Comparison, Constant, FieldReference, In, IsNull, Lambda, Logical,
+        Negation, Not, NullIf, Reference, Row, Switch
 {
     Type type();
 

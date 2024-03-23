@@ -28,6 +28,7 @@ import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
@@ -36,7 +37,6 @@ import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.IrExpressionInterpreter;
@@ -859,12 +859,12 @@ public class TestExpressionInterpreter
     public void testRowSubscript()
     {
         assertOptimizedEquals(
-                new Subscript(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("a")), TRUE)), new Constant(INTEGER, 3L)),
+                new FieldReference(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("a")), TRUE)), new Constant(INTEGER, 3L)),
                 TRUE);
         assertOptimizedEquals(
-                new Subscript(
-                        new Subscript(
-                                new Subscript(
+                new FieldReference(
+                        new FieldReference(
+                                new FieldReference(
                                         new Row(ImmutableList.of(
                                                 new Constant(INTEGER, 1L),
                                                 new Constant(VARCHAR, Slices.utf8Slice("a")),
@@ -878,18 +878,18 @@ public class TestExpressionInterpreter
                 new Constant(VARCHAR, Slices.utf8Slice("c")));
 
         assertOptimizedEquals(
-                new Subscript(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(UNKNOWN, null))), new Constant(INTEGER, 2L)),
+                new FieldReference(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(UNKNOWN, null))), new Constant(INTEGER, 2L)),
                 new Constant(UNKNOWN, null));
         assertOptimizedEquals(
-                new Subscript(new Row(ImmutableList.of(new Arithmetic(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 1L)),
-                new Subscript(new Row(ImmutableList.of(new Arithmetic(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 1L)));
+                new FieldReference(new Row(ImmutableList.of(new Arithmetic(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 1L)),
+                new FieldReference(new Row(ImmutableList.of(new Arithmetic(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 1L)));
         assertOptimizedEquals(
-                new Subscript(new Row(ImmutableList.of(new Arithmetic(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L)),
-                new Subscript(new Row(ImmutableList.of(new Arithmetic(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L)));
+                new FieldReference(new Row(ImmutableList.of(new Arithmetic(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L)),
+                new FieldReference(new Row(ImmutableList.of(new Arithmetic(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L)));
 
-        assertTrinoExceptionThrownBy(() -> evaluate(new Subscript(new Row(ImmutableList.of(new Arithmetic(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L))))
+        assertTrinoExceptionThrownBy(() -> evaluate(new FieldReference(new Row(ImmutableList.of(new Arithmetic(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L))))
                 .hasErrorCode(DIVISION_BY_ZERO);
-        assertTrinoExceptionThrownBy(() -> evaluate(new Subscript(new Row(ImmutableList.of(new Arithmetic(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L))))
+        assertTrinoExceptionThrownBy(() -> evaluate(new FieldReference(new Row(ImmutableList.of(new Arithmetic(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)), new Constant(INTEGER, 1L))), new Constant(INTEGER, 2L))))
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 

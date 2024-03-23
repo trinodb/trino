@@ -20,7 +20,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.Subscript;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -148,8 +148,8 @@ public class UnwrapSingleColumnRowInApply
                 Symbol valueSymbol = context.getSymbolAllocator().newSymbol("input", elementType);
                 Symbol listSymbol = context.getSymbolAllocator().newSymbol("subquery", elementType);
 
-                Assignment inputAssignment = new Assignment(valueSymbol, new Subscript(value, new Constant(INTEGER, 1L)));
-                Assignment nestedPlanAssignment = new Assignment(listSymbol, new Subscript(list, new Constant(INTEGER, 1L)));
+                Assignment inputAssignment = new Assignment(valueSymbol, new FieldReference(value, new Constant(INTEGER, 1L)));
+                Assignment nestedPlanAssignment = new Assignment(listSymbol, new FieldReference(list, new Constant(INTEGER, 1L)));
                 ApplyNode.SetExpression comparison = function.apply(valueSymbol, listSymbol);
 
                 return Optional.of(new Unwrapping(comparison, inputAssignment, nestedPlanAssignment));

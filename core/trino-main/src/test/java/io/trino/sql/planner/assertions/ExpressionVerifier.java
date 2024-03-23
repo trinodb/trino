@@ -22,6 +22,7 @@ import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
@@ -31,7 +32,6 @@ import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 
@@ -325,9 +325,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitSubscript(Subscript actual, Expression expectedExpression)
+    protected Boolean visitFieldReference(FieldReference actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof Subscript expected)) {
+        if (!(expectedExpression instanceof FieldReference expected)) {
             return false;
         }
 

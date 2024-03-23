@@ -43,6 +43,7 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
@@ -51,7 +52,6 @@ import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Subscript;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.type.JoniRegexp;
 import io.trino.type.JsonPathType;
@@ -208,7 +208,7 @@ public final class ConnectorExpressionTranslator
 
             if (expression instanceof FieldDereference dereference) {
                 return translate(dereference.getTarget())
-                        .map(base -> new Subscript(base, new Constant(INTEGER, (long) (dereference.getField() + 1))));
+                        .map(base -> new FieldReference(base, new Constant(INTEGER, (long) (dereference.getField() + 1))));
             }
 
             if (expression instanceof io.trino.spi.expression.Call call) {
@@ -793,7 +793,7 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitSubscript(Subscript node, Void context)
+        protected Optional<ConnectorExpression> visitFieldReference(FieldReference node, Void context)
         {
             if (!(node.base().type() instanceof RowType)) {
                 return Optional.empty();
