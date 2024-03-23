@@ -305,7 +305,7 @@ public class PreAggregateCaseAggregations
                                 preProjection = ifExpression(unionConditions, preProjection);
                             }
 
-                            Symbol preProjectionSymbol = context.getSymbolAllocator().newSymbol(preProjection, preProjectionType);
+                            Symbol preProjectionSymbol = context.getSymbolAllocator().newSymbol(preProjection);
                             Symbol preAggregationSymbol = context.getSymbolAllocator().newSymbol(caseAggregations.iterator().next().getAggregationSymbol());
                             return new PreAggregation(preAggregationSymbol, preProjection, preProjectionSymbol);
                         }));
