@@ -501,14 +501,14 @@ public class DynamicFilterService
 
     private static Set<DynamicFilterId> getDynamicFiltersProducedInPlanNode(PlanNode planNode)
     {
-        if (planNode instanceof JoinNode) {
-            return ((JoinNode) planNode).getDynamicFilters().keySet();
+        if (planNode instanceof JoinNode node) {
+            return node.getDynamicFilters().keySet();
         }
-        if (planNode instanceof SemiJoinNode) {
-            return ((SemiJoinNode) planNode).getDynamicFilterId().map(ImmutableSet::of).orElse(ImmutableSet.of());
+        if (planNode instanceof SemiJoinNode node) {
+            return node.getDynamicFilterId().map(ImmutableSet::of).orElse(ImmutableSet.of());
         }
-        if (planNode instanceof DynamicFilterSourceNode) {
-            return ((DynamicFilterSourceNode) planNode).getDynamicFilters().keySet();
+        if (planNode instanceof DynamicFilterSourceNode node) {
+            return node.getDynamicFilters().keySet();
         }
         throw new IllegalStateException("getDynamicFiltersProducedInPlanNode called with neither JoinNode nor SemiJoinNode");
     }

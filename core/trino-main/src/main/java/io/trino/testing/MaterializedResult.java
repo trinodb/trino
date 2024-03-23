@@ -371,9 +371,9 @@ public class MaterializedResult
             int offsetMinutes = ((SqlTimeWithTimeZone) value).getOffsetMinutes();
             type.writeLong(blockBuilder, packTimeWithTimeZone(nanos, offsetMinutes));
         }
-        else if (type instanceof TimestampType) {
+        else if (type instanceof TimestampType timestampType) {
             long micros = ((SqlTimestamp) value).getEpochMicros();
-            if (((TimestampType) type).getPrecision() <= TimestampType.MAX_SHORT_PRECISION) {
+            if (timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION) {
                 type.writeLong(blockBuilder, micros);
             }
             else {
@@ -385,19 +385,19 @@ public class MaterializedResult
             TimeZoneKey timeZoneKey = ((SqlTimestampWithTimeZone) value).getTimeZoneKey();
             type.writeLong(blockBuilder, packDateTimeWithZone(millisUtc, timeZoneKey));
         }
-        else if (type instanceof ArrayType) {
+        else if (type instanceof ArrayType arrayType) {
             List<?> list = (List<?>) value;
-            Type elementType = ((ArrayType) type).getElementType();
+            Type elementType = arrayType.getElementType();
             ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
                 for (Object element : list) {
                     writeValue(elementType, elementBuilder, element);
                 }
             });
         }
-        else if (type instanceof MapType) {
+        else if (type instanceof MapType mapType) {
             Map<?, ?> map = (Map<?, ?>) value;
-            Type keyType = ((MapType) type).getKeyType();
-            Type valueType = ((MapType) type).getValueType();
+            Type keyType = mapType.getKeyType();
+            Type valueType = mapType.getValueType();
             ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
                 for (Entry<?, ?> entry : map.entrySet()) {
                     writeValue(keyType, keyBuilder, entry.getKey());
@@ -444,25 +444,25 @@ public class MaterializedResult
         for (int field = 0; field < trinoRow.getFieldCount(); field++) {
             Object trinoValue = trinoRow.getField(field);
             Object convertedValue;
-            if (trinoValue instanceof SqlDate) {
-                convertedValue = LocalDate.ofEpochDay(((SqlDate) trinoValue).getDays());
+            if (trinoValue instanceof SqlDate date) {
+                convertedValue = LocalDate.ofEpochDay(date.getDays());
             }
             else if (trinoValue instanceof SqlTime) {
                 convertedValue = DateTimeFormatter.ISO_LOCAL_TIME.parse(trinoValue.toString(), LocalTime::from);
             }
-            else if (trinoValue instanceof SqlTimeWithTimeZone) {
-                long nanos = roundDiv(((SqlTimeWithTimeZone) trinoValue).getPicos(), PICOSECONDS_PER_NANOSECOND);
-                int offsetMinutes = ((SqlTimeWithTimeZone) trinoValue).getOffsetMinutes();
+            else if (trinoValue instanceof SqlTimeWithTimeZone zone) {
+                long nanos = roundDiv(zone.getPicos(), PICOSECONDS_PER_NANOSECOND);
+                int offsetMinutes = zone.getOffsetMinutes();
                 convertedValue = OffsetTime.of(LocalTime.ofNanoOfDay(nanos), ZoneOffset.ofTotalSeconds(offsetMinutes * 60));
             }
-            else if (trinoValue instanceof SqlTimestamp) {
-                convertedValue = ((SqlTimestamp) trinoValue).toLocalDateTime();
+            else if (trinoValue instanceof SqlTimestamp timestamp) {
+                convertedValue = timestamp.toLocalDateTime();
             }
-            else if (trinoValue instanceof SqlTimestampWithTimeZone) {
-                convertedValue = ((SqlTimestampWithTimeZone) trinoValue).toZonedDateTime();
+            else if (trinoValue instanceof SqlTimestampWithTimeZone zone) {
+                convertedValue = zone.toZonedDateTime();
             }
-            else if (trinoValue instanceof SqlDecimal) {
-                convertedValue = ((SqlDecimal) trinoValue).toBigDecimal();
+            else if (trinoValue instanceof SqlDecimal decimal) {
+                convertedValue = decimal.toBigDecimal();
             }
             else {
                 convertedValue = trinoValue;

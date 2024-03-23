@@ -1033,20 +1033,20 @@ public final class StateCompiler
         Object value = null;
 
         for (Annotation annotation : method.getAnnotations()) {
-            if (annotation instanceof InitialLongValue) {
+            if (annotation instanceof InitialLongValue longValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == long.class, "%s does not return a long, but is annotated with @InitialLongValue", method.getName());
-                value = ((InitialLongValue) annotation).value();
+                value = longValue.value();
             }
-            else if (annotation instanceof InitialDoubleValue) {
+            else if (annotation instanceof InitialDoubleValue doubleValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == double.class, "%s does not return a double, but is annotated with @InitialDoubleValue", method.getName());
-                value = ((InitialDoubleValue) annotation).value();
+                value = doubleValue.value();
             }
-            else if (annotation instanceof InitialBooleanValue) {
+            else if (annotation instanceof InitialBooleanValue booleanValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == boolean.class, "%s does not return a boolean, but is annotated with @InitialBooleanValue", method.getName());
-                value = ((InitialBooleanValue) annotation).value();
+                value = booleanValue.value();
             }
         }
 
@@ -1201,11 +1201,11 @@ public final class StateCompiler
             if (initialValue == null) {
                 return defaultValue(type);
             }
-            if (initialValue instanceof Number) {
-                return constantNumber((Number) initialValue);
+            if (initialValue instanceof Number number) {
+                return constantNumber(number);
             }
-            if (initialValue instanceof Boolean) {
-                return constantBoolean((boolean) initialValue);
+            if (initialValue instanceof Boolean boolean1) {
+                return constantBoolean(boolean1);
             }
             throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
         }

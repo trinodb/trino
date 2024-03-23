@@ -273,13 +273,13 @@ public class JsonValueFunction
 
         Object item = getOnlyElement(pathResult);
         TypedValue typedValue;
-        if (item instanceof JsonNode) {
+        if (item instanceof JsonNode node) {
             if (item.equals(NullNode.instance)) {
                 return null;
             }
             Optional<TypedValue> itemValue;
             try {
-                itemValue = getTypedValue((JsonNode) item);
+                itemValue = getTypedValue(node);
             }
             catch (JsonLiteralConversionException e) {
                 return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value", e));

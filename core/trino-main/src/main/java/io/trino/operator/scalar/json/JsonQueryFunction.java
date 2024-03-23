@@ -163,12 +163,12 @@ public class JsonQueryFunction
         // translate sequence to JSON items
         ImmutableList.Builder<JsonNode> builder = ImmutableList.builder();
         for (Object item : pathResult) {
-            if (item instanceof TypedValue) {
-                Optional<JsonNode> jsonNode = getJsonNode((TypedValue) item);
+            if (item instanceof TypedValue value) {
+                Optional<JsonNode> jsonNode = getJsonNode(value);
                 if (jsonNode.isEmpty()) {
                     return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionException(format(
                             "JSON path returned a scalar SQL value of type %s that cannot be represented as JSON",
-                            ((TypedValue) item).getType())));
+                            value.getType())));
                 }
                 builder.add(jsonNode.get());
             }

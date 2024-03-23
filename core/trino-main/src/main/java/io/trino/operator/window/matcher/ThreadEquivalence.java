@@ -290,8 +290,8 @@ public class ThreadEquivalence
             ImmutableList.Builder<Integer> noClassifierAggregationIndexes = ImmutableList.builder();
             ImmutableList.Builder<Integer> classifierAggregationIndexes = ImmutableList.builder();
             for (PhysicalValueAccessor pointer : pointerList) {
-                if (pointer instanceof MatchAggregationPointer) {
-                    int aggregationIndex = ((MatchAggregationPointer) pointer).getIndex();
+                if (pointer instanceof MatchAggregationPointer aggregationPointer) {
+                    int aggregationIndex = aggregationPointer.getIndex();
                     MatchAggregationLabelDependency labelDependency = labelDependencies.get(aggregationIndex);
                     if (!labelDependency.isClassifierInvolved() || labelDependency.getLabels().size() == 1) {
                         foundNoClassifierAggregations = true;

@@ -50,11 +50,11 @@ public class DistinctMatcher
                 this.getClass().getName());
 
         boolean actualIsDistinct;
-        if (node instanceof IntersectNode) {
-            actualIsDistinct = ((IntersectNode) node).isDistinct();
+        if (node instanceof IntersectNode intersectNode) {
+            actualIsDistinct = intersectNode.isDistinct();
         }
-        else if (node instanceof ExceptNode) {
-            actualIsDistinct = ((ExceptNode) node).isDistinct();
+        else if (node instanceof ExceptNode exceptNode) {
+            actualIsDistinct = exceptNode.isDistinct();
         }
         else {
             throw new IllegalStateException("Unexpected plan node: " + node);

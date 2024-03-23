@@ -431,8 +431,8 @@ public class ColumnJdbcTable
         if (type.equals(TINYINT)) {
             return 3;   // 2**7-1
         }
-        if (type instanceof DecimalType) {
-            return ((DecimalType) type).getPrecision();
+        if (type instanceof DecimalType decimalType) {
+            return decimalType.getPrecision();
         }
         if (type.equals(REAL)) {
             return 24; // IEEE 754
@@ -440,43 +440,43 @@ public class ColumnJdbcTable
         if (type.equals(DOUBLE)) {
             return 53; // IEEE 754
         }
-        if (type instanceof VarcharType) {
-            return ((VarcharType) type).getLength().orElse(VarcharType.UNBOUNDED_LENGTH);
+        if (type instanceof VarcharType varcharType) {
+            return varcharType.getLength().orElse(VarcharType.UNBOUNDED_LENGTH);
         }
-        if (type instanceof CharType) {
-            return ((CharType) type).getLength();
+        if (type instanceof CharType charType) {
+            return charType.getLength();
         }
         if (type.equals(VARBINARY)) {
             return Integer.MAX_VALUE;
         }
-        if (type instanceof TimeType) {
+        if (type instanceof TimeType timeType) {
             // 8 characters for "HH:MM:SS"
             // min(p, 1) for the fractional second period (i.e., no period if p == 0)
             // p for the fractional digits
-            int precision = ((TimeType) type).getPrecision();
+            int precision = timeType.getPrecision();
             return 8 + min(precision, 1) + precision;
         }
-        if (type instanceof TimeWithTimeZoneType) {
+        if (type instanceof TimeWithTimeZoneType zoneType) {
             // 8 characters for "HH:MM:SS"
             // min(p, 1) for the fractional second period (i.e., no period if p == 0)
             // p for the fractional digits
             // 6 for timezone offset
-            int precision = ((TimeWithTimeZoneType) type).getPrecision();
+            int precision = zoneType.getPrecision();
             return 8 + min(precision, 1) + precision + 6;
         }
         if (type.equals(DATE)) {
             return 14; // +5881580-07-11 (2**31-1 days)
         }
-        if (type instanceof TimestampType) {
+        if (type instanceof TimestampType timestampType) {
             // 1 digit for year sign
             // 5 digits for year
             // 15 characters for "-MM-DD HH:MM:SS"
             // min(p, 1) for the fractional second period (i.e., no period if p == 0)
             // p for the fractional digits
-            int precision = ((TimestampType) type).getPrecision();
+            int precision = timestampType.getPrecision();
             return 1 + 5 + 15 + min(precision, 1) + precision;
         }
-        if (type instanceof TimestampWithTimeZoneType) {
+        if (type instanceof TimestampWithTimeZoneType zoneType) {
             // 1 digit for year sign
             // 6 digits for year
             // 15 characters for "-MM-DD HH:MM:SS"
@@ -484,7 +484,7 @@ public class ColumnJdbcTable
             // p for the fractional digits
             // 1 for space after timestamp
             // MAX_TIMEZONE_LENGTH for timezone
-            int precision = ((TimestampWithTimeZoneType) type).getPrecision();
+            int precision = zoneType.getPrecision();
             return 1 + 6 + 15 + min(precision, 1) + precision + 1 + MAX_TIMEZONE_LENGTH;
         }
         return null;
@@ -493,31 +493,31 @@ public class ColumnJdbcTable
     // DECIMAL_DIGITS is the number of fractional digits
     private static Integer decimalDigits(Type type)
     {
-        if (type instanceof DecimalType) {
-            return ((DecimalType) type).getScale();
+        if (type instanceof DecimalType decimalType) {
+            return decimalType.getScale();
         }
-        if (type instanceof TimeType) {
-            return ((TimeType) type).getPrecision();
+        if (type instanceof TimeType timeType) {
+            return timeType.getPrecision();
         }
-        if (type instanceof TimeWithTimeZoneType) {
-            return ((TimeWithTimeZoneType) type).getPrecision();
+        if (type instanceof TimeWithTimeZoneType zoneType) {
+            return zoneType.getPrecision();
         }
-        if (type instanceof TimestampType) {
-            return ((TimestampType) type).getPrecision();
+        if (type instanceof TimestampType timestampType) {
+            return timestampType.getPrecision();
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            return ((TimestampWithTimeZoneType) type).getPrecision();
+        if (type instanceof TimestampWithTimeZoneType zoneType) {
+            return zoneType.getPrecision();
         }
         return null;
     }
 
     private static Integer charOctetLength(Type type)
     {
-        if (type instanceof VarcharType) {
-            return ((VarcharType) type).getLength().orElse(VarcharType.UNBOUNDED_LENGTH);
+        if (type instanceof VarcharType varcharType) {
+            return varcharType.getLength().orElse(VarcharType.UNBOUNDED_LENGTH);
         }
-        if (type instanceof CharType) {
-            return ((CharType) type).getLength();
+        if (type instanceof CharType charType) {
+            return charType.getLength();
         }
         if (type.equals(VARBINARY)) {
             return Integer.MAX_VALUE;

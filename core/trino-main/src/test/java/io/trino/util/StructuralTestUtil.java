@@ -90,25 +90,25 @@ public final class StructuralTestUtil
         if (element == null) {
             blockBuilder.appendNull();
         }
-        else if (type instanceof ArrayType && element instanceof Iterable<?>) {
+        else if (type instanceof ArrayType && element instanceof Iterable<?> iterable) {
             ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
-                for (Object subElement : (Iterable<?>) element) {
+                for (Object subElement : iterable) {
                     appendToBlockBuilder(type.getTypeParameters().get(0), subElement, elementBuilder);
                 }
             });
         }
-        else if (type instanceof RowType && element instanceof Iterable<?>) {
+        else if (type instanceof RowType && element instanceof Iterable<?> iterable) {
             ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
                 int field = 0;
-                for (Object subElement : (Iterable<?>) element) {
+                for (Object subElement : iterable) {
                     appendToBlockBuilder(type.getTypeParameters().get(field), subElement, fieldBuilders.get(field));
                     field++;
                 }
             });
         }
-        else if (type instanceof MapType mapType && element instanceof Map<?, ?>) {
+        else if (type instanceof MapType mapType && element instanceof Map<?, ?> map) {
             ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
-                for (Map.Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
+                for (Map.Entry<?, ?> entry : map.entrySet()) {
                     appendToBlockBuilder(mapType.getKeyType(), entry.getKey(), keyBuilder);
                     appendToBlockBuilder(mapType.getValueType(), entry.getValue(), valueBuilder);
                 }
@@ -118,8 +118,8 @@ public final class StructuralTestUtil
             type.writeBoolean(blockBuilder, (Boolean) element);
         }
         else if (javaType == long.class) {
-            if (element instanceof SqlDecimal) {
-                type.writeLong(blockBuilder, ((SqlDecimal) element).getUnscaledValue().longValue());
+            if (element instanceof SqlDecimal decimal) {
+                type.writeLong(blockBuilder, decimal.getUnscaledValue().longValue());
             }
             else if (REAL.equals(type)) {
                 type.writeLong(blockBuilder, floatToRawIntBits(((Number) element).floatValue()));
@@ -135,19 +135,19 @@ public final class StructuralTestUtil
             if (element instanceof String) {
                 type.writeSlice(blockBuilder, Slices.utf8Slice(element.toString()));
             }
-            else if (element instanceof byte[]) {
-                type.writeSlice(blockBuilder, Slices.wrappedBuffer((byte[]) element));
+            else if (element instanceof byte[] bytes) {
+                type.writeSlice(blockBuilder, Slices.wrappedBuffer(bytes));
             }
             else {
                 type.writeSlice(blockBuilder, (Slice) element);
             }
         }
         else {
-            if (element instanceof SqlDecimal) {
-                type.writeObject(blockBuilder, Int128.valueOf(((SqlDecimal) element).getUnscaledValue()));
+            if (element instanceof SqlDecimal decimal) {
+                type.writeObject(blockBuilder, Int128.valueOf(decimal.getUnscaledValue()));
             }
-            else if (element instanceof BigDecimal) {
-                type.writeObject(blockBuilder, Decimals.valueOf((BigDecimal) element));
+            else if (element instanceof BigDecimal decimal) {
+                type.writeObject(blockBuilder, Decimals.valueOf(decimal));
             }
             else {
                 type.writeObject(blockBuilder, element);

@@ -163,8 +163,8 @@ class SetOperationMerge
             return Optional.of(false);
         }
 
-        if (node instanceof IntersectNode) {
-            if (!((IntersectNode) node).isDistinct() && !((IntersectNode) child).isDistinct()) {
+        if (node instanceof IntersectNode intersectNode) {
+            if (!intersectNode.isDistinct() && !((IntersectNode) child).isDistinct()) {
                 return Optional.of(false);
             }
             return Optional.of(true);

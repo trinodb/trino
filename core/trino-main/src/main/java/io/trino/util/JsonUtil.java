@@ -159,8 +159,8 @@ public final class JsonUtil
                 type instanceof DateType) {
             return true;
         }
-        if (type instanceof ArrayType) {
-            return canCastToJson(((ArrayType) type).getElementType());
+        if (type instanceof ArrayType arrayType) {
+            return canCastToJson(arrayType.getElementType());
         }
         if (type instanceof MapType mapType) {
             return (mapType.getKeyType() instanceof UnknownType ||
@@ -187,11 +187,11 @@ public final class JsonUtil
                 type instanceof JsonType) {
             return true;
         }
-        if (type instanceof ArrayType) {
-            return canCastFromJson(((ArrayType) type).getElementType());
+        if (type instanceof ArrayType arrayType) {
+            return canCastFromJson(arrayType.getElementType());
         }
-        if (type instanceof MapType) {
-            return isValidJsonObjectKeyType(((MapType) type).getKeyType()) && canCastFromJson(((MapType) type).getValueType());
+        if (type instanceof MapType mapType) {
+            return isValidJsonObjectKeyType(mapType.getKeyType()) && canCastFromJson(mapType.getValueType());
         }
         if (type instanceof RowType) {
             return type.getTypeParameters().stream().allMatch(JsonUtil::canCastFromJson);

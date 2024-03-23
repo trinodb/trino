@@ -45,8 +45,8 @@ public class ThrowableMapper
     @Override
     public Response toResponse(Throwable throwable)
     {
-        if (throwable instanceof WebApplicationException) {
-            return ((WebApplicationException) throwable).getResponse();
+        if (throwable instanceof WebApplicationException exception) {
+            return exception.getResponse();
         }
 
         log.warn(throwable, "Request failed for %s", request.getRequestURI());

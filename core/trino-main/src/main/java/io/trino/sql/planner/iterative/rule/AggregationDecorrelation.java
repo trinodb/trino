@@ -32,10 +32,10 @@ class AggregationDecorrelation
 
     public static boolean isDistinctOperator(PlanNode node)
     {
-        return node instanceof AggregationNode &&
-                ((AggregationNode) node).getAggregations().isEmpty() &&
-                ((AggregationNode) node).getGroupingSetCount() == 1 &&
-                ((AggregationNode) node).hasNonEmptyGroupingSet();
+        return node instanceof AggregationNode an &&
+                an.getAggregations().isEmpty() &&
+                an.getGroupingSetCount() == 1 &&
+                an.hasNonEmptyGroupingSet();
     }
 
     public static Map<Symbol, Aggregation> rewriteWithMasks(Map<Symbol, Aggregation> aggregations, Map<Symbol, Symbol> masks)

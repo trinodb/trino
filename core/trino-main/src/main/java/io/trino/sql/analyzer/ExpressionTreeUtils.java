@@ -143,11 +143,11 @@ public final class ExpressionTreeUtils
     public static QualifiedName asQualifiedName(Expression expression)
     {
         QualifiedName name = null;
-        if (expression instanceof Identifier) {
-            name = QualifiedName.of(((Identifier) expression).getValue());
+        if (expression instanceof Identifier identifier) {
+            name = QualifiedName.of(identifier.getValue());
         }
-        else if (expression instanceof DereferenceExpression) {
-            name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
+        else if (expression instanceof DereferenceExpression dereferenceExpression) {
+            name = DereferenceExpression.getQualifiedName(dereferenceExpression);
         }
         return name;
     }

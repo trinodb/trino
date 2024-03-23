@@ -128,8 +128,8 @@ public class WindowFilterPushDown
 
             PlanNode source = context.rewrite(node.getSource());
             int limit = toIntExact(node.getCount());
-            if (source instanceof RowNumberNode) {
-                RowNumberNode rowNumberNode = mergeLimit((RowNumberNode) source, limit);
+            if (source instanceof RowNumberNode numberNode) {
+                RowNumberNode rowNumberNode = mergeLimit(numberNode, limit);
                 if (rowNumberNode.getPartitionBy().isEmpty()) {
                     return rowNumberNode;
                 }
@@ -155,16 +155,16 @@ public class WindowFilterPushDown
 
             TupleDomain<Symbol> tupleDomain = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate()).getTupleDomain();
 
-            if (source instanceof RowNumberNode) {
-                Symbol rowNumberSymbol = ((RowNumberNode) source).getRowNumberSymbol();
+            if (source instanceof RowNumberNode numberNode) {
+                Symbol rowNumberSymbol = numberNode.getRowNumberSymbol();
                 OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
 
                 if (upperBound.isPresent()) {
                     if (upperBound.getAsInt() <= 0) {
                         return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
                     }
-                    source = mergeLimit((RowNumberNode) source, upperBound.getAsInt());
-                    return rewriteFilterSource(node, source, rowNumberSymbol, ((RowNumberNode) source).getMaxRowCountPerPartition().get());
+                    source = mergeLimit(numberNode, upperBound.getAsInt());
+                    return rewriteFilterSource(node, source, rowNumberSymbol, numberNode.getMaxRowCountPerPartition().get());
                 }
             }
             else if (source instanceof WindowNode windowNode && isOptimizeTopNRanking(session)) {

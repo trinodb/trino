@@ -55,7 +55,7 @@ public class RemoteSourceMatcher
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        return node instanceof RemoteSourceNode && sourceFragmentIds.equals(((RemoteSourceNode) node).getSourceFragmentIds());
+        return node instanceof RemoteSourceNode rsn && sourceFragmentIds.equals(rsn.getSourceFragmentIds());
     }
 
     @Override

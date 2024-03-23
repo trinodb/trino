@@ -250,9 +250,9 @@ public abstract class AbstractTestBlock
 
     private static long getCompactedBlockSizeInBytes(Block block)
     {
-        if (block instanceof DictionaryBlock) {
+        if (block instanceof DictionaryBlock dictionaryBlock) {
             // dictionary blocks might become unwrapped when copyRegion is called on a block that is already compact
-            return ((DictionaryBlock) block).compact().getSizeInBytes();
+            return dictionaryBlock.compact().getSizeInBytes();
         }
         return copyBlockViaCopyRegion(block).getSizeInBytes();
     }

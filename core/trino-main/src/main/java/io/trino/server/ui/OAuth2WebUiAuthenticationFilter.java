@@ -192,6 +192,6 @@ public class OAuth2WebUiAuthenticationFilter
 
     private static boolean isValidPrincipal(Object principal)
     {
-        return principal instanceof String && !((String) principal).isEmpty();
+        return principal instanceof String s && !s.isEmpty();
     }
 }

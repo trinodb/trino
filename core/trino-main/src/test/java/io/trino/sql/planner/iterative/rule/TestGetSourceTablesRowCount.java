@@ -106,12 +106,12 @@ public class TestGetSourceTablesRowCount
     private static StatsProvider testStatsProvider()
     {
         return node -> {
-            if (node instanceof TableScanNode) {
-                return ((TableScanNode) node).getStatistics().orElse(unknown());
+            if (node instanceof TableScanNode scanNode) {
+                return scanNode.getStatistics().orElse(unknown());
             }
 
-            if (node instanceof ValuesNode) {
-                return stats(((ValuesNode) node).getRowCount());
+            if (node instanceof ValuesNode valuesNode) {
+                return stats(valuesNode.getRowCount());
             }
 
             return unknown();

@@ -187,14 +187,14 @@ public class BeginTableWrite
 
         public WriterTarget getWriterTarget(PlanNode node)
         {
-            if (node instanceof TableWriterNode) {
-                return ((TableWriterNode) node).getTarget();
+            if (node instanceof TableWriterNode writerNode) {
+                return writerNode.getTarget();
             }
-            if (node instanceof TableExecuteNode) {
-                TableExecuteTarget target = ((TableExecuteNode) node).getTarget();
+            if (node instanceof TableExecuteNode executeNode) {
+                TableExecuteTarget target = executeNode.getTarget();
                 return new TableExecuteTarget(
                         target.getExecuteHandle(),
-                        findTableScanHandleForTableExecute(((TableExecuteNode) node).getSource()),
+                        findTableScanHandleForTableExecute(executeNode.getSource()),
                         target.getSchemaTableName(),
                         target.getWriterScalingOptions());
             }
@@ -283,7 +283,7 @@ public class BeginTableWrite
         private Optional<TableHandle> findTableScanHandleForTableExecute(PlanNode startNode)
         {
             List<PlanNode> tableScanNodes = PlanNodeSearcher.searchFrom(startNode)
-                    .where(node -> node instanceof TableScanNode && ((TableScanNode) node).isUpdateTarget())
+                    .where(node -> node instanceof TableScanNode tsn && tsn.isUpdateTarget())
                     .findAll();
 
             if (tableScanNodes.size() == 1) {

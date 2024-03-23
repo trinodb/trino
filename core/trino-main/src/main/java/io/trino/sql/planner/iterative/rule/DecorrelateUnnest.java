@@ -182,8 +182,8 @@ public class DecorrelateUnnest
         Optional<UnnestNode> subqueryUnnest = PlanNodeSearcher.searchFrom(searchRoot, context.getLookup())
                 .where(node -> isSupportedUnnest(node, correlatedJoinNode.getCorrelation(), context.getLookup()))
                 .recurseOnlyWhen(node -> node instanceof ProjectNode ||
-                        (node instanceof LimitNode && ((LimitNode) node).getCount() > 0) ||
-                        (node instanceof TopNNode && ((TopNNode) node).getCount() > 0))
+                        (node instanceof LimitNode ln && ln.getCount() > 0) ||
+                        (node instanceof TopNNode tnn && tnn.getCount() > 0))
                 .findFirst();
 
         if (subqueryUnnest.isEmpty()) {
@@ -293,7 +293,7 @@ public class DecorrelateUnnest
                 .collect(toImmutableList());
         PlanNode unnestSource = lookup.resolve(unnestNode.getSource());
         boolean basedOnCorrelation = ImmutableSet.copyOf(correlation).containsAll(unnestSymbols) ||
-                unnestSource instanceof ProjectNode && ImmutableSet.copyOf(correlation).containsAll(SymbolsExtractor.extractUnique(((ProjectNode) unnestSource).getAssignments().getExpressions()));
+                unnestSource instanceof ProjectNode pn && ImmutableSet.copyOf(correlation).containsAll(SymbolsExtractor.extractUnique(pn.getAssignments().getExpressions()));
 
         return isScalar(unnestNode.getSource(), lookup) &&
                 unnestNode.getReplicateSymbols().isEmpty() &&

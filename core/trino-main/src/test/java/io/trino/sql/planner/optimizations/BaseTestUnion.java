@@ -84,7 +84,7 @@ abstract class BaseTestUnion
         assertThat(((ExchangeNode) Iterables.getOnlyElement(remotes)).getType()).isEqualTo(GATHER);
 
         int numberOfpartialTopN = searchFrom(plan.getRoot())
-                .where(planNode -> planNode instanceof TopNNode && ((TopNNode) planNode).getStep() == TopNNode.Step.PARTIAL)
+                .where(planNode -> planNode instanceof TopNNode tnn && tnn.getStep() == TopNNode.Step.PARTIAL)
                 .count();
         assertThat(numberOfpartialTopN)
                 .describedAs("There should be exactly two partial TopN nodes")
@@ -195,8 +195,8 @@ abstract class BaseTestUnion
             // TODO: differentiate aggregation with empty grouping set
             return true;
         }
-        if (planNode instanceof TopNNode) {
-            return ((TopNNode) planNode).getStep() == TopNNode.Step.PARTIAL;
+        if (planNode instanceof TopNNode node) {
+            return node.getStep() == TopNNode.Step.PARTIAL;
         }
         return false;
     }
@@ -239,6 +239,6 @@ abstract class BaseTestUnion
 
     private static boolean isRemoteExchange(PlanNode planNode)
     {
-        return (planNode instanceof ExchangeNode) && ((ExchangeNode) planNode).getScope() == REMOTE;
+        return (planNode instanceof ExchangeNode en) && en.getScope() == REMOTE;
     }
 }

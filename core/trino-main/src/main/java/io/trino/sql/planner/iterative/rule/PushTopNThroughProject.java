@@ -92,8 +92,8 @@ public final class PushTopNThroughProject
 
         // do not push topN between projection and filter(table scan) so that they can be merged into a PageProcessor
         PlanNode projectSource = context.getLookup().resolve(projectNode.getSource());
-        if (projectSource instanceof FilterNode) {
-            PlanNode filterSource = context.getLookup().resolve(((FilterNode) projectSource).getSource());
+        if (projectSource instanceof FilterNode node) {
+            PlanNode filterSource = context.getLookup().resolve(node.getSource());
             if (filterSource instanceof TableScanNode) {
                 return Result.empty();
             }

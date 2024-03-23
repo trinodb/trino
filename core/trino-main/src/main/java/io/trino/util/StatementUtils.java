@@ -250,8 +250,8 @@ public final class StatementUtils
 
     public static Optional<QueryType> getQueryType(Statement statement)
     {
-        if (statement instanceof ExplainAnalyze) {
-            return getQueryType(((ExplainAnalyze) statement).getStatement());
+        if (statement instanceof ExplainAnalyze analyze) {
+            return getQueryType(analyze.getStatement());
         }
         return Optional.ofNullable(STATEMENT_QUERY_TYPES.get(statement.getClass()))
                 .map(StatementTypeInfo::getQueryType);

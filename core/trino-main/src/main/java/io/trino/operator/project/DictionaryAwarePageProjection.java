@@ -206,11 +206,11 @@ public class DictionaryAwarePageProjection
             block = block.getLoadedBlock();
 
             Optional<Block> dictionary = Optional.empty();
-            if (block instanceof RunLengthEncodedBlock) {
-                dictionary = Optional.of(((RunLengthEncodedBlock) block).getValue());
+            if (block instanceof RunLengthEncodedBlock encodedBlock) {
+                dictionary = Optional.of(encodedBlock.getValue());
             }
-            else if (block instanceof DictionaryBlock) {
-                dictionary = Optional.of(((DictionaryBlock) block).getDictionary());
+            else if (block instanceof DictionaryBlock dictionaryBlock) {
+                dictionary = Optional.of(dictionaryBlock.getDictionary());
             }
 
             // Try use dictionary processing first; if it fails, fall back to the generic case

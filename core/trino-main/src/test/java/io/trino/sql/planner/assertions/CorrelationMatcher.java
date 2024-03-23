@@ -69,11 +69,11 @@ public class CorrelationMatcher
 
     private List<Symbol> getCorrelation(PlanNode node)
     {
-        if (node instanceof ApplyNode) {
-            return ((ApplyNode) node).getCorrelation();
+        if (node instanceof ApplyNode applyNode) {
+            return applyNode.getCorrelation();
         }
-        if (node instanceof CorrelatedJoinNode) {
-            return ((CorrelatedJoinNode) node).getCorrelation();
+        if (node instanceof CorrelatedJoinNode joinNode) {
+            return joinNode.getCorrelation();
         }
         throw new IllegalStateException("Unexpected plan node: " + node);
     }

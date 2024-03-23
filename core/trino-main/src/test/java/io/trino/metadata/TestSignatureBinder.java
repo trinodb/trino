@@ -1185,12 +1185,12 @@ public class TestSignatureBinder
         {
             ImmutableList.Builder<TypeSignatureProvider> builder = ImmutableList.builder();
             for (Object argument : arguments) {
-                if (argument instanceof Type) {
-                    builder.add(new TypeSignatureProvider(((Type) argument).getTypeSignature()));
+                if (argument instanceof Type type) {
+                    builder.add(new TypeSignatureProvider(type.getTypeSignature()));
                     continue;
                 }
-                if (argument instanceof TypeSignatureProvider) {
-                    builder.add((TypeSignatureProvider) argument);
+                if (argument instanceof TypeSignatureProvider provider) {
+                    builder.add(provider);
                     continue;
                 }
                 throw new IllegalArgumentException(format("argument is of type %s. It should be Type or TypeSignatureProvider", argument.getClass()));
