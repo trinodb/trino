@@ -74,5 +74,5 @@ remote exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                             scan item
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPARTITION, HASH, [ca_zip_155, upper_173])
+                                                                remote exchange (REPARTITION, HASH, [ca_zip_155, upper_163])
                                                                     scan customer_address

@@ -2,10 +2,10 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
-                final aggregation over (expr$gid, sm_type, web_name)
+                final aggregation over (gid, sm_type, web_name)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [expr$gid, sm_type, web_name])
-                            intermediate aggregation over (expr$gid, sm_type, web_name)
+                        remote exchange (REPARTITION, HASH, [gid, sm_type, web_name])
+                            intermediate aggregation over (gid, sm_type, web_name)
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):

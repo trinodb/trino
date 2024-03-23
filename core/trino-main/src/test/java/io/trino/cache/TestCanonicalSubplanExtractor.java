@@ -162,9 +162,9 @@ public class TestCanonicalSubplanExtractor
         CacheColumnId regionKeyMultiplyBy2 = canonicalExpressionToColumnId(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "[regionkey:bigint]"), new Constant(BIGINT, 2L))));
         assertThat(nonAggregatedSubplan.getAssignments()).containsExactly(
                 entry(NATIONKEY_ID, CacheExpression.ofProjection(NATIONKEY_REF)),
+                entry(regionKeyMultiplyBy2, CacheExpression.ofProjection(new Call(MULTIPLY_BIGINT, ImmutableList.of(REGIONKEY_REF, new Constant(BIGINT, 2L))))),
                 entry(NAME_ID, CacheExpression.ofProjection(NAME_REF)),
-                entry(regionKeyGreaterThan10, CacheExpression.ofProjection(new Comparison(GREATER_THAN, NATIONKEY_REF, new Constant(BIGINT, 10L)))),
-                entry(regionKeyMultiplyBy2, CacheExpression.ofProjection(new Call(MULTIPLY_BIGINT, ImmutableList.of(REGIONKEY_REF, new Constant(BIGINT, 2L))))));
+                entry(regionKeyGreaterThan10, CacheExpression.ofProjection(new Comparison(GREATER_THAN, NATIONKEY_REF, new Constant(BIGINT, 10L)))));
         assertThat(nonAggregatedSubplan.getTableScan().get().getColumnHandles()).containsExactly(
                 entry(NATIONKEY_ID, new TpchColumnHandle("nationkey", BIGINT)),
                 entry(NAME_ID, new TpchColumnHandle("name", createVarcharType(25))),

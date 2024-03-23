@@ -84,7 +84,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                         scan date_dim
                                                                 load from cache
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [d_week_seq_175])
+                                remote exchange (REPARTITION, HASH, [d_week_seq_174])
                                     alternatives
                                         scan date_dim
                                         cache data

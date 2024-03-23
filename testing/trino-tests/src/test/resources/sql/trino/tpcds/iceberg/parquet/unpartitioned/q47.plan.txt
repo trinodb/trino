@@ -49,15 +49,15 @@ local exchange (GATHER, SINGLE, [])
                                                             dynamic filter (unestimatable [Reference[type=varchar, name=s_company_name_102], Reference[type=varchar, name=s_store_name_90]])
                                                                 scan store
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [i_brand_133, i_category_137, s_company_name_221, s_store_name_209])
-                            final aggregation over (d_moy_182, d_year_180, i_brand_133, i_category_137, s_company_name_221, s_store_name_209)
+                        remote exchange (REPARTITION, HASH, [i_brand_127, i_category_131, s_company_name_215, s_store_name_203])
+                            final aggregation over (d_moy_176, d_year_174, i_brand_127, i_category_131, s_company_name_215, s_store_name_203)
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, [d_moy_182, d_year_180, i_brand_133, i_category_137, s_company_name_221, s_store_name_209])
-                                        partial aggregation over (d_moy_182, d_year_180, i_brand_133, i_category_137, s_company_name_221, s_store_name_209)
+                                    remote exchange (REPARTITION, HASH, [d_moy_176, d_year_174, i_brand_127, i_category_131, s_company_name_215, s_store_name_203])
+                                        partial aggregation over (d_moy_176, d_year_174, i_brand_127, i_category_131, s_company_name_215, s_store_name_203)
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter ([Reference[type=bigint, name=ss_item_sk_151]], await [Reference[type=bigint, name=ss_sold_date_sk_149], Reference[type=bigint, name=ss_store_sk_156]])
+                                                        dynamic filter ([Reference[type=bigint, name=ss_item_sk_145]], await [Reference[type=bigint, name=ss_sold_date_sk_143], Reference[type=bigint, name=ss_store_sk_150]])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

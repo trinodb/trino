@@ -91,21 +91,21 @@ local exchange (GATHER, SINGLE, [])
                                                                         scan item
                                                                 load from cache
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [i_brand_140, i_category_144, s_company_name_231, s_store_name_219])
-                            final aggregation over (d_moy_191, d_year_189, i_brand_140, i_category_144, s_company_name_231, s_store_name_219)
+                        remote exchange (REPARTITION, HASH, [i_brand_134, i_category_138, s_company_name_225, s_store_name_213])
+                            final aggregation over (d_moy_185, d_year_183, i_brand_134, i_category_138, s_company_name_225, s_store_name_213)
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, [d_moy_191, d_year_189, i_brand_140, i_category_144, s_company_name_231, s_store_name_219])
-                                        intermediate aggregation over (d_moy_191, d_year_189, i_brand_140, i_category_144, s_company_name_231, s_store_name_219)
+                                    remote exchange (REPARTITION, HASH, [d_moy_185, d_year_183, i_brand_134, i_category_138, s_company_name_225, s_store_name_213])
+                                        intermediate aggregation over (d_moy_185, d_year_183, i_brand_134, i_category_138, s_company_name_225, s_store_name_213)
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         alternatives
-                                                            partial aggregation over (ss_item_sk_159, ss_sold_date_sk_157, ss_store_sk_164)
-                                                                dynamic filter ([Reference[type=bigint, name=ss_item_sk_159]], await [Reference[type=bigint, name=ss_sold_date_sk_157], Reference[type=bigint, name=ss_store_sk_164]])
+                                                            partial aggregation over (ss_item_sk_153, ss_sold_date_sk_151, ss_store_sk_158)
+                                                                dynamic filter ([Reference[type=bigint, name=ss_item_sk_153]], await [Reference[type=bigint, name=ss_sold_date_sk_151], Reference[type=bigint, name=ss_store_sk_158]])
                                                                     scan store_sales
                                                             cache data
-                                                                partial aggregation over (ss_item_sk_159, ss_sold_date_sk_157, ss_store_sk_164)
-                                                                    dynamic filter ([Reference[type=bigint, name=ss_item_sk_159]], await [Reference[type=bigint, name=ss_sold_date_sk_157], Reference[type=bigint, name=ss_store_sk_164]])
+                                                                partial aggregation over (ss_item_sk_153, ss_sold_date_sk_151, ss_store_sk_158)
+                                                                    dynamic filter ([Reference[type=bigint, name=ss_item_sk_153]], await [Reference[type=bigint, name=ss_sold_date_sk_151], Reference[type=bigint, name=ss_store_sk_158]])
                                                                         scan store_sales
                                                             load from cache
                                                         local exchange (GATHER, SINGLE, [])

@@ -45,5 +45,5 @@ remote exchange (GATHER, SINGLE, [])
                                                             dynamic filter (await [Reference[type=integer, name=d_week_seq_132]])
                                                                 scan date_dim
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [d_week_seq_178])
+                                remote exchange (REPARTITION, HASH, [d_week_seq_177])
                                     scan date_dim

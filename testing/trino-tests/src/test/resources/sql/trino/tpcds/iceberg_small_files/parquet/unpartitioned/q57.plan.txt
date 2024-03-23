@@ -49,15 +49,15 @@ local exchange (GATHER, SINGLE, [])
                                                             dynamic filter (unestimatable [Reference[type=varchar, name=cc_name_102]])
                                                                 scan call_center
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [cc_name_232, i_brand_144, i_category_148])
-                            final aggregation over (cc_name_232, d_moy_204, d_year_202, i_brand_144, i_category_148)
+                        remote exchange (REPARTITION, HASH, [cc_name_227, i_brand_139, i_category_143])
+                            final aggregation over (cc_name_227, d_moy_199, d_year_197, i_brand_139, i_category_143)
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, [cc_name_232, d_moy_204, d_year_202, i_brand_144, i_category_148])
-                                        partial aggregation over (cc_name_232, d_moy_204, d_year_202, i_brand_144, i_category_148)
+                                    remote exchange (REPARTITION, HASH, [cc_name_227, d_moy_199, d_year_197, i_brand_139, i_category_143])
+                                        partial aggregation over (cc_name_227, d_moy_199, d_year_197, i_brand_139, i_category_143)
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter ([Reference[type=bigint, name=cs_item_sk_175]], await [Reference[type=bigint, name=cs_call_center_sk_171], Reference[type=bigint, name=cs_sold_date_sk_160]])
+                                                        dynamic filter ([Reference[type=bigint, name=cs_item_sk_170]], await [Reference[type=bigint, name=cs_call_center_sk_166], Reference[type=bigint, name=cs_sold_date_sk_155]])
                                                             scan catalog_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

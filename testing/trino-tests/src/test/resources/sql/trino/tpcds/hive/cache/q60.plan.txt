@@ -108,11 +108,11 @@ local exchange (GATHER, SINGLE, [])
                                                                                         partial aggregation over (i_item_id_117)
                                                                                             scan item
                                                                                     load from cache
-                        partial aggregation over (i_item_id_196)
-                            final aggregation over (i_item_id_196)
+                        partial aggregation over (i_item_id_195)
+                            final aggregation over (i_item_id_195)
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, [i_item_id_196])
-                                        intermediate aggregation over (i_item_id_196)
+                                    remote exchange (REPARTITION, HASH, [i_item_id_195])
+                                        intermediate aggregation over (i_item_id_195)
                                             join (INNER, REPLICATED):
                                                 partial aggregation over (ws_item_sk)
                                                     join (INNER, REPLICATED):
@@ -142,21 +142,21 @@ local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         join (INNER, REPLICATED):
                                                             alternatives
-                                                                dynamic filter ([Reference[type=char(16), name=i_item_id_196]])
+                                                                dynamic filter ([Reference[type=char(16), name=i_item_id_195]])
                                                                     scan item
                                                                 cache data
-                                                                    dynamic filter ([Reference[type=char(16), name=i_item_id_196]])
+                                                                    dynamic filter ([Reference[type=char(16), name=i_item_id_195]])
                                                                         scan item
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    final aggregation over (i_item_id_223)
+                                                                    final aggregation over (i_item_id_222)
                                                                         local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (REPARTITION, HASH, [i_item_id_223])
+                                                                            remote exchange (REPARTITION, HASH, [i_item_id_222])
                                                                                 alternatives
-                                                                                    partial aggregation over (i_item_id_223)
+                                                                                    partial aggregation over (i_item_id_222)
                                                                                         scan item
                                                                                     cache data
-                                                                                        partial aggregation over (i_item_id_223)
+                                                                                        partial aggregation over (i_item_id_222)
                                                                                             scan item
                                                                                     load from cache

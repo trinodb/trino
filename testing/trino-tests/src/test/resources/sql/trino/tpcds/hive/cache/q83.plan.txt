@@ -124,10 +124,10 @@ local exchange (GATHER, SINGLE, [])
                                                             dynamic filter ([Reference[type=char(16), name=i_item_id_79]])
                                                                 scan item
                                                         load from cache
-                        final aggregation over (i_item_id_211)
+                        final aggregation over (i_item_id_210)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [i_item_id_211])
-                                    intermediate aggregation over (i_item_id_211)
+                                remote exchange (REPARTITION, HASH, [i_item_id_210])
+                                    intermediate aggregation over (i_item_id_210)
                                         join (INNER, PARTITIONED):
                                             partial aggregation over (wr_item_sk)
                                                 remote exchange (REPARTITION, HASH, [wr_item_sk])
@@ -143,40 +143,40 @@ local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 join (INNER, REPLICATED):
                                                                     alternatives
-                                                                        dynamic filter ([Reference[type=date, name=d_date_237]])
+                                                                        dynamic filter ([Reference[type=date, name=d_date_236]])
                                                                             scan date_dim
                                                                         cache data
-                                                                            dynamic filter ([Reference[type=date, name=d_date_237]])
+                                                                            dynamic filter ([Reference[type=date, name=d_date_236]])
                                                                                 scan date_dim
                                                                         load from cache
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                                            final aggregation over (d_date_270)
+                                                                            final aggregation over (d_date_269)
                                                                                 local exchange (GATHER, SINGLE, [])
-                                                                                    remote exchange (REPARTITION, HASH, [d_date_270])
-                                                                                        partial aggregation over (d_date_270)
+                                                                                    remote exchange (REPARTITION, HASH, [d_date_269])
+                                                                                        partial aggregation over (d_date_269)
                                                                                             join (INNER, REPLICATED, can skip output duplicates):
                                                                                                 alternatives
-                                                                                                    dynamic filter (await [Reference[type=integer, name=d_week_seq_272]])
+                                                                                                    dynamic filter (await [Reference[type=integer, name=d_week_seq_271]])
                                                                                                         scan date_dim
                                                                                                     cache data
-                                                                                                        dynamic filter (await [Reference[type=integer, name=d_week_seq_272]])
+                                                                                                        dynamic filter (await [Reference[type=integer, name=d_week_seq_271]])
                                                                                                             scan date_dim
                                                                                                     load from cache
                                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                        final aggregation over (d_week_seq_305)
+                                                                                                        final aggregation over (d_week_seq_304)
                                                                                                             local exchange (GATHER, SINGLE, [])
-                                                                                                                remote exchange (REPARTITION, HASH, [d_week_seq_305])
+                                                                                                                remote exchange (REPARTITION, HASH, [d_week_seq_304])
                                                                                                                     alternatives
-                                                                                                                        partial aggregation over (d_week_seq_305)
+                                                                                                                        partial aggregation over (d_week_seq_304)
                                                                                                                             scan date_dim
                                                                                                                         cache data
-                                                                                                                            partial aggregation over (d_week_seq_305)
+                                                                                                                            partial aggregation over (d_week_seq_304)
                                                                                                                                 scan date_dim
                                                                                                                         load from cache
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [i_item_sk_210])
+                                                remote exchange (REPARTITION, HASH, [i_item_sk_209])
                                                     alternatives
                                                         scan item
                                                         cache data

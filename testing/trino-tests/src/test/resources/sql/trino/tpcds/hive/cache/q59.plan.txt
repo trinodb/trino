@@ -78,7 +78,7 @@ local exchange (GATHER, SINGLE, [])
                                                         scan date_dim
                                                     load from cache
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, [s_store_sk_122])
+                                    remote exchange (REPARTITION, HASH, [s_store_sk_120])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [s_store_id])
                                                 alternatives
@@ -89,7 +89,7 @@ local exchange (GATHER, SINGLE, [])
                                                             scan store
                                                     load from cache
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [s_store_id_123])
+                                                remote exchange (REPARTITION, HASH, [s_store_id_121])
                                                     alternatives
                                                         scan store
                                                         cache data

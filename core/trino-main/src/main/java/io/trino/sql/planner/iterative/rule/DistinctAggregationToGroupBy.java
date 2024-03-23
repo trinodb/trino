@@ -261,7 +261,7 @@ public class DistinctAggregationToGroupBy
                             // we need to duplicate the column in groupId node so that it is used as argument for non-distinct aggregation but not grouped by
                             finalArgumentSymbol = duplicatedGroupIdInputToOutput.computeIfAbsent(
                                     argumentSymbol,
-                                    symbol -> symbolAllocator.newSymbol(symbol, "gid-non-distinct"));
+                                    symbol -> symbolAllocator.newSymbol("gid-non-distinct", symbol.getType()));
                         }
                         groupIdOutputToInputColumnMapping.put(finalArgumentSymbol, argumentSymbol);
 
@@ -269,7 +269,7 @@ public class DistinctAggregationToGroupBy
                         nonDistinctAggregationArguments.add(finalArgumentSymbol);
                     }
 
-                    Symbol innerAggregationOutputSymbol = symbolAllocator.newSymbol(origalAggregationOutputSymbol, "inner");
+                    Symbol innerAggregationOutputSymbol = symbolAllocator.newSymbol("inner", origalAggregationOutputSymbol.getType());
 
                     Aggregation innerAggregation = new Aggregation(
                             originalAggregation.getResolvedFunction(),

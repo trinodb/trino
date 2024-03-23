@@ -3,11 +3,11 @@ local exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, [i_category$gid])
-                        final aggregation over (d_moy$gid, d_qoy$gid, d_year$gid, groupid, i_brand$gid, i_category$gid, i_class$gid, i_product_name$gid, s_store_id$gid)
-                            local exchange (REPARTITION, HASH, [d_moy$gid, d_qoy$gid, d_year$gid, groupid, i_brand$gid, i_category$gid, i_class$gid, i_product_name$gid, s_store_id$gid])
-                                remote exchange (REPARTITION, HASH, [d_moy$gid, d_qoy$gid, d_year$gid, groupid, i_brand$gid, i_category$gid, i_class$gid, i_product_name$gid, s_store_id$gid])
-                                    partial aggregation over (d_moy$gid, d_qoy$gid, d_year$gid, groupid, i_brand$gid, i_category$gid, i_class$gid, i_product_name$gid, s_store_id$gid)
+                    remote exchange (REPARTITION, HASH, [i_category_gid])
+                        final aggregation over (d_moy_gid, d_qoy_gid, d_year_gid, groupid, i_brand_gid, i_category_gid, i_class_gid, i_product_name_gid, s_store_id_gid)
+                            local exchange (REPARTITION, HASH, [d_moy_gid, d_qoy_gid, d_year_gid, groupid, i_brand_gid, i_category_gid, i_class_gid, i_product_name_gid, s_store_id_gid])
+                                remote exchange (REPARTITION, HASH, [d_moy_gid, d_qoy_gid, d_year_gid, groupid, i_brand_gid, i_category_gid, i_class_gid, i_product_name_gid, s_store_id_gid])
+                                    partial aggregation over (d_moy_gid, d_qoy_gid, d_year_gid, groupid, i_brand_gid, i_category_gid, i_class_gid, i_product_name_gid, s_store_id_gid)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):

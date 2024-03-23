@@ -22,60 +22,60 @@ remote exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [ca_address_sk_63])
                                                     dynamic filter ([Reference[type=varchar(30), name=ca_county_70], Reference[type=varchar(30), name=ca_county_70], Reference[type=varchar(30), name=ca_county_70]])
                                                         scan customer_address
-                        final aggregation over (ca_county_147, d_qoy_119, d_year_115)
+                        final aggregation over (ca_county_144, d_qoy_116, d_year_112)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [ca_county_147])
-                                    intermediate aggregation over (ca_county_147, d_qoy_119, d_year_115)
+                                remote exchange (REPARTITION, HASH, [ca_county_144])
+                                    intermediate aggregation over (ca_county_144, d_qoy_116, d_year_112)
                                         join (INNER, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, [ss_addr_sk_89])
-                                                intermediate aggregation over (d_qoy_119, d_year_115, ss_addr_sk_89)
+                                            remote exchange (REPARTITION, HASH, [ss_addr_sk_86])
+                                                intermediate aggregation over (d_qoy_116, d_year_112, ss_addr_sk_86)
                                                     join (INNER, REPLICATED):
-                                                        partial aggregation over (ss_addr_sk_89, ss_sold_date_sk_83)
-                                                            dynamic filter ([Reference[type=bigint, name=ss_addr_sk_89]], await [Reference[type=bigint, name=ss_sold_date_sk_83]])
+                                                        partial aggregation over (ss_addr_sk_86, ss_sold_date_sk_80)
+                                                            dynamic filter ([Reference[type=bigint, name=ss_addr_sk_86]], await [Reference[type=bigint, name=ss_sold_date_sk_80]])
                                                                 scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [ca_address_sk_140])
-                                                    dynamic filter ([Reference[type=varchar(30), name=ca_county_147], Reference[type=varchar(30), name=ca_county_147]])
+                                                remote exchange (REPARTITION, HASH, [ca_address_sk_137])
+                                                    dynamic filter ([Reference[type=varchar(30), name=ca_county_144], Reference[type=varchar(30), name=ca_county_144]])
                                                         scan customer_address
                     join (INNER, PARTITIONED):
-                        final aggregation over (ca_county_289, d_qoy_261, d_year_257)
+                        final aggregation over (ca_county_280, d_qoy_252, d_year_248)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [ca_county_289])
-                                    intermediate aggregation over (ca_county_289, d_qoy_261, d_year_257)
+                                remote exchange (REPARTITION, HASH, [ca_county_280])
+                                    intermediate aggregation over (ca_county_280, d_qoy_252, d_year_248)
                                         join (INNER, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, [ws_bill_addr_sk_221])
-                                                intermediate aggregation over (d_qoy_261, d_year_257, ws_bill_addr_sk_221)
+                                            remote exchange (REPARTITION, HASH, [ws_bill_addr_sk_212])
+                                                intermediate aggregation over (d_qoy_252, d_year_248, ws_bill_addr_sk_212)
                                                     join (INNER, REPLICATED):
-                                                        partial aggregation over (ws_bill_addr_sk_221, ws_sold_date_sk_214)
-                                                            dynamic filter ([Reference[type=bigint, name=ws_bill_addr_sk_221]], await [Reference[type=bigint, name=ws_sold_date_sk_214]])
+                                                        partial aggregation over (ws_bill_addr_sk_212, ws_sold_date_sk_205)
+                                                            dynamic filter ([Reference[type=bigint, name=ws_bill_addr_sk_212]], await [Reference[type=bigint, name=ws_sold_date_sk_205]])
                                                                 scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [ca_address_sk_282])
-                                                    dynamic filter ([Reference[type=varchar(30), name=ca_county_289], Reference[type=varchar(30), name=ca_county_289]])
+                                                remote exchange (REPARTITION, HASH, [ca_address_sk_273])
+                                                    dynamic filter ([Reference[type=varchar(30), name=ca_county_280], Reference[type=varchar(30), name=ca_county_280]])
                                                         scan customer_address
-                        final aggregation over (ca_county_377, d_qoy_349, d_year_345)
+                        final aggregation over (ca_county_365, d_qoy_337, d_year_333)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [ca_county_377])
-                                    intermediate aggregation over (ca_county_377, d_qoy_349, d_year_345)
+                                remote exchange (REPARTITION, HASH, [ca_county_365])
+                                    intermediate aggregation over (ca_county_365, d_qoy_337, d_year_333)
                                         join (INNER, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, [ws_bill_addr_sk_309])
-                                                intermediate aggregation over (d_qoy_349, d_year_345, ws_bill_addr_sk_309)
+                                            remote exchange (REPARTITION, HASH, [ws_bill_addr_sk_297])
+                                                intermediate aggregation over (d_qoy_337, d_year_333, ws_bill_addr_sk_297)
                                                     join (INNER, REPLICATED):
-                                                        partial aggregation over (ws_bill_addr_sk_309, ws_sold_date_sk_302)
-                                                            dynamic filter ([Reference[type=bigint, name=ws_bill_addr_sk_309]], await [Reference[type=bigint, name=ws_sold_date_sk_302]])
+                                                        partial aggregation over (ws_bill_addr_sk_297, ws_sold_date_sk_290)
+                                                            dynamic filter ([Reference[type=bigint, name=ws_bill_addr_sk_297]], await [Reference[type=bigint, name=ws_sold_date_sk_290]])
                                                                 scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [ca_address_sk_370])
-                                                    dynamic filter ([Reference[type=varchar(30), name=ca_county_377]])
+                                                remote exchange (REPARTITION, HASH, [ca_address_sk_358])
+                                                    dynamic filter ([Reference[type=varchar(30), name=ca_county_365]])
                                                         scan customer_address
                 join (INNER, PARTITIONED):
                     final aggregation over (ca_county, d_qoy, d_year)
@@ -96,13 +96,13 @@ remote exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ca_address_sk])
                                                 dynamic filter ([Reference[type=varchar(30), name=ca_county]])
                                                     scan customer_address
-                    final aggregation over (ca_county_201, d_qoy_173, d_year_169)
+                    final aggregation over (ca_county_195, d_qoy_167, d_year_163)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, [ca_county_201])
-                                intermediate aggregation over (ca_county_201, d_qoy_173, d_year_169)
+                            remote exchange (REPARTITION, HASH, [ca_county_195])
+                                intermediate aggregation over (ca_county_195, d_qoy_167, d_year_163)
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, [ws_bill_addr_sk])
-                                            intermediate aggregation over (d_qoy_173, d_year_169, ws_bill_addr_sk)
+                                            intermediate aggregation over (d_qoy_167, d_year_163, ws_bill_addr_sk)
                                                 join (INNER, REPLICATED):
                                                     partial aggregation over (ws_bill_addr_sk, ws_sold_date_sk)
                                                         dynamic filter ([Reference[type=bigint, name=ws_bill_addr_sk]], await [Reference[type=bigint, name=ws_sold_date_sk]])
@@ -111,5 +111,5 @@ remote exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan date_dim
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPARTITION, HASH, [ca_address_sk_194])
+                                            remote exchange (REPARTITION, HASH, [ca_address_sk_188])
                                                 scan customer_address

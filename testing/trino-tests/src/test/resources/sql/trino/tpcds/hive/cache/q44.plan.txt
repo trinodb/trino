@@ -34,7 +34,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                     scan store_sales
                                                                             load from cache
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [rank_83])
+                                remote exchange (REPARTITION, HASH, [rank_81])
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (GATHER, SINGLE, [])
                                             cross join:
@@ -52,14 +52,14 @@ local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (GATHER, SINGLE, [])
-                                                                final aggregation over (ss_store_sk_62)
+                                                                final aggregation over (ss_store_sk_61)
                                                                     local exchange (GATHER, SINGLE, [])
-                                                                        remote exchange (REPARTITION, HASH, [ss_store_sk_62])
+                                                                        remote exchange (REPARTITION, HASH, [ss_store_sk_61])
                                                                             alternatives
-                                                                                partial aggregation over (ss_store_sk_62)
+                                                                                partial aggregation over (ss_store_sk_61)
                                                                                     scan store_sales
                                                                                 cache data
-                                                                                    partial aggregation over (ss_store_sk_62)
+                                                                                    partial aggregation over (ss_store_sk_61)
                                                                                         scan store_sales
                                                                                 load from cache
                         local exchange (GATHER, SINGLE, [])

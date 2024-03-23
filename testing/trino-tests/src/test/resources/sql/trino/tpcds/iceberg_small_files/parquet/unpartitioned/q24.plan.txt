@@ -74,5 +74,5 @@ remote exchange (GATHER, SINGLE, [])
                                                                             dynamic filter ([Reference[type=varchar, name=c_birth_country_127]])
                                                                                 scan customer
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPARTITION, HASH, [ca_zip_142, upper_159])
+                                                                remote exchange (REPARTITION, HASH, [ca_zip_142, upper_149])
                                                                     scan customer_address

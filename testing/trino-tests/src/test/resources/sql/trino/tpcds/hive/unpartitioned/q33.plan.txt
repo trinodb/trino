@@ -62,11 +62,11 @@ local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPARTITION, HASH, [i_manufact_id_129])
                                                                                 partial aggregation over (i_manufact_id_129)
                                                                                     scan item
-                        partial aggregation over (i_manufact_id_208)
-                            final aggregation over (i_manufact_id_208)
+                        partial aggregation over (i_manufact_id_207)
+                            final aggregation over (i_manufact_id_207)
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, [i_manufact_id_208])
-                                        intermediate aggregation over (i_manufact_id_208)
+                                    remote exchange (REPARTITION, HASH, [i_manufact_id_207])
+                                        intermediate aggregation over (i_manufact_id_207)
                                             join (INNER, REPLICATED):
                                                 partial aggregation over (ws_item_sk)
                                                     join (INNER, REPLICATED):
@@ -82,12 +82,12 @@ local exchange (GATHER, SINGLE, [])
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter ([Reference[type=integer, name=i_manufact_id_208]])
+                                                            dynamic filter ([Reference[type=integer, name=i_manufact_id_207]])
                                                                 scan item
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    final aggregation over (i_manufact_id_235)
+                                                                    final aggregation over (i_manufact_id_234)
                                                                         local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (REPARTITION, HASH, [i_manufact_id_235])
-                                                                                partial aggregation over (i_manufact_id_235)
+                                                                            remote exchange (REPARTITION, HASH, [i_manufact_id_234])
+                                                                                partial aggregation over (i_manufact_id_234)
                                                                                     scan item

@@ -51,16 +51,16 @@ local exchange (GATHER, SINGLE, [])
                                                             dynamic filter ([Reference[type=char(50), name=i_brand_17], Reference[type=char(50), name=i_category_21]])
                                                                 scan item
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [cc_name_245, i_brand_153, i_category_157])
-                            final aggregation over (cc_name_245, d_moy_216, d_year_214, i_brand_153, i_category_157)
+                        remote exchange (REPARTITION, HASH, [cc_name_240, i_brand_148, i_category_152])
+                            final aggregation over (cc_name_240, d_moy_211, d_year_209, i_brand_148, i_category_152)
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, [cc_name_245, d_moy_216, d_year_214, i_brand_153, i_category_157])
-                                        intermediate aggregation over (cc_name_245, d_moy_216, d_year_214, i_brand_153, i_category_157)
+                                    remote exchange (REPARTITION, HASH, [cc_name_240, d_moy_211, d_year_209, i_brand_148, i_category_152])
+                                        intermediate aggregation over (cc_name_240, d_moy_211, d_year_209, i_brand_148, i_category_152)
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        partial aggregation over (cs_call_center_sk_180, cs_item_sk_184, cs_sold_date_sk_203)
-                                                            dynamic filter ([Reference[type=bigint, name=cs_item_sk_184]], await [Reference[type=bigint, name=cs_call_center_sk_180], Reference[type=bigint, name=cs_sold_date_sk_203]])
+                                                        partial aggregation over (cs_call_center_sk_175, cs_item_sk_179, cs_sold_date_sk_198)
+                                                            dynamic filter ([Reference[type=bigint, name=cs_item_sk_179]], await [Reference[type=bigint, name=cs_call_center_sk_175], Reference[type=bigint, name=cs_sold_date_sk_198]])
                                                                 scan catalog_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

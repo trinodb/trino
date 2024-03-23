@@ -63,11 +63,11 @@ local exchange (GATHER, SINGLE, [])
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [ca_address_sk_74])
                                                         scan customer_address
-                        partial aggregation over (i_item_id_198)
-                            final aggregation over (i_item_id_198)
+                        partial aggregation over (i_item_id_197)
+                            final aggregation over (i_item_id_197)
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, [i_item_id_198])
-                                        partial aggregation over (i_item_id_198)
+                                    remote exchange (REPARTITION, HASH, [i_item_id_197])
+                                        partial aggregation over (i_item_id_197)
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [ws_bill_addr_sk])
                                                     join (INNER, REPLICATED):
@@ -80,15 +80,15 @@ local exchange (GATHER, SINGLE, [])
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter ([Reference[type=char(16), name=i_item_id_198]])
+                                                                    dynamic filter ([Reference[type=char(16), name=i_item_id_197]])
                                                                         scan item
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                                            final aggregation over (i_item_id_225)
+                                                                            final aggregation over (i_item_id_224)
                                                                                 local exchange (GATHER, SINGLE, [])
-                                                                                    remote exchange (REPARTITION, HASH, [i_item_id_225])
-                                                                                        partial aggregation over (i_item_id_225)
+                                                                                    remote exchange (REPARTITION, HASH, [i_item_id_224])
+                                                                                        partial aggregation over (i_item_id_224)
                                                                                             scan item
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, [ca_address_sk_181])
+                                                    remote exchange (REPARTITION, HASH, [ca_address_sk_180])
                                                         scan customer_address
