@@ -149,7 +149,7 @@ public final class ExpressionTreeRewriter<C>
             Expression index = rewrite(node.index(), context.get());
 
             if (base != node.base() || index != node.index()) {
-                return new Subscript(node.type(), base, index);
+                return new Subscript(base, index);
             }
 
             return node;

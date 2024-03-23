@@ -58,6 +58,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
+import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 
 public class TestDecorrelateUnnest
         extends BaseRuleTest
@@ -371,15 +372,15 @@ public class TestDecorrelateUnnest
 
         tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
-                        ImmutableList.of(p.symbol("corr")),
-                        p.values(p.symbol("corr")),
+                        ImmutableList.of(p.symbol("corr", BIGINT)),
+                        p.values(p.symbol("corr", BIGINT)),
                         JoinType.LEFT,
                         TRUE,
                         p.project(
-                                Assignments.of(p.symbol("boolean_result"), new IsNull(new Reference(BIGINT, "unnested_corr"))),
+                                Assignments.of(p.symbol("boolean_result", BOOLEAN), new IsNull(new Reference(BIGINT, "unnested_corr"))),
                                 p.unnest(
                                         ImmutableList.of(),
-                                        ImmutableList.of(new UnnestNode.Mapping(p.symbol("corr"), ImmutableList.of(p.symbol("unnested_corr")))),
+                                        ImmutableList.of(new UnnestNode.Mapping(p.symbol("corr", BIGINT), ImmutableList.of(p.symbol("unnested_corr", BIGINT)))),
                                         Optional.empty(),
                                         INNER,
                                         p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of()))))))
@@ -387,7 +388,7 @@ public class TestDecorrelateUnnest
                         project(// restore semantics of INNER unnest after it was rewritten to LEFT
                                 ImmutableMap.of(
                                         "corr", expression(new Reference(BIGINT, "corr")),
-                                        "boolean_result", expression(ifExpression(new IsNull(new Reference(BIGINT, "ordinality")), new Constant(BIGINT, null), new Reference(BOOLEAN, "boolean_result")))),
+                                        "boolean_result", expression(ifExpression(new IsNull(new Reference(BIGINT, "ordinality")), new Constant(BOOLEAN, null), new Reference(BOOLEAN, "boolean_result")))),
                                 project(// append projection from the subquery
                                         ImmutableMap.of(
                                                 "corr", expression(new Reference(BIGINT, "corr")),
@@ -499,7 +500,7 @@ public class TestDecorrelateUnnest
                     Symbol corr = p.symbol("corr", VARCHAR);
                     Call regexpExtractAll = new Call(
                             tester().getMetadata().resolveBuiltinFunction("regexp_extract_all", fromTypes(VARCHAR, VARCHAR)),
-                            ImmutableList.of(corr.toSymbolReference(), new Constant(VARCHAR, Slices.utf8Slice("."))));
+                            ImmutableList.of(corr.toSymbolReference(), new Cast(new Constant(VARCHAR, Slices.utf8Slice(".")), JONI_REGEXP)));
 
                     return p.correlatedJoin(
                             ImmutableList.of(corr),
@@ -523,7 +524,7 @@ public class TestDecorrelateUnnest
                                         Optional.of("ordinality"),
                                         LEFT,
                                         project(
-                                                ImmutableMap.of("char_array", expression(new Call(tester().getMetadata().resolveBuiltinFunction("regexp_extract_all", fromTypes(VARCHAR, VARCHAR)), ImmutableList.of(new Reference(BIGINT, "corr"), new Constant(VARCHAR, Slices.utf8Slice(".")))))),
+                                                ImmutableMap.of("char_array", expression(new Call(tester().getMetadata().resolveBuiltinFunction("regexp_extract_all", fromTypes(VARCHAR, VARCHAR)), ImmutableList.of(new Reference(VARCHAR, "corr"), new Cast(new Constant(VARCHAR, Slices.utf8Slice(".")), JONI_REGEXP))))),
                                                 assignUniqueId("unique", values("corr"))))));
     }
 }

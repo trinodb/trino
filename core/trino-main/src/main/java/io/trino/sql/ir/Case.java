@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ir.IrUtils.validateType;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
@@ -31,6 +33,18 @@ public record Case(List<WhenClause> whenClauses, Optional<Expression> defaultVal
     {
         whenClauses = ImmutableList.copyOf(whenClauses);
         requireNonNull(defaultValue, "defaultValue is null");
+
+        for (WhenClause clause : whenClauses) {
+            validateType(BOOLEAN, clause.getOperand());
+        }
+
+        for (int i = 1; i < whenClauses.size(); i++) {
+            validateType(whenClauses.getFirst().getResult().type(), whenClauses.get(i).getResult());
+        }
+
+        if (defaultValue.isPresent()) {
+            validateType(whenClauses.getFirst().getResult().type(), defaultValue.get());
+        }
     }
 
     @Override

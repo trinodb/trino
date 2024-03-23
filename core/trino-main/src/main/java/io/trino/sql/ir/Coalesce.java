@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.sql.ir.IrUtils.validateType;
 
 @JsonSerialize
 public record Coalesce(List<Expression> operands)
@@ -43,6 +44,10 @@ public record Coalesce(List<Expression> operands)
     {
         checkArgument(operands.size() >= 2, "must have at least two operands");
         operands = ImmutableList.copyOf(operands);
+
+        for (int i = 1; i < operands.size(); i++) {
+            validateType(operands.getFirst().type(), operands.get(i));
+        }
     }
 
     @Override

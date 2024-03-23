@@ -53,7 +53,7 @@ public class TestPushFilterThroughCountAggregation
         extends BaseRuleTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction MODULUS_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
 
     @Test
     public void testDoesNotFireWithNonGroupedAggregation()
@@ -266,7 +266,7 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 0L)), new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "count"), new Constant(INTEGER, 2L)), new Constant(BIGINT, 0L)))),
+                            new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 0L)), new Comparison(EQUAL, new Arithmetic(MODULUS_BIGINT, MODULUS, new Reference(BIGINT, "count"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L)))),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
@@ -274,7 +274,7 @@ public class TestPushFilterThroughCountAggregation
                 })
                 .matches(
                         filter(
-                                new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "count"), new Constant(INTEGER, 2L)), new Constant(BIGINT, 0L)),
+                                new Comparison(EQUAL, new Arithmetic(MODULUS_BIGINT, MODULUS, new Reference(BIGINT, "count"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L)),
                                 aggregation(
                                         ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                         filter(

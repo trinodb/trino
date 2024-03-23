@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
@@ -48,9 +49,9 @@ public class TestPruneSpatialJoinChildrenColumns
     {
         tester().assertThat(new PruneSpatialJoinChildrenColumns())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol r = p.symbol("r");
+                    Symbol a = p.symbol("a", GEOMETRY);
+                    Symbol b = p.symbol("b", GEOMETRY);
+                    Symbol r = p.symbol("r", DOUBLE);
                     Symbol unused = p.symbol("unused");
                     return p.spatialJoin(
                             SpatialJoinNode.Type.INNER,
@@ -78,11 +79,11 @@ public class TestPruneSpatialJoinChildrenColumns
     {
         tester().assertThat(new PruneSpatialJoinChildrenColumns())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol r = p.symbol("r");
-                    Symbol unusedLeft = p.symbol("unused_left");
-                    Symbol unusedRight = p.symbol("unused_right");
+                    Symbol a = p.symbol("a", GEOMETRY);
+                    Symbol b = p.symbol("b", GEOMETRY);
+                    Symbol r = p.symbol("r", DOUBLE);
+                    Symbol unusedLeft = p.symbol("unused_left", BIGINT);
+                    Symbol unusedRight = p.symbol("unused_right", BIGINT);
                     return p.spatialJoin(
                             SpatialJoinNode.Type.INNER,
                             p.values(a, unusedLeft),
@@ -111,10 +112,10 @@ public class TestPruneSpatialJoinChildrenColumns
     {
         tester().assertThat(new PruneSpatialJoinChildrenColumns())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol r = p.symbol("r");
-                    Symbol output = p.symbol("output");
+                    Symbol a = p.symbol("a", GEOMETRY);
+                    Symbol b = p.symbol("b", GEOMETRY);
+                    Symbol r = p.symbol("r", DOUBLE);
+                    Symbol output = p.symbol("output", BIGINT);
                     return p.spatialJoin(
                             SpatialJoinNode.Type.INNER,
                             p.values(a),
@@ -130,11 +131,11 @@ public class TestPruneSpatialJoinChildrenColumns
     {
         tester().assertThat(new PruneSpatialJoinChildrenColumns())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol r = p.symbol("r");
-                    Symbol leftPartitionSymbol = p.symbol("left_partition_symbol");
-                    Symbol rightPartitionSymbol = p.symbol("right_partition_symbol");
+                    Symbol a = p.symbol("a", GEOMETRY);
+                    Symbol b = p.symbol("b", GEOMETRY);
+                    Symbol r = p.symbol("r", DOUBLE);
+                    Symbol leftPartitionSymbol = p.symbol("left_partition_symbol", BIGINT);
+                    Symbol rightPartitionSymbol = p.symbol("right_partition_symbol", BIGINT);
                     return p.spatialJoin(
                             SpatialJoinNode.Type.INNER,
                             p.values(a, leftPartitionSymbol),

@@ -42,7 +42,6 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -86,9 +85,6 @@ public class TestExpressionEquivalence
         assertEquivalent(
                 new Constant(BIGINT, null),
                 new Constant(BIGINT, null));
-        assertEquivalent(
-                new Comparison(LESS_THAN, new Reference(BIGINT, "a_bigint"), new Reference(DOUBLE, "b_double")),
-                new Comparison(GREATER_THAN, new Reference(DOUBLE, "b_double"), new Reference(BIGINT, "a_bigint")));
         assertEquivalent(
                 TRUE,
                 TRUE);
@@ -143,10 +139,6 @@ public class TestExpressionEquivalence
         assertEquivalent(
                 new Comparison(LESS_THAN, new Reference(BIGINT, "a_bigint"), new Reference(BIGINT, "b_bigint")),
                 new Comparison(GREATER_THAN, new Reference(BIGINT, "b_bigint"), new Reference(BIGINT, "a_bigint")));
-
-        assertEquivalent(
-                new Comparison(LESS_THAN, new Reference(BIGINT, "a_bigint"), new Reference(DOUBLE, "b_double")),
-                new Comparison(GREATER_THAN, new Reference(DOUBLE, "b_double"), new Reference(BIGINT, "a_bigint")));
 
         assertEquivalent(
                 new Logical(AND, ImmutableList.of(TRUE, FALSE)),
@@ -266,10 +258,6 @@ public class TestExpressionEquivalence
         assertNotEquivalent(
                 new Comparison(LESS_THAN, new Reference(BIGINT, "a_bigint"), new Reference(BIGINT, "b_bigint")),
                 new Comparison(GREATER_THAN, new Reference(BIGINT, "b_bigint"), new Reference(BIGINT, "c_bigint")));
-
-        assertNotEquivalent(
-                new Comparison(LESS_THAN, new Reference(BIGINT, "a_bigint"), new Reference(DOUBLE, "b_double")),
-                new Comparison(GREATER_THAN, new Reference(DOUBLE, "b_double"), new Reference(BIGINT, "c_bigint")));
 
         assertNotEquivalent(
                 new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)), new Comparison(LESS_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)))),

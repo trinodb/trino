@@ -671,7 +671,6 @@ public class TranslationMap
         checkState(index >= 0, "could not find field name: %s", fieldName);
 
         return new Subscript(
-                rowType.getFields().get(index).getType(),
                 translateExpression(expression.getBase()),
                 new Constant(INTEGER, (long) (index + 1)));
     }
@@ -959,7 +958,6 @@ public class TranslationMap
             io.trino.sql.ir.Expression rewrittenBase = translateExpression(node.getBase());
             LongLiteral index = (LongLiteral) node.getIndex();
             return new Subscript(
-                    analysis.getType(node),
                     rewrittenBase, new Constant(INTEGER, index.getParsedValue()));
         }
 

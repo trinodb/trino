@@ -77,6 +77,7 @@ public abstract class AbstractPredicatePushdownTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", fromTypes());
+    private static final ResolvedFunction RANDOM_INTEGER = FUNCTIONS.resolveFunction("random", fromTypes(INTEGER));
     private static final ResolvedFunction ROUND = FUNCTIONS.resolveFunction("round", fromTypes(DOUBLE));
     private static final ResolvedFunction LENGTH = FUNCTIONS.resolveFunction("length", fromTypes(createVarcharType(1)));
     private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
@@ -122,7 +123,7 @@ public abstract class AbstractPredicatePushdownTest
                 anyTree(
                         semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", enableDynamicFiltering,
                                 filter(
-                                        new Comparison(EQUAL, new Reference(BIGINT, "LINE_ORDER_KEY"), new Cast(new Call(RANDOM, ImmutableList.of(new Constant(INTEGER, 5L))), BIGINT)),
+                                        new Comparison(EQUAL, new Reference(BIGINT, "LINE_ORDER_KEY"), new Cast(new Call(RANDOM_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L))), BIGINT)),
                                         tableScan("lineitem", ImmutableMap.of(
                                                 "LINE_ORDER_KEY", "orderkey"))),
                                 node(ExchangeNode.class, // NO filter here
@@ -132,7 +133,7 @@ public abstract class AbstractPredicatePushdownTest
                 anyTree(
                         semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
                                 filter(
-                                        new Comparison(EQUAL, new Reference(BIGINT, "LINE_ORDER_KEY"), new Cast(new Call(RANDOM, ImmutableList.of(new Constant(INTEGER, 5L))), BIGINT)),
+                                        new Comparison(EQUAL, new Reference(BIGINT, "LINE_ORDER_KEY"), new Cast(new Call(RANDOM_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L))), BIGINT)),
                                         tableScan("lineitem", ImmutableMap.of(
                                                 "LINE_ORDER_KEY", "orderkey"))),
                                 anyTree(

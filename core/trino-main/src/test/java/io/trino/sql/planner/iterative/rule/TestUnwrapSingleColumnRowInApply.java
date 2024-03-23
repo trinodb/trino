@@ -83,13 +83,13 @@ public class TestUnwrapSingleColumnRowInApply
                                                 .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedValue", expression(new Subscript(INTEGER, new Reference(RowType.anonymousRow(INTEGER), "rowValue"), new Constant(INTEGER, 1L))))
+                                                        .put("unwrappedValue", expression(new Subscript(new Reference(RowType.anonymousRow(INTEGER), "rowValue"), new Constant(INTEGER, 1L))))
                                                         .put("nonRowValue", expression(new Reference(INTEGER, "nonRowValue")))
                                                         .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedElement", expression(new Subscript(INTEGER, new Reference(RowType.anonymousRow(INTEGER), "rowElement"), new Constant(INTEGER, 1L))))
+                                                        .put("unwrappedElement", expression(new Subscript(new Reference(RowType.anonymousRow(INTEGER), "rowElement"), new Constant(INTEGER, 1L))))
                                                         .put("nonRowElement", expression(new Reference(INTEGER, "nonRowElement")))
                                                         .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));
@@ -121,13 +121,13 @@ public class TestUnwrapSingleColumnRowInApply
                                                 .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedValue", expression(new Subscript(INTEGER, new Reference(RowType.anonymousRow(INTEGER), "rowValue"), new Constant(INTEGER, 1L))))
+                                                        .put("unwrappedValue", expression(new Subscript(new Reference(RowType.anonymousRow(INTEGER), "rowValue"), new Constant(INTEGER, 1L))))
                                                         .put("nonRowValue", expression(new Reference(INTEGER, "nonRowValue")))
                                                         .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("unwrappedElement", expression(new Subscript(INTEGER, new Reference(RowType.anonymousRow(INTEGER), "rowElement"), new Constant(INTEGER, 1L))))
+                                                        .put("unwrappedElement", expression(new Subscript(new Reference(RowType.anonymousRow(INTEGER), "rowElement"), new Constant(INTEGER, 1L))))
                                                         .put("nonRowElement", expression(new Reference(INTEGER, "nonRowElement")))
                                                         .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));

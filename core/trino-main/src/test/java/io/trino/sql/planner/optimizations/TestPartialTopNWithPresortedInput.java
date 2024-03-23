@@ -208,9 +208,9 @@ public class TestPartialTopNWithPresortedInput
                         topN(1, ImmutableList.of(sort("k", ASCENDING, LAST)), FINAL,
                                 anyTree(
                                         limit(1, ImmutableList.of(), true, ImmutableList.of("k"),
-                                                project(ImmutableMap.of("k", expression(new Subscript(INTEGER, new Reference(INTEGER, "nested"), new Constant(INTEGER, 1L)))),
+                                                project(ImmutableMap.of("k", expression(new Subscript(new Reference(RowType.from(ImmutableList.of(RowType.field("k", INTEGER))), "nested"), new Constant(INTEGER, 1L)))),
                                                         filter(
-                                                                new Comparison(EQUAL, new Subscript(INTEGER, new Reference(INTEGER, "nested"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)),
+                                                                new Comparison(EQUAL, new Subscript(new Reference(RowType.from(ImmutableList.of(RowType.field("k", INTEGER))), "nested"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 1L)),
                                                                 tableScan("with_nested_field", ImmutableMap.of("nested", "nested")))))))));
     }
 }

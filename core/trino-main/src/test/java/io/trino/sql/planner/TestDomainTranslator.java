@@ -66,6 +66,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -86,7 +87,6 @@ import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.Reals.toReal;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ONE;
 import static java.math.BigDecimal.TWO;
@@ -108,13 +108,13 @@ public class TestDomainTranslator
     private static final Symbol C_DOUBLE_1 = new Symbol(DOUBLE, "c_double_1");
     private static final Symbol C_VARCHAR_1 = new Symbol(VARCHAR, "c_varchar_1");
     private static final Symbol C_BOOLEAN_1 = new Symbol(BOOLEAN, "c_boolean_1");
-    private static final Symbol C_TIMESTAMP = new Symbol(UNKNOWN, "c_timestamp");
+    private static final Symbol C_TIMESTAMP = new Symbol(createTimestampType(3), "c_timestamp");
     private static final Symbol C_DATE = new Symbol(DATE, "c_date");
     private static final Symbol C_COLOR = new Symbol(COLOR, "c_color");
     private static final Symbol C_HYPER_LOG_LOG = new Symbol(HYPER_LOG_LOG, "c_hyper_log_log");
     private static final Symbol C_INTEGER = new Symbol(INTEGER, "c_integer");
     private static final Symbol C_INTEGER_1 = new Symbol(INTEGER, "c_integer_1");
-    private static final Symbol C_CHAR = new Symbol(UNKNOWN, "c_char");
+    private static final Symbol C_CHAR = new Symbol(createCharType(10), "c_char");
     private static final Symbol C_DECIMAL_21_3 = new Symbol(createDecimalType(21, 3), "c_decimal_21_3");
     private static final Symbol C_DECIMAL_21_3_1 = new Symbol(createDecimalType(21, 3), "c_decimal_21_3_1");
     private static final Symbol C_DECIMAL_12_2 = new Symbol(createDecimalType(12, 2), "c_decimal_12_2");
@@ -1608,10 +1608,10 @@ public class TestDomainTranslator
     {
         Call likePattern = new Call(
                 functionResolution.resolveFunction(LIKE_PATTERN_FUNCTION_NAME, fromTypes(VARCHAR, VARCHAR)),
-                ImmutableList.of(symbol.toSymbolReference(), pattern, escape));
+                ImmutableList.of(pattern, escape));
         return new Call(
                 functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)),
-                ImmutableList.of(symbol.toSymbolReference(), pattern, likePattern));
+                ImmutableList.of(symbol.toSymbolReference(), likePattern));
     }
 
     private Call like(Symbol symbol, String pattern, Character escape)

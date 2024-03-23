@@ -57,7 +57,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.Arithmetic.Operator.MODULUS;
@@ -76,7 +76,6 @@ public class TestPushPredicateIntoTableScan
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
-    private static final ResolvedFunction MODULUS_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(INTEGER, INTEGER));
 
     private static final String MOCK_CATALOG = "mock_catalog";
     private static final ConnectorTableHandle CONNECTOR_PARTITIONED_TABLE_HANDLE =
@@ -224,7 +223,7 @@ public class TestPushPredicateIntoTableScan
                                                 functionResolution
                                                         .functionCallBuilder("rand")
                                                         .build(),
-                                                new Constant(BIGINT, 42L)),
+                                                new Constant(DOUBLE, 42.0)),
                                         // non-translatable to connector expression
                                         new Coalesce(
                                                 new Constant(BOOLEAN, null),
@@ -249,7 +248,7 @@ public class TestPushPredicateIntoTableScan
                                                 functionResolution
                                                         .functionCallBuilder("rand")
                                                         .build(),
-                                                new Constant(BIGINT, 42L)),
+                                                new Constant(DOUBLE, 42.0)),
                                         new Comparison(
                                                 EQUAL,
                                                 new Arithmetic(MODULUS_BIGINT, MODULUS, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L)),
@@ -271,7 +270,7 @@ public class TestPushPredicateIntoTableScan
                                 functionResolution
                                         .functionCallBuilder("rand")
                                         .build(),
-                                new Constant(INTEGER, 42L)),
+                                new Constant(DOUBLE, 42.0)),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -285,7 +284,7 @@ public class TestPushPredicateIntoTableScan
     {
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new Logical(AND, ImmutableList.of(new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 17L)), new Constant(BIGINT, 44L)), new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 15L)), new Constant(BIGINT, 43L)))),
+                        new Logical(AND, ImmutableList.of(new Comparison(EQUAL, new Arithmetic(MODULUS_BIGINT, MODULUS, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L)), new Constant(BIGINT, 44L)), new Comparison(EQUAL, new Arithmetic(MODULUS_BIGINT, MODULUS, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 15L)), new Constant(BIGINT, 43L)))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -322,7 +321,7 @@ public class TestPushPredicateIntoTableScan
                                         functionResolution
                                                 .functionCallBuilder("rand")
                                                 .build(),
-                                        new Constant(INTEGER, 0L))),
+                                        new Constant(DOUBLE, 0.0))),
                         p.tableScan(
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", orderStatusType)),
@@ -334,7 +333,7 @@ public class TestPushPredicateIntoTableScan
                                         functionResolution
                                                 .functionCallBuilder("rand")
                                                 .build(),
-                                        new Constant(INTEGER, 0L)),
+                                        new Constant(DOUBLE, 0.0)),
                                 constrainedTableScanWithTableLayout(
                                         "orders",
                                         ImmutableMap.of("orderstatus", singleValue(orderStatusType, utf8Slice("O"))),

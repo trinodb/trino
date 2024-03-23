@@ -51,7 +51,6 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.IrUtils.and;
@@ -72,16 +71,16 @@ public class TestEqualityInference
     {
         EqualityInference inference = new EqualityInference(
                 equals("a1", "b1"),
-                equals(add(new Reference(BIGINT, "a1"), number(1)), number(0)),
-                equals(new Reference(BIGINT, "a2"), add(new Reference(BIGINT, "a1"), number(2))),
+                equals(add(new Reference(BIGINT, "a1"), new Constant(BIGINT, 1L)), new Constant(BIGINT, 0L)),
+                equals(new Reference(BIGINT, "a2"), add(new Reference(BIGINT, "a1"), new Constant(BIGINT, 2L))),
                 equals(new Reference(BIGINT, "a1"), add("a3", "b3")),
                 equals(new Reference(BIGINT, "b2"), add("a4", "b4")));
         EqualityInference.EqualityPartition partition = inference.generateEqualitiesPartitionedBy(symbols("a1", "a2", "a3", "a4"));
         assertThat(partition.getScopeEqualities()).containsExactly(
-                equals(number(0), add(new Reference(BIGINT, "a1"), number(1))),
-                equals(new Reference(BIGINT, "a2"), add(new Reference(BIGINT, "a1"), number(2))));
+                equals(new Constant(BIGINT, 0L), add(new Reference(BIGINT, "a1"), new Constant(BIGINT, 1L))),
+                equals(new Reference(BIGINT, "a2"), add(new Reference(BIGINT, "a1"), new Constant(BIGINT, 2L))));
         assertThat(partition.getScopeComplementEqualities()).containsExactly(
-                equals(number(0), add(new Reference(BIGINT, "b1"), number(1))));
+                equals(new Constant(BIGINT, 0L), add(new Reference(BIGINT, "b1"), new Constant(BIGINT, 1L))));
         // there shouldn't be equality a2 = b1 + 1 as it can be derived from a2 = a1 + 1, a1 = b1
         assertThat(partition.getScopeStraddlingEqualities()).containsExactly(
                 equals("a1", "b1"),
@@ -166,7 +165,7 @@ public class TestEqualityInference
     {
         EqualityInference inference = new EqualityInference(
                 equals(new Reference(BIGINT, "a1"), new Reference(BIGINT, "b1")),
-                equals(add("a1", "a1"), multiply(new Reference(BIGINT, "a1"), number(2))),
+                equals(add("a1", "a1"), multiply(new Reference(BIGINT, "a1"), new Constant(BIGINT, 2L))),
                 equals(new Reference(BIGINT, "b1"), new Reference(BIGINT, "c1")),
                 equals(add("a1", "a1"), new Reference(BIGINT, "c1")),
                 equals(add("a1", "b1"), new Reference(BIGINT, "c1")));
@@ -281,15 +280,15 @@ public class TestEqualityInference
         EqualityInference inference = new EqualityInference(
                 equals("a1", "b1"),
                 equals("b1", "c1"),
-                equals(new Reference(BIGINT, "c1"), number(1)));
+                equals(new Reference(BIGINT, "c1"), new Constant(BIGINT, 1L)));
 
         // Should always prefer a constant if available (constant is part of all scopes)
-        assertThat(inference.rewrite(new Reference(BIGINT, "a1"), symbols("a1", "b1"))).isEqualTo(number(1));
+        assertThat(inference.rewrite(new Reference(BIGINT, "a1"), symbols("a1", "b1"))).isEqualTo(new Constant(BIGINT, 1L));
 
         // All scope equalities should utilize the constant if possible
         EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(symbols("a1", "b1"));
-        assertThat(equalitiesAsSets(equalityPartition.getScopeEqualities())).isEqualTo(set(set(new Reference(BIGINT, "a1"), number(1)), set(new Reference(BIGINT, "b1"), number(1))));
-        assertThat(equalitiesAsSets(equalityPartition.getScopeComplementEqualities())).isEqualTo(set(set(new Reference(BIGINT, "c1"), number(1))));
+        assertThat(equalitiesAsSets(equalityPartition.getScopeEqualities())).isEqualTo(set(set(new Reference(BIGINT, "a1"), new Constant(BIGINT, 1L)), set(new Reference(BIGINT, "b1"), new Constant(BIGINT, 1L))));
+        assertThat(equalitiesAsSets(equalityPartition.getScopeComplementEqualities())).isEqualTo(set(set(new Reference(BIGINT, "c1"), new Constant(BIGINT, 1L))));
 
         // There should be no scope straddling equalities as the full set of equalities should be already represented by the scope and inverse scope
         assertThat(equalityPartition.getScopeStraddlingEqualities().isEmpty()).isTrue();
@@ -314,17 +313,17 @@ public class TestEqualityInference
                 new Cast(new Reference(BIGINT, "b"), BIGINT, true), // try_cast
                 functionResolution
                         .functionCallBuilder(TryFunction.NAME)
-                        .addArgument(new FunctionType(ImmutableList.of(), VARCHAR), new Lambda(ImmutableList.of(), new Reference(BIGINT, "b")))
+                        .addArgument(new FunctionType(ImmutableList.of(), BIGINT), new Lambda(ImmutableList.of(), new Reference(BIGINT, "b")))
                         .build(),
                 new NullIf(new Reference(BIGINT, "b"), number(1)),
-                new In(new Reference(BIGINT, "b"), ImmutableList.of(new Constant(UnknownType.UNKNOWN, null))),
+                new In(new Reference(BIGINT, "b"), ImmutableList.of(new Constant(BIGINT, null))),
                 new Case(ImmutableList.of(new WhenClause(new Not(new IsNull(new Reference(BIGINT, "b"))), new Constant(UnknownType.UNKNOWN, null))), Optional.empty()),
-                new Switch(new Reference(BIGINT, "b"), ImmutableList.of(new WhenClause(number(1), new Constant(UnknownType.UNKNOWN, null))), Optional.empty()));
+                new Switch(new Reference(INTEGER, "b"), ImmutableList.of(new WhenClause(number(1), new Constant(INTEGER, null))), Optional.empty()));
 
         for (Expression candidate : candidates) {
             EqualityInference inference = new EqualityInference(
                     equals(new Reference(BIGINT, "b"), new Reference(BIGINT, "x")),
-                    equals(new Reference(BIGINT, "a"), candidate));
+                    equals(new Reference(candidate.type(), "a"), candidate));
 
             List<Expression> equalities = inference.generateEqualitiesPartitionedBy(symbols("b")).getScopeStraddlingEqualities();
             assertThat(equalities.size()).isEqualTo(1);

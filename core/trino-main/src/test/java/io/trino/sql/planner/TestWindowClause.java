@@ -187,7 +187,7 @@ public class TestWindowClause
                                                                 Optional.of(new Symbol(UNKNOWN, "frame_bound")),
                                                                 Optional.of(new Symbol(UNKNOWN, "coerced_sortkey"))))),
                                 project(// frame bound value computation
-                                        ImmutableMap.of("frame_bound", expression(new Call(ADD_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "coerced_sortkey"), new Reference(INTEGER, "frame_offset"))))),
+                                        ImmutableMap.of("frame_bound", expression(new Call(ADD_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "coerced_sortkey"), new Reference(DOUBLE, "frame_offset"))))),
                                         project(// sort key coercion to frame bound type
                                                 ImmutableMap.of("coerced_sortkey", expression(new Cast(new Reference(INTEGER, "sortkey"), DOUBLE))),
                                                 node(FilterNode.class,

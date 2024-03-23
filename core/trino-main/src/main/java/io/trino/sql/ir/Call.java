@@ -21,7 +21,8 @@ import io.trino.spi.type.Type;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.sql.ir.IrUtils.validateType;
 
 @JsonSerialize
 public record Call(ResolvedFunction function, List<Expression> arguments)
@@ -29,8 +30,12 @@ public record Call(ResolvedFunction function, List<Expression> arguments)
 {
     public Call
     {
-        requireNonNull(function, "function is null");
         arguments = ImmutableList.copyOf(arguments);
+
+        checkArgument(function.getSignature().getArgumentTypes().size() == arguments.size(), "Expected %s arguments, found: %s", function.getSignature().getArgumentTypes().size(), arguments.size());
+        for (int i = 0; i < arguments.size(); i++) {
+            validateType(function.getSignature().getArgumentType(i), arguments.get(i));
+        }
     }
 
     @Override

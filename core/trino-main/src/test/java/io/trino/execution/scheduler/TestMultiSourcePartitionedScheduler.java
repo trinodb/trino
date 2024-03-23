@@ -115,7 +115,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -521,8 +520,8 @@ public class TestMultiSourcePartitionedScheduler
 
     private PlanFragment createFragment(TableHandle firstTableHandle, TableHandle secondTableHandle)
     {
-        Symbol symbol = new Symbol(UNKNOWN, "column");
-        Symbol buildSymbol = new Symbol(UNKNOWN, "buildColumn");
+        Symbol symbol = new Symbol(VARCHAR, "column");
+        Symbol buildSymbol = new Symbol(VARCHAR, "buildColumn");
 
         TableScanNode tableScanOne = TableScanNode.newInstance(
                 TABLE_SCAN_1_NODE_ID,

@@ -218,7 +218,7 @@ public class BenchmarkScanFilterAndProjectOperator
         private RowExpression getFilter(Type type)
         {
             if (type == VARCHAR) {
-                return rowExpression(new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Cast(new Reference(VARCHAR, "varchar0"), BIGINT), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)));
+                return rowExpression(new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Cast(new Reference(VARCHAR, "varchar0"), INTEGER), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)));
             }
             if (type == BIGINT) {
                 return rowExpression(new Comparison(EQUAL, new Arithmetic(MODULUS_BIGINT, MODULUS, new Reference(INTEGER, "bigint0"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)));

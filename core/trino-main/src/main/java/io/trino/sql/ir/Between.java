@@ -21,7 +21,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static java.util.Objects.requireNonNull;
+import static io.trino.sql.ir.IrUtils.validateType;
 
 @JsonSerialize
 public record Between(Expression value, Expression min, Expression max)
@@ -30,9 +30,8 @@ public record Between(Expression value, Expression min, Expression max)
     @JsonCreator
     public Between
     {
-        requireNonNull(value, "value is null");
-        requireNonNull(min, "min is null");
-        requireNonNull(max, "max is null");
+        validateType(value.type(), min);
+        validateType(value.type(), max);
     }
 
     @Override

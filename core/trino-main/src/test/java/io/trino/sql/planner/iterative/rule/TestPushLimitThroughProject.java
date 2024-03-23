@@ -159,8 +159,8 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new Subscript(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 1L)),
-                                            p.symbol("c"), new Subscript(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 2L))),
+                                            p.symbol("b"), new Subscript(a.toSymbolReference(), new Constant(INTEGER, 1L)),
+                                            p.symbol("c"), new Subscript(a.toSymbolReference(), new Constant(INTEGER, 2L))),
                                     p.values(a)));
                 })
                 .doesNotFire();
@@ -222,13 +222,13 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new Subscript(BIGINT, a.toSymbolReference(), new Constant(INTEGER, 1L)),
+                                            p.symbol("b"), new Subscript(a.toSymbolReference(), new Constant(INTEGER, 1L)),
                                             p.symbol("c", rowType), a.toSymbolReference()),
                                     p.values(a)));
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new Subscript(BIGINT, new Reference(rowType, "a"), new Constant(INTEGER, 1L))), "c", expression(new Reference(rowType, "a"))),
+                                ImmutableMap.of("b", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new Subscript(new Reference(rowType, "a"), new Constant(INTEGER, 1L))), "c", expression(new Reference(rowType, "a"))),
                                 limit(1,
                                         values("a"))));
     }
