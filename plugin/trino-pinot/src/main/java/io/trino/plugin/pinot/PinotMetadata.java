@@ -476,8 +476,9 @@ public class PinotMetadata
             // otherwise do not push down the aggregation.
             // This is to avoid count(column_name) being pushed into pinot, which is currently unsupported.
             // Currently Pinot treats count(column_name) as count(*), i.e. it counts nulls.
+            PinotColumnHandle columnHandle = (PinotColumnHandle) assignments.get(argument.getName());
             if (tableHandle.getQuery().isEmpty() || tableHandle.getQuery().get().getGroupingColumns().stream()
-                    .noneMatch(groupingExpression -> groupingExpression.getColumnName().equals(argument.getName()))) {
+                    .noneMatch(groupingExpression -> groupingExpression.getColumnName().equals(columnHandle.getColumnName()))) {
                 return Optional.empty();
             }
         }
