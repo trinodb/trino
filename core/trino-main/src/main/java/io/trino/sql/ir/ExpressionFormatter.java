@@ -164,12 +164,6 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitArithmetic(Arithmetic node, Void context)
-        {
-            return formatBinaryExpression(node.operator().getValue(), node.left(), node.right());
-        }
-
-        @Override
         public String visitCast(Cast node, Void context)
         {
             return (node.safe() ? "TRY_CAST" : "CAST") +

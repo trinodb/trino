@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
@@ -32,8 +32,6 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
-import static io.trino.sql.ir.Arithmetic.Operator.SUBTRACT;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
@@ -94,8 +92,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                         TRUE,
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)),
-                                        p.symbol("expr_count"), new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "count"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_sum"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_count"), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -106,8 +104,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of(
                                         "corr", expression(new Reference(BIGINT, "corr")),
-                                        "expr_sum", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum_agg"), new Constant(INTEGER, 1L))),
-                                        "expr_count", expression(new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "count_agg"), new Constant(INTEGER, 1L)))),
+                                        "expr_sum", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum_agg"), new Constant(INTEGER, 1L)))),
+                                        "expr_count", expression(new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count_agg"), new Constant(INTEGER, 1L))))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "a"),
                                         ImmutableMap.of(Optional.of("sum_agg"), aggregationFunction("sum", ImmutableList.of("a")), Optional.of("count_agg"), aggregationFunction("count", ImmutableList.of())),
@@ -136,8 +134,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                         TRUE,
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)),
-                                        p.symbol("expr_count"), new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "count"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_sum"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_count"), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -150,8 +148,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of(
                                 "corr", expression(new Reference(BIGINT, "corr")),
-                                        "expr_sum", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum_agg"), new Constant(INTEGER, 1L))),
-                                        "expr_count", expression(new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "count_agg"), new Constant(INTEGER, 1L)))),
+                                        "expr_sum", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum_agg"), new Constant(INTEGER, 1L)))),
+                                        "expr_count", expression(new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count_agg"), new Constant(INTEGER, 1L))))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "a"),
                                         ImmutableMap.of(Optional.of("sum_agg"), aggregationFunction("sum", ImmutableList.of("a")), Optional.of("count_agg"), aggregationFunction("count", ImmutableList.of())),
@@ -187,8 +185,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                         TRUE,
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)),
-                                        p.symbol("expr_count"), new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "count"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_sum"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_count"), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -201,8 +199,8 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of(
                                         "corr", expression(new Reference(BIGINT, "corr")),
-                                        "expr_sum", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum_agg"), new Constant(INTEGER, 1L))),
-                                        "expr_count", expression(new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "count_agg"), new Constant(INTEGER, 1L)))),
+                                        "expr_sum", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum_agg"), new Constant(INTEGER, 1L)))),
+                                        "expr_count", expression(new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count_agg"), new Constant(INTEGER, 1L))))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "a"),
                                         ImmutableMap.of(Optional.of("sum_agg"), aggregationFunction("sum", ImmutableList.of("a")), Optional.of("count_agg"), aggregationFunction("count", ImmutableList.of())),

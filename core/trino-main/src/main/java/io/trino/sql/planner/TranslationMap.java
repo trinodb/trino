@@ -40,7 +40,6 @@ import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
@@ -579,17 +578,11 @@ public class TranslationMap
             case MODULUS -> OperatorType.MODULUS;
         };
 
-        return new Arithmetic(
+        return new Call(
                 plannerContext.getMetadata().resolveOperator(operatorType, ImmutableList.of(getCoercedType(expression.getLeft()), getCoercedType(expression.getRight()))),
-                switch (expression.getOperator()) {
-                    case ADD -> Arithmetic.Operator.ADD;
-                    case SUBTRACT -> Arithmetic.Operator.SUBTRACT;
-                    case MULTIPLY -> Arithmetic.Operator.MULTIPLY;
-                    case DIVIDE -> Arithmetic.Operator.DIVIDE;
-                    case MODULUS -> Arithmetic.Operator.MODULUS;
-                },
-                translateExpression(expression.getLeft()),
-                translateExpression(expression.getRight()));
+                ImmutableList.of(
+                        translateExpression(expression.getLeft()),
+                        translateExpression(expression.getRight())));
     }
 
     private Type getCoercedType(Expression left)

@@ -32,11 +32,6 @@ public abstract class IrVisitor<R, C>
         return null;
     }
 
-    protected R visitArithmetic(Arithmetic node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitBetween(Between node, C context)
     {
         return visitExpression(node, context);

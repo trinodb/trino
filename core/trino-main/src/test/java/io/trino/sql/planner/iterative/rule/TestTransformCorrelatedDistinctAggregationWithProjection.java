@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
@@ -31,7 +31,6 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -87,7 +86,7 @@ public class TestTransformCorrelatedDistinctAggregationWithProjection
                         JoinType.LEFT,
                         TRUE,
                         p.project(
-                                Assignments.of(p.symbol("x"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "a"), new Constant(INTEGER, 100L))),
+                                Assignments.of(p.symbol("x"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 100L)))),
                                 p.aggregation(innerBuilder -> innerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .source(p.filter(
@@ -96,7 +95,7 @@ public class TestTransformCorrelatedDistinctAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of(
                                         "corr", expression(new Reference(BIGINT, "corr")),
-                                        "x", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "a"), new Constant(INTEGER, 100L)))),
+                                        "x", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 100L))))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique", "a"),
                                         ImmutableMap.of(),

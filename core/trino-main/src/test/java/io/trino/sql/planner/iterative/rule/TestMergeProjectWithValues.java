@@ -19,7 +19,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.RowType;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
@@ -37,7 +36,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
@@ -216,7 +214,7 @@ public class TestMergeProjectWithValues
 
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("x"), new Arithmetic(ADD_DOUBLE, ADD, new Reference(DOUBLE, "rand"), new Reference(DOUBLE, "rand"))),
+                        Assignments.of(p.symbol("x"), new Call(ADD_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "rand"), new Reference(DOUBLE, "rand")))),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand")),
                                 ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
@@ -229,11 +227,11 @@ public class TestMergeProjectWithValues
         // correlation symbol in projection (note: the resulting plan is not yet supported in execution)
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("x", INTEGER), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "a"), new Reference(INTEGER, "corr"))),
+                        Assignments.of(p.symbol("x", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Reference(INTEGER, "corr")))),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a", INTEGER)),
                                 ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L)))))))
-                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new Arithmetic(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new Reference(INTEGER, "corr"))))));
+                .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new Call(ADD_INTEGER, ImmutableList.of(new Constant(INTEGER, 1L), new Reference(INTEGER, "corr")))))));
 
         // correlation symbol in values (note: the resulting plan is not yet supported in execution)
         tester().assertThat(new MergeProjectWithValues())

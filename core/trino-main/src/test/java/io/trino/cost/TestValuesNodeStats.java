@@ -19,7 +19,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
@@ -29,7 +29,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.ir.Arithmetic.Operator.DIVIDE;
 import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestValuesNodeStats
@@ -93,7 +92,7 @@ public class TestValuesNodeStats
     {
         tester().assertStatsFor(pb -> pb
                         .values(ImmutableList.of(pb.symbol("a", BIGINT)),
-                                ImmutableList.of(ImmutableList.of(new Arithmetic(DIVIDE_INTEGER, DIVIDE, new Constant(INTEGER, 1L), new Constant(INTEGER, 0L))))))
+                                ImmutableList.of(ImmutableList.of(new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 0L)))))))
                 .check(outputStats -> outputStats.equalTo(unknown()));
     }
 

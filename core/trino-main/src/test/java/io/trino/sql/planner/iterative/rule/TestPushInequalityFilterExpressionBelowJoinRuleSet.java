@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -30,7 +30,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.ir.Comparison.Operator;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
@@ -92,7 +91,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                 .filter(new Comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Reference(BIGINT, "a")))
                                 .left(values("a"))
                                 .right(project(
-                                        ImmutableMap.of("expr", expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "b"), new Constant(BIGINT, 1L)))),
+                                        ImmutableMap.of("expr", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 1L))))),
                                         values("b")))));
     }
 
@@ -118,8 +117,8 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                 .right(
                                         project(
                                                 ImmutableMap.of(
-                                                        "expr_less", expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "b"), new Constant(BIGINT, 1L))),
-                                                        "expr_greater", expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "b"), new Constant(BIGINT, 10L)))),
+                                                        "expr_less", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 1L)))),
+                                                        "expr_greater", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 10L))))),
                                                 values("b")))));
     }
 
@@ -138,11 +137,11 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         join(INNER, builder -> builder
-                                .filter(new Comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "a"), new Constant(BIGINT, 2L))))
+                                .filter(new Comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Constant(BIGINT, 2L)))))
                                 .left(values("a"))
                                 .right(
                                         project(
-                                                ImmutableMap.of("expr", expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "b"), new Constant(BIGINT, 1L)))),
+                                                ImmutableMap.of("expr", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 1L))))),
                                                 values("b")))));
     }
 
@@ -186,7 +185,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                                         values("a"))
                                                 .right(
                                                         project(
-                                                                ImmutableMap.of("expr", expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "b"), new Constant(BIGINT, 1L)))),
+                                                                ImmutableMap.of("expr", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 1L))))),
                                                                 values("b")))))));
     }
 
@@ -214,8 +213,8 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                                 .right(
                                                         project(
                                                                 ImmutableMap.of(
-                                                                        "expr_less", expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "b"), new Constant(BIGINT, 1L))),
-                                                                        "expr_greater", expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "b"), new Constant(BIGINT, 10L)))),
+                                                                        "expr_less", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 1L)))),
+                                                                        "expr_greater", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 10L))))),
                                                                 values("b")))))));
     }
 
@@ -244,8 +243,8 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                                 .right(
                                                         project(
                                                                 ImmutableMap.of(
-                                                                        "join_expression", expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "b"), new Constant(BIGINT, 2L))),
-                                                                        "parent_expression", expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "b"), new Constant(BIGINT, 1L)))),
+                                                                        "join_expression", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 2L)))),
+                                                                        "parent_expression", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 1L))))),
                                                                 values("b"))))
                                                 .withExactOutputs("a", "b", "parent_expression"))));
     }
@@ -285,12 +284,8 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
         return new Comparison(operator, left, right);
     }
 
-    private Arithmetic add(Symbol symbol, long value)
+    private Call add(Symbol symbol, long value)
     {
-        return new Arithmetic(
-                ADD_BIGINT,
-                ADD,
-                symbol.toSymbolReference(),
-                new Constant(BIGINT, value));
+        return new Call(ADD_BIGINT, ImmutableList.of(symbol.toSymbolReference(), new Constant(BIGINT, value)));
     }
 }

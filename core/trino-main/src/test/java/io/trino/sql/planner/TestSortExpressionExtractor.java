@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
@@ -35,7 +34,6 @@ import java.util.Set;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
@@ -74,7 +72,7 @@ public class TestSortExpressionExtractor
                 "b1",
                 new Comparison(GREATER_THAN, new Reference(BIGINT, "b1"), new Reference(BIGINT, "p1")));
 
-        assertNoSortExpression(new Comparison(GREATER_THAN, new Reference(BIGINT, "b1"), new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "p1"), new Reference(BIGINT, "b2"))));
+        assertNoSortExpression(new Comparison(GREATER_THAN, new Reference(BIGINT, "b1"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "p1"), new Reference(BIGINT, "b2")))));
 
         assertNoSortExpression(new Logical(OR, ImmutableList.of(new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "b1"), new Reference(BIGINT, "p1")), new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "b2"), new Reference(BIGINT, "p1")))));
 
@@ -89,10 +87,10 @@ public class TestSortExpressionExtractor
                 new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "b1"), new Reference(BIGINT, "p1")));
 
         assertGetSortExpression(
-                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "b1"), new Reference(BIGINT, "p1")), new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "b1"), new Reference(BIGINT, "p1")), new Comparison(GREATER_THAN, new Reference(BIGINT, "b2"), new Reference(BIGINT, "p1")), new Comparison(LESS_THAN, new Reference(BIGINT, "b2"), new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "p1"), new Constant(BIGINT, 10L))), new Comparison(GREATER_THAN, new Reference(BIGINT, "b2"), new Reference(BIGINT, "p2")))),
+                new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "b1"), new Reference(BIGINT, "p1")), new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "b1"), new Reference(BIGINT, "p1")), new Comparison(GREATER_THAN, new Reference(BIGINT, "b2"), new Reference(BIGINT, "p1")), new Comparison(LESS_THAN, new Reference(BIGINT, "b2"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "p1"), new Constant(BIGINT, 10L)))), new Comparison(GREATER_THAN, new Reference(BIGINT, "b2"), new Reference(BIGINT, "p2")))),
                 "b2",
                 new Comparison(GREATER_THAN, new Reference(BIGINT, "b2"), new Reference(BIGINT, "p1")),
-                new Comparison(LESS_THAN, new Reference(BIGINT, "b2"), new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "p1"), new Constant(BIGINT, 10L))),
+                new Comparison(LESS_THAN, new Reference(BIGINT, "b2"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "p1"), new Constant(BIGINT, 10L)))),
                 new Comparison(GREATER_THAN, new Reference(BIGINT, "b2"), new Reference(BIGINT, "p2")));
 
         assertGetSortExpression(

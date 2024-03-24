@@ -19,7 +19,6 @@ import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
@@ -37,8 +36,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
-import static io.trino.sql.ir.Arithmetic.Operator.MODULUS;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.UnnestMapping.unnestMapping;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
@@ -264,7 +261,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.project(
-                                Assignments.of(p.symbol("sum_1"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                                Assignments.of(p.symbol("sum_1"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(innerBuilder -> innerBuilder
                                         .globalGrouping()
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "unnested_corr"))), ImmutableList.of(BIGINT))
@@ -280,7 +277,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                                         ImmutableMap.of(
                                                 "corr", expression(new Reference(BIGINT, "corr")),
                                                 "unique", expression(new Reference(BIGINT, "unique")),
-                                                "sum_1", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)))),
+                                                "sum_1", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))))),
                                         aggregation(
                                                 singleGroupingSet("unique", "corr"),
                                                 ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("unnested_corr"))),
@@ -348,7 +345,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                         ImmutableList.of(p.symbol("groups"), p.symbol("numbers")),
                         p.values(p.symbol("groups"), p.symbol("numbers")),
                         p.project(
-                                Assignments.of(p.symbol("sum_1"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                                Assignments.of(p.symbol("sum_1"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(globalBuilder -> globalBuilder
                                         .globalGrouping()
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "negate"))), ImmutableList.of(BIGINT))
@@ -363,7 +360,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                                                                 p.project(
                                                                         Assignments.builder()
                                                                                 .putIdentities(ImmutableList.of(p.symbol("group"), p.symbol("number")))
-                                                                                .put(p.symbol("modulo"), new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "number"), new Constant(INTEGER, 10L)))
+                                                                                .put(p.symbol("modulo"), new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "number"), new Constant(INTEGER, 10L))))
                                                                                 .build(),
                                                                         p.unnest(
                                                                                 ImmutableList.of(),
@@ -376,7 +373,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                 .matches(
                         project(
                                 project(
-                                        ImmutableMap.of("sum_1", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)))),
+                                        ImmutableMap.of("sum_1", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))))),
                                         aggregation(
                                                 singleGroupingSet("groups", "numbers", "unique"),
                                                 ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("negated"))),
@@ -393,7 +390,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                                                                 Optional.empty(),
                                                                 SINGLE,
                                                                 project(
-                                                                        ImmutableMap.of("modulo", expression(new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "number"), new Constant(INTEGER, 10L)))),
+                                                                        ImmutableMap.of("modulo", expression(new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "number"), new Constant(INTEGER, 10L))))),
                                                                         unnest(
                                                                                 ImmutableList.of("groups", "numbers", "unique"),
                                                                                 ImmutableList.of(

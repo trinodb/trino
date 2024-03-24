@@ -24,7 +24,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.FieldId;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.ResolvedField;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -41,7 +40,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static java.util.Objects.requireNonNull;
 
 public final class GroupingOperationRewriter
@@ -99,11 +97,9 @@ public final class GroupingOperationRewriter
                                 .setName(ArrayConstructor.NAME)
                                 .setArguments(Collections.nCopies(groupingResults.size(), type), groupingResults)
                                 .build(),
-                        new Arithmetic(
+                        new Call(
                                 metadata.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT)),
-                                ADD,
-                                groupIdSymbol.get().toSymbolReference(),
-                                new Constant(BIGINT, 1L))));
+                                ImmutableList.of(groupIdSymbol.get().toSymbolReference(), new Constant(BIGINT, 1L)))));
     }
 
     private static int translateFieldToInteger(FieldId fieldId, RelationId requiredOriginRelationId)
