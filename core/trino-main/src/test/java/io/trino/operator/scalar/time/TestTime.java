@@ -26,10 +26,13 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.function.BiFunction;
 
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -1805,6 +1808,18 @@ public class TestTime
         assertThat(assertions.expression("date_diff('hour', TIME '11:34:55.1111111111', TIME '12:34:56.9999999999')")).matches("BIGINT '1'");
         assertThat(assertions.expression("date_diff('hour', TIME '11:34:55.11111111111', TIME '12:34:56.99999999999')")).matches("BIGINT '1'");
         assertThat(assertions.expression("date_diff('hour', TIME '11:34:55.111111111111', TIME '12:34:56.999999999999')")).matches("BIGINT '1'");
+
+        // Units not supported on TIME, but supported on some other types
+        for (String unit : List.of("day", "week", "month", "quarter", "year")) {
+            // Short TIME
+            assertTrinoExceptionThrownBy(assertions.expression("date_diff('%s', TIME '00:00:00', TIME '01:00:00')".formatted(unit))::evaluate)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessage("'%s' is not a valid TIME field".formatted(unit));
+            // Long TIME
+            assertTrinoExceptionThrownBy(assertions.expression("date_diff('%s', TIME '00:00:00.123456789012', TIME '01:00:00.123456789012')".formatted(unit))::evaluate)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessage("'%s' is not a valid TIME field".formatted(unit));
+        }
     }
 
     @Test
@@ -1841,6 +1856,18 @@ public class TestTime
 
         assertThat(assertions.expression("date_add('millisecond', BIGINT '365' * 24 * 60 * 60 * 1000, TIME '12:34:56.000')")).matches("TIME '12:34:56.000'");
         assertThat(assertions.expression("date_add('millisecond', BIGINT '365' * 24 * 60 * 60 * 1000 + 1, TIME '12:34:56.000')")).matches("TIME '12:34:56.001'");
+
+        // Units not supported on TIME, but supported on some other types
+        for (String unit : List.of("day", "week", "month", "quarter", "year")) {
+            // Short TIME
+            assertTrinoExceptionThrownBy(assertions.expression("date_add('%s', 1, TIME '00:00:00')".formatted(unit))::evaluate)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessage("'%s' is not a valid TIME field".formatted(unit));
+            // Long TIME
+            assertTrinoExceptionThrownBy(assertions.expression("date_add('%s', 1, TIME '00:00:00.123456789012')".formatted(unit))::evaluate)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessage("'%s' is not a valid TIME field".formatted(unit));
+        }
     }
 
     @Test
@@ -1957,6 +1984,18 @@ public class TestTime
         assertThat(assertions.expression("date_trunc('hour', TIME '12:34:56.5555555555')")).matches("TIME '12:00:00.0000000000'");
         assertThat(assertions.expression("date_trunc('hour', TIME '12:34:56.55555555555')")).matches("TIME '12:00:00.00000000000'");
         assertThat(assertions.expression("date_trunc('hour', TIME '12:34:56.555555555555')")).matches("TIME '12:00:00.000000000000'");
+
+        // Units not supported on TIME, but supported on some other types
+        for (String unit : List.of("day", "week", "month", "quarter", "year")) {
+            // Short TIME
+            assertTrinoExceptionThrownBy(assertions.expression("date_trunc('%s', TIME '00:00:00')".formatted(unit))::evaluate)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessage("'%s' is not a valid TIME field".formatted(unit));
+            // Long TIME
+            assertTrinoExceptionThrownBy(assertions.expression("date_trunc('%s', TIME '00:00:00.123456789012')".formatted(unit))::evaluate)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessage("'%s' is not a valid TIME field".formatted(unit));
+        }
     }
 
     @Test
