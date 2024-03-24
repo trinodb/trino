@@ -48,7 +48,6 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
@@ -93,6 +92,7 @@ import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
+import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -278,7 +278,9 @@ public final class ConnectorExpressionTranslator
 
             // arithmetic unary
             if (NEGATE_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
-                return translate(getOnlyElement(call.getArguments())).map(argument -> new Negation(argument));
+                ConnectorExpression argument = getOnlyElement(call.getArguments());
+                ResolvedFunction function = plannerContext.getMetadata().resolveOperator(NEGATION, ImmutableList.of(argument.getType()));
+                return translate(argument).map(value -> new Call(function, ImmutableList.of(value)));
             }
 
             if (StandardFunctions.LIKE_FUNCTION_NAME.equals(call.getFunctionName())) {
@@ -620,13 +622,10 @@ public final class ConnectorExpressionTranslator
                                                     new io.trino.spi.expression.Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, max)))))));
         }
 
-        @Override
-        protected Optional<ConnectorExpression> visitNegation(Negation node, Void context)
+        protected Optional<ConnectorExpression> translateNegation(Call node)
         {
-            if (!isComplexExpressionPushdown(session)) {
-                return Optional.empty();
-            }
-            return process(node.value()).map(value -> new io.trino.spi.expression.Call(((Expression) node).type(), NEGATE_FUNCTION_NAME, ImmutableList.of(value)));
+            return process(node.arguments().getFirst())
+                    .map(value -> new io.trino.spi.expression.Call(node.type(), NEGATE_FUNCTION_NAME, ImmutableList.of(value)));
         }
 
         @Override
@@ -668,6 +667,9 @@ public final class ConnectorExpressionTranslator
 
             if (functionName.equals(builtinFunctionName(LIKE_FUNCTION_NAME))) {
                 return translateLike(node);
+            }
+            else if (functionName.equals(builtinFunctionName(NEGATION))) {
+                return translateNegation(node);
             }
 
             ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();

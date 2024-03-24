@@ -37,7 +37,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -173,6 +172,7 @@ public class TestFilterStatsCalculator
     private static final ResolvedFunction MULTIPLY_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(DOUBLE, DOUBLE));
     private static final ResolvedFunction SUBTRACT_INTEGER = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
     private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction NEGATION_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(DOUBLE));
 
     @Test
     public void testBooleanLiteralStats()
@@ -195,7 +195,7 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(26)
                                 .nullsFraction(0.0));
 
-        assertExpression(new Comparison(GREATER_THAN, new Negation(new Reference(DOUBLE, "x")), new Constant(DOUBLE, -3.0)))
+        assertExpression(new Comparison(GREATER_THAN, new Call(NEGATION_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "x"))), new Constant(DOUBLE, -3.0)))
                 .outputRowsCount(lessThan3Rows);
 
         for (Expression minusThree : ImmutableList.of(

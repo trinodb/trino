@@ -32,7 +32,6 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
@@ -102,6 +101,7 @@ public class TestExpressionInterpreter
     private static final ResolvedFunction SUBTRACT_INTEGER = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
     private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
     private static final ResolvedFunction DIVIDE_INTEGER = FUNCTIONS.resolveOperator(OperatorType.DIVIDE, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction NEGATION_INTEGER = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(INTEGER));
 
     @Test
     public void testAnd()
@@ -277,11 +277,11 @@ public class TestExpressionInterpreter
     public void testNegative()
     {
         assertOptimizedEquals(
-                new Negation(new Constant(INTEGER, 1L)),
+                new Call(NEGATION_INTEGER, ImmutableList.of(new Constant(INTEGER, 1L))),
                 new Constant(INTEGER, -1L));
         assertOptimizedEquals(
-                new Negation(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))),
-                new Negation(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L))));
+                new Call(NEGATION_INTEGER, ImmutableList.of(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)))),
+                new Call(NEGATION_INTEGER, ImmutableList.of(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)))));
     }
 
     @Test

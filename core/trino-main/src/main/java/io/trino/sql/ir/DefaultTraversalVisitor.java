@@ -126,13 +126,6 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitNegation(Negation node, C context)
-    {
-        process(node.value(), context);
-        return null;
-    }
-
-    @Override
     protected Void visitNot(Not node, C context)
     {
         process(node.value(), context);

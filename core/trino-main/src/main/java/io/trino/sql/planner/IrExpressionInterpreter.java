@@ -23,7 +23,6 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionNullability;
-import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
@@ -48,7 +47,6 @@ import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
@@ -76,11 +74,11 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -88,6 +86,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
@@ -446,38 +445,6 @@ public class IrExpressionInterpreter
         }
 
         @Override
-        protected Object visitNegation(Negation node, Object context)
-        {
-            Object value = processWithExceptionHandling(node.value(), context);
-            if (value == null) {
-                return null;
-            }
-            if (value instanceof Expression) {
-                Expression valueExpression = toExpression(value, node.value().type());
-                if (valueExpression instanceof Negation argument) {
-                    return argument.value();
-                }
-                return new Negation(valueExpression);
-            }
-
-            ResolvedFunction resolvedOperator = metadata.resolveOperator(OperatorType.NEGATION, types(node.value()));
-            InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NEVER_NULL), FAIL_ON_NULL, true, false);
-            MethodHandle handle = plannerContext.getFunctionManager().getScalarFunctionImplementation(resolvedOperator, invocationConvention).getMethodHandle();
-
-            if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
-                handle = handle.bindTo(connectorSession);
-            }
-            try {
-                return handle.invokeWithArguments(value);
-            }
-            catch (Throwable throwable) {
-                throwIfInstanceOf(throwable, RuntimeException.class);
-                throwIfInstanceOf(throwable, Error.class);
-                throw new RuntimeException(throwable.getMessage(), throwable);
-            }
-        }
-
-        @Override
         protected Object visitArithmetic(Arithmetic node, Object context)
         {
             Object left = processWithExceptionHandling(node.left(), context);
@@ -727,6 +694,10 @@ public class IrExpressionInterpreter
         @Override
         protected Object visitCall(Call node, Object context)
         {
+            if (node.function().getName().getFunctionName().equals(mangleOperatorName(NEGATION))) {
+                return processNegation(node, context);
+            }
+
             List<Type> argumentTypes = new ArrayList<>();
             List<Object> argumentValues = new ArrayList<>();
             for (Expression expression : node.arguments()) {
@@ -755,6 +726,18 @@ public class IrExpressionInterpreter
                         .build();
             }
             return functionInvoker.invoke(resolvedFunction, connectorSession, argumentValues);
+        }
+
+        private Object processNegation(Call negation, Object context)
+        {
+            Object value = processWithExceptionHandling(negation.arguments().getFirst(), context);
+
+            return switch (value) {
+                case Call inner when inner.function().getName().getFunctionName().equals(mangleOperatorName(NEGATION)) -> inner.arguments().getFirst(); // double negation
+                case Expression inner -> new Call(negation.function(), ImmutableList.of(inner));
+                case null -> null;
+                default -> functionInvoker.invoke(negation.function(), connectorSession, ImmutableList.of(value));
+            };
         }
 
         @Override

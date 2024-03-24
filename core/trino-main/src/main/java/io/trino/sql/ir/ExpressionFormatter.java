@@ -164,12 +164,6 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitNegation(Negation node, Void context)
-        {
-            return "-(" + process(node.value(), context) + ")";
-        }
-
-        @Override
         protected String visitArithmetic(Arithmetic node, Void context)
         {
             return formatBinaryExpression(node.operator().getValue(), node.left(), node.right());

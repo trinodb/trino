@@ -98,24 +98,6 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitNegation(Negation node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteNegation(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            Expression child = rewrite(node.value(), context.get());
-            if (child != node.value()) {
-                return new Negation(child);
-            }
-
-            return node;
-        }
-
-        @Override
         public Expression visitArithmetic(Arithmetic node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

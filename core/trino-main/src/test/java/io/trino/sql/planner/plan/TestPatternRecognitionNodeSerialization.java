@@ -25,6 +25,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.TestingBlockEncodingSerde;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -32,7 +33,6 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolKeyDeserializer;
@@ -74,6 +74,8 @@ public class TestPatternRecognitionNodeSerialization
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", fromTypes());
+    private static final ResolvedFunction NEGATION_BIGINT = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(BIGINT));
+    private static final ResolvedFunction NEGATION_INTEGER = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(INTEGER));
 
     private static final JsonCodec<ValuePointer> VALUE_POINTER_CODEC;
     private static final JsonCodec<ExpressionAndValuePointers> EXPRESSION_AND_VALUE_POINTERS_CODEC;
@@ -141,7 +143,7 @@ public class TestPatternRecognitionNodeSerialization
                 ifExpression(
                         new Comparison(GREATER_THAN, new Reference(VARCHAR, "classifier"), new Reference(VARCHAR, "x")),
                         new Cast(new Call(RANDOM, ImmutableList.of()), INTEGER),
-                        new Negation(new Reference(INTEGER, "match_number"))),
+                        new Call(NEGATION_INTEGER, ImmutableList.of(new Reference(INTEGER, "match_number")))),
                 ImmutableList.of(
                         new ExpressionAndValuePointers.Assignment(
                                 new Symbol(VARCHAR, "classifier"),
@@ -169,7 +171,7 @@ public class TestPatternRecognitionNodeSerialization
                         ifExpression(
                                 new Comparison(GREATER_THAN, new Reference(INTEGER, "match_number"), new Reference(INTEGER, "x")),
                                 new Constant(BIGINT, 10L),
-                                new Negation(new Reference(BIGINT, "y"))),
+                                new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "y")))),
                         ImmutableList.of(
                                 new ExpressionAndValuePointers.Assignment(
                                         new Symbol(BIGINT, "match_number"),
