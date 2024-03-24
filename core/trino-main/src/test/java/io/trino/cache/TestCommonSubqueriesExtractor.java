@@ -1406,7 +1406,7 @@ public class TestCommonSubqueriesExtractor
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "[cache_column1]"), new Constant(BIGINT, 10L)))), column1);
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, BIGINT);
         assertThat(subqueryA.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(new PlanSignature(
-                combine(scanFilterProjectKey(new CacheTableId(testTableHandle.getCatalogHandle().getId() + ":cache_table_id")), "filters=((system.builtin.$operator$modulus([cache_column1], bigint '4') = bigint '0') OR (system.builtin.$operator$modulus([cache_column2], bigint '2') = bigint '0'))"),
+                combine(scanFilterProjectKey(new CacheTableId(testTableHandle.getCatalogHandle().getId() + ":cache_table_id")), "filters=((system.builtin.$operator$modulus(\"[cache_column1]\", bigint '4') = bigint '0') OR (system.builtin.$operator$modulus(\"[cache_column2]\", bigint '2') = bigint '0'))"),
                 Optional.empty(),
                 cacheColumnIds,
                 cacheColumnsTypes),

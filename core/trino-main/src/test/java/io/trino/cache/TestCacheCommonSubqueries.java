@@ -242,7 +242,7 @@ public class TestCacheCommonSubqueries
                 new PlanSignature(
                         combine(
                                 scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01")),
-                                "filters=(([nationkey:bigint] IN (bigint '0', bigint '1')) OR ([regionkey:bigint] IN (bigint '0', bigint '1')))"),
+                                "filters=((\"[nationkey:bigint]\" IN (bigint '0', bigint '1')) OR (\"[regionkey:bigint]\" IN (bigint '0', bigint '1')))"),
                         Optional.empty(),
                         cacheColumnIds,
                         cacheColumnTypes),
