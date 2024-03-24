@@ -19,7 +19,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Decimals;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -48,7 +48,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.ir.Arithmetic.Operator.DIVIDE;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
@@ -437,7 +436,7 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(DOUBLE, -0.0), createVarcharType(4)),
                 new Constant(createVarcharType(4), Slices.utf8Slice("-0E0")));
         assertSimplifies(
-                new Cast(new Arithmetic(DIVIDE_DOUBLE, DIVIDE, new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 0.0)), createVarcharType(3)),
+                new Cast(new Call(DIVIDE_DOUBLE, ImmutableList.of(new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 0.0))), createVarcharType(3)),
                 new Constant(createVarcharType(3), Slices.utf8Slice("NaN")));
         assertSimplifies(
                 new Cast(new Constant(DOUBLE, Double.POSITIVE_INFINITY), createVarcharType(8)),
@@ -478,7 +477,7 @@ public class TestSimplifyExpressions
                 new Cast(new Constant(REAL, Reals.toReal(-0.0f)), createVarcharType(4)),
                 new Constant(createVarcharType(4), Slices.utf8Slice("-0E0")));
         assertSimplifies(
-                new Cast(new Arithmetic(DIVIDE_REAL, DIVIDE, new Constant(REAL, Reals.toReal(0.0f)), new Constant(REAL, Reals.toReal(0.0f))), createVarcharType(3)),
+                new Cast(new Call(DIVIDE_REAL, ImmutableList.of(new Constant(REAL, Reals.toReal(0.0f)), new Constant(REAL, Reals.toReal(0.0f)))), createVarcharType(3)),
                 new Constant(createVarcharType(3), Slices.utf8Slice("NaN")));
         assertSimplifies(
                 new Cast(new Constant(REAL, Reals.toReal(Float.POSITIVE_INFINITY)), createVarcharType(8)),

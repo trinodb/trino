@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
@@ -34,7 +34,6 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Arithmetic.Operator.MODULUS;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
@@ -239,7 +238,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Reference(BIGINT, "row_number"), new Constant(BIGINT, 5L)), new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "row_number"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)))),
+                            new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Reference(BIGINT, "row_number"), new Constant(BIGINT, 5L)), new Comparison(EQUAL, new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "row_number"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)))),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -249,7 +248,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(filter(
-                        new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "row_number"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)),
+                        new Comparison(EQUAL, new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "row_number"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)),
                         project(
                                 ImmutableMap.of("row_number", io.trino.sql.planner.assertions.PlanMatchPattern.expression(new Reference(BIGINT, "row_number"))),
                                 rowNumber(

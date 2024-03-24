@@ -39,7 +39,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -60,7 +60,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.ir.Arithmetic.Operator.MODULUS;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
@@ -229,7 +228,7 @@ public class TestPushPredicateIntoTableScan
                                                 new Constant(BOOLEAN, null),
                                                 new Comparison(
                                                         EQUAL,
-                                                        new Arithmetic(MODULUS_BIGINT, MODULUS, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L)),
+                                                        new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))),
                                                         new Constant(BIGINT, 44L))),
                                         Logical.or(
                                                 new Comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)),
@@ -251,7 +250,7 @@ public class TestPushPredicateIntoTableScan
                                                 new Constant(DOUBLE, 42.0)),
                                         new Comparison(
                                                 EQUAL,
-                                                new Arithmetic(MODULUS_BIGINT, MODULUS, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L)),
+                                                new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))),
                                                 new Constant(BIGINT, 44L))),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
@@ -284,7 +283,7 @@ public class TestPushPredicateIntoTableScan
     {
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new Logical(AND, ImmutableList.of(new Comparison(EQUAL, new Arithmetic(MODULUS_BIGINT, MODULUS, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L)), new Constant(BIGINT, 44L)), new Comparison(EQUAL, new Arithmetic(MODULUS_BIGINT, MODULUS, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 15L)), new Constant(BIGINT, 43L)))),
+                        new Logical(AND, ImmutableList.of(new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))), new Constant(BIGINT, 44L)), new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 15L))), new Constant(BIGINT, 43L)))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),

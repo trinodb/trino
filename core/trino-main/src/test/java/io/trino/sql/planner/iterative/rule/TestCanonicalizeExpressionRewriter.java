@@ -20,7 +20,6 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
@@ -47,8 +46,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionTestUtils.assertExpressionEquals;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
-import static io.trino.sql.ir.Arithmetic.Operator.MULTIPLY;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
@@ -94,20 +91,20 @@ public class TestCanonicalizeExpressionRewriter
     public void testCanonicalizeArithmetic()
     {
         assertRewritten(
-                new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
-                new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 1L))),
+                new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 1L))));
 
         assertRewritten(
-                new Arithmetic(ADD_INTEGER, ADD, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
-                new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                new Call(ADD_INTEGER, ImmutableList.of(new Constant(INTEGER, 1L), new Reference(INTEGER, "a"))),
+                new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 1L))));
 
         assertRewritten(
-                new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
-                new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 1L))),
+                new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 1L))));
 
         assertRewritten(
-                new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
-                new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                new Call(MULTIPLY_INTEGER, ImmutableList.of(new Constant(INTEGER, 1L), new Reference(INTEGER, "a"))),
+                new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 1L))));
     }
 
     @Test

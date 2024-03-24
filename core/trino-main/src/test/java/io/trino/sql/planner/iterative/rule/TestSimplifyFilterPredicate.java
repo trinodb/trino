@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Comparison;
@@ -37,7 +36,6 @@ import java.util.Optional;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
@@ -407,7 +405,7 @@ public class TestSimplifyFilterPredicate
                                         new Reference(BOOLEAN, "a"),
                                         ImmutableList.of(
                                                 new WhenClause(new Reference(BOOLEAN, "b"), TRUE),
-                                                new WhenClause(new Comparison(EQUAL, new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 1L)), new Constant(INTEGER, 0L)), FALSE)),
+                                                new WhenClause(new Comparison(EQUAL, new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), new Constant(INTEGER, 0L)), FALSE)),
                                         Optional.of(TRUE)),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
@@ -448,8 +446,8 @@ public class TestSimplifyFilterPredicate
                         new Switch(
                                 new Reference(INTEGER, "a"),
                                 ImmutableList.of(
-                                        new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 1L)), TRUE),
-                                        new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 2L)), TRUE)),
+                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), TRUE),
+                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), TRUE)),
                                 Optional.of(TRUE)),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -463,8 +461,8 @@ public class TestSimplifyFilterPredicate
                         new Switch(
                                 new Reference(INTEGER, "a"),
                                 ImmutableList.of(
-                                        new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 1L)), FALSE),
-                                        new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 2L)), new Constant(BOOLEAN, null))),
+                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), FALSE),
+                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), new Constant(BOOLEAN, null))),
                                 Optional.of(FALSE)),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
@@ -478,8 +476,8 @@ public class TestSimplifyFilterPredicate
                         new Switch(
                                 new Reference(INTEGER, "a"),
                                 ImmutableList.of(
-                                        new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 1L)), FALSE),
-                                        new WhenClause(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "b"), new Constant(INTEGER, 2L)), new Constant(BOOLEAN, null))),
+                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), FALSE),
+                                        new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 2L))), new Constant(BOOLEAN, null))),
                                 Optional.empty()),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(

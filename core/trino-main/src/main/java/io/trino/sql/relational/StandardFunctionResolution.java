@@ -18,18 +18,12 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Arithmetic.Operator;
 import io.trino.sql.ir.Comparison;
 
-import static io.trino.spi.function.OperatorType.ADD;
-import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.function.OperatorType.MODULUS;
-import static io.trino.spi.function.OperatorType.MULTIPLY;
-import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static java.util.Objects.requireNonNull;
 
 public final class StandardFunctionResolution
@@ -39,31 +33,6 @@ public final class StandardFunctionResolution
     public StandardFunctionResolution(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-    }
-
-    public ResolvedFunction arithmeticFunction(Operator operator, Type leftType, Type rightType)
-    {
-        OperatorType operatorType;
-        switch (operator) {
-            case ADD:
-                operatorType = ADD;
-                break;
-            case SUBTRACT:
-                operatorType = SUBTRACT;
-                break;
-            case MULTIPLY:
-                operatorType = MULTIPLY;
-                break;
-            case DIVIDE:
-                operatorType = DIVIDE;
-                break;
-            case MODULUS:
-                operatorType = MODULUS;
-                break;
-            default:
-                throw new IllegalStateException("Unknown arithmetic operator: " + operator);
-        }
-        return metadata.resolveOperator(operatorType, ImmutableList.of(leftType, rightType));
     }
 
     public ResolvedFunction comparisonFunction(Comparison.Operator operator, Type leftType, Type rightType)

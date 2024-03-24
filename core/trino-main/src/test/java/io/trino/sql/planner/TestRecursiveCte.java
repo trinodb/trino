@@ -20,7 +20,6 @@ import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
@@ -38,7 +37,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
@@ -90,7 +88,7 @@ public class TestRecursiveCte
                                         values()))),
                                 // first recursion step
                                 project(project(project(
-                                        ImmutableMap.of("expr_0", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "expr"), new Constant(INTEGER, 2L)))),
+                                        ImmutableMap.of("expr_0", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "expr"), new Constant(INTEGER, 2L))))),
                                         filter(
                                                 new Comparison(LESS_THAN, new Reference(INTEGER, "expr"), new Constant(INTEGER, 6L)),
                                                 project(project(project(
@@ -107,13 +105,13 @@ public class TestRecursiveCte
                                                                 "count",
                                                                 windowFunction("count", ImmutableList.of(), DEFAULT_FRAME)),
                                                 project(project(project(
-                                                        ImmutableMap.of("expr_1", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "expr"), new Constant(INTEGER, 2L)))),
+                                                        ImmutableMap.of("expr_1", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "expr"), new Constant(INTEGER, 2L))))),
                                                         filter(
                                                                 new Comparison(LESS_THAN, new Reference(INTEGER, "expr"), new Constant(INTEGER, 6L)),
                                                                 project(
                                                                         ImmutableMap.of("expr", expression(new Reference(INTEGER, "expr_0"))),
                                                                         project(project(project(
-                                                                                ImmutableMap.of("expr_0", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "expr"), new Constant(INTEGER, 2L)))),
+                                                                                ImmutableMap.of("expr_0", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "expr"), new Constant(INTEGER, 2L))))),
                                                                                 filter(
                                                                                         new Comparison(LESS_THAN, new Reference(INTEGER, "expr"), new Constant(INTEGER, 6L)),
                                                                                         project(project(project(

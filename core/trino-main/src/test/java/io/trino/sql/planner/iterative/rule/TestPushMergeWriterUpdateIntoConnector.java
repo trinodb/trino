@@ -26,7 +26,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -110,7 +109,7 @@ public class TestPushMergeWriterUpdateIntoConnector
                         Symbol rowCount = p.symbol("row_count");
                         // set arithmetic expression which we don't support yet
                         Expression updateMergeRowExpression = new Row(ImmutableList.of(p.symbol("column_1").toSymbolReference(),
-                                new Arithmetic(MULTIPLY_BIGINT, Arithmetic.Operator.MULTIPLY, p.symbol("col1").toSymbolReference(), new Constant(BIGINT, 5L))));
+                                new Call(MULTIPLY_BIGINT, ImmutableList.of(p.symbol("col1").toSymbolReference(), new Constant(BIGINT, 5L)))));
 
                         return p.tableFinish(
                                 p.merge(

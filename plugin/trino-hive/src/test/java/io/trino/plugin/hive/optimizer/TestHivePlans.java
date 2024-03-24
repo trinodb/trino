@@ -24,7 +24,6 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.security.PrincipalType;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
@@ -57,7 +56,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Arithmetic.Operator.MODULUS;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
@@ -281,13 +279,13 @@ public class TestHivePlans
                                 .left(
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "L_INT_PART"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)),
+                                                        new Comparison(EQUAL, new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "L_INT_PART"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)),
                                                         tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))))
                                 .right(
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                new Logical(AND, ImmutableList.of(new In(new Reference(INTEGER, "R_INT_COL"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L))), new Comparison(EQUAL, new Arithmetic(MODULUS_INTEGER, MODULUS, new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L)))),
+                                                                new Logical(AND, ImmutableList.of(new In(new Reference(INTEGER, "R_INT_COL"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L))), new Comparison(EQUAL, new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)))),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 

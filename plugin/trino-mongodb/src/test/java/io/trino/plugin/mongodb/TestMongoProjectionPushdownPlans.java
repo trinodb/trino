@@ -29,7 +29,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
@@ -53,7 +53,6 @@ import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -174,7 +173,7 @@ public class TestMongoProjectionPushdownPlans
                 "SELECT col0.x FROM " + tableName + " WHERE col0.x = col1 + 3 and col0.y = 2",
                 anyTree(
                         filter(
-                                new Comparison(EQUAL, new Reference(BIGINT, "x"), new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "col1"), new Constant(BIGINT, 3L))),
+                                new Comparison(EQUAL, new Reference(BIGINT, "x"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "col1"), new Constant(BIGINT, 3L)))),
                                 tableScan(
                                         table -> {
                                             MongoTableHandle actualTableHandle = (MongoTableHandle) table;

@@ -20,7 +20,6 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
@@ -208,18 +207,6 @@ public final class SqlToRowExpressionTranslator
             argumentsBuilder.add(function);
 
             return new SpecialForm(BIND, ((Expression) node).type(), argumentsBuilder.build());
-        }
-
-        @Override
-        protected RowExpression visitArithmetic(Arithmetic node, Void context)
-        {
-            RowExpression left = process(node.left(), context);
-            RowExpression right = process(node.right(), context);
-
-            return call(
-                    standardFunctionResolution.arithmeticFunction(node.operator(), left.getType(), right.getType()),
-                    left,
-                    right);
         }
 
         @Override

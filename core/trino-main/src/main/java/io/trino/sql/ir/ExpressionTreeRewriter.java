@@ -98,26 +98,6 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        public Expression visitArithmetic(Arithmetic node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteArithmetic(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            Expression left = rewrite(node.left(), context.get());
-            Expression right = rewrite(node.right(), context.get());
-
-            if (left != node.left() || right != node.right()) {
-                return new Arithmetic(node.function(), node.operator(), left, right);
-            }
-
-            return node;
-        }
-
-        @Override
         protected Expression visitFieldReference(FieldReference node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

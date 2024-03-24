@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Test;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Arithmetic.Operator.MODULUS;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
@@ -266,7 +265,7 @@ public class TestPushFilterThroughCountAggregation
                     Symbol mask = p.symbol("mask");
                     Symbol count = p.symbol("count");
                     return p.filter(
-                            new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 0L)), new Comparison(EQUAL, new Arithmetic(MODULUS_BIGINT, MODULUS, new Reference(BIGINT, "count"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L)))),
+                            new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "count"), new Constant(BIGINT, 0L)), new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "count"), new Constant(BIGINT, 2L))), new Constant(BIGINT, 0L)))),
                             p.aggregation(builder -> builder
                                     .singleGroupingSet(g)
                                     .addAggregation(count, PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of(), mask)
@@ -274,7 +273,7 @@ public class TestPushFilterThroughCountAggregation
                 })
                 .matches(
                         filter(
-                                new Comparison(EQUAL, new Arithmetic(MODULUS_BIGINT, MODULUS, new Reference(BIGINT, "count"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L)),
+                                new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "count"), new Constant(BIGINT, 2L))), new Constant(BIGINT, 0L)),
                                 aggregation(
                                         ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
                                         filter(

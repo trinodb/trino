@@ -20,7 +20,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
@@ -42,8 +42,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.ir.Arithmetic.Operator.MULTIPLY;
-import static io.trino.sql.ir.Arithmetic.Operator.SUBTRACT;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
@@ -247,7 +245,7 @@ public class TestSubqueries
                                 .equiCriteria("expr", "a")
                                 .left(
                                         project(
-                                                ImmutableMap.of("expr", expression(new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "b"), new Reference(INTEGER, "c")), new Constant(INTEGER, 1L)))),
+                                                ImmutableMap.of("expr", expression(new Call(SUBTRACT_INTEGER, ImmutableList.of(new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Reference(INTEGER, "c"))), new Constant(INTEGER, 1L))))),
                                                 any(
                                                         values("b", "c"))))
                                 .right(

@@ -20,7 +20,6 @@ import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -42,8 +41,6 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
-import static io.trino.sql.ir.Arithmetic.Operator.MULTIPLY;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
@@ -82,7 +79,7 @@ public class TestPushDownProjectionsFromPatternRecognition
                         .addVariableDefinition(
                                 new IrLabel("X"),
                                 new Comparison(GREATER_THAN, new Call(MAX_BY_BIGINT_VARCHAR, ImmutableList.of(
-                                        new Arithmetic(ADD_BIGINT, ADD, new Constant(BIGINT, 1L), new Reference(BIGINT, "match")),
+                                        new Call(ADD_BIGINT, ImmutableList.of(new Constant(BIGINT, 1L), new Reference(BIGINT, "match"))),
                                         new Call(CONCAT, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("x")), new Reference(VARCHAR, "classifier"))))),
                                         new Constant(BIGINT, 5L)),
                                 ImmutableMap.of(
@@ -118,7 +115,7 @@ public class TestPushDownProjectionsFromPatternRecognition
                                 ImmutableMap.of(new Symbol(BIGINT, "agg"), new AggregationValuePointer(
                                         maxBy,
                                         new AggregatedSetDescriptor(ImmutableSet.of(), true),
-                                        ImmutableList.of(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "a"), new Constant(BIGINT, 1L)), new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "b"), new Constant(BIGINT, 2L))),
+                                        ImmutableList.of(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Constant(BIGINT, 1L))), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 2L)))),
                                         Optional.empty(),
                                         Optional.empty())))
                         .source(p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT)))))
@@ -136,8 +133,8 @@ public class TestPushDownProjectionsFromPatternRecognition
                                                         Optional.empty()))),
                                 project(
                                         ImmutableMap.of(
-                                                "expr_1", PlanMatchPattern.expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "a"), new Constant(BIGINT, 1L))),
-                                                "expr_2", PlanMatchPattern.expression(new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "b"), new Constant(BIGINT, 2L))),
+                                                "expr_1", PlanMatchPattern.expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Constant(BIGINT, 1L)))),
+                                                "expr_2", PlanMatchPattern.expression(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 2L)))),
                                                 "a", PlanMatchPattern.expression(new Reference(BIGINT, "a")),
                                                 "b", PlanMatchPattern.expression(new Reference(BIGINT, "b"))),
                                         values("a", "b"))));

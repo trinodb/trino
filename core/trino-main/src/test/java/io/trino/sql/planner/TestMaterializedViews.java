@@ -40,7 +40,7 @@ import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeParameter;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -65,7 +65,6 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -321,7 +320,7 @@ public class TestMaterializedViews
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "A_CAST", expression(new Arithmetic(ADD_BIGINT, ADD, new Cast(new Reference(BIGINT, "A"), BIGINT), new Constant(BIGINT, 1L))),
+                                        "A_CAST", expression(new Call(ADD_BIGINT, ImmutableList.of(new Cast(new Reference(BIGINT, "A"), BIGINT), new Constant(BIGINT, 1L)))),
                                         "B_CAST", expression(new Cast(new Reference(BIGINT, "B"), BIGINT))),
                                 tableScan("storage_table_with_casts", ImmutableMap.of("A", "a", "B", "b")))));
     }
