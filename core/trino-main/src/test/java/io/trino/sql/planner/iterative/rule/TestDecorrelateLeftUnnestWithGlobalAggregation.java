@@ -23,7 +23,6 @@ import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -61,6 +60,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
     private static final ResolvedFunction REGEXP_EXTRACT_ALL = FUNCTIONS.resolveFunction("regexp_extract_all", fromTypes(VARCHAR, VARCHAR));
     private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
     private static final ResolvedFunction MODULUS_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction NEGATION_BIGINT = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(BIGINT));
 
     @Test
     public void doesNotFireWithoutGlobalAggregation()
@@ -354,7 +354,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "negate"))), ImmutableList.of(BIGINT))
                                         .source(p.project(
                                                 Assignments.builder()
-                                                        .put(p.symbol("negate"), new Negation(new Reference(BIGINT, "max")))
+                                                        .put(p.symbol("negate"), new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "max"))))
                                                         .build(),
                                                 p.aggregation(groupedBuilder -> groupedBuilder
                                                         .singleGroupingSet(p.symbol("group"))
@@ -384,7 +384,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                                                 Optional.empty(),
                                                 SINGLE,
                                                 project(
-                                                        ImmutableMap.of("negated", expression(new Negation(new Reference(BIGINT, "max")))),
+                                                        ImmutableMap.of("negated", expression(new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "max"))))),
                                                         aggregation(
                                                                 singleGroupingSet("groups", "numbers", "unique", "group"),
                                                                 ImmutableMap.of(Optional.of("max"), aggregationFunction("max", ImmutableList.of("modulo"))),

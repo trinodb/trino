@@ -23,7 +23,6 @@ import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -64,6 +63,7 @@ public class TestWindowClause
     private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
     private static final ResolvedFunction SUBTRACT_INTEGER = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
     private static final ResolvedFunction ADD_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(DOUBLE, DOUBLE));
+    private static final ResolvedFunction NEGATION_INTEGER = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(INTEGER));
 
     @Test
     public void testPreprojectExpression()
@@ -143,7 +143,7 @@ public class TestWindowClause
                                 any(project(
                                         ImmutableMap.of("order_by_window_sortkey", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "minus_a"), new Constant(INTEGER, 1L)))),
                                         project(
-                                                ImmutableMap.of("minus_a", expression(new Negation(new Reference(INTEGER, "a")))),
+                                                ImmutableMap.of("minus_a", expression(new Call(NEGATION_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"))))),
                                                 window(
                                                         windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(specification(

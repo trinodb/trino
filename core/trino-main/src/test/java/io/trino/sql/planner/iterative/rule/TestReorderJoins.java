@@ -18,10 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.cost.CostComparator;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.SymbolStatsEstimate;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
-import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -66,6 +68,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestReorderJoins
 {
+    private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction NEGATION_BIGINT = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(BIGINT));
+
     private RuleTester tester;
 
     @BeforeAll
@@ -422,7 +427,7 @@ public class TestReorderJoins
                                 INNER,
                                 p.project(
                                         Assignments.of(
-                                                p.symbol("P1"), new Negation(p.symbol("B1").toSymbolReference()),
+                                                p.symbol("P1"), new Call(NEGATION_BIGINT, ImmutableList.of(p.symbol("B1").toSymbolReference())),
                                                 p.symbol("P2"), p.symbol("A1").toSymbolReference()),
                                         p.join(
                                                 INNER,
@@ -450,7 +455,7 @@ public class TestReorderJoins
                                                                 values("A1")))
                                                 .right(
                                                         strictProject(
-                                                                ImmutableMap.of("P1", expression(new Negation(new Reference(BIGINT, "B1")))),
+                                                                ImmutableMap.of("P1", expression(new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "B1"))))),
                                                                 values("B1")))))));
     }
 
@@ -476,7 +481,7 @@ public class TestReorderJoins
                                 INNER,
                                 p.project(
                                         Assignments.of(
-                                                p.symbol("P1"), new Negation(p.symbol("B1").toSymbolReference())),
+                                                p.symbol("P1"), new Call(NEGATION_BIGINT, ImmutableList.of(p.symbol("B1").toSymbolReference()))),
                                         p.join(
                                                 INNER,
                                                 p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1")),
@@ -496,7 +501,7 @@ public class TestReorderJoins
                                 .left(values("C1"))
                                 .right(
                                         strictProject(
-                                                ImmutableMap.of("P1", expression(new Negation(new Reference(BIGINT, "B1")))),
+                                                ImmutableMap.of("P1", expression(new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "B1"))))),
                                                 join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                         .equiCriteria("A1", "B1")
                                                         .left(values("A1"))

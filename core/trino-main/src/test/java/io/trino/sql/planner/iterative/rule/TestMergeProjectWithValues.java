@@ -24,7 +24,6 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Symbol;
@@ -50,6 +49,7 @@ public class TestMergeProjectWithValues
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
     private static final ResolvedFunction ADD_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(DOUBLE, DOUBLE));
+    private static final ResolvedFunction NEGATION_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(DOUBLE));
 
     @Test
     public void testDoesNotFireOnNonRowType()
@@ -167,34 +167,34 @@ public class TestMergeProjectWithValues
                                 ImmutableList.of(
                                         new Row(ImmutableList.of(new Constant(DOUBLE, null))),
                                         new Row(ImmutableList.of(randomFunction)),
-                                        new Row(ImmutableList.of(new Negation(randomFunction)))))))
+                                        new Row(ImmutableList.of(new Call(NEGATION_DOUBLE, ImmutableList.of(randomFunction))))))))
                 .matches(
                         values(
                                 ImmutableList.of("output"),
                                 ImmutableList.of(
                                         ImmutableList.of(new Constant(DOUBLE, null)),
                                         ImmutableList.of(randomFunction),
-                                        ImmutableList.of(new Negation(randomFunction)))));
+                                        ImmutableList.of(new Call(NEGATION_DOUBLE, ImmutableList.of(randomFunction))))));
 
         // ValuesNode has multiple non-deterministic outputs
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
                         Assignments.of(
-                                p.symbol("x"), new Negation(new Reference(DOUBLE, "a")),
-                                p.symbol("y"), new Reference(DOUBLE, "b")),
+                                p.symbol("x", DOUBLE), new Call(NEGATION_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "a"))),
+                                p.symbol("y", DOUBLE), new Reference(DOUBLE, "b")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a", DOUBLE), p.symbol("b", DOUBLE)),
                                 ImmutableList.of(
                                         new Row(ImmutableList.of(new Constant(DOUBLE, 1e0), randomFunction)),
                                         new Row(ImmutableList.of(randomFunction, new Constant(DOUBLE, null))),
-                                        new Row(ImmutableList.of(new Negation(randomFunction), new Constant(DOUBLE, null)))))))
+                                        new Row(ImmutableList.of(new Call(NEGATION_DOUBLE, ImmutableList.of(randomFunction)), new Constant(DOUBLE, null)))))))
                 .matches(
                         values(
                                 ImmutableList.of("x", "y"),
                                 ImmutableList.of(
-                                        ImmutableList.of(new Negation(new Constant(DOUBLE, 1e0)), randomFunction),
-                                        ImmutableList.of(new Negation(randomFunction), new Constant(DOUBLE, null)),
-                                        ImmutableList.of(new Negation(new Negation(randomFunction)), new Constant(DOUBLE, null)))));
+                                        ImmutableList.of(new Call(NEGATION_DOUBLE, ImmutableList.of(new Constant(DOUBLE, 1e0))), randomFunction),
+                                        ImmutableList.of(new Call(NEGATION_DOUBLE, ImmutableList.of(randomFunction)), new Constant(DOUBLE, null)),
+                                        ImmutableList.of(new Call(NEGATION_DOUBLE, ImmutableList.of(new Call(NEGATION_DOUBLE, ImmutableList.of(randomFunction)))), new Constant(DOUBLE, null)))));
     }
 
     @Test

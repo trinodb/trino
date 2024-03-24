@@ -25,7 +25,6 @@ import java.util.List;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 @JsonSubTypes({
         @JsonSubTypes.Type(value = Arithmetic.class, name = "arithmetic"),
-        @JsonSubTypes.Type(value = Negation.class, name = "negation"),
         @JsonSubTypes.Type(value = Between.class, name = "between"),
         @JsonSubTypes.Type(value = Bind.class, name = "bind"),
         @JsonSubTypes.Type(value = Cast.class, name = "cast"),
@@ -48,7 +47,7 @@ import java.util.List;
 public sealed interface Expression
         permits Arithmetic, Between, Bind, Call, Case, Cast, Coalesce,
         Comparison, Constant, FieldReference, In, IsNull, Lambda, Logical,
-        Negation, Not, NullIf, Reference, Row, Switch
+        Not, NullIf, Reference, Row, Switch
 {
     Type type();
 
