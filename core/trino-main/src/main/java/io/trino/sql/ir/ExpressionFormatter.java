@@ -13,6 +13,7 @@
  */
 package io.trino.sql.ir;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.Symbol;
@@ -26,6 +27,13 @@ import static java.util.stream.Collectors.joining;
 
 public final class ExpressionFormatter
 {
+    private static final CharMatcher UNAMBIGUOUS_REFERENCE_NAME_CHARACTERS =
+            CharMatcher.inRange('a', 'z')
+                    .or(CharMatcher.inRange('A', 'Z'))
+                    .or(CharMatcher.inRange('0', '9'))
+                    .or(CharMatcher.anyOf("_$"))
+                    .precomputed();
+
     private ExpressionFormatter() {}
 
     public static String formatExpression(Expression expression)
@@ -105,7 +113,11 @@ public final class ExpressionFormatter
             if (symbolReferenceFormatter.isPresent()) {
                 return symbolReferenceFormatter.get().apply(node);
             }
-            return node.name();
+            String name = node.name();
+            if (UNAMBIGUOUS_REFERENCE_NAME_CHARACTERS.matchesAllOf(name)) {
+                return name;
+            }
+            return "\"" + name.replace("\"", "\"\"") + "\"";
         }
 
         @Override
