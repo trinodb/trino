@@ -22,7 +22,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
@@ -361,12 +361,12 @@ public class TestEqualityInference
 
     private static Expression add(Expression expression1, Expression expression2)
     {
-        return new Arithmetic(ADD_BIGINT, Arithmetic.Operator.ADD, expression1, expression2);
+        return new Call(ADD_BIGINT, ImmutableList.of(expression1, expression2));
     }
 
     private static Expression multiply(Expression expression1, Expression expression2)
     {
-        return new Arithmetic(MULTIPLY_BIGINT, Arithmetic.Operator.MULTIPLY, expression1, expression2);
+        return new Call(MULTIPLY_BIGINT, ImmutableList.of(expression1, expression2));
     }
 
     private static Expression equals(String symbol1, String symbol2)

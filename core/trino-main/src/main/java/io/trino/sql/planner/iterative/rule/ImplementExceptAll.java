@@ -19,7 +19,6 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -33,7 +32,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Arithmetic.Operator.SUBTRACT;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.plan.Patterns.Except.distinct;
 import static io.trino.sql.planner.plan.Patterns.except;
@@ -104,11 +102,9 @@ public class ImplementExceptAll
             count = new Call(
                     greatest,
                     ImmutableList.of(
-                            new Arithmetic(
+                            new Call(
                                     metadata.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT)),
-                                    SUBTRACT,
-                                    count,
-                                    result.getCountSymbols().get(i).toSymbolReference()),
+                                    ImmutableList.of(count, result.getCountSymbols().get(i).toSymbolReference())),
                             new Constant(BIGINT, 0L)));
         }
 

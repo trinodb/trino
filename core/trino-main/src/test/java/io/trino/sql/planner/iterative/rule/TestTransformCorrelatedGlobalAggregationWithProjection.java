@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Logical;
@@ -33,8 +33,6 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
-import static io.trino.sql.ir.Arithmetic.Operator.SUBTRACT;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
@@ -110,9 +108,9 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.project(
-                                Assignments.of(p.symbol("expr_2"), new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "expr"), new Constant(INTEGER, 1L))),
+                                Assignments.of(p.symbol("expr_2"), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "expr"), new Constant(INTEGER, 1L)))),
                                 p.project(
-                                        Assignments.of(p.symbol("expr"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                                        Assignments.of(p.symbol("expr"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)))),
                                         p.aggregation(ab -> ab
                                                 .source(p.values(p.symbol("a"), p.symbol("b")))
                                                 .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -141,13 +139,13 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        p.project(Assignments.of(p.symbol("expr"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                        p.project(Assignments.of(p.symbol("expr"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(ab -> ab
                                         .source(p.values(p.symbol("a"), p.symbol("b")))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
                                         .globalGrouping()))))
                 .matches(
-                        project(ImmutableMap.of("corr", expression(new Reference(BIGINT, "corr")), "expr", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum_1"), new Constant(INTEGER, 1L)))),
+                        project(ImmutableMap.of("corr", expression(new Reference(BIGINT, "corr")), "expr", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum_1"), new Constant(INTEGER, 1L))))),
                                 aggregation(ImmutableMap.of("sum_1", aggregationFunction("sum", ImmutableList.of("a"))),
                                         join(LEFT, builder -> builder
                                                 .left(assignUniqueId("unique",
@@ -165,8 +163,8 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                         p.values(p.symbol("corr")),
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)),
-                                        p.symbol("expr_count"), new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "count"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_sum"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_count"), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
                                         .addAggregation(p.symbol("count"), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
@@ -179,8 +177,8 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of(
                                         "corr", expression(new Reference(BIGINT, "corr")),
-                                        "expr_sum", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum_agg"), new Constant(INTEGER, 1L))),
-                                        "expr_count", expression(new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "count_agg"), new Constant(INTEGER, 1L)))),
+                                        "expr_sum", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum_agg"), new Constant(INTEGER, 1L)))),
+                                        "expr_count", expression(new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count_agg"), new Constant(INTEGER, 1L))))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique"),
                                         ImmutableMap.of(Optional.of("sum_agg"), aggregationFunction("sum", ImmutableList.of("a")), Optional.of("count_agg"), aggregationFunction("count", ImmutableList.of())),
@@ -218,8 +216,8 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                         p.values(p.symbol("corr")),
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)),
-                                        p.symbol("expr_count"), new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "count"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_sum"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_count"), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
                                         .addAggregation(p.symbol("count"), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
@@ -232,8 +230,8 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of(
                                         "corr", expression(new Reference(BIGINT, "corr")),
-                                        "expr_sum", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum_agg"), new Constant(INTEGER, 1L))),
-                                        "expr_count", expression(new Arithmetic(SUBTRACT_INTEGER, SUBTRACT, new Reference(INTEGER, "count_agg"), new Constant(INTEGER, 1L)))),
+                                        "expr_sum", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum_agg"), new Constant(INTEGER, 1L)))),
+                                        "expr_count", expression(new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count_agg"), new Constant(INTEGER, 1L))))),
                                 aggregation(
                                         singleGroupingSet("corr", "unique"),
                                         ImmutableMap.of(Optional.of("sum_agg"), aggregationFunction("sum", ImmutableList.of("a")), Optional.of("count_agg"), aggregationFunction("count", ImmutableList.of())),
@@ -267,13 +265,13 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        p.project(Assignments.of(p.symbol("expr"), new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                        p.project(Assignments.of(p.symbol("expr"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(ab -> ab
                                         .source(p.values(p.symbol("a"), p.symbol("mask", BOOLEAN)))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT), p.symbol("mask", BOOLEAN))
                                         .globalGrouping()))))
                 .matches(
-                        project(ImmutableMap.of("corr", expression(new Reference(BIGINT, "corr")), "expr", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "sum_1"), new Constant(INTEGER, 1L)))),
+                        project(ImmutableMap.of("corr", expression(new Reference(BIGINT, "corr")), "expr", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum_1"), new Constant(INTEGER, 1L))))),
                                 aggregation(
                                         singleGroupingSet("unique", "corr"),
                                         ImmutableMap.of(Optional.of("sum_1"), aggregationFunction("sum", ImmutableList.of("a"))),

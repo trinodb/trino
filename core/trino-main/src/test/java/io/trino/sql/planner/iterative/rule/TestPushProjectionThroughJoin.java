@@ -19,7 +19,6 @@ import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Plan;
@@ -41,7 +40,6 @@ import static io.trino.cost.StatsAndCosts.empty;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -131,7 +129,7 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        c, new Arithmetic(ADD_BIGINT, ADD, a.toSymbolReference(), b.toSymbolReference())),
+                        c, new Call(ADD_BIGINT, ImmutableList.of(a.toSymbolReference(), b.toSymbolReference()))),
                 p.join(
                         INNER,
                         p.values(a),

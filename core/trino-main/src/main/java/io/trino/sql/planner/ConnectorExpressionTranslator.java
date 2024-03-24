@@ -36,7 +36,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -92,7 +91,12 @@ import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
+import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.DIVIDE;
+import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -157,18 +161,6 @@ public final class ConnectorExpressionTranslator
             case GREATER_THAN -> GREATER_THAN_OPERATOR_FUNCTION_NAME;
             case GREATER_THAN_OR_EQUAL -> GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
             case IS_DISTINCT_FROM -> IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME;
-        };
-    }
-
-    @VisibleForTesting
-    static FunctionName functionNameForArithmeticBinaryOperator(Arithmetic.Operator operator)
-    {
-        return switch (operator) {
-            case ADD -> ADD_FUNCTION_NAME;
-            case SUBTRACT -> SUBTRACT_FUNCTION_NAME;
-            case MULTIPLY -> MULTIPLY_FUNCTION_NAME;
-            case DIVIDE -> DIVIDE_FUNCTION_NAME;
-            case MODULUS -> MODULUS_FUNCTION_NAME;
         };
     }
 
@@ -270,7 +262,7 @@ public final class ConnectorExpressionTranslator
 
             // arithmetic binary
             if (call.getArguments().size() == 2) {
-                Optional<Arithmetic.Operator> operator = arithmeticBinaryOperatorForFunctionName(call.getFunctionName());
+                Optional<OperatorType> operator = arithmeticBinaryOperatorForFunctionName(call.getFunctionName());
                 if (operator.isPresent()) {
                     return translateArithmeticBinary(operator.get(), call.getArguments().get(0), call.getArguments().get(1));
                 }
@@ -418,38 +410,31 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        private Optional<Expression> translateArithmeticBinary(Arithmetic.Operator operator, ConnectorExpression left, ConnectorExpression right)
+        private Optional<Expression> translateArithmeticBinary(OperatorType operator, ConnectorExpression left, ConnectorExpression right)
         {
-            OperatorType operatorType = switch (operator) {
-                case ADD -> OperatorType.ADD;
-                case SUBTRACT -> OperatorType.SUBTRACT;
-                case MULTIPLY -> OperatorType.MULTIPLY;
-                case DIVIDE -> OperatorType.DIVIDE;
-                case MODULUS -> OperatorType.MODULUS;
-            };
-            ResolvedFunction function = plannerContext.getMetadata().resolveOperator(operatorType, ImmutableList.of(left.getType(), right.getType()));
+            ResolvedFunction function = plannerContext.getMetadata().resolveOperator(operator, ImmutableList.of(left.getType(), right.getType()));
 
             return translate(left).flatMap(leftTranslated ->
                     translate(right).map(rightTranslated ->
-                            new Arithmetic(function, operator, leftTranslated, rightTranslated)));
+                            new Call(function, ImmutableList.of(leftTranslated, rightTranslated))));
         }
 
-        private Optional<Arithmetic.Operator> arithmeticBinaryOperatorForFunctionName(FunctionName functionName)
+        private Optional<OperatorType> arithmeticBinaryOperatorForFunctionName(FunctionName functionName)
         {
             if (ADD_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(Arithmetic.Operator.ADD);
+                return Optional.of(ADD);
             }
             if (SUBTRACT_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(Arithmetic.Operator.SUBTRACT);
+                return Optional.of(SUBTRACT);
             }
             if (MULTIPLY_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(Arithmetic.Operator.MULTIPLY);
+                return Optional.of(MULTIPLY);
             }
             if (DIVIDE_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(Arithmetic.Operator.DIVIDE);
+                return Optional.of(DIVIDE);
             }
             if (MODULUS_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(Arithmetic.Operator.MODULUS);
+                return Optional.of(MODULUS);
             }
             return Optional.empty();
         }
@@ -596,16 +581,6 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitArithmetic(Arithmetic node, Void context)
-        {
-            if (!isComplexExpressionPushdown(session)) {
-                return Optional.empty();
-            }
-            return process(node.left()).flatMap(left -> process(node.right()).map(right ->
-                    new io.trino.spi.expression.Call(((Expression) node).type(), functionNameForArithmeticBinaryOperator(node.operator()), ImmutableList.of(left, right))));
-        }
-
-        @Override
         protected Optional<ConnectorExpression> visitBetween(Between node, Void context)
         {
             if (!isComplexExpressionPushdown(session)) {
@@ -670,6 +645,26 @@ public final class ConnectorExpressionTranslator
             }
             else if (functionName.equals(builtinFunctionName(NEGATION))) {
                 return translateNegation(node);
+            }
+            else if (functionName.equals(builtinFunctionName(ADD))) {
+                return process(node.arguments().get(0)).flatMap(left -> process(node.arguments().get(1)).map(right ->
+                        new io.trino.spi.expression.Call(node.type(), ADD_FUNCTION_NAME, ImmutableList.of(left, right))));
+            }
+            else if (functionName.equals(builtinFunctionName(SUBTRACT))) {
+                return process(node.arguments().get(0)).flatMap(left -> process(node.arguments().get(1)).map(right ->
+                        new io.trino.spi.expression.Call(node.type(), SUBTRACT_FUNCTION_NAME, ImmutableList.of(left, right))));
+            }
+            else if (functionName.equals(builtinFunctionName(MULTIPLY))) {
+                return process(node.arguments().get(0)).flatMap(left -> process(node.arguments().get(1)).map(right ->
+                        new io.trino.spi.expression.Call(node.type(), MULTIPLY_FUNCTION_NAME, ImmutableList.of(left, right))));
+            }
+            else if (functionName.equals(builtinFunctionName(DIVIDE))) {
+                return process(node.arguments().get(0)).flatMap(left -> process(node.arguments().get(1)).map(right ->
+                        new io.trino.spi.expression.Call(node.type(), DIVIDE_FUNCTION_NAME, ImmutableList.of(left, right))));
+            }
+            else if (functionName.equals(builtinFunctionName(MODULUS))) {
+                return process(node.arguments().get(0)).flatMap(left -> process(node.arguments().get(1)).map(right ->
+                        new io.trino.spi.expression.Call(node.type(), MODULUS_FUNCTION_NAME, ImmutableList.of(left, right))));
             }
 
             ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();

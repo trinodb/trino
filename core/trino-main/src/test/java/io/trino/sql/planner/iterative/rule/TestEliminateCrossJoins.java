@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
@@ -47,7 +46,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -285,7 +283,7 @@ public class TestEliminateCrossJoins
                                         values("a1"),
                                         values("b")),
                                 "a2",
-                                new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "a1"), new Reference(INTEGER, "b")),
+                                new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a1"), new Reference(INTEGER, "b"))),
                                 "b",
                                 new Reference(INTEGER, "b")),
                         values("c"),

@@ -20,7 +20,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 dynamic filter ([Reference[type=integer, name=d_week_seq]])
                                                                     scan date_dim
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [expr_210, s_store_sk])
+                        remote exchange (REPARTITION, HASH, [$operator$subtract, s_store_sk])
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, [ss_store_sk_56])
                                     join (INNER, REPLICATED):

@@ -20,7 +20,7 @@ import io.trino.cost.SymbolStatsEstimate;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -35,7 +35,6 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
@@ -180,7 +179,7 @@ public class TestPushPartialAggregationThroughJoin
                         .source(
                                 p.project(
                                         Assignments.builder()
-                                                .put(p.symbol("LEFT_AGGR_PRJ"), new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "LEFT_AGGR"), new Reference(BIGINT, "LEFT_AGGR")))
+                                                .put(p.symbol("LEFT_AGGR_PRJ"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "LEFT_AGGR"), new Reference(BIGINT, "LEFT_AGGR"))))
                                                 .putIdentity(p.symbol("LEFT_GROUP_BY"))
                                                 .putIdentity(p.symbol("LEFT_EQUI"))
                                                 .putIdentity(p.symbol("LEFT_NON_EQUI"))
@@ -335,7 +334,7 @@ public class TestPushPartialAggregationThroughJoin
                         .source(
                                 p.project(
                                         Assignments.builder()
-                                                .put(p.symbol("LEFT_AGGR_PRJ"), new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "LEFT_AGGR"), new Reference(BIGINT, "LEFT_AGGR")))
+                                                .put(p.symbol("LEFT_AGGR_PRJ"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "LEFT_AGGR"), new Reference(BIGINT, "LEFT_AGGR"))))
                                                 .putIdentity(p.symbol("LEFT_GROUP_BY"))
                                                 .putIdentity(p.symbol("LEFT_EQUI"))
                                                 .putIdentity(p.symbol("LEFT_NON_EQUI"))
@@ -366,7 +365,7 @@ public class TestPushPartialAggregationThroughJoin
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 project(
-                                                        ImmutableMap.of("LEFT_AGGR_PRJ", PlanMatchPattern.expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "LEFT_AGGR"), new Reference(BIGINT, "LEFT_AGGR")))),
+                                                        ImmutableMap.of("LEFT_AGGR_PRJ", PlanMatchPattern.expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "LEFT_AGGR"), new Reference(BIGINT, "LEFT_AGGR"))))),
                                                         values("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_AGGR"))))
                                 .right(
                                         project(

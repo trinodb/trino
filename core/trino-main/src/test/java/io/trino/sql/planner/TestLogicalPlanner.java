@@ -30,7 +30,6 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RowType;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
@@ -118,9 +117,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
-import static io.trino.sql.ir.Arithmetic.Operator.MULTIPLY;
-import static io.trino.sql.ir.Arithmetic.Operator.SUBTRACT;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
@@ -633,10 +629,10 @@ public class TestLogicalPlanner
                 anyTree(
                         // predicate above outer join is not pushed to build side
                         filter(
-                                new Comparison(LESS_THAN, new Arithmetic(SUBTRACT_BIGINT, SUBTRACT, new Reference(BIGINT, "O_CUSTKEY"), new Constant(BIGINT, 24L)), new Coalesce(new Arithmetic(SUBTRACT_BIGINT, SUBTRACT, new Reference(BIGINT, "L_PARTKEY"), new Constant(BIGINT, 24L)), new Constant(BIGINT, 0L))),
+                                new Comparison(LESS_THAN, new Call(SUBTRACT_BIGINT, ImmutableList.of(new Reference(BIGINT, "O_CUSTKEY"), new Constant(BIGINT, 24L))), new Coalesce(new Call(SUBTRACT_BIGINT, ImmutableList.of(new Reference(BIGINT, "L_PARTKEY"), new Constant(BIGINT, 24L))), new Constant(BIGINT, 0L))),
                                 join(LEFT, builder -> builder
                                         .equiCriteria("O_ORDERKEY", "L_ORDERKEY")
-                                        .filter(new Comparison(LESS_THAN, new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "O_CUSTKEY"), new Constant(BIGINT, 42L)), new Reference(BIGINT, "EXPR")))
+                                        .filter(new Comparison(LESS_THAN, new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "O_CUSTKEY"), new Constant(BIGINT, 42L))), new Reference(BIGINT, "EXPR")))
                                         .left(
                                                 tableScan(
                                                         "orders",
@@ -646,7 +642,7 @@ public class TestLogicalPlanner
                                         .right(
                                                 anyTree(
                                                         project(
-                                                                ImmutableMap.of("EXPR", expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "L_PARTKEY"), new Constant(BIGINT, 42L)))),
+                                                                ImmutableMap.of("EXPR", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "L_PARTKEY"), new Constant(BIGINT, 42L))))),
                                                                 tableScan(
                                                                         "lineitem",
                                                                         ImmutableMap.of(
@@ -2521,9 +2517,9 @@ public class TestLogicalPlanner
                         project(
                                 ImmutableMap.of(
                                         "output1", expression(new Reference(INTEGER, "id")),
-                                        "output2", expression(new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "value"), new Constant(INTEGER, 2L))),
+                                        "output2", expression(new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "value"), new Constant(INTEGER, 2L)))),
                                         "output3", expression(new Call(LOWER, ImmutableList.of(new Reference(VARCHAR, "label")))),
-                                        "output4", expression(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "min"), new Constant(INTEGER, 1L)))),
+                                        "output4", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "min"), new Constant(INTEGER, 1L))))),
                                 project(
                                         ImmutableMap.of(
                                                 "id", expression(new Reference(INTEGER, "id")),

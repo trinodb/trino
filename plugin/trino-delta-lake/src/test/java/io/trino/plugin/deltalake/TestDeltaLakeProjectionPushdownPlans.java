@@ -30,7 +30,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.type.RowType;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -59,7 +59,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
@@ -200,7 +199,7 @@ public class TestDeltaLakeProjectionPushdownPlans
                         filter(
                                 new Logical(AND, ImmutableList.of(
                                         new Comparison(EQUAL, new Reference(BIGINT, "y"), new Constant(BIGINT, 2L)),
-                                        new Comparison(EQUAL, new Reference(BIGINT, "x"), new Cast(new Arithmetic(ADD_INTEGER, ADD, new Reference(INTEGER, "col1"), new Constant(INTEGER, 3L)), BIGINT)))),
+                                        new Comparison(EQUAL, new Reference(BIGINT, "x"), new Cast(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "col1"), new Constant(INTEGER, 3L))), BIGINT)))),
                                 source2)));
 
         // Projection and predicate pushdown with overlapping columns

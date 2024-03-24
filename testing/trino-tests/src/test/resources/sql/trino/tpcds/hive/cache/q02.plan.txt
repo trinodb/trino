@@ -47,7 +47,7 @@ remote exchange (GATHER, SINGLE, [])
                                         scan date_dim
                                 load from cache
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, [expr_227])
+                    remote exchange (REPARTITION, HASH, [$operator$subtract])
                         join (INNER, PARTITIONED):
                             single aggregation over (d_week_seq_129)
                                 final aggregation over (d_day_name_139, d_week_seq_129)

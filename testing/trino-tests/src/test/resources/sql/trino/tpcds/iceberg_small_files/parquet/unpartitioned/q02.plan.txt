@@ -26,7 +26,7 @@ remote exchange (GATHER, SINGLE, [])
                             dynamic filter (unestimatable [Reference[type=integer, name=d_week_seq_20]])
                                 scan date_dim
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, [expr_220])
+                    remote exchange (REPARTITION, HASH, [$operator$subtract])
                         join (INNER, PARTITIONED):
                             final aggregation over (d_week_seq_124)
                                 local exchange (GATHER, SINGLE, [])

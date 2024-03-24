@@ -37,7 +37,6 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.Symbol;
@@ -60,7 +59,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Arithmetic.Operator.MULTIPLY;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -277,7 +275,7 @@ public class TestPushJoinIntoTableScan
                                 right,
                                 new Comparison(
                                         Comparison.Operator.GREATER_THAN,
-                                        new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Constant(BIGINT, 44L), columnA1Symbol.toSymbolReference()),
+                                        new io.trino.sql.ir.Call(MULTIPLY_BIGINT, ImmutableList.of(new Constant(BIGINT, 44L), columnA1Symbol.toSymbolReference())),
                                         columnB1Symbol.toSymbolReference()));
                     })
                     .matches(

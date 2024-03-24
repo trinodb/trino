@@ -23,9 +23,9 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Booleans;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -85,6 +85,12 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.SystemSessionProperties.isPredicatePushdownUseTableProperties;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.DIVIDE;
+import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MULTIPLY;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
@@ -1091,9 +1097,14 @@ public class PredicatePushDown
             return expression instanceof Reference ||
                     expression instanceof Constant ||
                     (expression instanceof Cast cast && isSimpleExpression(cast.expression(), allowArithmeticBinaryExpression)) ||
-                    (allowArithmeticBinaryExpression && expression instanceof Arithmetic arithmeticExpression &&
-                            isSimpleExpression(arithmeticExpression.left(), false) &&
-                            isSimpleExpression(arithmeticExpression.right(), false));
+                    (allowArithmeticBinaryExpression && expression instanceof Call arithmeticExpression &&
+                            (arithmeticExpression.function().getName().equals(builtinFunctionName(ADD)) ||
+                                    arithmeticExpression.function().getName().equals(builtinFunctionName(SUBTRACT)) ||
+                                    arithmeticExpression.function().getName().equals(builtinFunctionName(MULTIPLY)) ||
+                                    arithmeticExpression.function().getName().equals(builtinFunctionName(DIVIDE)) ||
+                                    arithmeticExpression.function().getName().equals(builtinFunctionName(MODULUS))) &&
+                            isSimpleExpression(arithmeticExpression.arguments().get(0), false) &&
+                            isSimpleExpression(arithmeticExpression.arguments().get(1), false));
         }
 
         private static class InnerJoinPushDownResult
