@@ -81,8 +81,7 @@ public class TestSnowflakeConnectorTest
                     SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
                     SUPPORTS_PREDICATE_PUSHDOWN,
                     SUPPORTS_ROW_TYPE,
-                    SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN -> false;
+                    SUPPORTS_SET_COLUMN_TYPE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
