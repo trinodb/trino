@@ -40,11 +40,11 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
-import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
@@ -88,6 +88,7 @@ public class TestConnectorPushdownRulesWithIceberg
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction NEGATION_BIGINT = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(BIGINT));
 
     private static final String SCHEMA_NAME = "test_schema";
 
@@ -391,7 +392,7 @@ public class TestConnectorPushdownRulesWithIceberg
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p -> {
                     Reference column = p.symbol("just_bigint", BIGINT).toSymbolReference();
-                    Expression negation = new Negation(column);
+                    Expression negation = new Call(NEGATION_BIGINT, ImmutableList.of(column));
                     return p.project(
                             Assignments.of(
                                     // The column reference is part of both the assignments
@@ -405,7 +406,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 .matches(project(
                         ImmutableMap.of(
                                 "column_ref", expression(new Reference(BIGINT, "just_bigint_0")),
-                                "negated_column_ref", expression(new Negation(new Reference(BIGINT, "just_bigint_0")))),
+                                "negated_column_ref", expression(new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "just_bigint_0"))))),
                         tableScan(
                                 icebergTable.withProjectedColumns(ImmutableSet.of(bigintColumn))::equals,
                                 TupleDomain.all(),

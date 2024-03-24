@@ -52,7 +52,6 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
@@ -380,7 +379,9 @@ public class TranslationMap
     {
         return switch (expression.getSign()) {
             case PLUS -> translateExpression(expression.getValue());
-            case MINUS -> new Negation(translateExpression(expression.getValue()));
+            case MINUS -> new io.trino.sql.ir.Call(
+                    plannerContext.getMetadata().resolveOperator(OperatorType.NEGATION, ImmutableList.of(analysis.getType(expression.getValue()))),
+                    ImmutableList.of(translateExpression(expression.getValue())));
         };
     }
 
