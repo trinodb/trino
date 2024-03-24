@@ -30,8 +30,8 @@ import io.trino.spi.cache.CacheTableId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.CanonicalAggregation;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionFormatter;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.OrderingScheme;
@@ -68,6 +68,7 @@ import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.partitioningBy;
 
 public final class CanonicalSubplanExtractor
@@ -88,6 +89,21 @@ public final class CanonicalSubplanExtractor
     {
         requireNonNull(symbol, "symbol is null");
         return canonicalExpressionToColumnId(symbol.toSymbolReference());
+    }
+
+    public static CacheColumnId canonicalAggregationToColumnId(CanonicalAggregation aggregation)
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append(aggregation.resolvedFunction().getName().toString())
+                .append('(')
+                .append(aggregation.arguments().stream()
+                        .map(ExpressionFormatter::formatExpression)
+                        .collect(joining(", ")))
+                .append(')');
+        aggregation.mask().ifPresent(mask -> {
+            builder.append(" FILTER (WHERE ").append(formatExpression(mask.toSymbolReference())).append(')');
+        });
+        return new CacheColumnId("(" + builder + ")");
     }
 
     public static CacheColumnId canonicalExpressionToColumnId(Expression expression)
@@ -176,14 +192,14 @@ public final class CanonicalSubplanExtractor
             CanonicalSubplan subplan = subplanOptional.get();
             SymbolMapper canonicalSymbolMapper = subplan.canonicalSymbolMapper();
             BiMap<CacheColumnId, Symbol> originalSymbolMapping = subplan.getOriginalSymbolMapping();
-            Map<CacheColumnId, Expression> assignments = new LinkedHashMap<>();
+            Map<CacheColumnId, CacheExpression> assignments = new LinkedHashMap<>();
 
             // canonicalize grouping columns
             ImmutableSet.Builder<CacheColumnId> groupByColumnsBuilder = ImmutableSet.builder();
             for (Symbol groupingKey : node.getGroupingKeys()) {
                 CacheColumnId columnId = requireNonNull(originalSymbolMapping.inverse().get(groupingKey));
                 groupByColumnsBuilder.add(columnId);
-                if (assignments.put(columnId, columnIdToSymbol(columnId, groupingKey.getType()).toSymbolReference()) != null) {
+                if (assignments.put(columnId, CacheExpression.ofProjection(columnIdToSymbol(columnId, groupingKey.getType()).toSymbolReference())) != null) {
                     // duplicated column ids are not supported
                     return Optional.empty();
                 }
@@ -201,8 +217,8 @@ public final class CanonicalSubplanExtractor
                         aggregation.getArguments().stream()
                                 .map(canonicalSymbolMapper::map)
                                 .collect(toImmutableList()));
-                CacheColumnId columnId = canonicalExpressionToColumnId(canonicalAggregation);
-                if (assignments.put(columnId, canonicalAggregation) != null) {
+                CacheColumnId columnId = canonicalAggregationToColumnId(canonicalAggregation);
+                if (assignments.put(columnId, CacheExpression.ofAggregation(canonicalAggregation)) != null) {
                     // duplicated column ids are not supported
                     return Optional.empty();
                 }
@@ -342,14 +358,14 @@ public final class CanonicalSubplanExtractor
             CanonicalSubplan subplan = subplanOptional.get();
             SymbolMapper canonicalSymbolMapper = subplan.canonicalSymbolMapper();
             // canonicalize projection assignments
-            Map<CacheColumnId, Expression> assignments = new LinkedHashMap<>();
+            Map<CacheColumnId, CacheExpression> assignments = new LinkedHashMap<>();
             ImmutableBiMap.Builder<CacheColumnId, Symbol> symbolMappingBuilder = ImmutableBiMap.<CacheColumnId, Symbol>builder()
                     .putAll(subplan.getOriginalSymbolMapping());
             for (Symbol symbol : node.getOutputSymbols()) {
                 // use formatted canonical expression as column id for non-identity projections
                 Expression canonicalExpression = canonicalSymbolMapper.map(node.getAssignments().get(symbol));
                 CacheColumnId columnId = canonicalExpressionToColumnId(canonicalExpression);
-                if (assignments.put(columnId, canonicalExpression) != null) {
+                if (assignments.put(columnId, CacheExpression.ofProjection(canonicalExpression)) != null) {
                     // duplicated column ids are not supported
                     if (extendSubplan) {
                         canonicalSubplans.add(subplan);
@@ -482,9 +498,9 @@ public final class CanonicalSubplanExtractor
             BiMap<CacheColumnId, Symbol> symbolMapping = symbolMappingBuilder.build();
 
             // pass-through canonical output symbols
-            Map<CacheColumnId, Expression> assignments = columnHandles.keySet().stream().collect(toImmutableMap(
+            Map<CacheColumnId, CacheExpression> assignments = columnHandles.keySet().stream().collect(toImmutableMap(
                     identity(),
-                    id -> columnIdToSymbol(id, symbolMapping.get(id).getType()).toSymbolReference()));
+                    id -> CacheExpression.ofProjection(columnIdToSymbol(id, symbolMapping.get(id).getType()).toSymbolReference())));
 
             return Optional.of(CanonicalSubplan.builderForTableScan(
                             new ScanFilterProjectKey(tableId.get()),

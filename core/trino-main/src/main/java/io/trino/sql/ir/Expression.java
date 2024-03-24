@@ -46,7 +46,7 @@ import java.util.List;
         @JsonSubTypes.Type(value = SymbolReference.class, name = "symbol"),
 })
 public sealed interface Expression
-        permits ArithmeticBinaryExpression, ArithmeticNegation, BetweenPredicate, CanonicalAggregation,
+        permits ArithmeticBinaryExpression, ArithmeticNegation, BetweenPredicate,
         BindExpression, Cast, CoalesceExpression, ComparisonExpression, FunctionCall, InPredicate,
         IsNullPredicate, LambdaExpression, Constant, LogicalExpression,
         NotExpression, NullIfExpression, Row, SearchedCaseExpression, SimpleCaseExpression,

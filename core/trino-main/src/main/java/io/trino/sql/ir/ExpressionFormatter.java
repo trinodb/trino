@@ -62,18 +62,6 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitCanonicalAggregation(CanonicalAggregation node, Void context)
-        {
-            StringBuilder builder = new StringBuilder();
-            builder.append(node.getResolvedFunction().getName().toString())
-                    .append('(').append(joinExpressions(node.getArguments())).append(')');
-            if (node.getMask().isPresent()) {
-                builder.append(" FILTER (WHERE ").append(process(node.getMask().get().toSymbolReference(), null)).append(')');
-            }
-            return builder.toString();
-        }
-
-        @Override
         protected String visitSubscriptExpression(SubscriptExpression node, Void context)
         {
             return formatExpression(node.getBase()) + "[" + formatExpression(node.getIndex()) + "]";

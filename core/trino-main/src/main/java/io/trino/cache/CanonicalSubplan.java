@@ -82,7 +82,7 @@ public class CanonicalSubplan
      * Output projections with iteration order matching list of output columns.
      * Symbol names are canonicalized as {@link CacheColumnId}.
      */
-    private final Map<CacheColumnId, Expression> assignments;
+    private final Map<CacheColumnId, CacheExpression> assignments;
     /**
      * Filtering conjuncts. Symbol names are canonicalized as {@link CacheColumnId}.
      */
@@ -110,7 +110,7 @@ public class CanonicalSubplan
             PlanNode originalPlanNode,
             BiMap<CacheColumnId, Symbol> originalSymbolMapping,
             Optional<Set<CacheColumnId>> groupByColumns,
-            Map<CacheColumnId, Expression> assignments,
+            Map<CacheColumnId, CacheExpression> assignments,
             List<Expression> conjuncts,
             Set<Expression> pullableConjuncts,
             List<Expression> dynamicConjuncts,
@@ -175,7 +175,7 @@ public class CanonicalSubplan
         return groupByColumns;
     }
 
-    public Map<CacheColumnId, Expression> getAssignments()
+    public Map<CacheColumnId, CacheExpression> getAssignments()
     {
         return assignments;
     }
@@ -299,7 +299,7 @@ public class CanonicalSubplan
         private PlanNode originalPlanNode;
         private BiMap<CacheColumnId, Symbol> originalSymbolMapping;
         private Optional<Set<CacheColumnId>> groupByColumns = Optional.empty();
-        private Map<CacheColumnId, Expression> assignments;
+        private Map<CacheColumnId, CacheExpression> assignments;
         private List<Expression> conjuncts = ImmutableList.of();
         private Set<Expression> pullableConjuncts;
         private List<Expression> dynamicConjuncts = ImmutableList.of();
@@ -334,7 +334,7 @@ public class CanonicalSubplan
         }
 
         @CanIgnoreReturnValue
-        public CanonicalSubplanBuilder assignments(Map<CacheColumnId, Expression> assignments)
+        public CanonicalSubplanBuilder assignments(Map<CacheColumnId, CacheExpression> assignments)
         {
             this.assignments = requireNonNull(assignments, "assignments is null");
             return this;

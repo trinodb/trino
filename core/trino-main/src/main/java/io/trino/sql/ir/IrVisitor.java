@@ -42,11 +42,6 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitCanonicalAggregation(CanonicalAggregation node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitCoalesceExpression(CoalesceExpression node, C context)
     {
         return visitExpression(node, context);

@@ -50,7 +50,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters.Descriptor;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.ir.ArithmeticBinaryExpression;
-import io.trino.sql.ir.CanonicalAggregation;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -101,6 +100,7 @@ import static io.trino.SystemSessionProperties.CACHE_COMMON_SUBQUERIES_ENABLED;
 import static io.trino.SystemSessionProperties.CACHE_PROJECTIONS_ENABLED;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT;
+import static io.trino.cache.CanonicalSubplanExtractor.canonicalAggregationToColumnId;
 import static io.trino.cache.CanonicalSubplanExtractor.canonicalExpressionToColumnId;
 import static io.trino.cache.CanonicalSubplanExtractor.columnIdToSymbol;
 import static io.trino.cache.CommonSubqueriesExtractor.aggregationKey;
@@ -798,8 +798,8 @@ public class TestCommonSubqueriesExtractor
         assertThat(aggregation.adaptCommonSubplan(aggregation.getCommonSubplan(), idAllocator)).isEqualTo(aggregation.getCommonSubplan());
 
         // validate signature
-        Expression sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
-        List<CacheColumnId> cacheColumnIds = ImmutableList.of(NAME_ID, canonicalExpressionToColumnId(sum));
+        CanonicalAggregation sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(NAME_ID, canonicalAggregationToColumnId(sum));
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
         List<Type> cacheColumnsTypes = ImmutableList.of(createVarcharType(25), rowType);
         assertThat(aggregation.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
@@ -882,9 +882,9 @@ public class TestCommonSubqueriesExtractor
         assertThat(aggregationB.adaptCommonSubplan(aggregationB.getCommonSubplan(), idAllocator)).isEqualTo(aggregationB.getCommonSubplan());
 
         // make sure plan signatures are same
-        Expression sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
+        CanonicalAggregation sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
-        List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(sum));
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalAggregationToColumnId(sum));
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
         List<Type> cacheColumnsTypes = ImmutableList.of(rowType);
         assertThat(aggregationB.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
@@ -950,17 +950,17 @@ public class TestCommonSubqueriesExtractor
         // make sure plan signatures are same
         CacheColumnId nationKeyGreaterThan10 = canonicalExpressionToColumnId(new ComparisonExpression(GREATER_THAN, new SymbolReference(BIGINT, "[nationkey:bigint]"), new Constant(BIGINT, 10L)));
         CacheColumnId nationKeyMultiplyBy2 = canonicalExpressionToColumnId(new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference(BIGINT, "[nationkey:bigint]"), new Constant(BIGINT, 2L)));
-        Expression max = canonicalAggregation(
+        CanonicalAggregation max = canonicalAggregation(
                 "max",
                 Optional.of(columnIdToSymbol(nationKeyGreaterThan10, BOOLEAN)),
                 new ExpressionWithType(new SymbolReference(BIGINT, "[regionkey:bigint]"), BIGINT));
-        Expression sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
-        Expression avg = canonicalAggregation(
+        CanonicalAggregation sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
+        CanonicalAggregation avg = canonicalAggregation(
                 "avg",
                 Optional.of(columnIdToSymbol(nationKeyGreaterThan10, BOOLEAN)),
                 new ExpressionWithType(nationKeyMultiplyBy2, BIGINT));
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
-        List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(max), canonicalExpressionToColumnId(sum), canonicalExpressionToColumnId(avg));
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalAggregationToColumnId(max), canonicalAggregationToColumnId(sum), canonicalAggregationToColumnId(avg));
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT,
                 RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT))),
                 RowType.from(List.of(RowType.field(DOUBLE), RowType.field(BIGINT))));
@@ -1009,9 +1009,9 @@ public class TestCommonSubqueriesExtractor
 
         // make sure plan signatures are same
         CacheColumnId groupByColumn = canonicalExpressionToColumnId(new ArithmeticBinaryExpression(MULTIPLY_BIGINT, MULTIPLY, new SymbolReference(BIGINT, "[regionkey:bigint]"), new Constant(BIGINT, 2L)));
-        Expression sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
+        CanonicalAggregation sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
-        List<CacheColumnId> cacheColumnIds = ImmutableList.of(groupByColumn, canonicalExpressionToColumnId(sum));
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(groupByColumn, canonicalAggregationToColumnId(sum));
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, rowType);
         assertThat(aggregationB.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
@@ -1081,10 +1081,10 @@ public class TestCommonSubqueriesExtractor
                         filter(new ComparisonExpression(LESS_THAN, new SymbolReference(BIGINT, "REGIONKEY"), new Constant(BIGINT, 5L)), commonSubplan)));
 
         // make sure plan signatures are same
-        Expression sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
-        Expression max = canonicalAggregation("max", NATIONKEY_EXPRESSION);
+        CanonicalAggregation sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
+        CanonicalAggregation max = canonicalAggregation("max", NATIONKEY_EXPRESSION);
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
-        List<CacheColumnId> cacheColumnIds = ImmutableList.of(REGIONKEY_ID, NAME_ID, canonicalExpressionToColumnId(sum), canonicalExpressionToColumnId(max));
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(REGIONKEY_ID, NAME_ID, canonicalAggregationToColumnId(sum), canonicalAggregationToColumnId(max));
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, createVarcharType(25), rowType, BIGINT);
         assertThat(aggregationB.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
@@ -1141,9 +1141,9 @@ public class TestCommonSubqueriesExtractor
 
         // make sure plan signatures are same
         CacheColumnId nationKeyPlusOne = canonicalExpressionToColumnId(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "[nationkey:bigint]"), new Constant(BIGINT, 1L)));
-        Expression sum = canonicalAggregation("sum", new ExpressionWithType(nationKeyPlusOne, BIGINT));
+        CanonicalAggregation sum = canonicalAggregation("sum", new ExpressionWithType(nationKeyPlusOne, BIGINT));
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
-        List<CacheColumnId> cacheColumnIds = ImmutableList.of(NAME_ID, REGIONKEY_ID, canonicalExpressionToColumnId(sum));
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(NAME_ID, REGIONKEY_ID, canonicalAggregationToColumnId(sum));
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
         List<Type> cacheColumnsTypes = ImmutableList.of(createVarcharType(25), BIGINT, rowType);
         assertThat(aggregationB.getCommonSubplanSignature()).isEqualTo(new PlanSignatureWithPredicate(
