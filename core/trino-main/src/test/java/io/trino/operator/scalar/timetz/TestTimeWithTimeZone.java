@@ -25,10 +25,13 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.function.BiFunction;
 
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -2099,6 +2102,18 @@ public class TestTimeWithTimeZone
         assertThat(assertions.expression("date_diff('second', TIME '00:00:00.1234567891+14:00', TIME '00:00:00.1234567891-10:00')")).matches("BIGINT '0'");
         assertThat(assertions.expression("date_diff('second', TIME '00:00:00.12345678912+14:00', TIME '00:00:00.12345678912-10:00')")).matches("BIGINT '0'");
         assertThat(assertions.expression("date_diff('second', TIME '00:00:00.123456789123+14:00', TIME '00:00:00.123456789123-10:00')")).matches("BIGINT '0'");
+
+        // Units not supported on TIME WITH TIME ZONE, but supported on some other types
+        for (String unit : List.of("day", "week", "month", "quarter", "year")) {
+            // Short TIME WITH TIME ZONE
+            assertTrinoExceptionThrownBy(assertions.expression("date_diff('%s', TIME '00:00:00+00:00', TIME '01:00:00+00:00')".formatted(unit))::evaluate)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessage("'%s' is not a valid TIME field".formatted(unit));
+            // Long TIME WITH TIME ZONE
+            assertTrinoExceptionThrownBy(assertions.expression("date_diff('%s', TIME '00:00:00.123456789012+00:00', TIME '01:00:00.123456789012+00:00')".formatted(unit))::evaluate)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessage("'%s' is not a valid TIME field".formatted(unit));
+        }
     }
 
     @Test
@@ -2156,6 +2171,18 @@ public class TestTimeWithTimeZone
         assertThat(assertions.expression("date_add('millisecond', 900, TIME '23:59:59.1+08:35')")).matches("TIME '00:00:00.0+08:35'");
         assertThat(assertions.expression("date_add('millisecond', 890, TIME '23:59:59.11+08:35')")).matches("TIME '00:00:00.00+08:35'");
         assertThat(assertions.expression("date_add('millisecond', 889, TIME '23:59:59.111+08:35')")).matches("TIME '00:00:00.000+08:35'");
+
+        // Units not supported on TIME WITH TIME ZONE, but supported on some other types
+        for (String unit : List.of("day", "week", "month", "quarter", "year")) {
+            // Short TIME WITH TIME ZONE
+            assertTrinoExceptionThrownBy(assertions.expression("date_add('%s', 1, TIME '00:00:00+00:00')".formatted(unit))::evaluate)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessage("'%s' is not a valid TIME field".formatted(unit));
+            // Long TIME WITH TIME ZONE
+            assertTrinoExceptionThrownBy(assertions.expression("date_add('%s', 1, TIME '00:00:00.123456789012+00:00')".formatted(unit))::evaluate)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessage("'%s' is not a valid TIME field".formatted(unit));
+        }
     }
 
     @Test
@@ -2272,6 +2299,18 @@ public class TestTimeWithTimeZone
         assertThat(assertions.expression("date_trunc('hour', TIME '12:34:56.5555555555+08:35')")).matches("TIME '12:00:00.0000000000+08:35'");
         assertThat(assertions.expression("date_trunc('hour', TIME '12:34:56.55555555555+08:35')")).matches("TIME '12:00:00.00000000000+08:35'");
         assertThat(assertions.expression("date_trunc('hour', TIME '12:34:56.555555555555+08:35')")).matches("TIME '12:00:00.000000000000+08:35'");
+
+        // Units not supported on TIME WITH TIME ZONE, but supported on some other types
+        for (String unit : List.of("day", "week", "month", "quarter", "year")) {
+            // Short TIME WITH TIME ZONE
+            assertTrinoExceptionThrownBy(assertions.expression("date_trunc('%s', TIME '00:00:00+00:00')".formatted(unit))::evaluate)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessage("'%s' is not a valid TIME field".formatted(unit));
+            // Long TIME WITH TIME ZONE
+            assertTrinoExceptionThrownBy(assertions.expression("date_trunc('%s', TIME '00:00:00.123456789012+00:00')".formatted(unit))::evaluate)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                    .hasMessage("'%s' is not a valid TIME field".formatted(unit));
+        }
     }
 
     @Test
