@@ -106,8 +106,10 @@ public final class NullabilityAnalyzer
         @Override
         protected Void visitCall(Call node, AtomicBoolean result)
         {
-            // TODO: this should look at whether the return type of the function is annotated with @SqlNullable
-            result.set(true);
+            if (node.function().getFunctionNullability().isReturnNullable()) {
+                result.set(true);
+            }
+
             return null;
         }
 
