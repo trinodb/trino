@@ -24,7 +24,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.ir.Arithmetic;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
@@ -57,7 +57,6 @@ import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.sql.ir.Arithmetic.Operator.MULTIPLY;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.enforceSingleRow;
@@ -216,10 +215,10 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(),
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
-                                Optional.of(new Comparison(GREATER_THAN, new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "A1"), new Reference(INTEGER, "B1")), new Constant(INTEGER, 100L)))))
+                                Optional.of(new Comparison(GREATER_THAN, new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "A1"), new Reference(INTEGER, "B1"))), new Constant(INTEGER, 100L)))))
                 .matches(
                         join(joinType, builder -> builder
-                                .filter(new Comparison(GREATER_THAN, new Arithmetic(MULTIPLY_INTEGER, MULTIPLY, new Reference(INTEGER, "A1"), new Reference(INTEGER, "B1")), new Constant(INTEGER, 100L)))
+                                .filter(new Comparison(GREATER_THAN, new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "A1"), new Reference(INTEGER, "B1"))), new Constant(INTEGER, 100L)))
                                 .distributionType(REPLICATED)
                                 .left(values(ImmutableMap.of("A1", 0)))
                                 .right(values(ImmutableMap.of("B1", 0)))));

@@ -30,7 +30,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
@@ -442,25 +441,6 @@ public class IrExpressionInterpreter
                 return null;
             }
             return false;
-        }
-
-        @Override
-        protected Object visitArithmetic(Arithmetic node, Object context)
-        {
-            Object left = processWithExceptionHandling(node.left(), context);
-            if (left == null) {
-                return null;
-            }
-            Object right = processWithExceptionHandling(node.right(), context);
-            if (right == null) {
-                return null;
-            }
-
-            if (hasUnresolvedValue(left, right)) {
-                return new Arithmetic(node.function(), node.operator(), toExpression(left, node.left().type()), toExpression(right, node.right().type()));
-            }
-
-            return functionInvoker.invoke(node.function(), connectorSession, ImmutableList.of(left, right));
         }
 
         @Override

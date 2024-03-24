@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
-import io.trino.sql.ir.Arithmetic;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -48,8 +47,6 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Arithmetic.Operator.ADD;
-import static io.trino.sql.ir.Arithmetic.Operator.MULTIPLY;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
@@ -281,7 +278,7 @@ public class TestMergePatternRecognitionNodes
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(new IrLabel("X"), TRUE)
                         .source(p.project(
-                                Assignments.of(p.symbol("projected"), new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "a"), new Reference(BIGINT, "measure"))),
+                                Assignments.of(p.symbol("projected"), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "measure")))),
                                 p.patternRecognition(childBuilder -> childBuilder
                                         .addMeasure(
                                                 p.symbol("measure"),
@@ -443,7 +440,7 @@ public class TestMergePatternRecognitionNodes
                         .source(p.project(
                                 Assignments.of(
                                         p.symbol("a"), new Reference(BIGINT, "a"),
-                                        p.symbol("expression"), new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))),
+                                        p.symbol("expression"), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
                                 p.patternRecognition(childBuilder -> {
                                     childBuilder
                                             .addMeasure(
@@ -469,7 +466,7 @@ public class TestMergePatternRecognitionNodes
                                                 "b", expression(new Reference(BIGINT, "b")),
                                                 "parent_measure", expression(new Reference(BIGINT, "parent_measure")),
                                                 "child_measure", expression(new Reference(BIGINT, "child_measure")),
-                                                "expression", expression(new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
+                                                "expression", expression(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))))),
                                         patternRecognition(builder -> builder
                                                         .addMeasure(
                                                                 "parent_measure",
@@ -506,7 +503,7 @@ public class TestMergePatternRecognitionNodes
                         .source(p.project(
                                 Assignments.of(
                                         p.symbol("a"), new Reference(BIGINT, "a"),
-                                        p.symbol("expression"), new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")), new Reference(BIGINT, "child_measure"))),
+                                        p.symbol("expression"), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))), new Reference(BIGINT, "child_measure")))),
                                 p.patternRecognition(childBuilder -> {
                                     childBuilder
                                             .addMeasure(
@@ -532,7 +529,7 @@ public class TestMergePatternRecognitionNodes
                                                 "b", expression(new Reference(BIGINT, "b")),
                                                 "parent_measure", expression(new Reference(BIGINT, "parent_measure")),
                                                 "child_measure", expression(new Reference(BIGINT, "child_measure")),
-                                                "expression", expression(new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")), new Reference(BIGINT, "child_measure")))),
+                                                "expression", expression(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))), new Reference(BIGINT, "child_measure"))))),
                                         patternRecognition(builder -> builder
                                                         .addMeasure(
                                                                 "parent_measure",
@@ -574,8 +571,8 @@ public class TestMergePatternRecognitionNodes
                         .source(p.project(
                                 Assignments.builder()
                                         .put(p.symbol("a"), new Reference(BIGINT, "a"))
-                                        .put(p.symbol("expression_1"), new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))
-                                        .put(p.symbol("expression_2"), new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))
+                                        .put(p.symbol("expression_1"), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))))
+                                        .put(p.symbol("expression_2"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))))
                                         .build(),
                                 p.patternRecognition(childBuilder -> {
                                     childBuilder
@@ -604,7 +601,7 @@ public class TestMergePatternRecognitionNodes
                                                 .put("parent_measure", expression(new Reference(BIGINT, "parent_measure")))
                                                 .put("child_measure", expression(new Reference(BIGINT, "child_measure")))
                                                 .put("expression_1", expression(new Reference(BIGINT, "expression_1")))
-                                                .put("expression_2", expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))))
+                                                .put("expression_2", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))))
                                                 .buildOrThrow(),
                                         patternRecognition(builder -> builder
                                                         .addMeasure(
@@ -628,7 +625,7 @@ public class TestMergePatternRecognitionNodes
                                                         ImmutableMap.of(
                                                                 "a", expression(new Reference(BIGINT, "a")),
                                                                 "b", expression(new Reference(BIGINT, "b")),
-                                                                "expression_1", expression(new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
+                                                                "expression_1", expression(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))))),
                                                         values("a", "b"))))));
     }
 
@@ -655,8 +652,8 @@ public class TestMergePatternRecognitionNodes
                                 Assignments.builder()
                                         .put(p.symbol("a"), new Reference(BIGINT, "a"))
                                         .put(p.symbol("child_measure"), new Reference(BIGINT, "child_measure"))
-                                        .put(p.symbol("expression_1"), new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "a"), new Reference(BIGINT, "a")))
-                                        .put(p.symbol("expression_2"), new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "a"), new Reference(BIGINT, "a")))
+                                        .put(p.symbol("expression_1"), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "a"))))
+                                        .put(p.symbol("expression_2"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "a"))))
                                         .build(),
                                 p.patternRecognition(childBuilder -> {
                                     childBuilder
@@ -682,7 +679,7 @@ public class TestMergePatternRecognitionNodes
                                                 "a", expression(new Reference(BIGINT, "a")),
                                                 "parent_measure", expression(new Reference(BIGINT, "parent_measure")),
                                                 "child_measure", expression(new Reference(BIGINT, "child_measure")),
-                                                "expression_2", expression(new Arithmetic(ADD_BIGINT, ADD, new Reference(BIGINT, "a"), new Reference(BIGINT, "a")))),
+                                                "expression_2", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "a"))))),
                                         patternRecognition(builder -> builder
                                                         .specification(specification(ImmutableList.of("a"), ImmutableList.of(), ImmutableMap.of()))
                                                         .addMeasure(
@@ -706,7 +703,7 @@ public class TestMergePatternRecognitionNodes
                                                         ImmutableMap.of(
                                                                 "a", expression(new Reference(BIGINT, "a")),
                                                                 "b", expression(new Reference(BIGINT, "b")),
-                                                                "expression_1", PlanMatchPattern.expression(new Arithmetic(MULTIPLY_BIGINT, MULTIPLY, new Reference(BIGINT, "a"), new Reference(BIGINT, "a")))),
+                                                                "expression_1", PlanMatchPattern.expression(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "a"))))),
                                                         values("a", "b"))))));
     }
 
