@@ -64,6 +64,7 @@ import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesW
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.plugin.raptor.legacy.storage.TestRaptorStorageManager.createRaptorStorageManager;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -227,7 +228,7 @@ public class TestRaptorConnector
                         new SchemaTableName("test", "test"),
                         ImmutableList.of(new ColumnMetadata("id", BIGINT), new ColumnMetadata("time", temporalType)),
                         ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "time")),
-                false);
+                FAIL);
         connector.commit(transaction);
 
         ConnectorTransactionHandle txn1 = beginTransaction();
@@ -268,7 +269,7 @@ public class TestRaptorConnector
                 new ConnectorTableMetadata(
                         new SchemaTableName("test", name),
                         ImmutableList.of(new ColumnMetadata("id", BIGINT))),
-                false);
+                FAIL);
         connector.commit(transaction);
 
         transaction = beginTransaction();

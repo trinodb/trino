@@ -378,15 +378,6 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
-    {
-        Span span = startSpan("createTable", tableMetadata.getTable());
-        try (var ignored = scopedSpan(span)) {
-            delegate.createTable(session, tableMetadata, ignoreExisting);
-        }
-    }
-
-    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
         Span span = startSpan("createTable", tableMetadata.getTable());

@@ -62,6 +62,7 @@ import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.DatabaseShardManager.shardIndexTable;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.shardInfo;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
@@ -110,7 +111,7 @@ public class TestRaptorSplitManager
         CatalogName connectorId = new CatalogName("raptor");
         metadata = new RaptorMetadata(dbi, shardManager);
 
-        metadata.createTable(SESSION, TEST_TABLE, false);
+        metadata.createTable(SESSION, TEST_TABLE, FAIL);
         tableHandle = metadata.getTableHandle(SESSION, TEST_TABLE.getTable());
 
         List<ShardInfo> shards = ImmutableList.<ShardInfo>builder()

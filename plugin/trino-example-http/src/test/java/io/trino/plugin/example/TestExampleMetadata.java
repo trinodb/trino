@@ -30,6 +30,7 @@ import java.net.URL;
 import java.util.Optional;
 
 import static io.trino.plugin.example.MetadataUtil.CATALOG_CODEC;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -143,7 +144,7 @@ public class TestExampleMetadata
                 new ConnectorTableMetadata(
                         new SchemaTableName("example", "foo"),
                         ImmutableList.of(new ColumnMetadata("text", createUnboundedVarcharType()))),
-                false))
+                FAIL))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("This connector does not support creating tables");
     }

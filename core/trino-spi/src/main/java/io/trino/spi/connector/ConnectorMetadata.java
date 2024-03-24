@@ -64,7 +64,6 @@ import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
-import static io.trino.spi.connector.SaveMode.IGNORE;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.expression.Constant.FALSE;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
@@ -506,18 +505,6 @@ public interface ConnectorMetadata
 
     /**
      * Creates a table using the specified table metadata.
-     *
-     * @throws TrinoException with {@code ALREADY_EXISTS} if the table already exists and {@code ignoreExisting} is not set
-     * @deprecated use {@link #createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)}
-     */
-    @Deprecated
-    default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
-    }
-
-    /**
-     * Creates a table using the specified table metadata.
      * IGNORE means the table is created using CREATE ... IF NOT EXISTS syntax.
      * REPLACE means the table is created using CREATE OR REPLACE syntax.
      *
@@ -528,8 +515,7 @@ public interface ConnectorMetadata
         if (saveMode == REPLACE) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
-        // Delegate to deprecated SPI to not break existing connectors
-        createTable(session, tableMetadata, saveMode == IGNORE);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
 
     /**

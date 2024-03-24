@@ -28,6 +28,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -71,6 +72,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
+import static io.trino.spi.connector.SaveMode.IGNORE;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 import static org.apache.kudu.ColumnSchema.ColumnSchemaBuilder;
@@ -290,11 +292,11 @@ public class KuduClientSession
         }
     }
 
-    public KuduTable createTable(ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    public KuduTable createTable(ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
         try {
             String rawName = schemaEmulation.toRawName(tableMetadata.getTable());
-            if (ignoreExisting) {
+            if (saveMode == IGNORE) {
                 if (client.tableExists(rawName)) {
                     return null;
                 }
