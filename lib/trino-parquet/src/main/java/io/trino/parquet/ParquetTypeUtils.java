@@ -27,7 +27,6 @@ import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.ColumnIOFactory;
 import org.apache.parquet.io.GroupColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
-import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
@@ -156,27 +155,17 @@ public final class ParquetTypeUtils
     @SuppressWarnings("deprecation")
     public static ParquetEncoding getParquetEncoding(Encoding encoding)
     {
-        switch (encoding) {
-            case PLAIN:
-                return ParquetEncoding.PLAIN;
-            case RLE:
-                return ParquetEncoding.RLE;
-            case BYTE_STREAM_SPLIT:
-                return ParquetEncoding.BYTE_STREAM_SPLIT;
-            case BIT_PACKED:
-                return ParquetEncoding.BIT_PACKED;
-            case PLAIN_DICTIONARY:
-                return ParquetEncoding.PLAIN_DICTIONARY;
-            case DELTA_BINARY_PACKED:
-                return ParquetEncoding.DELTA_BINARY_PACKED;
-            case DELTA_LENGTH_BYTE_ARRAY:
-                return ParquetEncoding.DELTA_LENGTH_BYTE_ARRAY;
-            case DELTA_BYTE_ARRAY:
-                return ParquetEncoding.DELTA_BYTE_ARRAY;
-            case RLE_DICTIONARY:
-                return ParquetEncoding.RLE_DICTIONARY;
-        }
-        throw new ParquetDecodingException("Unsupported Parquet encoding: " + encoding);
+        return switch (encoding) {
+            case PLAIN -> ParquetEncoding.PLAIN;
+            case RLE -> ParquetEncoding.RLE;
+            case BYTE_STREAM_SPLIT -> ParquetEncoding.BYTE_STREAM_SPLIT;
+            case BIT_PACKED -> ParquetEncoding.BIT_PACKED;
+            case PLAIN_DICTIONARY -> ParquetEncoding.PLAIN_DICTIONARY;
+            case DELTA_BINARY_PACKED -> ParquetEncoding.DELTA_BINARY_PACKED;
+            case DELTA_LENGTH_BYTE_ARRAY -> ParquetEncoding.DELTA_LENGTH_BYTE_ARRAY;
+            case DELTA_BYTE_ARRAY -> ParquetEncoding.DELTA_BYTE_ARRAY;
+            case RLE_DICTIONARY -> ParquetEncoding.RLE_DICTIONARY;
+        };
     }
 
     public static org.apache.parquet.schema.Type getParquetTypeByName(String columnName, GroupType groupType)
