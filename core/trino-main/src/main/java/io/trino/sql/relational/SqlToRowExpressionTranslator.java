@@ -37,7 +37,6 @@ import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
@@ -58,7 +57,6 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -222,15 +220,6 @@ public final class SqlToRowExpressionTranslator
                     standardFunctionResolution.arithmeticFunction(node.operator(), left.getType(), right.getType()),
                     left,
                     right);
-        }
-
-        @Override
-        protected RowExpression visitNegation(Negation node, Void context)
-        {
-            RowExpression expression = process(node.value(), context);
-            return call(
-                    metadata.resolveOperator(NEGATION, ImmutableList.of(expression.getType())),
-                    expression);
         }
 
         @Override

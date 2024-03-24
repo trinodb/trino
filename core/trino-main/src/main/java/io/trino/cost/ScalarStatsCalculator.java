@@ -29,7 +29,6 @@ import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrVisitor;
-import io.trino.sql.ir.Negation;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
@@ -37,6 +36,8 @@ import io.trino.sql.planner.Symbol;
 
 import java.util.OptionalDouble;
 
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.util.MoreMath.max;
 import static io.trino.util.MoreMath.min;
@@ -109,6 +110,14 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitCall(Call node, Void context)
         {
+            if (node.function().getName().equals(builtinFunctionName(NEGATION))) {
+                SymbolStatsEstimate stats = process(node.arguments().getFirst());
+                return SymbolStatsEstimate.buildFrom(stats)
+                        .setLowValue(-stats.getHighValue())
+                        .setHighValue(-stats.getLowValue())
+                        .build();
+            }
+
             IrExpressionInterpreter interpreter = new IrExpressionInterpreter(node, plannerContext, session);
             Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
@@ -173,16 +182,6 @@ public class ScalarStatsCalculator
             }
 
             return false;
-        }
-
-        @Override
-        protected SymbolStatsEstimate visitNegation(Negation node, Void context)
-        {
-            SymbolStatsEstimate stats = process(node.value());
-            return SymbolStatsEstimate.buildFrom(stats)
-                    .setLowValue(-stats.getHighValue())
-                    .setHighValue(-stats.getLowValue())
-                    .build();
         }
 
         @Override
