@@ -28,6 +28,7 @@ import java.time.ZonedDateTime;
 import java.util.function.BiFunction;
 
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -2402,6 +2403,84 @@ public class TestTimestampWithTimeZone
         assertThat(assertions.expression("date_diff('hour', TIMESTAMP '2020-05-10 11:34:55.1111111111 Asia/Kathmandu', TIMESTAMP '2020-05-10 12:34:56.9999999999 Asia/Kathmandu')")).matches("BIGINT '1'");
         assertThat(assertions.expression("date_diff('hour', TIMESTAMP '2020-05-10 11:34:55.11111111111 Asia/Kathmandu', TIMESTAMP '2020-05-10 12:34:56.99999999999 Asia/Kathmandu')")).matches("BIGINT '1'");
         assertThat(assertions.expression("date_diff('hour', TIMESTAMP '2020-05-10 11:34:55.111111111111 Asia/Kathmandu', TIMESTAMP '2020-05-10 12:34:56.999999999999 Asia/Kathmandu')")).matches("BIGINT '1'");
+
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2001-01-31 19:34:55 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00 Europe/Warsaw')")).matches("BIGINT '1682'");
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2001-01-31 19:34:55.1 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9 Europe/Warsaw')")).matches("BIGINT '1682'");
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2001-01-31 19:34:55.11 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99 Europe/Warsaw')")).matches("BIGINT '1682'");
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2001-01-31 19:34:55.111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999 Europe/Warsaw')")).matches("BIGINT '1682'");
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2001-01-31 19:34:55.1111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999 Europe/Warsaw')")).matches("BIGINT '1682'");
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2001-01-31 19:34:55.11111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999 Europe/Warsaw')")).matches("BIGINT '1682'");
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2001-01-31 19:34:55.111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999 Europe/Warsaw')")).matches("BIGINT '1682'");
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2001-01-31 19:34:55.1111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999999 Europe/Warsaw')")).matches("BIGINT '1682'");
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2001-01-31 19:34:55.11111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999999 Europe/Warsaw')")).matches("BIGINT '1682'");
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2001-01-31 19:34:55.111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999999 Europe/Warsaw')")).matches("BIGINT '1682'");
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2001-01-31 19:34:55.1111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999999999 Europe/Warsaw')")).matches("BIGINT '1682'");
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2001-01-31 19:34:55.11111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999999999 Europe/Warsaw')")).matches("BIGINT '1682'");
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2001-01-31 19:34:55.11111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999999999 Europe/Warsaw')")).matches("BIGINT '1682'");
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2001-01-31 19:34:55.111111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999999999 Europe/Warsaw')")).matches("BIGINT '1682'");
+
+        assertThat(assertions.expression("date_diff('week', TIMESTAMP '2001-01-31 19:34:55 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00 Europe/Warsaw')")).matches("BIGINT '240'");
+        assertThat(assertions.expression("date_diff('week', TIMESTAMP '2001-01-31 19:34:55.1 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9 Europe/Warsaw')")).matches("BIGINT '240'");
+        assertThat(assertions.expression("date_diff('week', TIMESTAMP '2001-01-31 19:34:55.11 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99 Europe/Warsaw')")).matches("BIGINT '240'");
+        assertThat(assertions.expression("date_diff('week', TIMESTAMP '2001-01-31 19:34:55.111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999 Europe/Warsaw')")).matches("BIGINT '240'");
+        assertThat(assertions.expression("date_diff('week', TIMESTAMP '2001-01-31 19:34:55.1111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999 Europe/Warsaw')")).matches("BIGINT '240'");
+        assertThat(assertions.expression("date_diff('week', TIMESTAMP '2001-01-31 19:34:55.11111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999 Europe/Warsaw')")).matches("BIGINT '240'");
+        assertThat(assertions.expression("date_diff('week', TIMESTAMP '2001-01-31 19:34:55.111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999 Europe/Warsaw')")).matches("BIGINT '240'");
+        assertThat(assertions.expression("date_diff('week', TIMESTAMP '2001-01-31 19:34:55.1111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999999 Europe/Warsaw')")).matches("BIGINT '240'");
+        assertThat(assertions.expression("date_diff('week', TIMESTAMP '2001-01-31 19:34:55.11111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999999 Europe/Warsaw')")).matches("BIGINT '240'");
+        assertThat(assertions.expression("date_diff('week', TIMESTAMP '2001-01-31 19:34:55.111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999999 Europe/Warsaw')")).matches("BIGINT '240'");
+        assertThat(assertions.expression("date_diff('week', TIMESTAMP '2001-01-31 19:34:55.1111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999999999 Europe/Warsaw')")).matches("BIGINT '240'");
+        assertThat(assertions.expression("date_diff('week', TIMESTAMP '2001-01-31 19:34:55.11111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999999999 Europe/Warsaw')")).matches("BIGINT '240'");
+        assertThat(assertions.expression("date_diff('week', TIMESTAMP '2001-01-31 19:34:55.111111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999999999 Europe/Warsaw')")).matches("BIGINT '240'");
+
+        assertThat(assertions.expression("date_diff('month', TIMESTAMP '2001-01-31 19:34:55 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00 Europe/Warsaw')")).matches("BIGINT '55'");
+        assertThat(assertions.expression("date_diff('month', TIMESTAMP '2001-01-31 19:34:55.1 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9 Europe/Warsaw')")).matches("BIGINT '55'");
+        assertThat(assertions.expression("date_diff('month', TIMESTAMP '2001-01-31 19:34:55.11 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99 Europe/Warsaw')")).matches("BIGINT '55'");
+        assertThat(assertions.expression("date_diff('month', TIMESTAMP '2001-01-31 19:34:55.111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999 Europe/Warsaw')")).matches("BIGINT '55'");
+        assertThat(assertions.expression("date_diff('month', TIMESTAMP '2001-01-31 19:34:55.1111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999 Europe/Warsaw')")).matches("BIGINT '55'");
+        assertThat(assertions.expression("date_diff('month', TIMESTAMP '2001-01-31 19:34:55.11111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999 Europe/Warsaw')")).matches("BIGINT '55'");
+        assertThat(assertions.expression("date_diff('month', TIMESTAMP '2001-01-31 19:34:55.111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999 Europe/Warsaw')")).matches("BIGINT '55'");
+        assertThat(assertions.expression("date_diff('month', TIMESTAMP '2001-01-31 19:34:55.1111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999999 Europe/Warsaw')")).matches("BIGINT '55'");
+        assertThat(assertions.expression("date_diff('month', TIMESTAMP '2001-01-31 19:34:55.11111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999999 Europe/Warsaw')")).matches("BIGINT '55'");
+        assertThat(assertions.expression("date_diff('month', TIMESTAMP '2001-01-31 19:34:55.111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999999 Europe/Warsaw')")).matches("BIGINT '55'");
+        assertThat(assertions.expression("date_diff('month', TIMESTAMP '2001-01-31 19:34:55.1111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999999999 Europe/Warsaw')")).matches("BIGINT '55'");
+        assertThat(assertions.expression("date_diff('month', TIMESTAMP '2001-01-31 19:34:55.11111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999999999 Europe/Warsaw')")).matches("BIGINT '55'");
+        assertThat(assertions.expression("date_diff('month', TIMESTAMP '2001-01-31 19:34:55.111111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999999999 Europe/Warsaw')")).matches("BIGINT '55'");
+
+        assertThat(assertions.expression("date_diff('quarter', TIMESTAMP '2001-01-31 19:34:55 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00 Europe/Warsaw')")).matches("BIGINT '18'");
+        assertThat(assertions.expression("date_diff('quarter', TIMESTAMP '2001-01-31 19:34:55.1 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9 Europe/Warsaw')")).matches("BIGINT '18'");
+        assertThat(assertions.expression("date_diff('quarter', TIMESTAMP '2001-01-31 19:34:55.11 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99 Europe/Warsaw')")).matches("BIGINT '18'");
+        assertThat(assertions.expression("date_diff('quarter', TIMESTAMP '2001-01-31 19:34:55.111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999 Europe/Warsaw')")).matches("BIGINT '18'");
+        assertThat(assertions.expression("date_diff('quarter', TIMESTAMP '2001-01-31 19:34:55.1111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999 Europe/Warsaw')")).matches("BIGINT '18'");
+        assertThat(assertions.expression("date_diff('quarter', TIMESTAMP '2001-01-31 19:34:55.11111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999 Europe/Warsaw')")).matches("BIGINT '18'");
+        assertThat(assertions.expression("date_diff('quarter', TIMESTAMP '2001-01-31 19:34:55.111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999 Europe/Warsaw')")).matches("BIGINT '18'");
+        assertThat(assertions.expression("date_diff('quarter', TIMESTAMP '2001-01-31 19:34:55.1111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999999 Europe/Warsaw')")).matches("BIGINT '18'");
+        assertThat(assertions.expression("date_diff('quarter', TIMESTAMP '2001-01-31 19:34:55.11111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999999 Europe/Warsaw')")).matches("BIGINT '18'");
+        assertThat(assertions.expression("date_diff('quarter', TIMESTAMP '2001-01-31 19:34:55.111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999999 Europe/Warsaw')")).matches("BIGINT '18'");
+        assertThat(assertions.expression("date_diff('quarter', TIMESTAMP '2001-01-31 19:34:55.1111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999999999 Europe/Warsaw')")).matches("BIGINT '18'");
+        assertThat(assertions.expression("date_diff('quarter', TIMESTAMP '2001-01-31 19:34:55.11111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999999999 Europe/Warsaw')")).matches("BIGINT '18'");
+        assertThat(assertions.expression("date_diff('quarter', TIMESTAMP '2001-01-31 19:34:55.111111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999999999 Europe/Warsaw')")).matches("BIGINT '18'");
+
+        assertThat(assertions.expression("date_diff('year', TIMESTAMP '2001-01-31 19:34:55 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00 Europe/Warsaw')")).matches("BIGINT '4'");
+        assertThat(assertions.expression("date_diff('year', TIMESTAMP '2001-01-31 19:34:55.1 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9 Europe/Warsaw')")).matches("BIGINT '4'");
+        assertThat(assertions.expression("date_diff('year', TIMESTAMP '2001-01-31 19:34:55.11 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99 Europe/Warsaw')")).matches("BIGINT '4'");
+        assertThat(assertions.expression("date_diff('year', TIMESTAMP '2001-01-31 19:34:55.111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999 Europe/Warsaw')")).matches("BIGINT '4'");
+        assertThat(assertions.expression("date_diff('year', TIMESTAMP '2001-01-31 19:34:55.1111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999 Europe/Warsaw')")).matches("BIGINT '4'");
+        assertThat(assertions.expression("date_diff('year', TIMESTAMP '2001-01-31 19:34:55.11111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999 Europe/Warsaw')")).matches("BIGINT '4'");
+        assertThat(assertions.expression("date_diff('year', TIMESTAMP '2001-01-31 19:34:55.111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999 Europe/Warsaw')")).matches("BIGINT '4'");
+        assertThat(assertions.expression("date_diff('year', TIMESTAMP '2001-01-31 19:34:55.1111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999999 Europe/Warsaw')")).matches("BIGINT '4'");
+        assertThat(assertions.expression("date_diff('year', TIMESTAMP '2001-01-31 19:34:55.11111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999999 Europe/Warsaw')")).matches("BIGINT '4'");
+        assertThat(assertions.expression("date_diff('year', TIMESTAMP '2001-01-31 19:34:55.111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999999 Europe/Warsaw')")).matches("BIGINT '4'");
+        assertThat(assertions.expression("date_diff('year', TIMESTAMP '2001-01-31 19:34:55.1111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.9999999999 Europe/Warsaw')")).matches("BIGINT '4'");
+        assertThat(assertions.expression("date_diff('year', TIMESTAMP '2001-01-31 19:34:55.11111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.99999999999 Europe/Warsaw')")).matches("BIGINT '4'");
+        assertThat(assertions.expression("date_diff('year', TIMESTAMP '2001-01-31 19:34:55.111111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999999999 Europe/Warsaw')")).matches("BIGINT '4'");
+
+        assertTrinoExceptionThrownBy(assertions.expression("date_diff('foo', TIMESTAMP '2001-01-31 19:34:55 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00 Europe/Warsaw')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("'foo' is not a valid TIMESTAMP field");
+        assertTrinoExceptionThrownBy(assertions.expression("date_diff('foo', TIMESTAMP '2001-01-31 19:34:55.111111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999999999 Europe/Warsaw')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("'foo' is not a valid TIMESTAMP field");
     }
 
     @Test
@@ -2450,6 +2529,83 @@ public class TestTimestampWithTimeZone
         assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.5555555555 Asia/Kathmandu')")).matches("TIMESTAMP '1500-05-10 12:34:56.5565555555 Asia/Kathmandu'");
         assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.55555555555 Asia/Kathmandu')")).matches("TIMESTAMP '1500-05-10 12:34:56.55655555555 Asia/Kathmandu'");
         assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.555555555555 Asia/Kathmandu')")).matches("TIMESTAMP '1500-05-10 12:34:56.556555555555 Asia/Kathmandu'");
+
+        assertThat(assertions.expression("date_add('day', 1683, TIMESTAMP '2001-01-31 13:31:00 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('day', 1683, TIMESTAMP '2001-01-31 13:31:00.1 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('day', 1683, TIMESTAMP '2001-01-31 13:31:00.11 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('day', 1683, TIMESTAMP '2001-01-31 13:31:00.111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('day', 1683, TIMESTAMP '2001-01-31 13:31:00.1111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('day', 1683, TIMESTAMP '2001-01-31 13:31:00.11111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('day', 1683, TIMESTAMP '2001-01-31 13:31:00.111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('day', 1683, TIMESTAMP '2001-01-31 13:31:00.1111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('day', 1683, TIMESTAMP '2001-01-31 13:31:00.11111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('day', 1683, TIMESTAMP '2001-01-31 13:31:00.111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('day', 1683, TIMESTAMP '2001-01-31 13:31:00.1111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('day', 1683, TIMESTAMP '2001-01-31 13:31:00.11111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('day', 1683, TIMESTAMP '2001-01-31 13:31:00.111111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111111111 Europe/Warsaw'");
+
+        assertThat(assertions.expression("date_add('week', 240, TIMESTAMP '2001-02-03 13:31:00 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('week', 240, TIMESTAMP '2001-02-03 13:31:00.1 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('week', 240, TIMESTAMP '2001-02-03 13:31:00.11 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('week', 240, TIMESTAMP '2001-02-03 13:31:00.111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('week', 240, TIMESTAMP '2001-02-03 13:31:00.1111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('week', 240, TIMESTAMP '2001-02-03 13:31:00.11111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('week', 240, TIMESTAMP '2001-02-03 13:31:00.111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('week', 240, TIMESTAMP '2001-02-03 13:31:00.1111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('week', 240, TIMESTAMP '2001-02-03 13:31:00.11111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('week', 240, TIMESTAMP '2001-02-03 13:31:00.111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('week', 240, TIMESTAMP '2001-02-03 13:31:00.1111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('week', 240, TIMESTAMP '2001-02-03 13:31:00.11111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('week', 240, TIMESTAMP '2001-02-03 13:31:00.111111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111111111 Europe/Warsaw'");
+
+        assertThat(assertions.expression("date_add('month', 55, TIMESTAMP '2001-02-10 13:31:00 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('month', 55, TIMESTAMP '2001-02-10 13:31:00.1 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('month', 55, TIMESTAMP '2001-02-10 13:31:00.11 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('month', 55, TIMESTAMP '2001-02-10 13:31:00.111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('month', 55, TIMESTAMP '2001-02-10 13:31:00.1111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('month', 55, TIMESTAMP '2001-02-10 13:31:00.11111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('month', 55, TIMESTAMP '2001-02-10 13:31:00.111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('month', 55, TIMESTAMP '2001-02-10 13:31:00.1111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('month', 55, TIMESTAMP '2001-02-10 13:31:00.11111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('month', 55, TIMESTAMP '2001-02-10 13:31:00.111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('month', 55, TIMESTAMP '2001-02-10 13:31:00.1111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('month', 55, TIMESTAMP '2001-02-10 13:31:00.11111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('month', 55, TIMESTAMP '2001-02-10 13:31:00.111111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111111111 Europe/Warsaw'");
+
+        assertThat(assertions.expression("date_add('quarter', 18, TIMESTAMP '2001-03-10 13:31:00 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('quarter', 18, TIMESTAMP '2001-03-10 13:31:00.1 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('quarter', 18, TIMESTAMP '2001-03-10 13:31:00.11 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('quarter', 18, TIMESTAMP '2001-03-10 13:31:00.111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('quarter', 18, TIMESTAMP '2001-03-10 13:31:00.1111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('quarter', 18, TIMESTAMP '2001-03-10 13:31:00.11111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('quarter', 18, TIMESTAMP '2001-03-10 13:31:00.111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('quarter', 18, TIMESTAMP '2001-03-10 13:31:00.1111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('quarter', 18, TIMESTAMP '2001-03-10 13:31:00.11111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('quarter', 18, TIMESTAMP '2001-03-10 13:31:00.111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('quarter', 18, TIMESTAMP '2001-03-10 13:31:00.1111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('quarter', 18, TIMESTAMP '2001-03-10 13:31:00.11111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('quarter', 18, TIMESTAMP '2001-03-10 13:31:00.111111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111111111 Europe/Warsaw'");
+
+        assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.1 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.11 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.1111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.11111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.1111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.11111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.1111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.1111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.11111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.11111111111 Europe/Warsaw'");
+        assertThat(assertions.expression("date_add('year', 4, TIMESTAMP '2001-09-10 13:31:00.111111111111 Europe/Warsaw')")).matches("TIMESTAMP '2005-09-10 13:31:00.111111111111 Europe/Warsaw'");
+
+        assertTrinoExceptionThrownBy(assertions.expression("date_diff('foo', TIMESTAMP '2001-01-31 19:34:55 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00 Europe/Warsaw')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("'foo' is not a valid TIMESTAMP field");
+        assertTrinoExceptionThrownBy(assertions.expression("date_diff('foo', TIMESTAMP '2001-01-31 19:34:55.111111111111 Europe/Warsaw', TIMESTAMP '2005-09-10 13:31:00.999999999999 Europe/Warsaw')")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("'foo' is not a valid TIMESTAMP field");
     }
 
     @Test
