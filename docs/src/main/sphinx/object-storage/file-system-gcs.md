@@ -59,6 +59,8 @@ Cloud Storage:
 :widths: 40, 60
 :header-rows: 1
 
+* - Property
+  - Description
 * - `gcs.use-access-token`
   - Flag to set usage of a client-provided OAuth 2.0 token to access Google
     Cloud Storage. Defaults to `false`.

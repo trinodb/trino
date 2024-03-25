@@ -73,6 +73,8 @@ and secret keys, STS, or an IAM role:
 :widths: 40, 60
 :header-rows: 1
 
+* - Property
+  - Description
 * - `s3.aws-access-key`
   - AWS access key to use for authentication.
 * - `s3.aws-secret-key`
