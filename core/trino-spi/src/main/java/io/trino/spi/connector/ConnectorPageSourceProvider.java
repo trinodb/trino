@@ -62,17 +62,6 @@ public interface ConnectorPageSourceProvider
             ConnectorTableHandle table,
             TupleDomain<ColumnHandle> dynamicFilter)
     {
-        return simplifyPredicate(session, split, table, dynamicFilter);
-    }
-
-    // for warp compatibility
-    @Deprecated
-    default TupleDomain<ColumnHandle> simplifyPredicate(
-            ConnectorSession session,
-            ConnectorSplit split,
-            ConnectorTableHandle table,
-            TupleDomain<ColumnHandle> predicate)
-    {
         throw new UnsupportedOperationException();
     }
 
