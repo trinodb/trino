@@ -68,9 +68,14 @@ for use.
 ## Legacy file system support
 
 The default behavior uses legacy libraries that originate from the Hadoop
-ecosystem. All four connectors can use the related `hive.*` properties for
-access to the different object storage system. Documentation is available with
-the Hive connector and relevant dedicated pages:
+ecosystem. It should only be used for accessing the Hadoop Distributed File
+System (HDFS):
+
+- [](/object-storage/file-system-hdfs)
+
+All four connectors can use the related `hive.*` properties for access to other
+object storage system as *legacy* support. Additional documentation is available
+with the Hive connector and relevant dedicated pages:
 
 - [](/connector/hive)
 - [](/object-storage/legacy-azure)
@@ -95,6 +100,7 @@ storage:
 /object-storage/file-system-azure
 /object-storage/file-system-gcs
 /object-storage/file-system-s3
+/object-storage/file-system-hdfs
 /object-storage/legacy-azure
 /object-storage/legacy-cos
 /object-storage/legacy-gcs
