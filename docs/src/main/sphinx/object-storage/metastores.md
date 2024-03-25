@@ -75,7 +75,6 @@ are also available. They are discussed later in this topic.
 :::
 
 (hive-thrift-metastore)=
-
 ## Thrift metastore configuration properties
 
 In order to use a Hive Thrift metastore, you must configure the metastore with
@@ -213,6 +212,7 @@ when the `hive.metastore.uri` uses the `http://` or `https://` protocol.
     header values for Unity catalog.
 :::
 
+(hive-thrift-metastore-authentication)=
 ### Thrift metastore authentication
 
 In a Kerberized Hadoop cluster, Trino connects to the Hive metastore Thrift
@@ -316,11 +316,9 @@ property, and verifies that the identity of the metastore matches
 When using `KERBEROS` Metastore authentication with impersonation, the
 principal specified by the `hive.metastore.client.principal` property must be
 allowed to impersonate the current Trino user, as discussed in the section
-{ref}`configuring-hadoop-impersonation`.
+[](hdfs-security-impersonation).
 
 Keytab files must be distributed to every node in the Trino cluster.
-
-{ref}`Additional information about Keytab Files.<hive-security-additional-keytab>`
 
 (hive-glue-metastore)=
 
@@ -506,7 +504,7 @@ The JDBC catalog may have compatibility issues if Iceberg introduces breaking
 changes in the future. Consider the {ref}`REST catalog
 <iceberg-rest-catalog>` as an alternative solution.
 
-The JDBC catalog requires the metadata tables to already exist. 
+The JDBC catalog requires the metadata tables to already exist.
 Refer to [Iceberg repository](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/jdbc/JdbcUtil.java)
 for creating those tables.
 :::
