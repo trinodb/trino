@@ -34,11 +34,8 @@ public class TestDeltaLakeJmx
     public void testJmxTablesExposedByDeltaLakeConnectorBackedByGlueMetastore()
     {
         assertThat(onTrino().executeQuery("SHOW TABLES IN jmx.current LIKE '%name=delta%'")).containsOnly(
-                row("io.trino.hdfs:name=delta,type=trinofilesystemcachestats"),
-                row("io.trino.hdfs:name=delta,type=trinohdfsfilesystemstats"),
                 row("io.trino.plugin.hive.metastore.cache:name=delta,type=cachinghivemetastore"),
                 row("io.trino.plugin.hive.metastore.glue:name=delta,type=gluehivemetastore"),
-                row("io.trino.hdfs.s3:name=delta,type=trinos3filesystem"),
                 row("io.trino.plugin.hive:catalog=delta,name=delta,type=fileformatdatasourcestats"),
                 row("trino.plugin.deltalake.transactionlog:catalog=delta,name=delta,type=transactionlogaccess"));
     }
