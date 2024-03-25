@@ -28,6 +28,13 @@ support:
   - Required region name for S3.
 * - `s3.path-style-access`
   - Use path-style access for all requests to S3
+* - `s3.canned-acl`
+  - [Canned ACL](https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl)
+    to use when uploading files to S3. Defaults to `NONE`, which has the same
+    effect as `PRIVATE`. If the files are to be uploaded to an S3 bucket owned
+    by a different AWS user, the canned ACL may be set to one of the following:
+    `PRIVATE`, `PUBLIC_READ`, `PUBLIC_READ_WRITE`, `AUTHENTICATED_READ`,
+    `BUCKET_OWNER_READ`, or `BUCKET_OWNER_FULL_CONTROL`.
 * - `s3.sse.type`
   - Set the type of S3 server-side encryption (SSE) to use. Defaults to `NONE`
     for no encryption. Other valid values are `S3` for encryption by S3 managed
