@@ -1193,7 +1193,7 @@ public class PredicatePushDown
         private Object nullInputEvaluator(Collection<Symbol> nullSymbols, Expression expression)
         {
             return new IrExpressionInterpreter(expression, plannerContext, session)
-                    .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
+                    .optimize(symbol -> nullSymbols.contains(symbol) ? Optional.of(new Constant(symbol.getType(), null)) : Optional.empty());
         }
 
         private boolean joinEqualityExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)

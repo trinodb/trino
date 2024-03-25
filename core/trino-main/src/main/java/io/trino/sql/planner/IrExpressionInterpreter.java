@@ -169,7 +169,12 @@ public class IrExpressionInterpreter
         @Override
         protected Object visitReference(Reference node, Object context)
         {
-            return ((SymbolResolver) context).getValue(Symbol.from(node));
+            Optional<Constant> binding = ((SymbolResolver) context).getValue(Symbol.from(node));
+            if (binding.isPresent()) {
+                return binding.get().value();
+            }
+
+            return node;
         }
 
         @Override
@@ -921,10 +926,10 @@ public class IrExpressionInterpreter
         }
 
         @Override
-        public Object getValue(Symbol symbol)
+        public Optional<Constant> getValue(Symbol symbol)
         {
             checkState(values.containsKey(symbol.getName()), "values does not contain %s", symbol);
-            return values.get(symbol.getName());
+            return Optional.of(new Constant(symbol.getType(), values.get(symbol.getName())));
         }
     }
 }

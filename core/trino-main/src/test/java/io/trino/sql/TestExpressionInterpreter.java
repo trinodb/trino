@@ -78,10 +78,10 @@ public class TestExpressionInterpreter
 
     private static final SymbolResolver INPUTS = symbol -> {
         if (symbol.getName().toLowerCase(ENGLISH).equals("bound_value")) {
-            return 1234L;
+            return Optional.of(new Constant(INTEGER, 1234L));
         }
 
-        return symbol.toSymbolReference();
+        return Optional.empty();
     };
 
     private static final TestingTransactionManager TRANSACTION_MANAGER = new TestingTransactionManager();
