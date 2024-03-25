@@ -39,6 +39,7 @@ final class TrinoSystemRequirements
 {
     private static final int MIN_FILE_DESCRIPTORS = 4096;
     private static final int RECOMMENDED_FILE_DESCRIPTORS = 8192;
+    private static final Locale EN_US = Locale.of("en", "US");
 
     private TrinoSystemRequirements() {}
 
@@ -52,6 +53,7 @@ final class TrinoSystemRequirements
         verifyFileDescriptor();
         verifySlice();
         verifyUtf8();
+        verifyLocale();
     }
 
     private static void verify64BitJvm()
@@ -159,6 +161,14 @@ final class TrinoSystemRequirements
         Charset defaultCharset = Charset.defaultCharset();
         if (!defaultCharset.equals(StandardCharsets.UTF_8)) {
             failRequirement("Trino requires that the default charset is UTF-8 (found %s). This can be set with the JVM command line option -Dfile.encoding=UTF-8", defaultCharset.name());
+        }
+    }
+
+    private static void verifyLocale()
+    {
+        Locale defaultLocale = Locale.getDefault();
+        if (!defaultLocale.equals(EN_US)) {
+            failRequirement("Trino requires that the default locale is ENGLISH (found %s). This can be set with the JVM command line option -Duser.language=en -Duser.region=US", defaultLocale);
         }
     }
 
