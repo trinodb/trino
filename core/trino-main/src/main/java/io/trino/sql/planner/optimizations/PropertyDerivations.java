@@ -35,7 +35,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.optimizations.ActualProperties.Global;
@@ -774,7 +773,7 @@ public final class PropertyDerivations
                 // to take advantage of constant-folding for complex expressions
                 // However, that currently causes errors when those expressions operate on arrays or row types
                 // ("ROW comparison not supported for fields with null elements", etc)
-                Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
+                Object value = optimizer.optimize();
 
                 if (value instanceof Reference) {
                     Symbol symbol = Symbol.from((Reference) value);

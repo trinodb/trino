@@ -353,7 +353,7 @@ public class EffectivePredicateExtractor
                         }
                         else {
                             IrExpressionInterpreter interpreter = new IrExpressionInterpreter(value, plannerContext, session);
-                            Object item = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+                            Object item = interpreter.optimize();
                             if (item instanceof Expression) {
                                 return TRUE;
                             }
@@ -383,7 +383,7 @@ public class EffectivePredicateExtractor
                         return TRUE;
                     }
                     IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, plannerContext, session);
-                    Object evaluated = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+                    Object evaluated = interpreter.optimize();
                     if (evaluated instanceof Expression) {
                         return TRUE;
                     }

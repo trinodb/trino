@@ -37,7 +37,6 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Not;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.NoOpSymbolResolver;
 
 import java.lang.invoke.MethodHandle;
 import java.time.LocalDate;
@@ -147,8 +146,7 @@ public class UnwrapDateTruncInComparison
             if (!(unitExpression.type() instanceof VarcharType) || !(unitExpression instanceof Constant)) {
                 return expression;
             }
-            Slice unitName = (Slice) new IrExpressionInterpreter(unitExpression, plannerContext, session)
-                    .optimize(NoOpSymbolResolver.INSTANCE);
+            Slice unitName = (Slice) new IrExpressionInterpreter(unitExpression, plannerContext, session).optimize();
             if (unitName == null) {
                 return expression;
             }
@@ -159,8 +157,7 @@ public class UnwrapDateTruncInComparison
             Type rightType = expression.right().type();
             verify(argumentType.equals(rightType), "Mismatched types: %s and %s", argumentType, rightType);
 
-            Object right = new IrExpressionInterpreter(expression.right(), plannerContext, session)
-                    .optimize(NoOpSymbolResolver.INSTANCE);
+            Object right = new IrExpressionInterpreter(expression.right(), plannerContext, session).optimize();
 
             if (right == null) {
                 return switch (expression.operator()) {

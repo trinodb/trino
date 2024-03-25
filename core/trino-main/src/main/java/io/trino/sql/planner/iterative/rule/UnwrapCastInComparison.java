@@ -43,7 +43,6 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Not;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.type.TypeCoercion;
 
 import java.lang.invoke.MethodHandle;
@@ -166,8 +165,7 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Object right = new IrExpressionInterpreter(expression.right(), plannerContext, session)
-                    .optimize(NoOpSymbolResolver.INSTANCE);
+            Object right = new IrExpressionInterpreter(expression.right(), plannerContext, session).optimize();
 
             Comparison.Operator operator = expression.operator();
 
