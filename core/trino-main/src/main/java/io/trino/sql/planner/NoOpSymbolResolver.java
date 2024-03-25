@@ -13,14 +13,18 @@
  */
 package io.trino.sql.planner;
 
+import io.trino.sql.ir.Constant;
+
+import java.util.Optional;
+
 public class NoOpSymbolResolver
         implements SymbolResolver
 {
     public static final NoOpSymbolResolver INSTANCE = new NoOpSymbolResolver();
 
     @Override
-    public Object getValue(Symbol symbol)
+    public Optional<Constant> getValue(Symbol symbol)
     {
-        return symbol.toSymbolReference();
+        return Optional.empty();
     }
 }
