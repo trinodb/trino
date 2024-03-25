@@ -511,7 +511,7 @@ public class SnowflakeClient
             if (precision > Decimals.MAX_PRECISION) {
                 return Optional.empty();
             }
-            return Optional.of(updatePushdownCotroller(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY)));
+            return Optional.of(updatePushdownController(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY)));
         }
 
         if (typeName.equals("VARIANT")) {
@@ -531,7 +531,7 @@ public class SnowflakeClient
         }
 
         if (typeHandle.getJdbcType() == Types.TIME) {
-            return Optional.of(updatePushdownCotroller(timeColumnMapping()));
+            return Optional.of(updatePushdownController(timeColumnMapping()));
         }
 
         if (typeHandle.getJdbcType() == Types.TIMESTAMP_WITH_TIMEZONE || typeName.equals("TIMESTAMPLTZ")) {
@@ -557,7 +557,7 @@ public class SnowflakeClient
         return Optional.empty();
     }
 
-    private ColumnMapping updatePushdownCotroller(ColumnMapping mapping)
+    private ColumnMapping updatePushdownController(ColumnMapping mapping)
     {
         verify(mapping.getPredicatePushdownController() != DISABLE_PUSHDOWN);
         return new ColumnMapping(
