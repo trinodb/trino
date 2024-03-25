@@ -87,13 +87,11 @@ public class TestDefaultJdbcMetadata
                 ImmutableSet.of());
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
 
-        assertThatThrownBy(() -> {
-            metadata.beginCreateTable(SESSION, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED);
-        }).hasMessageContaining("This connector does not support query or task retries");
+        assertThatThrownBy(() -> metadata.beginCreateTable(SESSION, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED))
+                .hasMessageContaining("This connector does not support query or task retries");
 
-        assertThatThrownBy(() -> {
-            metadata.beginInsert(SESSION, tableHandle, ImmutableList.of(), RetryMode.RETRIES_ENABLED);
-        }).hasMessageContaining("This connector does not support query or task retries");
+        assertThatThrownBy(() -> metadata.beginInsert(SESSION, tableHandle, ImmutableList.of(), RetryMode.RETRIES_ENABLED))
+                .hasMessageContaining("This connector does not support query or task retries");
     }
 
     @Test
@@ -110,13 +108,11 @@ public class TestDefaultJdbcMetadata
                         PropertyMetadata.booleanProperty(JdbcWriteSessionProperties.NON_TRANSACTIONAL_INSERT, "description", true, false)))
                 .build();
 
-        assertThatThrownBy(() -> {
-            metadata.beginCreateTable(session, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED);
-        }).hasMessageContaining("Query and task retries are incompatible with non-transactional inserts");
+        assertThatThrownBy(() -> metadata.beginCreateTable(session, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED))
+                .hasMessageContaining("Query and task retries are incompatible with non-transactional inserts");
 
-        assertThatThrownBy(() -> {
-            metadata.beginInsert(session, tableHandle, ImmutableList.of(), RetryMode.RETRIES_ENABLED);
-        }).hasMessageContaining("Query and task retries are incompatible with non-transactional inserts");
+        assertThatThrownBy(() -> metadata.beginInsert(session, tableHandle, ImmutableList.of(), RetryMode.RETRIES_ENABLED))
+                .hasMessageContaining("Query and task retries are incompatible with non-transactional inserts");
     }
 
     @AfterEach
