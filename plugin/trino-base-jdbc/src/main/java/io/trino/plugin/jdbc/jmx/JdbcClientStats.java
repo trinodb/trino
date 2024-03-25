@@ -39,6 +39,7 @@ public final class JdbcClientStats
     private final JdbcApiStats dropTable = new JdbcApiStats();
     private final JdbcApiStats finishInsertTable = new JdbcApiStats();
     private final JdbcApiStats getColumns = new JdbcApiStats();
+    private final JdbcApiStats getAllTableComments = new JdbcApiStats();
     private final JdbcApiStats getConnectionWithHandle = new JdbcApiStats();
     private final JdbcApiStats getConnectionWithSplit = new JdbcApiStats();
     private final JdbcApiStats getConnectionWithProcedure = new JdbcApiStats();
@@ -213,6 +214,13 @@ public final class JdbcClientStats
     public JdbcApiStats getGetColumns()
     {
         return getColumns;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getGetAllTableComments()
+    {
+        return getAllTableComments;
     }
 
     @Managed
