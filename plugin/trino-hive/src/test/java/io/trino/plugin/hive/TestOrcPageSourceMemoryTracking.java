@@ -91,6 +91,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertBetweenInclusive;
@@ -157,14 +158,14 @@ public class TestOrcPageSourceMemoryTracking
             throws Exception
     {
         tempFile = File.createTempFile("trino_test_orc_page_source_memory_tracking", "orc");
-        tempFile.delete();
+        verify(tempFile.delete());
         testPreparer = new TestPreparer(tempFile.getAbsolutePath());
     }
 
     @AfterAll
     public void tearDown()
     {
-        tempFile.delete();
+        verify(tempFile.delete());
     }
 
     @Test
@@ -348,7 +349,7 @@ public class TestOrcPageSourceMemoryTracking
         }
         List<TestColumn> testColumns = columnBuilder.build();
         File tempFile = File.createTempFile("trino_test_orc_page_source_max_read_bytes", "orc");
-        tempFile.delete();
+        verify(tempFile.delete());
 
         TestPreparer testPreparer = new TestPreparer(tempFile.getAbsolutePath(), testColumns, rowCount, rowCount);
         ConnectorPageSource pageSource = testPreparer.newPageSource(stats, session);
@@ -380,7 +381,7 @@ public class TestOrcPageSourceMemoryTracking
             pageSource.close();
         }
         finally {
-            tempFile.delete();
+            verify(tempFile.delete());
         }
     }
 
