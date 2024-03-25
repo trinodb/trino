@@ -364,7 +364,7 @@ class ArbitraryDistributionSplitAssigner
 
     private NodeRequirements getNodeRequirements(Split split)
     {
-        if (split.getConnectorSplit().isRemotelyAccessible()) {
+        if (split.isRemotelyAccessible()) {
             return new NodeRequirements(catalogRequirement, ImmutableSet.of(), false);
         }
         List<HostAddress> addresses = split.getAddresses();

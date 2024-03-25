@@ -24,6 +24,7 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
+import io.trino.spi.cache.CacheSplitId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
 
@@ -43,12 +44,14 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.execution.scheduler.faulttolerant.SplitAssigner.SINGLE_SOURCE_PARTITION_ID;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.Collections.shuffle;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestArbitraryDistributionSplitAssigner
 {
@@ -276,6 +279,27 @@ public class TestArbitraryDistributionSplitAssigner
                         new SplitBatch(PARTITIONED_2, ImmutableList.of(createSplit(26), createSplit(27)), true)),
                 3,
                 true);
+    }
+
+    @Test
+    public void testWithOverriddenHostRequirement()
+    {
+        TestingConnectorSplit connectorSplit = new TestingConnectorSplit(1, OptionalInt.empty(), Optional.of(ImmutableList.of(HOST_1)))
+        {
+            @Override
+            public boolean isRemotelyAccessible()
+            {
+                return true;
+            }
+        };
+        Split split = new Split(TEST_CATALOG_HANDLE, connectorSplit, Optional.of(new CacheSplitId(String.valueOf(1))), Optional.of(false), Optional.of(ImmutableList.of(HOST_2)), false);
+
+        SplitAssigner splitAssigner = createSplitAssigner(ImmutableSet.of(PARTITIONED_1), ImmutableSet.of(), 1, true);
+        SplitAssigner.AssignmentResult result = splitAssigner.assign(PARTITIONED_1, ImmutableListMultimap.of(0, split), true);
+        assertTrue(result.noMorePartitions());
+        assertThat(result.partitionsAdded()).hasSize(1);
+        SplitAssigner.Partition partition = getOnlyElement(result.partitionsAdded());
+        assertThat(partition.nodeRequirements().getAddresses()).containsExactly(HOST_2);
     }
 
     @Test
