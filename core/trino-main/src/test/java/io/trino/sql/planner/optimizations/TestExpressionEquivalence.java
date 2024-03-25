@@ -14,7 +14,6 @@
 package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ResolvedFunction;
@@ -33,11 +32,15 @@ import io.trino.sql.planner.Symbol;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.DateTimes;
+import io.trino.type.LikePattern;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -47,6 +50,7 @@ import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -62,6 +66,7 @@ import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
+import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -78,6 +83,7 @@ public class TestExpressionEquivalence
 
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction MOD = FUNCTIONS.resolveFunction("mod", fromTypes(INTEGER, INTEGER));
+    private static final ResolvedFunction LIKE = FUNCTIONS.resolveFunction("$like", fromTypes(createVarcharType(3), LIKE_PATTERN));
 
     @Test
     public void testEquivalent()
@@ -95,8 +101,8 @@ public class TestExpressionEquivalence
                 new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("4.4"))),
                 new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("4.4"))));
         assertEquivalent(
-                new Constant(VARCHAR, Slices.utf8Slice("foo")),
-                new Constant(VARCHAR, Slices.utf8Slice("foo")));
+                new Constant(VARCHAR, utf8Slice("foo")),
+                new Constant(VARCHAR, utf8Slice("foo")));
 
         assertEquivalent(
                 new Comparison(EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
@@ -105,8 +111,8 @@ public class TestExpressionEquivalence
                 new Comparison(EQUAL, new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("4.4"))), new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("5.5")))),
                 new Comparison(EQUAL, new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("5.5"))), new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("4.4")))));
         assertEquivalent(
-                new Comparison(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("foo")), new Constant(VARCHAR, Slices.utf8Slice("bar"))),
-                new Comparison(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("bar")), new Constant(VARCHAR, Slices.utf8Slice("foo"))));
+                new Comparison(EQUAL, new Constant(VARCHAR, utf8Slice("foo")), new Constant(VARCHAR, utf8Slice("bar"))),
+                new Comparison(EQUAL, new Constant(VARCHAR, utf8Slice("bar")), new Constant(VARCHAR, utf8Slice("foo"))));
         assertEquivalent(
                 new Comparison(NOT_EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),
                 new Comparison(NOT_EQUAL, new Constant(INTEGER, 5L), new Constant(INTEGER, 4L)));
@@ -195,6 +201,30 @@ public class TestExpressionEquivalence
                 new Logical(OR, ImmutableList.of(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "h_boolean"), new Reference(BOOLEAN, "g_boolean"), new Reference(BOOLEAN, "f_boolean"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "b_boolean"), new Reference(BOOLEAN, "a_boolean"), new Reference(BOOLEAN, "c_boolean"))), new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "e_boolean"), new Reference(BOOLEAN, "d_boolean"))))));
     }
 
+    @Test
+    public void testSpecialFormEquivalence()
+    {
+        assertEquivalent(
+                new Logical(OR, ImmutableList.of(
+                        new Call(LIKE, List.of(new Reference(createVarcharType(3), "col"), new Constant(LIKE_PATTERN, LikePattern.compile("a%", Optional.empty())))),
+                        new Call(LIKE, List.of(new Reference(createVarcharType(3), "col"), new Constant(LIKE_PATTERN, LikePattern.compile("b%", Optional.empty())))),
+                        new Call(LIKE, List.of(new Reference(createVarcharType(3), "col"), new Constant(LIKE_PATTERN, LikePattern.compile("c%", Optional.empty())))))),
+                new Logical(OR, ImmutableList.of(
+                        new Call(LIKE, List.of(new Reference(createVarcharType(3), "col"), new Constant(LIKE_PATTERN, LikePattern.compile("c%", Optional.empty())))),
+                        new Call(LIKE, List.of(new Reference(createVarcharType(3), "col"), new Constant(LIKE_PATTERN, LikePattern.compile("b%", Optional.empty())))),
+                        new Call(LIKE, List.of(new Reference(createVarcharType(3), "col"), new Constant(LIKE_PATTERN, LikePattern.compile("a%", Optional.empty())))))));
+
+        assertNotEquivalent(
+                new Logical(OR, ImmutableList.of(
+                        new Call(LIKE, List.of(new Reference(createVarcharType(3), "col"), new Constant(LIKE_PATTERN, LikePattern.compile("a%", Optional.empty())))),
+                        new Call(LIKE, List.of(new Reference(createVarcharType(3), "col"), new Constant(LIKE_PATTERN, LikePattern.compile("b%", Optional.empty())))),
+                        new Call(LIKE, List.of(new Reference(createVarcharType(3), "col"), new Constant(LIKE_PATTERN, LikePattern.compile("c%", Optional.empty())))))),
+                new Logical(OR, ImmutableList.of(
+                        new Call(LIKE, List.of(new Reference(createVarcharType(3), "col"), new Constant(LIKE_PATTERN, LikePattern.compile("c%", Optional.empty())))),
+                        new Call(LIKE, List.of(new Reference(createVarcharType(3), "col"), new Constant(LIKE_PATTERN, LikePattern.compile("d%", Optional.empty())))),
+                        new Call(LIKE, List.of(new Reference(createVarcharType(3), "col"), new Constant(LIKE_PATTERN, LikePattern.compile("a%", Optional.empty())))))));
+    }
+
     private static void assertEquivalent(Expression leftExpression, Expression rightExpression)
     {
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
@@ -226,8 +256,12 @@ public class TestExpressionEquivalence
                 new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("4.4"))),
                 new Constant(createDecimalType(3, 1), Decimals.valueOfShort(new BigDecimal("5.5"))));
         assertNotEquivalent(
-                new Constant(VARCHAR, Slices.utf8Slice("'foo'")),
-                new Constant(VARCHAR, Slices.utf8Slice("'bar'")));
+                new Constant(VARCHAR, utf8Slice("'foo'")),
+                new Constant(VARCHAR, utf8Slice("'bar'")));
+
+        assertNotEquivalent(
+                new Constant(LIKE_PATTERN, LikePattern.compile("foo%", Optional.empty())),
+                new Constant(LIKE_PATTERN, LikePattern.compile("bar%", Optional.empty())));
 
         assertNotEquivalent(
                 new Comparison(EQUAL, new Constant(INTEGER, 4L), new Constant(INTEGER, 5L)),

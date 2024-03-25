@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import com.google.common.collect.ComparisonChain;
 import io.trino.likematcher.LikeMatcher;
 
 import java.util.Objects;
@@ -26,6 +27,7 @@ import static java.util.Objects.requireNonNull;
  * Equality for this class is dependent on the pattern and escape alone, as the matcher is expected to be derived from those.
  */
 public class LikePattern
+        implements Comparable<LikePattern>
 {
     private final String pattern;
     private final Optional<Character> escape;
@@ -89,5 +91,28 @@ public class LikePattern
                 .add("pattern", pattern)
                 .add("escape", escape)
                 .toString();
+    }
+
+    @Override
+    public int compareTo(LikePattern other)
+    {
+        return ComparisonChain.start()
+            .compare(pattern, other.pattern)
+            .compare(escape, other.escape, LikePattern::escapeCompare)
+            .result();
+    }
+
+    private static int escapeCompare(Optional<Character> first, Optional<Character> second)
+    {
+        if (first.isPresent() && second.isPresent()) {
+            return first.get().compareTo(second.get());
+        }
+        if (first.isPresent()) {
+            return 1;
+        }
+        if (second.isPresent()) {
+            return -1;
+        }
+        return 0;
     }
 }
