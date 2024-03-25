@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +45,7 @@ public class TestS3FileSystemConfig
                 .setExternalId(null)
                 .setStsEndpoint(null)
                 .setStsRegion(null)
+                .setCannedAcl(ObjectCannedAcl.NONE)
                 .setSseType(S3SseType.NONE)
                 .setSseKmsKeyId(null)
                 .setStreamingPartSize(DataSize.of(16, MEGABYTE))
@@ -72,6 +74,7 @@ public class TestS3FileSystemConfig
                 .put("s3.external-id", "myid")
                 .put("s3.sts.endpoint", "sts.example.com")
                 .put("s3.sts.region", "us-west-2")
+                .put("s3.canned-acl", "BUCKET_OWNER_FULL_CONTROL")
                 .put("s3.sse.type", "KMS")
                 .put("s3.sse.kms-key-id", "mykey")
                 .put("s3.streaming.part-size", "42MB")
@@ -97,6 +100,7 @@ public class TestS3FileSystemConfig
                 .setExternalId("myid")
                 .setStsEndpoint("sts.example.com")
                 .setStsRegion("us-west-2")
+                .setCannedAcl(ObjectCannedAcl.BUCKET_OWNER_FULL_CONTROL)
                 .setStreamingPartSize(DataSize.of(42, MEGABYTE))
                 .setSseType(S3SseType.KMS)
                 .setSseKmsKeyId("mykey")

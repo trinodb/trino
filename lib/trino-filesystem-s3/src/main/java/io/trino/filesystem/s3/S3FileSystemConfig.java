@@ -23,6 +23,7 @@ import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
 import java.util.Optional;
 
@@ -33,6 +34,30 @@ public class S3FileSystemConfig
     public enum S3SseType
     {
         NONE, S3, KMS
+    }
+
+    public enum ObjectCannedAcl
+    {
+        NONE,
+        PRIVATE,
+        PUBLIC_READ,
+        PUBLIC_READ_WRITE,
+        AUTHENTICATED_READ,
+        BUCKET_OWNER_READ,
+        BUCKET_OWNER_FULL_CONTROL;
+
+        public static ObjectCannedACL getCannedAcl(S3FileSystemConfig.ObjectCannedAcl cannedAcl)
+        {
+            return switch (cannedAcl) {
+                case NONE -> null;
+                case PRIVATE -> ObjectCannedACL.PRIVATE;
+                case PUBLIC_READ -> ObjectCannedACL.PUBLIC_READ;
+                case PUBLIC_READ_WRITE -> ObjectCannedACL.PUBLIC_READ_WRITE;
+                case AUTHENTICATED_READ -> ObjectCannedACL.AUTHENTICATED_READ;
+                case BUCKET_OWNER_READ -> ObjectCannedACL.BUCKET_OWNER_READ;
+                case BUCKET_OWNER_FULL_CONTROL -> ObjectCannedACL.BUCKET_OWNER_FULL_CONTROL;
+            };
+        }
     }
 
     private String awsAccessKey;
@@ -57,6 +82,7 @@ public class S3FileSystemConfig
     private boolean tcpKeepAlive;
     private HostAndPort httpProxy;
     private boolean httpProxySecure;
+    private ObjectCannedAcl objectCannedAcl = ObjectCannedAcl.NONE;
 
     public String getAwsAccessKey()
     {
@@ -181,6 +207,20 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setStsRegion(String stsRegion)
     {
         this.stsRegion = stsRegion;
+        return this;
+    }
+
+    @NotNull
+    public ObjectCannedAcl getCannedAcl()
+    {
+        return objectCannedAcl;
+    }
+
+    @Config("s3.canned-acl")
+    @ConfigDescription("Canned ACL (predefined grants) to manage access to objects")
+    public S3FileSystemConfig setCannedAcl(ObjectCannedAcl objectCannedAcl)
+    {
+        this.objectCannedAcl = objectCannedAcl;
         return this;
     }
 
