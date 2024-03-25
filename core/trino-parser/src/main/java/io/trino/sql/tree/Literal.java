@@ -18,8 +18,9 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
-public abstract class Literal
+public abstract sealed class Literal
         extends Expression
+        permits BinaryLiteral, BooleanLiteral, DecimalLiteral, DoubleLiteral, GenericLiteral, IntervalLiteral, LongLiteral, NullLiteral, StringLiteral
 {
     protected Literal(Optional<NodeLocation> location)
     {

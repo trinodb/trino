@@ -23,7 +23,7 @@ import java.util.Optional;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class BinaryLiteral
+public final class BinaryLiteral
         extends Literal
 {
     // the grammar could possibly include whitespace in the value it passes to us

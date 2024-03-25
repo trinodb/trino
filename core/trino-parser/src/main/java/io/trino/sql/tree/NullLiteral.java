@@ -15,7 +15,7 @@ package io.trino.sql.tree;
 
 import java.util.Optional;
 
-public class NullLiteral
+public final class NullLiteral
         extends Literal
 {
     public NullLiteral()

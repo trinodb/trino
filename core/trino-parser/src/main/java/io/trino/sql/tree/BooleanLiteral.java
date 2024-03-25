@@ -20,7 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class BooleanLiteral
+public final class BooleanLiteral
         extends Literal
 {
     public static final BooleanLiteral TRUE_LITERAL = new BooleanLiteral(Optional.empty(), "true");

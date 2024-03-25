@@ -19,7 +19,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class LongLiteral
+public final class LongLiteral
         extends Literal
 {
     private final String value;
