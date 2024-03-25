@@ -58,8 +58,8 @@ public class WorkerDynamicCatalogManager
     private final CatalogFactory catalogFactory;
 
     private final ReadWriteLock catalogsLock = new ReentrantReadWriteLock();
-    private final Lock catalogLoadingLock = catalogsLock.readLock();
-    private final Lock catalogRemovingLock = catalogsLock.writeLock();
+    private final Lock catalogWriteLock = catalogsLock.writeLock();
+    private final Lock catalogReadLock = catalogsLock.readLock();
     private final ConcurrentMap<CatalogHandle, CatalogConnector> catalogs = new ConcurrentHashMap<>();
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
@@ -77,7 +77,7 @@ public class WorkerDynamicCatalogManager
     {
         List<CatalogConnector> catalogs;
 
-        catalogRemovingLock.lock();
+        catalogWriteLock.lock();
         try {
             if (stopped) {
                 return;
@@ -88,7 +88,7 @@ public class WorkerDynamicCatalogManager
             this.catalogs.clear();
         }
         finally {
-            catalogRemovingLock.unlock();
+            catalogWriteLock.unlock();
         }
 
         for (CatalogConnector connector : catalogs) {
@@ -106,7 +106,7 @@ public class WorkerDynamicCatalogManager
             return;
         }
 
-        catalogLoadingLock.lock();
+        catalogWriteLock.lock();
         try {
             if (stopped) {
                 return;
@@ -156,7 +156,7 @@ public class WorkerDynamicCatalogManager
             }
         }
         finally {
-            catalogLoadingLock.unlock();
+            catalogWriteLock.unlock();
         }
     }
 
@@ -164,7 +164,7 @@ public class WorkerDynamicCatalogManager
     public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
     {
         List<CatalogConnector> removedCatalogs = new ArrayList<>();
-        catalogRemovingLock.lock();
+        catalogWriteLock.lock();
         try {
             if (stopped) {
                 return;
@@ -179,7 +179,7 @@ public class WorkerDynamicCatalogManager
             }
         }
         finally {
-            catalogRemovingLock.unlock();
+            catalogWriteLock.unlock();
         }
 
         removedCatalogs.forEach(removedCatalog -> Futures.submit(
@@ -205,16 +205,22 @@ public class WorkerDynamicCatalogManager
     @Override
     public ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
     {
-        CatalogConnector catalogConnector = catalogs.get(catalogHandle.getRootCatalogHandle());
-        checkArgument(catalogConnector != null, "No catalog '%s'", catalogHandle.getCatalogName());
-        return catalogConnector.getMaterializedConnector(catalogHandle.getType());
+        try {
+            catalogReadLock.lock();
+            CatalogConnector catalogConnector = catalogs.get(catalogHandle.getRootCatalogHandle());
+            checkArgument(catalogConnector != null, "No catalog '%s' but these are known: %s", catalogHandle.getCatalogName(), catalogs.keySet());
+            return catalogConnector.getMaterializedConnector(catalogHandle.getType());
+        }
+        finally {
+            catalogReadLock.unlock();
+        }
     }
 
     public void registerGlobalSystemConnector(GlobalSystemConnector connector)
     {
         requireNonNull(connector, "connector is null");
 
-        catalogLoadingLock.lock();
+        catalogWriteLock.lock();
         try {
             if (stopped) {
                 return;
@@ -226,7 +232,7 @@ public class WorkerDynamicCatalogManager
             }
         }
         finally {
-            catalogLoadingLock.unlock();
+            catalogWriteLock.unlock();
         }
     }
 }
