@@ -244,28 +244,29 @@ public class TestDefaultJdbcMetadata
 
         ConnectorTableMetadata layout = metadata.getTableMetadata(SESSION, handle);
         assertThat(layout.getTable()).isEqualTo(table);
-        assertThat(layout.getColumns()).hasSize(1);
-        assertThat(layout.getColumns().get(0)).isEqualTo(new ColumnMetadata("text", VARCHAR));
+        assertThat(layout.getColumns())
+                .containsExactly(new ColumnMetadata("text", VARCHAR));
 
         metadata.addColumn(SESSION, handle, new ColumnMetadata("x", VARCHAR));
         layout = metadata.getTableMetadata(SESSION, handle);
-        assertThat(layout.getColumns()).hasSize(2);
-        assertThat(layout.getColumns().get(0)).isEqualTo(new ColumnMetadata("text", VARCHAR));
-        assertThat(layout.getColumns().get(1)).isEqualTo(new ColumnMetadata("x", VARCHAR));
+        assertThat(layout.getColumns())
+                .containsExactly(
+                        new ColumnMetadata("text", VARCHAR),
+                        new ColumnMetadata("x", VARCHAR));
 
         JdbcColumnHandle columnHandle = new JdbcColumnHandle("x", JDBC_VARCHAR, VARCHAR);
         metadata.dropColumn(SESSION, handle, columnHandle);
         layout = metadata.getTableMetadata(SESSION, handle);
-        assertThat(layout.getColumns()).hasSize(1);
-        assertThat(layout.getColumns().get(0)).isEqualTo(new ColumnMetadata("text", VARCHAR));
+        assertThat(layout.getColumns())
+                .containsExactly(new ColumnMetadata("text", VARCHAR));
 
         SchemaTableName newTableName = new SchemaTableName("example", "bar");
         metadata.renameTable(SESSION, handle, newTableName);
         handle = metadata.getTableHandle(SESSION, newTableName);
         layout = metadata.getTableMetadata(SESSION, handle);
         assertThat(layout.getTable()).isEqualTo(newTableName);
-        assertThat(layout.getColumns()).hasSize(1);
-        assertThat(layout.getColumns().get(0)).isEqualTo(new ColumnMetadata("text", VARCHAR));
+        assertThat(layout.getColumns())
+                .containsExactly(new ColumnMetadata("text", VARCHAR));
     }
 
     @Test
