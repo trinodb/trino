@@ -16,8 +16,10 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.NullableValue;
+import io.trino.sql.ir.Constant;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -37,14 +39,14 @@ public class LookupSymbolResolver
     }
 
     @Override
-    public Object getValue(Symbol symbol)
+    public Optional<Constant> getValue(Symbol symbol)
     {
         ColumnHandle column = assignments.get(symbol);
 
         if (column == null || !bindings.containsKey(column)) {
-            return symbol.toSymbolReference();
+            return Optional.empty();
         }
 
-        return bindings.get(column).getValue();
+        return Optional.of(new Constant(symbol.getType(), bindings.get(column).getValue()));
     }
 }

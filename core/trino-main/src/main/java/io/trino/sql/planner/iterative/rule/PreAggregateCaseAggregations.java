@@ -429,7 +429,7 @@ public class PreAggregateCaseAggregations
     private Object optimizeExpression(Expression expression, Context context)
     {
         IrExpressionInterpreter expressionInterpreter = new IrExpressionInterpreter(expression, plannerContext, context.getSession());
-        return expressionInterpreter.optimize(Symbol::toSymbolReference);
+        return expressionInterpreter.optimize();
     }
 
     private static class CaseAggregation
