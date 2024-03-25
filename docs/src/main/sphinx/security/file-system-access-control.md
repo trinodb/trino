@@ -401,7 +401,7 @@ Each function rule is composed of the following fields:
   Defaults to `.*`.
 - `privileges` (required): zero or more of `EXECUTE`, `GRANT_EXECUTE`, `OWNERSHIP`.
 
-Care should be taken when granting permission to the `system` schema of a 
+Care should be taken when granting permission to the `system` schema of a
 catalog, as this is the schema Trino uses for table function such as `query`.
 These table functions can be used to access or modify the underlying data of
 the catalog.
@@ -798,10 +798,7 @@ to any user, except to\`\`bob\`\`.
 :language: json
 ```
 
-(system-file-auth-system-information-1)=
-
 (catalog-file-based-access-control)=
-
 ## Catalog-level access control files
 
 You can create JSON files for individual catalogs that define authorization
@@ -901,7 +898,7 @@ denied. If function rules are not present, access is not allowed.
   Defaults to `.*`.
 - `privileges` (required): zero or more of `EXECUTE`, `GRANT_EXECUTE`, `OWNERSHIP`.
 
-Care should be taken when granting permission to the `system` schema of a 
+Care should be taken when granting permission to the `system` schema of a
 catalog, as this is the schema Trino uses for table function such as `query`.
 These table functions can be used to access or modify the underlying data of
 the catalog.
