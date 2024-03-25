@@ -1496,7 +1496,7 @@ public final class TestHiveFileFormats
         configureCompression(jobConf, compressionCodec);
 
         File file = File.createTempFile("trino_test", "data");
-        file.delete();
+        verify(file.delete());
         try {
             FileSinkOperator.RecordWriter recordWriter = outputFormat.getHiveRecordWriter(
                     jobConf,
@@ -1538,7 +1538,7 @@ public final class TestHiveFileFormats
             }
         }
         finally {
-            file.delete();
+            verify(file.delete());
         }
     }
 
