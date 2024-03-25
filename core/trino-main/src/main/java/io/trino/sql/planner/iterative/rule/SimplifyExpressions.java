@@ -20,7 +20,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.iterative.Rule;
 
 import java.util.Set;
@@ -43,7 +42,7 @@ public class SimplifyExpressions
         expression = extractCommonPredicates(expression);
         expression = normalizeOrExpression(expression);
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, plannerContext, session);
-        Object optimized = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+        Object optimized = interpreter.optimize();
 
         return optimized instanceof Expression optimizedExpression ?
                 optimizedExpression :

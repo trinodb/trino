@@ -33,7 +33,6 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.util.DisjointSet;
 import jakarta.annotation.Nullable;
@@ -101,7 +100,7 @@ public class FilterStatsCalculator
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
 
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(predicate, plannerContext, session);
-        Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+        Object value = interpreter.optimize();
 
         if (value instanceof Expression expression) {
             return expression;

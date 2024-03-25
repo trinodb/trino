@@ -31,7 +31,6 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Not;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.NoOpSymbolResolver;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -151,8 +150,7 @@ public class UnwrapYearInComparison
             Expression argument = getOnlyElement(call.arguments());
             Type argumentType = argument.type();
 
-            Object right = new IrExpressionInterpreter(expression.right(), plannerContext, session)
-                    .optimize(NoOpSymbolResolver.INSTANCE);
+            Object right = new IrExpressionInterpreter(expression.right(), plannerContext, session).optimize();
 
             if (right == null) {
                 return switch (expression.operator()) {
