@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
+import io.airlift.concurrent.BoundedExecutor;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
@@ -114,7 +115,7 @@ public class DispatchManager
 
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
 
-        this.dispatchExecutor = dispatchExecutor.getExecutor();
+        this.dispatchExecutor = new BoundedExecutor(dispatchExecutor.getExecutor(), queryManagerConfig.getDispatcherQueryPoolSize());
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
