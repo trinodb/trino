@@ -262,9 +262,7 @@ public class ExpressionEquivalence
                     }
                 }
 
-                // value is some random type (say regex), so we just randomly choose a greater value
-                // todo: support all known type
-                return -1;
+                throw new IllegalArgumentException("Cannot compare %s of type %s and %s of type %s".formatted(leftConstant, leftConstant.getType(), rightConstant, rightConstant.getType()));
             }
 
             if (left instanceof InputReferenceExpression leftInputReferenceExpression) {
