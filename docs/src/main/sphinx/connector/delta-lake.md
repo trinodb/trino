@@ -429,7 +429,7 @@ table like in the following query:
 ```
 SELECT version, operation
 FROM example.testdb."customer_orders$history"
-ORDER BY version DESC LIMIT 1
+ORDER BY version DESC
 ```
 
 ### Procedures

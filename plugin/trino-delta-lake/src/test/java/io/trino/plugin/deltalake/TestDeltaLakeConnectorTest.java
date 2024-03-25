@@ -3908,6 +3908,7 @@ public class TestDeltaLakeConnectorTest
             assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0");
 
             // Failure is the expected behavior because the data file doesn't exist
+            // TODO: Improve error message
             assertQueryFails("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1", "Error opening Hive split.*");
             assertQueryFails("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 2", "Error opening Hive split.*");
             assertQueryFails("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 3", "Error opening Hive split.*");
