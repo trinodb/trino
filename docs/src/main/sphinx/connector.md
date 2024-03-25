@@ -15,6 +15,7 @@ ClickHouse      <connector/clickhouse>
 Delta Lake      <connector/delta-lake>
 Druid           <connector/druid>
 Elasticsearch   <connector/elasticsearch>
+Exasol          <connector/exasol>
 Google Sheets   <connector/googlesheets>
 Hive            <connector/hive>
 Hudi            <connector/hudi>

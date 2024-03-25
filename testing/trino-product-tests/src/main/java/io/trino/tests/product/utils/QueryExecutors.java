@@ -68,6 +68,11 @@ public final class QueryExecutors
         };
     }
 
+    public static QueryExecutor onExasol()
+    {
+        return testContext().getDependency(QueryExecutor.class, "exasol");
+    }
+
     public static QueryExecutor onHive()
     {
         return testContext().getDependency(QueryExecutor.class, "hive");
