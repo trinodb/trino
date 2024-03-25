@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class JsonExists
+public final class JsonExists
         extends Expression
 {
     private final JsonPathInvocation jsonPathInvocation;

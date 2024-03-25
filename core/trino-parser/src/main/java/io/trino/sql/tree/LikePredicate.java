@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class LikePredicate
+public final class LikePredicate
         extends Expression
 {
     private final Expression value;

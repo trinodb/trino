@@ -15,8 +15,9 @@ package io.trino.sql.tree;
 
 import java.util.Optional;
 
-public abstract class DataType
+public abstract sealed class DataType
         extends Expression
+        permits DateTimeDataType, GenericDataType, IntervalDayTimeDataType, RowDataType
 {
     public DataType(Optional<NodeLocation> location)
     {

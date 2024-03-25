@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class RowDataType
+public final class RowDataType
         extends DataType
 {
     private final List<Field> fields;

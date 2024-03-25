@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class QuantifiedComparisonExpression
+public final class QuantifiedComparisonExpression
         extends Expression
 {
     public enum Quantifier

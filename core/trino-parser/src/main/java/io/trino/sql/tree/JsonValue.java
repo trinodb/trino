@@ -23,7 +23,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior.DEFAULT;
 import static java.util.Objects.requireNonNull;
 
-public class JsonValue
+public final class JsonValue
         extends Expression
 {
     private final JsonPathInvocation jsonPathInvocation;

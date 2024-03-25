@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class Parameter
+public final class Parameter
         extends Expression
 {
     private final int id;

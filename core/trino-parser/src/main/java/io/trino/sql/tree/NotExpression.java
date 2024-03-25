@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class NotExpression
+public final class NotExpression
         extends Expression
 {
     private final Expression value;

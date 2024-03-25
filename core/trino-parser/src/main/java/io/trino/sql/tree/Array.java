@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class Array
+public final class Array
         extends Expression
 {
     private final List<Expression> values;

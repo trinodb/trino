@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IntervalDayTimeDataType
+public final class IntervalDayTimeDataType
         extends DataType
 {
     public enum Field
