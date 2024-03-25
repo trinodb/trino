@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -195,6 +196,34 @@ public abstract class BaseJdbcClient
                     String tableName = identifierMapping.fromRemoteTableName(remoteSchemaFromResultSet, resultSet.getString("TABLE_NAME"));
                     if (filterSchema(tableSchema)) {
                         list.add(new SchemaTableName(tableSchema, tableName));
+                    }
+                }
+                return list.build();
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public List<RelationCommentMetadata> getAllTableComments(ConnectorSession session, Optional<String> schema)
+    {
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            ConnectorIdentity identity = session.getIdentity();
+            Optional<String> remoteSchema = schema.map(schemaName -> identifierMapping.toRemoteSchemaName(getRemoteIdentifiers(connection), identity, schemaName));
+            if (remoteSchema.isPresent() && !filterSchema(remoteSchema.get())) {
+                return ImmutableList.of();
+            }
+
+            try (ResultSet resultSet = getTables(connection, remoteSchema, Optional.empty())) {
+                ImmutableList.Builder<RelationCommentMetadata> list = ImmutableList.builder();
+                while (resultSet.next()) {
+                    String remoteSchemaFromResultSet = getTableSchemaName(resultSet);
+                    String tableSchema = identifierMapping.fromRemoteSchemaName(remoteSchemaFromResultSet);
+                    String tableName = identifierMapping.fromRemoteTableName(remoteSchemaFromResultSet, resultSet.getString("TABLE_NAME"));
+                    if (filterSchema(tableSchema)) {
+                        list.add(RelationCommentMetadata.forRelation(new SchemaTableName(tableSchema, tableName), getTableComment(resultSet)));
                     }
                 }
                 return list.build();

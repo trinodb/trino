@@ -36,6 +36,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -80,11 +81,12 @@ public class CachingJdbcClient
     private final IdentityCacheMapping identityMapping;
 
     private final Cache<IdentityCacheKey, Set<String>> schemaNamesCache;
-    private final Cache<TableNamesCacheKey, List<SchemaTableName>> tableNamesCache;
+    private final Cache<TableListingCacheKey, List<SchemaTableName>> tableNamesCache;
     private final Cache<TableHandlesByNameCacheKey, Optional<JdbcTableHandle>> tableHandlesByNameCache;
     private final Cache<TableHandlesByQueryCacheKey, JdbcTableHandle> tableHandlesByQueryCache;
     private final Cache<ProcedureHandlesByQueryCacheKey, JdbcProcedureHandle> procedureHandlesByQueryCache;
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
+    private final Cache<TableListingCacheKey, List<RelationCommentMetadata>> tableCommentsCache;
     private final Cache<JdbcTableHandle, TableStatistics> statisticsCache;
 
     @Inject
@@ -132,6 +134,7 @@ public class CachingJdbcClient
         tableHandlesByQueryCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
         procedureHandlesByQueryCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
         columnsCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
+        tableCommentsCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
         statisticsCache = buildCache(ticker, cacheMaximumSize, statisticsCachingTtl);
     }
 
@@ -163,7 +166,7 @@ public class CachingJdbcClient
     @Override
     public List<SchemaTableName> getTableNames(ConnectorSession session, Optional<String> schema)
     {
-        TableNamesCacheKey key = new TableNamesCacheKey(getIdentityKey(session), schema);
+        TableListingCacheKey key = new TableListingCacheKey(getIdentityKey(session), schema);
         return get(tableNamesCache, key, () -> delegate.getTableNames(session, schema));
     }
 
@@ -175,6 +178,12 @@ public class CachingJdbcClient
         }
         ColumnsCacheKey key = new ColumnsCacheKey(getIdentityKey(session), getSessionProperties(session), tableHandle.getRequiredNamedRelation().getSchemaTableName());
         return get(columnsCache, key, () -> delegate.getColumns(session, tableHandle));
+    }
+
+    @Override
+    public List<RelationCommentMetadata> getAllTableComments(ConnectorSession session, Optional<String> schema)
+    {
+        return get(tableCommentsCache, new TableListingCacheKey(getIdentityKey(session), schema), () -> delegate.getAllTableComments(session, schema));
     }
 
     @Override
@@ -625,6 +634,7 @@ public class CachingJdbcClient
         tableHandlesByNameCache.invalidateAll();
         tableHandlesByQueryCache.invalidateAll();
         columnsCache.invalidateAll();
+        tableCommentsCache.invalidateAll();
         statisticsCache.invalidateAll();
     }
 
@@ -656,6 +666,7 @@ public class CachingJdbcClient
         invalidateAllIf(tableHandlesByNameCache, key -> key.tableName.equals(schemaTableName));
         tableHandlesByQueryCache.invalidateAll();
         invalidateAllIf(tableNamesCache, key -> key.schemaName.equals(Optional.of(schemaTableName.getSchemaName())));
+        invalidateAllIf(tableCommentsCache, key -> key.schemaName.equals(Optional.of(schemaTableName.getSchemaName())));
         invalidateAllIf(statisticsCache, key -> key.mayReference(schemaTableName));
     }
 
@@ -743,9 +754,9 @@ public class CachingJdbcClient
         }
     }
 
-    private record TableNamesCacheKey(IdentityCacheKey identity, Optional<String> schemaName)
+    private record TableListingCacheKey(IdentityCacheKey identity, Optional<String> schemaName)
     {
-        private TableNamesCacheKey
+        private TableListingCacheKey
         {
             requireNonNull(identity, "identity is null");
             requireNonNull(schemaName, "schemaName is null");
