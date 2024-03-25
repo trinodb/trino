@@ -16,7 +16,6 @@ package io.trino.sql.analyzer;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.cache.CacheUtils;
@@ -30,7 +29,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.DecimalLiteral;
@@ -75,102 +73,52 @@ public final class LiteralInterpreter
 
     public Object evaluate(Expression node, Type type)
     {
-        if (!(node instanceof Literal)) {
+        if (!(node instanceof Literal literal)) {
             throw new IllegalArgumentException("node must be a Literal");
         }
-        return new LiteralVisitor(type).process(node, null);
+
+        return switch (literal) {
+            case BinaryLiteral binaryLiteral -> Slices.wrappedBuffer(binaryLiteral.getValue());
+            case BooleanLiteral booleanLiteral -> booleanLiteral.getValue();
+            case DecimalLiteral decimalLiteral -> Decimals.parse(decimalLiteral.getValue()).getObject();
+            case DoubleLiteral doubleLiteral -> doubleLiteral.getValue();
+            case GenericLiteral genericLiteral -> parseGenericLiteral(type, genericLiteral);
+            case IntervalLiteral intervalLiteral -> parseIntervalLiteral(intervalLiteral);
+            case LongLiteral longLiteral -> longLiteral.getParsedValue();
+            case StringLiteral stringLiteral -> utf8Slice(stringLiteral.getValue());
+            case NullLiteral nullLiteral -> null;
+        };
     }
 
-    private class LiteralVisitor
-            extends AstVisitor<Object, Void>
+    private Object parseIntervalLiteral(IntervalLiteral intervalLiteral)
     {
-        private final Type type;
-
-        private LiteralVisitor(Type type)
-        {
-            this.type = requireNonNull(type, "type is null");
+        if (intervalLiteral.isYearToMonth()) {
+            return intervalLiteral.getSign().multiplier() * parseYearMonthInterval(intervalLiteral.getValue(), intervalLiteral.getStartField(), intervalLiteral.getEndField());
         }
+        return intervalLiteral.getSign().multiplier() * parseDayTimeInterval(intervalLiteral.getValue(), intervalLiteral.getStartField(), intervalLiteral.getEndField());
+    }
 
-        @Override
-        protected Object visitLiteral(Literal node, Void context)
-        {
-            throw new UnsupportedOperationException("Unhandled literal type: " + node);
-        }
-
-        @Override
-        protected Object visitBooleanLiteral(BooleanLiteral node, Void context)
-        {
-            return node.getValue();
-        }
-
-        @Override
-        protected Long visitLongLiteral(LongLiteral node, Void context)
-        {
-            return node.getParsedValue();
-        }
-
-        @Override
-        protected Double visitDoubleLiteral(DoubleLiteral node, Void context)
-        {
-            return node.getValue();
-        }
-
-        @Override
-        protected Object visitDecimalLiteral(DecimalLiteral node, Void context)
-        {
-            return Decimals.parse(node.getValue()).getObject();
-        }
-
-        @Override
-        protected Slice visitStringLiteral(StringLiteral node, Void context)
-        {
-            return utf8Slice(node.getValue());
-        }
-
-        @Override
-        protected Slice visitBinaryLiteral(BinaryLiteral node, Void context)
-        {
-            return Slices.wrappedBuffer(node.getValue());
-        }
-
-        @Override
-        protected Object visitGenericLiteral(GenericLiteral node, Void context)
-        {
-            return switch (type) {
-                case TimeType unused -> parseTime(node.getValue());
-                case TimeWithTimeZoneType value -> parseTimeWithTimeZone(value.getPrecision(), node.getValue());
-                case TimestampType value -> parseTimestamp(value.getPrecision(), node.getValue());
-                case TimestampWithTimeZoneType value -> parseTimestampWithTimeZone(value.getPrecision(), node.getValue());
-                default -> {
-                    Function<GenericLiteral, Object> evaluator = CacheUtils.uncheckedCacheGet(genericLiteralEvaluatorCache, type, () -> {
-                        boolean isJson = JSON.equals(type);
-                        ResolvedFunction resolvedFunction;
-                        if (isJson) {
-                            resolvedFunction = plannerContext.getMetadata().resolveBuiltinFunction("json_parse", fromTypes(VARCHAR));
-                        }
-                        else {
-                            resolvedFunction = plannerContext.getMetadata().getCoercion(VARCHAR, type);
-                        }
-                        return evaluatedNode -> functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(evaluatedNode.getValue())));
-                    });
-                    yield evaluator.apply(node);
-                }
-            };
-        }
-
-        @Override
-        protected Long visitIntervalLiteral(IntervalLiteral node, Void context)
-        {
-            if (node.isYearToMonth()) {
-                return node.getSign().multiplier() * parseYearMonthInterval(node.getValue(), node.getStartField(), node.getEndField());
+    private Object parseGenericLiteral(Type type, GenericLiteral node)
+    {
+        return switch (type) {
+            case TimeType unused -> parseTime(node.getValue());
+            case TimeWithTimeZoneType value -> parseTimeWithTimeZone(value.getPrecision(), node.getValue());
+            case TimestampType value -> parseTimestamp(value.getPrecision(), node.getValue());
+            case TimestampWithTimeZoneType value -> parseTimestampWithTimeZone(value.getPrecision(), node.getValue());
+            default -> {
+                Function<GenericLiteral, Object> evaluator = CacheUtils.uncheckedCacheGet(genericLiteralEvaluatorCache, type, () -> {
+                    boolean isJson = JSON.equals(type);
+                    ResolvedFunction resolvedFunction;
+                    if (isJson) {
+                        resolvedFunction = plannerContext.getMetadata().resolveBuiltinFunction("json_parse", fromTypes(VARCHAR));
+                    }
+                    else {
+                        resolvedFunction = plannerContext.getMetadata().getCoercion(VARCHAR, type);
+                    }
+                    return evaluatedNode -> functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(evaluatedNode.getValue())));
+                });
+                yield evaluator.apply(node);
             }
-            return node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), node.getStartField(), node.getEndField());
-        }
-
-        @Override
-        protected Object visitNullLiteral(NullLiteral node, Void context)
-        {
-            return null;
-        }
+        };
     }
 }
