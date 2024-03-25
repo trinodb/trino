@@ -27,12 +27,17 @@ public class DefaultJdbcMetadataFactory
         implements JdbcMetadataFactory
 {
     private final JdbcClient jdbcClient;
+    private final TimestampTimeZoneDomain timestampTimeZoneDomain;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
     @Inject
-    public DefaultJdbcMetadataFactory(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public DefaultJdbcMetadataFactory(
+            JdbcClient jdbcClient,
+            TimestampTimeZoneDomain timestampTimeZoneDomain,
+            Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.timestampTimeZoneDomain = requireNonNull(timestampTimeZoneDomain, "timestampTimeZoneDomain is null");
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
     }
 
@@ -56,6 +61,10 @@ public class DefaultJdbcMetadataFactory
 
     protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
     {
-        return new DefaultJdbcMetadata(transactionCachingJdbcClient, true, jdbcQueryEventListeners);
+        return new DefaultJdbcMetadata(
+                transactionCachingJdbcClient,
+                timestampTimeZoneDomain,
+                true,
+                jdbcQueryEventListeners);
     }
 }
