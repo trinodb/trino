@@ -303,6 +303,36 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testPartialFilterWhenPartitionColumnOrderIsDifferentFromTableDefinition()
+    {
+        testPartialFilterWhenPartitionColumnOrderIsDifferentFromTableDefinition(ColumnMappingMode.ID);
+        testPartialFilterWhenPartitionColumnOrderIsDifferentFromTableDefinition(ColumnMappingMode.NAME);
+        testPartialFilterWhenPartitionColumnOrderIsDifferentFromTableDefinition(ColumnMappingMode.NONE);
+    }
+
+    private void testPartialFilterWhenPartitionColumnOrderIsDifferentFromTableDefinition(ColumnMappingMode columnMappingMode)
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_delete_with_partial_filter_composed_partition",
+                "(_bigint BIGINT, _date DATE, _varchar VARCHAR) WITH (column_mapping_mode='" + columnMappingMode + "', partitioned_by = ARRAY['_varchar', '_date'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES  (1, CAST('2019-09-10' AS DATE), 'a'), (2, CAST('2019-09-10' AS DATE), 'a')", 2);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, null, 'c'), (4, CAST('2019-09-08' AS DATE), 'd')", 2);
+            assertUpdate("UPDATE " + table.getName() + " SET _bigint = 10 WHERE _bigint =  BIGINT '1'", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE _date =  DATE '2019-09-08'", 1);
+
+            assertQuery(
+                    "SELECT * FROM " + table.getName(),
+                    """
+                    VALUES
+                        (10, DATE '2019-09-10', 'a'),
+                        (2, DATE '2019-09-10', 'a'),
+                        (3, null, 'c')
+                    """);
+        }
+    }
+
+    @Test
     public void testCreateTableWithAllPartitionColumns()
     {
         String tableName = "test_create_table_all_partition_columns_" + randomNameSuffix();

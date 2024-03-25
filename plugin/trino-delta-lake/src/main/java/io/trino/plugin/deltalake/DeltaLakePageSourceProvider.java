@@ -71,9 +71,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -158,19 +160,23 @@ public class DeltaLakePageSourceProvider
         ColumnMappingMode columnMappingMode = getColumnMappingMode(table.getMetadataEntry(), table.getProtocolEntry());
         Optional<List<String>> partitionValues = Optional.empty();
         if (deltaLakeColumns.stream().anyMatch(column -> column.getBaseColumnName().equals(ROW_ID_COLUMN_NAME))) {
+            // using ArrayList because partition values can be null
             partitionValues = Optional.of(new ArrayList<>());
-            for (DeltaLakeColumnMetadata column : extractSchema(table.getMetadataEntry(), table.getProtocolEntry(), typeManager)) {
+            Map<String, DeltaLakeColumnMetadata> columnsMetadataByName = extractSchema(table.getMetadataEntry(), table.getProtocolEntry(), typeManager).stream()
+                    .collect(toImmutableMap(DeltaLakeColumnMetadata::getName, Function.identity()));
+            for (String partitionColumnName : table.getMetadataEntry().getOriginalPartitionColumns()) {
+                DeltaLakeColumnMetadata partitionColumn = columnsMetadataByName.get(partitionColumnName);
+                checkState(partitionColumn != null, "Partition column %s not found", partitionColumnName);
                 Optional<String> value = switch (columnMappingMode) {
                     case NONE:
-                        yield partitionKeys.get(column.getName());
+                        yield partitionKeys.get(partitionColumn.getName());
                     case ID, NAME:
-                        yield partitionKeys.get(column.getPhysicalName());
+                        yield partitionKeys.get(partitionColumn.getPhysicalName());
                     default:
                         throw new IllegalStateException("Unknown column mapping mode");
                 };
-                if (value != null) {
-                    partitionValues.get().add(value.orElse(null));
-                }
+                // Fill partition values in the same order as the partition columns are specified in the table definition
+                partitionValues.get().add(value.orElse(null));
             }
         }
 
