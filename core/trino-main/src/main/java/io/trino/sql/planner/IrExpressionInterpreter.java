@@ -129,6 +129,11 @@ public class IrExpressionInterpreter
         return new Visitor(true).processWithExceptionHandling(expression, inputs);
     }
 
+    public Object optimize()
+    {
+        return new Visitor(true).processWithExceptionHandling(expression, NoOpSymbolResolver.INSTANCE);
+    }
+
     private class Visitor
             extends IrVisitor<Object, Object>
     {

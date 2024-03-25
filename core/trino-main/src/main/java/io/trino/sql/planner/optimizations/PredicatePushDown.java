@@ -34,7 +34,6 @@ import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.EffectivePredicateExtractor;
 import io.trino.sql.planner.EqualityInference;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -1176,7 +1175,7 @@ public class PredicatePushDown
         private Expression simplifyExpression(Expression expression)
         {
             IrExpressionInterpreter optimizer = new IrExpressionInterpreter(expression, plannerContext, session);
-            Object object = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
+            Object object = optimizer.optimize();
 
             return object instanceof Expression optimized ?
                     optimized :

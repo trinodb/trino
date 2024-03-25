@@ -29,7 +29,6 @@ import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TranslationMap;
@@ -329,7 +328,7 @@ public final class SqlRoutinePlanner
 
             // optimize the expression
             IrExpressionInterpreter interpreter = new IrExpressionInterpreter(lambdaCaptureDesugared, plannerContext, session);
-            Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+            Object value = interpreter.optimize();
 
             io.trino.sql.ir.Expression optimized = value instanceof io.trino.sql.ir.Expression optimizedExpression ?
                     optimizedExpression :
