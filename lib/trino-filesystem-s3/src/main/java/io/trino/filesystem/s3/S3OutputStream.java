@@ -23,6 +23,7 @@ import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
@@ -39,6 +40,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
+import static io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl.getCannedAcl;
 import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -60,6 +62,7 @@ final class S3OutputStream
     private final RequestPayer requestPayer;
     private final S3SseType sseType;
     private final String sseKmsKeyId;
+    private final ObjectCannedACL cannedAcl;
 
     private int currentPartNumber;
     private byte[] buffer = new byte[0];
@@ -86,6 +89,7 @@ final class S3OutputStream
         this.requestPayer = context.requestPayer();
         this.sseType = context.sseType();
         this.sseKmsKeyId = context.sseKmsKeyId();
+        this.cannedAcl = getCannedAcl(context.cannedAcl());
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")
@@ -195,6 +199,7 @@ final class S3OutputStream
         if (finished && !multipartUploadStarted) {
             PutObjectRequest request = PutObjectRequest.builder()
                     .overrideConfiguration(context::applyCredentialProviderOverride)
+                    .acl(cannedAcl)
                     .requestPayer(requestPayer)
                     .bucket(location.bucket())
                     .key(location.key())
@@ -272,6 +277,7 @@ final class S3OutputStream
         if (uploadId.isEmpty()) {
             CreateMultipartUploadRequest request = CreateMultipartUploadRequest.builder()
                     .overrideConfiguration(context::applyCredentialProviderOverride)
+                    .acl(cannedAcl)
                     .requestPayer(requestPayer)
                     .bucket(location.bucket())
                     .key(location.key())

@@ -112,7 +112,8 @@ public final class S3FileSystemFactory
                 config.isRequesterPays(),
                 config.getSseType(),
                 config.getSseKmsKeyId(),
-                Optional.empty());
+                Optional.empty(),
+                config.getCannedAcl());
     }
 
     @PreDestroy

@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.s3;
 
+import io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
@@ -24,7 +25,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 // public because it is used in SEP
-public record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String sseKmsKeyId, Optional<AwsCredentialsProvider> credentialsProviderOverride)
+public record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String sseKmsKeyId, Optional<AwsCredentialsProvider> credentialsProviderOverride, ObjectCannedAcl cannedAcl)
 {
     private static final int MIN_PART_SIZE = 5 * 1024 * 1024; // S3 requirement
 
@@ -48,7 +49,8 @@ public record S3Context(int partSize, boolean requesterPays, S3SseType sseType, 
                 requesterPays,
                 sseType,
                 sseKmsKeyId,
-                Optional.of(credentialsProviderOverride));
+                Optional.of(credentialsProviderOverride),
+                cannedAcl);
     }
 
     public void applyCredentialProviderOverride(AwsRequestOverrideConfiguration.Builder builder)
