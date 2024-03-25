@@ -4,13 +4,6 @@
 <img src="../_static/img/hive.png" class="connector-logo">
 ```
 
-```{toctree}
-:hidden: true
-:maxdepth: 1
-
-Security <hive-security>
-```
-
 The Hive connector allows querying data stored in an
 [Apache Hive](https://hive.apache.org/)
 data warehouse. Hive is a combination of three components:
@@ -33,8 +26,6 @@ The Hive connector requires a
 {ref}`Hive metastore service <hive-thrift-metastore>` (HMS), or a compatible
 implementation of the Hive metastore, such as
 {ref}`AWS Glue <hive-glue-metastore>`.
-
-Apache Hadoop HDFS 2.x and 3.x are supported.
 
 Many [distributed storage systems](hive-file-system-configuration) can be
 queried with the Hive connector.
@@ -89,55 +80,7 @@ with a different name, making sure it ends in `.properties`. For
 example, if you name the property file `sales.properties`, Trino
 creates a catalog named `sales` using the configured connector.
 
-### HDFS configuration
-
-For basic setups, Trino configures the HDFS client automatically and
-does not require any configuration files. In some cases, such as when using
-federated HDFS or NameNode high availability, it is necessary to specify
-additional HDFS client options in order to access your HDFS cluster. To do so,
-add the `hive.config.resources` property to reference your HDFS config files:
-
-```text
-hive.config.resources=/etc/hadoop/conf/core-site.xml,/etc/hadoop/conf/hdfs-site.xml
-```
-
-Only specify additional configuration files if necessary for your setup.
-We recommend reducing the configuration files to have the minimum
-set of required properties, as additional properties may cause problems.
-
-The configuration files must exist on all Trino nodes. If you are
-referencing existing Hadoop config files, make sure to copy them to
-any Trino nodes that are not running Hadoop.
-
-### HDFS username and permissions
-
-Before running any `CREATE TABLE` or `CREATE TABLE AS` statements
-for Hive tables in Trino, you must check that the user Trino is
-using to access HDFS has access to the Hive warehouse directory. The Hive
-warehouse directory is specified by the configuration variable
-`hive.metastore.warehouse.dir` in `hive-site.xml`, and the default
-value is `/user/hive/warehouse`.
-
-When not using Kerberos with HDFS, Trino accesses HDFS using the
-OS user of the Trino process. For example, if Trino is running as
-`nobody`, it accesses HDFS as `nobody`. You can override this
-username by setting the `HADOOP_USER_NAME` system property in the
-Trino {ref}`jvm-config`, replacing `hdfs_user` with the
-appropriate username:
-
-```text
--DHADOOP_USER_NAME=hdfs_user
-```
-
-The `hive` user generally works, since Hive is often started with
-the `hive` user and this user has access to the Hive warehouse.
-
-Whenever you change the user Trino is using to access HDFS, remove
-`/tmp/presto-*` on HDFS, as the new user may not have access to
-the existing temporary directories.
-
 (hive-configuration-properties)=
-
 ### Hive general configuration properties
 
 The following table lists general configuration properties for the Hive
@@ -151,11 +94,7 @@ Hive connector documentation.
 * - Property Name
   - Description
   - Default
-* - `hive.config.resources`
-  - An optional comma-separated list of HDFS configuration files. These files
-    must exist on the machines running Trino. Only specify this if absolutely
-    necessary to access HDFS. Example: `/etc/hdfs-site.xml`
-  -
+
 * - `hive.recursive-directories`
   - Enable reading data from subdirectories of table or partition locations. If
     disabled, subdirectories are ignored. This is equivalent to the
@@ -221,16 +160,6 @@ Hive connector documentation.
 * - `hive.max-partitions-per-scan`
   - Maximum number of partitions for a single table scan.
   - 1,000,000
-* - `hive.dfs.replication`
-  - Hadoop file system replication factor.
-  -
-* - `hive.security`
-  - See [](#hive-security).
-  -
-* - `security.config-file`
-  - Path of config file to use when `hive.security=file`. See
-    [](catalog-file-based-access-control) for details.
-  -
 * - `hive.non-managed-table-writes-enabled`
   - Enable writes to non-managed (external) Hive tables.
   - `false`
@@ -295,14 +224,6 @@ Hive connector documentation.
   - Improve parallelism of partitioned and bucketed table writes. When disabled,
     the number of writing threads is limited to number of buckets.
   - `true`
-* - `hive.fs.new-directory-permissions`
-  - Controls the permissions set on new directories created for tables. It must
-    be either 'skip' or an octal number, with a leading 0. If set to `skip`,
-    permissions of newly created directories will not be set by Trino.
-  - `0777`
-* - `hive.fs.cache.max-size`
-  - Maximum number of cached file system objects.
-  - 1000
 * - `hive.query-partition-filter-required`
   - Set to `true` to force a query to use a partition filter. You can use the
     `query_partition_filter_required` catalog session property for temporary,
@@ -637,11 +558,6 @@ The following procedures are available:
 (hive-data-management)=
 
 ### Data management
-
-Some {ref}`data management <sql-data-management>` statements may be affected by
-the Hive catalog's authorization check policy. In the default `legacy` policy,
-some statements are disabled by default. See {doc}`hive-security` for more
-information.
 
 The {ref}`sql-data-management` functionality includes support for `INSERT`,
 `UPDATE`, `DELETE`, and `MERGE` statements, with the exact support
