@@ -392,100 +392,102 @@ public class TestOrcPageSourceMemoryTracking
 
     @Test
     public void testTableScanOperator()
+            throws Exception
     {
         // Numbers used in assertions in this test may change when implementation is modified,
         // feel free to change them if they break in the future
 
         DriverContext driverContext = testPreparer.newDriverContext();
-        SourceOperator operator = testPreparer.newTableScanOperator(driverContext);
+        try (SourceOperator operator = testPreparer.newTableScanOperator(driverContext)) {
+            assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
 
-        assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
+            long memoryUsage = -1;
+            int totalRows = 0;
+            while (totalRows < 20000) {
+                assertThat(operator.isFinished()).isFalse();
+                Page page = operator.getOutput();
+                assertThat(page).isNotNull();
+                page.getBlock(1);
+                if (memoryUsage == -1) {
+                    memoryUsage = driverContext.getMemoryUsage();
+                    assertBetweenInclusive(memoryUsage, 460000L, 469999L);
+                }
+                else {
+                    assertThat(driverContext.getMemoryUsage()).isEqualTo(memoryUsage);
+                }
+                totalRows += page.getPositionCount();
+            }
 
-        long memoryUsage = -1;
-        int totalRows = 0;
-        while (totalRows < 20000) {
+            memoryUsage = -1;
+            while (totalRows < 40000) {
+                assertThat(operator.isFinished()).isFalse();
+                Page page = operator.getOutput();
+                assertThat(page).isNotNull();
+                page.getBlock(1);
+                if (memoryUsage == -1) {
+                    memoryUsage = driverContext.getMemoryUsage();
+                    assertBetweenInclusive(memoryUsage, 460000L, 469999L);
+                }
+                else {
+                    assertThat(driverContext.getMemoryUsage()).isEqualTo(memoryUsage);
+                }
+                totalRows += page.getPositionCount();
+            }
+
+            memoryUsage = -1;
+            while (totalRows < NUM_ROWS) {
+                assertThat(operator.isFinished()).isFalse();
+                Page page = operator.getOutput();
+                assertThat(page).isNotNull();
+                page.getBlock(1);
+                if (memoryUsage == -1) {
+                    memoryUsage = driverContext.getMemoryUsage();
+                    assertBetweenInclusive(memoryUsage, 360000L, 369999L);
+                }
+                else {
+                    assertThat(driverContext.getMemoryUsage()).isEqualTo(memoryUsage);
+                }
+                totalRows += page.getPositionCount();
+            }
+
             assertThat(operator.isFinished()).isFalse();
-            Page page = operator.getOutput();
-            assertThat(page).isNotNull();
-            page.getBlock(1);
-            if (memoryUsage == -1) {
-                memoryUsage = driverContext.getMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 460000L, 469999L);
-            }
-            else {
-                assertThat(driverContext.getMemoryUsage()).isEqualTo(memoryUsage);
-            }
-            totalRows += page.getPositionCount();
+            assertThat(operator.getOutput()).isNull();
+            assertThat(operator.isFinished()).isTrue();
+            assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
         }
-
-        memoryUsage = -1;
-        while (totalRows < 40000) {
-            assertThat(operator.isFinished()).isFalse();
-            Page page = operator.getOutput();
-            assertThat(page).isNotNull();
-            page.getBlock(1);
-            if (memoryUsage == -1) {
-                memoryUsage = driverContext.getMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 460000L, 469999L);
-            }
-            else {
-                assertThat(driverContext.getMemoryUsage()).isEqualTo(memoryUsage);
-            }
-            totalRows += page.getPositionCount();
-        }
-
-        memoryUsage = -1;
-        while (totalRows < NUM_ROWS) {
-            assertThat(operator.isFinished()).isFalse();
-            Page page = operator.getOutput();
-            assertThat(page).isNotNull();
-            page.getBlock(1);
-            if (memoryUsage == -1) {
-                memoryUsage = driverContext.getMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 360000L, 369999L);
-            }
-            else {
-                assertThat(driverContext.getMemoryUsage()).isEqualTo(memoryUsage);
-            }
-            totalRows += page.getPositionCount();
-        }
-
-        assertThat(operator.isFinished()).isFalse();
-        assertThat(operator.getOutput()).isNull();
-        assertThat(operator.isFinished()).isTrue();
-        assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
     }
 
     @Test
     public void testScanFilterAndProjectOperator()
+            throws Exception
     {
         // Numbers used in assertions in this test may change when implementation is modified,
         // feel free to change them if they break in the future
 
         DriverContext driverContext = testPreparer.newDriverContext();
-        SourceOperator operator = testPreparer.newScanFilterAndProjectOperator(driverContext);
+        try (SourceOperator operator = testPreparer.newScanFilterAndProjectOperator(driverContext)) {
+            assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
 
-        assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
+            int totalRows = 0;
+            while (totalRows < NUM_ROWS) {
+                assertThat(operator.isFinished()).isFalse();
+                Page page = operator.getOutput();
+                assertThat(page).isNotNull();
 
-        int totalRows = 0;
-        while (totalRows < NUM_ROWS) {
-            assertThat(operator.isFinished()).isFalse();
-            Page page = operator.getOutput();
-            assertThat(page).isNotNull();
+                // memory usage varies depending on stripe alignment
+                long memoryUsage = driverContext.getMemoryUsage();
+                assertThat(memoryUsage < 1000 || (memoryUsage > 150_000 && memoryUsage < 630_000))
+                        .describedAs(format("Memory usage (%s) outside of bounds", memoryUsage))
+                        .isTrue();
 
-            // memory usage varies depending on stripe alignment
-            long memoryUsage = driverContext.getMemoryUsage();
-            assertThat(memoryUsage < 1000 || (memoryUsage > 150_000 && memoryUsage < 630_000))
-                    .describedAs(format("Memory usage (%s) outside of bounds", memoryUsage))
-                    .isTrue();
+                totalRows += page.getPositionCount();
+            }
 
-            totalRows += page.getPositionCount();
+            // done... in the current implementation finish is not set until output returns a null page
+            assertThat(operator.getOutput()).isNull();
+            assertThat(operator.isFinished()).isTrue();
+            assertBetweenInclusive(driverContext.getMemoryUsage(), 0L, 500L);
         }
-
-        // done... in the current implementation finish is not set until output returns a null page
-        assertThat(operator.getOutput()).isNull();
-        assertThat(operator.isFinished()).isTrue();
-        assertBetweenInclusive(driverContext.getMemoryUsage(), 0L, 500L);
     }
 
     private class TestPreparer
