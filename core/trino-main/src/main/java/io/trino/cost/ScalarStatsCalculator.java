@@ -31,7 +31,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 
 import java.util.OptionalDouble;
@@ -131,7 +130,7 @@ public class ScalarStatsCalculator
             }
 
             IrExpressionInterpreter interpreter = new IrExpressionInterpreter(node, plannerContext, session);
-            Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+            Object value = interpreter.optimize();
 
             if (value == null) {
                 return nullStatsEstimate();

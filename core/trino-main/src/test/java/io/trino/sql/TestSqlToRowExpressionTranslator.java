@@ -20,7 +20,6 @@ import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import org.junit.jupiter.api.Test;
@@ -89,7 +88,7 @@ public class TestSqlToRowExpressionTranslator
     {
         // Testing simplified expressions is important, since simplification may create CASTs or function calls that cannot be simplified by the ExpressionOptimizer
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION);
-        Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+        Object value = interpreter.optimize();
 
         return value instanceof Expression optimized ?
                 optimized :

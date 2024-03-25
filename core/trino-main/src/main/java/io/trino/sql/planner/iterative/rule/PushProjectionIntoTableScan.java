@@ -36,7 +36,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.IrExpressionInterpreter;
-import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
@@ -149,8 +148,7 @@ public class PushProjectionIntoTableScan
                     Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
-                    Object optimized = new IrExpressionInterpreter(translated, plannerContext, session)
-                            .optimize(NoOpSymbolResolver.INSTANCE);
+                    Object optimized = new IrExpressionInterpreter(translated, plannerContext, session).optimize();
 
                     return optimized instanceof Expression optimizedExpression ?
                             optimizedExpression :
