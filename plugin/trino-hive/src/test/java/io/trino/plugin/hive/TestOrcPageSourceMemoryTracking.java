@@ -408,7 +408,6 @@ public class TestOrcPageSourceMemoryTracking
                 assertThat(operator.isFinished()).isFalse();
                 Page page = operator.getOutput();
                 assertThat(page).isNotNull();
-                page.getBlock(1);
                 if (memoryUsage == -1) {
                     memoryUsage = driverContext.getMemoryUsage();
                     assertBetweenInclusive(memoryUsage, 460000L, 469999L);
@@ -424,7 +423,6 @@ public class TestOrcPageSourceMemoryTracking
                 assertThat(operator.isFinished()).isFalse();
                 Page page = operator.getOutput();
                 assertThat(page).isNotNull();
-                page.getBlock(1);
                 if (memoryUsage == -1) {
                     memoryUsage = driverContext.getMemoryUsage();
                     assertBetweenInclusive(memoryUsage, 460000L, 469999L);
@@ -440,7 +438,6 @@ public class TestOrcPageSourceMemoryTracking
                 assertThat(operator.isFinished()).isFalse();
                 Page page = operator.getOutput();
                 assertThat(page).isNotNull();
-                page.getBlock(1);
                 if (memoryUsage == -1) {
                     memoryUsage = driverContext.getMemoryUsage();
                     assertBetweenInclusive(memoryUsage, 360000L, 369999L);
