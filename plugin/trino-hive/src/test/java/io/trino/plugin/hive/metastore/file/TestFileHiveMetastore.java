@@ -66,8 +66,7 @@ public class TestFileHiveMetastore
                 new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(tmpDir.toString())
-                        .setDisableLocationChecks(true)
-                /*.setMetastoreUser("test")*/);
+                        .setDisableLocationChecks(true));
 
         metastore.createDatabase(Database.builder()
                 .setDatabaseName("default")
