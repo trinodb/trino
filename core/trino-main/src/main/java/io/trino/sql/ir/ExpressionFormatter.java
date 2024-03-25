@@ -73,6 +73,7 @@ public final class ExpressionFormatter
             return builder.toString();
         }
 
+        @Override
         protected String visitSubscriptExpression(SubscriptExpression node, Void context)
         {
             return formatExpression(node.getBase()) + "[" + formatExpression(node.getIndex()) + "]";
