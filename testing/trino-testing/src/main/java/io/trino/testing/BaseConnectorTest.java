@@ -5720,6 +5720,66 @@ public abstract class BaseConnectorTest
                 .build();
     }
 
+    @Test
+    public void testTimestampWithTimeZoneCastToDatePredicate()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        TestTable table;
+        try {
+            table = new TestTable(
+                    getQueryRunner()::execute,
+                    "timestamptz_to_date",
+                    // These to timestamps are same local time, but different point in times and also different date at UTC time zone
+                    """
+                            (i, t) AS VALUES
+                                ('UTC', TIMESTAMP '2005-09-10 00:12:34.000 UTC'),
+                                ('Warsaw', TIMESTAMP '2005-09-10 00:12:34.000 Europe/Warsaw'),
+                                ('Los Angeles', TIMESTAMP '2005-09-10 00:12:34.000 America/Los_Angeles')""");
+        }
+        catch (QueryFailedException e) {
+            verifyUnsupportedTypeException(e, "timestamp(3) with time zone");
+            return;
+        }
+        try (table) {
+            assertThat(query("SELECT i FROM " + table.getName() + " WHERE CAST(t AS date) = DATE '2005-09-10'"))
+                    .hasCorrectResultsRegardlessOfPushdown()
+                    // Number of matched rows depends on whether the connector preserves the time zone information, or point in time only
+                    .skippingTypesCheck()
+                    .containsAll("VALUES 'UTC', 'Los Angeles'");
+        }
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneCastToTimestampPredicate()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        TestTable table;
+        try {
+            table = new TestTable(
+                    getQueryRunner()::execute,
+                    "timestamptz_to_ts",
+                    // These to timestamps are same local time, but different point in times
+                    """
+                            (i, t) AS VALUES
+                                ('UTC', TIMESTAMP '2005-09-10 13:00:00.000 UTC'),
+                                ('Warsaw', TIMESTAMP '2005-09-10 13:00:00.000 Europe/Warsaw'),
+                                ('Los Angeles', TIMESTAMP '2005-09-10 13:00:00.000 America/Los_Angeles')""");
+        }
+        catch (QueryFailedException e) {
+            verifyUnsupportedTypeException(e, "timestamp(3) with time zone");
+            return;
+        }
+        try (table) {
+            assertThat(query("SELECT i FROM " + table.getName() + " WHERE CAST(t AS timestamp(0)) = TIMESTAMP '2005-09-10 13:00:00'"))
+                    .hasCorrectResultsRegardlessOfPushdown()
+                    // Number of matched rows depends on whether the connector preserves the time zone information, or point in time only
+                    .skippingTypesCheck()
+                    .containsAll("VALUES 'UTC'");
+        }
+    }
+
     /**
      * A regression test for row (struct) dereference pushdown edge case, with duplicate expressions.
      * See https://github.com/trinodb/trino/issues/11559 and https://github.com/trinodb/trino/issues/11560.

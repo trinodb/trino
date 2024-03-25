@@ -15,6 +15,7 @@ import io.trino.plugin.jdbc.DefaultJdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
+import io.trino.plugin.jdbc.TimestampTimeZoneDomain;
 
 import java.util.Set;
 
@@ -24,19 +25,21 @@ public class StargateMetadataFactory
         extends DefaultJdbcMetadataFactory
 {
     private final StargateCatalogIdentityFactory catalogIdentityFactory;
+    private final TimestampTimeZoneDomain timestampTimeZoneDomain;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
     @Inject
-    public StargateMetadataFactory(StargateCatalogIdentityFactory catalogIdentityFactory, JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public StargateMetadataFactory(StargateCatalogIdentityFactory catalogIdentityFactory, JdbcClient jdbcClient, TimestampTimeZoneDomain timestampTimeZoneDomain, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
-        super(jdbcClient, jdbcQueryEventListeners);
+        super(jdbcClient, timestampTimeZoneDomain, jdbcQueryEventListeners);
         this.catalogIdentityFactory = requireNonNull(catalogIdentityFactory, "catalogIdentityFactory is null");
+        this.timestampTimeZoneDomain = requireNonNull(timestampTimeZoneDomain, "timestampTimeZoneDomain is null");
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "jdbcQueryEventListeners is null"));
     }
 
     @Override
     protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
     {
-        return new StargateMetadata(catalogIdentityFactory, transactionCachingJdbcClient, jdbcQueryEventListeners);
+        return new StargateMetadata(catalogIdentityFactory, transactionCachingJdbcClient, timestampTimeZoneDomain, jdbcQueryEventListeners);
     }
 }
