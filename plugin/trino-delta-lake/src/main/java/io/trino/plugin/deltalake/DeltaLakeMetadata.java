@@ -477,7 +477,7 @@ public class DeltaLakeMetadata
 
             TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, table, tableLocation);
             // Lack of concurrency for given query is currently guaranteed by DeltaLakeMetadata
-            checkState(queriedVersions.put(table, snapshot.getVersion()) == null, "queriedLocations changed concurrently for %s", table);
+            checkState(queriedVersions.put(table, snapshot.getVersion()) == null, "queriedVersions changed concurrently for %s", table);
             queriedSnapshots.put(new QueriedTable(table, snapshot.getVersion()), snapshot);
             return snapshot;
         }
