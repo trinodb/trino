@@ -36,7 +36,6 @@ final class TestFileHiveMetastore
             throws IOException
     {
         tempDir = createTempDirectory("test");
-        tempDir.toFile().mkdirs();
         LocalFileSystemFactory fileSystemFactory = new LocalFileSystemFactory(tempDir);
 
         metastore = new FileHiveMetastore(
