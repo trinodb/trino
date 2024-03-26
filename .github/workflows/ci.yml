@@ -196,7 +196,8 @@ jobs:
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN ${MAVEN_TEST} -T 1C clean verify -DskipTests ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
+          # Skip checks, these are run in `maven-checks` job and e.g. checkstyle is expensive.
+          $MAVEN ${MAVEN_TEST} -T 1C clean verify -DskipTests -Dair.check.skip-all=true ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
   web-ui-checks:
