@@ -29,7 +29,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class SpatialJoinNode
+public final class SpatialJoinNode
         extends PlanNode
 {
     public enum Type

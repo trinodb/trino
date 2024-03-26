@@ -41,7 +41,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class JoinNode
+public final class JoinNode
         extends PlanNode
 {
     public enum DistributionType

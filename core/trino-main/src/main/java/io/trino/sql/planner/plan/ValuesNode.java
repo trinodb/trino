@@ -31,7 +31,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class ValuesNode
+public final class ValuesNode
         extends PlanNode
 {
     private final List<Symbol> outputSymbols;

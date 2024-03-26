@@ -43,7 +43,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class TableScanNode
+public final class TableScanNode
         extends PlanNode
 {
     private final TableHandle table;

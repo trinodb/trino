@@ -28,7 +28,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class RemoteSourceNode
+public final class RemoteSourceNode
         extends PlanNode
 {
     private final List<PlanFragmentId> sourceFragmentIds;

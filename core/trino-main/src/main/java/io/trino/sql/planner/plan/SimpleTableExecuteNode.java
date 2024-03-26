@@ -24,7 +24,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class SimpleTableExecuteNode
+public final class SimpleTableExecuteNode
         extends PlanNode
 {
     private final Symbol output;

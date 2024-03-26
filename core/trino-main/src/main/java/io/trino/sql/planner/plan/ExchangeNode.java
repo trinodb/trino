@@ -40,7 +40,7 @@ import static io.trino.util.MoreLists.listOfListsCopy;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class ExchangeNode
+public final class ExchangeNode
         extends PlanNode
 {
     public enum Type

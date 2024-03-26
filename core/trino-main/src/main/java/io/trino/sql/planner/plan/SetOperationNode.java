@@ -37,8 +37,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public abstract class SetOperationNode
+public abstract sealed class SetOperationNode
         extends PlanNode
+        permits ExceptNode, IntersectNode, UnionNode
 {
     private final List<PlanNode> sources;
     private final ListMultimap<Symbol, Symbol> outputToInputs;

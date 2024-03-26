@@ -18,7 +18,7 @@ import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 
-public class GroupReference
+public final class GroupReference
         extends PlanNode
 {
     private final int groupId;

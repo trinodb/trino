@@ -18,7 +18,7 @@ import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 
-public class GenericNode
+public final class GenericNode
         extends PlanNode
 {
     private final List<PlanNode> sources;

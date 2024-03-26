@@ -73,7 +73,13 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = TableFunctionProcessorNode.class, name = "tableFunctionProcessor"),
         @JsonSubTypes.Type(value = AdaptivePlanNode.class, name = "adaptivePlanNode"),
 })
-public abstract class PlanNode
+public abstract sealed class PlanNode
+        permits AdaptivePlanNode, AggregationNode, ApplyNode, AssignUniqueId, CorrelatedJoinNode, DistinctLimitNode, DynamicFilterSourceNode,
+        EnforceSingleRowNode, ExchangeNode, ExplainAnalyzeNode, FilterNode, GenericNode, GroupIdNode, GroupReference, IndexJoinNode, IndexSourceNode,
+        JoinNode, LimitNode, MarkDistinctNode, MergeProcessorNode, MergeWriterNode, OffsetNode, OutputNode, PatternRecognitionNode, ProjectNode, RefreshMaterializedViewNode,
+        RemoteSourceNode, RowNumberNode, SampleNode, SemiJoinNode, SetOperationNode, SimpleTableExecuteNode, SortNode, SpatialJoinNode, StatisticsWriterNode, TableDeleteNode,
+        TableExecuteNode, TableFinishNode, TableFunctionNode, TableFunctionProcessorNode, TableScanNode, TableUpdateNode, TableWriterNode, TopNNode, TopNRankingNode, UnnestNode,
+        ValuesNode, WindowNode
 {
     private final PlanNodeId id;
 

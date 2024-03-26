@@ -21,7 +21,7 @@ import io.trino.sql.planner.Symbol;
 import java.util.List;
 
 @Immutable
-public class ExceptNode
+public final class ExceptNode
         extends SetOperationNode
 {
     private final boolean distinct;

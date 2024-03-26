@@ -22,7 +22,7 @@ import io.trino.sql.planner.Symbol;
 import java.util.List;
 
 @Immutable
-public class UnionNode
+public final class UnionNode
         extends SetOperationNode
 {
     @JsonCreator

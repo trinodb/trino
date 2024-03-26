@@ -22,7 +22,7 @@ import io.trino.sql.planner.Symbol;
 import java.util.List;
 
 @Immutable
-public class IntersectNode
+public final class IntersectNode
         extends SetOperationNode
 {
     private final boolean distinct;

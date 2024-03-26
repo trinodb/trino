@@ -24,7 +24,7 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class SortNode
+public final class SortNode
         extends PlanNode
 {
     private final PlanNode source;

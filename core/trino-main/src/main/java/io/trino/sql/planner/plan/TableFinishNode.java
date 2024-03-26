@@ -28,7 +28,7 @@ import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class TableFinishNode
+public final class TableFinishNode
         extends PlanNode
 {
     private final PlanNode source;

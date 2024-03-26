@@ -29,7 +29,7 @@ import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class TopNNode
+public final class TopNNode
         extends PlanNode
 {
     public enum Step

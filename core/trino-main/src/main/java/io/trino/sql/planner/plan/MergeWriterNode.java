@@ -28,7 +28,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class MergeWriterNode
+public final class MergeWriterNode
         extends PlanNode
 {
     private final PlanNode source;

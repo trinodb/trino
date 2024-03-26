@@ -26,7 +26,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class RefreshMaterializedViewNode
+public final class RefreshMaterializedViewNode
         extends PlanNode
 {
     private final QualifiedObjectName viewName;
