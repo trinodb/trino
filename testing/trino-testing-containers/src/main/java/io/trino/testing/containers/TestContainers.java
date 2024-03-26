@@ -15,7 +15,9 @@
 package io.trino.testing.containers;
 
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.command.ListContainersCmd;
 import com.github.dockerjava.api.command.PullImageResultCallback;
+import com.github.dockerjava.api.command.RemoveContainerCmd;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.PortBinding;
@@ -26,6 +28,8 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.TestcontainersConfiguration;
 
 import java.io.Closeable;
+import java.util.List;
+import java.util.Map;
 
 import static com.github.dockerjava.api.model.Ports.Binding.bindPort;
 import static com.google.common.base.Preconditions.checkState;
@@ -58,7 +62,40 @@ public final class TestContainers
         if (reuse) {
             return () -> {};
         }
-        return container::stop;
+        if (container.getStartupAttempts() <= 1) {
+            return container::stop;
+        }
+        return () -> {
+            container.stop();
+            // if there were multiple startup attempts, failed containers need to be manually removed
+            cleanup(container);
+        };
+    }
+
+    public static void cleanup(GenericContainer<?> container)
+    {
+        String imageName;
+        try {
+            imageName = container.getDockerImageName();
+        }
+        catch (Exception e) {
+            imageName = "<unknown>";
+        }
+        String finalImageName = imageName;
+        try (ListContainersCmd listCmd = container.getDockerClient().listContainersCmd()
+                .withLabelFilter(Map.of(DockerClientFactory.TESTCONTAINERS_SESSION_ID_LABEL, DockerClientFactory.SESSION_ID))
+                .withStatusFilter(List.of("exited"))) {
+            listCmd.exec()
+                    .stream()
+                    .filter(stoppedContainer -> stoppedContainer.getImage().equals(finalImageName))
+                    .forEach(stoppedContainer -> {
+                        try (RemoveContainerCmd removeCmd = container.getDockerClient().removeContainerCmd(stoppedContainer.getId())
+                                .withRemoveVolumes(true)
+                                .withForce(true)) {
+                            removeCmd.exec();
+                        }
+                    });
+        }
     }
 
     public static String getPathFromClassPathResource(String resourcePath)
