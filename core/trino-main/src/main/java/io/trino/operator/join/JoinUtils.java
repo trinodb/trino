@@ -110,7 +110,7 @@ public final class JoinUtils
                 dynamicFilters.isEmpty(),
                 "Dynamic filters %s present in a join with a DynamicFilterSourceNode on it's build side", dynamicFilters);
         verify(dynamicFilterSourceNodes.size() == 1, "Expected only 1 dynamic filter source node");
-        return dynamicFilterSourceNodes.get(0).getDynamicFilters();
+        return getOnlyElement(dynamicFilterSourceNodes).getDynamicFilters();
     }
 
     public static Optional<DynamicFilterId> getSemiJoinDynamicFilterId(SemiJoinNode semiJoinNode)
@@ -128,7 +128,7 @@ public final class JoinUtils
                 dynamicFilterId.isEmpty(),
                 "Dynamic filter %s present in a semi join with a DynamicFilterSourceNode on it's filtering source side", dynamicFilterId);
         verify(dynamicFilterSourceNodes.size() == 1, "Expected only 1 dynamic filter source node");
-        return Optional.of(getOnlyElement(dynamicFilterSourceNodes.get(0).getDynamicFilters().keySet()));
+        return Optional.of(getOnlyElement(getOnlyElement(dynamicFilterSourceNodes).getDynamicFilters().keySet()));
     }
 
     private static boolean isRemoteReplicatedExchange(PlanNode node)
