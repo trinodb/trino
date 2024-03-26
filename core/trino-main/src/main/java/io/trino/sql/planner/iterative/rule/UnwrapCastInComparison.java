@@ -165,18 +165,18 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Object right = new IrExpressionInterpreter(expression.right(), plannerContext, session).optimize();
+            Expression right = new IrExpressionInterpreter(expression.right(), plannerContext, session).optimize();
 
             Comparison.Operator operator = expression.operator();
 
-            if (right == null) {
+            if (right instanceof Constant constant && constant.value() == null) {
                 return switch (operator) {
                     case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Constant(BOOLEAN, null);
                     case IS_DISTINCT_FROM -> new Not(new IsNull(cast));
                 };
             }
 
-            if (right instanceof Expression) {
+            if (!(right instanceof Constant(Type type, Object rightValue))) {
                 return expression;
             }
 
@@ -184,21 +184,21 @@ public class UnwrapCastInComparison
             Type targetType = expression.right().type();
 
             if (sourceType instanceof TimestampType && targetType == DATE) {
-                return unwrapTimestampToDateCast((TimestampType) sourceType, operator, cast.expression(), (long) right).orElse(expression);
+                return unwrapTimestampToDateCast((TimestampType) sourceType, operator, cast.expression(), (long) rightValue).orElse(expression);
             }
 
             if (targetType instanceof TimestampWithTimeZoneType) {
                 // Note: two TIMESTAMP WITH TIME ZONE values differing in zone only (same instant) are considered equal.
-                right = withTimeZone(((TimestampWithTimeZoneType) targetType), right, session.getTimeZoneKey());
+                rightValue = withTimeZone(((TimestampWithTimeZoneType) targetType), rightValue, session.getTimeZoneKey());
             }
 
-            if (!hasInjectiveImplicitCoercion(sourceType, targetType, right)) {
+            if (!hasInjectiveImplicitCoercion(sourceType, targetType, rightValue)) {
                 return expression;
             }
 
             // Handle comparison against NaN.
             // It must be done before source type range bounds are compared to target value.
-            if (isFloatingPointNaN(targetType, right)) {
+            if (isFloatingPointNaN(targetType, rightValue)) {
                 switch (operator) {
                     case EQUAL:
                     case GREATER_THAN:
@@ -234,7 +234,7 @@ public class UnwrapCastInComparison
                 if (maxInTargetType != null) {
                     // NaN values of `right` are excluded at this point. Otherwise, NaN would be recognized as
                     // greater than source type upper bound, and incorrect expression might be derived.
-                    int upperBoundComparison = compare(targetType, right, maxInTargetType);
+                    int upperBoundComparison = compare(targetType, rightValue, maxInTargetType);
                     if (upperBoundComparison > 0) {
                         // larger than maximum representable value
                         return switch (operator) {
@@ -259,7 +259,7 @@ public class UnwrapCastInComparison
                     Object min = sourceRange.get().getMin();
                     Object minInTargetType = coerce(min, sourceToTarget);
 
-                    int lowerBoundComparison = compare(targetType, right, minInTargetType);
+                    int lowerBoundComparison = compare(targetType, rightValue, minInTargetType);
                     if (lowerBoundComparison < 0) {
                         // smaller than minimum representable value
                         return switch (operator) {
@@ -294,7 +294,7 @@ public class UnwrapCastInComparison
 
             Object literalInSourceType;
             try {
-                literalInSourceType = coerce(right, targetToSource);
+                literalInSourceType = coerce(rightValue, targetToSource);
             }
             catch (TrinoException e) {
                 // A failure to cast from target -> source type could be because:
@@ -309,7 +309,7 @@ public class UnwrapCastInComparison
             if (targetType.isOrderable()) {
                 Object roundtripLiteral = coerce(literalInSourceType, sourceToTarget);
 
-                int literalVsRoundtripped = compare(targetType, right, roundtripLiteral);
+                int literalVsRoundtripped = compare(targetType, rightValue, roundtripLiteral);
 
                 if (literalVsRoundtripped > 0) {
                     // cast rounded down

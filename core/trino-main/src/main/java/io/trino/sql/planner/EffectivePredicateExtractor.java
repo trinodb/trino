@@ -30,6 +30,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
@@ -352,12 +353,11 @@ public class EffectivePredicateExtractor
                             nonDeterministic[i] = true;
                         }
                         else {
-                            IrExpressionInterpreter interpreter = new IrExpressionInterpreter(value, plannerContext, session);
-                            Object item = interpreter.optimize();
-                            if (item instanceof Expression) {
+                            Expression item = new IrExpressionInterpreter(value, plannerContext, session).optimize();
+                            if (!(item instanceof Constant constant)) {
                                 return TRUE;
                             }
-                            if (item == null) {
+                            if (constant.value() == null) {
                                 hasNull[i] = true;
                             }
                             else {
@@ -365,15 +365,15 @@ public class EffectivePredicateExtractor
                                 if (!type.isComparable() && !type.isOrderable()) {
                                     return TRUE;
                                 }
-                                if (hasNestedNulls(type, item)) {
+                                if (hasNestedNulls(type, ((Constant) item).value())) {
                                     // Workaround solution to deal with array and row comparisons don't support null elements currently.
                                     // TODO: remove when comparisons are fixed
                                     return TRUE;
                                 }
-                                if (isFloatingPointNaN(type, item)) {
+                                if (isFloatingPointNaN(type, ((Constant) item).value())) {
                                     hasNaN[i] = true;
                                 }
-                                valuesBuilders.get(i).add(item);
+                                valuesBuilders.get(i).add(((Constant) item).value());
                             }
                         }
                     }
@@ -382,12 +382,11 @@ public class EffectivePredicateExtractor
                     if (!DeterminismEvaluator.isDeterministic(expression)) {
                         return TRUE;
                     }
-                    IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, plannerContext, session);
-                    Object evaluated = interpreter.optimize();
-                    if (evaluated instanceof Expression) {
+                    Expression evaluated = new IrExpressionInterpreter(expression, plannerContext, session).optimize();
+                    if (!(evaluated instanceof Constant constant)) {
                         return TRUE;
                     }
-                    SqlRow sqlRow = (SqlRow) evaluated;
+                    SqlRow sqlRow = (SqlRow) constant.value();
                     int rawIndex = sqlRow.getRawIndex();
                     for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                         Type type = node.getOutputSymbols().get(i).getType();
