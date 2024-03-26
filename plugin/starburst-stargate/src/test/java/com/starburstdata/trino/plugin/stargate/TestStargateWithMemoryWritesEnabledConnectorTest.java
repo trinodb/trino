@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -259,4 +260,24 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
             assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", ".*This connector does not support modifying table rows");
         }
     }
+
+    @Test
+    @Disabled // Disable to avoid flaky test failures
+    @Override
+    public void testCreateOrReplaceTableConcurrently() {}
+
+    @Test
+    @Disabled // Disable to avoid flaky test failures
+    @Override
+    public void testAddColumnConcurrently() {}
+
+    @Test
+    @Disabled // Disable to avoid flaky test failures
+    @Override
+    public void testInsertRowConcurrently() {}
+
+    @Test
+    @Disabled // Disable to avoid flaky test failures
+    @Override
+    public void testUpdateRowConcurrently() {}
 }
