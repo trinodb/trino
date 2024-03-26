@@ -344,11 +344,12 @@ public abstract class AbstractTestQueries
     @Test
     public void testInformationSchemaFiltering()
     {
+        String schema = getSession().getSchema().orElseThrow();
         assertQuery(
-                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' LIMIT 1",
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = '" + schema + "' AND table_name = 'orders' LIMIT 1",
                 "SELECT 'orders' table_name");
         assertQuery(
-                "SELECT table_name FROM information_schema.columns WHERE data_type = 'bigint' AND table_name = 'nation' and column_name = 'nationkey' LIMIT 1",
+                "SELECT table_name FROM information_schema.columns WHERE data_type = 'bigint' AND table_schema = '" + schema + "' AND table_name = 'nation' and column_name = 'nationkey' LIMIT 1",
                 "SELECT 'nation' table_name");
     }
 
