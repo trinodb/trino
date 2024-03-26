@@ -32,12 +32,6 @@ final class ResourceUsage
         this.memoryUsageBytes = memoryUsageBytes;
     }
 
-    @Override
-    public ResourceUsage clone()
-    {
-        return new ResourceUsage(cpuUsageMillis, memoryUsageBytes);
-    }
-
     public ResourceUsage add(ResourceUsage other)
     {
         long newCpuUsageMillis = saturatedAdd(this.cpuUsageMillis, other.cpuUsageMillis);
