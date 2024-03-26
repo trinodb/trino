@@ -13,31 +13,20 @@
  */
 package io.trino.type;
 
+import com.google.common.collect.ComparisonChain;
 import io.airlift.joni.Matcher;
 import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 
 import static java.util.Objects.requireNonNull;
 
-public final class JoniRegexp
+public record JoniRegexp(Slice pattern, Regex regex)
+        implements Comparable<JoniRegexp>
 {
-    private final Slice pattern;
-    private final Regex regex;
-
     public JoniRegexp(Slice pattern, Regex regex)
     {
         this.pattern = requireNonNull(pattern, "pattern is null");
         this.regex = requireNonNull(regex, "regex is null");
-    }
-
-    public Slice pattern()
-    {
-        return pattern;
-    }
-
-    public Regex regex()
-    {
-        return regex;
     }
 
     public Matcher matcher(byte[] bytes)
@@ -49,5 +38,14 @@ public final class JoniRegexp
     public String toString()
     {
         return pattern.toStringUtf8();
+    }
+
+    @Override
+    public int compareTo(JoniRegexp other)
+    {
+        return ComparisonChain.start()
+                .compare(pattern, other.pattern)
+                .compare(regex.toString(), other.regex.toString())
+                .result();
     }
 }
