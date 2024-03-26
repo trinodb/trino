@@ -872,7 +872,7 @@ public final class SortedRangeSet
                 unioned.add(toUnion.get(i).union(toUnion.get(i + 1)));
             }
             if (toUnion.size() % 2 != 0) {
-                unioned.add(toUnion.get(toUnion.size() - 1));
+                unioned.add(toUnion.getLast());
             }
             toUnion = unioned;
         }

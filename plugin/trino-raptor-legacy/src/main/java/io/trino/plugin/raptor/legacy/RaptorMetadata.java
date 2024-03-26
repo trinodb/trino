@@ -483,7 +483,7 @@ public class RaptorMetadata
 
         // Always add new columns to the end.
         List<TableColumn> existingColumns = dao.listTableColumns(table.getSchemaName(), table.getTableName());
-        TableColumn lastColumn = existingColumns.get(existingColumns.size() - 1);
+        TableColumn lastColumn = existingColumns.getLast();
         long columnId = lastColumn.getColumnId() + 1;
         int ordinalPosition = lastColumn.getOrdinalPosition() + 1;
 

@@ -110,7 +110,7 @@ public final class VariableWidthData
             return EMPTY_CHUNK;
         }
 
-        byte[] openChunk = chunks.isEmpty() ? EMPTY_CHUNK : chunks.get(chunks.size() - 1);
+        byte[] openChunk = chunks.isEmpty() ? EMPTY_CHUNK : chunks.getLast();
         if (openChunk.length - openChunkOffset < size) {
             // record unused space as free bytes
             freeBytes += (openChunk.length - openChunkOffset);

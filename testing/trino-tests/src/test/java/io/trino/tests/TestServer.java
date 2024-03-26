@@ -152,8 +152,8 @@ public class TestServer
                 .map(JsonResponse::getValue)
                 .collect(toImmutableList());
 
-        QueryResults first = queryResults.get(0);
-        QueryResults last = queryResults.get(queryResults.size() - 1);
+        QueryResults first = queryResults.getFirst();
+        QueryResults last = queryResults.getLast();
 
         Optional<QueryResults> data = queryResults.stream().filter(results -> results.getData() != null).findFirst();
 

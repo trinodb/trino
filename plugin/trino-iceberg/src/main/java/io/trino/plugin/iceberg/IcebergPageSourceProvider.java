@@ -1087,8 +1087,8 @@ public class IcebergPageSourceProvider
             Optional<Long> startRowPosition = Optional.empty();
             Optional<Long> endRowPosition = Optional.empty();
             if (!rowGroups.isEmpty()) {
-                startRowPosition = Optional.of(rowGroups.get(0).fileRowOffset());
-                RowGroupInfo lastRowGroup = rowGroups.get(rowGroups.size() - 1);
+                startRowPosition = Optional.of(rowGroups.getFirst().fileRowOffset());
+                RowGroupInfo lastRowGroup = rowGroups.getLast();
                 endRowPosition = Optional.of(lastRowGroup.fileRowOffset() + lastRowGroup.blockMetaData().getRowCount());
             }
 
@@ -1541,7 +1541,7 @@ public class IcebergPageSourceProvider
         }
 
         // Construct a stripped version of the original column type containing only the selected field and the hierarchy of its parents
-        org.apache.parquet.schema.Type type = subfieldTypes.get(subfieldTypes.size() - 1);
+        org.apache.parquet.schema.Type type = subfieldTypes.getLast();
         for (int i = subfieldTypes.size() - 2; i >= 0; --i) {
             GroupType groupType = subfieldTypes.get(i).asGroupType();
             type = new GroupType(groupType.getRepetition(), groupType.getName(), ImmutableList.of(type));

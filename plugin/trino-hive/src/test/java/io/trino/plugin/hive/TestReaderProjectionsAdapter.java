@@ -269,7 +269,7 @@ public class TestReaderProjectionsAdapter
                 builder.appendNull();
             }
             else {
-                int lastDereference = dereferences.get(dereferences.size() - 1);
+                int lastDereference = dereferences.getLast();
 
                 finalType.appendTo(currentData.getRawFieldBlock(lastDereference), currentData.getRawIndex(), builder);
             }

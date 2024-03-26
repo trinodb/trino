@@ -195,7 +195,7 @@ public class Driver
     {
         checkLockHeld("Lock must be held to call isTerminatingOrDoneInternal");
 
-        boolean terminatingOrDone = state.get() != State.ALIVE || activeOperators.isEmpty() || activeOperators.get(activeOperators.size() - 1).isFinished() || driverContext.isTerminatingOrDone();
+        boolean terminatingOrDone = state.get() != State.ALIVE || activeOperators.isEmpty() || activeOperators.getLast().isFinished() || driverContext.isTerminatingOrDone();
         if (terminatingOrDone) {
             state.compareAndSet(State.ALIVE, State.NEED_DESTRUCTION);
         }
