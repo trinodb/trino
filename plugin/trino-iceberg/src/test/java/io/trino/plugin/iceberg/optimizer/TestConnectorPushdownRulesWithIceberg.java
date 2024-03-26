@@ -324,7 +324,7 @@ public class TestConnectorPushdownRulesWithIceberg
                     Symbol symbolA = p.symbol("a", INTEGER);
                     Symbol symbolB = p.symbol("b", INTEGER);
                     return p.project(
-                            Assignments.of(p.symbol("x"), symbolA.toSymbolReference()),
+                            Assignments.of(p.symbol("x", INTEGER), symbolA.toSymbolReference()),
                             p.tableScan(
                                     table,
                                     ImmutableList.of(symbolA, symbolB),

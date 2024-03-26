@@ -60,7 +60,6 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
@@ -70,7 +69,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -124,9 +122,9 @@ public class TestPushProjectionIntoTableScan
         MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, columnHandle), Optional.of(this::mockApplyProjection));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
             // Prepare project node symbols and types
-            Symbol identity = new Symbol(UNKNOWN, "symbol_identity");
-            Symbol dereference = new Symbol(UNKNOWN, "symbol_dereference");
-            Symbol constant = new Symbol(UNKNOWN, "symbol_constant");
+            Symbol identity = new Symbol(ROW_TYPE, "symbol_identity");
+            Symbol dereference = new Symbol(BIGINT, "symbol_dereference");
+            Symbol constant = new Symbol(BIGINT, "symbol_constant");
             ImmutableMap<Symbol, Type> types = ImmutableMap.of(
                     baseColumn, ROW_TYPE,
                     identity, ROW_TYPE,
@@ -137,7 +135,7 @@ public class TestPushProjectionIntoTableScan
             Assignments inputProjections = Assignments.builder()
                     .put(identity, baseColumn.toSymbolReference())
                     .put(dereference, new FieldReference(baseColumn.toSymbolReference(), 0))
-                    .put(constant, new Constant(INTEGER, 5L))
+                    .put(constant, new Constant(BIGINT, 5L))
                     .build();
 
             // Compute expected symbols after applyProjection

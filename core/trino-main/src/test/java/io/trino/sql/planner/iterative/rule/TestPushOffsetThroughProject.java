@@ -19,6 +19,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.offset;
@@ -33,7 +34,7 @@ public class TestPushOffsetThroughProject
     {
         tester().assertThat(new PushOffsetThroughProject())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
+                    Symbol a = p.symbol("a", BOOLEAN);
                     return p.offset(
                             5,
                             p.project(

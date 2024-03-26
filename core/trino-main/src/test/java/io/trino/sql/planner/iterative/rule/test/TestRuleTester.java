@@ -52,7 +52,7 @@ public class TestRuleTester
                             (node, captures, context) -> Result.ofPlanNode(node.replaceChildren(node.getSources()))))
                     .on(p ->
                             p.project(
-                                    Assignments.of(p.symbol("y"), new Reference(INTEGER, "x")),
+                                    Assignments.of(p.symbol("y", INTEGER), new Reference(INTEGER, "x")),
                                     p.values(
                                             ImmutableList.of(p.symbol("x")),
                                             ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L))))));
