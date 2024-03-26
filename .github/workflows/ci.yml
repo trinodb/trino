@@ -28,8 +28,8 @@ env:
   mavenSnapshotsPassword: ${{ secrets.CODE_ARTIFACT_PASSWORD }}
   # allow overriding Maven command
   MAVEN: ./mvnw -s .github/settings.xml
-  MAVEN_OPTS: ""
-  MAVEN_INSTALL_OPTS: ""
+  MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError"
+  MAVEN_INSTALL_OPTS: "-Xmx3G -XX:+ExitOnOutOfMemoryError"
   MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
   MAVEN_COMPILE_COMMITS: "-B --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl '!:trino-server-rpm'"
   MAVEN_GIB: "-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
