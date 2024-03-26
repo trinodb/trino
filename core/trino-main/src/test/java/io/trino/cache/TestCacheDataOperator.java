@@ -191,7 +191,6 @@ public class TestCacheDataOperator
                 tupleDomainCodec,
                 new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(PLANNER_CONTEXT.getTypeOperators())),
                 TEST_TABLE_HANDLE,
-                ImmutableList.of(),
                 new PlanSignatureWithPredicate(signature, TupleDomain.all()),
                 ImmutableMap.of(),
                 createStaticDynamicFilterSupplier(ImmutableList.of(EMPTY)),

@@ -784,7 +784,6 @@ public class LocalExecutionPlanner
                                 tupleDomainCodec,
                                 dynamicRowFilteringPageSourceProvider,
                                 cacheContext.getOriginalTableHandle(),
-                                cacheContext.getCommonColumnHandleList(),
                                 cacheContext.getPlanSignature(),
                                 cacheContext.getCommonColumnHandles(),
                                 cacheContext.getCommonDynamicFilterSupplier(),
@@ -943,7 +942,6 @@ public class LocalExecutionPlanner
     private static class CacheContext
     {
         private final TableHandle originalTableHandle;
-        private final List<ColumnHandle> commonColumnHandleList;
         private final PlanSignatureWithPredicate planSignature;
         private final Map<CacheColumnId, ColumnHandle> commonColumnHandles;
         private final Supplier<StaticDynamicFilter> commonDynamicFilterSupplier;
@@ -951,14 +949,12 @@ public class LocalExecutionPlanner
 
         public CacheContext(
                 TableHandle originalTableHandle,
-                List<ColumnHandle> commonColumnHandleList,
                 LoadCachedDataPlanNode loadCacheData,
                 Supplier<StaticDynamicFilter> commonDynamicFilterSupplier,
                 Supplier<StaticDynamicFilter> originalDynamicFilterSupplier)
         {
             requireNonNull(loadCacheData, "loadCacheData is null");
             this.originalTableHandle = requireNonNull(originalTableHandle, "originalTableHandle is null");
-            this.commonColumnHandleList = ImmutableList.copyOf(requireNonNull(commonColumnHandleList, "outputColumnHandles is null"));
             this.planSignature = loadCacheData.getPlanSignature();
             this.commonColumnHandles = loadCacheData.getCommonColumnHandles();
             this.commonDynamicFilterSupplier = requireNonNull(commonDynamicFilterSupplier, "commonDynamicFilterSupplier is null");
@@ -978,11 +974,6 @@ public class LocalExecutionPlanner
         public Map<CacheColumnId, ColumnHandle> getCommonColumnHandles()
         {
             return commonColumnHandles;
-        }
-
-        public List<ColumnHandle> getCommonColumnHandleList()
-        {
-            return commonColumnHandleList;
         }
 
         public Supplier<StaticDynamicFilter> getCommonDynamicFilterSupplier()
@@ -2245,9 +2236,6 @@ public class LocalExecutionPlanner
                 // when splits are cached dynamic filter needs to be static during split processing
                 LoadCachedDataPlanNode loadCachedData = getLoadCachedDataPlanNode(node);
                 TableScanNode commonTableScan = node.getOriginalTableScan().tableScanNode();
-                List<ColumnHandle> columnHandleList = commonTableScan.getOutputSymbols().stream()
-                        .map(symbol -> commonTableScan.getAssignments().get(symbol))
-                        .collect(toImmutableList());
                 List<DynamicFilter> commonDynamicFilters = extractDisjuncts(loadCachedData.getDynamicFilterDisjuncts()).stream()
                         .map(predicate -> getDynamicFilter(commonTableScan, predicate, context))
                         .collect(toImmutableList());
@@ -2258,7 +2246,6 @@ public class LocalExecutionPlanner
                         .orElse(() -> createStaticDynamicFilter(ImmutableList.of(DynamicFilter.EMPTY)));
                 context.setCacheContext(new CacheContext(
                         node.getOriginalTableScan().tableHandle(),
-                        columnHandleList,
                         loadCachedData,
                         commonDynamicFilterSupplier,
                         originalDynamicFilterSupplier));

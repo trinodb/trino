@@ -19,7 +19,6 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -51,10 +50,12 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.CacheCommonSubqueries.LOAD_PAGES_ALTERNATIVE;
 import static io.trino.cache.CacheCommonSubqueries.ORIGINAL_PLAN_ALTERNATIVE;
 import static io.trino.cache.CacheCommonSubqueries.STORE_PAGES_ALTERNATIVE;
@@ -62,6 +63,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.function.Function.identity;
 
 public class CacheDriverFactory
 {
@@ -76,10 +78,9 @@ public class CacheDriverFactory
     private final SplitCache splitCache;
     private final JsonCodec<TupleDomain> tupleDomainCodec;
     private final TableHandle originalTableHandle;
-    private final Set<CacheColumnId> projectedColumns;
     private final TupleDomain<CacheColumnId> enforcedPredicate;
     private final BiMap<ColumnHandle, CacheColumnId> commonColumnHandles;
-    private final List<ColumnHandle> commonColumnHandleList;
+    private final Map<CacheColumnId, Integer> projectedColumns;
     private final Supplier<StaticDynamicFilter> commonDynamicFilterSupplier;
     private final Supplier<StaticDynamicFilter> originalDynamicFilterSupplier;
     private final List<DriverFactory> alternatives;
@@ -95,7 +96,6 @@ public class CacheDriverFactory
             JsonCodec<TupleDomain> tupleDomainCodec,
             DynamicRowFilteringPageSourceProvider dynamicRowFilteringPageSourceProvider,
             TableHandle originalTableHandle,
-            List<ColumnHandle> commonColumnHandleList,
             PlanSignatureWithPredicate planSignature,
             Map<CacheColumnId, ColumnHandle> commonColumnHandles,
             Supplier<StaticDynamicFilter> commonDynamicFilterSupplier,
@@ -110,10 +110,11 @@ public class CacheDriverFactory
         this.tupleDomainCodec = requireNonNull(tupleDomainCodec, "tupleDomainCodec is null");
         this.dynamicRowFilteringPageSourceProvider = requireNonNull(dynamicRowFilteringPageSourceProvider, "dynamicRowFilteringPageSourceProvider is null");
         this.originalTableHandle = requireNonNull(originalTableHandle, "originalTableHandle is null");
-        this.projectedColumns = ImmutableSet.copyOf(planSignature.signature().getColumns());
         this.enforcedPredicate = planSignature.predicate();
         this.commonColumnHandles = ImmutableBiMap.copyOf(requireNonNull(commonColumnHandles, "commonColumnHandles is null")).inverse();
-        this.commonColumnHandleList = ImmutableList.copyOf(requireNonNull(commonColumnHandleList, "outputColumnsHandles is null"));
+        List<CacheColumnId> columns = planSignature.signature().getColumns();
+        this.projectedColumns = IntStream.range(0, columns.size()).boxed()
+                .collect(toImmutableMap(columns::get, identity()));
         this.commonDynamicFilterSupplier = requireNonNull(commonDynamicFilterSupplier, "commonDynamicFilterSupplier is null");
         this.originalDynamicFilterSupplier = requireNonNull(originalDynamicFilterSupplier, "originalDynamicFilterSupplier is null");
         this.alternatives = requireNonNull(alternatives, "alternatives is null");
@@ -187,14 +188,16 @@ public class CacheDriverFactory
         if (pageSource.isEmpty()
                 && (!projectedUnenforcedPredicate.predicate().isAll() || projectedUnenforcedPredicate.remainingPredicate.isPresent())) {
             // load page source as fallback with no unenforced predicate
-            CacheSplitId fallbackSplitId = splitId;
-            if (projectedUnenforcedPredicate.remainingPredicate().isPresent()) {
-                fallbackSplitId = appendRemainingPredicates(splitId, projectedEnforcedPredicate, new ProjectPredicate(TupleDomain.all(), Optional.empty()));
-            }
+            CacheSplitId fallbackSplitId = appendRemainingPredicates(splitId, projectedEnforcedPredicate, new ProjectPredicate(TupleDomain.all(), Optional.empty()));
             pageSource = splitCache.loadPages(fallbackSplitId, projectedEnforcedPredicate.predicate(), TupleDomain.all());
             if (pageSource.isPresent()) {
                 // apply dynamic row filtering
-                pageSource = Optional.of(dynamicRowFilteringPageSourceProvider.createPageSource(pageSource.get(), session, commonColumnHandleList, dynamicFilter));
+                Map<ColumnHandle, Integer> channelIndexes = commonColumnHandles.entrySet().stream()
+                        // Projection on top of TableScan can modify page source channels
+                        .filter(entry -> projectedColumns.containsKey(entry.getValue()))
+                        .collect(toImmutableMap(Map.Entry::getKey, entry -> projectedColumns.get(entry.getValue())));
+                checkState(channelIndexes.keySet().containsAll(dynamicFilter.getColumnsCovered()), "Cached pageSource does not contain all columns required by dynamic filter");
+                pageSource = Optional.of(dynamicRowFilteringPageSourceProvider.createPageSource(pageSource.get(), session, projectedColumns.size(), channelIndexes, dynamicFilter));
             }
         }
 
@@ -251,8 +254,8 @@ public class CacheDriverFactory
     private ProjectPredicate projectPredicate(TupleDomain<CacheColumnId> predicate)
     {
         return new ProjectPredicate(
-                predicate.filter((columnId, domain) -> projectedColumns.contains(columnId)),
-                Optional.of(predicate.filter((columnId, domain) -> !projectedColumns.contains(columnId)))
+                predicate.filter((columnId, domain) -> projectedColumns.containsKey(columnId)),
+                Optional.of(predicate.filter((columnId, domain) -> !projectedColumns.containsKey(columnId)))
                         .filter(domain -> !domain.isAll())
                         .map(CacheUtils::normalizeTupleDomain)
                         .map(tupleDomainCodec::toJson));

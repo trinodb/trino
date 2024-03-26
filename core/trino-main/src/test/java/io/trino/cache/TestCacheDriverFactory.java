@@ -34,6 +34,7 @@ import io.trino.operator.DriverFactory;
 import io.trino.operator.dynamicfiltering.DynamicPageFilterCache;
 import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSource;
 import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSourceProvider;
+import io.trino.plugin.base.cache.CacheUtils;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheManager;
@@ -203,7 +204,6 @@ public class TestCacheDriverFactory
                 tupleDomainCodec,
                 new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(PLANNER_CONTEXT.getTypeOperators())),
                 TEST_TABLE_HANDLE,
-                columnHandles.keySet().stream().collect(toImmutableList()),
                 signature,
                 columnHandles.entrySet().stream().collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)),
                 createStaticDynamicFilterSupplier(ImmutableList.of(new TestDynamicFilter(TupleDomain.withColumnDomains(
@@ -233,7 +233,6 @@ public class TestCacheDriverFactory
                 tupleDomainCodec,
                 new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(PLANNER_CONTEXT.getTypeOperators())),
                 TEST_TABLE_HANDLE,
-                columnHandles.keySet().stream().collect(toImmutableList()),
                 signature,
                 columnHandles.entrySet().stream().collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)),
                 createStaticDynamicFilterSupplier(ImmutableList.of(new TestDynamicFilter(TupleDomain.withColumnDomains(
@@ -256,28 +255,41 @@ public class TestCacheDriverFactory
     }
 
     @Test
-    public void testCreateDriverWithUnenforcedDynamicFilterFallback()
+    public void testCreateDriverWithRemainingPredicateDynamicFilterFallback()
     {
         CacheColumnId cacheColumnId1 = new CacheColumnId("cacheColumnId1");
         CacheColumnId cacheColumnId2 = new CacheColumnId("cacheColumnId2");
+        CacheColumnId cacheColumnId3 = new CacheColumnId("cacheColumnId3");
         ColumnHandle columnHandle1 = new TestingColumnHandle("column1");
         ColumnHandle columnHandle2 = new TestingColumnHandle("column2");
-        TupleDomain<ColumnHandle> unenforcedDynamicPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle2, Domain.multipleValues(BIGINT, LongStream.range(0L, 5001L).boxed().toList())));
-        TupleDomain<ColumnHandle> enforcedDynamicPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle1, Domain.singleValue(BIGINT, 100L)));
+        ColumnHandle columnHandle3 = new TestingColumnHandle("column3");
+        TupleDomain<ColumnHandle> unenforcedDynamicPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
+                columnHandle1, Domain.multipleValues(BIGINT, LongStream.range(0L, 5001L).boxed().toList())));
+        TupleDomain<ColumnHandle> enforcedDynamicPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
+                columnHandle3, Domain.singleValue(BIGINT, 7L)));
+        TupleDomain<ColumnHandle> remainingEnforcedDynamicPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
+                columnHandle2, Domain.singleValue(BIGINT, 100L)));
+        TupleDomain<ColumnHandle> remainingUnenforcedDynamicPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
+                columnHandle2, Domain.singleValue(BIGINT, 150L)));
         PlanSignatureWithPredicate signature = new PlanSignatureWithPredicate(
-                new PlanSignature(SIGNATURE_KEY, Optional.empty(), ImmutableList.of(cacheColumnId1, cacheColumnId2), ImmutableList.of(BIGINT, BIGINT)),
+                new PlanSignature(SIGNATURE_KEY, Optional.empty(), ImmutableList.of(cacheColumnId1, cacheColumnId3), ImmutableList.of(BIGINT, BIGINT)),
                 TupleDomain.withColumnDomains(
                         ImmutableMap.of(cacheColumnId1, Domain.singleValue(BIGINT, 100L))));
         DriverFactory driverFactory = createDriverFactory(new AtomicInteger());
-        Map<ColumnHandle, CacheColumnId> columnHandles = ImmutableMap.of(columnHandle1, cacheColumnId1, columnHandle2, cacheColumnId2);
+        Map<ColumnHandle, CacheColumnId> columnHandles = ImmutableMap.of(columnHandle1, cacheColumnId1, columnHandle3, cacheColumnId3, columnHandle2, cacheColumnId2);
         CacheDriverFactory cacheDriverFactory = new CacheDriverFactory(
                 TEST_SESSION,
-                new TestPageSourceProvider((input) -> unenforcedDynamicPredicate, (input) -> enforcedDynamicPredicate),
+                new TestPageSourceProvider(
+                        (input) -> TupleDomain.withColumnDomains(ImmutableMap.of(
+                                columnHandle1, Domain.multipleValues(BIGINT, LongStream.range(0L, 5001L).boxed().toList()),
+                                columnHandle2, Domain.singleValue(BIGINT, 150L))),
+                        (input) -> TupleDomain.withColumnDomains(ImmutableMap.of(
+                                columnHandle2, Domain.singleValue(BIGINT, 100L),
+                                columnHandle3, Domain.singleValue(BIGINT, 7L)))),
                 registry,
                 tupleDomainCodec,
                 new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(PLANNER_CONTEXT.getTypeOperators())),
                 TEST_TABLE_HANDLE,
-                columnHandles.keySet().stream().collect(toImmutableList()),
                 signature,
                 columnHandles.entrySet().stream().collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)),
                 createStaticDynamicFilterSupplier(ImmutableList.of(new TestDynamicFilter(TupleDomain.all(), true))),
@@ -286,17 +298,26 @@ public class TestCacheDriverFactory
                 ImmutableList.of(driverFactory, driverFactory, driverFactory),
                 new CacheStats());
 
+        CacheSplitId fullSplitIdWithPredicate = appendRemainingPredicates(
+                SPLIT_ID,
+                Optional.of(tupleDomainCodec.toJson(CacheUtils.normalizeTupleDomain(remainingEnforcedDynamicPredicate.transformKeys(columnHandles::get)))),
+                Optional.of(tupleDomainCodec.toJson(CacheUtils.normalizeTupleDomain(remainingUnenforcedDynamicPredicate.transformKeys(columnHandles::get)))));
+        CacheSplitId splitIdWithPredicate = appendRemainingPredicates(
+                SPLIT_ID,
+                Optional.of(tupleDomainCodec.toJson(CacheUtils.normalizeTupleDomain(remainingEnforcedDynamicPredicate.transformKeys(columnHandles::get)))),
+                Optional.empty());
+
         // fallback hit
         // load page
         splitCache.addExpectedCacheLookup(
-                Optional.of(SPLIT_ID),
+                Optional.of(fullSplitIdWithPredicate),
                 Optional.of(enforcedDynamicPredicate.transformKeys(columnHandles::get)),
                 Optional.of(unenforcedDynamicPredicate.transformKeys(columnHandles::get)),
                 Optional.empty());
         Optional<ConnectorPageSource> pageSource = Optional.of(new EmptyPageSource());
         // load page with unenforced predicate fallback
         splitCache.addExpectedCacheLookup(
-                Optional.of(SPLIT_ID),
+                Optional.of(splitIdWithPredicate),
                 Optional.of(enforcedDynamicPredicate.transformKeys(columnHandles::get)),
                 Optional.of(TupleDomain.all()),
                 pageSource);
@@ -307,19 +328,19 @@ public class TestCacheDriverFactory
         // fallback miss
         // load page
         splitCache.addExpectedCacheLookup(
-                Optional.of(SPLIT_ID),
+                Optional.of(fullSplitIdWithPredicate),
                 Optional.of(enforcedDynamicPredicate.transformKeys(columnHandles::get)),
                 Optional.of(unenforcedDynamicPredicate.transformKeys(columnHandles::get)),
                 Optional.empty());
         // load page with fallback unenforced predicate
         splitCache.addExpectedCacheLookup(
-                Optional.of(SPLIT_ID),
+                Optional.of(splitIdWithPredicate),
                 Optional.of(enforcedDynamicPredicate.transformKeys(columnHandles::get)),
                 Optional.of(TupleDomain.all()),
                 Optional.empty());
         // store page with unchanged unenforced predicate
         splitCache.addExpectedCacheLookup(
-                Optional.of(SPLIT_ID),
+                Optional.of(fullSplitIdWithPredicate),
                 Optional.of(enforcedDynamicPredicate.transformKeys(columnHandles::get)),
                 Optional.of(unenforcedDynamicPredicate.transformKeys(columnHandles::get)),
                 Optional.empty());
@@ -347,7 +368,6 @@ public class TestCacheDriverFactory
                 tupleDomainCodec,
                 new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(PLANNER_CONTEXT.getTypeOperators())),
                 TEST_TABLE_HANDLE,
-                columnHandles.keySet().stream().collect(toImmutableList()),
                 signature,
                 ImmutableMap.of(columnId, columnHandle),
                 createStaticDynamicFilterSupplier(ImmutableList.of(commonDynamicFilter)),
@@ -410,7 +430,6 @@ public class TestCacheDriverFactory
                 tupleDomainCodec,
                 new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(PLANNER_CONTEXT.getTypeOperators())),
                 TEST_TABLE_HANDLE,
-                columnHandles.values().stream().collect(toImmutableList()),
                 signature,
                 columnHandles,
                 createStaticDynamicFilterSupplier(ImmutableList.of(dynamicFilter)),
@@ -496,7 +515,6 @@ public class TestCacheDriverFactory
                 tupleDomainCodec,
                 new DynamicRowFilteringPageSourceProvider(new DynamicPageFilterCache(PLANNER_CONTEXT.getTypeOperators())),
                 TEST_TABLE_HANDLE,
-                ImmutableList.of(new TestingColumnHandle("column")),
                 signature,
                 ImmutableMap.of(new CacheColumnId("column"), new TestingColumnHandle("column")),
                 createStaticDynamicFilterSupplier(ImmutableList.of(EMPTY)),

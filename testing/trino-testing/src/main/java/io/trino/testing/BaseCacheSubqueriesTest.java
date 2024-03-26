@@ -101,6 +101,7 @@ import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.PART;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -110,7 +111,7 @@ import static org.junit.jupiter.api.Assumptions.abort;
 public abstract class BaseCacheSubqueriesTest
         extends AbstractTestQueryFramework
 {
-    protected static final Set<TpchTable<?>> REQUIRED_TABLES = ImmutableSet.of(NATION, LINE_ITEM, ORDERS, CUSTOMER);
+    protected static final Set<TpchTable<?>> REQUIRED_TABLES = ImmutableSet.of(NATION, LINE_ITEM, ORDERS, CUSTOMER, PART);
     protected static final Map<String, String> EXTRA_PROPERTIES = ImmutableMap.of("cache.enabled", "true");
 
     @BeforeEach
@@ -157,6 +158,24 @@ public abstract class BaseCacheSubqueriesTest
         // make sure less data is read from source when caching is on
         assertThat(getScanOperatorInputPositions(resultWithCache.queryId()))
                 .isLessThan(getScanOperatorInputPositions(resultWithoutCache.queryId()));
+    }
+
+    @Test
+    public void testQueryWithDynamicFilterFallback()
+    {
+         @Language("SQL") String selectQuery = """
+                SELECT l.extendedprice FROM lineitem l, part p 
+                WHERE p.partkey = l.partkey AND p.container = 'MED BOX'
+                AND l.quantity < (SELECT avg(l.quantity) FROM lineitem l WHERE l.partkey = p.partkey)""";
+        // caching data
+        executeWithPlan(withCacheEnabled(), selectQuery);
+        selectQuery = """
+                SELECT l.extendedprice FROM lineitem l, part p 
+                WHERE p.retailprice = l.extendedprice AND p.container = 'MED BOX'
+                AND l.quantity < (SELECT avg(l.quantity) FROM lineitem l WHERE p.retailprice = l.extendedprice)""";
+        MaterializedResultWithPlan queryResult = executeWithPlan(withCacheEnabled(), selectQuery);
+        // use fallback cache
+        assertThat(getLoadCachedDataOperatorInputPositions(queryResult.queryId())).isPositive();
     }
 
     @Test
