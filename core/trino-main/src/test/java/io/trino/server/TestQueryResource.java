@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.inject.Key;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
@@ -163,6 +164,27 @@ public class TestQueryResource
         finally {
             server.getAccessControl().reset();
         }
+    }
+
+    @Test
+    public void testGetQueryInfoPruned()
+    {
+        String queryId = runToCompletion("SELECT now()");
+
+        QueryInfo queryInfoPruned = getQueryInfo(queryId, true);
+        QueryInfo queryInfoNotPruned = getQueryInfo(queryId);
+
+        assertThat(queryInfoPruned.getRoutines().size()).isEqualTo(1);
+        assertThat(queryInfoNotPruned.getRoutines().size()).isEqualTo(1);
+
+        assertThat(queryInfoPruned.getRoutines().get(0).getRoutine()).isEqualTo("now");
+        assertThat(queryInfoNotPruned.getRoutines().get(0).getRoutine()).isEqualTo("now");
+
+        assertThat(queryInfoPruned.getOutputStage()).isPresent();
+        assertThat(queryInfoNotPruned.getOutputStage()).isPresent();
+
+        assertThat(queryInfoPruned.getOutputStage().get().getTasks()).isEmpty();
+        assertThat(queryInfoNotPruned.getOutputStage().get().getTasks()).isNotEmpty();
     }
 
     @Test
@@ -325,11 +347,21 @@ public class TestQueryResource
 
     private QueryInfo getQueryInfo(String queryId)
     {
-        URI uri = uriBuilderFrom(server.getBaseUrl())
+        return getQueryInfo(queryId, false);
+    }
+
+    private QueryInfo getQueryInfo(String queryId, boolean pruned)
+    {
+        HttpUriBuilder builder = uriBuilderFrom(server.getBaseUrl())
                 .replacePath("/v1/query")
                 .appendPath(queryId)
-                .addParameter("pretty", "true")
-                .build();
+                .addParameter("pretty", "true");
+
+        if (pruned) {
+            builder.addParameter("pruned", "true");
+        }
+
+        URI uri = builder.build();
         Request request = prepareGet()
                 .setUri(uri)
                 .setHeader(TRINO_HEADERS.requestUser(), "unknown")
