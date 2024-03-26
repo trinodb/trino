@@ -182,8 +182,8 @@ public class DecorrelateUnnest
         Optional<UnnestNode> subqueryUnnest = PlanNodeSearcher.searchFrom(searchRoot, context.getLookup())
                 .where(node -> isSupportedUnnest(node, correlatedJoinNode.getCorrelation(), context.getLookup()))
                 .recurseOnlyWhen(node -> node instanceof ProjectNode ||
-                        (node instanceof LimitNode && ((LimitNode) node).getCount() > 0) ||
-                        (node instanceof TopNNode && ((TopNNode) node).getCount() > 0))
+                        (node instanceof LimitNode limitNode && limitNode.getCount() > 0) ||
+                        (node instanceof TopNNode topNNode && topNNode.getCount() > 0))
                 .findFirst();
 
         if (subqueryUnnest.isEmpty()) {
