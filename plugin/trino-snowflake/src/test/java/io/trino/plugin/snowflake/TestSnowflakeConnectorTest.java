@@ -343,14 +343,6 @@ public class TestSnowflakeConnectorTest
 
     @Test
     @Override
-    public void testInsertArray()
-    {
-        // Snowflake does not support this feature.
-        abort("Not supported");
-    }
-
-    @Test
-    @Override
     public void testInsertRowConcurrently()
     {
         abort("TODO: Connection is already closed");
