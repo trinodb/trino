@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
@@ -51,7 +52,7 @@ public class TestPushLimitThroughProject
     {
         tester().assertThat(new PushLimitThroughProject())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
+                    Symbol a = p.symbol("a", BOOLEAN);
                     return p.limit(1,
                             p.project(
                                     Assignments.of(a, TRUE),

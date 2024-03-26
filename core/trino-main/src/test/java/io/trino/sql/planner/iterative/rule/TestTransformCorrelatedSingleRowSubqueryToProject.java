@@ -69,7 +69,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),
                                 p.project(
-                                        Assignments.of(p.symbol("l_expr2"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "l_nationkey"), new Constant(INTEGER, 1L)))),
+                                        Assignments.of(p.symbol("l_expr2", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "l_nationkey"), new Constant(INTEGER, 1L)))),
                                         p.values(
                                                 ImmutableList.of(),
                                                 ImmutableList.of(

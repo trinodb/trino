@@ -90,7 +90,7 @@ public class TestUnwrapRowSubscript
         tester().assertThat(new UnwrapRowSubscript().projectExpressionRewrite())
                 .on(p -> p.project(
                         Assignments.builder()
-                                .put(p.symbol("output"), original)
+                                .put(p.symbol("output", original.type()), original)
                                 .build(),
                         p.values()))
                 .matches(
