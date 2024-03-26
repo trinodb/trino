@@ -21,6 +21,9 @@ import com.google.common.collect.Ordering;
 import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.ir.Expression;
@@ -251,6 +254,9 @@ public class ExpressionEquivalence
                     }
                     if (javaType == float.class || javaType == double.class) {
                         yield Double.compare(((Number) leftValue).doubleValue(), ((Number) rightValue).doubleValue());
+                    }
+                    if (javaType == Block.class || javaType == SqlRow.class || javaType == SqlMap.class) {
+                        yield classComparator.compare(leftValue, rightValue);
                     }
                     if (leftValue instanceof Comparable) {
                         try {
