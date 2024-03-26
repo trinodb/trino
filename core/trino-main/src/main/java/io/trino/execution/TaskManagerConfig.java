@@ -251,7 +251,6 @@ public class TaskManagerConfig
         return this;
     }
 
-    @NotNull
     public boolean isShareIndexLoading()
     {
         return shareIndexLoading;
