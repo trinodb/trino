@@ -152,8 +152,6 @@ public class UnwrapDateTruncInComparison
             }
 
             Expression argument = call.arguments().get(1);
-            Type argumentType = argument.type();
-
             Expression right = new IrExpressionInterpreter(expression.right(), plannerContext, session).optimize();
 
             if (right instanceof Constant constant && constant.value() == null) {

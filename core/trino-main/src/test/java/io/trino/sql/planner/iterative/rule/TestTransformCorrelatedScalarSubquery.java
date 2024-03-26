@@ -133,7 +133,7 @@ public class TestTransformCorrelatedScalarSubquery
                         p.values(p.symbol("corr")),
                         p.enforceSingleRow(
                                 p.project(
-                                        Assignments.of(p.symbol("a2"), new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 2L)))),
+                                        Assignments.of(p.symbol("a2", INTEGER), new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 2L)))),
                                         p.filter(
                                                 new Comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                                 p.values(ImmutableList.of(p.symbol("a")), TWO_ROWS))))))
@@ -163,10 +163,10 @@ public class TestTransformCorrelatedScalarSubquery
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.project(
-                                Assignments.of(p.symbol("a3"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a2"), new Constant(INTEGER, 1L)))),
+                                Assignments.of(p.symbol("a3", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a2"), new Constant(INTEGER, 1L)))),
                                 p.enforceSingleRow(
                                         p.project(
-                                                Assignments.of(p.symbol("a2"), new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 2L)))),
+                                                Assignments.of(p.symbol("a2", INTEGER), new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 2L)))),
                                                 p.filter(
                                                         new Comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                                         p.values(ImmutableList.of(p.symbol("a")), TWO_ROWS)))))))

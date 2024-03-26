@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -98,7 +99,7 @@ public class TestSingleDistinctAggregationToGroupBy
                                         Assignments.builder()
                                                 .putIdentity(p.symbol("input1"))
                                                 .putIdentity(p.symbol("input2"))
-                                                .put(p.symbol("filter1"), new Comparison(GREATER_THAN, new Reference(INTEGER, "input2"), new Constant(INTEGER, 0L)))
+                                                .put(p.symbol("filter1", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "input2"), new Constant(INTEGER, 0L)))
                                                 .build(),
                                         p.values(
                                                 p.symbol("input1"),

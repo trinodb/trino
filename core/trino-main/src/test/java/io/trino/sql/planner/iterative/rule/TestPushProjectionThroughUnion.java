@@ -51,7 +51,7 @@ public class TestPushProjectionThroughUnion
         tester().assertThat(new PushProjectionThroughUnion())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), new Constant(INTEGER, 3L)),
+                                Assignments.of(p.symbol("x", INTEGER), new Constant(INTEGER, 3L)),
                                 p.values(p.symbol("a"))))
                 .doesNotFire();
     }

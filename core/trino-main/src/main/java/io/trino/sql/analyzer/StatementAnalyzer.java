@@ -3701,7 +3701,7 @@ class StatementAnalyzer
             // create the RowType that holds all column values
             List<RowType.Field> fields = new ArrayList<>();
             for (ColumnSchema schema : dataColumnSchemas) {
-                fields.add(new RowType.Field(Optional.of(schema.getName()), schema.getType()));
+                fields.add(RowType.field(schema.getType()));
             }
             fields.add(new RowType.Field(Optional.empty(), BOOLEAN)); // present
             fields.add(new RowType.Field(Optional.empty(), TINYINT)); // operation_number

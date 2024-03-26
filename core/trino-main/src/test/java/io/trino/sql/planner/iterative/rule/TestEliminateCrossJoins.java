@@ -318,8 +318,8 @@ public class TestEliminateCrossJoins
                 idAllocator.getNextId(),
                 source,
                 Assignments.of(
-                        new Symbol(UNKNOWN, symbol1), expression1,
-                        new Symbol(UNKNOWN, symbol2), expression2));
+                        new Symbol(INTEGER, symbol1), expression1,
+                        new Symbol(INTEGER, symbol2), expression2));
     }
 
     private JoinNode joinNode(PlanNode left, PlanNode right, String... symbols)

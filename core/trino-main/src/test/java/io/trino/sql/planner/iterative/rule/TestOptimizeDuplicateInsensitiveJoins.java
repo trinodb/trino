@@ -205,7 +205,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
                 .on(p -> {
                     Symbol symbolA = p.symbol("a");
                     Symbol symbolB = p.symbol("b");
-                    Symbol symbolC = p.symbol("c");
+                    Symbol symbolC = p.symbol("c", DOUBLE);
                     return p.aggregation(a -> a
                             .singleGroupingSet(symbolA)
                             .source(p.project(

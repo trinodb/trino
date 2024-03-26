@@ -41,7 +41,7 @@ class TestRemoveRedundantIdentityProjectionsInOrder
                 .on(p -> {
                     Symbol orderstatus = p.symbol("orderstatus", orderStatusType);
                     return p.project(
-                            Assignments.of(p.symbol("x"), orderstatus.toSymbolReference()),
+                            Assignments.of(p.symbol("x", orderStatusType), orderstatus.toSymbolReference()),
                             p.tableScan(
                                     tester().getCurrentCatalogTableHandle(TINY_SCHEMA_NAME, "orders"),
                                     ImmutableList.of(orderstatus),

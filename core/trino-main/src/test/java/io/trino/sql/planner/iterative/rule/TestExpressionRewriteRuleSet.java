@@ -19,8 +19,6 @@ import io.trino.spi.type.BigintType;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
-import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Symbol;
@@ -34,10 +32,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognition;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.rowpattern.Patterns.label;
 
@@ -62,22 +58,11 @@ public class TestExpressionRewriteRuleSet
             }, expression));
 
     @Test
-    public void testProjectionExpressionRewrite()
-    {
-        tester().assertThat(zeroRewriter.projectExpressionRewrite())
-                .on(p -> p.project(
-                        Assignments.of(p.symbol("y"), new Not(new IsNull(new Reference(BIGINT, "x")))),
-                        p.values(p.symbol("x"))))
-                .matches(
-                        project(ImmutableMap.of("y", expression(new Constant(INTEGER, 0L))), values("x")));
-    }
-
-    @Test
     public void testProjectionExpressionNotRewritten()
     {
         tester().assertThat(zeroRewriter.projectExpressionRewrite())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("y"), new Constant(INTEGER, 0L)),
+                        Assignments.of(p.symbol("y", INTEGER), new Constant(INTEGER, 0L)),
                         p.values(p.symbol("x"))))
                 .doesNotFire();
     }

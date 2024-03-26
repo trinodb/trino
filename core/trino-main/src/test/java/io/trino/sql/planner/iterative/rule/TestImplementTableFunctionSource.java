@@ -1217,7 +1217,7 @@ public class TestImplementTableFunctionSource
                                     // coerce column c for co-partitioning
                                     p.project(
                                             Assignments.builder()
-                                                    .put(c, new Reference(BIGINT, "c"))
+                                                    .put(c, new Reference(TINYINT, "c"))
                                                     .put(d, new Reference(BIGINT, "d"))
                                                     .put(cCoerced, new Cast(new Reference(BIGINT, "c"), INTEGER))
                                                     .build(),

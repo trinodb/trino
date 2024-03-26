@@ -46,9 +46,9 @@ public class TestInlineProjectIntoFilter
     {
         tester().assertThat(new InlineProjectIntoFilter())
                 .on(p -> p.filter(
-                        new Reference(INTEGER, "a"),
+                        new Reference(BOOLEAN, "a"),
                         p.project(
-                                Assignments.of(p.symbol("a"), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                                Assignments.of(p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
                                 p.values(p.symbol("b", INTEGER)))))
                 .matches(
                         project(
@@ -92,7 +92,7 @@ public class TestInlineProjectIntoFilter
                 .on(p -> p.filter(
                         new Logical(OR, ImmutableList.of(new Reference(BOOLEAN, "a"), FALSE)),
                         p.project(
-                                Assignments.of(p.symbol("a"), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                                Assignments.of(p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
                                 p.values(p.symbol("b", INTEGER)))))
                 .doesNotFire();
     }
@@ -168,8 +168,8 @@ public class TestInlineProjectIntoFilter
                 .on(p -> p.filter(
                         new Reference(INTEGER, "a"),
                         p.project(
-                                Assignments.of(p.symbol("a"), new Reference(INTEGER, "a")),
-                                p.values(p.symbol("a")))))
+                                Assignments.of(p.symbol("a", INTEGER), new Reference(INTEGER, "a")),
+                                p.values(p.symbol("a", INTEGER)))))
                 .doesNotFire();
 
         // renaming projection
@@ -177,8 +177,8 @@ public class TestInlineProjectIntoFilter
                 .on(p -> p.filter(
                         new Reference(INTEGER, "a"),
                         p.project(
-                                Assignments.of(p.symbol("a"), new Reference(INTEGER, "b")),
-                                p.values(p.symbol("b")))))
+                                Assignments.of(p.symbol("a", INTEGER), new Reference(INTEGER, "b")),
+                                p.values(p.symbol("b", INTEGER)))))
                 .doesNotFire();
     }
 
@@ -189,8 +189,8 @@ public class TestInlineProjectIntoFilter
                 .on(p -> p.filter(
                         new Reference(INTEGER, "corr"),
                         p.project(
-                                Assignments.of(p.symbol("a"), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
-                                p.values(p.symbol("b")))))
+                                Assignments.of(p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 0L))),
+                                p.values(p.symbol("b", INTEGER)))))
                 .doesNotFire();
     }
 }

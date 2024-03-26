@@ -180,25 +180,6 @@ public class TestTypeValidator
     }
 
     @Test
-    public void testInvalidProject()
-    {
-        Expression expression1 = new Cast(columnB.toSymbolReference(), BIGINT);
-        Expression expression2 = new Cast(columnA.toSymbolReference(), INTEGER);
-        Assignments assignments = Assignments.builder()
-                .put(symbolAllocator.newSymbol(expression1), expression1) // should be INTEGER
-                .put(symbolAllocator.newSymbol(expression1), expression2)
-                .build();
-        PlanNode node = new ProjectNode(
-                newId(),
-                baseTableScan,
-                assignments);
-
-        assertThatThrownBy(() -> assertTypesValid(node))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageMatching("type of symbol 'expr(_[0-9]+)?' is expected to be bigint, but the actual type is integer");
-    }
-
-    @Test
     public void testInvalidAggregationFunctionCall()
     {
         Symbol aggregationSymbol = symbolAllocator.newSymbol("sum", DOUBLE);

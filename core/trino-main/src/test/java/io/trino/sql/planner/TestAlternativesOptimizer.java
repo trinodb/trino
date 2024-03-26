@@ -240,7 +240,7 @@ public class TestAlternativesOptimizer
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         Session session = getPlanTester().getDefaultSession();
         PlanBuilder planBuilder = new PlanBuilder(idAllocator, getPlanTester().getPlannerContext(), session);
-        Symbol symbol = planBuilder.symbol(columnName, BIGINT);
+        Symbol symbol = planBuilder.symbol(columnName, BOOLEAN);
         ProjectNode plan = planBuilder.project(
                 Assignments.of(symbol, new Comparison(EQUAL, new Reference(BIGINT, columnName), new Constant(BIGINT, 1L))),
                 planBuilder.filter(

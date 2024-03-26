@@ -58,22 +58,22 @@ public class TestInlineProjections
                 .on(p ->
                         p.project(
                                 Assignments.builder()
-                                        .put(p.symbol("identity"), new Reference(BIGINT, "symbol")) // identity
-                                        .put(p.symbol("multi_complex_1"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "complex"), new Constant(INTEGER, 1L)))) // complex expression referenced multiple times
-                                        .put(p.symbol("multi_complex_2"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "complex"), new Constant(INTEGER, 2L)))) // complex expression referenced multiple times
-                                        .put(p.symbol("multi_literal_1"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "literal"), new Constant(INTEGER, 1L)))) // literal referenced multiple times
-                                        .put(p.symbol("multi_literal_2"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "literal"), new Constant(INTEGER, 2L)))) // literal referenced multiple times
-                                        .put(p.symbol("single_complex"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "complex_2"), new Constant(INTEGER, 2L)))) // complex expression reference only once
-                                        .put(p.symbol("msg_xx"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "z"), new Constant(INTEGER, 1L))))
-                                        .put(p.symbol("multi_symbol_reference"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "v"), new Reference(INTEGER, "v"))))
+                                        .put(p.symbol("identity", INTEGER), new Reference(INTEGER, "symbol")) // identity
+                                        .put(p.symbol("multi_complex_1", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "complex"), new Constant(INTEGER, 1L)))) // complex expression referenced multiple times
+                                        .put(p.symbol("multi_complex_2", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "complex"), new Constant(INTEGER, 2L)))) // complex expression referenced multiple times
+                                        .put(p.symbol("multi_literal_1", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "literal"), new Constant(INTEGER, 1L)))) // literal referenced multiple times
+                                        .put(p.symbol("multi_literal_2", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "literal"), new Constant(INTEGER, 2L)))) // literal referenced multiple times
+                                        .put(p.symbol("single_complex", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "complex_2"), new Constant(INTEGER, 2L)))) // complex expression reference only once
+                                        .put(p.symbol("msg_xx", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "z"), new Constant(INTEGER, 1L))))
+                                        .put(p.symbol("multi_symbol_reference", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "v"), new Reference(INTEGER, "v"))))
                                         .build(),
                                 p.project(Assignments.builder()
-                                                .put(p.symbol("symbol"), new Reference(INTEGER, "x"))
-                                                .put(p.symbol("complex"), new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "x"), new Constant(INTEGER, 2L))))
-                                                .put(p.symbol("literal"), new Constant(INTEGER, 1L))
-                                                .put(p.symbol("complex_2"), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "x"), new Constant(INTEGER, 1L))))
-                                                .put(p.symbol("z"), new FieldReference(new Reference(MSG_TYPE, "msg"), 0))
-                                                .put(p.symbol("v"), new Reference(INTEGER, "x"))
+                                                .put(p.symbol("symbol", INTEGER), new Reference(INTEGER, "x"))
+                                                .put(p.symbol("complex", INTEGER), new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "x"), new Constant(INTEGER, 2L))))
+                                                .put(p.symbol("literal", INTEGER), new Constant(INTEGER, 1L))
+                                                .put(p.symbol("complex_2", INTEGER), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "x"), new Constant(INTEGER, 1L))))
+                                                .put(p.symbol("z", MSG_TYPE.getFields().get(0).getType()), new FieldReference(new Reference(MSG_TYPE, "msg"), 0))
+                                                .put(p.symbol("v", INTEGER), new Reference(INTEGER, "x"))
                                                 .build(),
                                         p.values(p.symbol("x", INTEGER), p.symbol("msg", MSG_TYPE)))))
                 .matches(
@@ -109,8 +109,8 @@ public class TestInlineProjections
                         p.project(
                                 Assignments.builder()
                                         // Use the literal-like expression multiple times. Single-use expression may be inlined regardless of whether it's a literal
-                                        .put(p.symbol("decimal_multiplication"), new Call(MULTIPLY_DECIMAL_8_4, ImmutableList.of(new Reference(createDecimalType(8, 4), "decimal_literal"), new Reference(createDecimalType(8, 4), "decimal_literal"))))
-                                        .put(p.symbol("decimal_addition"), new Call(ADD_DECIMAL_8_4, ImmutableList.of(new Reference(createDecimalType(8, 4), "decimal_literal"), new Reference(createDecimalType(8, 4), "decimal_literal"))))
+                                        .put(p.symbol("decimal_multiplication", createDecimalType(16, 8)), new Call(MULTIPLY_DECIMAL_8_4, ImmutableList.of(new Reference(createDecimalType(8, 4), "decimal_literal"), new Reference(createDecimalType(8, 4), "decimal_literal"))))
+                                        .put(p.symbol("decimal_addition", createDecimalType(9, 4)), new Call(ADD_DECIMAL_8_4, ImmutableList.of(new Reference(createDecimalType(8, 4), "decimal_literal"), new Reference(createDecimalType(8, 4), "decimal_literal"))))
                                         .build(),
                                 p.project(Assignments.builder()
                                                 .put(p.symbol("decimal_literal", createDecimalType(8, 4)), new Constant(createDecimalType(8, 4), Decimals.valueOfShort(new BigDecimal("12.5"))))
@@ -189,9 +189,9 @@ public class TestInlineProjections
         tester().assertThat(new InlineProjections())
                 .on(p ->
                         p.project(
-                                Assignments.identity(p.symbol("fromOuterScope"), p.symbol("value_1")),
+                                Assignments.identity(p.symbol("fromOuterScope"), p.symbol("value_1", INTEGER)),
                                 p.project(
-                                        Assignments.of(p.symbol("value_1"), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "value"), new Constant(INTEGER, 1L)))),
+                                        Assignments.of(p.symbol("value_1", INTEGER), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "value"), new Constant(INTEGER, 1L)))),
                                         p.values(p.symbol("value")))))
                 .matches(
                         project(

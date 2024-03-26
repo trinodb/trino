@@ -28,11 +28,11 @@ import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -40,6 +40,7 @@ import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestMergeProjectWithValues
         extends BaseRuleTest
@@ -59,7 +60,7 @@ public class TestMergeProjectWithValues
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of(new Cast(
-                                                new Row(ImmutableList.of(new Constant(UnknownType.UNKNOWN, null), new Constant(UnknownType.UNKNOWN, null))),
+                                                new Row(ImmutableList.of(new Constant(UNKNOWN, null), new Constant(UNKNOWN, null))),
                                                 RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)))))))
                 .doesNotFire();
     }
@@ -117,7 +118,7 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("a"), new Constant(createCharType(1), Slices.utf8Slice("x")), p.symbol("b"), TRUE),
+                                Assignments.of(p.symbol("a", createCharType(1)), new Constant(createCharType(1), Slices.utf8Slice("x")), p.symbol("b", BOOLEAN), TRUE),
                                 p.values(
                                         ImmutableList.of(),
                                         ImmutableList.of(ImmutableList.of(), ImmutableList.of()))))
@@ -131,7 +132,7 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("a"), new Constant(createCharType(1), Slices.utf8Slice("x")), p.symbol("b"), TRUE),
+                                Assignments.of(p.symbol("a", createCharType(1)), new Constant(createCharType(1), Slices.utf8Slice("x")), p.symbol("b", BOOLEAN), TRUE),
                                 p.values(
                                         ImmutableList.of(),
                                         ImmutableList.of())))
@@ -205,18 +206,18 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
                         Assignments.of(
-                                p.symbol("x"), new Reference(DOUBLE, "rand"),
-                                p.symbol("y"), new Reference(DOUBLE, "rand")),
+                                p.symbol("x", DOUBLE), new Reference(DOUBLE, "rand"),
+                                p.symbol("y", DOUBLE), new Reference(DOUBLE, "rand")),
                         p.valuesOfExpressions(
-                                ImmutableList.of(p.symbol("rand")),
+                                ImmutableList.of(p.symbol("rand", DOUBLE)),
                                 ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
                 .doesNotFire();
 
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("x"), new Call(ADD_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "rand"), new Reference(DOUBLE, "rand")))),
+                        Assignments.of(p.symbol("x", DOUBLE), new Call(ADD_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "rand"), new Reference(DOUBLE, "rand")))),
                         p.valuesOfExpressions(
-                                ImmutableList.of(p.symbol("rand")),
+                                ImmutableList.of(p.symbol("rand", DOUBLE)),
                                 ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
                 .doesNotFire();
     }
@@ -245,7 +246,7 @@ public class TestMergeProjectWithValues
         // correlation symbol is not present in the resulting expression
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("x"), new Constant(INTEGER, 1L)),
+                        Assignments.of(p.symbol("x", INTEGER), new Constant(INTEGER, 1L)),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(new Row(ImmutableList.of(new Reference(INTEGER, "corr")))))))
@@ -259,7 +260,7 @@ public class TestMergeProjectWithValues
 
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
-                        Assignments.of(p.symbol("x"), failFunction),
+                        Assignments.of(p.symbol("x", UNKNOWN), failFunction),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L)))))))
@@ -271,12 +272,12 @@ public class TestMergeProjectWithValues
     {
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol c = p.symbol("c");
-                    Symbol d = p.symbol("d");
-                    Symbol e = p.symbol("e");
-                    Symbol f = p.symbol("f");
+                    Symbol a = p.symbol("a", BOOLEAN);
+                    Symbol b = p.symbol("b", BOOLEAN);
+                    Symbol c = p.symbol("c", BOOLEAN);
+                    Symbol d = p.symbol("d", BOOLEAN);
+                    Symbol e = p.symbol("e", BOOLEAN);
+                    Symbol f = p.symbol("f", INTEGER);
                     Assignments.Builder assignments = Assignments.builder();
                     assignments.putIdentity(a); // identity assignment
                     assignments.put(d, b.toSymbolReference()); // renaming assignment
@@ -301,12 +302,12 @@ public class TestMergeProjectWithValues
         // ValuesNode has no rows
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
-                    Symbol c = p.symbol("c");
-                    Symbol d = p.symbol("d");
-                    Symbol e = p.symbol("e");
-                    Symbol f = p.symbol("f");
+                    Symbol a = p.symbol("a", BOOLEAN);
+                    Symbol b = p.symbol("b", BOOLEAN);
+                    Symbol c = p.symbol("c", BOOLEAN);
+                    Symbol d = p.symbol("d", BOOLEAN);
+                    Symbol e = p.symbol("e", BOOLEAN);
+                    Symbol f = p.symbol("f", INTEGER);
                     Assignments.Builder assignments = Assignments.builder();
                     assignments.putIdentity(a); // identity assignment
                     assignments.put(d, b.toSymbolReference()); // renaming assignment
