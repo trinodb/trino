@@ -536,7 +536,8 @@ public class SqlTaskManager
                     Set<CatalogHandle> catalogHandles = activeCatalogs.stream()
                             .map(CatalogProperties::catalogHandle)
                             .collect(toImmutableSet());
-                    if (sqlTask.setCatalogs(catalogHandles) || !sqlTask.catalogsLoaded()) {
+                    sqlTask.setCatalogs(catalogHandles);
+                    if (!sqlTask.catalogsLoaded()) {
                         ReentrantReadWriteLock.ReadLock catalogInitLock = catalogsLock.readLock();
                         catalogInitLock.lock();
                         try {
