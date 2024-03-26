@@ -143,7 +143,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
         AggregationNode reducingAggregation = (AggregationNode) globalAggregations.getLast();
 
         // find unnest in subquery
-        Optional<UnnestNode> subqueryUnnest = PlanNodeSearcher.searchFrom(reducingAggregation.getSource(), context.getLookup())
+        Optional<PlanNode> subqueryUnnest = PlanNodeSearcher.searchFrom(reducingAggregation.getSource(), context.getLookup())
                 .where(node -> isSupportedUnnest(node, correlatedJoinNode.getCorrelation(), context.getLookup()))
                 .recurseOnlyWhen(node -> node instanceof ProjectNode || isGroupedAggregation(node))
                 .findFirst();
@@ -152,7 +152,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
             return Result.empty();
         }
 
-        UnnestNode unnestNode = subqueryUnnest.get();
+        UnnestNode unnestNode = (UnnestNode) subqueryUnnest.get();
 
         // assign unique id to input rows to restore semantics of aggregations after rewrite
         PlanNode input = new AssignUniqueId(
