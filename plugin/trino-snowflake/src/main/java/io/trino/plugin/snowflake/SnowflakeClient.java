@@ -250,7 +250,7 @@ public class SnowflakeClient
             return writeMappingFunction.convert(type);
         }
 
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName() + ", simple:" + simple);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     @Override
