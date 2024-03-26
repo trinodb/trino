@@ -90,8 +90,7 @@ public abstract class DefaultTraversalVisitor<C>
             process(clause.getResult(), context);
         }
 
-        node.defaultValue()
-                .ifPresent(value -> process(value, context));
+        process(node.defaultValue(), context);
 
         return null;
     }
@@ -130,8 +129,8 @@ public abstract class DefaultTraversalVisitor<C>
             process(clause.getOperand(), context);
             process(clause.getResult(), context);
         }
-        node.defaultValue()
-                .ifPresent(value -> process(value, context));
+
+        process(node.defaultValue(), context);
 
         return null;
     }

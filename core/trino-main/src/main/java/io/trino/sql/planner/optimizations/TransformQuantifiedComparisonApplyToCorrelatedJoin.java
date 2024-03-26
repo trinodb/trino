@@ -192,14 +192,14 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                     ImmutableList.of(new WhenClause(
                             new Constant(BIGINT, 0L),
                             emptySetResult)),
-                    Optional.of(quantifier.apply(ImmutableList.of(
+                    quantifier.apply(ImmutableList.of(
                             comparisonWithExtremeValue,
                             new Case(
                                     ImmutableList.of(
                                             new WhenClause(
                                                     new Comparison(NOT_EQUAL, countAllValue.toSymbolReference(), countNonNullValue.toSymbolReference()),
                                                     new Constant(BOOLEAN, null))),
-                                    Optional.of(emptySetResult))))));
+                                    emptySetResult))));
         }
 
         private Expression getBoundComparisons(ApplyNode.QuantifiedComparison quantifiedComparison, Symbol minValue, Symbol maxValue)

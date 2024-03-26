@@ -34,8 +34,6 @@ import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
-
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -84,7 +82,7 @@ public class TestCanonicalizeExpressionRewriter
     {
         assertRewritten(
                 ifExpression(new Comparison(EQUAL, new Reference(INTEGER, "x"), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L), new Constant(INTEGER, 1L)),
-                new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "x"), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L))), Optional.of(new Constant(INTEGER, 1L))));
+                new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "x"), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L))), new Constant(INTEGER, 1L)));
     }
 
     @Test

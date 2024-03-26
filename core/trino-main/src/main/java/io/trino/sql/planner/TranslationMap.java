@@ -405,7 +405,9 @@ public class TranslationMap
                                 translateExpression(clause.getOperand()),
                                 translateExpression(clause.getResult())))
                         .collect(toImmutableList()),
-                expression.getDefaultValue().map(this::translateExpression));
+                expression.getDefaultValue()
+                        .map(this::translateExpression)
+                        .orElse(new Constant(analysis.getType(expression), null)));
     }
 
     private io.trino.sql.ir.Expression translate(SimpleCaseExpression expression)
@@ -417,7 +419,9 @@ public class TranslationMap
                                 translateExpression(clause.getOperand()),
                                 translateExpression(clause.getResult())))
                         .collect(toImmutableList()),
-                expression.getDefaultValue().map(this::translateExpression));
+                expression.getDefaultValue()
+                        .map(this::translateExpression)
+                        .orElse(new Constant(analysis.getType(expression), null)));
     }
 
     private io.trino.sql.ir.Expression translate(InPredicate expression)
