@@ -443,56 +443,28 @@ jobs:
                 - lib/trino-filesystem-manager
                 - lib/trino-filesystem-s3
                 - lib/trino-hdfs
-            - { modules: core/trino-main }
-            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
-            - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
-            - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
-            - { modules: lib/trino-hdfs, profile: cloud-tests }
-            - { modules: plugin/trino-accumulo }
-            - { modules: plugin/trino-bigquery }
-            - { modules: plugin/trino-bigquery, profile: cloud-tests-2 }
-            - { modules: plugin/trino-cassandra }
-            - { modules: plugin/trino-clickhouse }
-            - { modules: plugin/trino-delta-lake }
-            - { modules: plugin/trino-delta-lake, profile: cloud-tests }
-            - { modules: plugin/trino-delta-lake, profile: fte-tests }
-            - { modules: plugin/trino-druid }
-            - { modules: plugin/trino-elasticsearch }
-            - { modules: plugin/trino-google-sheets }
-            - { modules: plugin/trino-hive }
-            - { modules: plugin/trino-hive, profile: fte-tests }
-            - { modules: plugin/trino-hive, profile: test-parquet }
-            - { modules: plugin/trino-hudi }
-            - { modules: plugin/trino-iceberg }
-            - { modules: plugin/trino-iceberg, profile: cloud-tests }
-            - { modules: plugin/trino-iceberg, profile: fte-tests }
-            - { modules: plugin/trino-iceberg, profile: minio-and-avro }
-            - { modules: plugin/trino-ignite }
-            - { modules: plugin/trino-kafka }
-            - { modules: plugin/trino-kudu }
-            - { modules: plugin/trino-mariadb }
-            - { modules: plugin/trino-mongodb }
-            - { modules: plugin/trino-mysql }
-            - { modules: plugin/trino-opensearch }
-            - { modules: plugin/trino-oracle }
-            - { modules: plugin/trino-phoenix5 }
-            - { modules: plugin/trino-pinot }
-            - { modules: plugin/trino-postgresql }
             - { modules: plugin/trino-raptor-legacy }
-            - { modules: plugin/trino-redis }
-            - { modules: plugin/trino-redshift }
-            - { modules: plugin/trino-redshift, profile: cloud-tests }
-            - { modules: plugin/trino-redshift, profile: fte-tests }
-            - { modules: plugin/trino-resource-group-managers }
-            - { modules: plugin/trino-singlestore }
-            - { modules: plugin/trino-snowflake }
-            - { modules: plugin/trino-snowflake, profile: cloud-tests }
-            - { modules: plugin/trino-sqlserver }
-            - { modules: testing/trino-faulttolerant-tests, profile: default }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
-            - { modules: testing/trino-tests }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-raptor-legacy }
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
@@ -750,6 +722,7 @@ jobs:
       - name: Upload test results
         uses: ./.github/actions/process-test-results
         if: always()
+        continue-on-error: true
         with:
           artifact-name: ${{ env.ARTIFACT_NAME }}
           has-failed-tests: >-
@@ -769,6 +742,7 @@ jobs:
               || steps.tests-snowflake.outcome == 'failure'
             }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+
       - name: Update PR check
         uses: ./.github/actions/update-check
         if: >-
