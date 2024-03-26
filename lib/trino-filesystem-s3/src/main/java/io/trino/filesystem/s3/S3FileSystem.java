@@ -198,7 +198,9 @@ final class S3FileSystem
         try {
             Stream<S3Object> s3ObjectStream = client.listObjectsV2Paginator(request).contents().stream();
             if (!includeDirectoryObjects) {
-                s3ObjectStream = s3ObjectStream.filter(object -> !object.key().endsWith("/"));
+                s3ObjectStream = s3ObjectStream
+                    .filter(object -> !object.key().endsWith("/"))
+                    .filter(object -> context.s3ObjectStorageClassFilter().shouldReadObject(object));
             }
             return new S3FileIterator(s3Location, s3ObjectStream.iterator());
         }

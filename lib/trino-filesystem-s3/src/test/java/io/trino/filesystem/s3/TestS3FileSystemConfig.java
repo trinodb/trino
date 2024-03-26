@@ -55,7 +55,8 @@ public class TestS3FileSystemConfig
                 .setSocketReadTimeout(null)
                 .setTcpKeepAlive(false)
                 .setHttpProxy(null)
-                .setHttpProxySecure(false));
+                .setHttpProxySecure(false)
+                .setS3ObjectStorageClassFilter(S3ObjectStorageClassFilter.READ_ALL));
     }
 
     @Test
@@ -84,6 +85,7 @@ public class TestS3FileSystemConfig
                 .put("s3.tcp-keep-alive", "true")
                 .put("s3.http-proxy", "localhost:8888")
                 .put("s3.http-proxy.secure", "true")
+                .put("s3.object-storage-class-filter", "READ_NON_GLACIER")
                 .buildOrThrow();
 
         S3FileSystemConfig expected = new S3FileSystemConfig()
@@ -108,7 +110,8 @@ public class TestS3FileSystemConfig
                 .setSocketReadTimeout(new Duration(4, MINUTES))
                 .setTcpKeepAlive(true)
                 .setHttpProxy(HostAndPort.fromParts("localhost", 8888))
-                .setHttpProxySecure(true);
+                .setHttpProxySecure(true)
+                .setS3ObjectStorageClassFilter(S3ObjectStorageClassFilter.READ_NON_GLACIER);
 
         assertFullMapping(properties, expected);
     }

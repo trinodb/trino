@@ -57,6 +57,7 @@ public class S3FileSystemConfig
     private boolean tcpKeepAlive;
     private HostAndPort httpProxy;
     private boolean httpProxySecure;
+    private S3ObjectStorageClassFilter s3ObjectStorageClassFilter = S3ObjectStorageClassFilter.READ_ALL;
 
     public String getAwsAccessKey()
     {
@@ -337,6 +338,18 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setHttpProxySecure(boolean httpProxySecure)
     {
         this.httpProxySecure = httpProxySecure;
+        return this;
+    }
+
+    public S3ObjectStorageClassFilter getS3ObjectStorageClassFilter()
+    {
+        return s3ObjectStorageClassFilter;
+    }
+
+    @Config("s3.object-storage-class-filter")
+    public S3FileSystemConfig setS3ObjectStorageClassFilter(S3ObjectStorageClassFilter s3ObjectStorageClassFilter)
+    {
+        this.s3ObjectStorageClassFilter = s3ObjectStorageClassFilter;
         return this;
     }
 }
