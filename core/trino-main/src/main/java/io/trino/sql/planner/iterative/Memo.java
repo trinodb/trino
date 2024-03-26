@@ -18,6 +18,7 @@ import com.google.common.collect.Multiset;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.plan.GroupReference;
 import io.trino.sql.planner.plan.PlanNode;
 import jakarta.annotation.Nullable;
 

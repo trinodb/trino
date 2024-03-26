@@ -15,9 +15,9 @@ package io.trino.cost;
 
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Memo;
+import io.trino.sql.planner.plan.GroupReference;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.IdentityHashMap;
