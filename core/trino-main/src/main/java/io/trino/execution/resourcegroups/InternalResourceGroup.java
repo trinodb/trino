@@ -954,7 +954,7 @@ public class InternalResourceGroup
     ResourceUsage getResourceUsageSnapshot()
     {
         synchronized (root) {
-            return cachedResourceUsage.clone();
+            return cachedResourceUsage;
         }
     }
 
