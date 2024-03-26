@@ -35,7 +35,6 @@ import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
@@ -220,8 +219,8 @@ public class TestTransformCorrelatedScalarSubquery
         return new Switch(
                 new Reference(BOOLEAN, "is_distinct"),
                 ImmutableList.of(new WhenClause(TRUE, TRUE)),
-                Optional.of(new Cast(
+                new Cast(
                         failFunction(tester().getMetadata(), SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
-                        BOOLEAN)));
+                        BOOLEAN));
     }
 }

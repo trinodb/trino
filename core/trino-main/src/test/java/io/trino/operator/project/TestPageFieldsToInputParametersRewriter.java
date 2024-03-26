@@ -50,7 +50,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
@@ -102,16 +101,16 @@ public class TestPageFieldsToInputParametersRewriter
         verifyEagerlyLoadedColumns(builder.buildExpression(new Comparison(GREATER_THAN, new Reference(INTEGER, "bigint0"), new Constant(INTEGER, 0L))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Comparison(EQUAL, new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 1L))), new Constant(BIGINT, 0L))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Between(new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 1L), new Constant(BIGINT, 10L))), 1);
-        verifyEagerlyLoadedColumns(builder.buildExpression(new Case(ImmutableList.of(new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "bigint0"), new Constant(INTEGER, 0L)), new Reference(BIGINT, "bigint0"))), Optional.of(new Constant(BIGINT, null)))), 1);
-        verifyEagerlyLoadedColumns(builder.buildExpression(new Switch(new Reference(BIGINT, "bigint0"), ImmutableList.of(new WhenClause(new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))), Optional.of(new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "bigint0")))))), 1);
+        verifyEagerlyLoadedColumns(builder.buildExpression(new Case(ImmutableList.of(new WhenClause(new Comparison(GREATER_THAN, new Reference(INTEGER, "bigint0"), new Constant(INTEGER, 0L)), new Reference(BIGINT, "bigint0"))), new Constant(BIGINT, null))), 1);
+        verifyEagerlyLoadedColumns(builder.buildExpression(new Switch(new Reference(BIGINT, "bigint0"), ImmutableList.of(new WhenClause(new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))), new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "bigint0"))))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Call(ADD_BIGINT, ImmutableList.of(new Coalesce(new Constant(BIGINT, 0L), new Reference(BIGINT, "bigint0")), new Reference(BIGINT, "bigint0")))), 1);
 
         verifyEagerlyLoadedColumns(builder.buildExpression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "bigint0"), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Constant(BIGINT, 2L), new Reference(BIGINT, "bigint1")))))), 2);
         verifyEagerlyLoadedColumns(builder.buildExpression(new NullIf(new Reference(BIGINT, "bigint0"), new Reference(BIGINT, "bigint1"))), 2);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Coalesce(new Call(CEIL, ImmutableList.of(new Call(DIVIDE_BIGINT, ImmutableList.of(new Reference(BIGINT, "bigint0"), new Reference(BIGINT, "bigint1"))))), new Constant(BIGINT, 0L))), 2);
-        verifyEagerlyLoadedColumns(builder.buildExpression(new Case(ImmutableList.of(new WhenClause(new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint0"), new Reference(BIGINT, "bigint1")), new Constant(INTEGER, 1L))), Optional.of(new Constant(INTEGER, 0L)))), 2);
+        verifyEagerlyLoadedColumns(builder.buildExpression(new Case(ImmutableList.of(new WhenClause(new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint0"), new Reference(BIGINT, "bigint1")), new Constant(INTEGER, 1L))), new Constant(INTEGER, 0L))), 2);
         verifyEagerlyLoadedColumns(
-                builder.buildExpression(new Case(ImmutableList.of(new WhenClause(new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 0L)), new Reference(BIGINT, "bigint1"))), Optional.of(new Constant(BIGINT, 0L)))), 2, ImmutableSet.of(0));
+                builder.buildExpression(new Case(ImmutableList.of(new WhenClause(new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 0L)), new Reference(BIGINT, "bigint1"))), new Constant(BIGINT, 0L))), 2, ImmutableSet.of(0));
         verifyEagerlyLoadedColumns(builder.buildExpression(new Coalesce(new Call(ROUND, ImmutableList.of(new Reference(BIGINT, "bigint0"))), new Reference(BIGINT, "bigint1"))), 2, ImmutableSet.of(0));
         verifyEagerlyLoadedColumns(builder.buildExpression(new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 0L)), new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint1"), new Constant(BIGINT, 0L))))), 2, ImmutableSet.of(0));
         verifyEagerlyLoadedColumns(builder.buildExpression(new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 0L)), new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint1"), new Constant(BIGINT, 0L))))), 2, ImmutableSet.of(0));

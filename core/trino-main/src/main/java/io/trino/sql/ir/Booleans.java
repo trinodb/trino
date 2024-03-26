@@ -19,6 +19,7 @@ public final class Booleans
 {
     public static final Constant TRUE = new Constant(BOOLEAN, true);
     public static final Constant FALSE = new Constant(BOOLEAN, false);
+    public static final Constant NULL_BOOLEAN = new Constant(BOOLEAN, null);
 
     private Booleans() {}
 }

@@ -15,19 +15,17 @@ package io.trino.sql.ir;
 
 import com.google.common.collect.ImmutableList;
 
-import java.util.Optional;
-
 public class IrExpressions
 {
     private IrExpressions() {}
 
     public static Expression ifExpression(Expression condition, Expression trueCase)
     {
-        return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), Optional.empty());
+        return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), new Constant(trueCase.type(), null));
     }
 
     public static Expression ifExpression(Expression condition, Expression trueCase, Expression falseCase)
     {
-        return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), Optional.of(falseCase));
+        return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), falseCase);
     }
 }
