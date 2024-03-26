@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Timeout;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -45,6 +46,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
@@ -59,6 +61,7 @@ import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.function.Function.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDynamicRowFilteringPageSource
@@ -79,7 +82,7 @@ public class TestDynamicRowFilteringPageSource
                 new EmptyPageSource(),
                 1,
                 Duration.valueOf("0s"),
-                ImmutableList.of(),
+                0,
                 createDynamicPageFilter(
                         getDynamicFilter(TupleDomain.all()),
                         ImmutableList.of()));
@@ -94,7 +97,7 @@ public class TestDynamicRowFilteringPageSource
                 new TestingConnectorPageSource().addPages(ImmutableList.of(new Page(0))),
                 1,
                 Duration.valueOf("0s"),
-                ImmutableList.of(),
+                0,
                 createDynamicPageFilter(
                         getDynamicFilter(TupleDomain.all()),
                         ImmutableList.of()));
@@ -105,15 +108,15 @@ public class TestDynamicRowFilteringPageSource
     @Test
     public void testEmptyDynamicFilter()
     {
-        ColumnHandle column = new TestingColumnHandle("column");
+        List<ColumnHandle> columnHandleList = ImmutableList.of(new TestingColumnHandle("column"));
         TestingConnectorPageSource testingPageSource = new TestingConnectorPageSource()
                 .addPages(ImmutableList.of(new Page(createLongSequenceBlock(0, 1024))));
         DynamicRowFilteringPageSource pageSource = new DynamicRowFilteringPageSource(
                 testingPageSource,
                 1,
                 Duration.valueOf("0s"),
-                ImmutableList.of(column),
-                createDynamicPageFilter(DynamicFilter.EMPTY, ImmutableList.of(column)));
+                columnHandleList.size(),
+                createDynamicPageFilter(DynamicFilter.EMPTY, columnHandleList));
         assertThat(pageSource.getNextPage().getPositionCount()).isEqualTo(1024);
         assertThat(pageSource.getMetrics().getMetrics()).isEmpty();
     }
@@ -121,7 +124,7 @@ public class TestDynamicRowFilteringPageSource
     @Test
     public void testAllDynamicFilter()
     {
-        ColumnHandle column = new TestingColumnHandle("column");
+        List<ColumnHandle> columnHandleList = ImmutableList.of(new TestingColumnHandle("column"));
         Page inputPage = new Page(createLongSequenceBlock(0, 1024));
         TestingConnectorPageSource testingPageSource = new TestingConnectorPageSource()
                 .addPages(ImmutableList.of(inputPage));
@@ -129,10 +132,10 @@ public class TestDynamicRowFilteringPageSource
                 testingPageSource,
                 1,
                 Duration.valueOf("0s"),
-                ImmutableList.of(column),
+                columnHandleList.size(),
                 createDynamicPageFilter(
                         getDynamicFilter(TupleDomain.all()),
-                        ImmutableList.of(column)));
+                        columnHandleList));
         Page outputPage = pageSource.getNextPage();
         assertThat(outputPage).isEqualTo(inputPage);
         assertThat(outputPage.getPositionCount()).isEqualTo(1024);
@@ -142,17 +145,17 @@ public class TestDynamicRowFilteringPageSource
     @Test
     public void testNoneDynamicFilter()
     {
-        ColumnHandle column = new TestingColumnHandle("column");
+        List<ColumnHandle> columnHandleList = ImmutableList.of(new TestingColumnHandle("column"));
         TestingConnectorPageSource testingPageSource = new TestingConnectorPageSource()
                 .addPages(ImmutableList.of(new Page(createLongSequenceBlock(0, 1024))));
         DynamicRowFilteringPageSource pageSource = new DynamicRowFilteringPageSource(
                 testingPageSource,
                 1,
                 Duration.valueOf("0s"),
-                ImmutableList.of(column),
+                columnHandleList.size(),
                 createDynamicPageFilter(
                         getDynamicFilter(TupleDomain.none()),
-                        ImmutableList.of(column)));
+                        columnHandleList));
         assertThat(pageSource.getNextPage()).isEqualTo(EMPTY_PAGE);
         assertThat(pageSource.getMetrics().getMetrics())
                 .containsAllEntriesOf(ImmutableMap.of(
@@ -164,6 +167,7 @@ public class TestDynamicRowFilteringPageSource
     public void testIneffectiveFilter()
     {
         ColumnHandle column = new TestingColumnHandle("column");
+        List<ColumnHandle> columnHandleList = ImmutableList.of(column);
         int pageCount = 3;
         TestingConnectorPageSource testingPageSource = new TestingConnectorPageSource()
                 .addPages(generateInputPages(pageCount, 1, 1024));
@@ -171,12 +175,12 @@ public class TestDynamicRowFilteringPageSource
                 testingPageSource,
                 0.9,
                 Duration.valueOf("0s"),
-                ImmutableList.of(column),
+                columnHandleList.size(),
                 createDynamicPageFilter(
                         getDynamicFilter(TupleDomain.withColumnDomains(ImmutableMap.of(
                                 column,
                                 getRangePredicate(100, 5000)))),
-                        ImmutableList.of(column)));
+                        columnHandleList));
         for (int i = 0; i < pageCount - 1; i++) {
             assertThat(pageSource.getNextPage().getPositionCount()).isEqualTo(924);
         }
@@ -190,6 +194,7 @@ public class TestDynamicRowFilteringPageSource
     {
         ColumnHandle columnA = new TestingColumnHandle("columnA");
         ColumnHandle columnB = new TestingColumnHandle("columnB");
+        List<ColumnHandle> columnHandleList = List.of(columnA, columnB);
         int pageCount = 3;
         TestingConnectorPageSource testingPageSource = new TestingConnectorPageSource()
                 .addPages(generateInputPages(pageCount, 2, 1024));
@@ -197,12 +202,12 @@ public class TestDynamicRowFilteringPageSource
                 testingPageSource,
                 0.9,
                 Duration.valueOf("0s"),
-                ImmutableList.of(columnA, columnB),
+                columnHandleList.size(),
                 createDynamicPageFilter(
                         getDynamicFilter(TupleDomain.withColumnDomains(ImmutableMap.of(
                                 columnA, getRangePredicate(100, 1024),
                                 columnB, singleValue(BIGINT, 13L)))),
-                        ImmutableList.of(columnA, columnB)));
+                        columnHandleList));
         for (int i = 0; i < pageCount - 1; i++) {
             assertThat(pageSource.getNextPage().getPositionCount()).isEqualTo(0);
         }
@@ -216,6 +221,7 @@ public class TestDynamicRowFilteringPageSource
     {
         ColumnHandle columnA = new TestingColumnHandle("columnA");
         ColumnHandle columnB = new TestingColumnHandle("columnB");
+        List<ColumnHandle> columnHandleList = List.of(columnA, columnB);
         int pageCount = 3;
         TestingConnectorPageSource testingPageSource = new TestingConnectorPageSource()
                 .addPages(generateInputPages(pageCount, 2, 1024));
@@ -223,12 +229,12 @@ public class TestDynamicRowFilteringPageSource
                 testingPageSource,
                 0.9,
                 Duration.valueOf("0s"),
-                ImmutableList.of(columnA, columnB),
+                columnHandleList.size(),
                 createDynamicPageFilter(
                         getDynamicFilter(TupleDomain.withColumnDomains(ImmutableMap.of(
                                 columnA, getRangePredicate(0, 1024),
                                 columnB, getRangePredicate(100, 1024)))),
-                        ImmutableList.of(columnA, columnB)));
+                        columnHandleList));
         for (int i = 0; i < pageCount - 1; i++) {
             assertThat(pageSource.getNextPage().getPositionCount()).isEqualTo(924);
         }
@@ -241,6 +247,7 @@ public class TestDynamicRowFilteringPageSource
     public void testEffectiveFilter()
     {
         ColumnHandle column = new TestingColumnHandle("column");
+        List<ColumnHandle> columnHandleList = ImmutableList.of(column);
         int pageCount = 5;
         TestingConnectorPageSource testingPageSource = new TestingConnectorPageSource()
                 .addPages(generateInputPages(pageCount, 1, 1024));
@@ -248,12 +255,12 @@ public class TestDynamicRowFilteringPageSource
                 testingPageSource,
                 0.1,
                 Duration.valueOf("0s"),
-                ImmutableList.of(column),
+                columnHandleList.size(),
                 createDynamicPageFilter(
                         getDynamicFilter(TupleDomain.withColumnDomains(ImmutableMap.of(
                                 column,
                                 singleValue(BIGINT, 13L)))),
-                        ImmutableList.of(column)));
+                        columnHandleList));
         // FilterProfiler should not turn off row filtering
         for (int i = 0; i < pageCount; i++) {
             assertThat(pageSource.getNextPage().getPositionCount()).isEqualTo(1);
@@ -272,19 +279,20 @@ public class TestDynamicRowFilteringPageSource
         ColumnHandle columnA = new TestingColumnHandle("columnA");
         ColumnHandle columnB = new TestingColumnHandle("columnB");
         ColumnHandle columnC = new TestingColumnHandle("columnC");
+        List<ColumnHandle> columnHandleList = ImmutableList.of(columnA, columnB, columnC);
         TestingConnectorPageSource testingPageSource = new TestingConnectorPageSource()
                 .addPages(generateInputPages(1, 3, 100));
         DynamicRowFilteringPageSource pageSource = new DynamicRowFilteringPageSource(
                 testingPageSource,
                 1,
                 Duration.valueOf("0s"),
-                ImmutableList.of(columnA, columnB, columnC),
+                columnHandleList.size(),
                 createDynamicPageFilter(
                         getDynamicFilter(TupleDomain.withColumnDomains(ImmutableMap.of(
                                 columnA, multipleValues(BIGINT, ImmutableList.of(-10L, 5L, 15L, 35L, 50L, 85L, 95L, 105L)),
                                 columnB, singleValue(BIGINT, 0L),
                                 columnC, getRangePredicate(150, 250)))),
-                        ImmutableList.of(columnA, columnB, columnC)));
+                        columnHandleList));
         assertThat(pageSource.getNextPage()).isEqualTo(EMPTY_PAGE);
     }
 
@@ -296,6 +304,7 @@ public class TestDynamicRowFilteringPageSource
         ColumnHandle columnC = new TestingColumnHandle("columnC");
         ColumnHandle columnD = new TestingColumnHandle("columnD");
         ColumnHandle columnE = new TestingColumnHandle("columnE");
+        List<ColumnHandle> columnHandleList = ImmutableList.of(columnA, columnB, columnC, columnD, columnE);
         int pageCount = 5;
         TestingConnectorPageSource testingPageSource = new TestingConnectorPageSource()
                 .addPages(generateInputPages(pageCount, 5, 1024));
@@ -303,12 +312,12 @@ public class TestDynamicRowFilteringPageSource
                 testingPageSource,
                 1,
                 Duration.valueOf("0s"),
-                ImmutableList.of(columnA, columnB, columnC, columnD, columnE),
+                columnHandleList.size(),
                 createDynamicPageFilter(
                         getDynamicFilter(TupleDomain.withColumnDomains(ImmutableMap.of(
                                 columnB, multipleValues(BIGINT, ImmutableList.of(-10L, 5L, 15L, 35L, 50L, 85L, 95L, 105L)),
                                 columnD, getRangePredicate(-50, 90)))),
-                        ImmutableList.of(columnA, columnB, columnC, columnD, columnE)));
+                        columnHandleList));
         for (int i = 0; i < pageCount; i++) {
             assertThat(pageSource.getNextPage().getPositionCount()).isEqualTo(5);
         }
@@ -319,16 +328,17 @@ public class TestDynamicRowFilteringPageSource
     public void testDynamicFilterBlockingTimeout()
     {
         ColumnHandle column = new TestingColumnHandle("column");
+        List<ColumnHandle> columnHandleList = ImmutableList.of(column);
         TestingConnectorPageSource testingPageSource = new TestingConnectorPageSource()
                 .addPages(ImmutableList.of(new Page(createLongSequenceBlock(0, 1024))));
         DynamicRowFilteringPageSource pageSource = new DynamicRowFilteringPageSource(
                 testingPageSource,
                 0.1,
                 Duration.valueOf("2s"),
-                ImmutableList.of(column),
+                columnHandleList.size(),
                 createDynamicPageFilter(
                         getDynamicFilter(TupleDomain.all(), Duration.valueOf("1h")),
-                        ImmutableList.of(column)));
+                        columnHandleList));
         assertEventually(() -> {
             CompletableFuture<?> future = pageSource.isBlocked();
             assertThat(future).isCompleted();
@@ -342,6 +352,7 @@ public class TestDynamicRowFilteringPageSource
     {
         ColumnHandle columnA = new TestingColumnHandle("columnA");
         ColumnHandle columnB = new TestingColumnHandle("columnB");
+        List<ColumnHandle> columnHandleList = ImmutableList.of(columnA, columnB);
 
         Block longsBlock = createLongsBlock(0, 1, 2, 3);
         Block dictionary = createLongsBlock(0, 1);
@@ -358,11 +369,11 @@ public class TestDynamicRowFilteringPageSource
                 testingPageSource,
                 1,
                 Duration.valueOf("0s"),
-                ImmutableList.of(columnA, columnB),
+                columnHandleList.size(),
                 createDynamicPageFilter(
                         getDynamicFilter(TupleDomain.withColumnDomains(ImmutableMap.of(
                                 columnA, multipleValues(BIGINT, ImmutableList.of(1L, 2L))))),
-                        ImmutableList.of(columnA, columnB)));
+                        columnHandleList));
 
         // three pages should be produced
         Page firstOutputPage = pageSource.getNextPage();
@@ -396,7 +407,10 @@ public class TestDynamicRowFilteringPageSource
 
     private static DynamicPageFilter createDynamicPageFilter(DynamicFilter dynamicFilter, List<ColumnHandle> columns)
     {
-        return new DynamicPageFilter(dynamicFilter, columns, TYPE_OPERATORS, BLOCK_FILTER_FACTORY, directExecutor());
+        Map<ColumnHandle, Integer> columnHandleMap = IntStream.range(0, columns.size())
+                .boxed()
+                .collect(toImmutableMap(columns::get, identity()));
+        return new DynamicPageFilter(dynamicFilter, columnHandleMap, TYPE_OPERATORS, BLOCK_FILTER_FACTORY, directExecutor());
     }
 
     private static class TestingConnectorPageSource

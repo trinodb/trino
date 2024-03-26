@@ -22,7 +22,6 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.LazyBlock;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.metrics.Metrics;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -61,15 +60,15 @@ public class DynamicRowFilteringPageSource
             ConnectorPageSource delegate,
             double dynamicRowFilterSelectivityThreshold,
             Duration blockingTimeout,
-            List<ColumnHandle> columns,
+            int columnCount,
             DynamicPageFilter dynamicPageFilter)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.blockingTimeoutNanos = (long) requireNonNull(blockingTimeout, "blockingTimeout is null").getValue(NANOSECONDS);
         this.dynamicPageFilter = requireNonNull(dynamicPageFilter, "dynamicPageFilter is null");
         this.startNanos = System.nanoTime();
-        this.profiler = new FilterProfiler(dynamicRowFilterSelectivityThreshold, columns.size());
-        this.filter = new DictionaryAwarePageFilter(columns.size());
+        this.profiler = new FilterProfiler(dynamicRowFilterSelectivityThreshold, columnCount);
+        this.filter = new DictionaryAwarePageFilter(columnCount);
     }
 
     @Override

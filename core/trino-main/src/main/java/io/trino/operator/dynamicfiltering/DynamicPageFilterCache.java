@@ -14,6 +14,7 @@
 package io.trino.operator.dynamicfiltering;
 
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.jmx.CacheStatsMBean;
 import io.trino.cache.NonEvictableCache;
@@ -25,7 +26,7 @@ import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -70,12 +71,12 @@ public class DynamicPageFilterCache
         return new CacheStatsMBean(cache);
     }
 
-    public DynamicPageFilter getDynamicPageFilter(DynamicFilter dynamicFilter, List<ColumnHandle> columns)
+    public DynamicPageFilter getDynamicPageFilter(DynamicFilter dynamicFilter, Map<ColumnHandle, Integer> channelIndexes)
     {
         try {
-            return cache.get(new CacheKey(columns, dynamicFilter), () -> new DynamicPageFilter(
+            return cache.get(new CacheKey(channelIndexes, dynamicFilter), () -> new DynamicPageFilter(
                     dynamicFilter,
-                    columns,
+                    channelIndexes,
                     typeOperators,
                     isolatedBlockFilterFactory,
                     executor));
@@ -86,5 +87,12 @@ public class DynamicPageFilterCache
         }
     }
 
-    private record CacheKey(List<ColumnHandle> columns, DynamicFilter dynamicFilter) {}
+    private record CacheKey(Map<ColumnHandle, Integer> channelIndexes, DynamicFilter dynamicFilter)
+    {
+        public CacheKey(Map<ColumnHandle, Integer> channelIndexes, DynamicFilter dynamicFilter)
+        {
+            this.channelIndexes = ImmutableMap.copyOf(requireNonNull(channelIndexes, "channelIndexes is null"));
+            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+        }
+    }
 }

@@ -15,6 +15,7 @@ package io.trino.operator.dynamicfiltering;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.block.Block;
@@ -31,16 +32,13 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.IntStream;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.trino.operator.dynamicfiltering.TupleDomainFilterUtils.createTupleDomainFilters;
 import static io.trino.operator.project.SelectedPositions.positionsList;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 
 public class DynamicPageFilter
 {
@@ -62,16 +60,13 @@ public class DynamicPageFilter
 
     public DynamicPageFilter(
             DynamicFilter dynamicFilter,
-            List<ColumnHandle> columns,
+            Map<ColumnHandle, Integer> channelIndexes,
             TypeOperators typeOperators,
             IsolatedBlockFilterFactory isolatedBlockFilterFactory,
             Executor executor)
     {
-        requireNonNull(columns, "columns is null");
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
-        this.channelIndexes = IntStream.range(0, columns.size())
-                .boxed()
-                .collect(toImmutableMap(columns::get, identity()));
+        this.channelIndexes = ImmutableMap.copyOf(requireNonNull(channelIndexes, "channelIndexes is null"));
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.isolatedBlockFilterFactory = requireNonNull(isolatedBlockFilterFactory, "isolatedBlockFilterFactory is null");
         this.executor = requireNonNull(executor, "executorService is null");

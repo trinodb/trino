@@ -636,7 +636,7 @@ public class TestDynamicPageFilter
         TestingDynamicFilter dynamicFilter = new TestingDynamicFilter(4);
         DynamicPageFilter pageFilter = new DynamicPageFilter(
                 dynamicFilter,
-                ImmutableList.of(columnA, columnB, columnC),
+                ImmutableMap.of(columnA, 0, columnB, 1, columnC, 2),
                 TYPE_OPERATORS,
                 BLOCK_FILTER_FACTORY,
                 directExecutor());

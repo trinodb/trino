@@ -26,11 +26,15 @@ import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.getDynamicRowFilterSelectivityThreshold;
 import static io.trino.SystemSessionProperties.getDynamicRowFilteringWaitTimeout;
 import static io.trino.SystemSessionProperties.isDynamicRowFilteringEnabled;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class DynamicRowFilteringPageSourceProvider
 {
@@ -44,6 +48,15 @@ public class DynamicRowFilteringPageSourceProvider
 
     public ConnectorPageSource createPageSource(ConnectorPageSource delegatePageSource, Session session, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
+        requireNonNull(columns, "columns is null");
+        Map<ColumnHandle, Integer> columnHandleMap = IntStream.range(0, columns.size())
+                .boxed()
+                .collect(toImmutableMap(columns::get, identity()));
+        return createPageSource(delegatePageSource, session, columns.size(), columnHandleMap, dynamicFilter);
+    }
+
+    public ConnectorPageSource createPageSource(ConnectorPageSource delegatePageSource, Session session, int columnCount, Map<ColumnHandle, Integer> channelIndexes, DynamicFilter dynamicFilter)
+    {
         if (dynamicFilter.isComplete() && dynamicFilter.getCurrentPredicate().isAll()) {
             return delegatePageSource;
         }
@@ -55,8 +68,8 @@ public class DynamicRowFilteringPageSourceProvider
                 delegatePageSource,
                 getDynamicRowFilterSelectivityThreshold(session),
                 getDynamicRowFilteringWaitTimeout(session),
-                columns,
-                dynamicPageFilterCache.getDynamicPageFilter(dynamicFilter, columns));
+                columnCount,
+                dynamicPageFilterCache.getDynamicPageFilter(dynamicFilter, channelIndexes));
     }
 
     public TupleDomain<ColumnHandle> getUnenforcedPredicate(
