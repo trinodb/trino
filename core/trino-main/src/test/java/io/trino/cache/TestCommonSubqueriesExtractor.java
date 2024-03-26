@@ -280,7 +280,8 @@ public class TestCommonSubqueriesExtractor
         // extract dynamic filter ids
         List<DynamicFilterId> dynamicFilterIds = PlanNodeSearcher.searchFrom(commonSubqueries.plan())
                 .whereIsInstanceOfAny(JoinNode.class)
-                .<JoinNode>findAll().stream()
+                .findAll().stream()
+                .map(JoinNode.class::cast)
                 .flatMap(join -> join.getDynamicFilters().keySet().stream())
                 .collect(toImmutableList());
         DynamicFilterId topId = dynamicFilterIds.get(0);

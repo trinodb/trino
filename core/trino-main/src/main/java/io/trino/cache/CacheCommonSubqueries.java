@@ -145,7 +145,7 @@ public class CacheCommonSubqueries
     public static LoadCachedDataPlanNode getLoadCachedDataPlanNode(ChooseAlternativeNode node)
     {
         checkArgument(isCacheChooseAlternativeNode(node), "ChooseAlternativeNode should contain cache alternatives");
-        return PlanNodeSearcher.searchFrom(node.getSources().get(LOAD_PAGES_ALTERNATIVE))
+        return (LoadCachedDataPlanNode) PlanNodeSearcher.searchFrom(node.getSources().get(LOAD_PAGES_ALTERNATIVE))
                 .whereIsInstanceOfAny(LoadCachedDataPlanNode.class)
                 .findOnlyElement();
     }

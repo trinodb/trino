@@ -474,7 +474,8 @@ public class DynamicFilterService
     {
         return PlanNodeSearcher.searchFrom(planNode)
                 .whereIsInstanceOfAny(LoadCachedDataPlanNode.class)
-                .<LoadCachedDataPlanNode>findAll().stream()
+                .findAll().stream()
+                .map(LoadCachedDataPlanNode.class::cast)
                 .flatMap(node -> extractDisjuncts(node.getDynamicFilterDisjuncts()).stream())
                 .flatMap(expression -> extractDynamicFilters(expression).getDynamicConjuncts().stream())
                 .map(DynamicFilters.Descriptor::getId)

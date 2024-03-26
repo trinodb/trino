@@ -201,7 +201,7 @@ public abstract class AbstractTestDynamicRowFiltering
     protected OperatorStats getScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
     {
         Plan plan = getDistributedQueryRunner().getQueryPlan(queryId);
-        FilterNode planNode = PlanNodeSearcher.searchFrom(plan.getRoot())
+        FilterNode planNode = (FilterNode) PlanNodeSearcher.searchFrom(plan.getRoot())
                 .where(node -> {
                     if (!(node instanceof FilterNode filterNode)) {
                         return false;

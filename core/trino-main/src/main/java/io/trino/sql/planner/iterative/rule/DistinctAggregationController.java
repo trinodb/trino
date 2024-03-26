@@ -206,7 +206,7 @@ public class DistinctAggregationController
                 .map(Symbol::from)
                 .collect(toImmutableSet());
 
-        TableScanNode tableScanNode = searchFrom(aggregationNode.getSource(), context.getLookup()).whereIsInstanceOfAny(TableScanNode.class).findOnlyElement();
+        TableScanNode tableScanNode = (TableScanNode) searchFrom(aggregationNode.getSource(), context.getLookup()).whereIsInstanceOfAny(TableScanNode.class).findOnlyElement();
         Set<Symbol> additionalColumns = Sets.difference(ImmutableSet.copyOf(tableScanNode.getOutputSymbols()), distinctInputs);
 
         // Group by columns need to read N times, where N is number of sub-queries.

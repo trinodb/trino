@@ -3189,7 +3189,7 @@ public class TestDeltaLakeConnectorTest
                                 .isTrue();
                     }
                     else {
-                        TableFinishNode finishNode = searchFrom(plan.getRoot())
+                        TableFinishNode finishNode = (TableFinishNode) searchFrom(plan.getRoot())
                                 .where(TableFinishNode.class::isInstance)
                                 .findOnlyElement();
                         assertThat(finishNode.getTarget() instanceof TableWriterNode.MergeTarget)

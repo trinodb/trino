@@ -33,8 +33,9 @@ public final class VerifyUseConnectorNodePartitioningSet
     {
         searchFrom(plan)
                 .where(TableScanNode.class::isInstance)
-                .<TableScanNode>findAll()
+                .findAll()
                 .stream()
+                .map(TableScanNode.class::cast)
                 .filter(scan -> scan.getUseConnectorNodePartitioning().isEmpty())
                 .forEach(scan -> {
                     throw new IllegalStateException(format("TableScanNode (%s) doesn't have useConnectorNodePartitioning set", scan));

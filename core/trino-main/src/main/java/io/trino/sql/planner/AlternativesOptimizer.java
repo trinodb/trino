@@ -307,8 +307,9 @@ public class AlternativesOptimizer
     {
         return searchFrom(chain, context.lookup)
                 .recurseOnlyWhen(node -> node.getSources().size() < 2) // otherwise not a node chain
-                .where(node -> node instanceof TableScanNode)
-                .findFirst();
+                .where(TableScanNode.class::isInstance)
+                .findFirst()
+                .map(TableScanNode.class::cast);
     }
 
     /**

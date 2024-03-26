@@ -406,7 +406,7 @@ public class TestTableRedirection
                 1,
                 // Verify the insert plan instead of through a successive SELECT, because insertion is a no-op for Mock connector
                 plan -> {
-                    TableFinishNode finishNode = searchFrom(plan.getRoot())
+                    TableFinishNode finishNode = (TableFinishNode) searchFrom(plan.getRoot())
                             .where(TableFinishNode.class::isInstance)
                             .findOnlyElement();
                     TableWriterNode.InsertTarget insertTarget = ((TableWriterNode.InsertTarget) finishNode.getTarget());
@@ -424,7 +424,7 @@ public class TestTableRedirection
                 0,
                 // Verify the insert plan instead of through a successive SELECT, because deletion is a no-op for Mock connector
                 plan -> {
-                    TableFinishNode finishNode = searchFrom(plan.getRoot())
+                    TableFinishNode finishNode = (TableFinishNode) searchFrom(plan.getRoot())
                             .where(TableFinishNode.class::isInstance)
                             .findOnlyElement();
                     TableWriterNode.MergeTarget mergeTarget = (TableWriterNode.MergeTarget) finishNode.getTarget();
@@ -442,7 +442,7 @@ public class TestTableRedirection
                 0,
                 // Verify the insert plan instead of through a successive SELECT, because update is a no-op for Mock connector
                 plan -> {
-                    TableFinishNode finishNode = searchFrom(plan.getRoot())
+                    TableFinishNode finishNode = (TableFinishNode) searchFrom(plan.getRoot())
                             .where(TableFinishNode.class::isInstance)
                             .findOnlyElement();
                     TableWriterNode.MergeTarget mergeTarget = (TableWriterNode.MergeTarget) finishNode.getTarget();
@@ -463,7 +463,7 @@ public class TestTableRedirection
     private Consumer<Plan> verifySingleTableScan(String schemaName, String tableName)
     {
         return plan -> {
-            TableScanNode tableScan = searchFrom(plan.getRoot())
+            TableScanNode tableScan = (TableScanNode) searchFrom(plan.getRoot())
                     .where(TableScanNode.class::isInstance)
                     .findOnlyElement();
             SchemaTableName actual = ((MockConnectorTableHandle) tableScan.getTable().getConnectorHandle()).getTableName();
