@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Map;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -67,6 +68,7 @@ public class ElasticsearchServer
         container = new ElasticsearchContainer(dockerImageName);
         container.withNetwork(network);
         container.withNetworkAliases("elasticsearch-server");
+        container.withStartupTimeout(Duration.ofMinutes(5));
 
         configurationPath = createTempDirectory(null);
         Map<String, String> configurationFiles = ImmutableMap.<String, String>builder()
