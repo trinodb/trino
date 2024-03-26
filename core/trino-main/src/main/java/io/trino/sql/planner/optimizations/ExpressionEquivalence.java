@@ -206,91 +206,86 @@ public class ExpressionEquivalence
                 return result;
             }
 
-            if (left instanceof CallExpression leftCall) {
-                CallExpression rightCall = (CallExpression) right;
-                return ComparisonChain.start()
-                        .compare(leftCall.getResolvedFunction().toString(), rightCall.getResolvedFunction().toString())
-                        .compare(leftCall.getArguments(), rightCall.getArguments(), argumentComparator)
-                        .result();
-            }
-
-            if (left instanceof SpecialForm leftForm) {
-                SpecialForm rightForm = (SpecialForm) right;
-                return ComparisonChain.start()
-                        .compare(leftForm.getForm(), rightForm.getForm())
-                        .compare(leftForm.getArguments(), rightForm.getArguments(), argumentComparator)
-                        .result();
-            }
-
-            if (left instanceof ConstantExpression leftConstant) {
-                ConstantExpression rightConstant = (ConstantExpression) right;
-
-                result = leftConstant.getType().getTypeSignature().toString().compareTo(right.getType().getTypeSignature().toString());
-                if (result != 0) {
-                    return result;
+            return switch (left) {
+                case CallExpression leftCall -> {
+                    CallExpression rightCall = (CallExpression) right;
+                    yield ComparisonChain.start()
+                            .compare(leftCall.getResolvedFunction().toString(), rightCall.getResolvedFunction().toString())
+                            .compare(leftCall.getArguments(), rightCall.getArguments(), argumentComparator)
+                            .result();
                 }
+                case SpecialForm leftForm -> {
+                    SpecialForm rightForm = (SpecialForm) right;
+                    yield ComparisonChain.start()
+                            .compare(leftForm.getForm(), rightForm.getForm())
+                            .compare(leftForm.getArguments(), rightForm.getArguments(), argumentComparator)
+                            .result();
+                }
+                case ConstantExpression leftConstant -> {
+                    ConstantExpression rightConstant = (ConstantExpression) right;
 
-                Object leftValue = leftConstant.getValue();
-                Object rightValue = rightConstant.getValue();
+                    result = leftConstant.getType().getTypeSignature().toString().compareTo(right.getType().getTypeSignature().toString());
+                    if (result != 0) {
+                        yield result;
+                    }
 
-                if (leftValue == null) {
+                    Object leftValue = leftConstant.getValue();
+                    Object rightValue = rightConstant.getValue();
+
+                    if (leftValue == null) {
+                        if (rightValue == null) {
+                            yield 0;
+                        }
+                        yield -1;
+                    }
                     if (rightValue == null) {
-                        return 0;
+                        yield 1;
                     }
-                    return -1;
-                }
-                if (rightValue == null) {
-                    return 1;
-                }
 
-                Class<?> javaType = leftConstant.getType().getJavaType();
-                if (javaType == boolean.class) {
-                    return ((Boolean) leftValue).compareTo((Boolean) rightValue);
-                }
-                if (javaType == byte.class || javaType == short.class || javaType == int.class || javaType == long.class) {
-                    return Long.compare(((Number) leftValue).longValue(), ((Number) rightValue).longValue());
-                }
-                if (javaType == float.class || javaType == double.class) {
-                    return Double.compare(((Number) leftValue).doubleValue(), ((Number) rightValue).doubleValue());
-                }
-                if (leftValue instanceof Comparable) {
-                    try {
-                        //noinspection unchecked,rawtypes
-                        return ((Comparable) leftValue).compareTo(rightValue);
+                    Class<?> javaType = leftConstant.getType().getJavaType();
+                    if (javaType == boolean.class) {
+                        yield ((Boolean) leftValue).compareTo((Boolean) rightValue);
                     }
-                    catch (RuntimeException ignored) {
+                    if (javaType == byte.class || javaType == short.class || javaType == int.class || javaType == long.class) {
+                        yield Long.compare(((Number) leftValue).longValue(), ((Number) rightValue).longValue());
                     }
+                    if (javaType == float.class || javaType == double.class) {
+                        yield Double.compare(((Number) leftValue).doubleValue(), ((Number) rightValue).doubleValue());
+                    }
+                    if (leftValue instanceof Comparable) {
+                        try {
+                            //noinspection unchecked,rawtypes
+                            yield ((Comparable) leftValue).compareTo(rightValue);
+                        }
+                        catch (RuntimeException ignored) {
+                        }
+                    }
+
+                    throw new IllegalArgumentException("Cannot compare %s of type %s and %s of type %s".formatted(leftConstant, leftConstant.getType(), rightConstant, rightConstant.getType()));
                 }
+                case InputReferenceExpression leftInputReferenceExpression ->
+                        Integer.compare(leftInputReferenceExpression.getField(), ((InputReferenceExpression) right).getField());
 
-                throw new IllegalArgumentException("Cannot compare %s of type %s and %s of type %s".formatted(leftConstant, leftConstant.getType(), rightConstant, rightConstant.getType()));
-            }
+                case LambdaDefinitionExpression leftLambda -> {
+                    LambdaDefinitionExpression rightLambda = (LambdaDefinitionExpression) right;
 
-            if (left instanceof InputReferenceExpression leftInputReferenceExpression) {
-                return Integer.compare(leftInputReferenceExpression.getField(), ((InputReferenceExpression) right).getField());
-            }
+                    yield ComparisonChain.start()
+                            .compare(
+                                    leftLambda.getArguments(),
+                                    rightLambda.getArguments(),
+                                    new ListComparator<>(Comparator.<Symbol>naturalOrder()))
+                            .compare(leftLambda.getBody(), rightLambda.getBody(), this)
+                            .result();
+                }
+                case VariableReferenceExpression leftVariableReference -> {
+                    VariableReferenceExpression rightVariableReference = (VariableReferenceExpression) right;
 
-            if (left instanceof LambdaDefinitionExpression leftLambda) {
-                LambdaDefinitionExpression rightLambda = (LambdaDefinitionExpression) right;
-
-                return ComparisonChain.start()
-                        .compare(
-                                leftLambda.getArguments(),
-                                rightLambda.getArguments(),
-                                new ListComparator<>(Comparator.<Symbol>naturalOrder()))
-                        .compare(leftLambda.getBody(), rightLambda.getBody(), this)
-                        .result();
-            }
-
-            if (left instanceof VariableReferenceExpression leftVariableReference) {
-                VariableReferenceExpression rightVariableReference = (VariableReferenceExpression) right;
-
-                return ComparisonChain.start()
-                        .compare(leftVariableReference.getName(), rightVariableReference.getName())
-                        .compare(leftVariableReference.getType(), rightVariableReference.getType(), Comparator.comparing(Object::toString))
-                        .result();
-            }
-
-            throw new IllegalArgumentException("Unsupported RowExpression type " + left.getClass().getSimpleName());
+                    yield ComparisonChain.start()
+                            .compare(leftVariableReference.getName(), rightVariableReference.getName())
+                            .compare(leftVariableReference.getType(), rightVariableReference.getType(), Comparator.comparing(Object::toString))
+                            .result();
+                }
+            };
         }
     }
 
