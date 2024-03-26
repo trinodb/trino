@@ -381,33 +381,27 @@ public class PreAggregateCaseAggregations
             return Optional.empty();
         }
 
-        Optional<Expression> cumulativeAggregationDefaultValue = Optional.empty();
-        if (caseExpression.defaultValue().isPresent()) {
-            Expression defaultValue = optimizeExpression(caseExpression.defaultValue().get(), context);
-            if (defaultValue instanceof Constant(Type type, Object value) && value != null) {
-                if (!name.equals(SUM)) {
-                    return Optional.empty();
-                }
+        Expression defaultValue = optimizeExpression(caseExpression.defaultValue(), context);
+        if (defaultValue instanceof Constant(Type type, Object value) && value != null) {
+            if (!name.equals(SUM)) {
+                return Optional.empty();
+            }
 
-                // sum aggregation is only supported if default value is null or 0, otherwise it wouldn't be cumulative
-                if (type instanceof BigintType
-                        || type == INTEGER
-                        || type == SMALLINT
-                        || type == TINYINT
-                        || type == DOUBLE
-                        || type == REAL
-                        || type instanceof DecimalType) {
-                    if (!value.equals(0L) && !value.equals(0.0d) && !value.equals(Int128.ZERO)) {
-                        return Optional.empty();
-                    }
-                }
-                else {
+            // sum aggregation is only supported if default value is null or 0, otherwise it wouldn't be cumulative
+            if (type instanceof BigintType
+                    || type == INTEGER
+                    || type == SMALLINT
+                    || type == TINYINT
+                    || type == DOUBLE
+                    || type == REAL
+                    || type instanceof DecimalType) {
+                if (!value.equals(0L) && !value.equals(0.0d) && !value.equals(Int128.ZERO)) {
                     return Optional.empty();
                 }
             }
-
-            // cumulative aggregation default value need to be CAST to cumulative aggregation input type
-            cumulativeAggregationDefaultValue = Optional.of(new Cast(caseExpression.defaultValue().get(), aggregationType));
+            else {
+                return Optional.empty();
+            }
         }
 
         return Optional.of(new CaseAggregation(
@@ -417,7 +411,7 @@ public class PreAggregateCaseAggregations
                 name,
                 caseExpression.whenClauses().get(0).getOperand(),
                 caseExpression.whenClauses().get(0).getResult(),
-                cumulativeAggregationDefaultValue));
+                new Cast(caseExpression.defaultValue(), aggregationType)));
     }
 
     private Type getType(Expression expression)
@@ -445,7 +439,7 @@ public class PreAggregateCaseAggregations
         // CASE expression only result expression
         private final Expression result;
         // default value of cumulative aggregation
-        private final Optional<Expression> cumulativeAggregationDefaultValue;
+        private final Expression cumulativeAggregationDefaultValue;
 
         public CaseAggregation(
                 Symbol aggregationSymbol,
@@ -454,7 +448,7 @@ public class PreAggregateCaseAggregations
                 CatalogSchemaFunctionName name,
                 Expression operand,
                 Expression result,
-                Optional<Expression> cumulativeAggregationDefaultValue)
+                Expression cumulativeAggregationDefaultValue)
         {
             this.aggregationSymbol = requireNonNull(aggregationSymbol, "aggregationSymbol is null");
             this.function = requireNonNull(function, "function is null");
@@ -495,7 +489,7 @@ public class PreAggregateCaseAggregations
             return result;
         }
 
-        public Optional<Expression> getCumulativeAggregationDefaultValue()
+        public Expression getCumulativeAggregationDefaultValue()
         {
             return cumulativeAggregationDefaultValue;
         }

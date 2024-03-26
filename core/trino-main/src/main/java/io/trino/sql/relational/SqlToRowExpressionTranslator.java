@@ -61,7 +61,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.relational.Expressions.call;
 import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.sql.relational.Expressions.constantNull;
 import static io.trino.sql.relational.Expressions.field;
 import static io.trino.sql.relational.SpecialForm.Form.AND;
 import static io.trino.sql.relational.SpecialForm.Form.BETWEEN;
@@ -339,9 +338,7 @@ public final class SqlToRowExpressionTranslator
 
             Type returnType = ((Expression) node).type();
 
-            arguments.add(node.defaultValue()
-                    .map(defaultValue -> process(defaultValue, context))
-                    .orElse(constantNull(returnType)));
+            arguments.add(process(node.defaultValue(), context));
 
             return new SpecialForm(SWITCH, returnType, arguments.build(), functionDependencies.build());
         }
@@ -369,9 +366,7 @@ public final class SqlToRowExpressionTranslator
                                     value4)))
 
              */
-            RowExpression expression = node.defaultValue()
-                    .map(value -> process(value, context))
-                    .orElse(constantNull(((Expression) node).type()));
+            RowExpression expression = process(node.defaultValue(), context);
 
             for (WhenClause clause : node.whenClauses().reversed()) {
                 expression = new SpecialForm(

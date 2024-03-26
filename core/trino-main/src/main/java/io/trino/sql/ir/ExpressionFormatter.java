@@ -191,9 +191,7 @@ public final class ExpressionFormatter
                 parts.add(format(whenClause, context));
             }
 
-            node.defaultValue()
-                    .ifPresent(value -> parts.add("ELSE").add(process(value, context)));
-
+            parts.add("ELSE").add(process(node.defaultValue(), context));
             parts.add("END");
 
             return "(" + Joiner.on(' ').join(parts.build()) + ")";
@@ -211,9 +209,7 @@ public final class ExpressionFormatter
                 parts.add(format(whenClause, context));
             }
 
-            node.defaultValue()
-                    .ifPresent(value -> parts.add("ELSE").add(process(value, context)));
-
+            parts.add("ELSE").add(process(node.defaultValue(), context));
             parts.add("END");
 
             return "(" + Joiner.on(' ').join(parts.build()) + ")";

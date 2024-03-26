@@ -861,7 +861,7 @@ class QueryPlanner
         // The case number
         rowBuilder.add(new Constant(INTEGER, -1L));
 
-        Case caseExpression = new Case(whenClauses.build(), Optional.of(new Row(rowBuilder.build())));
+        Case caseExpression = new Case(whenClauses.build(), new Row(rowBuilder.build()));
 
         Symbol mergeRowSymbol = symbolAllocator.newSymbol("merge_row", mergeAnalysis.getMergeRowType());
         Symbol caseNumberSymbol = symbolAllocator.newSymbol("case_number", INTEGER);

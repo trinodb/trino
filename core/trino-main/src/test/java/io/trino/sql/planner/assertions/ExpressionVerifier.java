@@ -35,7 +35,6 @@ import io.trino.sql.ir.WhenClause;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -238,10 +237,6 @@ public final class ExpressionVerifier
             return false;
         }
 
-        if (actual.defaultValue().isPresent() != expectedCase.defaultValue().isPresent()) {
-            return false;
-        }
-
         return process(actual.defaultValue(), expectedCase.defaultValue());
     }
 
@@ -319,17 +314,6 @@ public final class ExpressionVerifier
             if (!process(actuals.get(i), expecteds.get(i))) {
                 return false;
             }
-        }
-        return true;
-    }
-
-    private <T extends Expression> boolean process(Optional<T> actual, Optional<T> expected)
-    {
-        if (actual.isPresent() != expected.isPresent()) {
-            return false;
-        }
-        if (actual.isPresent()) {
-            return process(actual.get(), expected.get());
         }
         return true;
     }

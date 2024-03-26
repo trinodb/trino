@@ -230,16 +230,14 @@ public class IrExpressionInterpreter
                 defaultResult = newDefault;
             }
             else {
-                defaultResult = processWithExceptionHandling(node.defaultValue().orElse(null), context);
+                defaultResult = processWithExceptionHandling(node.defaultValue(), context);
             }
 
             if (whenClauses.isEmpty()) {
                 return defaultResult;
             }
 
-            Expression defaultExpression;
-            defaultExpression = defaultResult == null ? null : toExpression(defaultResult, ((Expression) node).type());
-            return new Case(whenClauses, Optional.ofNullable(defaultExpression));
+            return new Case(whenClauses, toExpression(defaultResult, ((Expression) node).type()));
         }
 
         @Override
@@ -250,7 +248,7 @@ public class IrExpressionInterpreter
 
             // if operand is null, return defaultValue
             if (operand == null) {
-                return processWithExceptionHandling(node.defaultValue().orElse(null), context);
+                return processWithExceptionHandling(node.defaultValue(), context);
             }
 
             Object newDefault = null;
@@ -281,16 +279,15 @@ public class IrExpressionInterpreter
                 defaultResult = newDefault;
             }
             else {
-                defaultResult = processWithExceptionHandling(node.defaultValue().orElse(null), context);
+                defaultResult = processWithExceptionHandling(node.defaultValue(), context);
             }
 
             if (whenClauses.isEmpty()) {
                 return defaultResult;
             }
 
-            Expression defaultExpression;
-            defaultExpression = defaultResult == null ? null : toExpression(defaultResult, ((Expression) node).type());
-            return new Switch(toExpression(operand, node.operand().type()), whenClauses, Optional.ofNullable(defaultExpression));
+            Expression defaultExpression = toExpression(defaultResult, ((Expression) node).type());
+            return new Switch(toExpression(operand, node.operand().type()), whenClauses, defaultExpression);
         }
 
         private boolean isEqual(Object operand1, Type type1, Object operand2, Type type2)
