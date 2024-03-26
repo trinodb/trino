@@ -87,7 +87,7 @@ public class PushTopNThroughOuterJoin
         JoinType type = joinNode.getType();
 
         if ((type == LEFT)
-                && ImmutableSet.copyOf(left.getOutputSymbols()).containsAll(orderBySymbols)
+                && ImmutableSet.copyOf(left.outputSymbols()).containsAll(orderBySymbols)
                 && !isAtMost(left, context.getLookup(), parent.getCount())) {
             return Result.ofPlanNode(
                     joinNode.replaceChildren(ImmutableList.of(
@@ -96,7 +96,7 @@ public class PushTopNThroughOuterJoin
         }
 
         if ((type == RIGHT)
-                && ImmutableSet.copyOf(right.getOutputSymbols()).containsAll(orderBySymbols)
+                && ImmutableSet.copyOf(right.outputSymbols()).containsAll(orderBySymbols)
                 && !isAtMost(right, context.getLookup(), parent.getCount())) {
             return Result.ofPlanNode(
                     joinNode.replaceChildren(ImmutableList.of(

@@ -128,7 +128,7 @@ public class TestIterativeOptimizer
         @Override
         public Result apply(TableScanNode tableScan, Captures captures, Context context)
         {
-            return Result.ofPlanNode(new ProjectNode(context.getIdAllocator().getNextId(), tableScan, Assignments.identity(tableScan.getOutputSymbols())));
+            return Result.ofPlanNode(new ProjectNode(context.getIdAllocator().getNextId(), tableScan, Assignments.identity(tableScan.outputSymbols())));
         }
     }
 }

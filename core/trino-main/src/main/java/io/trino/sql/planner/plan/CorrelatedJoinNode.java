@@ -70,7 +70,7 @@ public final class CorrelatedJoinNode
         requireNonNull(filter, "filter is null");
         requireNonNull(originSubquery, "originSubquery is null");
 
-        checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
+        checkArgument(input.outputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
 
         this.input = input;
         this.subquery = subquery;
@@ -117,18 +117,18 @@ public final class CorrelatedJoinNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(input, subquery);
     }
 
     @Override
     @JsonProperty("outputSymbols")
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return ImmutableList.<Symbol>builder()
-                .addAll(input.getOutputSymbols())
-                .addAll(subquery.getOutputSymbols())
+                .addAll(input.outputSymbols())
+                .addAll(subquery.outputSymbols())
                 .build();
     }
 
@@ -136,7 +136,7 @@ public final class CorrelatedJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new CorrelatedJoinNode(getId(), newChildren.get(0), newChildren.get(1), correlation, type, filter, originSubquery);
+        return new CorrelatedJoinNode(id(), newChildren.get(0), newChildren.get(1), correlation, type, filter, originSubquery);
     }
 
     @Override

@@ -55,7 +55,7 @@ class SetOperationMerge
     public Optional<SetOperationNode> mergeFirstSource()
     {
         Lookup lookup = context.getLookup();
-        List<PlanNode> sources = node.getSources().stream()
+        List<PlanNode> sources = node.sources().stream()
                 .map(lookup::resolve)
                 .collect(toImmutableList());
 
@@ -79,13 +79,13 @@ class SetOperationMerge
         }
 
         if (node instanceof UnionNode) {
-            return Optional.of(new UnionNode(node.getId(), newSources, newMappingsBuilder.build(), node.getOutputSymbols()));
+            return Optional.of(new UnionNode(node.id(), newSources, newMappingsBuilder.build(), node.outputSymbols()));
         }
         if (node instanceof IntersectNode) {
-            return Optional.of(new IntersectNode(node.getId(), newSources, newMappingsBuilder.build(), node.getOutputSymbols(), mergedQuantifier.get()));
+            return Optional.of(new IntersectNode(node.id(), newSources, newMappingsBuilder.build(), node.outputSymbols(), mergedQuantifier.get()));
         }
         if (node instanceof ExceptNode) {
-            return Optional.of(new ExceptNode(node.getId(), newSources, newMappingsBuilder.build(), node.getOutputSymbols(), mergedQuantifier.get()));
+            return Optional.of(new ExceptNode(node.id(), newSources, newMappingsBuilder.build(), node.outputSymbols(), mergedQuantifier.get()));
         }
         throw new IllegalArgumentException("unexpected node type: " + node.getClass().getSimpleName());
     }
@@ -100,7 +100,7 @@ class SetOperationMerge
         checkState(node instanceof UnionNode || node instanceof IntersectNode, "unexpected node type: %s", node.getClass().getSimpleName());
 
         Lookup lookup = context.getLookup();
-        List<PlanNode> sources = node.getSources().stream()
+        List<PlanNode> sources = node.sources().stream()
                 .map(lookup::resolve)
                 .collect(toImmutableList());
 
@@ -128,9 +128,9 @@ class SetOperationMerge
             return Optional.empty();
         }
         if (node instanceof UnionNode) {
-            return Optional.of(new UnionNode(node.getId(), newSources, newMappingsBuilder.build(), node.getOutputSymbols()));
+            return Optional.of(new UnionNode(node.id(), newSources, newMappingsBuilder.build(), node.outputSymbols()));
         }
-        return Optional.of(new IntersectNode(node.getId(), newSources, newMappingsBuilder.build(), node.getOutputSymbols(), resultIsDistinct));
+        return Optional.of(new IntersectNode(node.id(), newSources, newMappingsBuilder.build(), node.outputSymbols(), resultIsDistinct));
     }
 
     /**
@@ -179,7 +179,7 @@ class SetOperationMerge
 
     private void addMergedMappings(SetOperationNode child, int childIndex, ImmutableListMultimap.Builder<Symbol, Symbol> newMappingsBuilder)
     {
-        newSources.addAll(child.getSources());
+        newSources.addAll(child.sources());
         for (Map.Entry<Symbol, Collection<Symbol>> mapping : node.getSymbolMapping().asMap().entrySet()) {
             Symbol input = Iterables.get(mapping.getValue(), childIndex);
             newMappingsBuilder.putAll(mapping.getKey(), child.getSymbolMapping().get(input));

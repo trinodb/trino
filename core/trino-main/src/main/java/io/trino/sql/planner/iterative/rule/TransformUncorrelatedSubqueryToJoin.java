@@ -91,11 +91,11 @@ public class TransformUncorrelatedSubqueryToJoin
         if (correlatedJoinNode.getType() == RIGHT) {
             Assignments.Builder assignments = Assignments.builder();
             assignments.putIdentities(Sets.intersection(
-                    ImmutableSet.copyOf(correlatedJoinNode.getSubquery().getOutputSymbols()),
-                    ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols())));
+                    ImmutableSet.copyOf(correlatedJoinNode.getSubquery().outputSymbols()),
+                    ImmutableSet.copyOf(correlatedJoinNode.outputSymbols())));
             for (Symbol inputSymbol : Sets.intersection(
-                    ImmutableSet.copyOf(correlatedJoinNode.getInput().getOutputSymbols()),
-                    ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols()))) {
+                    ImmutableSet.copyOf(correlatedJoinNode.getInput().outputSymbols()),
+                    ImmutableSet.copyOf(correlatedJoinNode.outputSymbols()))) {
                 Type inputType = inputSymbol.getType();
                 assignments.put(inputSymbol, ifExpression(correlatedJoinNode.getFilter(), inputSymbol.toSymbolReference(), new Constant(inputType, null)));
             }
@@ -118,13 +118,13 @@ public class TransformUncorrelatedSubqueryToJoin
             type = JoinType.INNER;
         }
         return new JoinNode(
-                parent.getId(),
+                parent.id(),
                 type,
                 parent.getInput(),
                 parent.getSubquery(),
                 ImmutableList.of(),
-                parent.getInput().getOutputSymbols(),
-                parent.getSubquery().getOutputSymbols(),
+                parent.getInput().outputSymbols(),
+                parent.getSubquery().outputSymbols(),
                 false,
                 filter.equals(TRUE) ? Optional.empty() : Optional.of(filter),
                 Optional.empty(),

@@ -71,9 +71,9 @@ public class PushLimitIntoTableScan
         return metadata.applyLimit(context.getSession(), tableScan.getTable(), limit.getCount())
                 .map(result -> {
                     PlanNode node = new TableScanNode(
-                            tableScan.getId(),
+                            tableScan.id(),
                             result.getHandle(),
-                            tableScan.getOutputSymbols(),
+                            tableScan.outputSymbols(),
                             tableScan.getAssignments(),
                             tableScan.getEnforcedConstraint(),
                             deriveTableStatisticsForPushdown(
@@ -86,7 +86,7 @@ public class PushLimitIntoTableScan
                             Optional.empty());
 
                     if (!result.isLimitGuaranteed()) {
-                        node = new LimitNode(limit.getId(), node, limit.getCount(), limit.isPartial());
+                        node = new LimitNode(limit.id(), node, limit.getCount(), limit.isPartial());
                     }
 
                     return Result.ofPlanNode(node);

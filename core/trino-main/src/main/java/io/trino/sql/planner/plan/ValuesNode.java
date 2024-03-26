@@ -101,7 +101,7 @@ public final class ValuesNode
 
     @Override
     @JsonProperty
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return outputSymbols;
     }
@@ -119,7 +119,7 @@ public final class ValuesNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of();
     }

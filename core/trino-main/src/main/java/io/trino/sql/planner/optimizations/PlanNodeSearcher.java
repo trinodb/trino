@@ -99,7 +99,7 @@ public class PlanNodeSearcher
             return Optional.of((T) node);
         }
         if (recurseOnlyWhen.test(node)) {
-            for (PlanNode source : node.getSources()) {
+            for (PlanNode source : node.sources()) {
                 Optional<T> found = findFirstRecursive(source);
                 if (found.isPresent()) {
                     return found;
@@ -132,7 +132,7 @@ public class PlanNodeSearcher
             nodes.add((T) node);
         }
         if (recurseOnlyWhen.test(node)) {
-            for (PlanNode source : node.getSources()) {
+            for (PlanNode source : node.sources()) {
                 findAllRecursive(source, nodes);
             }
         }
@@ -149,12 +149,12 @@ public class PlanNodeSearcher
 
         if (where.test(node)) {
             checkArgument(
-                    node.getSources().size() == 1,
+                    node.sources().size() == 1,
                     "Unable to remove plan node as it contains 0 or more than 1 children");
-            return node.getSources().get(0);
+            return node.sources().get(0);
         }
         if (recurseOnlyWhen.test(node)) {
-            List<PlanNode> sources = node.getSources().stream()
+            List<PlanNode> sources = node.sources().stream()
                     .map(this::removeAllRecursive)
                     .collect(toImmutableList());
             return replaceChildren(node, sources);
@@ -173,12 +173,12 @@ public class PlanNodeSearcher
 
         if (where.test(node)) {
             checkArgument(
-                    node.getSources().size() == 1,
+                    node.sources().size() == 1,
                     "Unable to remove plan node as it contains 0 or more than 1 children");
-            return node.getSources().get(0);
+            return node.sources().get(0);
         }
         if (recurseOnlyWhen.test(node)) {
-            List<PlanNode> sources = node.getSources();
+            List<PlanNode> sources = node.sources();
             if (sources.isEmpty()) {
                 return node;
             }
@@ -203,7 +203,7 @@ public class PlanNodeSearcher
             return nodeToReplace;
         }
         if (recurseOnlyWhen.test(node)) {
-            List<PlanNode> sources = node.getSources().stream()
+            List<PlanNode> sources = node.sources().stream()
                     .map(source -> replaceAllRecursive(source, nodeToReplace))
                     .collect(toImmutableList());
             return replaceChildren(node, sources);
@@ -223,7 +223,7 @@ public class PlanNodeSearcher
         if (where.test(node)) {
             return nodeToReplace;
         }
-        List<PlanNode> sources = node.getSources();
+        List<PlanNode> sources = node.sources();
         if (sources.isEmpty()) {
             return node;
         }

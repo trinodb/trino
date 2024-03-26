@@ -122,7 +122,7 @@ public class TransformExistsApplyToCorrelatedJoin
 
     private Optional<PlanNode> rewriteToNonDefaultAggregation(ApplyNode applyNode, Context context)
     {
-        checkState(applyNode.getSubquery().getOutputSymbols().isEmpty(), "Expected subquery output symbols to be pruned");
+        checkState(applyNode.getSubquery().outputSymbols().isEmpty(), "Expected subquery output symbols to be pruned");
 
         Symbol subqueryTrue = context.getSymbolAllocator().newSymbol("subqueryTrue", BOOLEAN);
 
@@ -142,12 +142,12 @@ public class TransformExistsApplyToCorrelatedJoin
 
         Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().keySet());
         Assignments.Builder assignments = Assignments.builder()
-                .putIdentities(applyNode.getInput().getOutputSymbols())
+                .putIdentities(applyNode.getInput().outputSymbols())
                 .put(exists, new Coalesce(ImmutableList.of(subqueryTrue.toSymbolReference(), Booleans.FALSE)));
 
         return Optional.of(new ProjectNode(context.getIdAllocator().getNextId(),
                 new CorrelatedJoinNode(
-                        applyNode.getId(),
+                        applyNode.id(),
                         applyNode.getInput(),
                         subquery,
                         applyNode.getCorrelation(),
@@ -164,7 +164,7 @@ public class TransformExistsApplyToCorrelatedJoin
         Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().keySet());
 
         return new CorrelatedJoinNode(
-                applyNode.getId(),
+                applyNode.id(),
                 applyNode.getInput(),
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),

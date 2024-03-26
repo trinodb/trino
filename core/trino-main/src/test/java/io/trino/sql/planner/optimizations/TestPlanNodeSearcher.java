@@ -49,7 +49,7 @@ public class TestPlanNodeSearcher
         List<PlanNodeId> rootToBottomIds = new ArrayList<>();
         PlanNode node = root;
         while (node instanceof ProjectNode) {
-            rootToBottomIds.add(node.getId());
+            rootToBottomIds.add(node.id());
             node = ((ProjectNode) node).getSource();
         }
 
@@ -57,7 +57,7 @@ public class TestPlanNodeSearcher
                 .where(ProjectNode.class::isInstance)
                 .findAll()
                 .stream()
-                .map(PlanNode::getId)
+                .map(PlanNode::id)
                 .collect(toImmutableList());
 
         assertThat(rootToBottomIds).isEqualTo(findAllResult);
@@ -81,7 +81,7 @@ public class TestPlanNodeSearcher
                 .where(JoinNode.class::isInstance)
                 .findAll()
                 .stream()
-                .map(PlanNode::getId)
+                .map(PlanNode::id)
                 .collect(toImmutableList());
 
         assertThat(idsInPreOrder.build()).isEqualTo(findAllResult);
@@ -98,7 +98,7 @@ public class TestPlanNodeSearcher
         }
 
         if (root instanceof JoinNode join) {
-            builder.add(root.getId());
+            builder.add(root.id());
             joinNodePreorder(join.getLeft(), builder);
             joinNodePreorder(join.getRight(), builder);
             return;

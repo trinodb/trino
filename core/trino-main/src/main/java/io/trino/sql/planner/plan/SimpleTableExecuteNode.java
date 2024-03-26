@@ -45,13 +45,13 @@ public final class SimpleTableExecuteNode
 
     @Override
     @JsonProperty
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of();
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return ImmutableList.of(output);
     }

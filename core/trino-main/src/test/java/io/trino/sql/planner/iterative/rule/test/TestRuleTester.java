@@ -49,7 +49,7 @@ public class TestRuleTester
                     rule(
                             "testReportWrongMatch rule",
                             Pattern.typeOf(PlanNode.class),
-                            (node, captures, context) -> Result.ofPlanNode(node.replaceChildren(node.getSources()))))
+                            (node, captures, context) -> Result.ofPlanNode(node.replaceChildren(node.sources()))))
                     .on(p ->
                             p.project(
                                     Assignments.of(p.symbol("y"), new Reference(INTEGER, "x")),

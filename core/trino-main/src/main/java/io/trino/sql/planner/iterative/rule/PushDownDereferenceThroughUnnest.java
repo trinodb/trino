@@ -105,7 +105,7 @@ public class PushDownDereferenceThroughUnnest
                 context.getIdAllocator().getNextId(),
                 unnestNode.getSource(),
                 Assignments.builder()
-                        .putIdentities(unnestNode.getSource().getOutputSymbols())
+                        .putIdentities(unnestNode.getSource().outputSymbols())
                         .putAll(dereferenceAssignments)
                         .build());
 

@@ -68,7 +68,7 @@ public class PushdownLimitIntoRowNumber
             newRowCountPerPartition = Math.min(node.getMaxRowCountPerPartition().get(), newRowCountPerPartition);
         }
         return new RowNumberNode(
-                node.getId(),
+                node.id(),
                 node.getSource(),
                 node.getPartitionBy(),
                 limitNode.requiresPreSortedInputs() || node.isOrderSensitive(),

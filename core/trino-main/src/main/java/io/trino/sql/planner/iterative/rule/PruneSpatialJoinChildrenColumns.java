@@ -41,7 +41,7 @@ public class PruneSpatialJoinChildrenColumns
     public Result apply(SpatialJoinNode spatialJoinNode, Captures captures, Context context)
     {
         Set<Symbol> requiredOutputAndFilterSymbols = ImmutableSet.<Symbol>builder()
-                .addAll(spatialJoinNode.getOutputSymbols())
+                .addAll(spatialJoinNode.outputSymbols())
                 .addAll(SymbolsExtractor.extractUnique(spatialJoinNode.getFilter()))
                 .build();
 

@@ -78,7 +78,7 @@ public class PruneGroupIdColumns
         }
 
         return Optional.of(new GroupIdNode(
-                groupIdNode.getId(),
+                groupIdNode.id(),
                 groupIdNode.getSource(),
                 groupIdNode.getGroupingSets(),
                 groupIdNode.getGroupingColumns(),

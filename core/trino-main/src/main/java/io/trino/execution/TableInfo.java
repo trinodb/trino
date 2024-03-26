@@ -80,7 +80,7 @@ public class TableInfo
                 .findAll()
                 .stream()
                 .map(TableScanNode.class::cast)
-                .collect(toImmutableMap(PlanNode::getId, node -> extract(session, metadata, node)));
+                .collect(toImmutableMap(PlanNode::id, node -> extract(session, metadata, node)));
     }
 
     private static TableInfo extract(Session session, Metadata metadata, TableScanNode node)

@@ -74,15 +74,15 @@ public final class RowNumberNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
-        return ImmutableList.copyOf(concat(source.getOutputSymbols(), ImmutableList.of(rowNumberSymbol)));
+        return ImmutableList.copyOf(concat(source.outputSymbols(), ImmutableList.of(rowNumberSymbol)));
     }
 
     @JsonProperty
@@ -130,6 +130,6 @@ public final class RowNumberNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new RowNumberNode(getId(), Iterables.getOnlyElement(newChildren), partitionBy, orderSensitive, rowNumberSymbol, maxRowCountPerPartition, hashSymbol);
+        return new RowNumberNode(id(), Iterables.getOnlyElement(newChildren), partitionBy, orderSensitive, rowNumberSymbol, maxRowCountPerPartition, hashSymbol);
     }
 }

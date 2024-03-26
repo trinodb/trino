@@ -84,7 +84,7 @@ public class PruneCorrelatedJoinColumns
         PlanNode subquery = correlatedJoinNode.getSubquery();
 
         // remove unused correlated join node, retain input
-        if (intersection(ImmutableSet.copyOf(subquery.getOutputSymbols()), referencedOutputs).isEmpty()) {
+        if (intersection(ImmutableSet.copyOf(subquery.outputSymbols()), referencedOutputs).isEmpty()) {
             // remove unused subquery of inner join
             if (correlatedJoinNode.getType() == INNER && isScalar(subquery, context.getLookup()) && correlatedJoinNode.getFilter().equals(TRUE)) {
                 return Optional.of(input);
@@ -101,7 +101,7 @@ public class PruneCorrelatedJoinColumns
                 .build();
 
         // remove unused input node, retain subquery
-        if (intersection(ImmutableSet.copyOf(input.getOutputSymbols()), referencedAndCorrelationSymbols).isEmpty()) {
+        if (intersection(ImmutableSet.copyOf(input.outputSymbols()), referencedAndCorrelationSymbols).isEmpty()) {
             // remove unused input of inner join
             if (correlatedJoinNode.getType() == INNER && isScalar(input, context.getLookup()) && correlatedJoinNode.getFilter().equals(TRUE)) {
                 return Optional.of(subquery);
@@ -132,7 +132,7 @@ public class PruneCorrelatedJoinColumns
 
         if (pruned) {
             return Optional.of(new CorrelatedJoinNode(
-                    correlatedJoinNode.getId(),
+                    correlatedJoinNode.id(),
                     newInput.orElse(input),
                     newSubquery.orElse(subquery),
                     correlatedJoinNode.getCorrelation(),

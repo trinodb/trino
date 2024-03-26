@@ -66,7 +66,7 @@ public final class LimitNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
@@ -112,9 +112,9 @@ public final class LimitNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
-        return source.getOutputSymbols();
+        return source.outputSymbols();
     }
 
     @Override
@@ -126,6 +126,6 @@ public final class LimitNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new LimitNode(getId(), Iterables.getOnlyElement(newChildren), count, tiesResolvingScheme, isPartial(), preSortedInputs);
+        return new LimitNode(id(), Iterables.getOnlyElement(newChildren), count, tiesResolvingScheme, isPartial(), preSortedInputs);
     }
 }

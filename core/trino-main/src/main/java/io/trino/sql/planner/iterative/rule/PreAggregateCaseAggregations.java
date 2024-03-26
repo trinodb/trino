@@ -191,7 +191,7 @@ public class PreAggregateCaseAggregations
             Map<CaseAggregation, Symbol> newProjectionSymbols)
     {
         return new AggregationNode(
-                aggregationNode.getId(),
+                aggregationNode.id(),
                 source,
                 newProjectionSymbols.entrySet().stream()
                         .collect(toImmutableMap(
@@ -227,7 +227,7 @@ public class PreAggregateCaseAggregations
                                 aggregation.getOperand(),
                                 preAggregations.get(new PreAggregationKey(aggregation)).getAggregationSymbol().toSymbolReference())),
                         aggregation.getCumulativeAggregationDefaultValue())));
-        return new ProjectNode(projectNode.getId(), source, assignments.build());
+        return new ProjectNode(projectNode.id(), source, assignments.build());
     }
 
     private Map<CaseAggregation, Symbol> getNewProjectionSymbols(List<CaseAggregation> aggregations, Context context)

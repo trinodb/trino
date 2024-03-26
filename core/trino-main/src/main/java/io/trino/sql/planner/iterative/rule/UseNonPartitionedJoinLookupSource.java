@@ -104,13 +104,13 @@ public class UseNonPartitionedJoinLookupSource
     private static ExchangeNode toGatheringExchange(ExchangeNode exchangeNode)
     {
         return new ExchangeNode(
-                exchangeNode.getId(),
+                exchangeNode.id(),
                 GATHER,
                 LOCAL,
                 new PartitioningScheme(
                         Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
                         exchangeNode.getPartitioningScheme().getOutputLayout()),
-                exchangeNode.getSources(),
+                exchangeNode.sources(),
                 exchangeNode.getInputs(),
                 Optional.empty());
     }

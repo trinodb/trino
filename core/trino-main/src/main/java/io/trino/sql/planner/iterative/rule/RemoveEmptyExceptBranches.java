@@ -57,20 +57,20 @@ public class RemoveEmptyExceptBranches
     @Override
     public Result apply(ExceptNode node, Captures captures, Context context)
     {
-        if (isEmpty(node.getSources().get(0), context.getLookup())) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+        if (isEmpty(node.sources().get(0), context.getLookup())) {
+            return Result.ofPlanNode(new ValuesNode(node.id(), node.outputSymbols(), ImmutableList.of()));
         }
 
         boolean hasEmptyBranches = false;
         ImmutableList.Builder<PlanNode> newSourcesBuilder = ImmutableList.builder();
         ImmutableListMultimap.Builder<Symbol, Symbol> outputsToInputsBuilder = ImmutableListMultimap.builder();
-        for (int i = 0; i < node.getSources().size(); i++) {
-            PlanNode source = node.getSources().get(i);
+        for (int i = 0; i < node.sources().size(); i++) {
+            PlanNode source = node.sources().get(i);
             // first source is the set we're excluding rows from, so treat it separately
             if (i == 0 || !isEmpty(source, context.getLookup())) {
                 newSourcesBuilder.add(source);
 
-                for (Symbol column : node.getOutputSymbols()) {
+                for (Symbol column : node.outputSymbols()) {
                     outputsToInputsBuilder.put(column, node.getSymbolMapping().get(column).get(i));
                 }
             }
@@ -95,22 +95,22 @@ public class RemoveEmptyExceptBranches
             if (node.isDistinct()) {
                 return Result.ofPlanNode(
                         singleAggregation(
-                                node.getId(),
+                                node.id(),
                                 new ProjectNode(
                                         context.getIdAllocator().getNextId(),
                                         newSources.get(0),
                                         assignments.build()),
                                 ImmutableMap.of(),
-                                singleGroupingSet(node.getOutputSymbols())));
+                                singleGroupingSet(node.outputSymbols())));
             }
 
             return Result.ofPlanNode(
                     new ProjectNode(
-                            node.getId(),
+                            node.id(),
                             newSources.get(0),
                             assignments.build()));
         }
 
-        return Result.ofPlanNode(new ExceptNode(node.getId(), newSources, outputsToInputs, node.getOutputSymbols(), node.isDistinct()));
+        return Result.ofPlanNode(new ExceptNode(node.id(), newSources, outputsToInputs, node.outputSymbols(), node.isDistinct()));
     }
 }

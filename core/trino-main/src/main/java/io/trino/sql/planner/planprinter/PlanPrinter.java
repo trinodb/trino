@@ -307,7 +307,7 @@ public class PlanPrinter
 
         return jsonDistributedPlan(
                 planFragments,
-                tableScanNode -> tableInfos.get(tableScanNode.getId()),
+                tableScanNode -> tableInfos.get(tableScanNode.id()),
                 valuePrinter,
                 anonymizer);
     }
@@ -431,7 +431,7 @@ public class PlanPrinter
 
         for (StageInfo stageInfo : allStages) {
             builder.append(formatFragment(
-                    tableScanNode -> tableInfos.get(tableScanNode.getId()),
+                    tableScanNode -> tableInfos.get(tableScanNode.id()),
                     dynamicFilterDomainStats,
                     valuePrinter,
                     stageInfo.getPlan(),
@@ -605,8 +605,8 @@ public class PlanPrinter
                 ImmutableSet.of(),
                 SINGLE_DISTRIBUTION,
                 Optional.empty(),
-                ImmutableList.of(plan.getId()),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
+                ImmutableList.of(plan.id()),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.outputSymbols()),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 ImmutableList.of(),
@@ -728,7 +728,7 @@ public class PlanPrinter
                     context);
 
             for (Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
-                if (node.getOutputSymbols().contains(entry.getKey())) {
+                if (node.outputSymbols().contains(entry.getKey())) {
                     nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(entry.getKey()), anonymizer.anonymize(entry.getValue()));
                 }
             }
@@ -1118,7 +1118,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput;
             nodeOutput = addNode(node, "TableScan", ImmutableMap.of("table", anonymizer.anonymize(table, tableInfo)), context);
             printTableScanInfo(nodeOutput, node, tableInfo);
-            PlanNodeStats nodeStats = stats.map(s -> s.get(node.getId())).orElse(null);
+            PlanNodeStats nodeStats = stats.map(s -> s.get(node.id())).orElse(null);
             if (nodeStats != null) {
                 StringBuilder inputDetailBuilder = new StringBuilder();
                 ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
@@ -1227,7 +1227,7 @@ public class PlanPrinter
             List<PlanNodeId> allNodes = Stream.of(scanNode, filterNode, projectNode)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .map(PlanNode::getId)
+                    .map(PlanNode::id)
                     .collect(toList());
 
             NodeRepresentation nodeOutput = addNode(
@@ -1244,7 +1244,7 @@ public class PlanPrinter
 
             if (scanNode.isPresent()) {
                 printTableScanInfo(nodeOutput, scanNode.get(), tableInfoSupplier.apply(scanNode.get()));
-                PlanNodeStats nodeStats = stats.map(s -> s.get(node.getId())).orElse(null);
+                PlanNodeStats nodeStats = stats.map(s -> s.get(node.id())).orElse(null);
                 if (nodeStats != null) {
                     // Add to 'details' rather than 'statistics', since these stats are node-specific
                     double filtered = 100.0d * (nodeStats.getPlanNodeInputPositions() - nodeStats.getPlanNodeOutputPositions()) / nodeStats.getPlanNodeInputPositions();
@@ -1392,7 +1392,7 @@ public class PlanPrinter
                     context);
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
-                Symbol symbol = node.getOutputSymbols().get(i);
+                Symbol symbol = node.outputSymbols().get(i);
                 if (!name.equals(symbol.getName())) {
                     nodeOutput.appendDetails("%s := %s", anonymizer.anonymizeColumn(name), anonymizer.anonymize(symbol));
                 }
@@ -1629,7 +1629,7 @@ public class PlanPrinter
                     node,
                     "AdaptivePlan",
                     ImmutableMap.of(),
-                    ImmutableList.of(node.getId()),
+                    ImmutableList.of(node.id()),
                     ImmutableList.of(node.getCurrentPlan()),
                     ImmutableList.of(node.getInitialPlan()),
                     Optional.empty(),
@@ -1787,8 +1787,8 @@ public class PlanPrinter
                 }
             }
 
-            for (int i = 0; i < node.getSources().size(); i++) {
-                node.getSources().get(i).accept(this, new Context(node.getTableArgumentProperties().get(i).getArgumentName(), context.isInitialPlan()));
+            for (int i = 0; i < node.sources().size(); i++) {
+                node.sources().get(i).accept(this, new Context(node.getTableArgumentProperties().get(i).getArgumentName(), context.isInitialPlan()));
             }
 
             return null;
@@ -1910,7 +1910,7 @@ public class PlanPrinter
 
         private Void processChildren(PlanNode node, Context context)
         {
-            for (PlanNode child : node.getSources()) {
+            for (PlanNode child : node.sources()) {
                 child.accept(this, context);
             }
 
@@ -2087,17 +2087,17 @@ public class PlanPrinter
 
         public NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, Context context)
         {
-            return addNode(node, name, descriptor, node.getSources(), Optional.empty(), context);
+            return addNode(node, name, descriptor, node.sources(), Optional.empty(), context);
         }
 
         public NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost, Context context)
         {
-            return addNode(node, name, descriptor, node.getSources(), reorderJoinStatsAndCost, context);
+            return addNode(node, name, descriptor, node.sources(), reorderJoinStatsAndCost, context);
         }
 
         public NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, List<PlanNode> children, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost, Context context)
         {
-            return addNode(node, name, descriptor, ImmutableList.of(node.getId()), children, ImmutableList.of(), reorderJoinStatsAndCost, context);
+            return addNode(node, name, descriptor, ImmutableList.of(node.id()), children, ImmutableList.of(), reorderJoinStatsAndCost, context);
         }
 
         public NodeRepresentation addNode(
@@ -2110,8 +2110,8 @@ public class PlanPrinter
                 Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost,
                 Context context)
         {
-            List<PlanNodeId> childrenIds = children.stream().map(PlanNode::getId).collect(toImmutableList());
-            List<PlanNodeId> initialChildrenIds = initialChildren.stream().map(PlanNode::getId).collect(toImmutableList());
+            List<PlanNodeId> childrenIds = children.stream().map(PlanNode::id).collect(toImmutableList());
+            List<PlanNodeId> initialChildrenIds = initialChildren.stream().map(PlanNode::id).collect(toImmutableList());
             List<PlanNodeStatsEstimate> estimatedStats = allNodes.stream()
                     .map(nodeId -> estimatedStatsAndCosts.getStats().getOrDefault(nodeId, PlanNodeStatsEstimate.unknown()))
                     .collect(toList());
@@ -2123,14 +2123,14 @@ public class PlanPrinter
                     .orElse("") + name;
 
             NodeRepresentation nodeOutput = new NodeRepresentation(
-                    rootNode.getId(),
+                    rootNode.id(),
                     name,
                     rootNode.getClass().getSimpleName(),
                     descriptor,
-                    rootNode.getOutputSymbols().stream()
+                    rootNode.outputSymbols().stream()
                             .map(s -> new Symbol(s.getType(), anonymizer.anonymize(s)))
                             .collect(toImmutableList()),
-                    stats.map(s -> s.get(rootNode.getId())),
+                    stats.map(s -> s.get(rootNode.id())),
                     estimatedStats,
                     estimatedCosts,
                     reorderJoinStatsAndCost,

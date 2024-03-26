@@ -104,7 +104,7 @@ public class PushDownDereferencesThroughRowNumber
                                         context.getIdAllocator().getNextId(),
                                         rowNumberNode.getSource(),
                                         Assignments.builder()
-                                                .putIdentities(rowNumberNode.getSource().getOutputSymbols())
+                                                .putIdentities(rowNumberNode.getSource().outputSymbols())
                                                 .putAll(dereferenceAssignments)
                                                 .build()))),
                         newAssignments));

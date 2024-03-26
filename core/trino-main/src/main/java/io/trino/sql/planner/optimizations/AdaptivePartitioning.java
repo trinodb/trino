@@ -154,7 +154,7 @@ public class AdaptivePartitioning
                 // or filter ratio is high
                 return node;
             }
-            List<PlanNode> sources = node.getSources().stream()
+            List<PlanNode> sources = node.sources().stream()
                     .map(context::rewrite)
                     .collect(toImmutableList());
             PartitioningScheme partitioningScheme = node.getPartitioningScheme();
@@ -162,11 +162,11 @@ public class AdaptivePartitioning
             // for FTE it only makes sense to set partition count fot hash partitioned fragments
             if (node.getPartitioningScheme().getPartitioning().getHandle() == FIXED_HASH_DISTRIBUTION) {
                 partitioningScheme = partitioningScheme.withPartitionCount(Optional.of(partitionCount));
-                changedPlanIds.add(node.getId());
+                changedPlanIds.add(node.id());
             }
 
             return new ExchangeNode(
-                    node.getId(),
+                    node.id(),
                     node.getType(),
                     node.getScope(),
                     partitioningScheme,
@@ -204,7 +204,7 @@ public class AdaptivePartitioning
                     REMOTE,
                     newPartitioningSchema,
                     ImmutableList.of(node),
-                    ImmutableList.of(node.getOutputSymbols()),
+                    ImmutableList.of(node.outputSymbols()),
                     node.getOrderingScheme());
         }
 

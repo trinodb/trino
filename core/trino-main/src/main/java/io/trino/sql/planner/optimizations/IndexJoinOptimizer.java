@@ -149,11 +149,11 @@ public class IndexJoinOptimizer
                                 indexJoinNode = new FilterNode(idAllocator.getNextId(), indexJoinNode, node.getFilter().get());
                             }
 
-                            if (!indexJoinNode.getOutputSymbols().equals(node.getOutputSymbols())) {
+                            if (!indexJoinNode.outputSymbols().equals(node.outputSymbols())) {
                                 indexJoinNode = new ProjectNode(
                                         idAllocator.getNextId(),
                                         indexJoinNode,
-                                        Assignments.identity(node.getOutputSymbols()));
+                                        Assignments.identity(node.outputSymbols()));
                             }
 
                             return indexJoinNode;
@@ -163,14 +163,14 @@ public class IndexJoinOptimizer
                     case LEFT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (node.getFilter().isEmpty() && rightIndexCandidate.isPresent()) {
-                            return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), idAllocator);
+                            return createIndexJoinWithExpectedOutputs(node.outputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), idAllocator);
                         }
                         break;
 
                     case RIGHT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (node.getFilter().isEmpty() && leftIndexCandidate.isPresent()) {
-                            return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), idAllocator);
+                            return createIndexJoinWithExpectedOutputs(node.outputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), idAllocator);
                         }
                         break;
 
@@ -184,7 +184,7 @@ public class IndexJoinOptimizer
 
             if (leftRewritten != node.getLeft() || rightRewritten != node.getRight()) {
                 return new JoinNode(
-                        node.getId(),
+                        node.id(),
                         node.getType(),
                         leftRewritten,
                         rightRewritten,
@@ -206,7 +206,7 @@ public class IndexJoinOptimizer
         private static PlanNode createIndexJoinWithExpectedOutputs(List<Symbol> expectedOutputs, IndexJoinNode.Type type, PlanNode probe, PlanNode index, List<IndexJoinNode.EquiJoinClause> equiJoinClause, PlanNodeIdAllocator idAllocator)
         {
             PlanNode result = new IndexJoinNode(idAllocator.getNextId(), type, probe, index, equiJoinClause, Optional.empty(), Optional.empty());
-            if (!result.getOutputSymbols().equals(expectedOutputs)) {
+            if (!result.outputSymbols().equals(expectedOutputs)) {
                 result = new ProjectNode(
                         idAllocator.getNextId(),
                         result,
@@ -288,13 +288,13 @@ public class IndexJoinOptimizer
                     .transformKeys(node.getAssignments()::get)
                     .intersect(node.getEnforcedConstraint());
 
-            checkState(node.getOutputSymbols().containsAll(context.getLookupSymbols()));
+            checkState(node.outputSymbols().containsAll(context.getLookupSymbols()));
 
             Set<ColumnHandle> lookupColumns = context.getLookupSymbols().stream()
                     .map(node.getAssignments()::get)
                     .collect(toImmutableSet());
 
-            Set<ColumnHandle> outputColumns = node.getOutputSymbols().stream().map(node.getAssignments()::get).collect(toImmutableSet());
+            Set<ColumnHandle> outputColumns = node.outputSymbols().stream().map(node.getAssignments()::get).collect(toImmutableSet());
 
             Optional<ResolvedIndex> optionalResolvedIndex = plannerContext.getMetadata().resolveIndex(session, node.getTable(), lookupColumns, outputColumns, simplifiedConstraint);
             if (optionalResolvedIndex.isEmpty()) {
@@ -310,7 +310,7 @@ public class IndexJoinOptimizer
                     resolvedIndex.getIndexHandle(),
                     node.getTable(),
                     context.getLookupSymbols(),
-                    node.getOutputSymbols(),
+                    node.outputSymbols(),
                     node.getAssignments());
 
             Expression resultingPredicate = combineConjuncts(
@@ -393,7 +393,7 @@ public class IndexJoinOptimizer
         public PlanNode visitIndexJoin(IndexJoinNode node, RewriteContext<Context> context)
         {
             // Lookup symbols can only be passed through the probe side of an index join
-            if (!node.getProbeSource().getOutputSymbols().containsAll(context.get().getLookupSymbols())) {
+            if (!node.getProbeSource().outputSymbols().containsAll(context.get().getLookupSymbols())) {
                 return node;
             }
 
@@ -401,7 +401,7 @@ public class IndexJoinOptimizer
 
             PlanNode source = node;
             if (rewrittenProbeSource != node.getProbeSource()) {
-                source = new IndexJoinNode(node.getId(), node.getType(), rewrittenProbeSource, node.getIndexSource(), node.getCriteria(), node.getProbeHashSymbol(), node.getIndexHashSymbol());
+                source = new IndexJoinNode(node.id(), node.getType(), rewrittenProbeSource, node.getIndexSource(), node.getCriteria(), node.getProbeHashSymbol(), node.getIndexHashSymbol());
             }
 
             return source;
@@ -515,7 +515,7 @@ public class IndexJoinOptimizer
             public Map<Symbol, Symbol> visitIndexJoin(IndexJoinNode node, Set<Symbol> lookupSymbols)
             {
                 Set<Symbol> probeLookupSymbols = lookupSymbols.stream()
-                        .filter(node.getProbeSource().getOutputSymbols()::contains)
+                        .filter(node.getProbeSource().outputSymbols()::contains)
                         .collect(toImmutableSet());
                 checkState(!probeLookupSymbols.isEmpty(), "No lookup symbols were able to pass through the index join probe source");
                 return node.getProbeSource().accept(this, probeLookupSymbols);

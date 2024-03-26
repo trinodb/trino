@@ -139,7 +139,7 @@ public class RewriteSpatialPartitioningAggregation
                                 context.getIdAllocator().getNextId(),
                                 node.getSource(),
                                 Assignments.builder()
-                                        .putIdentities(node.getSource().getOutputSymbols())
+                                        .putIdentities(node.getSource().outputSymbols())
                                         .put(partitionCountSymbol, new Constant(INTEGER, (long) partitionCount))
                                         .putAll(envelopeAssignments.buildOrThrow())
                                         .build()))

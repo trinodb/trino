@@ -112,7 +112,7 @@ public class PushDownDereferencesThroughTopNRanking
                                         context.getIdAllocator().getNextId(),
                                         topNRankingNode.getSource(),
                                         Assignments.builder()
-                                                .putIdentities(topNRankingNode.getSource().getOutputSymbols())
+                                                .putIdentities(topNRankingNode.getSource().outputSymbols())
                                                 .putAll(dereferenceAssignments)
                                                 .build()))),
                         newAssignments));

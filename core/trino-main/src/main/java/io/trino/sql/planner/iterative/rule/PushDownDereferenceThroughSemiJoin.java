@@ -104,7 +104,7 @@ public class PushDownDereferenceThroughSemiJoin
                 context.getIdAllocator().getNextId(),
                 semiJoinNode.getSource(),
                 Assignments.builder()
-                        .putIdentities(semiJoinNode.getSource().getOutputSymbols())
+                        .putIdentities(semiJoinNode.getSource().outputSymbols())
                         .putAll(dereferenceAssignments)
                         .build());
 

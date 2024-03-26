@@ -114,13 +114,13 @@ public final class TableFunctionNode
 
     @JsonProperty
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return sources;
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
 
@@ -147,7 +147,7 @@ public final class TableFunctionNode
     {
         checkArgument(sources.size() == newSources.size(), "wrong number of new children");
         return new TableFunctionNode(
-                getId(),
+                id(),
                 name,
                 functionCatalog,
                 arguments,

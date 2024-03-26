@@ -45,7 +45,7 @@ public class MergeFilters
 
         return Result.ofPlanNode(
                 new FilterNode(
-                        parent.getId(),
+                        parent.id(),
                         child.getSource(),
                         combineConjuncts(child.getPredicate(), parent.getPredicate())));
     }

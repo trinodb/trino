@@ -78,18 +78,18 @@ public final class TopNRankingNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         if (!partial) {
-            return ImmutableList.copyOf(concat(source.getOutputSymbols(), ImmutableList.of(rankingSymbol)));
+            return ImmutableList.copyOf(concat(source.outputSymbols(), ImmutableList.of(rankingSymbol)));
         }
-        return ImmutableList.copyOf(source.getOutputSymbols());
+        return ImmutableList.copyOf(source.outputSymbols());
     }
 
     @JsonProperty
@@ -153,6 +153,6 @@ public final class TopNRankingNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TopNRankingNode(getId(), Iterables.getOnlyElement(newChildren), specification, rankingType, rankingSymbol, maxRankingPerPartition, partial, hashSymbol);
+        return new TopNRankingNode(id(), Iterables.getOnlyElement(newChildren), specification, rankingType, rankingSymbol, maxRankingPerPartition, partial, hashSymbol);
     }
 }

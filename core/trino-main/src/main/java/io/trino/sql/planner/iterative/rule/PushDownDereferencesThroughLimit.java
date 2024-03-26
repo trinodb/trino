@@ -110,7 +110,7 @@ public class PushDownDereferencesThroughLimit
                                         context.getIdAllocator().getNextId(),
                                         limitNode.getSource(),
                                         Assignments.builder()
-                                                .putIdentities(limitNode.getSource().getOutputSymbols())
+                                                .putIdentities(limitNode.getSource().outputSymbols())
                                                 .putAll(dereferenceAssignments)
                                                 .build()))),
                         newAssignments));

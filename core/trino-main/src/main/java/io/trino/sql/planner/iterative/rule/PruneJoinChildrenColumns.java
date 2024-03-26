@@ -44,7 +44,7 @@ public class PruneJoinChildrenColumns
     public Result apply(JoinNode joinNode, Captures captures, Context context)
     {
         Set<Symbol> globallyUsableInputs = ImmutableSet.<Symbol>builder()
-                .addAll(joinNode.getOutputSymbols())
+                .addAll(joinNode.outputSymbols())
                 .addAll(
                         joinNode.getFilter()
                                 .map(SymbolsExtractor::extractUnique)

@@ -64,8 +64,8 @@ public class PruneUnionColumns
 
         return Optional.of(
                 new UnionNode(
-                        unionNode.getId(),
-                        unionNode.getSources(),
+                        unionNode.id(),
+                        unionNode.sources(),
                         prunedOutputMappings,
                         ImmutableList.copyOf(prunedOutputMappings.keySet())));
     }

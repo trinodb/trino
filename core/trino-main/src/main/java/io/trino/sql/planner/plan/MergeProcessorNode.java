@@ -101,13 +101,13 @@ public final class MergeProcessorNode
 
     @JsonProperty("outputs")
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return outputs;
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
@@ -121,6 +121,6 @@ public final class MergeProcessorNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MergeProcessorNode(getId(), Iterables.getOnlyElement(newChildren), target, rowIdSymbol, mergeRowSymbol, dataColumnSymbols, redistributionColumnSymbols, outputs);
+        return new MergeProcessorNode(id(), Iterables.getOnlyElement(newChildren), target, rowIdSymbol, mergeRowSymbol, dataColumnSymbols, redistributionColumnSymbols, outputs);
     }
 }

@@ -91,14 +91,14 @@ public class InputExtractor
         @Override
         public Void visitTableScan(TableScanNode node, PlanFragmentId fragmentId)
         {
-            processScan(fragmentId, node.getId(), node.getTable(), node.getAssignments());
+            processScan(fragmentId, node.id(), node.getTable(), node.getAssignments());
             return null;
         }
 
         @Override
         public Void visitIndexSource(IndexSourceNode node, PlanFragmentId fragmentId)
         {
-            processScan(fragmentId, node.getId(), node.getTableHandle(), node.getAssignments());
+            processScan(fragmentId, node.id(), node.getTableHandle(), node.getAssignments());
             return null;
         }
 
@@ -115,7 +115,7 @@ public class InputExtractor
         @Override
         protected Void visitPlan(PlanNode node, PlanFragmentId fragmentId)
         {
-            for (PlanNode child : node.getSources()) {
+            for (PlanNode child : node.sources()) {
                 child.accept(this, fragmentId);
             }
             return null;

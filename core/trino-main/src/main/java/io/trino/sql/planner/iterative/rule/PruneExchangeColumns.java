@@ -78,7 +78,7 @@ public class PruneExchangeColumns
         exchangeNode.getOrderingScheme().ifPresent(orderingScheme -> builder.addAll(orderingScheme.getOrderBy()));
         Set<Symbol> outputsToRetain = builder.build();
 
-        if (outputsToRetain.size() == exchangeNode.getOutputSymbols().size()) {
+        if (outputsToRetain.size() == exchangeNode.outputSymbols().size()) {
             return Optional.empty();
         }
 
@@ -89,8 +89,8 @@ public class PruneExchangeColumns
         }
 
         // Retain used symbols from output list and corresponding symbols from all input lists
-        for (int i = 0; i < exchangeNode.getOutputSymbols().size(); i++) {
-            Symbol output = exchangeNode.getOutputSymbols().get(i);
+        for (int i = 0; i < exchangeNode.outputSymbols().size(); i++) {
+            Symbol output = exchangeNode.outputSymbols().get(i);
             if (outputsToRetain.contains(output)) {
                 newOutputs.add(output);
                 for (int source = 0; source < exchangeNode.getInputs().size(); source++) {
@@ -109,11 +109,11 @@ public class PruneExchangeColumns
                 exchangeNode.getPartitioningScheme().getPartitionCount());
 
         return Optional.of(new ExchangeNode(
-                exchangeNode.getId(),
+                exchangeNode.id(),
                 exchangeNode.getType(),
                 exchangeNode.getScope(),
                 newPartitioningScheme,
-                exchangeNode.getSources(),
+                exchangeNode.sources(),
                 newInputs,
                 exchangeNode.getOrderingScheme()));
     }

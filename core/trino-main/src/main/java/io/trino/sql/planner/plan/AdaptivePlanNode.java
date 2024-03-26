@@ -70,22 +70,22 @@ public final class AdaptivePlanNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         // The initial plan is not used in the execution, so it is not a source of the adaptive plan.
         return ImmutableList.of(currentPlan);
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
-        return currentPlan.getOutputSymbols();
+        return currentPlan.outputSymbols();
     }
 
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new AdaptivePlanNode(getId(), initialPlan, initialSymbols, Iterables.getOnlyElement(newChildren));
+        return new AdaptivePlanNode(id(), initialPlan, initialSymbols, Iterables.getOnlyElement(newChildren));
     }
 
     @Override

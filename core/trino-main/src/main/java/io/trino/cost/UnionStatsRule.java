@@ -46,11 +46,11 @@ public class UnionStatsRule
     @Override
     protected final Optional<PlanNodeStatsEstimate> doCalculate(UnionNode node, Context context)
     {
-        checkArgument(!node.getSources().isEmpty(), "Empty Union is not supported");
+        checkArgument(!node.sources().isEmpty(), "Empty Union is not supported");
 
         Optional<PlanNodeStatsEstimate> estimate = Optional.empty();
-        for (int i = 0; i < node.getSources().size(); i++) {
-            PlanNode source = node.getSources().get(i);
+        for (int i = 0; i < node.sources().size(); i++) {
+            PlanNode source = node.sources().get(i);
             PlanNodeStatsEstimate sourceStats = context.statsProvider().getStats(source);
 
             PlanNodeStatsEstimate sourceStatsWithMappedSymbols = mapToOutputSymbols(sourceStats, node.getSymbolMapping(), i);

@@ -115,7 +115,7 @@ class PlanBuilder
         Assignments.Builder projections = Assignments.builder();
 
         // add an identity projection for underlying plan
-        projections.putIdentities(root.getOutputSymbols());
+        projections.putIdentities(root.outputSymbols());
 
         Map<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings = new HashMap<>();
         for (T expression : expressions) {

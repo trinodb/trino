@@ -182,7 +182,7 @@ public class TransformCorrelatedGlobalAggregationWithProjection
                 context.getIdAllocator().getNextId(),
                 source,
                 Assignments.builder()
-                        .putIdentities(source.getOutputSymbols())
+                        .putIdentities(source.outputSymbols())
                         .put(nonNull, TRUE)
                         .build());
 
@@ -198,8 +198,8 @@ public class TransformCorrelatedGlobalAggregationWithProjection
                 inputWithUniqueId,
                 source,
                 ImmutableList.of(),
-                inputWithUniqueId.getOutputSymbols(),
-                source.getOutputSymbols(),
+                inputWithUniqueId.outputSymbols(),
+                source.outputSymbols(),
                 false,
                 decorrelatedSource.get().getCorrelatedPredicates(),
                 Optional.empty(),
@@ -252,14 +252,14 @@ public class TransformCorrelatedGlobalAggregationWithProjection
                     context.getIdAllocator().getNextId(),
                     root,
                     Assignments.builder()
-                            .putIdentities(root.getOutputSymbols())
+                            .putIdentities(root.outputSymbols())
                             .putAll(maskAssignments)
                             .build());
         }
 
         // restore global aggregation
         globalAggregation = new AggregationNode(
-                globalAggregation.getId(),
+                globalAggregation.id(),
                 root,
                 rewriteWithMasks(globalAggregation.getAggregations(), masks.buildOrThrow()),
                 singleGroupingSet(ImmutableList.<Symbol>builder()
@@ -272,8 +272,8 @@ public class TransformCorrelatedGlobalAggregationWithProjection
                 Optional.empty());
 
         // restrict outputs and apply projection
-        Set<Symbol> outputSymbols = new HashSet<>(correlatedJoinNode.getOutputSymbols());
-        List<Symbol> expectedAggregationOutputs = globalAggregation.getOutputSymbols().stream()
+        Set<Symbol> outputSymbols = new HashSet<>(correlatedJoinNode.outputSymbols());
+        List<Symbol> expectedAggregationOutputs = globalAggregation.outputSymbols().stream()
                 .filter(outputSymbols::contains)
                 .collect(toImmutableList());
 

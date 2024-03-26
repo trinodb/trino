@@ -107,7 +107,7 @@ public class PushDownDereferenceThroughFilter
                                         context.getIdAllocator().getNextId(),
                                         source,
                                         Assignments.builder()
-                                                .putIdentities(source.getOutputSymbols())
+                                                .putIdentities(source.outputSymbols())
                                                 .putAll(dereferenceAssignments)
                                                 .build()),
                                 replaceExpression(filterNode.getPredicate(), mappings)),

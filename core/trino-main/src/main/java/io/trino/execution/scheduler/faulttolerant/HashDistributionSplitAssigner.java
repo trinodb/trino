@@ -402,7 +402,7 @@ class HashDistributionSplitAssigner
             @Override
             protected Boolean visitPlan(PlanNode node, Void context)
             {
-                for (PlanNode child : node.getSources()) {
+                for (PlanNode child : node.sources()) {
                     if (child.accept(this, context)) {
                         return true;
                     }

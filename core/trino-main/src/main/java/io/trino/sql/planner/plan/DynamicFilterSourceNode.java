@@ -44,16 +44,16 @@ public final class DynamicFilterSourceNode
         super(id);
         this.source = requireNonNull(source, "source is null");
         this.dynamicFilters = ImmutableMap.copyOf(requireNonNull(dynamicFilters, "dynamicFilters is null"));
-        Set<Symbol> outputSymbols = ImmutableSet.copyOf(source.getOutputSymbols());
+        Set<Symbol> outputSymbols = ImmutableSet.copyOf(source.outputSymbols());
         checkArgument(!outputSymbols.isEmpty(), "outputSymbols is empty");
         checkArgument(outputSymbols.containsAll(dynamicFilters.values()), "Dynamic filter symbols need to be part of the output symbols");
     }
 
     @Override
     @JsonProperty
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
-        return source.getOutputSymbols();
+        return source.outputSymbols();
     }
 
     @JsonProperty
@@ -69,7 +69,7 @@ public final class DynamicFilterSourceNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
@@ -84,6 +84,6 @@ public final class DynamicFilterSourceNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
-        return new DynamicFilterSourceNode(getId(), newChildren.get(0), dynamicFilters);
+        return new DynamicFilterSourceNode(id(), newChildren.get(0), dynamicFilters);
     }
 }

@@ -70,9 +70,9 @@ public final class PushRemoteExchangeThroughAssignUniqueId
         }
 
         return Result.ofPlanNode(new AssignUniqueId(
-                assignUniqueId.getId(),
+                assignUniqueId.id(),
                 new ExchangeNode(
-                        node.getId(),
+                        node.id(),
                         node.getType(),
                         node.getScope(),
                         new PartitioningScheme(

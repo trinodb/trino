@@ -98,10 +98,10 @@ public class ExtractDereferencesFromFilterAboveScan
                                 context.getIdAllocator().getNextId(),
                                 source,
                                 Assignments.builder()
-                                        .putIdentities(source.getOutputSymbols())
+                                        .putIdentities(source.outputSymbols())
                                         .putAll(assignments)
                                         .build()),
                         replaceExpression(node.getPredicate(), mappings)),
-                Assignments.identity(node.getOutputSymbols())));
+                Assignments.identity(node.outputSymbols())));
     }
 }

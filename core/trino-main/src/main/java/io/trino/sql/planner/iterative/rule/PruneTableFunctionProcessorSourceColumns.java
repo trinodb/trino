@@ -86,7 +86,7 @@ public class PruneTableFunctionProcessorSourceColumns
 
         return restrictOutputs(context.getIdAllocator(), node.getSource().orElseThrow(), requiredInputs.build())
                 .map(child -> Result.ofPlanNode(new TableFunctionProcessorNode(
-                        node.getId(),
+                        node.id(),
                         node.getName(),
                         node.getProperOutputs(),
                         Optional.of(child),

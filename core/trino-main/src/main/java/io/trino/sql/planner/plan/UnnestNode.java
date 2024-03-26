@@ -50,7 +50,7 @@ public final class UnnestNode
         super(id);
         this.source = requireNonNull(source, "source is null");
         this.replicateSymbols = ImmutableList.copyOf(requireNonNull(replicateSymbols, "replicateSymbols is null"));
-        checkArgument(source.getOutputSymbols().containsAll(replicateSymbols), "Source does not contain all replicateSymbols");
+        checkArgument(source.outputSymbols().containsAll(replicateSymbols), "Source does not contain all replicateSymbols");
         requireNonNull(mappings, "mappings is null");
         checkArgument(!mappings.isEmpty(), "mappings is empty");
         this.mappings = ImmutableList.copyOf(mappings);
@@ -59,7 +59,7 @@ public final class UnnestNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.<Symbol>builder()
                 .addAll(replicateSymbols)
@@ -103,7 +103,7 @@ public final class UnnestNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
@@ -117,7 +117,7 @@ public final class UnnestNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new UnnestNode(getId(), Iterables.getOnlyElement(newChildren), replicateSymbols, mappings, ordinalitySymbol, joinType);
+        return new UnnestNode(id(), Iterables.getOnlyElement(newChildren), replicateSymbols, mappings, ordinalitySymbol, joinType);
     }
 
     public static class Mapping

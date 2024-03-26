@@ -194,7 +194,7 @@ public class PushProjectionIntoTableScan
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
                         new TableScanNode(
-                                tableScan.getId(),
+                                tableScan.id(),
                                 result.get().getHandle(),
                                 newScanOutputs,
                                 newScanAssignments,

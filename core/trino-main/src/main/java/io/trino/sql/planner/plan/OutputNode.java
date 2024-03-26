@@ -52,14 +52,14 @@ public final class OutputNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
 
     @Override
     @JsonProperty("outputs")
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return outputs;
     }
@@ -85,6 +85,6 @@ public final class OutputNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new OutputNode(getId(), Iterables.getOnlyElement(newChildren), columnNames, outputs);
+        return new OutputNode(id(), Iterables.getOnlyElement(newChildren), columnNames, outputs);
     }
 }

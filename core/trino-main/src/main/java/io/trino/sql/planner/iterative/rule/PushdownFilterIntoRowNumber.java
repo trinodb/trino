@@ -82,7 +82,7 @@ public class PushdownFilterIntoRowNumber
         }
 
         if (upperBound.getAsInt() <= 0) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(node.id(), node.outputSymbols(), ImmutableList.of()));
         }
 
         RowNumberNode merged = mergeLimit(source, upperBound.getAsInt());
@@ -93,7 +93,7 @@ public class PushdownFilterIntoRowNumber
 
         if (!allRowNumberValuesInDomain(tupleDomain, rowNumberSymbol, source.getMaxRowCountPerPartition().get())) {
             if (needRewriteSource) {
-                return Result.ofPlanNode(new FilterNode(node.getId(), source, node.getPredicate()));
+                return Result.ofPlanNode(new FilterNode(node.id(), source, node.getPredicate()));
             }
             return Result.empty();
         }
@@ -108,7 +108,7 @@ public class PushdownFilterIntoRowNumber
         }
 
         if (!newPredicate.equals(node.getPredicate())) {
-            return Result.ofPlanNode(new FilterNode(node.getId(), source, newPredicate));
+            return Result.ofPlanNode(new FilterNode(node.id(), source, newPredicate));
         }
 
         return Result.empty();
@@ -165,7 +165,7 @@ public class PushdownFilterIntoRowNumber
             newRowCountPerPartition = Math.min(node.getMaxRowCountPerPartition().get(), newRowCountPerPartition);
         }
         return new RowNumberNode(
-                node.getId(),
+                node.id(),
                 node.getSource(),
                 node.getPartitionBy(),
                 node.isOrderSensitive(),

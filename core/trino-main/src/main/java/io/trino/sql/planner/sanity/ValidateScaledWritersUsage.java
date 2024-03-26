@@ -66,13 +66,13 @@ public class ValidateScaledWritersUsage
         @Override
         protected List<ExchangeNode> visitPlan(PlanNode node, Void context)
         {
-            return collectExchanges(node.getSources());
+            return collectExchanges(node.sources());
         }
 
         @Override
         public List<ExchangeNode> visitTableWriter(TableWriterNode node, Void context)
         {
-            List<ExchangeNode> scaleWriterExchanges = collectExchanges(node.getSources()).stream()
+            List<ExchangeNode> scaleWriterExchanges = collectExchanges(node.sources()).stream()
                     .filter(exchangeNode -> exchangeNode.getPartitioningScheme().getPartitioning().getHandle().isScaleWriters())
                     .collect(toImmutableList());
             TableWriterNode.WriterTarget target = node.getTarget();
@@ -103,7 +103,7 @@ public class ValidateScaledWritersUsage
         {
             return ImmutableList.<ExchangeNode>builder()
                     .add(node)
-                    .addAll(collectExchanges(node.getSources()))
+                    .addAll(collectExchanges(node.sources()))
                     .build();
         }
 

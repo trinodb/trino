@@ -127,7 +127,7 @@ public class RuleAssert
                         formatPlan(plan)));
             }
 
-            if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
+            if (!ImmutableSet.copyOf(plan.outputSymbols()).equals(ImmutableSet.copyOf(actual.outputSymbols()))) {
                 fail(format(
                         """
                         %s: output schema of transformed and original plans are not equivalent
@@ -135,8 +135,8 @@ public class RuleAssert
                         \tactual:   %s
                         """,
                         rule,
-                        plan.getOutputSymbols(),
-                        actual.getOutputSymbols()));
+                        plan.outputSymbols(),
+                        actual.outputSymbols()));
             }
 
             assertPlan(session, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), ruleApplication.statsProvider(), new Plan(actual, StatsAndCosts.empty()), ruleApplication.lookup(), pattern);

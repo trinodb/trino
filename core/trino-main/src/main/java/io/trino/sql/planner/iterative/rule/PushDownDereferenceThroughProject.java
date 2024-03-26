@@ -70,7 +70,7 @@ public class PushDownDereferenceThroughProject
 
         // Exclude dereferences on symbols being synthesized within child
         dereferences = dereferences.stream()
-                .filter(expression -> child.getSource().getOutputSymbols().contains(getBase(expression)))
+                .filter(expression -> child.getSource().outputSymbols().contains(getBase(expression)))
                 .collect(toImmutableSet());
 
         if (dereferences.isEmpty()) {

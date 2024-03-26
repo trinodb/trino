@@ -130,12 +130,12 @@ public class TransformFilteringSemiJoinToInnerJoin
                 singleGroupingSet(ImmutableList.of(semiJoin.getFilteringSourceJoinSymbol())));
 
         JoinNode innerJoin = new JoinNode(
-                semiJoin.getId(),
+                semiJoin.id(),
                 INNER,
                 semiJoin.getSource(),
                 filteringSourceDistinct,
                 ImmutableList.of(new EquiJoinClause(semiJoin.getSourceJoinSymbol(), semiJoin.getFilteringSourceJoinSymbol())),
-                semiJoin.getSource().getOutputSymbols(),
+                semiJoin.getSource().outputSymbols(),
                 ImmutableList.of(),
                 false,
                 joinFilter,
@@ -152,7 +152,7 @@ public class TransformFilteringSemiJoinToInnerJoin
                 context.getIdAllocator().getNextId(),
                 innerJoin,
                 Assignments.builder()
-                        .putIdentities(innerJoin.getOutputSymbols())
+                        .putIdentities(innerJoin.outputSymbols())
                         .put(semiJoinSymbol, TRUE)
                         .build());
 

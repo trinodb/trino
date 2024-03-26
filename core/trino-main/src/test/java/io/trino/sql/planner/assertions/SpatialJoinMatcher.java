@@ -71,14 +71,14 @@ public class SpatialJoinMatcher
             return NO_MATCH;
         }
         if (outputSymbols.isPresent()) {
-            if (outputSymbols.get().size() != joinNode.getOutputSymbols().size()) {
+            if (outputSymbols.get().size() != joinNode.outputSymbols().size()) {
                 return NO_MATCH;
             }
             if (!outputSymbols.get().stream()
                     .map(symbolAliases::get)
                     .map(Symbol::from)
                     .collect(toImmutableList())
-                    .equals(joinNode.getOutputSymbols())) {
+                    .equals(joinNode.outputSymbols())) {
                 return NO_MATCH;
             }
         }

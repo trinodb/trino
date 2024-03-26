@@ -69,14 +69,14 @@ public final class RemoteSourceNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of();
     }
 
     @Override
     @JsonProperty("outputs")
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return outputs;
     }
@@ -121,9 +121,9 @@ public final class RemoteSourceNode
     public RemoteSourceNode withSourceFragmentIds(List<PlanFragmentId> sourceFragmentIds)
     {
         return new RemoteSourceNode(
-                this.getId(),
+                this.id(),
                 sourceFragmentIds,
-                this.getOutputSymbols(),
+                this.outputSymbols(),
                 this.getOrderingScheme(),
                 this.getExchangeType(),
                 this.getRetryPolicy());

@@ -96,7 +96,7 @@ public final class AddDynamicFilterSource
                             buildSource.replaceChildren(ImmutableList.of(
                                     new DynamicFilterSourceNode(
                                             context.getIdAllocator().getNextId(),
-                                            getOnlyElement(buildSource.getSources()),
+                                            getOnlyElement(buildSource.sources()),
                                             joinNode.getDynamicFilters()))))));
         }
     }
@@ -136,7 +136,7 @@ public final class AddDynamicFilterSource
                             filteringSource.replaceChildren(ImmutableList.of(
                                     new DynamicFilterSourceNode(
                                             context.getIdAllocator().getNextId(),
-                                            getOnlyElement(filteringSource.getSources()),
+                                            getOnlyElement(filteringSource.sources()),
                                             ImmutableMap.of(
                                                     semiJoinNode.getDynamicFilterId().orElseThrow(),
                                                     semiJoinNode.getFilteringSourceJoinSymbol())))))));
@@ -175,7 +175,7 @@ public final class AddDynamicFilterSource
                 // DynamicFilterSourceNode is not below a remote exchange and can't be pushed further, so remove it from the plan
                 return Result.ofPlanNode(node.replaceChildren(ImmutableList.of(dynamicFilterChildNode)));
             }
-            PlanNode dynamicFilterSourceRewritten = dynamicFilterSourceNode.replaceChildren(dynamicFilterChildNode.getSources());
+            PlanNode dynamicFilterSourceRewritten = dynamicFilterSourceNode.replaceChildren(dynamicFilterChildNode.sources());
             return Result.ofPlanNode(node.replaceChildren(ImmutableList.of(
                     dynamicFilterChildNode.replaceChildren(ImmutableList.of(dynamicFilterSourceRewritten)))));
         }
@@ -186,7 +186,7 @@ public final class AddDynamicFilterSource
         boolean isIdentityProjection = (node instanceof ProjectNode) &&
                 dynamicFilterSymbols.stream().allMatch(symbol -> ((ProjectNode) node).getAssignments().isIdentity(symbol));
         // TODO: Add support for cases where the build side has multiple sources, e.g., a UNION ALL for a join
-        return isIdentityProjection || (node instanceof ExchangeNode && node.getSources().size() == 1);
+        return isIdentityProjection || (node instanceof ExchangeNode && node.sources().size() == 1);
     }
 
     private static boolean isRemoteExchange(PlanNode node)

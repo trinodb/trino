@@ -32,13 +32,13 @@ public final class GenericNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return sources;
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return ImmutableList.of();
     }
@@ -46,6 +46,6 @@ public final class GenericNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new GenericNode(getId(), newChildren);
+        return new GenericNode(id(), newChildren);
     }
 }

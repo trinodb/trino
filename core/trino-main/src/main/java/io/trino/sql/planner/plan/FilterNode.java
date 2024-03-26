@@ -51,13 +51,13 @@ public final class FilterNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
-        return source.getOutputSymbols();
+        return source.outputSymbols();
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
@@ -77,6 +77,6 @@ public final class FilterNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new FilterNode(getId(), Iterables.getOnlyElement(newChildren), predicate);
+        return new FilterNode(id(), Iterables.getOnlyElement(newChildren), predicate);
     }
 }

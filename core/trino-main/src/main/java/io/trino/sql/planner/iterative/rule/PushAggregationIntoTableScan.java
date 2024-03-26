@@ -169,7 +169,7 @@ public class PushAggregationIntoTableScan
 
         // The new scan outputs should be the symbols associated with grouping columns plus the symbols associated with aggregations.
         ImmutableList.Builder<Symbol> newScanOutputs = ImmutableList.builder();
-        newScanOutputs.addAll(tableScan.getOutputSymbols());
+        newScanOutputs.addAll(tableScan.outputSymbols());
 
         ImmutableBiMap.Builder<Symbol, ColumnHandle> newScanAssignments = ImmutableBiMap.builder();
         newScanAssignments.putAll(tableScan.getAssignments());

@@ -129,7 +129,7 @@ public class ImplementFilteredAggregations
         }
 
         // identity projection for all existing inputs
-        newAssignments.putIdentities(aggregationNode.getSource().getOutputSymbols());
+        newAssignments.putIdentities(aggregationNode.getSource().outputSymbols());
 
         return Result.ofPlanNode(
                 AggregationNode.builderFrom(aggregationNode)

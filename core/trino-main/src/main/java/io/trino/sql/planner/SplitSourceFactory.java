@@ -157,7 +157,7 @@ public class SplitSourceFactory
 
             splitSources.add(splitSource);
 
-            return ImmutableMap.of(node.getId(), splitSource);
+            return ImmutableMap.of(node.id(), splitSource);
         }
 
         private SplitSource createSplitSource(TableHandle table, Map<Symbol, ColumnHandle> assignments, Optional<Expression> filterPredicate)
@@ -255,7 +255,7 @@ public class SplitSourceFactory
 
                 splitSources.add(splitSource);
 
-                return ImmutableMap.of(scan.getId(), splitSource);
+                return ImmutableMap.of(scan.id(), splitSource);
             }
 
             return node.getSource().accept(this, context);
@@ -318,7 +318,7 @@ public class SplitSourceFactory
                 SplitSource splitSource = splitManager.getSplits(session, stageSpan, node.getHandle());
                 splitSources.add(splitSource);
 
-                return ImmutableMap.of(node.getId(), splitSource);
+                return ImmutableMap.of(node.id(), splitSource);
             }
 
             return node.getSource().orElseThrow().accept(this, context);
@@ -457,19 +457,19 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitUnion(UnionNode node, Void context)
         {
-            return processSources(node.getSources(), context);
+            return processSources(node.sources(), context);
         }
 
         @Override
         public Map<PlanNodeId, SplitSource> visitExchange(ExchangeNode node, Void context)
         {
-            return processSources(node.getSources(), context);
+            return processSources(node.sources(), context);
         }
 
         @Override
         public Map<PlanNodeId, SplitSource> visitAdaptivePlanNode(AdaptivePlanNode node, Void context)
         {
-            return processSources(node.getSources(), context);
+            return processSources(node.sources(), context);
         }
 
         private Map<PlanNodeId, SplitSource> processSources(List<PlanNode> sources, Void context)

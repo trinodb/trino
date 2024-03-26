@@ -275,7 +275,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
                     source,
                     new PartitioningScheme(
                             Partitioning.create(FIXED_HASH_DISTRIBUTION, desiredHashSymbols),
-                            source.getOutputSymbols(),
+                            source.outputSymbols(),
                             Optional.empty(),
                             false,
                             Optional.empty(),
@@ -288,7 +288,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
                     source,
                     new PartitioningScheme(
                             Partitioning.create(FIXED_HASH_DISTRIBUTION, desiredHashSymbols),
-                            source.getOutputSymbols()));
+                            source.outputSymbols()));
 
             PlanNode newGroupId = groupId.replaceChildren(ImmutableList.of(source));
             PlanNode newAggregation = aggregation.replaceChildren(ImmutableList.of(newGroupId));
@@ -343,7 +343,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
         private StreamProperties derivePropertiesRecursively(PlanNode node, Context context)
         {
             PlanNode resolvedPlanNode = context.getLookup().resolve(node);
-            List<StreamProperties> inputProperties = resolvedPlanNode.getSources().stream()
+            List<StreamProperties> inputProperties = resolvedPlanNode.sources().stream()
                     .map(source -> derivePropertiesRecursively(source, context))
                     .collect(toImmutableList());
             return deriveProperties(resolvedPlanNode, inputProperties, plannerContext, context.getSession());

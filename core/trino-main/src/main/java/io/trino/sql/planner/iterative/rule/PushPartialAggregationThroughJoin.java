@@ -90,10 +90,10 @@ public class PushPartialAggregationThroughJoin
         }
 
         // TODO: leave partial aggregation above Join?
-        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().getOutputSymbols())) {
+        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getLeft().outputSymbols())) {
             return Result.ofPlanNode(pushPartialToLeftChild(aggregationNode, joinNode, context));
         }
-        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().getOutputSymbols())) {
+        if (allAggregationsOn(aggregationNode.getAggregations(), joinNode.getRight().outputSymbols())) {
             return Result.ofPlanNode(pushPartialToRightChild(aggregationNode, joinNode, context));
         }
 
@@ -111,7 +111,7 @@ public class PushPartialAggregationThroughJoin
 
     private PlanNode pushPartialToLeftChild(AggregationNode node, JoinNode child, Context context)
     {
-        Set<Symbol> joinLeftChildSymbols = ImmutableSet.copyOf(child.getLeft().getOutputSymbols());
+        Set<Symbol> joinLeftChildSymbols = ImmutableSet.copyOf(child.getLeft().outputSymbols());
         List<Symbol> groupingSet = getPushedDownGroupingSet(node, joinLeftChildSymbols, intersection(getJoinRequiredSymbols(child), joinLeftChildSymbols));
         AggregationNode pushedAggregation = replaceAggregationSource(node, child.getLeft(), groupingSet);
         return pushPartialToJoin(node, child, pushedAggregation, child.getRight(), context);
@@ -119,7 +119,7 @@ public class PushPartialAggregationThroughJoin
 
     private PlanNode pushPartialToRightChild(AggregationNode node, JoinNode child, Context context)
     {
-        Set<Symbol> joinRightChildSymbols = ImmutableSet.copyOf(child.getRight().getOutputSymbols());
+        Set<Symbol> joinRightChildSymbols = ImmutableSet.copyOf(child.getRight().outputSymbols());
         List<Symbol> groupingSet = getPushedDownGroupingSet(node, joinRightChildSymbols, intersection(getJoinRequiredSymbols(child), joinRightChildSymbols));
         AggregationNode pushedAggregation = replaceAggregationSource(node, child.getRight(), groupingSet);
         return pushPartialToJoin(node, child, child.getLeft(), pushedAggregation, context);
@@ -174,13 +174,13 @@ public class PushPartialAggregationThroughJoin
             Context context)
     {
         JoinNode joinNode = new JoinNode(
-                child.getId(),
+                child.id(),
                 child.getType(),
                 leftChild,
                 rightChild,
                 child.getCriteria(),
-                leftChild.getOutputSymbols(),
-                rightChild.getOutputSymbols(),
+                leftChild.outputSymbols(),
+                rightChild.outputSymbols(),
                 child.isMaySkipOutputDuplicates(),
                 child.getFilter(),
                 child.getLeftHashSymbol(),
@@ -189,6 +189,6 @@ public class PushPartialAggregationThroughJoin
                 child.isSpillable(),
                 child.getDynamicFilters(),
                 child.getReorderJoinStatsAndCost());
-        return restrictOutputs(context.getIdAllocator(), joinNode, ImmutableSet.copyOf(aggregation.getOutputSymbols())).orElse(joinNode);
+        return restrictOutputs(context.getIdAllocator(), joinNode, ImmutableSet.copyOf(aggregation.outputSymbols())).orElse(joinNode);
     }
 }

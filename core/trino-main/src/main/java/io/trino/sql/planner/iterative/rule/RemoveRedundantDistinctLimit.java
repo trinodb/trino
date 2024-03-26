@@ -53,7 +53,7 @@ public class RemoveRedundantDistinctLimit
     {
         checkArgument(node.getHashSymbol().isEmpty(), "HashSymbol should be empty");
         if (node.getLimit() == 0) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(node.id(), node.outputSymbols(), ImmutableList.of()));
         }
         Cardinality sourceCardinality = extractCardinality(node.getSource(), context.getLookup());
         if (sourceCardinality.isScalar()) {
@@ -61,7 +61,7 @@ public class RemoveRedundantDistinctLimit
         }
         if (sourceCardinality.isAtMost(node.getLimit())) {
             return Result.ofPlanNode(new AggregationNode(
-                    node.getId(),
+                    node.id(),
                     node.getSource(),
                     ImmutableMap.of(),
                     singleGroupingSet(node.getDistinctSymbols()),

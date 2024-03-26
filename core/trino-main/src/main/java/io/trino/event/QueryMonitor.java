@@ -504,10 +504,10 @@ public class QueryMonitor
                     @Override
                     protected Void visitPlan(PlanNode node, Collection<OperatorStats> parentStats)
                     {
-                        Collection<OperatorStats> operatorStats = allOperatorStats.getOrDefault(node.getId(), parentStats);
-                        planNodeStats.putAll(new FragmentNode(fragment.getId(), node.getId()), operatorStats);
+                        Collection<OperatorStats> operatorStats = allOperatorStats.getOrDefault(node.id(), parentStats);
+                        planNodeStats.putAll(new FragmentNode(fragment.getId(), node.id()), operatorStats);
 
-                        for (PlanNode child : node.getSources()) {
+                        for (PlanNode child : node.sources()) {
                             child.accept(this, operatorStats);
                         }
                         return null;

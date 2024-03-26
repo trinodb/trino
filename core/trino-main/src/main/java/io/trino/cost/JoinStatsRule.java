@@ -376,8 +376,8 @@ public class JoinStatsRule
         PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(leftStats.getOutputRowCount() * rightStats.getOutputRowCount());
 
-        node.getLeft().getOutputSymbols().forEach(symbol -> builder.addSymbolStatistics(symbol, leftStats.getSymbolStatistics(symbol)));
-        node.getRight().getOutputSymbols().forEach(symbol -> builder.addSymbolStatistics(symbol, rightStats.getSymbolStatistics(symbol)));
+        node.getLeft().outputSymbols().forEach(symbol -> builder.addSymbolStatistics(symbol, leftStats.getSymbolStatistics(symbol)));
+        node.getRight().outputSymbols().forEach(symbol -> builder.addSymbolStatistics(symbol, rightStats.getSymbolStatistics(symbol)));
 
         return normalizer.normalize(builder.build());
     }

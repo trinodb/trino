@@ -41,15 +41,15 @@ public final class EnforceSingleRowNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
-        return source.getOutputSymbols();
+        return source.outputSymbols();
     }
 
     @JsonProperty("source")
@@ -67,6 +67,6 @@ public final class EnforceSingleRowNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new EnforceSingleRowNode(getId(), Iterables.getOnlyElement(newChildren));
+        return new EnforceSingleRowNode(id(), Iterables.getOnlyElement(newChildren));
     }
 }

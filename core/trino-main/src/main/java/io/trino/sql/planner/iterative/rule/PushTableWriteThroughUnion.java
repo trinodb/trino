@@ -71,7 +71,7 @@ public class PushTableWriteThroughUnion
         UnionNode unionNode = captures.get(CHILD);
         ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
         List<Map<Symbol, Symbol>> sourceMappings = new ArrayList<>();
-        for (int source = 0; source < unionNode.getSources().size(); source++) {
+        for (int source = 0; source < unionNode.sources().size(); source++) {
             rewrittenSources.add(rewriteSource(writerNode, unionNode, source, sourceMappings, context));
         }
 
@@ -97,7 +97,7 @@ public class PushTableWriteThroughUnion
         ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
         mappings.putAll(inputMappings);
         ImmutableMap.Builder<Symbol, Symbol> outputMappings = ImmutableMap.builder();
-        for (Symbol outputSymbol : writerNode.getOutputSymbols()) {
+        for (Symbol outputSymbol : writerNode.outputSymbols()) {
             if (inputMappings.containsKey(outputSymbol)) {
                 outputMappings.put(outputSymbol, inputMappings.get(outputSymbol));
             }
@@ -109,7 +109,7 @@ public class PushTableWriteThroughUnion
         }
         sourceMappings.add(outputMappings.buildOrThrow());
         SymbolMapper symbolMapper = symbolMapper(mappings.buildOrThrow());
-        return symbolMapper.map(writerNode, unionNode.getSources().get(source), context.getIdAllocator().getNextId());
+        return symbolMapper.map(writerNode, unionNode.sources().get(source), context.getIdAllocator().getNextId());
     }
 
     private static Map<Symbol, Symbol> getInputSymbolMapping(UnionNode node, int source)

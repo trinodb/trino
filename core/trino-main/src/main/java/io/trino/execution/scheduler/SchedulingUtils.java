@@ -51,7 +51,7 @@ public final class SchedulingUtils
                     node instanceof SemiJoinNode ||
                     node instanceof IndexJoinNode ||
                     node instanceof SpatialJoinNode) {
-                PlanNode leftSource = node.getSources().get(0);
+                PlanNode leftSource = node.sources().get(0);
                 PlanNode child = pathToSource.get(pos + 1);
 
                 if (leftSource != child) {
@@ -73,7 +73,7 @@ public final class SchedulingUtils
                 if (node == end) {
                     return Optional.of(ImmutableList.copyOf(queue));
                 }
-                for (PlanNode source : node.getSources()) {
+                for (PlanNode source : node.sources()) {
                     Optional<List<PlanNode>> result = source.accept(this, queue);
                     if (result.isPresent()) {
                         return result;

@@ -128,13 +128,13 @@ public final class GatherAndMergeWindows
 
             PlanNode targetChild = target.getSource();
 
-            Set<Symbol> targetInputs = ImmutableSet.copyOf(targetChild.getOutputSymbols());
-            Set<Symbol> targetOutputs = ImmutableSet.copyOf(target.getOutputSymbols());
+            Set<Symbol> targetInputs = ImmutableSet.copyOf(targetChild.outputSymbols());
+            Set<Symbol> targetOutputs = ImmutableSet.copyOf(target.outputSymbols());
 
             PlanNode newTargetChild = targetChild;
 
             for (ProjectNode project : projects) {
-                Set<Symbol> newTargetChildOutputs = ImmutableSet.copyOf(newTargetChild.getOutputSymbols());
+                Set<Symbol> newTargetChildOutputs = ImmutableSet.copyOf(newTargetChild.outputSymbols());
 
                 // The only kind of use of the output of the target that we can safely ignore is a simple identity propagation.
                 // The target node, when hoisted above the projections, will provide the symbols directly.
@@ -157,12 +157,12 @@ public final class GatherAndMergeWindows
                     return Optional.empty();
                 }
 
-                newTargetChild = new ProjectNode(project.getId(), newTargetChild, newAssignments);
+                newTargetChild = new ProjectNode(project.id(), newTargetChild, newAssignments);
             }
 
             WindowNode newTarget = (WindowNode) target.replaceChildren(ImmutableList.of(newTargetChild));
-            Set<Symbol> newTargetOutputs = ImmutableSet.copyOf(newTarget.getOutputSymbols());
-            if (!newTargetOutputs.containsAll(projects.get(projects.size() - 1).getOutputSymbols())) {
+            Set<Symbol> newTargetOutputs = ImmutableSet.copyOf(newTarget.outputSymbols());
+            if (!newTargetOutputs.containsAll(projects.get(projects.size() - 1).outputSymbols())) {
                 // The new target node is hiding some of the projections, which makes this rewrite incorrect.
                 return Optional.empty();
             }
@@ -190,7 +190,7 @@ public final class GatherAndMergeWindows
             functionsBuilder.putAll(child.getWindowFunctions());
 
             WindowNode mergedWindowNode = new WindowNode(
-                    parent.getId(),
+                    parent.id(),
                     child.getSource(),
                     parent.getSpecification(),
                     functionsBuilder.buildOrThrow(),
@@ -199,7 +199,7 @@ public final class GatherAndMergeWindows
                     parent.getPreSortedOrderPrefix());
 
             return Optional.of(
-                    restrictOutputs(context.getIdAllocator(), mergedWindowNode, ImmutableSet.copyOf(parent.getOutputSymbols()))
+                    restrictOutputs(context.getIdAllocator(), mergedWindowNode, ImmutableSet.copyOf(parent.outputSymbols()))
                             .orElse(mergedWindowNode));
         }
     }
@@ -218,7 +218,7 @@ public final class GatherAndMergeWindows
             if ((compare(parent, child) < 0) && !dependsOn(parent, child)) {
                 PlanNode transposedWindows = transpose(parent, child);
                 return Optional.of(
-                        restrictOutputs(context.getIdAllocator(), transposedWindows, ImmutableSet.copyOf(parent.getOutputSymbols()))
+                        restrictOutputs(context.getIdAllocator(), transposedWindows, ImmutableSet.copyOf(parent.outputSymbols()))
                                 .orElse(transposedWindows));
             }
             return Optional.empty();
@@ -237,7 +237,7 @@ public final class GatherAndMergeWindows
             }
 
             // If PartitionBy and OrderBy clauses are identical, let's establish an arbitrary order to prevent non-deterministic results of swapping WindowNodes in such a case
-            return o1.getId().toString().compareTo(o2.getId().toString());
+            return o1.id().toString().compareTo(o2.id().toString());
         }
 
         private static int comparePartitionBy(WindowNode o1, WindowNode o2)

@@ -104,7 +104,7 @@ public class PushDownDereferencesThroughSort
                                         context.getIdAllocator().getNextId(),
                                         sortNode.getSource(),
                                         Assignments.builder()
-                                                .putIdentities(sortNode.getSource().getOutputSymbols())
+                                                .putIdentities(sortNode.getSource().outputSymbols())
                                                 .putAll(dereferenceAssignments)
                                                 .build()))),
                         newAssignments));

@@ -85,22 +85,22 @@ public class RemoveEmptyTableExecute
 
         return Result.ofPlanNode(
                 new ValuesNode(
-                        finishNode.getId(),
-                        finishNode.getOutputSymbols(),
+                        finishNode.id(),
+                        finishNode.outputSymbols(),
                         ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, null))))));
     }
 
     private Optional<PlanNode> getSingleSourceSkipExchange(PlanNode node, Lookup lookup)
     {
-        if (node.getSources().size() != 1) {
+        if (node.sources().size() != 1) {
             return Optional.empty();
         }
-        PlanNode source = lookup.resolve(node.getSources().get(0));
+        PlanNode source = lookup.resolve(node.sources().get(0));
         if (source instanceof ExchangeNode) {
-            if (source.getSources().size() != 1) {
+            if (source.sources().size() != 1) {
                 return Optional.empty();
             }
-            PlanNode exchangeSource = lookup.resolve(source.getSources().get(0));
+            PlanNode exchangeSource = lookup.resolve(source.sources().get(0));
             return Optional.of(lookup.resolve(exchangeSource));
         }
         return Optional.of(source);

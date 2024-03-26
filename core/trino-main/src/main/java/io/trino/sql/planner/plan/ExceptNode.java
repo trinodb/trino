@@ -52,6 +52,6 @@ public final class ExceptNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ExceptNode(getId(), newChildren, getSymbolMapping(), getOutputSymbols(), isDistinct());
+        return new ExceptNode(id(), newChildren, getSymbolMapping(), outputSymbols(), isDistinct());
     }
 }

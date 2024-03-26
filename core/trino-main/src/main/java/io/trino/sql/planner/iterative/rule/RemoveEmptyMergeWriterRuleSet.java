@@ -105,8 +105,8 @@ public final class RemoveEmptyMergeWriterRuleSet
         {
             return Result.ofPlanNode(
                     new ValuesNode(
-                            node.getId(),
-                            node.getOutputSymbols(),
+                            node.id(),
+                            node.outputSymbols(),
                             ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, 0L))))));
         }
     }

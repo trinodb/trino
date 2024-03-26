@@ -211,7 +211,7 @@ class SubqueryPlanner
                         valuePlan.getSubPlan().getRoot(),
                         subqueryPlan.getSubPlan().getRoot(),
                         ImmutableMap.of(output, new ApplyNode.In(valuePlan.get(value), subqueryPlan.get(subquery))),
-                        valuePlan.getSubPlan().getRoot().getOutputSymbols(),
+                        valuePlan.getSubPlan().getRoot().outputSymbols(),
                         originalExpression));
     }
 
@@ -273,7 +273,7 @@ class SubqueryPlanner
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
                         subquery,
-                        subPlan.getRoot().getOutputSymbols(),
+                        subPlan.getRoot().outputSymbols(),
                         type,
                         filterCondition,
                         query));
@@ -295,7 +295,7 @@ class SubqueryPlanner
                         subPlan.getRoot(),
                         planSubquery(subquery, subPlan.getTranslations()).getRoot(),
                         ImmutableMap.of(exists, new ApplyNode.Exists()),
-                        subPlan.getRoot().getOutputSymbols(),
+                        subPlan.getRoot().outputSymbols(),
                         subquery));
     }
 
@@ -380,7 +380,7 @@ class SubqueryPlanner
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
                         Assignments.builder()
-                                .putIdentities(subPlan.getRoot().getOutputSymbols())
+                                .putIdentities(subPlan.getRoot().outputSymbols())
                                 .put(output, new Not(input.toSymbolReference()))
                                 .build()));
     }
@@ -404,7 +404,7 @@ class SubqueryPlanner
                         valuePlan.getSubPlan().getRoot(),
                         subqueryPlan.getSubPlan().getRoot(),
                         ImmutableMap.of(assignment, new ApplyNode.QuantifiedComparison(mapOperator(operator), mapQuantifier(quantifier), valuePlan.get(value), subqueryPlan.get(subquery))),
-                        valuePlan.getSubPlan().getRoot().getOutputSymbols(),
+                        valuePlan.getSubPlan().getRoot().outputSymbols(),
                         subquery));
     }
 
@@ -441,7 +441,7 @@ class SubqueryPlanner
             Symbol wrapped = symbolAllocator.newSymbol("row", actualType);
 
             Assignments assignments = Assignments.builder()
-                    .putIdentities(subPlan.getRoot().getOutputSymbols())
+                    .putIdentities(subPlan.getRoot().outputSymbols())
                     .put(wrapped, new Row(ImmutableList.of(column.toSymbolReference())))
                     .build();
 
@@ -494,7 +494,7 @@ class SubqueryPlanner
             coerced = symbolAllocator.newSymbol("expr", coercion.get());
 
             Assignments assignments = Assignments.builder()
-                    .putIdentities(subPlan.getRoot().getOutputSymbols())
+                    .putIdentities(subPlan.getRoot().outputSymbols())
                     .put(coerced, new Cast(
                             symbol.toSymbolReference(),
                             coercion.get(),

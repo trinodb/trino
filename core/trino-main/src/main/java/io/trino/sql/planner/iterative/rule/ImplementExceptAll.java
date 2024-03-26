@@ -119,7 +119,7 @@ public class ImplementExceptAll
         ProjectNode project = new ProjectNode(
                 context.getIdAllocator().getNextId(),
                 filter,
-                Assignments.identity(node.getOutputSymbols()));
+                Assignments.identity(node.outputSymbols()));
 
         return Result.ofPlanNode(project);
     }

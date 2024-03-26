@@ -58,7 +58,7 @@ public class TestMemo
         PlanNode transformed = node(node());
         memo.replace(getChildGroup(memo, memo.getRootGroup()), transformed, "rule");
         assertThat(memo.getGroupCount()).isEqualTo(3);
-        assertMatchesStructure(memo.extract(), node(plan.getId(), transformed));
+        assertMatchesStructure(memo.extract(), node(plan.id(), transformed));
     }
 
     /*
@@ -77,11 +77,11 @@ public class TestMemo
 
         // replace child of root node with another node, retaining child's child
         int yGroup = getChildGroup(memo, memo.getRootGroup());
-        GroupReference zRef = (GroupReference) getOnlyElement(memo.getNode(yGroup).getSources());
+        GroupReference zRef = (GroupReference) getOnlyElement(memo.getNode(yGroup).sources());
         PlanNode transformed = node(zRef);
         memo.replace(yGroup, transformed, "rule");
         assertThat(memo.getGroupCount()).isEqualTo(3);
-        assertMatchesStructure(memo.extract(), node(x.getId(), node(transformed.getId(), z)));
+        assertMatchesStructure(memo.extract(), node(x.id(), node(transformed.id(), z)));
     }
 
     /*
@@ -103,7 +103,7 @@ public class TestMemo
         int yGroup = getChildGroup(memo, memo.getRootGroup());
         int zGroup = getChildGroup(memo, yGroup);
 
-        PlanNode rewrittenW = memo.getNode(zGroup).getSources().get(0);
+        PlanNode rewrittenW = memo.getNode(zGroup).sources().get(0);
 
         PlanNode newZ = node(rewrittenW);
         PlanNode newY = node(newZ);
@@ -114,10 +114,10 @@ public class TestMemo
 
         assertMatchesStructure(
                 memo.extract(),
-                node(x.getId(),
-                        node(newY.getId(),
-                                node(newZ.getId(),
-                                        node(w.getId())))));
+                node(x.id(),
+                        node(newY.id(),
+                                node(newZ.id(),
+                                        node(w.id())))));
     }
 
     /*
@@ -136,14 +136,14 @@ public class TestMemo
         assertThat(memo.getGroupCount()).isEqualTo(3);
 
         int yGroup = getChildGroup(memo, memo.getRootGroup());
-        memo.replace(yGroup, memo.getNode(yGroup).getSources().get(0), "rule");
+        memo.replace(yGroup, memo.getNode(yGroup).sources().get(0), "rule");
 
         assertThat(memo.getGroupCount()).isEqualTo(2);
 
         assertMatchesStructure(
                 memo.extract(),
-                node(x.getId(),
-                        node(z.getId())));
+                node(x.id(),
+                        node(z.id())));
     }
 
     /*
@@ -168,9 +168,9 @@ public class TestMemo
 
         assertMatchesStructure(
                 memo.extract(),
-                node(x.getId(),
-                        node(y.getId(),
-                                node(z.getId()))));
+                node(x.id(),
+                        node(y.id(),
+                                node(z.id()))));
     }
 
     /*
@@ -190,7 +190,7 @@ public class TestMemo
 
         int yGroup = getChildGroup(memo, memo.getRootGroup());
 
-        PlanNode rewrittenZ = memo.getNode(yGroup).getSources().get(0);
+        PlanNode rewrittenZ = memo.getNode(yGroup).sources().get(0);
         PlanNode y1 = node(rewrittenZ);
         PlanNode y2 = node(rewrittenZ);
 
@@ -200,9 +200,9 @@ public class TestMemo
 
         assertMatchesStructure(
                 memo.extract(),
-                node(newX.getId(),
-                        node(y1.getId(), node(z.getId())),
-                        node(y2.getId(), node(z.getId()))));
+                node(newX.id(),
+                        node(y1.id(), node(z.id())),
+                        node(y2.id(), node(z.id()))));
     }
 
     @Test
@@ -256,18 +256,18 @@ public class TestMemo
     private static void assertMatchesStructure(PlanNode actual, PlanNode expected)
     {
         assertThat(actual.getClass()).isEqualTo(expected.getClass());
-        assertThat(actual.getId()).isEqualTo(expected.getId());
-        assertThat(actual.getSources().size()).isEqualTo(expected.getSources().size());
+        assertThat(actual.id()).isEqualTo(expected.id());
+        assertThat(actual.sources().size()).isEqualTo(expected.sources().size());
 
-        for (int i = 0; i < actual.getSources().size(); i++) {
-            assertMatchesStructure(actual.getSources().get(i), expected.getSources().get(i));
+        for (int i = 0; i < actual.sources().size(); i++) {
+            assertMatchesStructure(actual.sources().get(i), expected.sources().get(i));
         }
     }
 
     private int getChildGroup(Memo memo, int group)
     {
         PlanNode node = memo.getNode(group);
-        GroupReference child = (GroupReference) node.getSources().get(0);
+        GroupReference child = (GroupReference) node.sources().get(0);
 
         return child.getGroupId();
     }

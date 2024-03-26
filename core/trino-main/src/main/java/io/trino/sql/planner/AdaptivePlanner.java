@@ -166,7 +166,7 @@ public class AdaptivePlanner
                 false,
                 warningCollector,
                 fragmentIdAllocator,
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), adaptivePlan.getOutputSymbols()),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), adaptivePlan.outputSymbols()),
                 // We do not change the subPlans which have no changes and are not downstream of the
                 // changed plan nodes. This optimization is done to avoid unnecessary stage restart due to speculative
                 // execution.
@@ -206,7 +206,7 @@ public class AdaptivePlanner
         // We should check optimizedPlanNode here instead of initialPlan since it is possible that new
         // nodes have been added, and they aren't part of initialPlan. However, we should put the adaptive plan node
         // above them.
-        if (changedPlanNodes.contains(optimizedPlanNode.getId())) {
+        if (changedPlanNodes.contains(optimizedPlanNode.id())) {
             return new AdaptivePlanNode(
                     idAllocator.getNextId(),
                     initialPlan,
@@ -216,11 +216,11 @@ public class AdaptivePlanner
 
         // This condition should always be true because if a plan node is changed, then it should be captured in the
         // changedPlanNodes set based on the semantics of PlanOptimizer#optimizeAndMarkPlanChanges.
-        verify(initialPlan.getSources().size() == optimizedPlanNode.getSources().size());
+        verify(initialPlan.sources().size() == optimizedPlanNode.sources().size());
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
-        for (int i = 0; i < initialPlan.getSources().size(); i++) {
-            PlanNode initialSource = initialPlan.getSources().get(i);
-            PlanNode optimizedSource = optimizedPlanNode.getSources().get(i);
+        for (int i = 0; i < initialPlan.sources().size(); i++) {
+            PlanNode initialSource = initialPlan.sources().get(i);
+            PlanNode optimizedSource = optimizedPlanNode.sources().get(i);
             sources.add(addAdaptivePlanNode(idAllocator, initialSource, optimizedSource, changedPlanNodes));
         }
         return optimizedPlanNode.replaceChildren(sources.build());
@@ -242,15 +242,15 @@ public class AdaptivePlanner
 
     private Set<PlanNodeId> getDownstreamPlanNodeIds(PlanNode root, PlanNodeId id)
     {
-        if (root.getId().equals(id)) {
+        if (root.id().equals(id)) {
             return ImmutableSet.of(id);
         }
         Set<PlanNodeId> upstreamNodes = new HashSet<>();
-        root.getSources().stream()
+        root.sources().stream()
                 .map(source -> getDownstreamPlanNodeIds(source, id))
                 .forEach(upstreamNodes::addAll);
         if (!upstreamNodes.isEmpty()) {
-            upstreamNodes.add(root.getId());
+            upstreamNodes.add(root.id());
         }
         return upstreamNodes;
     }
@@ -288,7 +288,7 @@ public class AdaptivePlanner
     private int getMaxPlanId(PlanNode node)
     {
         return traverse(node)
-                .map(PlanNode::getId)
+                .map(PlanNode::id)
                 .mapToInt(planNodeId -> Integer.parseInt(planNodeId.toString()))
                 .max()
                 .orElseThrow();
@@ -296,7 +296,7 @@ public class AdaptivePlanner
 
     private Stream<PlanNode> traverse(PlanNode node)
     {
-        Iterable<PlanNode> iterable = Traverser.forTree(PlanNode::getSources).depthFirstPreOrder(node);
+        Iterable<PlanNode> iterable = Traverser.forTree(PlanNode::sources).depthFirstPreOrder(node);
         return StreamSupport.stream(iterable.spliterator(), false);
     }
 
@@ -323,7 +323,7 @@ public class AdaptivePlanner
             // rewrite them as well.
             PlanNode initialPlan = context.rewrite(node.getInitialPlan(), context.get());
             PlanNode currentPlan = context.rewrite(node.getCurrentPlan(), context.get());
-            return new AdaptivePlanNode(node.getId(), initialPlan, SymbolsExtractor.extractOutputSymbols(initialPlan), currentPlan);
+            return new AdaptivePlanNode(node.id(), initialPlan, SymbolsExtractor.extractOutputSymbols(initialPlan), currentPlan);
         }
 
         @Override
@@ -348,7 +348,7 @@ public class AdaptivePlanner
             }
 
             List<PlanNode> sourceNodes = sourceNodesBuilder.build();
-            List<List<Symbol>> inputs = sourceNodes.stream().map(PlanNode::getOutputSymbols).collect(toImmutableList());
+            List<List<Symbol>> inputs = sourceNodes.stream().map(PlanNode::outputSymbols).collect(toImmutableList());
             PartitioningScheme partitioningScheme = node.getSourceFragmentIds().stream()
                     .map(runtimeInfoProvider::getPlanFragment)
                     .map(PlanFragment::getOutputPartitioningScheme)
@@ -356,7 +356,7 @@ public class AdaptivePlanner
                     .orElseThrow();
 
             return new ExchangeNode(
-                    node.getId(),
+                    node.id(),
                     node.getExchangeType(),
                     REMOTE,
                     partitioningScheme,
@@ -383,17 +383,17 @@ public class AdaptivePlanner
             }
 
             // Find the sub plans for this exchange node
-            List<PlanNodeId> sourceIds = node.getSources().stream().map(PlanNode::getId).collect(toImmutableList());
+            List<PlanNodeId> sourceIds = node.sources().stream().map(PlanNode::id).collect(toImmutableList());
             List<SubPlan> sourceSubPlans = context.stream()
-                    .filter(subPlan -> sourceIds.contains(subPlan.getFragment().getRoot().getId()))
+                    .filter(subPlan -> sourceIds.contains(subPlan.getFragment().getRoot().id()))
                     .collect(toImmutableList());
             verify(
                     sourceSubPlans.size() == sourceIds.size(),
                     "Source subPlans not found for exchange node");
 
             for (SubPlan sourceSubPlan : sourceSubPlans) {
-                PlanNodeId sourceId = sourceSubPlan.getFragment().getRoot().getId();
-                exchangeSourceIdToSubPlan.put(new ExchangeSourceId(node.getId(), sourceId), sourceSubPlan);
+                PlanNodeId sourceId = sourceSubPlan.getFragment().getRoot().id();
+                exchangeSourceIdToSubPlan.put(new ExchangeSourceId(node.id(), sourceId), sourceSubPlan);
             }
             return null;
         }
@@ -406,8 +406,8 @@ public class AdaptivePlanner
                     .collect(toImmutableList());
 
             for (SubPlan sourceSubPlan : sourceSubPlans) {
-                PlanNodeId sourceId = sourceSubPlan.getFragment().getRoot().getId();
-                exchangeSourceIdToSubPlan.put(new ExchangeSourceId(node.getId(), sourceId), sourceSubPlan);
+                PlanNodeId sourceId = sourceSubPlan.getFragment().getRoot().id();
+                exchangeSourceIdToSubPlan.put(new ExchangeSourceId(node.id(), sourceId), sourceSubPlan);
             }
             return null;
         }

@@ -118,8 +118,8 @@ public class TransformCorrelatedDistinctAggregationWithoutProjection
                 inputWithUniqueId,
                 source,
                 ImmutableList.of(),
-                inputWithUniqueId.getOutputSymbols(),
-                source.getOutputSymbols(),
+                inputWithUniqueId.outputSymbols(),
+                source.outputSymbols(),
                 false,
                 decorrelatedSource.get().getCorrelatedPredicates(),
                 Optional.empty(),
@@ -146,7 +146,7 @@ public class TransformCorrelatedDistinctAggregationWithoutProjection
                 .build();
 
         // restrict outputs
-        Optional<PlanNode> project = restrictOutputs(context.getIdAllocator(), aggregation, ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols()));
+        Optional<PlanNode> project = restrictOutputs(context.getIdAllocator(), aggregation, ImmutableSet.copyOf(correlatedJoinNode.outputSymbols()));
 
         return Result.ofPlanNode(project.orElse(aggregation));
     }

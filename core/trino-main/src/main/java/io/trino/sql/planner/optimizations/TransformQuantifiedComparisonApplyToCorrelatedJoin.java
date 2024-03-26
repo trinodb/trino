@@ -112,7 +112,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
         {
             PlanNode subqueryPlan = context.rewrite(node.getSubquery());
 
-            Symbol outputColumn = getOnlyElement(subqueryPlan.getOutputSymbols());
+            Symbol outputColumn = getOnlyElement(subqueryPlan.outputSymbols());
             Type outputColumnType = outputColumn.getType();
             checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
 
@@ -158,7 +158,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                     globalAggregation());
 
             PlanNode join = new CorrelatedJoinNode(
-                    node.getId(),
+                    node.id(),
                     context.rewrite(node.getInput()),
                     subqueryPlan,
                     node.getCorrelation(),
@@ -253,7 +253,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
         private ProjectNode projectExpressions(PlanNode input, Assignments subqueryAssignments)
         {
             Assignments assignments = Assignments.builder()
-                    .putIdentities(input.getOutputSymbols())
+                    .putIdentities(input.outputSymbols())
                     .putAll(subqueryAssignments)
                     .build();
             return new ProjectNode(

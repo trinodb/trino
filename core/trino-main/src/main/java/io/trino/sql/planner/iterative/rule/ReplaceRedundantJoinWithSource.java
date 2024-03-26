@@ -66,8 +66,8 @@ public class ReplaceRedundantJoinWithSource
             return Result.empty();
         }
 
-        boolean leftSourceScalarWithNoOutputs = node.getLeft().getOutputSymbols().isEmpty() && leftCardinality.isScalar();
-        boolean rightSourceScalarWithNoOutputs = node.getRight().getOutputSymbols().isEmpty() && rightCardinality.isScalar();
+        boolean leftSourceScalarWithNoOutputs = node.getLeft().outputSymbols().isEmpty() && leftCardinality.isScalar();
+        boolean rightSourceScalarWithNoOutputs = node.getRight().outputSymbols().isEmpty() && rightCardinality.isScalar();
 
         return switch (node.getType()) {
             case INNER -> {

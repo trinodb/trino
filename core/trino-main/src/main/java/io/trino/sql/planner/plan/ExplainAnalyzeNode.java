@@ -47,7 +47,7 @@ public final class ExplainAnalyzeNode
         this.source = requireNonNull(source, "source is null");
         this.outputSymbol = requireNonNull(outputSymbol, "outputSymbol is null");
         requireNonNull(actualOutputs, "actualOutputs is null");
-        checkArgument(ImmutableSet.copyOf(source.getOutputSymbols()).containsAll(actualOutputs), "Source does not supply all required input symbols");
+        checkArgument(ImmutableSet.copyOf(source.outputSymbols()).containsAll(actualOutputs), "Source does not supply all required input symbols");
         this.actualOutputs = ImmutableList.copyOf(actualOutputs);
         this.verbose = verbose;
     }
@@ -77,13 +77,13 @@ public final class ExplainAnalyzeNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return ImmutableList.of(outputSymbol);
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
@@ -97,6 +97,6 @@ public final class ExplainAnalyzeNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ExplainAnalyzeNode(getId(), Iterables.getOnlyElement(newChildren), outputSymbol, actualOutputs, isVerbose());
+        return new ExplainAnalyzeNode(id(), Iterables.getOnlyElement(newChildren), outputSymbol, actualOutputs, isVerbose());
     }
 }

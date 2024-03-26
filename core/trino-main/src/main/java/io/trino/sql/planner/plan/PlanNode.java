@@ -95,14 +95,14 @@ public abstract sealed class PlanNode
     }
 
     @JsonProperty("id")
-    public PlanNodeId getId()
+    public PlanNodeId id()
     {
         return id;
     }
 
-    public abstract List<PlanNode> getSources();
+    public abstract List<PlanNode> sources();
 
-    public abstract List<Symbol> getOutputSymbols();
+    public abstract List<Symbol> outputSymbols();
 
     public abstract PlanNode replaceChildren(List<PlanNode> newChildren);
 

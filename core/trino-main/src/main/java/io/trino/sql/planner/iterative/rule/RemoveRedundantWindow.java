@@ -38,7 +38,7 @@ public class RemoveRedundantWindow
     public Result apply(WindowNode window, Captures captures, Context context)
     {
         if (isEmpty(window.getSource(), context.getLookup())) {
-            return Result.ofPlanNode(new ValuesNode(window.getId(), window.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(window.id(), window.outputSymbols(), ImmutableList.of()));
         }
         return Result.empty();
     }

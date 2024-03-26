@@ -127,7 +127,7 @@ public final class SymbolsExtractor
         return searchFrom(planNode, lookup)
                 .findAll()
                 .stream()
-                .flatMap(node -> node.getOutputSymbols().stream())
+                .flatMap(node -> node.outputSymbols().stream())
                 .collect(toImmutableSet());
     }
 

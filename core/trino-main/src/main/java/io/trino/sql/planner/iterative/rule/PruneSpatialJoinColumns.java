@@ -38,11 +38,11 @@ public class PruneSpatialJoinColumns
     protected Optional<PlanNode> pushDownProjectOff(Context context, SpatialJoinNode spatialJoinNode, Set<Symbol> referencedOutputs)
     {
         return Optional.of(new SpatialJoinNode(
-                spatialJoinNode.getId(),
+                spatialJoinNode.id(),
                 spatialJoinNode.getType(),
                 spatialJoinNode.getLeft(),
                 spatialJoinNode.getRight(),
-                spatialJoinNode.getOutputSymbols().stream()
+                spatialJoinNode.outputSymbols().stream()
                         .filter(referencedOutputs::contains)
                         .collect(toImmutableList()),
                 spatialJoinNode.getFilter(),

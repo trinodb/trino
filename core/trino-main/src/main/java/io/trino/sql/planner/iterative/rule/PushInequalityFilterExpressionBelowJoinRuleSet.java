@@ -148,11 +148,11 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
 
         Optional<Expression> filter = conjunctsToFilter(newParentFilterConjuncts.build());
         if (filter.isPresent()) {
-            newOutput = new FilterNode(filterNode.get().getId(), newOutput, filter.get());
+            newOutput = new FilterNode(filterNode.get().id(), newOutput, filter.get());
         }
 
-        if (!joinNode.getOutputSymbols().equals(newOutput.getOutputSymbols())) {
-            newOutput = new ProjectNode(context.getIdAllocator().getNextId(), newOutput, Assignments.identity(joinNode.getOutputSymbols()));
+        if (!joinNode.outputSymbols().equals(newOutput.outputSymbols())) {
+            newOutput = new ProjectNode(context.getIdAllocator().getNextId(), newOutput, Assignments.identity(joinNode.outputSymbols()));
         }
 
         return Result.ofPlanNode(newOutput);
@@ -246,7 +246,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
         }
 
         return new JoinNode(
-                originalJoinNode.getId(),
+                originalJoinNode.id(),
                 originalJoinNode.getType(),
                 originalJoinNode.getLeft(),
                 rightSource,
@@ -274,7 +274,7 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
     private Assignments buildAssignments(PlanNode source, Map<Symbol, Expression> newRightProjections)
     {
         return Assignments.builder()
-                .putIdentities(source.getOutputSymbols())
+                .putIdentities(source.outputSymbols())
                 .putAll(newRightProjections)
                 .build();
     }
@@ -325,8 +325,8 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
         public JoinNodeContext(JoinNode joinNode)
         {
             requireNonNull(joinNode, "joinNode is null");
-            this.leftSymbols = ImmutableSet.copyOf(joinNode.getLeft().getOutputSymbols());
-            this.rightSymbols = ImmutableSet.copyOf(joinNode.getRight().getOutputSymbols());
+            this.leftSymbols = ImmutableSet.copyOf(joinNode.getLeft().outputSymbols());
+            this.rightSymbols = ImmutableSet.copyOf(joinNode.getRight().outputSymbols());
         }
 
         public Set<Symbol> getLeftSymbols()

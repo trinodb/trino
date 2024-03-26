@@ -146,8 +146,8 @@ public final class QueryCardinalityUtil
         @Override
         public Range<Long> visitExchange(ExchangeNode node, Void context)
         {
-            if (node.getSources().size() == 1) {
-                return getOnlyElement(node.getSources()).accept(this, null);
+            if (node.sources().size() == 1) {
+                return getOnlyElement(node.sources()).accept(this, null);
             }
             return Range.atLeast(0L);
         }

@@ -143,12 +143,12 @@ public class PushPartialAggregationThroughExchange
     private PlanNode pushPartial(AggregationNode aggregation, ExchangeNode exchange, Context context)
     {
         List<PlanNode> partials = new ArrayList<>();
-        for (int i = 0; i < exchange.getSources().size(); i++) {
-            PlanNode source = exchange.getSources().get(i);
+        for (int i = 0; i < exchange.sources().size(); i++) {
+            PlanNode source = exchange.sources().get(i);
 
             SymbolMapper.Builder mappingsBuilder = SymbolMapper.builder();
-            for (int outputIndex = 0; outputIndex < exchange.getOutputSymbols().size(); outputIndex++) {
-                Symbol output = exchange.getOutputSymbols().get(outputIndex);
+            for (int outputIndex = 0; outputIndex < exchange.outputSymbols().size(); outputIndex++) {
+                Symbol output = exchange.outputSymbols().get(outputIndex);
                 Symbol input = exchange.getInputs().get(i).get(outputIndex);
                 if (!output.equals(input)) {
                     mappingsBuilder.put(output, input);
@@ -160,7 +160,7 @@ public class PushPartialAggregationThroughExchange
 
             Assignments.Builder assignments = Assignments.builder();
 
-            for (Symbol output : aggregation.getOutputSymbols()) {
+            for (Symbol output : aggregation.outputSymbols()) {
                 Symbol input = symbolMapper.map(output);
                 assignments.put(output, input.toSymbolReference());
             }
@@ -168,14 +168,14 @@ public class PushPartialAggregationThroughExchange
         }
 
         for (PlanNode node : partials) {
-            verify(aggregation.getOutputSymbols().equals(node.getOutputSymbols()));
+            verify(aggregation.outputSymbols().equals(node.outputSymbols()));
         }
 
         // Since this exchange source is now guaranteed to have the same symbols as the inputs to the partial
         // aggregation, we don't need to rewrite symbols in the partitioning function
         PartitioningScheme partitioning = new PartitioningScheme(
                 exchange.getPartitioningScheme().getPartitioning(),
-                aggregation.getOutputSymbols(),
+                aggregation.outputSymbols(),
                 exchange.getPartitioningScheme().getHashColumn(),
                 exchange.getPartitioningScheme().isReplicateNullsAndAny(),
                 exchange.getPartitioningScheme().getBucketToPartition(),
@@ -187,7 +187,7 @@ public class PushPartialAggregationThroughExchange
                 exchange.getScope(),
                 partitioning,
                 partials,
-                ImmutableList.copyOf(Collections.nCopies(partials.size(), aggregation.getOutputSymbols())),
+                ImmutableList.copyOf(Collections.nCopies(partials.size(), aggregation.outputSymbols())),
                 Optional.empty());
     }
 
@@ -247,7 +247,7 @@ public class PushPartialAggregationThroughExchange
                 node.getGroupIdSymbol());
 
         return new AggregationNode(
-                node.getId(),
+                node.id(),
                 partial,
                 finalAggregation,
                 node.getGroupingSets(),

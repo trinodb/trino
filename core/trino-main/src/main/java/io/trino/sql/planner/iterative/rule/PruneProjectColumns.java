@@ -38,7 +38,7 @@ public class PruneProjectColumns
     {
         return Optional.of(
                 new ProjectNode(
-                        childProjectNode.getId(),
+                        childProjectNode.id(),
                         childProjectNode.getSource(),
                         childProjectNode.getAssignments().filter(referencedOutputs)));
     }

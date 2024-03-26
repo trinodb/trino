@@ -40,7 +40,7 @@ public class RemoveRedundantSort
     {
         Cardinality cardinality = extractCardinality(node.getSource(), context.getLookup());
         if (cardinality.isEmpty()) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(node.id(), node.outputSymbols(), ImmutableList.of()));
         }
         if (cardinality.isScalar()) {
             return Result.ofPlanNode(node.getSource());

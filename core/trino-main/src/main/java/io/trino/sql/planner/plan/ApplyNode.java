@@ -81,7 +81,7 @@ public final class ApplyNode
         requireNonNull(correlation, "correlation is null");
         requireNonNull(originSubquery, "originSubquery is null");
 
-        checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
+        checkArgument(input.outputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
 
         this.input = input;
         this.subquery = subquery;
@@ -121,17 +121,17 @@ public final class ApplyNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(input, subquery);
     }
 
     @Override
     @JsonProperty("outputSymbols")
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return ImmutableList.<Symbol>builder()
-                .addAll(input.getOutputSymbols())
+                .addAll(input.outputSymbols())
                 .addAll(subqueryAssignments.keySet())
                 .build();
     }
@@ -146,7 +146,7 @@ public final class ApplyNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new ApplyNode(getId(), newChildren.get(0), newChildren.get(1), subqueryAssignments, correlation, originSubquery);
+        return new ApplyNode(id(), newChildren.get(0), newChildren.get(1), subqueryAssignments, correlation, originSubquery);
     }
 
     public sealed interface SetExpression

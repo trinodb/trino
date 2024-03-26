@@ -68,7 +68,7 @@ class AggregationDecorrelation
     {
         checkArgument(isDistinctOperator(distinct));
         return new AggregationNode(
-                distinct.getId(),
+                distinct.id(),
                 source,
                 ImmutableMap.of(),
                 AggregationNode.singleGroupingSet(groupingKeys),

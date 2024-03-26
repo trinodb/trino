@@ -62,8 +62,8 @@ public final class SemiJoinNode
         this.distributionType = requireNonNull(distributionType, "distributionType is null");
         this.dynamicFilterId = requireNonNull(dynamicFilterId, "dynamicFilterId is null");
 
-        checkArgument(source.getOutputSymbols().contains(sourceJoinSymbol), "Source does not contain join symbol");
-        checkArgument(filteringSource.getOutputSymbols().contains(filteringSourceJoinSymbol), "Filtering source does not contain filtering join symbol");
+        checkArgument(source.outputSymbols().contains(sourceJoinSymbol), "Source does not contain join symbol");
+        checkArgument(filteringSource.outputSymbols().contains(filteringSourceJoinSymbol), "Filtering source does not contain filtering join symbol");
     }
 
     public enum DistributionType
@@ -121,16 +121,16 @@ public final class SemiJoinNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source, filteringSource);
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return ImmutableList.<Symbol>builder()
-                .addAll(source.getOutputSymbols())
+                .addAll(source.outputSymbols())
                 .add(semiJoinOutput)
                 .build();
     }
@@ -152,7 +152,7 @@ public final class SemiJoinNode
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
         return new SemiJoinNode(
-                getId(),
+                id(),
                 newChildren.get(0),
                 newChildren.get(1),
                 sourceJoinSymbol,
@@ -167,7 +167,7 @@ public final class SemiJoinNode
     public SemiJoinNode withDistributionType(DistributionType distributionType)
     {
         return new SemiJoinNode(
-                getId(),
+                id(),
                 source,
                 filteringSource,
                 sourceJoinSymbol,
@@ -182,7 +182,7 @@ public final class SemiJoinNode
     public SemiJoinNode withoutDynamicFilter()
     {
         return new SemiJoinNode(
-                getId(),
+                id(),
                 source,
                 filteringSource,
                 sourceJoinSymbol,

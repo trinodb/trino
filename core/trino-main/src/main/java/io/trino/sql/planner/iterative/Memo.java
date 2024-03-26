@@ -115,11 +115,11 @@ public class Memo
         Group group = getGroup(groupId);
         PlanNode old = group.membership;
 
-        checkArgument(new HashSet<>(old.getOutputSymbols()).equals(new HashSet<>(node.getOutputSymbols())),
+        checkArgument(new HashSet<>(old.outputSymbols()).equals(new HashSet<>(node.outputSymbols())),
                 "%s: transformed expression doesn't produce same outputs: %s vs %s",
                 reason,
-                old.getOutputSymbols(),
-                node.getOutputSymbols());
+                old.outputSymbols(),
+                node.outputSymbols());
 
         if (node instanceof GroupReference) {
             node = getNode(((GroupReference) node).getGroupId());
@@ -196,7 +196,7 @@ public class Memo
 
     private Set<Integer> getAllReferences(PlanNode node)
     {
-        return node.getSources().stream()
+        return node.sources().stream()
                 .map(GroupReference.class::cast)
                 .map(GroupReference::getGroupId)
                 .collect(Collectors.toSet());
@@ -212,11 +212,11 @@ public class Memo
     private PlanNode insertChildrenAndRewrite(PlanNode node)
     {
         return node.replaceChildren(
-                node.getSources().stream()
+                node.sources().stream()
                         .map(child -> new GroupReference(
                                 idAllocator.getNextId(),
                                 insertRecursive(child),
-                                child.getOutputSymbols()))
+                                child.outputSymbols()))
                         .collect(Collectors.toList()));
     }
 

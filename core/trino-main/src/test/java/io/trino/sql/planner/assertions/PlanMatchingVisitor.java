@@ -52,7 +52,7 @@ final class PlanMatchingVisitor
     public MatchResult visitExchange(ExchangeNode node, PlanMatchPattern pattern)
     {
         List<List<Symbol>> allInputs = node.getInputs();
-        List<Symbol> outputs = node.getOutputSymbols();
+        List<Symbol> outputs = node.outputSymbols();
 
         MatchResult result = super.visitExchange(node, pattern);
 
@@ -105,7 +105,7 @@ final class PlanMatchingVisitor
         }
 
         // Leaf node in the plan.
-        if (node.getSources().isEmpty()) {
+        if (node.sources().isEmpty()) {
             return matchLeaf(node, pattern, states);
         }
 
@@ -175,11 +175,11 @@ final class PlanMatchingVisitor
     private MatchResult matchSources(PlanNode node, PlanMatchingState state)
     {
         List<PlanMatchPattern> sourcePatterns = state.getPatterns();
-        checkState(node.getSources().size() == sourcePatterns.size(), "Matchers count does not match count of sources");
+        checkState(node.sources().size() == sourcePatterns.size(), "Matchers count does not match count of sources");
 
         int i = 0;
         SymbolAliases.Builder allSourceAliases = SymbolAliases.builder();
-        for (PlanNode source : node.getSources()) {
+        for (PlanNode source : node.sources()) {
             // Match sources to patterns 1:1
             PlanMatchPattern pattern = sourcePatterns.get(i++);
             MatchResult matchResult = source.accept(this, pattern);

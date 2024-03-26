@@ -49,7 +49,7 @@ public class PruneDistinctAggregation
         Lookup lookup = context.getLookup();
         DistinctAggregationRewriter rewriter = new DistinctAggregationRewriter(lookup);
 
-        List<PlanNode> newSources = node.getSources().stream()
+        List<PlanNode> newSources = node.sources().stream()
                 .map(lookup::resolve)
                 .map(source -> source.accept(rewriter, true))
                 .collect(toImmutableList());
@@ -84,7 +84,7 @@ public class PruneDistinctAggregation
 
         private PlanNode rewriteChildren(PlanNode node, Boolean context)
         {
-            List<PlanNode> newSources = node.getSources().stream()
+            List<PlanNode> newSources = node.sources().stream()
                     .map(lookup::resolve)
                     .map(source -> source.accept(this, context))
                     .collect(toImmutableList());

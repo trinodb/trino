@@ -109,7 +109,7 @@ public class AddIntermediateAggregations
                     idAllocator.getNextId(),
                     ExchangeNode.Scope.LOCAL,
                     source,
-                    new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getOutputSymbols()));
+                    new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.outputSymbols()));
             source = new AggregationNode(
                     idAllocator.getNextId(),
                     source,
@@ -139,7 +139,7 @@ public class AddIntermediateAggregations
         }
 
         ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
-        for (PlanNode source : node.getSources()) {
+        for (PlanNode source : node.sources()) {
             Optional<PlanNode> planNode = recurseToPartial(lookup.resolve(source), lookup, idAllocator);
             if (planNode.isEmpty()) {
                 return Optional.empty();

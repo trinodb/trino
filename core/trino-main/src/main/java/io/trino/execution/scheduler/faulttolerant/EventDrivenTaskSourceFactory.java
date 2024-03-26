@@ -121,7 +121,7 @@ public class EventDrivenTaskSourceFactory
         ImmutableSetMultimap.Builder<PlanNodeId, PlanFragmentId> remoteSources = ImmutableSetMultimap.builder();
         for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
             for (PlanFragmentId sourceFragment : remoteSource.getSourceFragmentIds()) {
-                remoteSources.put(remoteSource.getId(), sourceFragment);
+                remoteSources.put(remoteSource.id(), sourceFragment);
             }
         }
         long standardSplitSizeInBytes = getFaultTolerantExecutionStandardSplitSize(session).toBytes();
@@ -158,7 +158,7 @@ public class EventDrivenTaskSourceFactory
 
         Set<PlanNodeId> partitionedRemoteSources = fragment.getRemoteSourceNodes().stream()
                 .filter(node -> node.getExchangeType() != REPLICATE)
-                .map(PlanNode::getId)
+                .map(PlanNode::id)
                 .collect(toImmutableSet());
         Set<PlanNodeId> partitionedSources = ImmutableSet.<PlanNodeId>builder()
                 .addAll(partitionedRemoteSources)
@@ -166,7 +166,7 @@ public class EventDrivenTaskSourceFactory
                 .build();
         Set<PlanNodeId> replicatedSources = fragment.getRemoteSourceNodes().stream()
                 .filter(node -> node.getExchangeType() == REPLICATE)
-                .map(PlanNode::getId)
+                .map(PlanNode::id)
                 .collect(toImmutableSet());
 
         boolean coordinatorOnly = partitioning.equals(COORDINATOR_DISTRIBUTION);

@@ -79,7 +79,7 @@ public class PushLimitThroughOuterJoin
         PlanNode right = joinNode.getRight();
 
         if (joinNode.getType() == LEFT && !isAtMost(left, context.getLookup(), parent.getCount())) {
-            if (!ImmutableSet.copyOf(left.getOutputSymbols()).containsAll(parent.getPreSortedInputs())) {
+            if (!ImmutableSet.copyOf(left.outputSymbols()).containsAll(parent.getPreSortedInputs())) {
                 return Result.empty();
             }
             return Result.ofPlanNode(
@@ -90,7 +90,7 @@ public class PushLimitThroughOuterJoin
         }
 
         if (joinNode.getType() == RIGHT && !isAtMost(right, context.getLookup(), parent.getCount())) {
-            if (!ImmutableSet.copyOf(right.getOutputSymbols()).containsAll(parent.getPreSortedInputs())) {
+            if (!ImmutableSet.copyOf(right.outputSymbols()).containsAll(parent.getPreSortedInputs())) {
                 return Result.empty();
             }
             return Result.ofPlanNode(

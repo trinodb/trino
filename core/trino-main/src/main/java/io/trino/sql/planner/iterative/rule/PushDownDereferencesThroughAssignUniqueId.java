@@ -96,7 +96,7 @@ public class PushDownDereferencesThroughAssignUniqueId
                                         context.getIdAllocator().getNextId(),
                                         assignUniqueId.getSource(),
                                         Assignments.builder()
-                                                .putIdentities(assignUniqueId.getSource().getOutputSymbols())
+                                                .putIdentities(assignUniqueId.getSource().outputSymbols())
                                                 .putAll(dereferenceAssignments)
                                                 .build()))),
                         newAssignments));

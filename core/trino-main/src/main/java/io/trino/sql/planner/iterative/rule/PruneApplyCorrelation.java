@@ -53,7 +53,7 @@ public class PruneApplyCorrelation
 
         if (newCorrelation.size() < applyNode.getCorrelation().size()) {
             return Result.ofPlanNode(new ApplyNode(
-                    applyNode.getId(),
+                    applyNode.id(),
                     applyNode.getInput(),
                     applyNode.getSubquery(),
                     applyNode.getSubqueryAssignments(),

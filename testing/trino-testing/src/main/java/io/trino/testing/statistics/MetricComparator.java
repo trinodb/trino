@@ -64,7 +64,7 @@ final class MetricComparator
     {
         Plan queryPlan = runner.createPlan(session, query);
         OutputNode outputNode = (OutputNode) queryPlan.getRoot();
-        PlanNodeStatsEstimate outputNodeStats = queryPlan.getStatsAndCosts().getStats().getOrDefault(queryPlan.getRoot().getId(), PlanNodeStatsEstimate.unknown());
+        PlanNodeStatsEstimate outputNodeStats = queryPlan.getStatsAndCosts().getStats().getOrDefault(queryPlan.getRoot().id(), PlanNodeStatsEstimate.unknown());
         StatsContext statsContext = buildStatsContext(outputNode);
         return getEstimatedValues(metrics, outputNodeStats, statsContext);
     }
@@ -73,7 +73,7 @@ final class MetricComparator
     {
         ImmutableMap.Builder<String, Symbol> columnSymbols = ImmutableMap.builder();
         for (int columnId = 0; columnId < outputNode.getColumnNames().size(); ++columnId) {
-            columnSymbols.put(outputNode.getColumnNames().get(columnId), outputNode.getOutputSymbols().get(columnId));
+            columnSymbols.put(outputNode.getColumnNames().get(columnId), outputNode.outputSymbols().get(columnId));
         }
         return new StatsContext(columnSymbols.buildOrThrow());
     }

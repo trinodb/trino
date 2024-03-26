@@ -57,7 +57,7 @@ public final class SampleNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
@@ -81,9 +81,9 @@ public final class SampleNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
-        return source.getOutputSymbols();
+        return source.outputSymbols();
     }
 
     @Override
@@ -95,6 +95,6 @@ public final class SampleNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new SampleNode(getId(), Iterables.getOnlyElement(newChildren), sampleRatio, sampleType);
+        return new SampleNode(id(), Iterables.getOnlyElement(newChildren), sampleRatio, sampleType);
     }
 }

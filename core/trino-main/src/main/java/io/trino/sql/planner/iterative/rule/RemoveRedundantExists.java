@@ -75,7 +75,7 @@ public class RemoveRedundantExists
     public Result apply(ApplyNode node, Captures captures, Context context)
     {
         Assignments.Builder assignments = Assignments.builder();
-        assignments.putIdentities(node.getInput().getOutputSymbols());
+        assignments.putIdentities(node.getInput().outputSymbols());
 
         Cardinality subqueryCardinality = extractCardinality(node.getSubquery(), context.getLookup());
         Expression result;

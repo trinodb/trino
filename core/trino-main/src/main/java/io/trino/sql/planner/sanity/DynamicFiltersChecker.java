@@ -68,7 +68,7 @@ public class DynamicFiltersChecker
             protected Set<DynamicFilterId> visitPlan(PlanNode node, Void context)
             {
                 Set<DynamicFilterId> consumed = new HashSet<>();
-                for (PlanNode source : node.getSources()) {
+                for (PlanNode source : node.sources()) {
                     consumed.addAll(source.accept(this, context));
                 }
                 return consumed;

@@ -49,7 +49,7 @@ public final class SchedulingOrderVisitor
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
-            schedulingOrder.accept(node.getId());
+            schedulingOrder.accept(node.id());
             return null;
         }
 
@@ -57,7 +57,7 @@ public final class SchedulingOrderVisitor
         public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
         {
             if (node.getSource().isEmpty()) {
-                schedulingOrder.accept(node.getId());
+                schedulingOrder.accept(node.id());
             }
             else {
                 node.getSource().orElseThrow().accept(this, context);

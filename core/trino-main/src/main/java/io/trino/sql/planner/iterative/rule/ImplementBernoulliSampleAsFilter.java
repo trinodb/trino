@@ -63,7 +63,7 @@ public class ImplementBernoulliSampleAsFilter
     public Result apply(SampleNode sample, Captures captures, Context context)
     {
         return Result.ofPlanNode(new FilterNode(
-                sample.getId(),
+                sample.id(),
                 sample.getSource(),
                 new Comparison(
                         Comparison.Operator.LESS_THAN,

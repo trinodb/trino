@@ -85,7 +85,7 @@ public class ImplementOffset
         ProjectNode projectNode = new ProjectNode(
                 context.getIdAllocator().getNextId(),
                 filterNode,
-                Assignments.identity(parent.getOutputSymbols()));
+                Assignments.identity(parent.outputSymbols()));
 
         return Result.ofPlanNode(projectNode);
     }

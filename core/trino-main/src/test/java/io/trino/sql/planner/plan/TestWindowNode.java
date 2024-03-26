@@ -112,7 +112,7 @@ public class TestWindowNode
 
         WindowNode actualNode = objectMapper.readValue(json, WindowNode.class);
 
-        assertThat(actualNode.getId()).isEqualTo(windowNode.getId());
+        assertThat(actualNode.id()).isEqualTo(windowNode.id());
         assertThat(actualNode.getSpecification()).isEqualTo(windowNode.getSpecification());
         assertThat(actualNode.getWindowFunctions()).isEqualTo(windowNode.getWindowFunctions());
         assertThat(actualNode.getFrames()).isEqualTo(windowNode.getFrames());

@@ -64,7 +64,7 @@ public class PushMergeWriterDeleteIntoConnector
                 .map(newHandle -> new TableDeleteNode(
                         context.getIdAllocator().getNextId(),
                         newHandle,
-                        getOnlyElement(node.getOutputSymbols())))
+                        getOnlyElement(node.outputSymbols())))
                 .map(Result::ofPlanNode)
                 .orElseGet(Result::empty);
     }

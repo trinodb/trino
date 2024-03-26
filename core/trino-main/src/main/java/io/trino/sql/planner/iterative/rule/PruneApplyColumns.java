@@ -116,7 +116,7 @@ public class PruneApplyColumns
 
         if (pruned) {
             return Optional.of(new ApplyNode(
-                    applyNode.getId(),
+                    applyNode.id(),
                     newInput.orElse(applyNode.getInput()),
                     newSubquery.orElse(applyNode.getSubquery()),
                     newSubqueryAssignments.buildOrThrow(),

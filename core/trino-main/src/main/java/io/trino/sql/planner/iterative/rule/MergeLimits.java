@@ -104,7 +104,7 @@ public class MergeLimits
         if (!child.isWithTies()) {
             return Result.ofPlanNode(
                     new LimitNode(
-                            parent.getId(),
+                            parent.id(),
                             child.getSource(),
                             Math.min(parent.getCount(), child.getCount()),
                             parent.getTiesResolvingScheme(),

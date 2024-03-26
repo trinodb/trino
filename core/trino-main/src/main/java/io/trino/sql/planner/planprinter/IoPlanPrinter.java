@@ -187,11 +187,11 @@ public class IoPlanPrinter
             {
                 PlanNode root = plan.getRoot();
                 StatsAndCosts statsAndCosts = plan.getStatsAndCosts();
-                PlanNodeStatsEstimate statsEstimate = statsAndCosts.getStats().get(root.getId());
-                PlanCostEstimate costEstimate = statsAndCosts.getCosts().get(root.getId());
+                PlanNodeStatsEstimate statsEstimate = statsAndCosts.getStats().get(root.id());
+                PlanCostEstimate costEstimate = statsAndCosts.getCosts().get(root.id());
                 return new EstimatedStatsAndCost(
                         statsEstimate.getOutputRowCount(),
-                        statsEstimate.getOutputSizeInBytes(root.getOutputSymbols()),
+                        statsEstimate.getOutputSizeInBytes(root.outputSymbols()),
                         costEstimate.getCpuCost(),
                         costEstimate.getMaxMemory(),
                         costEstimate.getNetworkCost());
@@ -743,12 +743,12 @@ public class IoPlanPrinter
         private EstimatedStatsAndCost getEstimatedStatsAndCost(TableScanNode node)
         {
             StatsAndCosts statsAndCosts = plan.getStatsAndCosts();
-            PlanNodeStatsEstimate stats = statsAndCosts.getStats().get(node.getId());
-            PlanCostEstimate cost = statsAndCosts.getCosts().get(node.getId());
+            PlanNodeStatsEstimate stats = statsAndCosts.getStats().get(node.id());
+            PlanCostEstimate cost = statsAndCosts.getCosts().get(node.id());
 
             EstimatedStatsAndCost estimatedStatsAndCost = new EstimatedStatsAndCost(
                     stats.getOutputRowCount(),
-                    stats.getOutputSizeInBytes(node.getOutputSymbols()),
+                    stats.getOutputSizeInBytes(node.outputSymbols()),
                     cost.getCpuCost(),
                     cost.getMaxMemory(),
                     cost.getNetworkCost());
@@ -813,7 +813,7 @@ public class IoPlanPrinter
 
         private Void processChildren(PlanNode node, IoPlanBuilder context)
         {
-            for (PlanNode child : node.getSources()) {
+            for (PlanNode child : node.sources()) {
                 child.accept(this, context);
             }
 

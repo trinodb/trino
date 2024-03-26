@@ -208,7 +208,7 @@ public class ExtractSpatialJoins
             Expression filter = node.getPredicate();
             List<Call> spatialFunctions = extractSupportedSpatialFunctions(filter);
             for (Call spatialFunction : spatialFunctions) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialFunction, Optional.empty(), plannerContext, splitManager, pageSourceManager);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.id(), node.outputSymbols(), spatialFunction, Optional.empty(), plannerContext, splitManager, pageSourceManager);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -216,7 +216,7 @@ public class ExtractSpatialJoins
 
             List<Comparison> spatialComparisons = extractSupportedSpatialComparisons(filter);
             for (Comparison spatialComparison : spatialComparisons) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialComparison, plannerContext, splitManager, pageSourceManager);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.id(), node.outputSymbols(), spatialComparison, plannerContext, splitManager, pageSourceManager);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -261,7 +261,7 @@ public class ExtractSpatialJoins
             Expression filter = joinNode.getFilter().get();
             List<Call> spatialFunctions = extractSupportedSpatialFunctions(filter);
             for (Call spatialFunction : spatialFunctions) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialFunction, Optional.empty(), plannerContext, splitManager, pageSourceManager);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.id(), joinNode.outputSymbols(), spatialFunction, Optional.empty(), plannerContext, splitManager, pageSourceManager);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -269,7 +269,7 @@ public class ExtractSpatialJoins
 
             List<Comparison> spatialComparisons = extractSupportedSpatialComparisons(filter);
             for (Comparison spatialComparison : spatialComparisons) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialComparison, plannerContext, splitManager, pageSourceManager);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.id(), joinNode.outputSymbols(), spatialComparison, plannerContext, splitManager, pageSourceManager);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -293,8 +293,8 @@ public class ExtractSpatialJoins
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
 
-        List<Symbol> leftSymbols = leftNode.getOutputSymbols();
-        List<Symbol> rightSymbols = rightNode.getOutputSymbols();
+        List<Symbol> leftSymbols = leftNode.outputSymbols();
+        List<Symbol> rightSymbols = rightNode.outputSymbols();
 
         Expression radius;
         Optional<Symbol> newRadiusSymbol;
@@ -328,7 +328,7 @@ public class ExtractSpatialJoins
         PlanNode newRightNode = newRadiusSymbol.map(symbol -> addProjection(context, rightNode, symbol, radius)).orElse(rightNode);
 
         JoinNode newJoinNode = new JoinNode(
-                joinNode.getId(),
+                joinNode.id(),
                 joinNode.getType(),
                 leftNode,
                 newRightNode,
@@ -524,8 +524,8 @@ public class ExtractSpatialJoins
 
     private static int checkAlignment(JoinNode joinNode, Set<Symbol> maybeLeftSymbols, Set<Symbol> maybeRightSymbols)
     {
-        List<Symbol> leftSymbols = joinNode.getLeft().getOutputSymbols();
-        List<Symbol> rightSymbols = joinNode.getRight().getOutputSymbols();
+        List<Symbol> leftSymbols = joinNode.getLeft().outputSymbols();
+        List<Symbol> rightSymbols = joinNode.getRight().outputSymbols();
 
         if (leftSymbols.containsAll(maybeLeftSymbols)
                 && containsNone(leftSymbols, maybeRightSymbols)
@@ -570,7 +570,7 @@ public class ExtractSpatialJoins
     private static PlanNode addProjection(Context context, PlanNode node, Symbol symbol, Expression expression)
     {
         Assignments.Builder projections = Assignments.builder();
-        for (Symbol outputSymbol : node.getOutputSymbols()) {
+        for (Symbol outputSymbol : node.outputSymbols()) {
             projections.putIdentity(outputSymbol);
         }
 
@@ -581,7 +581,7 @@ public class ExtractSpatialJoins
     private static PlanNode addPartitioningNodes(PlannerContext plannerContext, Context context, PlanNode node, Symbol partitionSymbol, KdbTree kdbTree, Expression geometry, Optional<Expression> radius)
     {
         Assignments.Builder projections = Assignments.builder();
-        for (Symbol outputSymbol : node.getOutputSymbols()) {
+        for (Symbol outputSymbol : node.outputSymbols()) {
             projections.putIdentity(outputSymbol);
         }
 
@@ -599,7 +599,7 @@ public class ExtractSpatialJoins
         return new UnnestNode(
                 context.getIdAllocator().getNextId(),
                 new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build()),
-                node.getOutputSymbols(),
+                node.outputSymbols(),
                 ImmutableList.of(new UnnestNode.Mapping(partitionsSymbol, ImmutableList.of(partitionSymbol))),
                 Optional.empty(),
                 INNER);

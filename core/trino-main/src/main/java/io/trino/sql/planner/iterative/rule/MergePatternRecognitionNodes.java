@@ -81,7 +81,7 @@ public class MergePatternRecognitionNodes
 
             PlanNode result = merge(node, child);
 
-            return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(node.getOutputSymbols())).orElse(result));
+            return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(node.outputSymbols())).orElse(result));
         }
     }
 
@@ -129,7 +129,7 @@ public class MergePatternRecognitionNodes
                         context.getIdAllocator().getNextId(),
                         merged,
                         Assignments.builder()
-                                .putIdentities(merged.getOutputSymbols())
+                                .putIdentities(merged.outputSymbols())
                                 .putAll(project.getAssignments())
                                 .build());
             }
@@ -143,7 +143,7 @@ public class MergePatternRecognitionNodes
                         context.getIdAllocator().getNextId(),
                         merged.getSource(),
                         Assignments.builder()
-                                .putIdentities(merged.getSource().getOutputSymbols())
+                                .putIdentities(merged.getSource().outputSymbols())
                                 .putAll(prerequisites)
                                 .build())));
 
@@ -151,12 +151,12 @@ public class MergePatternRecognitionNodes
                         context.getIdAllocator().getNextId(),
                         merged,
                         Assignments.builder()
-                                .putIdentities(merged.getOutputSymbols())
+                                .putIdentities(merged.outputSymbols())
                                 .putAll(remainingAssignments)
                                 .build());
             }
 
-            return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(node.getOutputSymbols())).orElse(result));
+            return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(node.outputSymbols())).orElse(result));
         }
     }
 
@@ -276,7 +276,7 @@ public class MergePatternRecognitionNodes
                 .putAll(child.getMeasures());
 
         return new PatternRecognitionNode(
-                parent.getId(),
+                parent.id(),
                 child.getSource(),
                 parent.getSpecification(),
                 parent.getHashSymbol(),

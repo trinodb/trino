@@ -87,7 +87,7 @@ public class SimplifyFilterPredicate
         }
 
         return Result.ofPlanNode(new FilterNode(
-                node.getId(),
+                node.id(),
                 node.getSource(),
                 combineConjuncts(newConjuncts.build())));
     }

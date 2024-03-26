@@ -54,6 +54,6 @@ public final class IntersectNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new IntersectNode(getId(), newChildren, getSymbolMapping(), getOutputSymbols(), isDistinct());
+        return new IntersectNode(id(), newChildren, getSymbolMapping(), outputSymbols(), isDistinct());
     }
 }

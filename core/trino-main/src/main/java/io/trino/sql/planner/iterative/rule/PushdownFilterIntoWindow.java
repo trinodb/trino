@@ -101,10 +101,10 @@ public class PushdownFilterIntoWindow
         }
 
         if (upperBound.getAsInt() <= 0) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(node.id(), node.outputSymbols(), ImmutableList.of()));
         }
         TopNRankingNode newSource = new TopNRankingNode(
-                windowNode.getId(),
+                windowNode.id(),
                 windowNode.getSource(),
                 windowNode.getSpecification(),
                 rankingType.get(),
@@ -114,7 +114,7 @@ public class PushdownFilterIntoWindow
                 Optional.empty());
 
         if (!allRowNumberValuesInDomain(tupleDomain, rankingSymbol, upperBound.getAsInt())) {
-            return Result.ofPlanNode(new FilterNode(node.getId(), newSource, node.getPredicate()));
+            return Result.ofPlanNode(new FilterNode(node.id(), newSource, node.getPredicate()));
         }
 
         // Remove the row number domain because it is absorbed into the node
@@ -126,7 +126,7 @@ public class PushdownFilterIntoWindow
         if (newPredicate.equals(Booleans.TRUE)) {
             return Result.ofPlanNode(newSource);
         }
-        return Result.ofPlanNode(new FilterNode(node.getId(), newSource, newPredicate));
+        return Result.ofPlanNode(new FilterNode(node.id(), newSource, newPredicate));
     }
 
     private static boolean allRowNumberValuesInDomain(TupleDomain<Symbol> tupleDomain, Symbol symbol, long upperBound)

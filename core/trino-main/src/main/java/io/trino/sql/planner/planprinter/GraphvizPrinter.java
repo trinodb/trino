@@ -235,14 +235,14 @@ public final class GraphvizPrinter
         @Override
         public Void visitStatisticsWriterNode(StatisticsWriterNode node, Void context)
         {
-            printNode(node, format("StatisticsWriterNode[%s]", Joiner.on(", ").join(node.getOutputSymbols())), NODE_COLORS.get(NodeType.ANALYZE_FINISH));
+            printNode(node, format("StatisticsWriterNode[%s]", Joiner.on(", ").join(node.outputSymbols())), NODE_COLORS.get(NodeType.ANALYZE_FINISH));
             return node.getSource().accept(this, context);
         }
 
         @Override
         public Void visitTableFinish(TableFinishNode node, Void context)
         {
-            printNode(node, format("TableFinish[%s]", Joiner.on(", ").join(node.getOutputSymbols())), NODE_COLORS.get(NodeType.TABLE_FINISH));
+            printNode(node, format("TableFinish[%s]", Joiner.on(", ").join(node.outputSymbols())), NODE_COLORS.get(NodeType.TABLE_FINISH));
             return node.getSource().accept(this, context);
         }
 
@@ -320,7 +320,7 @@ public final class GraphvizPrinter
         {
             printNode(node, "Union", NODE_COLORS.get(NodeType.UNION));
 
-            for (PlanNode planNode : node.getSources()) {
+            for (PlanNode planNode : node.sources()) {
                 planNode.accept(this, context);
             }
 
@@ -337,7 +337,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitExchange(ExchangeNode node, Void context)
         {
-            List<ArgumentBinding> symbols = node.getOutputSymbols().stream()
+            List<ArgumentBinding> symbols = node.outputSymbols().stream()
                     .map(Symbol::toSymbolReference)
                     .map(ArgumentBinding::expressionBinding)
                     .collect(toImmutableList());
@@ -346,7 +346,7 @@ public final class GraphvizPrinter
             }
             String columns = Joiner.on(", ").join(symbols);
             printNode(node, format("ExchangeNode[%s]", node.getType()), columns, NODE_COLORS.get(NodeType.EXCHANGE));
-            for (PlanNode planNode : node.getSources()) {
+            for (PlanNode planNode : node.sources()) {
                 planNode.accept(this, context);
             }
             return null;
@@ -665,7 +665,7 @@ public final class GraphvizPrinter
         @Override
         protected Void visitPlan(PlanNode node, Void context)
         {
-            for (PlanNode child : node.getSources()) {
+            for (PlanNode child : node.sources()) {
                 printEdge(node, child);
 
                 child.accept(this, context);

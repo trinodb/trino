@@ -64,7 +64,7 @@ public class JoinGraph
 
     public JoinGraph(PlanNode node)
     {
-        this(ImmutableList.of(node), ImmutableMultimap.of(), node.getId(), ImmutableList.of(), false);
+        this(ImmutableList.of(node), ImmutableMultimap.of(), node.id(), ImmutableList.of(), false);
     }
 
     public JoinGraph(
@@ -122,7 +122,7 @@ public class JoinGraph
 
     public Collection<Edge> getEdges(PlanNode node)
     {
-        return ImmutableList.copyOf(edges.get(node.getId()));
+        return ImmutableList.copyOf(edges.get(node.id()));
     }
 
     public boolean isContainsCrossJoin()
@@ -136,16 +136,16 @@ public class JoinGraph
         StringBuilder builder = new StringBuilder();
 
         for (PlanNode nodeFrom : nodes) {
-            builder.append(nodeFrom.getId())
+            builder.append(nodeFrom.id())
                     .append(" = ")
                     .append(nodeFrom.toString())
                     .append("\n");
         }
         for (PlanNode nodeFrom : nodes) {
-            builder.append(nodeFrom.getId())
+            builder.append(nodeFrom.id())
                     .append(":");
-            for (Edge nodeTo : edges.get(nodeFrom.getId())) {
-                builder.append(" ").append(nodeTo.getTargetNode().getId());
+            for (Edge nodeTo : edges.get(nodeFrom.id())) {
+                builder.append(" ").append(nodeTo.getTargetNode().id());
             }
             builder.append("\n");
         }
@@ -156,7 +156,7 @@ public class JoinGraph
     private JoinGraph joinWith(JoinGraph other, List<JoinNode.EquiJoinClause> joinClauses, Context context, PlanNodeId newRoot, boolean containsCrossJoin)
     {
         for (PlanNode node : other.nodes) {
-            checkState(!edges.containsKey(node.getId()), "Node [%s] appeared in two JoinGraphs", node);
+            checkState(!edges.containsKey(node.id()), "Node [%s] appeared in two JoinGraphs", node);
         }
 
         List<PlanNode> nodes = ImmutableList.<PlanNode>builder()
@@ -181,8 +181,8 @@ public class JoinGraph
 
             PlanNode left = context.getSymbolSource(leftSymbol);
             PlanNode right = context.getSymbolSource(rightSymbol);
-            edges.put(left.getId(), new Edge(right, leftSymbol, rightSymbol));
-            edges.put(right.getId(), new Edge(left, rightSymbol, leftSymbol));
+            edges.put(left.id(), new Edge(right, leftSymbol, rightSymbol));
+            edges.put(right.id(), new Edge(left, rightSymbol, leftSymbol));
         }
 
         return new JoinGraph(nodes, edges.build(), newRoot, joinedFilters, this.containsCrossJoin || containsCrossJoin);
@@ -203,7 +203,7 @@ public class JoinGraph
         @Override
         protected JoinGraph visitPlan(PlanNode node, Context context)
         {
-            for (Symbol symbol : node.getOutputSymbols()) {
+            for (Symbol symbol : node.outputSymbols()) {
                 context.setSymbolSource(symbol, node);
             }
             return new JoinGraph(node);
@@ -227,7 +227,7 @@ public class JoinGraph
             JoinGraph left = node.getLeft().accept(this, context);
             JoinGraph right = node.getRight().accept(this, context);
 
-            JoinGraph graph = left.joinWith(right, node.getCriteria(), context, node.getId(), node.isCrossJoin());
+            JoinGraph graph = left.joinWith(right, node.getCriteria(), context, node.id(), node.isCrossJoin());
 
             if (node.getFilter().isPresent()) {
                 return graph.withFilter(node.getFilter().get());

@@ -105,8 +105,8 @@ public class MergeProjectWithValues
         ValuesNode valuesNode = captures.get(VALUES);
 
         // handle projection which prunes all symbols
-        if (node.getOutputSymbols().isEmpty()) {
-            return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getRowCount()));
+        if (node.outputSymbols().isEmpty()) {
+            return Result.ofPlanNode(new ValuesNode(valuesNode.id(), valuesNode.getRowCount()));
         }
 
         // fix iteration order over ProjectNode's assignments
@@ -119,9 +119,9 @@ public class MergeProjectWithValues
                 .collect(toImmutableList());
 
         // handle values with no output symbols
-        if (valuesNode.getOutputSymbols().isEmpty()) {
+        if (valuesNode.outputSymbols().isEmpty()) {
             return Result.ofPlanNode(new ValuesNode(
-                    valuesNode.getId(),
+                    valuesNode.id(),
                     outputs,
                     nCopies(valuesNode.getRowCount(), new Row(ImmutableList.copyOf(expressions)))));
         }
@@ -130,9 +130,9 @@ public class MergeProjectWithValues
         Set<Symbol> nonDeterministicValuesOutputs = new HashSet<>();
         for (Expression rowExpression : valuesNode.getRows().get()) {
             Row row = (Row) rowExpression;
-            for (int i = 0; i < valuesNode.getOutputSymbols().size(); i++) {
+            for (int i = 0; i < valuesNode.outputSymbols().size(); i++) {
                 if (!isDeterministic(row.items().get(i))) {
-                    nonDeterministicValuesOutputs.add(valuesNode.getOutputSymbols().get(i));
+                    nonDeterministicValuesOutputs.add(valuesNode.outputSymbols().get(i));
                 }
             }
         }
@@ -150,13 +150,13 @@ public class MergeProjectWithValues
         // inline values expressions into projection's assignments
         ImmutableList.Builder<Expression> projectedRows = ImmutableList.builder();
         for (Expression rowExpression : valuesNode.getRows().get()) {
-            Map<Reference, Expression> mapping = buildMappings(valuesNode.getOutputSymbols(), (Row) rowExpression);
+            Map<Reference, Expression> mapping = buildMappings(valuesNode.outputSymbols(), (Row) rowExpression);
             Row projectedRow = new Row(expressions.stream()
                     .map(expression -> replaceExpression(expression, mapping))
                     .collect(toImmutableList()));
             projectedRows.add(projectedRow);
         }
-        return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), outputs, projectedRows.build()));
+        return Result.ofPlanNode(new ValuesNode(valuesNode.id(), outputs, projectedRows.build()));
     }
 
     private static boolean isSupportedValues(ValuesNode valuesNode)

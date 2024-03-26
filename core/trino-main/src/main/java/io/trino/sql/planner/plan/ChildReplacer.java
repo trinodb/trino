@@ -24,8 +24,8 @@ public final class ChildReplacer
      */
     public static PlanNode replaceChildren(PlanNode node, List<PlanNode> children)
     {
-        for (int i = 0; i < node.getSources().size(); i++) {
-            if (children.get(i) != node.getSources().get(i)) {
+        for (int i = 0; i < node.sources().size(); i++) {
+            if (children.get(i) != node.sources().get(i)) {
                 return node.replaceChildren(children);
             }
         }

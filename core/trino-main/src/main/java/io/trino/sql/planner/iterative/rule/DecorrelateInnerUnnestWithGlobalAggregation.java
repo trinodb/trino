@@ -167,10 +167,10 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
         PlanNode unnestSource = context.getLookup().resolve(unnestNode.getSource());
         if (unnestSource instanceof ProjectNode sourceProjection) {
             input = new ProjectNode(
-                    sourceProjection.getId(),
+                    sourceProjection.id(),
                     input,
                     Assignments.builder()
-                            .putIdentities(input.getOutputSymbols())
+                            .putIdentities(input.outputSymbols())
                             .putAll(sourceProjection.getAssignments())
                             .build());
         }
@@ -181,7 +181,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
         UnnestNode rewrittenUnnest = new UnnestNode(
                 context.getIdAllocator().getNextId(),
                 input,
-                input.getOutputSymbols(),
+                input.outputSymbols(),
                 unnestNode.getMappings(),
                 Optional.of(ordinalitySymbol),
                 LEFT);
@@ -192,24 +192,24 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
                 context.getIdAllocator().getNextId(),
                 rewrittenUnnest,
                 Assignments.builder()
-                        .putIdentities(rewrittenUnnest.getOutputSymbols())
+                        .putIdentities(rewrittenUnnest.outputSymbols())
                         .put(mask, new Not(new IsNull(ordinalitySymbol.toSymbolReference())))
                         .build());
 
         // restore all projections, grouped aggregations and global aggregations from the subquery
         PlanNode result = rewriteNodeSequence(
                 context.getLookup().resolve(correlatedJoinNode.getSubquery()),
-                input.getOutputSymbols(),
+                input.outputSymbols(),
                 mask,
                 sourceWithMask,
-                reducingAggregation.getId(),
-                unnestNode.getId(),
+                reducingAggregation.id(),
+                unnestNode.id(),
                 context.getSymbolAllocator(),
                 context.getIdAllocator(),
                 context.getLookup());
 
         // restrict outputs
-        return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols())).orElse(result));
+        return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(correlatedJoinNode.outputSymbols())).orElse(result));
     }
 
     private static boolean isGlobalAggregation(PlanNode node)
@@ -264,15 +264,15 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
     private static PlanNode rewriteNodeSequence(PlanNode root, List<Symbol> leftOutputs, Symbol mask, PlanNode sequenceSource, PlanNodeId reducingAggregationId, PlanNodeId correlatedUnnestId, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
         // bottom of sequence reached -- attach the rewritten source node
-        if (root.getId().equals(correlatedUnnestId)) {
+        if (root.id().equals(correlatedUnnestId)) {
             return sequenceSource;
         }
 
-        PlanNode source = rewriteNodeSequence(lookup.resolve(getOnlyElement(root.getSources())), leftOutputs, mask, sequenceSource, reducingAggregationId, correlatedUnnestId, symbolAllocator, idAllocator, lookup);
+        PlanNode source = rewriteNodeSequence(lookup.resolve(getOnlyElement(root.sources())), leftOutputs, mask, sequenceSource, reducingAggregationId, correlatedUnnestId, symbolAllocator, idAllocator, lookup);
 
         if (isGlobalAggregation(root)) {
             AggregationNode aggregationNode = (AggregationNode) root;
-            if (aggregationNode.getId().equals(reducingAggregationId)) {
+            if (aggregationNode.id().equals(reducingAggregationId)) {
                 return withGroupingAndMask(aggregationNode, leftOutputs, mask, source, symbolAllocator, idAllocator);
             }
             return withGrouping(aggregationNode, leftOutputs, source);
@@ -291,12 +291,12 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
 
         if (root instanceof ProjectNode projectNode) {
             return new ProjectNode(
-                    projectNode.getId(),
+                    projectNode.id(),
                     source,
                     Assignments.builder()
                             .putAll(projectNode.getAssignments())
                             .putIdentities(leftOutputs)
-                            .putIdentities(ImmutableSet.copyOf(source.getOutputSymbols()).contains(mask) ? ImmutableList.of(mask) : ImmutableList.of())
+                            .putIdentities(ImmutableSet.copyOf(source.outputSymbols()).contains(mask) ? ImmutableList.of(mask) : ImmutableList.of())
                             .build());
         }
 
@@ -327,13 +327,13 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
                     idAllocator.getNextId(),
                     source,
                     Assignments.builder()
-                            .putIdentities(source.getOutputSymbols())
+                            .putIdentities(source.outputSymbols())
                             .putAll(maskAssignments)
                             .build());
         }
 
         return singleAggregation(
-                aggregationNode.getId(),
+                aggregationNode.id(),
                 source,
                 rewriteWithMasks(aggregationNode.getAggregations(), masks.buildOrThrow()),
                 singleGroupingSet(groupingSymbols));
@@ -346,7 +346,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
                 .collect(toImmutableList()));
 
         return singleAggregation(
-                aggregationNode.getId(),
+                aggregationNode.id(),
                 source,
                 aggregationNode.getAggregations(),
                 groupingSet);

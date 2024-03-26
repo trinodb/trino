@@ -88,7 +88,7 @@ public class PushTopNIntoTableScan
                     PlanNode node = new TableScanNode(
                             context.getIdAllocator().getNextId(),
                             result.getHandle(),
-                            tableScan.getOutputSymbols(),
+                            tableScan.outputSymbols(),
                             tableScan.getAssignments(),
                             TupleDomain.all(),
                             deriveTableStatisticsForPushdown(

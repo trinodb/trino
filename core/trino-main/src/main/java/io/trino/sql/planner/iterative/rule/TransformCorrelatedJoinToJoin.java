@@ -79,13 +79,13 @@ public class TransformCorrelatedJoinToJoin
                 correlatedJoinNode.getFilter());
 
         return Result.ofPlanNode(new JoinNode(
-                correlatedJoinNode.getId(),
+                correlatedJoinNode.id(),
                 correlatedJoinNode.getType(),
                 correlatedJoinNode.getInput(),
                 decorrelatedSubquery.getNode(),
                 ImmutableList.of(),
-                correlatedJoinNode.getInput().getOutputSymbols(),
-                correlatedJoinNode.getSubquery().getOutputSymbols(),
+                correlatedJoinNode.getInput().outputSymbols(),
+                correlatedJoinNode.getSubquery().outputSymbols(),
                 false,
                 filter.equals(TRUE) ? Optional.empty() : Optional.of(filter),
                 Optional.empty(),

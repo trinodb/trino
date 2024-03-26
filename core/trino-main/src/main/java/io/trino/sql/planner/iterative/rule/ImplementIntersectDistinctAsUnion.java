@@ -96,6 +96,6 @@ public class ImplementIntersectDistinctAsUnion
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
                         new FilterNode(context.getIdAllocator().getNextId(), result.getPlanNode(), predicate),
-                        Assignments.identity(node.getOutputSymbols())));
+                        Assignments.identity(node.outputSymbols())));
     }
 }

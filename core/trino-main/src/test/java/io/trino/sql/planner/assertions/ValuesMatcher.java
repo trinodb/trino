@@ -53,7 +53,7 @@ public class ValuesMatcher
     public boolean shapeMatches(PlanNode node)
     {
         return (node instanceof ValuesNode) &&
-                expectedOutputSymbolCount.map(Integer.valueOf(node.getOutputSymbols().size())::equals).orElse(true);
+                expectedOutputSymbolCount.map(Integer.valueOf(node.outputSymbols().size())::equals).orElse(true);
     }
 
     @Override
@@ -74,7 +74,7 @@ public class ValuesMatcher
         }
 
         return match(SymbolAliases.builder()
-                .putAll(Maps.transformValues(outputSymbolAliases, index -> valuesNode.getOutputSymbols().get(index).toSymbolReference()))
+                .putAll(Maps.transformValues(outputSymbolAliases, index -> valuesNode.outputSymbols().get(index).toSymbolReference()))
                 .build());
     }
 

@@ -169,7 +169,7 @@ public final class TableScanNode
 
     @Override
     @JsonProperty("outputSymbols")
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return outputSymbols;
     }
@@ -225,7 +225,7 @@ public final class TableScanNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of();
     }
@@ -258,7 +258,7 @@ public final class TableScanNode
     public TableScanNode withUseConnectorNodePartitioning(boolean useConnectorNodePartitioning)
     {
         return new TableScanNode(
-                getId(),
+                id(),
                 table,
                 outputSymbols,
                 assignments,
@@ -271,7 +271,7 @@ public final class TableScanNode
     public TableScanNode withTableHandle(TableHandle table)
     {
         return new TableScanNode(
-                getId(),
+                id(),
                 table,
                 outputSymbols,
                 assignments,

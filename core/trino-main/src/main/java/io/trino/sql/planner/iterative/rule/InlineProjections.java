@@ -123,14 +123,14 @@ public class InlineProjections
         }
         else {
             newChild = new ProjectNode(
-                    child.getId(),
+                    child.id(),
                     child.getSource(),
                     newChildAssignments);
         }
 
         return Optional.of(
                 new ProjectNode(
-                        parent.getId(),
+                        parent.id(),
                         newChild,
                         Assignments.copyOf(parentAssignments)));
     }
@@ -159,7 +159,7 @@ public class InlineProjections
         //      c. are not identity projections
         // which come from the child, as opposed to an enclosing scope.
 
-        Set<Symbol> childOutputSet = ImmutableSet.copyOf(child.getOutputSymbols());
+        Set<Symbol> childOutputSet = ImmutableSet.copyOf(child.outputSymbols());
 
         Map<Symbol, Long> dependencies = parent.getAssignments()
                 .getExpressions().stream()

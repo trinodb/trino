@@ -1372,7 +1372,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 return aggregationNode.getStep().isOutputPartial();
             }
             // todo filter out more (window?)
-            return node.getSources().stream().allMatch(this::canOutputDataEarly);
+            return node.sources().stream().allMatch(this::canOutputDataEarly);
         }
 
         private void closeSourceExchanges(SubPlan subPlan)
@@ -1442,7 +1442,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         estimates.add(fragmentEstimate);
                     }
                     // merge estimates for all source fragments of a single remote source
-                    outputDataSizeEstimates.put(remoteSource.getId(), OutputDataSizeEstimate.merge(estimates));
+                    outputDataSizeEstimates.put(remoteSource.id(), OutputDataSizeEstimate.merge(estimates));
                 }
 
                 Map<PlanFragmentId, Exchange> sourceExchanges = sourceExchangesBuilder.buildOrThrow();
@@ -1945,7 +1945,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> remoteSources = ImmutableMap.builder();
             ImmutableSet.Builder<PlanNodeId> remoteSourceIds = ImmutableSet.builder();
             for (RemoteSourceNode remoteSource : stage.getFragment().getRemoteSourceNodes()) {
-                remoteSourceIds.add(remoteSource.getId());
+                remoteSourceIds.add(remoteSource.id());
                 remoteSource.getSourceFragmentIds().forEach(fragmentId -> remoteSources.put(fragmentId, remoteSource));
             }
             this.remoteSourceIds = remoteSourceIds.build();
@@ -2167,9 +2167,9 @@ public class EventDrivenFaultTolerantQueryScheduler
 
             Set<PlanNodeId> noMoreSplits = new HashSet<>();
             for (RemoteSourceNode remoteSource : stage.getFragment().getRemoteSourceNodes()) {
-                ExchangeSourceOutputSelector selector = outputSelectors.get(remoteSource.getId());
-                if (selector != null && selector.isFinal() && partition.isNoMoreSplits(remoteSource.getId())) {
-                    noMoreSplits.add(remoteSource.getId());
+                ExchangeSourceOutputSelector selector = outputSelectors.get(remoteSource.id());
+                if (selector != null && selector.isFinal() && partition.isNoMoreSplits(remoteSource.id())) {
+                    noMoreSplits.add(remoteSource.id());
                 }
             }
             for (PlanNodeId partitionedSource : stage.getFragment().getPartitionedSources()) {
@@ -2254,7 +2254,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     }
                 }
                 if (mergedSelector != null) {
-                    result.put(remoteSource.getId(), mergedSelector);
+                    result.put(remoteSource.id(), mergedSelector);
                 }
             }
             return result.buildOrThrow();
@@ -2481,7 +2481,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             remainingPartitions.forEach((IntConsumer) value -> {
                 StagePartition partition = partitions.get(value);
                 verify(partition != null, "partition not found: %s", value);
-                partition.updateExchangeSourceOutputSelector(remoteSourceNode.getId(), finalMergedSelector);
+                partition.updateExchangeSourceOutputSelector(remoteSourceNode.id(), finalMergedSelector);
             });
         }
 

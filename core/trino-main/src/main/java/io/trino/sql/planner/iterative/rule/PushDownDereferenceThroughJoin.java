@@ -127,10 +127,10 @@ public class PushDownDereferenceThroughJoin
         dereferenceAssignments.entrySet()
                 .forEach(entry -> {
                     Symbol baseSymbol = getOnlyElement(extractAll(entry.getValue()));
-                    if (joinNode.getLeft().getOutputSymbols().contains(baseSymbol)) {
+                    if (joinNode.getLeft().outputSymbols().contains(baseSymbol)) {
                         leftAssignmentsBuilder.put(entry.getKey(), entry.getValue());
                     }
-                    else if (joinNode.getRight().getOutputSymbols().contains(baseSymbol)) {
+                    else if (joinNode.getRight().outputSymbols().contains(baseSymbol)) {
                         rightAssignmentsBuilder.put(entry.getKey(), entry.getValue());
                     }
                     else {
@@ -150,11 +150,11 @@ public class PushDownDereferenceThroughJoin
                 .collect(toList());
 
         List<Symbol> newLeftOutputSymbols = referredSymbolsInAssignments.stream()
-                .filter(symbol -> leftNode.getOutputSymbols().contains(symbol))
+                .filter(symbol -> leftNode.outputSymbols().contains(symbol))
                 .collect(toList());
 
         List<Symbol> newRightOutputSymbols = referredSymbolsInAssignments.stream()
-                .filter(symbol -> rightNode.getOutputSymbols().contains(symbol))
+                .filter(symbol -> rightNode.outputSymbols().contains(symbol))
                 .collect(toList());
 
         JoinNode newJoinNode = new JoinNode(
@@ -187,7 +187,7 @@ public class PushDownDereferenceThroughJoin
                 idAllocator.getNextId(),
                 planNode,
                 Assignments.builder()
-                        .putIdentities(planNode.getOutputSymbols())
+                        .putIdentities(planNode.outputSymbols())
                         .putAll(dereferences)
                         .build());
     }

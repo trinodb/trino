@@ -207,7 +207,7 @@ abstract class BaseTestUnion
                 .where(BaseTestUnion::isRemoteExchange)
                 .findAll()
                 .stream()
-                .flatMap(exchangeNode -> exchangeNode.getSources().stream())
+                .flatMap(exchangeNode -> exchangeNode.sources().stream())
                 .collect(toList());
 
         for (PlanNode fragment : fragments) {

@@ -362,7 +362,7 @@ class QueryPlanner
                     idAllocator.getNextId(),
                     result,
                     ImmutableMap.of(),
-                    singleGroupingSet(result.getOutputSymbols()));
+                    singleGroupingSet(result.outputSymbols()));
         }
 
         return new RelationPlan(result, anchorPlan.getScope(), unionOutputSymbols, outerContext);
@@ -391,7 +391,7 @@ class QueryPlanner
             @Override
             protected PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
             {
-                return node.replaceChildren(node.getSources().stream()
+                return node.replaceChildren(node.sources().stream()
                         .map(child -> {
                             if (child == replacementSpot.getNode()) {
                                 // add projection to adjust symbols
@@ -571,7 +571,7 @@ class QueryPlanner
                         Optional.empty(),
                         tableMetadata.getTable(),
                         paradigmAndTypes),
-                projectNode.getOutputSymbols(),
+                projectNode.outputSymbols(),
                 partitioningScheme,
                 outputs);
     }
@@ -750,7 +750,7 @@ class QueryPlanner
 
         // Project the "present" column
         Assignments.Builder projections = Assignments.builder();
-        projections.putIdentities(planWithUniqueId.getRoot().getOutputSymbols());
+        projections.putIdentities(planWithUniqueId.getRoot().outputSymbols());
 
         Symbol presentColumn = symbolAllocator.newSymbol("present", BOOLEAN);
         projections.put(presentColumn, TRUE);
@@ -887,7 +887,7 @@ class QueryPlanner
                 idAllocator.getNextId(),
                 subPlanProject,
                 Assignments.builder()
-                        .putIdentities(subPlanProject.getOutputSymbols())
+                        .putIdentities(subPlanProject.outputSymbols())
                         .put(caseNumberSymbol, new FieldReference(mergeRowSymbol.toSymbolReference(), mergeAnalysis.getMergeRowType().getFields().size() - 1))
                         .build());
 
@@ -1202,12 +1202,12 @@ class QueryPlanner
                     subPlan.getRoot(),
                     groupingSets,
                     groupingSetMappings,
-                    subPlan.getRoot().getOutputSymbols(),
+                    subPlan.getRoot().outputSymbols(),
                     groupIdSymbol.get());
         }
         else {
             Assignments.Builder assignments = Assignments.builder();
-            assignments.putIdentities(subPlan.getRoot().getOutputSymbols());
+            assignments.putIdentities(subPlan.getRoot().outputSymbols());
             groupingSetMappings.forEach((key, value) -> assignments.put(key, value.toSymbolReference()));
 
             groupId = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
@@ -1556,7 +1556,7 @@ class QueryPlanner
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
                         Assignments.builder()
-                                .putIdentities(subPlan.getRoot().getOutputSymbols())
+                                .putIdentities(subPlan.getRoot().outputSymbols())
                                 .put(sortKeyCoercedForFrameBoundCalculation, cast)
                                 .build()));
             }
@@ -1575,7 +1575,7 @@ class QueryPlanner
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
                 Assignments.builder()
-                        .putIdentities(subPlan.getRoot().getOutputSymbols())
+                        .putIdentities(subPlan.getRoot().outputSymbols())
                         .put(frameBoundSymbol, functionCall)
                         .build()));
 
@@ -1599,7 +1599,7 @@ class QueryPlanner
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
                         Assignments.builder()
-                                .putIdentities(subPlan.getRoot().getOutputSymbols())
+                                .putIdentities(subPlan.getRoot().outputSymbols())
                                 .put(castSymbol, cast)
                                 .build()));
                 sortKeyCoercedForFrameBoundComparison = Optional.of(castSymbol);
@@ -1668,7 +1668,7 @@ class QueryPlanner
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
                 Assignments.builder()
-                        .putIdentities(subPlan.getRoot().getOutputSymbols())
+                        .putIdentities(subPlan.getRoot().outputSymbols())
                         .put(coercedOffsetSymbol, offsetToBigint)
                         .build()));
 
@@ -1935,7 +1935,7 @@ class QueryPlanner
             if (endValue.isPresent()) {
                 io.trino.sql.tree.Expression expression = endValue.get();
                 Assignments.Builder assignments = Assignments.builder();
-                assignments.putIdentities(subPlan.getRoot().getOutputSymbols());
+                assignments.putIdentities(subPlan.getRoot().outputSymbols());
                 Symbol symbol = symbolAllocator.newSymbol("end", analysis.getType(expression));
                 assignments.put(symbol, subPlan.rewrite(expression));
 
@@ -2032,7 +2032,7 @@ class QueryPlanner
     public static PlanAndMappings coerce(PlanBuilder subPlan, List<io.trino.sql.tree.Expression> expressions, Analysis analysis, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
     {
         Assignments.Builder assignments = Assignments.builder();
-        assignments.putIdentities(subPlan.getRoot().getOutputSymbols());
+        assignments.putIdentities(subPlan.getRoot().outputSymbols());
 
         Map<NodeRef<io.trino.sql.tree.Expression>, Symbol> mappings = new HashMap<>();
         for (io.trino.sql.tree.Expression expression : expressions) {

@@ -79,10 +79,10 @@ public class UnwrapSingleColumnRowInApply
     public Result apply(ApplyNode node, Captures captures, Context context)
     {
         Assignments.Builder inputAssignments = Assignments.builder()
-                .putIdentities(node.getInput().getOutputSymbols());
+                .putIdentities(node.getInput().outputSymbols());
 
         Assignments.Builder nestedPlanAssignments = Assignments.builder()
-                .putIdentities(node.getSubquery().getOutputSymbols());
+                .putIdentities(node.getSubquery().outputSymbols());
 
         boolean applied = false;
         ImmutableMap.Builder<Symbol, ApplyNode.SetExpression> applyAssignments = ImmutableMap.builder();
@@ -127,13 +127,13 @@ public class UnwrapSingleColumnRowInApply
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
                         new ApplyNode(
-                                node.getId(),
+                                node.id(),
                                 new ProjectNode(context.getIdAllocator().getNextId(), node.getInput(), inputAssignments.build()),
                                 new ProjectNode(context.getIdAllocator().getNextId(), node.getSubquery(), nestedPlanAssignments.build()),
                                 applyAssignments.buildOrThrow(),
                                 node.getCorrelation(),
                                 node.getOriginSubquery()),
-                        Assignments.identity(node.getOutputSymbols())));
+                        Assignments.identity(node.outputSymbols())));
     }
 
     private Optional<Unwrapping> unwrapSingleColumnRow(Context context, Expression value, Expression list, BiFunction<Symbol, Symbol, ApplyNode.SetExpression> function)

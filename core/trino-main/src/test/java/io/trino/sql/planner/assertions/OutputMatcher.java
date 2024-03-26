@@ -51,8 +51,8 @@ public class OutputMatcher
         for (String alias : aliases) {
             Expression expression = symbolAliases.get(alias);
             boolean found = false;
-            while (i < node.getOutputSymbols().size()) {
-                Symbol outputSymbol = node.getOutputSymbols().get(i++);
+            while (i < node.outputSymbols().size()) {
+                Symbol outputSymbol = node.outputSymbols().get(i++);
                 if (expression.equals(outputSymbol.toSymbolReference())) {
                     found = true;
                     break;

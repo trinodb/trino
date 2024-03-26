@@ -65,7 +65,7 @@ public final class GroupIdNode
         this.aggregationArguments = ImmutableList.copyOf(aggregationArguments);
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
 
-        Set<Symbol> outputs = ImmutableSet.copyOf(source.getOutputSymbols());
+        Set<Symbol> outputs = ImmutableSet.copyOf(source.outputSymbols());
         checkArgument(outputs.containsAll(groupingColumns.values()));
         checkArgument(outputs.containsAll(aggregationArguments));
 
@@ -73,7 +73,7 @@ public final class GroupIdNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         Set<Symbol> distinctGroupingSetSymbols = getDistinctGroupingSetSymbols();
         return ImmutableList.<Symbol>builderWithExpectedSize(distinctGroupingSetSymbols.size() + aggregationArguments.size() + 1)
@@ -84,7 +84,7 @@ public final class GroupIdNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
@@ -157,6 +157,6 @@ public final class GroupIdNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new GroupIdNode(getId(), Iterables.getOnlyElement(newChildren), groupingSets, groupingColumns, aggregationArguments, groupIdSymbol);
+        return new GroupIdNode(id(), Iterables.getOnlyElement(newChildren), groupingSets, groupingColumns, aggregationArguments, groupIdSymbol);
     }
 }

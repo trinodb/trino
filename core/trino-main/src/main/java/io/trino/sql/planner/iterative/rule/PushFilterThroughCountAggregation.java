@@ -189,7 +189,7 @@ public class PushFilterThroughCountAggregation
 
         if (tupleDomain.isNone()) {
             // Filter predicate is never satisfied. Replace filter with empty values.
-            return Result.ofPlanNode(new ValuesNode(filterNode.getId(), filterNode.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(filterNode.id(), filterNode.outputSymbols(), ImmutableList.of()));
         }
         Domain countDomain = tupleDomain.getDomains().get().get(countSymbol);
         if (countDomain == null) {
@@ -234,7 +234,7 @@ public class PushFilterThroughCountAggregation
             if (newPredicate.equals(TRUE)) {
                 return Result.ofPlanNode(filterSource);
             }
-            return Result.ofPlanNode(new FilterNode(filterNode.getId(), filterSource, newPredicate));
+            return Result.ofPlanNode(new FilterNode(filterNode.id(), filterSource, newPredicate));
         }
 
         // Filter predicate cannot be simplified.

@@ -68,8 +68,8 @@ public abstract class SimplePlanRewriter<C>
          */
         public PlanNode defaultRewrite(PlanNode node, C context)
         {
-            ImmutableList.Builder<PlanNode> children = ImmutableList.builderWithExpectedSize(node.getSources().size());
-            node.getSources().forEach(source -> children.add(rewrite(source, context)));
+            ImmutableList.Builder<PlanNode> children = ImmutableList.builderWithExpectedSize(node.sources().size());
+            node.sources().forEach(source -> children.add(rewrite(source, context)));
             return replaceChildren(node, children.build());
         }
 

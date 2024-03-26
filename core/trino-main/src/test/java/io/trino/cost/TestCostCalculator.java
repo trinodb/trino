@@ -552,7 +552,7 @@ public class TestCostCalculator
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
         CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session);
         SubPlan subPlan = fragment(new Plan(node, StatsAndCosts.create(node, statsProvider, costProvider)));
-        return new CostAssertionBuilder(subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown()));
+        return new CostAssertionBuilder(subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.id(), PlanCostEstimate.unknown()));
     }
 
     private static class TestingCostProvider
@@ -574,8 +574,8 @@ public class TestCostCalculator
         @Override
         public PlanCostEstimate getCost(PlanNode node)
         {
-            if (costs.containsKey(node.getId().toString())) {
-                return costs.get(node.getId().toString());
+            if (costs.containsKey(node.id().toString())) {
+                return costs.get(node.id().toString());
             }
             return costCalculator.calculateCost(node, statsProvider, this, session);
         }
@@ -587,7 +587,7 @@ public class TestCostCalculator
             Map<String, PlanCostEstimate> costs,
             Map<String, PlanNodeStatsEstimate> stats)
     {
-        Function<PlanNode, PlanNodeStatsEstimate> statsProvider = planNode -> stats.get(planNode.getId().toString());
+        Function<PlanNode, PlanNodeStatsEstimate> statsProvider = planNode -> stats.get(planNode.id().toString());
         PlanCostEstimate cost = calculateCost(
                 costCalculator,
                 node,
@@ -602,7 +602,7 @@ public class TestCostCalculator
             Function<PlanNode, PlanNodeStatsEstimate> statsProvider)
     {
         return node -> {
-            PlanCostEstimate providedCost = costs.get(node.getId().toString());
+            PlanCostEstimate providedCost = costs.get(node.id().toString());
             if (providedCost != null) {
                 return providedCost;
             }
@@ -640,7 +640,7 @@ public class TestCostCalculator
 
     private StatsCalculator statsCalculator(Map<String, PlanNodeStatsEstimate> stats)
     {
-        return (node, context) -> requireNonNull(stats.get(node.getId().toString()), "no stats for node");
+        return (node, context) -> requireNonNull(stats.get(node.id().toString()), "no stats for node");
     }
 
     private PlanCostEstimate calculateCost(
@@ -652,7 +652,7 @@ public class TestCostCalculator
         return costCalculator.calculateCost(
                 node,
                 planNode -> requireNonNull(stats.apply(planNode), "no stats for node"),
-                source -> requireNonNull(costs.apply(source), format("no cost for source: %s", source.getId())),
+                source -> requireNonNull(costs.apply(source), format("no cost for source: %s", source.id())),
                 session);
     }
 
@@ -668,7 +668,7 @@ public class TestCostCalculator
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
         CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session);
         SubPlan subPlan = fragment(new Plan(node, StatsAndCosts.create(node, statsProvider, costProvider)));
-        return subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown());
+        return subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.id(), PlanCostEstimate.unknown());
     }
 
     private static class CostAssertionBuilder
@@ -713,7 +713,7 @@ public class TestCostCalculator
 
     private static PlanNodeStatsEstimate statsEstimate(PlanNode node, double outputSizeInBytes)
     {
-        return statsEstimate(node.getOutputSymbols(), outputSizeInBytes);
+        return statsEstimate(node.outputSymbols(), outputSizeInBytes);
     }
 
     private static PlanNodeStatsEstimate statsEstimate(Collection<Symbol> symbols, double outputSizeInBytes)
@@ -778,7 +778,7 @@ public class TestCostCalculator
                 new PlanNodeId(id),
                 source,
                 ImmutableMap.of(new Symbol(BIGINT, "count"), aggregation),
-                singleGroupingSet(source.getOutputSymbols()));
+                singleGroupingSet(source.outputSymbols()));
     }
 
     /**
@@ -800,8 +800,8 @@ public class TestCostCalculator
                 left,
                 right,
                 criteria.build(),
-                left.getOutputSymbols(),
-                right.getOutputSymbols(),
+                left.outputSymbols(),
+                right.outputSymbols(),
                 false,
                 Optional.empty(),
                 Optional.empty(),

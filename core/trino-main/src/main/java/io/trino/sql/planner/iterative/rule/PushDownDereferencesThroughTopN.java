@@ -104,7 +104,7 @@ public class PushDownDereferencesThroughTopN
                                         context.getIdAllocator().getNextId(),
                                         topNNode.getSource(),
                                         Assignments.builder()
-                                                .putIdentities(topNNode.getSource().getOutputSymbols())
+                                                .putIdentities(topNNode.getSource().outputSymbols())
                                                 .putAll(dereferenceAssignments)
                                                 .build()))),
                         newAssignments));

@@ -130,21 +130,21 @@ public final class PatternRecognitionNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
 
     @Override
     // The order of symbols in the returned list might be different than expected layout of the node
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
         if (rowsPerMatch == ONE) {
             outputSymbols.addAll(getPartitionBy());
         }
         else {
-            outputSymbols.addAll(source.getOutputSymbols());
+            outputSymbols.addAll(source.outputSymbols());
         }
         outputSymbols.addAll(measures.keySet());
         outputSymbols.addAll(windowFunctions.keySet());
@@ -261,7 +261,7 @@ public final class PatternRecognitionNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new PatternRecognitionNode(
-                getId(),
+                id(),
                 Iterables.getOnlyElement(newChildren),
                 specification,
                 hashSymbol,

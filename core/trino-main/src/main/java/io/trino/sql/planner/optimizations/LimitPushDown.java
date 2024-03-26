@@ -111,7 +111,7 @@ public class LimitPushDown
             // return empty ValuesNode in case of limit 0
             if (count == 0) {
                 return new ValuesNode(idAllocator.getNextId(),
-                        node.getOutputSymbols(),
+                        node.outputSymbols(),
                         ImmutableList.of());
             }
 
@@ -134,10 +134,10 @@ public class LimitPushDown
             if (limit != null &&
                     node.getAggregations().isEmpty() &&
                     !node.getGroupingKeys().isEmpty() &&
-                    node.getOutputSymbols().size() == node.getGroupingKeys().size() &&
-                    node.getOutputSymbols().containsAll(node.getGroupingKeys())) {
+                    node.outputSymbols().size() == node.getGroupingKeys().size() &&
+                    node.outputSymbols().containsAll(node.getGroupingKeys())) {
                 PlanNode rewrittenSource = context.rewrite(node.getSource());
-                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, rewrittenSource.getOutputSymbols(), Optional.empty());
+                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, rewrittenSource.outputSymbols(), Optional.empty());
             }
             PlanNode rewrittenNode = context.defaultRewrite(node);
             if (limit != null) {
@@ -177,7 +177,7 @@ public class LimitPushDown
             if (limit != null) {
                 count = Math.min(count, limit.getCount());
             }
-            return new TopNNode(node.getId(), rewrittenSource, count, node.getOrderingScheme(), node.getStep());
+            return new TopNNode(node.id(), rewrittenSource, count, node.getOrderingScheme(), node.getStep());
         }
 
         @Override
@@ -188,10 +188,10 @@ public class LimitPushDown
 
             PlanNode rewrittenSource = context.rewrite(node.getSource());
             if (limit != null) {
-                return new TopNNode(node.getId(), rewrittenSource, limit.getCount(), node.getOrderingScheme(), TopNNode.Step.SINGLE);
+                return new TopNNode(node.id(), rewrittenSource, limit.getCount(), node.getOrderingScheme(), TopNNode.Step.SINGLE);
             }
             if (rewrittenSource != node.getSource()) {
-                return new SortNode(node.getId(), rewrittenSource, node.getOrderingScheme(), node.isPartial());
+                return new SortNode(node.id(), rewrittenSource, node.getOrderingScheme(), node.isPartial());
             }
             return node;
         }
@@ -207,11 +207,11 @@ public class LimitPushDown
             }
 
             List<PlanNode> sources = new ArrayList<>();
-            for (int i = 0; i < node.getSources().size(); i++) {
-                sources.add(context.rewrite(node.getSources().get(i), childLimit));
+            for (int i = 0; i < node.sources().size(); i++) {
+                sources.add(context.rewrite(node.sources().get(i), childLimit));
             }
 
-            PlanNode output = new UnionNode(node.getId(), sources, node.getSymbolMapping(), node.getOutputSymbols());
+            PlanNode output = new UnionNode(node.id(), sources, node.getSymbolMapping(), node.outputSymbols());
             if (limit != null) {
                 output = new LimitNode(idAllocator.getNextId(), output, limit.getCount(), limit.isPartial());
             }
@@ -224,7 +224,7 @@ public class LimitPushDown
             PlanNode source = context.rewrite(node.getSource(), context.get());
             if (source != node.getSource()) {
                 return new SemiJoinNode(
-                        node.getId(),
+                        node.id(),
                         source,
                         node.getFilteringSource(),
                         node.getSourceJoinSymbol(),

@@ -438,7 +438,7 @@ class RelationPlanner
                 .withScope(analysis.getAccessControlScope(table), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
 
         Assignments.Builder assignments = Assignments.builder();
-        assignments.putIdentities(planBuilder.getRoot().getOutputSymbols());
+        assignments.putIdentities(planBuilder.getRoot().outputSymbols());
 
         List<Symbol> fieldMappings = new ArrayList<>();
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
@@ -1007,8 +1007,8 @@ class RelationPlanner
                 leftPlanBuilder.getRoot(),
                 rightPlanBuilder.getRoot(),
                 equiClauses.build(),
-                leftPlanBuilder.getRoot().getOutputSymbols(),
-                rightPlanBuilder.getRoot().getOutputSymbols(),
+                leftPlanBuilder.getRoot().outputSymbols(),
+                rightPlanBuilder.getRoot().outputSymbols(),
                 false,
                 Optional.empty(),
                 Optional.empty(),
@@ -1047,8 +1047,8 @@ class RelationPlanner
                     leftPlanBuilder.getRoot(),
                     rightPlanBuilder.getRoot(),
                     equiClauses.build(),
-                    leftPlanBuilder.getRoot().getOutputSymbols(),
-                    rightPlanBuilder.getRoot().getOutputSymbols(),
+                    leftPlanBuilder.getRoot().outputSymbols(),
+                    rightPlanBuilder.getRoot().outputSymbols(),
                     false,
                     Optional.of(IrUtils.and(complexJoinExpressions.stream()
                             .map(e -> coerceIfNecessary(analysis, e, translationMap.rewrite(e)))
@@ -1120,8 +1120,8 @@ class RelationPlanner
         Assignments.Builder leftCoercions = Assignments.builder();
         Assignments.Builder rightCoercions = Assignments.builder();
 
-        leftCoercions.putIdentities(left.getRoot().getOutputSymbols());
-        rightCoercions.putIdentities(right.getRoot().getOutputSymbols());
+        leftCoercions.putIdentities(left.getRoot().outputSymbols());
+        rightCoercions.putIdentities(right.getRoot().outputSymbols());
         for (int i = 0; i < joinColumns.size(); i++) {
             Identifier identifier = joinColumns.get(i);
             Type type = analysis.getType(identifier);
@@ -1156,8 +1156,8 @@ class RelationPlanner
                 leftCoercion,
                 rightCoercion,
                 clauses.build(),
-                leftCoercion.getOutputSymbols(),
-                rightCoercion.getOutputSymbols(),
+                leftCoercion.outputSymbols(),
+                rightCoercion.outputSymbols(),
                 false,
                 Optional.empty(),
                 Optional.empty(),
@@ -1335,7 +1335,7 @@ class RelationPlanner
         // TODO: Technically, we should derive the field mappings from the layout of fields and how they relate to the output symbols of the Unnest node.
         //       That's tricky to do for a Join+Unnest because the allocations come from the Unnest, but the mappings need to be done based on the Join output fields.
         //       Currently, it works out because, by construction, the order of the output symbols in the UnnestNode will match the order of the fields in the Join node.
-        return new RelationPlan(unnestNode, outputScope, unnestNode.getOutputSymbols(), outerContext);
+        return new RelationPlan(unnestNode, outputScope, unnestNode.outputSymbols(), outerContext);
     }
 
     private RelationPlan planJoinJsonTable(PlanBuilder leftPlan, List<Symbol> leftFieldMappings, Join.Type joinType, JsonTable jsonTable, Scope outputScope)
@@ -1386,7 +1386,7 @@ class RelationPlanner
                 idAllocator.getNextId(),
                 planBuilder.getRoot(),
                 Assignments.builder()
-                        .putIdentities(planBuilder.getRoot().getOutputSymbols())
+                        .putIdentities(planBuilder.getRoot().outputSymbols())
                         .put(inputJsonSymbol, inputJson)
                         .put(parametersRowSymbol, parametersRow)
                         .build());
@@ -1714,7 +1714,7 @@ class RelationPlanner
         // create a RowType based on output symbols of a node
         // The node is an intermediate stage of planning json_table. There's no recorded relation type available for this node.
         // The returned RowType is only used in plan printer
-        return RowType.from(node.getOutputSymbols().stream()
+        return RowType.from(node.outputSymbols().stream()
                 .map(symbol -> new RowType.Field(Optional.of(symbol.getName()), symbol.getType()))
                 .collect(toImmutableList()));
     }
@@ -1823,7 +1823,7 @@ class RelationPlanner
         if (node.isDistinct()) {
             planNode = distinct(planNode);
         }
-        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext);
+        return new RelationPlan(planNode, analysis.getScope(node), planNode.outputSymbols(), outerContext);
     }
 
     @Override
@@ -1835,7 +1835,7 @@ class RelationPlanner
 
         PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping()
                 .keySet()), node.isDistinct());
-        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext);
+        return new RelationPlan(planNode, analysis.getScope(node), planNode.outputSymbols(), outerContext);
     }
 
     @Override
@@ -1847,7 +1847,7 @@ class RelationPlanner
 
         PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping()
                 .keySet()), node.isDistinct());
-        return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext);
+        return new RelationPlan(planNode, analysis.getScope(node), planNode.outputSymbols(), outerContext);
     }
 
     private SetOperationPlan process(SetOperation node)
@@ -1888,7 +1888,7 @@ class RelationPlanner
         return singleAggregation(idAllocator.getNextId(),
                 node,
                 ImmutableMap.of(),
-                singleGroupingSet(node.getOutputSymbols()));
+                singleGroupingSet(node.outputSymbols()));
     }
 
     private static final class SetOperationPlan

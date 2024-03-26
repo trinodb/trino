@@ -177,7 +177,7 @@ public class SymbolMapper
 
     public AggregationNode map(AggregationNode node, PlanNode source)
     {
-        return map(node, source, node.getId());
+        return map(node, source, node.id());
     }
 
     public AggregationNode map(AggregationNode node, PlanNode source, PlanNodeId newNodeId)
@@ -232,7 +232,7 @@ public class SymbolMapper
         }
 
         return new GroupIdNode(
-                node.getId(),
+                node.id(),
                 source,
                 newGroupingSets.build(),
                 newGroupingMappings,
@@ -255,7 +255,7 @@ public class SymbolMapper
         SpecificationWithPreSortedPrefix newSpecification = mapAndDistinct(node.getSpecification(), node.getPreSortedOrderPrefix());
 
         return new WindowNode(
-                node.getId(),
+                node.id(),
                 source,
                 newSpecification.specification(),
                 newFunctions.buildOrThrow(),
@@ -321,7 +321,7 @@ public class SymbolMapper
         node.getVariableDefinitions().forEach((label, expression) -> newVariableDefinitions.put(label, map(expression)));
 
         return new PatternRecognitionNode(
-                node.getId(),
+                node.id(),
                 source,
                 newSpecification.specification(),
                 node.getHashSymbol().map(this::map),
@@ -423,7 +423,7 @@ public class SymbolMapper
         Optional<SpecificationWithPreSortedPrefix> newSpecification = node.getSpecification().map(specification -> mapAndDistinct(specification, node.getPreSorted()));
 
         return new TableFunctionProcessorNode(
-                node.getId(),
+                node.id(),
                 node.getName(),
                 map(node.getProperOutputs()),
                 Optional.of(source),
@@ -443,7 +443,7 @@ public class SymbolMapper
     public LimitNode map(LimitNode node, PlanNode source)
     {
         return new LimitNode(
-                node.getId(),
+                node.id(),
                 source,
                 node.getCount(),
                 node.getTiesResolvingScheme().map(this::map),
@@ -494,7 +494,7 @@ public class SymbolMapper
     public DistinctLimitNode map(DistinctLimitNode node, PlanNode source)
     {
         return new DistinctLimitNode(
-                node.getId(),
+                node.id(),
                 source,
                 node.getLimit(),
                 node.isPartial(),
@@ -505,7 +505,7 @@ public class SymbolMapper
     public StatisticsWriterNode map(StatisticsWriterNode node, PlanNode source)
     {
         return new StatisticsWriterNode(
-                node.getId(),
+                node.id(),
                 source,
                 node.getTarget(),
                 map(node.getRowCountSymbol()),
@@ -515,7 +515,7 @@ public class SymbolMapper
 
     public TableWriterNode map(TableWriterNode node, PlanNode source)
     {
-        return map(node, source, node.getId());
+        return map(node, source, node.id());
     }
 
     public TableWriterNode map(TableWriterNode node, PlanNode source, PlanNodeId newId)
@@ -529,14 +529,14 @@ public class SymbolMapper
                 map(node.getFragmentSymbol()),
                 map(node.getColumns()),
                 node.getColumnNames(),
-                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
+                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.outputSymbols())),
                 node.getStatisticsAggregation().map(this::map),
                 node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
     }
 
     public TableExecuteNode map(TableExecuteNode node, PlanNode source)
     {
-        return map(node, source, node.getId());
+        return map(node, source, node.id());
     }
 
     public TableExecuteNode map(TableExecuteNode node, PlanNode source, PlanNodeId newId)
@@ -550,43 +550,43 @@ public class SymbolMapper
                 map(node.getFragmentSymbol()),
                 map(node.getColumns()),
                 node.getColumnNames(),
-                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())));
+                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.outputSymbols())));
     }
 
     public MergeWriterNode map(MergeWriterNode node, PlanNode source)
     {
         // Intentionally does not use mapAndDistinct on columns as that would remove columns
-        List<Symbol> newOutputs = map(node.getOutputSymbols());
+        List<Symbol> newOutputs = map(node.outputSymbols());
 
         return new MergeWriterNode(
-                node.getId(),
+                node.id(),
                 source,
                 node.getTarget(),
                 map(node.getProjectedSymbols()),
-                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
+                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.outputSymbols())),
                 newOutputs);
     }
 
     public MergeWriterNode map(MergeWriterNode node, PlanNode source, PlanNodeId newId)
     {
         // Intentionally does not use mapAndDistinct on columns as that would remove columns
-        List<Symbol> newOutputs = map(node.getOutputSymbols());
+        List<Symbol> newOutputs = map(node.outputSymbols());
 
         return new MergeWriterNode(
                 newId,
                 source,
                 node.getTarget(),
                 map(node.getProjectedSymbols()),
-                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
+                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.outputSymbols())),
                 newOutputs);
     }
 
     public MergeProcessorNode map(MergeProcessorNode node, PlanNode source)
     {
-        List<Symbol> newOutputs = map(node.getOutputSymbols());
+        List<Symbol> newOutputs = map(node.outputSymbols());
 
         return new MergeProcessorNode(
-                node.getId(),
+                node.id(),
                 source,
                 node.getTarget(),
                 map(node.getRowIdSymbol()),
@@ -610,7 +610,7 @@ public class SymbolMapper
     public TableFinishNode map(TableFinishNode node, PlanNode source)
     {
         return new TableFinishNode(
-                node.getId(),
+                node.id(),
                 source,
                 node.getTarget(),
                 map(node.getRowCountSymbol()),
@@ -628,7 +628,7 @@ public class SymbolMapper
     public RowNumberNode map(RowNumberNode node, PlanNode source)
     {
         return new RowNumberNode(
-                node.getId(),
+                node.id(),
                 source,
                 mapAndDistinct(node.getPartitionBy()),
                 node.isOrderSensitive(),
@@ -640,7 +640,7 @@ public class SymbolMapper
     public TopNRankingNode map(TopNRankingNode node, PlanNode source)
     {
         return new TopNRankingNode(
-                node.getId(),
+                node.id(),
                 source,
                 mapAndDistinct(node.getSpecification()),
                 node.getRankingType(),
@@ -652,7 +652,7 @@ public class SymbolMapper
 
     public TopNNode map(TopNNode node, PlanNode source)
     {
-        return map(node, source, node.getId());
+        return map(node, source, node.id());
     }
 
     public TopNNode map(TopNNode node, PlanNode source, PlanNodeId nodeId)

@@ -76,7 +76,7 @@ public class PushdownLimitIntoWindow
 
         int limit = toIntExact(node.getCount());
         TopNRankingNode topNRowNumberNode = new TopNRankingNode(
-                source.getId(),
+                source.id(),
                 source.getSource(),
                 source.getSpecification(),
                 rankingType.get(),

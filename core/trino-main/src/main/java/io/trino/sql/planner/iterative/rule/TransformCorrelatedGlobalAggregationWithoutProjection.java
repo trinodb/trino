@@ -174,7 +174,7 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
                 context.getIdAllocator().getNextId(),
                 source,
                 Assignments.builder()
-                        .putIdentities(source.getOutputSymbols())
+                        .putIdentities(source.outputSymbols())
                         .put(nonNull, TRUE)
                         .build());
 
@@ -190,8 +190,8 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
                 inputWithUniqueId,
                 source,
                 ImmutableList.of(),
-                inputWithUniqueId.getOutputSymbols(),
-                source.getOutputSymbols(),
+                inputWithUniqueId.outputSymbols(),
+                source.outputSymbols(),
                 false,
                 decorrelatedSource.get().getCorrelatedPredicates(),
                 Optional.empty(),
@@ -244,14 +244,14 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
                     context.getIdAllocator().getNextId(),
                     root,
                     Assignments.builder()
-                            .putIdentities(root.getOutputSymbols())
+                            .putIdentities(root.outputSymbols())
                             .putAll(maskAssignments)
                             .build());
         }
 
         // restore global aggregation
         globalAggregation = new AggregationNode(
-                globalAggregation.getId(),
+                globalAggregation.id(),
                 root,
                 rewriteWithMasks(globalAggregation.getAggregations(), masks.buildOrThrow()),
                 singleGroupingSet(ImmutableList.<Symbol>builder()
@@ -264,7 +264,7 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
                 Optional.empty());
 
         // restrict outputs
-        Optional<PlanNode> project = restrictOutputs(context.getIdAllocator(), globalAggregation, ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols()));
+        Optional<PlanNode> project = restrictOutputs(context.getIdAllocator(), globalAggregation, ImmutableSet.copyOf(correlatedJoinNode.outputSymbols()));
 
         return Result.ofPlanNode(project.orElse(globalAggregation));
     }

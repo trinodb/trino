@@ -688,7 +688,7 @@ public abstract class AbstractTestQueryFramework
                     return tableName.equals(catalogSchemaTableName.asCatalogSchemaTableName());
                 })
                 .findOnlyElement()
-                .getId();
+                .id();
 
         return getDistributedQueryRunner().getCoordinator()
                 .getQueryManager()

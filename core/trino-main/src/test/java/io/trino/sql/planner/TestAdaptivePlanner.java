@@ -292,10 +292,10 @@ public class TestAdaptivePlanner
         @Override
         public Result apply(JoinNode node, Captures captures, Context context)
         {
-            if (alreadyVisited.contains(node.getId())) {
+            if (alreadyVisited.contains(node.id())) {
                 return Result.empty();
             }
-            alreadyVisited.add(node.getId());
+            alreadyVisited.add(node.id());
             return Result.ofPlanNode(node.flipChildren());
         }
     }

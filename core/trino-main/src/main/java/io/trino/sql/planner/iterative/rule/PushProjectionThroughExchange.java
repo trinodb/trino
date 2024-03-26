@@ -86,7 +86,7 @@ public class PushProjectionThroughExchange
 
         ImmutableList.Builder<PlanNode> newSourceBuilder = ImmutableList.builder();
         ImmutableList.Builder<List<Symbol>> inputsBuilder = ImmutableList.builder();
-        for (int i = 0; i < exchange.getSources().size(); i++) {
+        for (int i = 0; i < exchange.sources().size(); i++) {
             Map<Symbol, Symbol> outputToInputMap = mapExchangeOutputToInput(exchange, i);
 
             Assignments.Builder projections = Assignments.builder();
@@ -139,7 +139,7 @@ public class PushProjectionThroughExchange
                 projections.put(symbol, translatedExpression);
                 inputs.add(symbol);
             }
-            newSourceBuilder.add(new ProjectNode(context.getIdAllocator().getNextId(), exchange.getSources().get(i), projections.build()));
+            newSourceBuilder.add(new ProjectNode(context.getIdAllocator().getNextId(), exchange.sources().get(i), projections.build()));
             inputsBuilder.add(inputs.build());
         }
 
@@ -174,7 +174,7 @@ public class PushProjectionThroughExchange
                 exchange.getPartitioningScheme().getPartitionCount());
 
         PlanNode result = new ExchangeNode(
-                exchange.getId(),
+                exchange.id(),
                 exchange.getType(),
                 exchange.getScope(),
                 partitioningScheme,
@@ -183,7 +183,7 @@ public class PushProjectionThroughExchange
                 exchange.getOrderingScheme());
 
         // we need to strip unnecessary symbols (hash, partitioning columns).
-        return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(project.getOutputSymbols())).orElse(result));
+        return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), result, ImmutableSet.copyOf(project.outputSymbols())).orElse(result));
     }
 
     private static boolean isSymbolToSymbolProjection(ProjectNode project)
@@ -194,8 +194,8 @@ public class PushProjectionThroughExchange
     private static Map<Symbol, Symbol> mapExchangeOutputToInput(ExchangeNode exchange, int sourceIndex)
     {
         ImmutableMap.Builder<Symbol, Symbol> outputToInputMap = ImmutableMap.builder();
-        for (int i = 0; i < exchange.getOutputSymbols().size(); i++) {
-            outputToInputMap.put(exchange.getOutputSymbols().get(i), exchange.getInputs().get(sourceIndex).get(i));
+        for (int i = 0; i < exchange.outputSymbols().size(); i++) {
+            outputToInputMap.put(exchange.outputSymbols().get(i), exchange.getInputs().get(sourceIndex).get(i));
         }
         return outputToInputMap.buildOrThrow();
     }

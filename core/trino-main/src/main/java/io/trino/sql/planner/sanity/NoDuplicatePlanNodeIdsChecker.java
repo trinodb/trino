@@ -40,18 +40,18 @@ public class NoDuplicatePlanNodeIdsChecker
         Map<PlanNodeId, PlanNode> planNodeIds = new HashMap<>();
         searchFrom(planNode)
                 .findAll()
-                .forEach(node -> planNodeIds.merge(node.getId(), node, this::reportDuplicateId));
+                .forEach(node -> planNodeIds.merge(node.id(), node, this::reportDuplicateId));
     }
 
     private PlanNode reportDuplicateId(PlanNode first, PlanNode second)
     {
         requireNonNull(first, "first is null");
         requireNonNull(second, "second is null");
-        checkArgument(first.getId().equals(second.getId()));
+        checkArgument(first.id().equals(second.id()));
 
         throw new IllegalStateException(format(
                 "Generated plan contains nodes with duplicated id %s: %s and %s",
-                first.getId(),
+                first.id(),
                 first,
                 second));
     }

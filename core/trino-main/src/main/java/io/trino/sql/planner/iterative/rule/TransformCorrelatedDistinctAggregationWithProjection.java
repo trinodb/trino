@@ -127,8 +127,8 @@ public class TransformCorrelatedDistinctAggregationWithProjection
                 inputWithUniqueId,
                 source,
                 ImmutableList.of(),
-                inputWithUniqueId.getOutputSymbols(),
-                source.getOutputSymbols(),
+                inputWithUniqueId.outputSymbols(),
+                source.outputSymbols(),
                 false,
                 decorrelatedSource.get().getCorrelatedPredicates(),
                 Optional.empty(),
@@ -141,7 +141,7 @@ public class TransformCorrelatedDistinctAggregationWithProjection
         // restore aggregation
         AggregationNode aggregation = captures.get(AGGREGATION);
         aggregation = new AggregationNode(
-                aggregation.getId(),
+                aggregation.id(),
                 join,
                 aggregation.getAggregations(),
                 singleGroupingSet(ImmutableList.<Symbol>builder()
@@ -154,8 +154,8 @@ public class TransformCorrelatedDistinctAggregationWithProjection
                 Optional.empty());
 
         // restrict outputs and apply projection
-        Set<Symbol> outputSymbols = new HashSet<>(correlatedJoinNode.getOutputSymbols());
-        List<Symbol> expectedAggregationOutputs = aggregation.getOutputSymbols().stream()
+        Set<Symbol> outputSymbols = new HashSet<>(correlatedJoinNode.outputSymbols());
+        List<Symbol> expectedAggregationOutputs = aggregation.outputSymbols().stream()
                 .filter(outputSymbols::contains)
                 .collect(toImmutableList());
 

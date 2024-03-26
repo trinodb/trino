@@ -113,7 +113,7 @@ public final class StreamPropertyDerivations
             PlannerContext plannerContext,
             Session session)
     {
-        List<StreamProperties> inputProperties = node.getSources().stream()
+        List<StreamProperties> inputProperties = node.sources().stream()
                 .map(source -> derivePropertiesRecursively(source, plannerContext, session))
                 .collect(toImmutableList());
         return deriveProperties(node, inputProperties, plannerContext, session);
@@ -157,7 +157,7 @@ public final class StreamPropertyDerivations
                 .flatMap(property -> property.getColumns().stream())
                 .collect(Collectors.toSet());
 
-        verify(node.getOutputSymbols().containsAll(localPropertyColumns), "Stream-level local properties contain columns not present in node's output");
+        verify(node.outputSymbols().containsAll(localPropertyColumns), "Stream-level local properties contain columns not present in node's output");
 
         return result;
     }
@@ -175,9 +175,9 @@ public final class StreamPropertyDerivations
     static boolean isLocalExchangesSourceSingleStreamDistributed(ExchangeNode exchangeNode, Metadata metadata, Session session)
     {
         checkArgument(exchangeNode.getScope() == LOCAL, "exchangeNode must be a local exchange");
-        checkArgument(exchangeNode.getSources().size() == 1, "exchangeNode must have a single source");
+        checkArgument(exchangeNode.sources().size() == 1, "exchangeNode must have a single source");
 
-        return deriveStreamPropertiesWithoutActualPropertiesRecursively(exchangeNode.getSources().get(0), metadata, session).isSingleStream();
+        return deriveStreamPropertiesWithoutActualPropertiesRecursively(exchangeNode.sources().get(0), metadata, session).isSingleStream();
     }
 
     /**
@@ -189,7 +189,7 @@ public final class StreamPropertyDerivations
     @Deprecated
     private static StreamProperties deriveStreamPropertiesWithoutActualPropertiesRecursively(PlanNode node, Metadata metadata, Session session)
     {
-        List<StreamProperties> inputProperties = node.getSources().stream()
+        List<StreamProperties> inputProperties = node.sources().stream()
                 .map(source -> deriveStreamPropertiesWithoutActualPropertiesRecursively(source, metadata, session))
                 .collect(toImmutableList());
 
@@ -201,7 +201,7 @@ public final class StreamPropertyDerivations
         StreamProperties result = node.accept(new Visitor(metadata, session), inputProperties);
 
         result.getPartitioningColumns().ifPresent(columns ->
-                verify(node.getOutputSymbols().containsAll(columns), "Stream-level partitioning properties contain columns not present in node's output"));
+                verify(node.outputSymbols().containsAll(columns), "Stream-level partitioning properties contain columns not present in node's output"));
 
         return result;
     }
@@ -236,10 +236,10 @@ public final class StreamPropertyDerivations
 
             return switch (node.getType()) {
                 case INNER -> leftProperties
-                        .translate(column -> PropertyDerivations.filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column))
+                        .translate(column -> PropertyDerivations.filterOrRewrite(node.outputSymbols(), node.getCriteria(), column))
                         .unordered(unordered);
                 case LEFT -> leftProperties
-                        .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column))
+                        .translate(column -> PropertyDerivations.filterIfMissing(node.outputSymbols(), column))
                         .unordered(unordered);
                 case RIGHT ->
                     // since this is a right join, none of the matched output rows will contain nulls
@@ -271,7 +271,7 @@ public final class StreamPropertyDerivations
             StreamProperties leftProperties = inputProperties.get(0);
 
             return switch (node.getType()) {
-                case INNER, LEFT -> leftProperties.translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column));
+                case INNER, LEFT -> leftProperties.translate(column -> PropertyDerivations.filterIfMissing(node.outputSymbols(), column));
             };
         }
 
@@ -582,7 +582,7 @@ public final class StreamPropertyDerivations
         public StreamProperties visitOutput(OutputNode node, List<StreamProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties)
-                    .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column));
+                    .translate(column -> PropertyDerivations.filterIfMissing(node.outputSymbols(), column));
         }
 
         @Override
@@ -602,7 +602,7 @@ public final class StreamPropertyDerivations
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            Set<Symbol> passThroughInputs = Sets.intersection(ImmutableSet.copyOf(node.getSource().getOutputSymbols()), ImmutableSet.copyOf(node.getOutputSymbols()));
+            Set<Symbol> passThroughInputs = Sets.intersection(ImmutableSet.copyOf(node.getSource().outputSymbols()), ImmutableSet.copyOf(node.outputSymbols()));
             StreamProperties translatedProperties = properties.translate(column -> {
                 if (passThroughInputs.contains(column)) {
                     return Optional.of(column);
@@ -629,7 +629,7 @@ public final class StreamPropertyDerivations
 
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            Set<Symbol> passThroughInputs = Sets.intersection(ImmutableSet.copyOf(node.getSource().orElseThrow().getOutputSymbols()), ImmutableSet.copyOf(node.getOutputSymbols()));
+            Set<Symbol> passThroughInputs = Sets.intersection(ImmutableSet.copyOf(node.getSource().orElseThrow().outputSymbols()), ImmutableSet.copyOf(node.outputSymbols()));
             StreamProperties translatedProperties = properties.translate(column -> {
                 if (passThroughInputs.contains(column)) {
                     return Optional.of(column);

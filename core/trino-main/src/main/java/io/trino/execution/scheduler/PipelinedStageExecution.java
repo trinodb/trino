@@ -313,7 +313,7 @@ public class PipelinedStageExecution
         sourceTasks.forEach((fragmentId, sourceTask) -> {
             TaskStatus status = sourceTask.getTaskStatus();
             if (status.getState() != TaskState.FINISHED) {
-                PlanNodeId planNodeId = exchangeSources.get(fragmentId).getId();
+                PlanNodeId planNodeId = exchangeSources.get(fragmentId).id();
                 exchangeSplits.put(planNodeId, createExchangeSplit(sourceTask, task));
             }
         });
@@ -482,7 +482,7 @@ public class PipelinedStageExecution
         sourceTask.setOutputBuffers(outputBufferManager.getOutputBuffers());
 
         for (RemoteTask destinationTask : getAllTasks()) {
-            destinationTask.addSplits(ImmutableMultimap.of(remoteSource.getId(), createExchangeSplit(sourceTask, destinationTask)));
+            destinationTask.addSplits(ImmutableMultimap.of(remoteSource.id(), createExchangeSplit(sourceTask, destinationTask)));
         }
     }
 
@@ -495,9 +495,9 @@ public class PipelinedStageExecution
 
         // is the source now complete?
         if (completeSourceFragments.containsAll(remoteSource.getSourceFragmentIds())) {
-            completeSources.add(remoteSource.getId());
+            completeSources.add(remoteSource.id());
             for (RemoteTask task : getAllTasks()) {
-                task.noMoreSplits(remoteSource.getId());
+                task.noMoreSplits(remoteSource.id());
             }
         }
     }

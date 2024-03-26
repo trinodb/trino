@@ -69,7 +69,7 @@ public class NoMemoryAwarePartitionMemoryEstimator
 
         private boolean isNoMemoryFragment(PlanFragment fragment, Function<PlanFragmentId, PlanFragment> childFragmentLookup)
         {
-            if (fragment.getRoot().getSources().stream()
+            if (fragment.getRoot().sources().stream()
                     .anyMatch(planNode -> planNode instanceof RefreshMaterializedViewNode)) {
                 // REFRESH MATERIALIZED VIEW will issue other SQL commands under the hood. If its task memory is
                 // non-zero, then a deadlock scenario is possible if we only have a single node in the cluster.

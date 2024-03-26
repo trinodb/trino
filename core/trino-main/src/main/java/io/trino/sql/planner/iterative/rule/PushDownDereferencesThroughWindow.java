@@ -118,12 +118,12 @@ public class PushDownDereferencesThroughWindow
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
                         new WindowNode(
-                                windowNode.getId(),
+                                windowNode.id(),
                                 new ProjectNode(
                                         context.getIdAllocator().getNextId(),
                                         windowNode.getSource(),
                                         Assignments.builder()
-                                                .putIdentities(windowNode.getSource().getOutputSymbols())
+                                                .putIdentities(windowNode.getSource().outputSymbols())
                                                 .putAll(dereferenceAssignments)
                                                 .build()),
                                 windowNode.getSpecification(),

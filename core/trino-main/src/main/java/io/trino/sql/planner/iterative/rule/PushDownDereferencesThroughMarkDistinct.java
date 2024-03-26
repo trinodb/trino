@@ -105,7 +105,7 @@ public class PushDownDereferencesThroughMarkDistinct
                                         context.getIdAllocator().getNextId(),
                                         markDistinctNode.getSource(),
                                         Assignments.builder()
-                                                .putIdentities(markDistinctNode.getSource().getOutputSymbols())
+                                                .putIdentities(markDistinctNode.getSource().outputSymbols())
                                                 .putAll(dereferenceAssignments)
                                                 .build()))),
                         newAssignments));

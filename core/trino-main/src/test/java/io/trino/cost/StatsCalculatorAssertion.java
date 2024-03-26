@@ -49,25 +49,25 @@ public class StatsCalculatorAssertion
         this.planNode = requireNonNull(planNode, "planNode is null");
 
         sourcesStats = new HashMap<>();
-        planNode.getSources().forEach(child -> sourcesStats.put(child, PlanNodeStatsEstimate.unknown()));
+        planNode.sources().forEach(child -> sourcesStats.put(child, PlanNodeStatsEstimate.unknown()));
     }
 
     public StatsCalculatorAssertion withSourceStats(PlanNodeStatsEstimate sourceStats)
     {
-        checkState(planNode.getSources().size() == 1, "expected single source");
+        checkState(planNode.sources().size() == 1, "expected single source");
         return withSourceStats(0, sourceStats);
     }
 
     public StatsCalculatorAssertion withSourceStats(int sourceIndex, PlanNodeStatsEstimate sourceStats)
     {
-        checkArgument(sourceIndex < planNode.getSources().size(), "invalid sourceIndex %s; planNode has %s sources", sourceIndex, planNode.getSources().size());
-        sourcesStats.put(planNode.getSources().get(sourceIndex), sourceStats);
+        checkArgument(sourceIndex < planNode.sources().size(), "invalid sourceIndex %s; planNode has %s sources", sourceIndex, planNode.sources().size());
+        sourcesStats.put(planNode.sources().get(sourceIndex), sourceStats);
         return this;
     }
 
     public StatsCalculatorAssertion withSourceStats(PlanNodeId planNodeId, PlanNodeStatsEstimate sourceStats)
     {
-        PlanNode sourceNode = PlanNodeSearcher.searchFrom(planNode).where(node -> node.getId().equals(planNodeId)).findOnlyElement();
+        PlanNode sourceNode = PlanNodeSearcher.searchFrom(planNode).where(node -> node.id().equals(planNodeId)).findOnlyElement();
         sourcesStats.put(sourceNode, sourceStats);
         return this;
     }

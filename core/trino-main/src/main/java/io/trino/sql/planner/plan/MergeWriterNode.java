@@ -84,13 +84,13 @@ public final class MergeWriterNode
      */
     @JsonProperty("outputs")
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return outputs;
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
@@ -104,6 +104,6 @@ public final class MergeWriterNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MergeWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, projectedSymbols, partitioningScheme, outputs);
+        return new MergeWriterNode(id(), Iterables.getOnlyElement(newChildren), target, projectedSymbols, partitioningScheme, outputs);
     }
 }

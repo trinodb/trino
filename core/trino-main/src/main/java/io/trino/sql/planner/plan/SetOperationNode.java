@@ -70,21 +70,21 @@ public abstract sealed class SetOperationNode
         // Make sure each source positionally corresponds to their Symbol values in the Multimap
         for (int i = 0; i < sources.size(); i++) {
             for (Collection<Symbol> expectedInputs : this.outputToInputs.asMap().values()) {
-                checkArgument(sources.get(i).getOutputSymbols().contains(Iterables.get(expectedInputs, i)), "Source does not provide required symbols");
+                checkArgument(sources.get(i).outputSymbols().contains(Iterables.get(expectedInputs, i)), "Source does not provide required symbols");
             }
         }
     }
 
     @Override
     @JsonProperty("sources")
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return sources;
     }
 
     @Override
     @JsonProperty("outputs")
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return outputs;
     }
@@ -98,7 +98,7 @@ public abstract sealed class SetOperationNode
     public List<Symbol> sourceOutputLayout(int sourceIndex)
     {
         // Make sure the sourceOutputLayout symbols are listed in the same order as the corresponding output symbols
-        return getOutputSymbols().stream()
+        return outputSymbols().stream()
                 .map(symbol -> outputToInputs.get(symbol).get(sourceIndex))
                 .collect(toImmutableList());
     }
@@ -122,7 +122,7 @@ public abstract sealed class SetOperationNode
      */
     public Multimap<Symbol, Reference> outputSymbolMap(int sourceIndex)
     {
-        return Multimaps.transformValues(FluentIterable.from(getOutputSymbols())
+        return Multimaps.transformValues(FluentIterable.from(outputSymbols())
                 .toMap(outputToSourceSymbolFunction(sourceIndex))
                 .asMultimap()
                 .inverse(), Symbol::toSymbolReference);

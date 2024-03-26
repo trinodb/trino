@@ -192,13 +192,13 @@ public final class TableFunctionProcessorNode
 
     @JsonProperty
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return source.map(ImmutableList::of).orElse(ImmutableList.of());
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
 
@@ -224,7 +224,7 @@ public final class TableFunctionProcessorNode
     {
         Optional<PlanNode> newSource = newSources.isEmpty() ? Optional.empty() : Optional.of(getOnlyElement(newSources));
         return new TableFunctionProcessorNode(
-                getId(),
+                id(),
                 name,
                 properOutputs,
                 newSource,

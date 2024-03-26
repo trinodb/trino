@@ -69,11 +69,11 @@ public final class PushProjectionThroughJoin
         for (Map.Entry<Symbol, Expression> assignment : projectNode.getAssignments().entrySet()) {
             Expression expression = assignment.getValue();
             Set<Symbol> symbols = extractUnique(expression);
-            if (leftChild.getOutputSymbols().containsAll(symbols)) {
+            if (leftChild.outputSymbols().containsAll(symbols)) {
                 // expression is satisfied with left child symbols
                 leftAssignmentsBuilder.put(assignment.getKey(), expression);
             }
-            else if (rightChild.getOutputSymbols().containsAll(symbols)) {
+            else if (rightChild.outputSymbols().containsAll(symbols)) {
                 // expression is satisfied with right child symbols
                 rightAssignmentsBuilder.put(assignment.getKey(), expression);
             }
@@ -86,11 +86,11 @@ public final class PushProjectionThroughJoin
         // add projections for symbols required by the join itself
         Set<Symbol> joinRequiredSymbols = getJoinRequiredSymbols(joinNode);
         for (Symbol requiredSymbol : joinRequiredSymbols) {
-            if (leftChild.getOutputSymbols().contains(requiredSymbol)) {
+            if (leftChild.outputSymbols().contains(requiredSymbol)) {
                 leftAssignmentsBuilder.putIdentity(requiredSymbol);
             }
             else {
-                checkState(rightChild.getOutputSymbols().contains(requiredSymbol));
+                checkState(rightChild.outputSymbols().contains(requiredSymbol));
                 rightAssignmentsBuilder.putIdentity(requiredSymbol);
             }
         }
@@ -98,14 +98,14 @@ public final class PushProjectionThroughJoin
         Assignments leftAssignments = leftAssignmentsBuilder.build();
         Assignments rightAssignments = rightAssignmentsBuilder.build();
         List<Symbol> leftOutputSymbols = leftAssignments.getOutputs().stream()
-                .filter(ImmutableSet.copyOf(projectNode.getOutputSymbols())::contains)
+                .filter(ImmutableSet.copyOf(projectNode.outputSymbols())::contains)
                 .collect(toImmutableList());
         List<Symbol> rightOutputSymbols = rightAssignments.getOutputs().stream()
-                .filter(ImmutableSet.copyOf(projectNode.getOutputSymbols())::contains)
+                .filter(ImmutableSet.copyOf(projectNode.outputSymbols())::contains)
                 .collect(toImmutableList());
 
         return Optional.of(new JoinNode(
-                joinNode.getId(),
+                joinNode.id(),
                 joinNode.getType(),
                 inlineProjections(
                         new ProjectNode(planNodeIdAllocator.getNextId(), leftChild, leftAssignments),

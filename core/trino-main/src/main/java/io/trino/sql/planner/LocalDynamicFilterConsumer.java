@@ -264,7 +264,7 @@ public class LocalDynamicFilterConsumer
                         // Build-side channel index
                         entry -> {
                             Symbol buildSymbol = entry.getValue();
-                            int buildChannelIndex = buildNode.getOutputSymbols().indexOf(buildSymbol);
+                            int buildChannelIndex = buildNode.outputSymbols().indexOf(buildSymbol);
                             verify(buildChannelIndex >= 0);
                             return buildChannelIndex;
                         }));

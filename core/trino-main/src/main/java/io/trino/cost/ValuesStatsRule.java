@@ -57,12 +57,12 @@ public class ValuesStatsRule
         statsBuilder.setOutputRowCount(node.getRowCount());
 
         try {
-            for (int symbolId = 0; symbolId < node.getOutputSymbols().size(); ++symbolId) {
-                Symbol symbol = node.getOutputSymbols().get(symbolId);
+            for (int symbolId = 0; symbolId < node.outputSymbols().size(); ++symbolId) {
+                Symbol symbol = node.outputSymbols().get(symbolId);
                 List<Object> symbolValues = getSymbolValues(
                         node,
                         symbolId,
-                        RowType.anonymous(node.getOutputSymbols().stream()
+                        RowType.anonymous(node.outputSymbols().stream()
                                 .map(Symbol::getType)
                                 .collect(toImmutableList())));
                 statsBuilder.addSymbolStatistics(symbol, buildSymbolStatistics(symbolValues, symbol.getType()));

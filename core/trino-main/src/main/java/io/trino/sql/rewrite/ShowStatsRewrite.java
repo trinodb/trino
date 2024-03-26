@@ -171,8 +171,8 @@ public class ShowStatsRewrite
             ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
             verify(plan.getRoot() instanceof OutputNode, "Expected plan root be OutputNode, but was: %s", plan.getRoot().getClass().getName());
             OutputNode root = (OutputNode) plan.getRoot();
-            for (int columnIndex = 0; columnIndex < root.getOutputSymbols().size(); columnIndex++) {
-                Symbol outputSymbol = root.getOutputSymbols().get(columnIndex);
+            for (int columnIndex = 0; columnIndex < root.outputSymbols().size(); columnIndex++) {
+                Symbol outputSymbol = root.outputSymbols().get(columnIndex);
                 String columnName = root.getColumnNames().get(columnIndex);
                 Type columnType = outputSymbol.getType();
                 SymbolStatsEstimate symbolStatistics = planNodeStatsEstimate.getSymbolStatistics(outputSymbol);

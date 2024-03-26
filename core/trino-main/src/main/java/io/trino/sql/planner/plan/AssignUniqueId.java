@@ -44,10 +44,10 @@ public final class AssignUniqueId
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return ImmutableList.<Symbol>builder()
-                .addAll(source.getOutputSymbols())
+                .addAll(source.outputSymbols())
                 .add(idColumn)
                 .build();
     }
@@ -59,7 +59,7 @@ public final class AssignUniqueId
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
@@ -80,6 +80,6 @@ public final class AssignUniqueId
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
-        return new AssignUniqueId(getId(), Iterables.getOnlyElement(newChildren), idColumn);
+        return new AssignUniqueId(id(), Iterables.getOnlyElement(newChildren), idColumn);
     }
 }

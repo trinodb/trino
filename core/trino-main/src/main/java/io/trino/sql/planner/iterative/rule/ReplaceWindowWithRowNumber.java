@@ -58,7 +58,7 @@ public class ReplaceWindowWithRowNumber
     public Result apply(WindowNode node, Captures captures, Context context)
     {
         return Result.ofPlanNode(new RowNumberNode(
-                node.getId(),
+                node.id(),
                 node.getSource(),
                 node.getPartitionBy(),
                 false,

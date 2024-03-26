@@ -253,8 +253,8 @@ public final class Patterns
         return optionalProperty(
                 "source",
                 (node, lookup) -> {
-                    if (node.getSources().size() == 1) {
-                        PlanNode source = getOnlyElement(node.getSources());
+                    if (node.sources().size() == 1) {
+                        PlanNode source = getOnlyElement(node.sources());
                         return Optional.of(lookup.resolve(source));
                     }
                     return Optional.empty();
@@ -265,7 +265,7 @@ public final class Patterns
     {
         return property(
                 "sources",
-                (PlanNode node, Lookup lookup) -> node.getSources().stream()
+                (PlanNode node, Lookup lookup) -> node.sources().stream()
                         .map(lookup::resolve)
                         .collect(toImmutableList()));
     }

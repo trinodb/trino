@@ -94,7 +94,7 @@ public class ImplementLimitWithTies
         ProjectNode projectNode = new ProjectNode(
                 context.getIdAllocator().getNextId(),
                 rewritten,
-                Assignments.identity(parent.getOutputSymbols()));
+                Assignments.identity(parent.outputSymbols()));
 
         return Result.ofPlanNode(projectNode);
     }

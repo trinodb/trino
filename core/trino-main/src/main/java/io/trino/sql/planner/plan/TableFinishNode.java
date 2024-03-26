@@ -88,13 +88,13 @@ public final class TableFinishNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return ImmutableList.of(rowCountSymbol);
     }
@@ -109,7 +109,7 @@ public final class TableFinishNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new TableFinishNode(
-                getId(),
+                id(),
                 Iterables.getOnlyElement(newChildren),
                 target,
                 rowCountSymbol,

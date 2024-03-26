@@ -47,7 +47,7 @@ public final class ProjectNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return assignments.getOutputs();
     }
@@ -59,7 +59,7 @@ public final class ProjectNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
@@ -84,6 +84,6 @@ public final class ProjectNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ProjectNode(getId(), Iterables.getOnlyElement(newChildren), assignments);
+        return new ProjectNode(id(), Iterables.getOnlyElement(newChildren), assignments);
     }
 }

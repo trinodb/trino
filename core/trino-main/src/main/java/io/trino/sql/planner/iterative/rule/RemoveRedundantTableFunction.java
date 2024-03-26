@@ -49,7 +49,7 @@ public class RemoveRedundantTableFunction
     {
         if (node.isPruneWhenEmpty() && node.getSource().isPresent()) {
             if (isEmpty(node.getSource().orElseThrow(), context.getLookup())) {
-                return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+                return Result.ofPlanNode(new ValuesNode(node.id(), node.outputSymbols(), ImmutableList.of()));
             }
         }
 

@@ -50,7 +50,7 @@ public final class SortNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
@@ -62,9 +62,9 @@ public final class SortNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
-        return source.getOutputSymbols();
+        return source.outputSymbols();
     }
 
     @JsonProperty
@@ -88,6 +88,6 @@ public final class SortNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new SortNode(getId(), Iterables.getOnlyElement(newChildren), orderingScheme, partial);
+        return new SortNode(id(), Iterables.getOnlyElement(newChildren), orderingScheme, partial);
     }
 }

@@ -81,13 +81,13 @@ public class ValidateAggregationsWithDefaultValues
         @Override
         protected Optional<SeenExchanges> visitPlan(PlanNode node, Void context)
         {
-            return aggregatedSeenExchanges(node.getSources());
+            return aggregatedSeenExchanges(node.sources());
         }
 
         @Override
         public Optional<SeenExchanges> visitAggregation(AggregationNode node, Void context)
         {
-            Optional<SeenExchanges> seenExchangesOptional = aggregatedSeenExchanges(node.getSources());
+            Optional<SeenExchanges> seenExchangesOptional = aggregatedSeenExchanges(node.sources());
 
             if (node.getStep() == PARTIAL) {
                 return Optional.of(new SeenExchanges(false, false));
@@ -130,7 +130,7 @@ public class ValidateAggregationsWithDefaultValues
         @Override
         public Optional<SeenExchanges> visitExchange(ExchangeNode node, Void context)
         {
-            Optional<SeenExchanges> seenExchangesOptional = aggregatedSeenExchanges(node.getSources());
+            Optional<SeenExchanges> seenExchangesOptional = aggregatedSeenExchanges(node.sources());
             if (seenExchangesOptional.isEmpty()) {
                 // No partial aggregation below
                 return Optional.empty();

@@ -77,7 +77,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
         if (subquery instanceof ProjectNode project) {
             if (context.getLookup().resolve(project.getSource()) instanceof ValuesNode values && isSingleRowValuesWithNoColumns(values)) {
                 Assignments assignments = Assignments.builder()
-                        .putIdentities(parent.getInput().getOutputSymbols())
+                        .putIdentities(parent.getInput().outputSymbols())
                         .putAll(project.getAssignments())
                         .build();
                 return Result.ofPlanNode(projectNode(parent.getInput(), assignments, context));
@@ -90,9 +90,9 @@ public class TransformCorrelatedSingleRowSubqueryToProject
             }
             if (values.getRowCount() == 1 && values.getRows().orElseThrow().get(0) instanceof Row row) {
                 Assignments.Builder assignments = Assignments.builder()
-                        .putIdentities(parent.getInput().getOutputSymbols());
+                        .putIdentities(parent.getInput().outputSymbols());
                 forEachPair(
-                        values.getOutputSymbols().stream(),
+                        values.outputSymbols().stream(),
                         row.items().stream(),
                         assignments::put);
                 return Result.ofPlanNode(projectNode(parent.getInput(), assignments.build(), context));
@@ -109,6 +109,6 @@ public class TransformCorrelatedSingleRowSubqueryToProject
 
     private static boolean isSingleRowValuesWithNoColumns(ValuesNode values)
     {
-        return values.getRowCount() == 1 && values.getOutputSymbols().isEmpty();
+        return values.getRowCount() == 1 && values.outputSymbols().isEmpty();
     }
 }

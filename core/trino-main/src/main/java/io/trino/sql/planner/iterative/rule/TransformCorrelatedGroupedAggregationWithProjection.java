@@ -177,8 +177,8 @@ public class TransformCorrelatedGroupedAggregationWithProjection
                 inputWithUniqueId,
                 source,
                 ImmutableList.of(),
-                inputWithUniqueId.getOutputSymbols(),
-                source.getOutputSymbols(),
+                inputWithUniqueId.outputSymbols(),
+                source.outputSymbols(),
                 false,
                 decorrelatedSource.get().getCorrelatedPredicates(),
                 Optional.empty(),
@@ -213,8 +213,8 @@ public class TransformCorrelatedGroupedAggregationWithProjection
                 .build();
 
         // restrict outputs and apply projection
-        Set<Symbol> outputSymbols = new HashSet<>(correlatedJoinNode.getOutputSymbols());
-        List<Symbol> expectedAggregationOutputs = groupedAggregation.getOutputSymbols().stream()
+        Set<Symbol> outputSymbols = new HashSet<>(correlatedJoinNode.outputSymbols());
+        List<Symbol> expectedAggregationOutputs = groupedAggregation.outputSymbols().stream()
                 .filter(outputSymbols::contains)
                 .collect(toImmutableList());
 

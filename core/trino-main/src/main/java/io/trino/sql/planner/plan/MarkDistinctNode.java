@@ -53,16 +53,16 @@ public final class MarkDistinctNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return ImmutableList.<Symbol>builder()
-                .addAll(source.getOutputSymbols())
+                .addAll(source.outputSymbols())
                 .add(markerSymbol)
                 .build();
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
@@ -100,6 +100,6 @@ public final class MarkDistinctNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MarkDistinctNode(getId(), Iterables.getOnlyElement(newChildren), markerSymbol, distinctSymbols, hashSymbol);
+        return new MarkDistinctNode(id(), Iterables.getOnlyElement(newChildren), markerSymbol, distinctSymbols, hashSymbol);
     }
 }

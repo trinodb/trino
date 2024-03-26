@@ -119,7 +119,7 @@ public class MetadataQueryOptimizer
             ImmutableMap.Builder<Symbol, Type> typesBuilder = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, ColumnHandle> columnBuilder = ImmutableMap.builder();
 
-            List<Symbol> inputs = tableScan.getOutputSymbols();
+            List<Symbol> inputs = tableScan.outputSymbols();
             if (inputs.isEmpty()) {
                 return context.defaultRewrite(node);
             }
@@ -182,7 +182,7 @@ public class MetadataQueryOptimizer
                         source instanceof LimitNode ||
                         source instanceof TopNNode ||
                         source instanceof SortNode) {
-                    source = source.getSources().get(0);
+                    source = source.sources().get(0);
                 }
                 else if (source instanceof ProjectNode project) {
                     // verify projections are deterministic

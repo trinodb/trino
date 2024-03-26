@@ -153,7 +153,7 @@ public class ReplaceJoinOverConstantWithProject
     private boolean canInlineJoinSource(PlanNode source)
     {
         // the case of a source producing no outputs is handled by ReplaceRedundantJoinWithSource rule
-        return isSingleConstantRow(source) && !source.getOutputSymbols().isEmpty();
+        return isSingleConstantRow(source) && !source.outputSymbols().isEmpty();
     }
 
     private boolean isSingleConstantRow(PlanNode node)
@@ -185,8 +185,8 @@ public class ReplaceJoinOverConstantWithProject
         Row row = (Row) getOnlyElement(values.getRows().get());
 
         Map<Symbol, Expression> mapping = new HashMap<>();
-        for (int i = 0; i < values.getOutputSymbols().size(); i++) {
-            mapping.put(values.getOutputSymbols().get(i), row.items().get(i));
+        for (int i = 0; i < values.outputSymbols().size(); i++) {
+            mapping.put(values.outputSymbols().get(i), row.items().get(i));
         }
 
         Assignments.Builder assignments = Assignments.builder()

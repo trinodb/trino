@@ -43,7 +43,7 @@ public class RemoveRedundantJoin
             return Result.ofPlanNode(
                     new ValuesNode(
                             context.getIdAllocator().getNextId(),
-                            node.getOutputSymbols(),
+                            node.outputSymbols(),
                             ImmutableList.of()));
         }
 

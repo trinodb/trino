@@ -72,7 +72,7 @@ public class PushLimitThroughUnion
         UnionNode unionNode = captures.get(CHILD);
         ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
         boolean shouldApply = false;
-        for (PlanNode source : unionNode.getSources()) {
+        for (PlanNode source : unionNode.sources()) {
             // This check is to ensure that we don't fire the optimizer if it was previously applied.
             if (isAtMost(source, context.getLookup(), parent.getCount())) {
                 builder.add(source);

@@ -44,7 +44,7 @@ public class OptimizeRowPattern
         }
 
         return Result.ofPlanNode(new PatternRecognitionNode(
-                node.getId(),
+                node.id(),
                 node.getSource(),
                 node.getSpecification(),
                 node.getHashSymbol(),

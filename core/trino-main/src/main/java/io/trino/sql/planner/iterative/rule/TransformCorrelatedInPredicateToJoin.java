@@ -168,7 +168,7 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 decorrelatedBuildSource,
                 Assignments.builder()
-                        .putIdentities(decorrelatedBuildSource.getOutputSymbols())
+                        .putIdentities(decorrelatedBuildSource.outputSymbols())
                         .put(buildSideKnownNonNull, bigint(0))
                         .build());
 
@@ -198,7 +198,7 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 leftOuterJoin,
                 Assignments.builder()
-                        .putIdentities(leftOuterJoin.getOutputSymbols())
+                        .putIdentities(leftOuterJoin.outputSymbols())
                         .put(matchConditionSymbol, matchCondition)
                         .put(nullMatchConditionSymbol, nullMatchCondition)
                         .build());
@@ -213,7 +213,7 @@ public class TransformCorrelatedInPredicateToJoin
                         .put(countMatchesSymbol, countWithFilter(matchConditionSymbol))
                         .put(countNullMatchesSymbol, countWithFilter(nullMatchConditionSymbol))
                         .buildOrThrow(),
-                singleGroupingSet(probeSide.getOutputSymbols()));
+                singleGroupingSet(probeSide.outputSymbols()));
 
         // TODO since we care only about "some count > 0", we could have specialized node instead of leftOuterJoin that does the job without materializing join results
         Case inPredicateEquivalent = new Case(
@@ -225,7 +225,7 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 aggregation,
                 Assignments.builder()
-                        .putIdentities(apply.getInput().getOutputSymbols())
+                        .putIdentities(apply.getInput().outputSymbols())
                         .put(inPredicateOutputSymbol, inPredicateEquivalent)
                         .build());
     }
@@ -238,8 +238,8 @@ public class TransformCorrelatedInPredicateToJoin
                 probeSide,
                 buildSide,
                 ImmutableList.of(),
-                probeSide.getOutputSymbols(),
-                buildSide.getOutputSymbols(),
+                probeSide.outputSymbols(),
+                buildSide.outputSymbols(),
                 false,
                 Optional.of(joinExpression),
                 Optional.empty(),
@@ -333,7 +333,7 @@ public class TransformCorrelatedInPredicateToJoin
                 return new Decorrelated(
                         decorrelated.getCorrelatedPredicates(),
                         new ProjectNode(
-                                node.getId(),
+                                node.id(),
                                 decorrelated.getDecorrelatedNode(),
                                 assignments.build()));
             });
@@ -367,7 +367,7 @@ public class TransformCorrelatedInPredicateToJoin
             if (isCorrelatedShallowly(node)) {
                 return true;
             }
-            return node.getSources().stream()
+            return node.sources().stream()
                     .map(lookup::resolve)
                     .anyMatch(this::isCorrelatedRecursively);
         }

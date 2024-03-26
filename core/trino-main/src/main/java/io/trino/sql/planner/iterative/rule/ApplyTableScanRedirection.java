@@ -139,10 +139,10 @@ public class ApplyTableScanRedirection
             ImmutableMap<Symbol, ColumnHandle> newAssignments = newAssignmentsBuilder.buildOrThrow();
             return Result.ofPlanNode(applyProjection(
                     context.getIdAllocator(),
-                    ImmutableSet.copyOf(scanNode.getOutputSymbols()),
+                    ImmutableSet.copyOf(scanNode.outputSymbols()),
                     casts.buildOrThrow(),
                     new TableScanNode(
-                            scanNode.getId(),
+                            scanNode.id(),
                             destinationTableHandle,
                             ImmutableList.copyOf(newAssignments.keySet()),
                             newAssignments,
@@ -198,7 +198,7 @@ public class ApplyTableScanRedirection
 
         Map<Symbol, ColumnHandle> newAssignments = newAssignmentsBuilder.buildOrThrow();
         TableScanNode newScanNode = new TableScanNode(
-                scanNode.getId(),
+                scanNode.id(),
                 destinationTableHandle,
                 ImmutableList.copyOf(newAssignments.keySet()),
                 newAssignments,
@@ -219,7 +219,7 @@ public class ApplyTableScanRedirection
 
         return Result.ofPlanNode(applyProjection(
                 context.getIdAllocator(),
-                ImmutableSet.copyOf(scanNode.getOutputSymbols()),
+                ImmutableSet.copyOf(scanNode.outputSymbols()),
                 ImmutableMap.of(),
                 filterNode));
     }
@@ -230,7 +230,7 @@ public class ApplyTableScanRedirection
             Map<Symbol, Cast> casts,
             PlanNode source)
     {
-        if (casts.isEmpty() && requiredSymbols.equals(ImmutableSet.copyOf(source.getOutputSymbols()))) {
+        if (casts.isEmpty() && requiredSymbols.equals(ImmutableSet.copyOf(source.outputSymbols()))) {
             return source;
         }
 

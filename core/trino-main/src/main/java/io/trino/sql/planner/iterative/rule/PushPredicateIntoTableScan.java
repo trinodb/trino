@@ -211,7 +211,7 @@ public class PushPredicateIntoTableScan
                     decomposedPredicate.getRemainingExpression());
 
             if (!Booleans.TRUE.equals(resultingPredicate)) {
-                return Optional.of(new FilterNode(filterNode.getId(), node, resultingPredicate));
+                return Optional.of(new FilterNode(filterNode.id(), node, resultingPredicate));
             }
 
             return Optional.of(node);
@@ -221,7 +221,7 @@ public class PushPredicateIntoTableScan
             // TODO: DomainTranslator.fromPredicate can infer that the expression is "false" in some cases (TupleDomain.none()).
             // This should move to another rule that simplifies the filter using that logic and then rely on RemoveTrivialFilters
             // to turn the subtree into a Values node
-            return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Optional.of(new ValuesNode(node.id(), node.outputSymbols(), ImmutableList.of()));
         }
 
         Optional<ConstraintApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyFilter(session, node.getTable(), constraint);
@@ -235,7 +235,7 @@ public class PushPredicateIntoTableScan
         TableProperties newTableProperties = plannerContext.getMetadata().getTableProperties(session, newTable);
         Optional<TablePartitioning> newTablePartitioning = newTableProperties.getTablePartitioning();
         if (newTableProperties.getPredicate().isNone()) {
-            return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Optional.of(new ValuesNode(node.id(), node.outputSymbols(), ImmutableList.of()));
         }
 
         TupleDomain<ColumnHandle> remainingFilter = result.get().getRemainingFilter();
@@ -245,9 +245,9 @@ public class PushPredicateIntoTableScan
         verifyTablePartitioning(session, plannerContext.getMetadata(), node, newTablePartitioning);
 
         TableScanNode tableScan = new TableScanNode(
-                node.getId(),
+                node.id(),
                 newTable,
-                node.getOutputSymbols(),
+                node.outputSymbols(),
                 node.getAssignments(),
                 computeEnforced(newDomain, remainingFilter),
                 // TODO (https://github.com/trinodb/trino/issues/8144) distinguish between predicate pushed down and remaining
@@ -284,7 +284,7 @@ public class PushPredicateIntoTableScan
                 remainingDecomposedPredicate);
 
         if (!Booleans.TRUE.equals(resultingPredicate)) {
-            return Optional.of(new FilterNode(filterNode.getId(), tableScan, resultingPredicate));
+            return Optional.of(new FilterNode(filterNode.id(), tableScan, resultingPredicate));
         }
 
         return Optional.of(tableScan);

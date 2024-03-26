@@ -38,8 +38,8 @@ public class PruneExchangeSourceColumns
     public Result apply(ExchangeNode node, Captures captures, Context context)
     {
         @SuppressWarnings("unchecked")
-        Set<Symbol>[] referencedInputs = new Set[node.getSources().size()];
-        for (int i = 0; i < node.getSources().size(); i++) {
+        Set<Symbol>[] referencedInputs = new Set[node.sources().size()];
+        for (int i = 0; i < node.sources().size(); i++) {
             referencedInputs[i] = ImmutableSet.copyOf(node.getInputs().get(i));
         }
         return restrictChildOutputs(context.getIdAllocator(), node, referencedInputs)

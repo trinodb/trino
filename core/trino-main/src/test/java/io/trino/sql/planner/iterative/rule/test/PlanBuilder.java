@@ -785,9 +785,9 @@ public class PlanBuilder
     {
         return exchange(builder -> builder.type(ExchangeNode.Type.GATHER)
                 .scope(scope)
-                .singleDistributionPartitioningScheme(child.getOutputSymbols())
+                .singleDistributionPartitioningScheme(child.outputSymbols())
                 .addSource(child)
-                .addInputsSet(child.getOutputSymbols()));
+                .addInputsSet(child.outputSymbols()));
     }
 
     public SemiJoinNode semiJoin(
@@ -1006,8 +1006,8 @@ public class PlanBuilder
                 left,
                 right,
                 ImmutableList.copyOf(criteria),
-                left.getOutputSymbols(),
-                right.getOutputSymbols(),
+                left.outputSymbols(),
+                right.outputSymbols(),
                 filter,
                 Optional.empty(),
                 Optional.empty(),
@@ -1026,8 +1026,8 @@ public class PlanBuilder
                 left,
                 right,
                 ImmutableList.copyOf(criteria),
-                left.getOutputSymbols(),
-                right.getOutputSymbols(),
+                left.outputSymbols(),
+                right.outputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

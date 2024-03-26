@@ -204,7 +204,7 @@ public class OptimizeMixedDistinctAggregations
             }
 
             Assignments.Builder outputSymbols = Assignments.builder();
-            for (Symbol symbol : aggregationNode.getOutputSymbols()) {
+            for (Symbol symbol : aggregationNode.outputSymbols()) {
                 if (coalesceSymbols.containsKey(symbol)) {
                     Expression expression = new Coalesce(symbol.toSymbolReference(), new Constant(BIGINT, 0L));
                     outputSymbols.put(coalesceSymbols.get(symbol), expression);
@@ -322,7 +322,7 @@ public class OptimizeMixedDistinctAggregations
         {
             Assignments.Builder outputSymbols = Assignments.builder();
             ImmutableMap.Builder<Symbol, Symbol> outputNonDistinctAggregateSymbols = ImmutableMap.builder();
-            for (Symbol symbol : source.getOutputSymbols()) {
+            for (Symbol symbol : source.outputSymbols()) {
                 if (distinctSymbol.equals(symbol)) {
                     Symbol newSymbol = symbolAllocator.newSymbol("expr", symbol.getType());
                     aggregateInfo.setNewDistinctAggregateSymbol(newSymbol);

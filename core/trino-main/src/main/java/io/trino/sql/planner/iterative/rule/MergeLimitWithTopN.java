@@ -77,7 +77,7 @@ public class MergeLimitWithTopN
 
         return Result.ofPlanNode(
                 new TopNNode(
-                        parent.getId(),
+                        parent.id(),
                         child.getSource(),
                         Math.min(parent.getCount(), child.getCount()),
                         child.getOrderingScheme(),

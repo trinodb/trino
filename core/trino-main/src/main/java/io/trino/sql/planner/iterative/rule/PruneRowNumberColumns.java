@@ -44,7 +44,7 @@ public class PruneRowNumberColumns
             }
             if (rowNumberNode.getPartitionBy().isEmpty()) {
                 return Optional.of(new LimitNode(
-                        rowNumberNode.getId(),
+                        rowNumberNode.id(),
                         rowNumberNode.getSource(),
                         rowNumberNode.getMaxRowCountPerPartition().get(),
                         false));

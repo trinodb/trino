@@ -505,7 +505,7 @@ public class PhasedExecutionSchedule
         @Override
         protected FragmentSubGraph visitPlan(PlanNode node, PlanFragmentId currentFragmentId)
         {
-            List<FragmentSubGraph> sourceSubGraphs = node.getSources().stream()
+            List<FragmentSubGraph> sourceSubGraphs = node.sources().stream()
                     .map(subPlanNode -> subPlanNode.accept(this, currentFragmentId))
                     .collect(toImmutableList());
 

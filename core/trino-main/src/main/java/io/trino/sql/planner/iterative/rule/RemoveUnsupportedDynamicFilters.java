@@ -98,7 +98,7 @@ public class RemoveUnsupportedDynamicFilters
         @Override
         protected PlanWithConsumedDynamicFilters visitPlan(PlanNode node, Set<DynamicFilterId> allowedDynamicFilterIds)
         {
-            List<PlanWithConsumedDynamicFilters> children = node.getSources().stream()
+            List<PlanWithConsumedDynamicFilters> children = node.sources().stream()
                     .map(source -> source.accept(this, allowedDynamicFilterIds))
                     .collect(toImmutableList());
 
@@ -147,7 +147,7 @@ public class RemoveUnsupportedDynamicFilters
                     || !dynamicFilters.equals(currentJoinDynamicFilters)
                     || !filter.equals(node.getFilter())) {
                 return new PlanWithConsumedDynamicFilters(new JoinNode(
-                        node.getId(),
+                        node.id(),
                         node.getType(),
                         left,
                         right,
@@ -186,11 +186,11 @@ public class RemoveUnsupportedDynamicFilters
                     || rightResult.getNode() != node.getRight()) {
                 return new PlanWithConsumedDynamicFilters(
                         new SpatialJoinNode(
-                                node.getId(),
+                                node.id(),
                                 node.getType(),
                                 leftResult.getNode(),
                                 rightResult.getNode(),
-                                node.getOutputSymbols(),
+                                node.outputSymbols(),
                                 filter,
                                 node.getLeftPartitionSymbol(),
                                 node.getRightPartitionSymbol(),
@@ -235,7 +235,7 @@ public class RemoveUnsupportedDynamicFilters
                     || !newFilteringSource.equals(node.getFilteringSource())
                     || !newFilterId.equals(dynamicFilterIdOptional)) {
                 return new PlanWithConsumedDynamicFilters(new SemiJoinNode(
-                        node.getId(),
+                        node.id(),
                         newSource,
                         newFilteringSource,
                         node.getSourceJoinSymbol(),
@@ -276,7 +276,7 @@ public class RemoveUnsupportedDynamicFilters
 
             if (!original.equals(modified) || source != node.getSource()) {
                 return new PlanWithConsumedDynamicFilters(
-                        new FilterNode(node.getId(), source, modified),
+                        new FilterNode(node.id(), source, modified),
                         consumedDynamicFilterIds.build());
             }
 

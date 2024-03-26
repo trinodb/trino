@@ -44,6 +44,6 @@ public final class UnionNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new UnionNode(getId(), newChildren, getSymbolMapping(), getOutputSymbols());
+        return new UnionNode(id(), newChildren, getSymbolMapping(), outputSymbols());
     }
 }

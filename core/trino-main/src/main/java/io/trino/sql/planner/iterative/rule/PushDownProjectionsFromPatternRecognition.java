@@ -84,7 +84,7 @@ public class PushDownProjectionsFromPatternRecognition
             return Result.empty();
         }
 
-        assignments.putIdentities(node.getSource().getOutputSymbols());
+        assignments.putIdentities(node.getSource().outputSymbols());
 
         ProjectNode projectNode = new ProjectNode(
                 context.getIdAllocator().getNextId(),
@@ -92,7 +92,7 @@ public class PushDownProjectionsFromPatternRecognition
                 assignments.build());
 
         PatternRecognitionNode patternRecognitionNode = new PatternRecognitionNode(
-                node.getId(),
+                node.id(),
                 projectNode,
                 node.getSpecification(),
                 node.getHashSymbol(),
@@ -108,7 +108,7 @@ public class PushDownProjectionsFromPatternRecognition
                 node.getPattern(),
                 rewrittenVariableDefinitions);
 
-        return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), patternRecognitionNode, ImmutableSet.copyOf(node.getOutputSymbols())).orElse(patternRecognitionNode));
+        return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), patternRecognitionNode, ImmutableSet.copyOf(node.outputSymbols())).orElse(patternRecognitionNode));
     }
 
     private static Map<IrLabel, ExpressionAndValuePointers> rewriteVariableDefinitions(Map<IrLabel, ExpressionAndValuePointers> variableDefinitions, Assignments.Builder assignments, Context context)

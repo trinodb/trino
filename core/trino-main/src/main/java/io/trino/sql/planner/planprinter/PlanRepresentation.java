@@ -45,7 +45,7 @@ class PlanRepresentation
 
     public NodeRepresentation getRoot()
     {
-        return nodeInfo.get(root.getId());
+        return nodeInfo.get(root.id());
     }
 
     public Optional<Duration> getTotalCpuTime()

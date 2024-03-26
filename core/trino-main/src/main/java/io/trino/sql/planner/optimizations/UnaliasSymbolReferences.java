@@ -224,7 +224,7 @@ public class UnaliasSymbolReferences
             List<Symbol> actualOutputs = mapper.map(node.getActualOutputs());
 
             return new PlanAndMappings(
-                    new ExplainAnalyzeNode(node.getId(), rewrittenSource.getRoot(), newOutputSymbol, actualOutputs, node.isVerbose()),
+                    new ExplainAnalyzeNode(node.id(), rewrittenSource.getRoot(), newOutputSymbol, actualOutputs, node.isVerbose()),
                     mapping);
         }
 
@@ -241,7 +241,7 @@ public class UnaliasSymbolReferences
 
             return new PlanAndMappings(
                     new MarkDistinctNode(
-                            node.getId(),
+                            node.id(),
                             rewrittenSource.getRoot(),
                             newMarkerSymbol,
                             newDistinctSymbols,
@@ -267,7 +267,7 @@ public class UnaliasSymbolReferences
 
             return new PlanAndMappings(
                     new UnnestNode(
-                            node.getId(),
+                            node.id(),
                             rewrittenSource.getRoot(),
                             newReplicateSymbols,
                             newMappings.build(),
@@ -311,8 +311,8 @@ public class UnaliasSymbolReferences
             ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
             ImmutableList.Builder<TableArgumentProperties> newTableArgumentProperties = ImmutableList.builder();
 
-            for (int i = 0; i < node.getSources().size(); i++) {
-                PlanAndMappings newSource = node.getSources().get(i).accept(this, context);
+            for (int i = 0; i < node.sources().size(); i++) {
+                PlanAndMappings newSource = node.sources().get(i).accept(this, context);
                 newSources.add(newSource.getRoot());
 
                 SymbolMapper inputMapper = symbolMapper(new HashMap<>(newSource.getMappings()));
@@ -336,7 +336,7 @@ public class UnaliasSymbolReferences
 
             return new PlanAndMappings(
                     new TableFunctionNode(
-                            node.getId(),
+                            node.id(),
                             node.getName(),
                             node.getFunctionCatalog(),
                             node.getArguments(),
@@ -356,7 +356,7 @@ public class UnaliasSymbolReferences
                 SymbolMapper mapper = symbolMapper(mapping);
                 return new PlanAndMappings(
                         new TableFunctionProcessorNode(
-                                node.getId(),
+                                node.id(),
                                 node.getName(),
                                 mapper.map(node.getProperOutputs()),
                                 Optional.empty(),
@@ -387,7 +387,7 @@ public class UnaliasSymbolReferences
             Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
             SymbolMapper mapper = symbolMapper(mapping);
 
-            List<Symbol> newOutputs = mapper.map(node.getOutputSymbols());
+            List<Symbol> newOutputs = mapper.map(node.outputSymbols());
 
             Optional<PlanNodeStatsEstimate> statistics = node.getStatistics();
             PlanNodeStatsEstimate.Builder newStatistics = PlanNodeStatsEstimate.builder();
@@ -401,7 +401,7 @@ public class UnaliasSymbolReferences
 
             return new PlanAndMappings(
                     new TableScanNode(
-                            node.getId(),
+                            node.id(),
                             node.getTable(),
                             newOutputs,
                             newAssignments,
@@ -419,8 +419,8 @@ public class UnaliasSymbolReferences
             ImmutableList.Builder<List<Symbol>> rewrittenInputsBuilder = ImmutableList.builder();
 
             // rewrite child and map corresponding input list accordingly to the child's mapping
-            for (int i = 0; i < node.getSources().size(); i++) {
-                PlanAndMappings rewrittenChild = node.getSources().get(i).accept(this, context);
+            for (int i = 0; i < node.sources().size(); i++) {
+                PlanAndMappings rewrittenChild = node.sources().get(i).accept(this, context);
                 rewrittenChildren.add(rewrittenChild.getRoot());
                 SymbolMapper mapper = symbolMapper(new HashMap<>(rewrittenChild.getMappings()));
                 rewrittenInputsBuilder.add(mapper.map(node.getInputs().get(i)));
@@ -430,7 +430,7 @@ public class UnaliasSymbolReferences
             // canonicalize ExchangeNode outputs
             Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
             SymbolMapper mapper = symbolMapper(mapping);
-            List<Symbol> rewrittenOutputs = mapper.map(node.getOutputSymbols());
+            List<Symbol> rewrittenOutputs = mapper.map(node.outputSymbols());
 
             // sanity check: assert that duplicate outputs result from same inputs
             Map<Symbol, List<Symbol>> outputsToInputs = new HashMap<>();
@@ -507,7 +507,7 @@ public class UnaliasSymbolReferences
 
             return new PlanAndMappings(
                     new ExchangeNode(
-                            node.getId(),
+                            node.id(),
                             node.getType(),
                             node.getScope(),
                             newPartitioningScheme,
@@ -523,12 +523,12 @@ public class UnaliasSymbolReferences
             Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
             SymbolMapper mapper = symbolMapper(mapping);
 
-            List<Symbol> newOutputs = mapper.mapAndDistinct(node.getOutputSymbols());
+            List<Symbol> newOutputs = mapper.mapAndDistinct(node.outputSymbols());
             Optional<OrderingScheme> newOrderingScheme = node.getOrderingScheme().map(mapper::map);
 
             return new PlanAndMappings(
                     new RemoteSourceNode(
-                            node.getId(),
+                            node.id(),
                             node.getSourceFragmentIds(),
                             newOutputs,
                             newOrderingScheme,
@@ -597,23 +597,23 @@ public class UnaliasSymbolReferences
                 List<Expression> newRows = node.getRows().get().stream()
                         .map(mapper::map)
                         .collect(toImmutableList());
-                List<Symbol> newOutputs = node.getOutputSymbols().stream()
+                List<Symbol> newOutputs = node.outputSymbols().stream()
                         .map(mapper::map)
                         .distinct()
                         .collect(toImmutableList());
-                checkState(newOutputs.size() == node.getOutputSymbols().size(), "duplicate output symbol in Values");
+                checkState(newOutputs.size() == node.outputSymbols().size(), "duplicate output symbol in Values");
                 return new PlanAndMappings(
-                        new ValuesNode(node.getId(), newOutputs, newRows),
+                        new ValuesNode(node.id(), newOutputs, newRows),
                         mapping);
             }
 
             ImmutableList.Builder<SimpleEntry<Symbol, List<Expression>>> rewrittenAssignmentsBuilder = ImmutableList.builder();
-            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+            for (int i = 0; i < node.outputSymbols().size(); i++) {
                 ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
                 for (Expression row : node.getRows().get()) {
                     expressionsBuilder.add(mapper.map(((Row) row).items().get(i)));
                 }
-                rewrittenAssignmentsBuilder.add(new SimpleEntry<>(mapper.map(node.getOutputSymbols().get(i)), expressionsBuilder.build()));
+                rewrittenAssignmentsBuilder.add(new SimpleEntry<>(mapper.map(node.outputSymbols().get(i)), expressionsBuilder.build()));
             }
             List<SimpleEntry<Symbol, List<Expression>>> rewrittenAssignments = rewrittenAssignmentsBuilder.build();
 
@@ -638,7 +638,7 @@ public class UnaliasSymbolReferences
 
             return new PlanAndMappings(
                     new ValuesNode(
-                            node.getId(),
+                            node.id(),
                             newOutputs,
                             newRows.stream()
                                     .map(ImmutableList.Builder::build)
@@ -656,7 +656,7 @@ public class UnaliasSymbolReferences
             Symbol newOutput = mapper.map(node.getOutput());
 
             return new PlanAndMappings(
-                    new TableDeleteNode(node.getId(), node.getTarget(), newOutput),
+                    new TableDeleteNode(node.id(), node.getTarget(), newOutput),
                     mapping);
         }
 
@@ -669,7 +669,7 @@ public class UnaliasSymbolReferences
             Symbol newOutput = mapper.map(node.getOutput());
 
             return new PlanAndMappings(
-                    new TableUpdateNode(node.getId(), node.getTarget(), newOutput),
+                    new TableUpdateNode(node.id(), node.getTarget(), newOutput),
                     mapping);
         }
 
@@ -694,7 +694,7 @@ public class UnaliasSymbolReferences
 
             return new PlanAndMappings(
                     new SimpleTableExecuteNode(
-                            node.getId(),
+                            node.id(),
                             newOutput,
                             node.getExecuteHandle()),
                     mapping);
@@ -812,7 +812,7 @@ public class UnaliasSymbolReferences
             OrderingScheme newOrderingScheme = mapper.map(node.getOrderingScheme());
 
             return new PlanAndMappings(
-                    new SortNode(node.getId(), rewrittenSource.getRoot(), newOrderingScheme, node.isPartial()),
+                    new SortNode(node.id(), rewrittenSource.getRoot(), newOrderingScheme, node.isPartial()),
                     mapping);
         }
 
@@ -826,7 +826,7 @@ public class UnaliasSymbolReferences
             Expression newPredicate = mapper.map(node.getPredicate());
 
             return new PlanAndMappings(
-                    new FilterNode(node.getId(), rewrittenSource.getRoot(), newPredicate),
+                    new FilterNode(node.id(), rewrittenSource.getRoot(), newPredicate),
                     mapping);
         }
 
@@ -894,7 +894,7 @@ public class UnaliasSymbolReferences
             }
 
             return new PlanAndMappings(
-                    new ProjectNode(node.getId(), rewrittenSource.getRoot(), newAssignments.build()),
+                    new ProjectNode(node.id(), rewrittenSource.getRoot(), newAssignments.build()),
                     outputMapping);
         }
 
@@ -936,10 +936,10 @@ public class UnaliasSymbolReferences
             Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
             SymbolMapper mapper = symbolMapper(mapping);
 
-            List<Symbol> newOutputs = mapper.map(node.getOutputSymbols());
+            List<Symbol> newOutputs = mapper.map(node.outputSymbols());
 
             return new PlanAndMappings(
-                    new OutputNode(node.getId(), rewrittenSource.getRoot(), node.getColumnNames(), newOutputs),
+                    new OutputNode(node.id(), rewrittenSource.getRoot(), node.getColumnNames(), newOutputs),
                     mapping);
         }
 
@@ -963,7 +963,7 @@ public class UnaliasSymbolReferences
             Symbol newUnique = mapper.map(node.getIdColumn());
 
             return new PlanAndMappings(
-                    new AssignUniqueId(node.getId(), rewrittenSource.getRoot(), newUnique),
+                    new AssignUniqueId(node.id(), rewrittenSource.getRoot(), newUnique),
                     mapping);
         }
 
@@ -1021,7 +1021,7 @@ public class UnaliasSymbolReferences
             }
 
             return new PlanAndMappings(
-                    new ApplyNode(node.getId(), rewrittenInput.getRoot(), rewrittenSubquery.getRoot(), newAssignments.buildOrThrow(), rewrittenCorrelation, node.getOriginSubquery()),
+                    new ApplyNode(node.id(), rewrittenInput.getRoot(), rewrittenSubquery.getRoot(), newAssignments.buildOrThrow(), rewrittenCorrelation, node.getOriginSubquery()),
                     resultMapping);
         }
 
@@ -1063,7 +1063,7 @@ public class UnaliasSymbolReferences
             Expression newFilter = mapper.map(node.getFilter());
 
             return new PlanAndMappings(
-                    new CorrelatedJoinNode(node.getId(), rewrittenInput.getRoot(), rewrittenSubquery.getRoot(), rewrittenCorrelation, node.getType(), newFilter, node.getOriginSubquery()),
+                    new CorrelatedJoinNode(node.id(), rewrittenInput.getRoot(), rewrittenSubquery.getRoot(), rewrittenCorrelation, node.getType(), newFilter, node.getOriginSubquery()),
                     resultMapping);
         }
 
@@ -1121,17 +1121,17 @@ public class UnaliasSymbolReferences
             outputMapping.putAll(newMapping);
 
             mapper = symbolMapper(outputMapping);
-            List<Symbol> canonicalOutputs = mapper.mapAndDistinct(node.getOutputSymbols());
+            List<Symbol> canonicalOutputs = mapper.mapAndDistinct(node.outputSymbols());
             List<Symbol> newLeftOutputSymbols = canonicalOutputs.stream()
-                    .filter(rewrittenLeft.getRoot().getOutputSymbols()::contains)
+                    .filter(rewrittenLeft.getRoot().outputSymbols()::contains)
                     .collect(toImmutableList());
             List<Symbol> newRightOutputSymbols = canonicalOutputs.stream()
-                    .filter(rewrittenRight.getRoot().getOutputSymbols()::contains)
+                    .filter(rewrittenRight.getRoot().outputSymbols()::contains)
                     .collect(toImmutableList());
 
             return new PlanAndMappings(
                     new JoinNode(
-                            node.getId(),
+                            node.id(),
                             node.getType(),
                             rewrittenLeft.getRoot(),
                             rewrittenRight.getRoot(),
@@ -1170,7 +1170,7 @@ public class UnaliasSymbolReferences
 
             return new PlanAndMappings(
                     new SemiJoinNode(
-                            node.getId(),
+                            node.id(),
                             rewrittenSource.getRoot(),
                             rewrittenFilteringSource.getRoot(),
                             newSourceJoinSymbol,
@@ -1196,13 +1196,13 @@ public class UnaliasSymbolReferences
 
             SymbolMapper mapper = symbolMapper(outputMapping);
 
-            List<Symbol> newOutputSymbols = mapper.mapAndDistinct(node.getOutputSymbols());
+            List<Symbol> newOutputSymbols = mapper.mapAndDistinct(node.outputSymbols());
             Expression newFilter = mapper.map(node.getFilter());
             Optional<Symbol> newLeftPartitionSymbol = node.getLeftPartitionSymbol().map(mapper::map);
             Optional<Symbol> newRightPartitionSymbol = node.getRightPartitionSymbol().map(mapper::map);
 
             return new PlanAndMappings(
-                    new SpatialJoinNode(node.getId(), node.getType(), rewrittenLeft.getRoot(), rewrittenRight.getRoot(), newOutputSymbols, newFilter, newLeftPartitionSymbol, newRightPartitionSymbol, node.getKdbTree()),
+                    new SpatialJoinNode(node.id(), node.getType(), rewrittenLeft.getRoot(), rewrittenRight.getRoot(), newOutputSymbols, newFilter, newLeftPartitionSymbol, newRightPartitionSymbol, node.getKdbTree()),
                     outputMapping);
         }
 
@@ -1230,7 +1230,7 @@ public class UnaliasSymbolReferences
             Optional<Symbol> newIndexHashSymbol = node.getIndexHashSymbol().map(mapper::map);
 
             return new PlanAndMappings(
-                    new IndexJoinNode(node.getId(), node.getType(), rewrittenProbe.getRoot(), rewrittenIndex.getRoot(), newEquiCriteria, newProbeHashSymbol, newIndexHashSymbol),
+                    new IndexJoinNode(node.id(), node.getType(), rewrittenProbe.getRoot(), rewrittenIndex.getRoot(), newEquiCriteria, newProbeHashSymbol, newIndexHashSymbol),
                     outputMapping);
         }
 
@@ -1243,21 +1243,21 @@ public class UnaliasSymbolReferences
             Set<Symbol> newLookupSymbols = node.getLookupSymbols().stream()
                     .map(mapper::map)
                     .collect(toImmutableSet());
-            List<Symbol> newOutputSymbols = mapper.mapAndDistinct(node.getOutputSymbols());
+            List<Symbol> newOutputSymbols = mapper.mapAndDistinct(node.outputSymbols());
 
             Map<Symbol, ColumnHandle> newAssignments = new HashMap<>();
             node.getAssignments().entrySet()
                     .forEach(assignment -> newAssignments.put(mapper.map(assignment.getKey()), assignment.getValue()));
 
             return new PlanAndMappings(
-                    new IndexSourceNode(node.getId(), node.getIndexHandle(), node.getTableHandle(), newLookupSymbols, newOutputSymbols, newAssignments),
+                    new IndexSourceNode(node.id(), node.getIndexHandle(), node.getTableHandle(), newLookupSymbols, newOutputSymbols, newAssignments),
                     mapping);
         }
 
         @Override
         public PlanAndMappings visitUnion(UnionNode node, UnaliasContext context)
         {
-            List<PlanAndMappings> rewrittenSources = node.getSources().stream()
+            List<PlanAndMappings> rewrittenSources = node.sources().stream()
                     .map(source -> source.accept(this, context))
                     .collect(toImmutableList());
 
@@ -1269,11 +1269,11 @@ public class UnaliasSymbolReferences
             SymbolMapper outputMapper = symbolMapper(mapping);
 
             ListMultimap<Symbol, Symbol> newOutputToInputs = rewriteOutputToInputsMap(node.getSymbolMapping(), outputMapper, inputMappers);
-            List<Symbol> newOutputs = outputMapper.mapAndDistinct(node.getOutputSymbols());
+            List<Symbol> newOutputs = outputMapper.mapAndDistinct(node.outputSymbols());
 
             return new PlanAndMappings(
                     new UnionNode(
-                            node.getId(),
+                            node.id(),
                             rewrittenSources.stream()
                                     .map(PlanAndMappings::getRoot)
                                     .collect(toImmutableList()),
@@ -1285,7 +1285,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanAndMappings visitIntersect(IntersectNode node, UnaliasContext context)
         {
-            List<PlanAndMappings> rewrittenSources = node.getSources().stream()
+            List<PlanAndMappings> rewrittenSources = node.sources().stream()
                     .map(source -> source.accept(this, context))
                     .collect(toImmutableList());
 
@@ -1297,11 +1297,11 @@ public class UnaliasSymbolReferences
             SymbolMapper outputMapper = symbolMapper(mapping);
 
             ListMultimap<Symbol, Symbol> newOutputToInputs = rewriteOutputToInputsMap(node.getSymbolMapping(), outputMapper, inputMappers);
-            List<Symbol> newOutputs = outputMapper.mapAndDistinct(node.getOutputSymbols());
+            List<Symbol> newOutputs = outputMapper.mapAndDistinct(node.outputSymbols());
 
             return new PlanAndMappings(
                     new IntersectNode(
-                            node.getId(),
+                            node.id(),
                             rewrittenSources.stream()
                                     .map(PlanAndMappings::getRoot)
                                     .collect(toImmutableList()),
@@ -1314,7 +1314,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanAndMappings visitExcept(ExceptNode node, UnaliasContext context)
         {
-            List<PlanAndMappings> rewrittenSources = node.getSources().stream()
+            List<PlanAndMappings> rewrittenSources = node.sources().stream()
                     .map(source -> source.accept(this, context))
                     .collect(toImmutableList());
 
@@ -1326,11 +1326,11 @@ public class UnaliasSymbolReferences
             SymbolMapper outputMapper = symbolMapper(mapping);
 
             ListMultimap<Symbol, Symbol> newOutputToInputs = rewriteOutputToInputsMap(node.getSymbolMapping(), outputMapper, inputMappers);
-            List<Symbol> newOutputs = outputMapper.mapAndDistinct(node.getOutputSymbols());
+            List<Symbol> newOutputs = outputMapper.mapAndDistinct(node.outputSymbols());
 
             return new PlanAndMappings(
                     new ExceptNode(
-                            node.getId(),
+                            node.id(),
                             rewrittenSources.stream()
                                     .map(PlanAndMappings::getRoot)
                                     .collect(toImmutableList()),
@@ -1424,7 +1424,7 @@ public class UnaliasSymbolReferences
                 return node;
             }
             return new FilterNode(
-                    node.getId(),
+                    node.id(),
                     rewrittenSource,
                     rewrittenPredicate);
         }

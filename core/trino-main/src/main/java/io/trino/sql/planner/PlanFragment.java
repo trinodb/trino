@@ -123,8 +123,8 @@ public class PlanFragment
                 "Connector partitioning handle should be of type system partitioning when partitionCount is present");
 
         checkArgument(partitionedSourcesSet.size() == partitionedSources.size(), "partitionedSources contains duplicates");
-        checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputPartitioningScheme.getOutputLayout()),
-                "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputSymbols(), outputPartitioningScheme.getOutputLayout());
+        checkArgument(ImmutableSet.copyOf(root.outputSymbols()).containsAll(outputPartitioningScheme.getOutputLayout()),
+                "Root node outputs (%s) does not include all fragment outputs (%s)", root.outputSymbols(), outputPartitioningScheme.getOutputLayout());
 
         types = outputPartitioningScheme.getOutputLayout().stream()
                 .map(Symbol::getType)
@@ -264,18 +264,18 @@ public class PlanFragment
 
     private static void findSources(PlanNode node, Set<PlanNodeId> nodeIds, ImmutableSet.Builder<PlanNode> nodes)
     {
-        if (nodeIds.contains(node.getId())) {
+        if (nodeIds.contains(node.id())) {
             nodes.add(node);
         }
 
-        for (PlanNode source : node.getSources()) {
+        for (PlanNode source : node.sources()) {
             nodes.addAll(findSources(source, nodeIds));
         }
     }
 
     private static void findRemoteSourceNodes(PlanNode node, ImmutableList.Builder<RemoteSourceNode> builder)
     {
-        for (PlanNode source : node.getSources()) {
+        for (PlanNode source : node.sources()) {
             findRemoteSourceNodes(source, builder);
         }
 

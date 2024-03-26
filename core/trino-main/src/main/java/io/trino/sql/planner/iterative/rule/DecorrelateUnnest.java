@@ -206,10 +206,10 @@ public class DecorrelateUnnest
         PlanNode unnestSource = context.getLookup().resolve(unnestNode.getSource());
         if (unnestSource instanceof ProjectNode sourceProjection) {
             input = new ProjectNode(
-                    sourceProjection.getId(),
+                    sourceProjection.id(),
                     input,
                     Assignments.builder()
-                            .putIdentities(input.getOutputSymbols())
+                            .putIdentities(input.outputSymbols())
                             .putAll(sourceProjection.getAssignments())
                             .build());
         }
@@ -227,7 +227,7 @@ public class DecorrelateUnnest
         UnnestNode rewrittenUnnest = new UnnestNode(
                 context.getIdAllocator().getNextId(),
                 input,
-                input.getOutputSymbols(),
+                input.outputSymbols(),
                 unnestNode.getMappings(),
                 Optional.of(ordinalitySymbol),
                 unnestJoinType);
@@ -235,7 +235,7 @@ public class DecorrelateUnnest
         // restore all nodes from the subquery
         PlanNode rewrittenPlan = Rewriter.rewriteNodeSequence(
                 correlatedJoinNode.getSubquery(),
-                input.getOutputSymbols(),
+                input.outputSymbols(),
                 ordinalitySymbol,
                 uniqueSymbol,
                 rewrittenUnnest,
@@ -255,8 +255,8 @@ public class DecorrelateUnnest
         // between unnested rows and synthetic rows added by left unnest.
         if (unnestNode.getJoinType() == INNER && rewrittenUnnest.getJoinType() == LEFT) {
             Assignments.Builder assignments = Assignments.builder()
-                    .putIdentities(correlatedJoinNode.getInput().getOutputSymbols());
-            for (Symbol subquerySymbol : correlatedJoinNode.getSubquery().getOutputSymbols()) {
+                    .putIdentities(correlatedJoinNode.getInput().outputSymbols());
+            for (Symbol subquerySymbol : correlatedJoinNode.getSubquery().outputSymbols()) {
                 assignments.put(
                         subquerySymbol,
                         ifExpression(
@@ -271,7 +271,7 @@ public class DecorrelateUnnest
         }
 
         // restrict outputs
-        return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), rewrittenPlan, ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols())).orElse(rewrittenPlan));
+        return Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), rewrittenPlan, ImmutableSet.copyOf(correlatedJoinNode.outputSymbols())).orElse(rewrittenPlan));
     }
 
     /**
@@ -491,7 +491,7 @@ public class DecorrelateUnnest
                     .putIdentity(ordinalitySymbol);
             source.getRowNumberSymbol().ifPresent(assignments::putIdentity);
 
-            return new RewriteResult(new ProjectNode(node.getId(), source.getPlan(), assignments.build()), source.getRowNumberSymbol());
+            return new RewriteResult(new ProjectNode(node.id(), source.getPlan(), assignments.build()), source.getRowNumberSymbol());
         }
     }
 

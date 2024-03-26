@@ -115,13 +115,13 @@ public final class TableExecuteNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return outputs;
     }
@@ -136,7 +136,7 @@ public final class TableExecuteNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new TableExecuteNode(
-                getId(),
+                id(),
                 Iterables.getOnlyElement(newChildren),
                 target,
                 rowCountSymbol,

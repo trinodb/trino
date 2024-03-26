@@ -47,11 +47,11 @@ public class ExchangeStatsRule
     protected Optional<PlanNodeStatsEstimate> doCalculate(ExchangeNode node, Context context)
     {
         Optional<PlanNodeStatsEstimate> estimate = Optional.empty();
-        for (int i = 0; i < node.getSources().size(); i++) {
-            PlanNode source = node.getSources().get(i);
+        for (int i = 0; i < node.sources().size(); i++) {
+            PlanNode source = node.sources().get(i);
             PlanNodeStatsEstimate sourceStats = context.statsProvider().getStats(source);
 
-            PlanNodeStatsEstimate sourceStatsWithMappedSymbols = mapToOutputSymbols(sourceStats, node.getInputs().get(i), node.getOutputSymbols());
+            PlanNodeStatsEstimate sourceStatsWithMappedSymbols = mapToOutputSymbols(sourceStats, node.getInputs().get(i), node.outputSymbols());
 
             if (estimate.isPresent()) {
                 estimate = Optional.of(addStatsAndMaxDistinctValues(estimate.get(), sourceStatsWithMappedSymbols));

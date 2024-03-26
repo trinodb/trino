@@ -70,7 +70,7 @@ public class PruneTableFunctionProcessorColumns
         }
 
         return Optional.of(new TableFunctionProcessorNode(
-                node.getId(),
+                node.id(),
                 node.getName(),
                 node.getProperOutputs(),
                 node.getSource(),

@@ -146,11 +146,11 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundSymbols); // visit child
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
-            checkDependencies(inputs, node.getGroupingKeys(), "Invalid node. Grouping key symbols (%s) not in source plan output (%s)", node.getGroupingKeys(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, node.getGroupingKeys(), "Invalid node. Grouping key symbols (%s) not in source plan output (%s)", node.getGroupingKeys(), node.getSource().outputSymbols());
 
             for (Aggregation aggregation : node.getAggregations().values()) {
                 Set<Symbol> dependencies = extractUnique(aggregation);
-                checkDependencies(inputs, dependencies, "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+                checkDependencies(inputs, dependencies, "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().outputSymbols());
             }
 
             return null;
@@ -162,7 +162,7 @@ public final class ValidateDependenciesChecker
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
 
-            checkDependencies(source.getOutputSymbols(), node.getInputSymbols(), "Invalid node. Grouping symbols (%s) not in source plan output (%s)", node.getInputSymbols(), source.getOutputSymbols());
+            checkDependencies(source.outputSymbols(), node.getInputSymbols(), "Invalid node. Grouping symbols (%s) not in source plan output (%s)", node.getInputSymbols(), source.outputSymbols());
 
             return null;
         }
@@ -173,7 +173,7 @@ public final class ValidateDependenciesChecker
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
 
-            checkDependencies(source.getOutputSymbols(), node.getDistinctSymbols(), "Invalid node. Mark distinct symbols (%s) not in source plan output (%s)", node.getDistinctSymbols(), source.getOutputSymbols());
+            checkDependencies(source.outputSymbols(), node.getDistinctSymbols(), "Invalid node. Mark distinct symbols (%s) not in source plan output (%s)", node.getDistinctSymbols(), source.outputSymbols());
 
             return null;
         }
@@ -186,22 +186,22 @@ public final class ValidateDependenciesChecker
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
 
-            checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().outputSymbols());
             if (node.getOrderingScheme().isPresent()) {
                 checkDependencies(
                         inputs,
                         node.getOrderingScheme().get().getOrderBy(),
                         "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                        node.getOrderingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
+                        node.getOrderingScheme().get().getOrderBy(), node.getSource().outputSymbols());
             }
 
             node.getCommonBaseFrame()
                     .flatMap(WindowNode.Frame::getEndValue)
-                    .ifPresent(value -> checkDependencies(inputs, ImmutableList.of(value), "Invalid node. Frame end symbol (%s) not in source plan output (%s)", value, node.getSource().getOutputSymbols()));
+                    .ifPresent(value -> checkDependencies(inputs, ImmutableList.of(value), "Invalid node. Frame end symbol (%s) not in source plan output (%s)", value, node.getSource().outputSymbols()));
 
             for (WindowNode.Function function : node.getWindowFunctions().values()) {
                 Set<Symbol> dependencies = extractUnique(function);
-                checkDependencies(inputs, dependencies, "Invalid node. Window function dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+                checkDependencies(inputs, dependencies, "Invalid node. Window function dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().outputSymbols());
             }
 
             Set<Symbol> measuresSymbols = node.getMeasures().values().stream()
@@ -209,17 +209,17 @@ public final class ValidateDependenciesChecker
                     .map(ExpressionAndValuePointers::getInputSymbols)
                     .flatMap(Collection::stream)
                     .collect(toImmutableSet());
-            checkDependencies(inputs, measuresSymbols, "Invalid node. Symbols used in measures (%s) not in source plan output (%s)", measuresSymbols, node.getSource().getOutputSymbols());
+            checkDependencies(inputs, measuresSymbols, "Invalid node. Symbols used in measures (%s) not in source plan output (%s)", measuresSymbols, node.getSource().outputSymbols());
 
             node.getCommonBaseFrame()
                     .flatMap(WindowNode.Frame::getEndValue)
-                    .ifPresent(symbol -> checkDependencies(inputs, ImmutableSet.of(symbol), "Invalid node. Frame offset symbol (%s) not in source plan output (%s)", symbol, node.getSource().getOutputSymbols()));
+                    .ifPresent(symbol -> checkDependencies(inputs, ImmutableSet.of(symbol), "Invalid node. Frame offset symbol (%s) not in source plan output (%s)", symbol, node.getSource().outputSymbols()));
 
             Set<Symbol> variableDefinitionsSymbols = node.getVariableDefinitions().values().stream()
                     .map(ExpressionAndValuePointers::getInputSymbols)
                     .flatMap(Collection::stream)
                     .collect(toImmutableSet());
-            checkDependencies(inputs, variableDefinitionsSymbols, "Invalid node. Symbols used in measures (%s) not in source plan output (%s)", variableDefinitionsSymbols, node.getSource().getOutputSymbols());
+            checkDependencies(inputs, variableDefinitionsSymbols, "Invalid node. Symbols used in measures (%s) not in source plan output (%s)", variableDefinitionsSymbols, node.getSource().outputSymbols());
 
             return null;
         }
@@ -227,8 +227,8 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitTableFunction(TableFunctionNode node, Set<Symbol> boundSymbols)
         {
-            for (int i = 0; i < node.getSources().size(); i++) {
-                PlanNode source = node.getSources().get(i);
+            for (int i = 0; i < node.sources().size(); i++) {
+                PlanNode source = node.sources().get(i);
                 source.accept(this, boundSymbols);
                 Set<Symbol> inputs = createInputs(source, boundSymbols);
                 TableFunctionNode.TableArgumentProperties argumentProperties = node.getTableArgumentProperties().get(i);
@@ -239,7 +239,7 @@ public final class ValidateDependenciesChecker
                         "Invalid node. Required input symbols from source %s (%s) not in source plan output (%s)",
                         argumentProperties.getArgumentName(),
                         argumentProperties.getRequiredColumns(),
-                        source.getOutputSymbols());
+                        source.outputSymbols());
                 argumentProperties.getSpecification().ifPresent(specification -> {
                     checkDependencies(
                             inputs,
@@ -247,7 +247,7 @@ public final class ValidateDependenciesChecker
                             "Invalid node. Partition by symbols for source %s (%s) not in source plan output (%s)",
                             argumentProperties.getArgumentName(),
                             specification.getPartitionBy(),
-                            source.getOutputSymbols());
+                            source.outputSymbols());
                     specification.getOrderingScheme().ifPresent(orderingScheme -> {
                         checkDependencies(
                                 inputs,
@@ -255,7 +255,7 @@ public final class ValidateDependenciesChecker
                                 "Invalid node. Order by symbols for source %s (%s) not in source plan output (%s)",
                                 argumentProperties.getArgumentName(),
                                 orderingScheme.getOrderBy(),
-                                source.getOutputSymbols());
+                                source.outputSymbols());
                     });
                 });
                 Set<Symbol> passThroughSymbols = argumentProperties.getPassThroughSpecification().columns().stream()
@@ -267,7 +267,7 @@ public final class ValidateDependenciesChecker
                         "Invalid node. Pass-through symbols for source %s (%s) not in source plan output (%s)",
                         argumentProperties.getArgumentName(),
                         passThroughSymbols,
-                        source.getOutputSymbols());
+                        source.outputSymbols());
             }
 
             return null;
@@ -295,7 +295,7 @@ public final class ValidateDependenciesChecker
                     passThroughSymbols,
                     "Invalid node. Pass-through symbols (%s) not in source plan output (%s)",
                     passThroughSymbols,
-                    source.getOutputSymbols());
+                    source.outputSymbols());
 
             Set<Symbol> requiredSymbols = node.getRequiredSymbols().stream()
                     .flatMap(Collection::stream)
@@ -305,7 +305,7 @@ public final class ValidateDependenciesChecker
                     requiredSymbols,
                     "Invalid node. Required symbols (%s) not in source plan output (%s)",
                     requiredSymbols,
-                    source.getOutputSymbols());
+                    source.outputSymbols());
 
             node.getMarkerSymbols().ifPresent(mapping -> {
                 checkDependencies(
@@ -313,13 +313,13 @@ public final class ValidateDependenciesChecker
                         mapping.keySet(),
                         "Invalid node. Source symbols (%s) not in source plan output (%s)",
                         mapping.keySet(),
-                        source.getOutputSymbols());
+                        source.outputSymbols());
                 checkDependencies(
                         inputs,
                         mapping.values(),
                         "Invalid node. Source marker symbols (%s) not in source plan output (%s)",
                         mapping.values(),
-                        source.getOutputSymbols());
+                        source.outputSymbols());
             });
 
             node.getSpecification().ifPresent(specification -> {
@@ -328,14 +328,14 @@ public final class ValidateDependenciesChecker
                         specification.getPartitionBy(),
                         "Invalid node. Partition by symbols (%s) not in source plan output (%s)",
                         specification.getPartitionBy(),
-                        source.getOutputSymbols());
+                        source.outputSymbols());
                 specification.getOrderingScheme().ifPresent(orderingScheme -> {
                     checkDependencies(
                             inputs,
                             orderingScheme.getOrderBy(),
                             "Invalid node. Order by symbols (%s) not in source plan output (%s)",
                             orderingScheme.getOrderBy(),
-                            source.getOutputSymbols());
+                            source.outputSymbols());
                 });
             });
 
@@ -350,13 +350,13 @@ public final class ValidateDependenciesChecker
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
 
-            checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().outputSymbols());
             if (node.getOrderingScheme().isPresent()) {
                 checkDependencies(
                         inputs,
                         node.getOrderingScheme().get().getOrderBy(),
                         "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                        node.getOrderingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
+                        node.getOrderingScheme().get().getOrderBy(), node.getSource().outputSymbols());
             }
 
             ImmutableList.Builder<Symbol> bounds = ImmutableList.builder();
@@ -368,7 +368,7 @@ public final class ValidateDependenciesChecker
                     bounds.add(frame.getEndValue().get());
                 }
             }
-            checkDependencies(inputs, bounds.build(), "Invalid node. Frame bounds (%s) not in source plan output (%s)", bounds.build(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, bounds.build(), "Invalid node. Frame bounds (%s) not in source plan output (%s)", bounds.build(), node.getSource().outputSymbols());
 
             ImmutableList.Builder<Symbol> symbolsForFrameBoundsComparison = ImmutableList.builder();
             for (WindowNode.Frame frame : node.getFrames()) {
@@ -379,11 +379,11 @@ public final class ValidateDependenciesChecker
                     symbolsForFrameBoundsComparison.add(frame.getSortKeyCoercedForFrameEndComparison().get());
                 }
             }
-            checkDependencies(inputs, symbolsForFrameBoundsComparison.build(), "Invalid node. Symbols for frame bound comparison (%s) not in source plan output (%s)", symbolsForFrameBoundsComparison.build(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, symbolsForFrameBoundsComparison.build(), "Invalid node. Symbols for frame bound comparison (%s) not in source plan output (%s)", symbolsForFrameBoundsComparison.build(), node.getSource().outputSymbols());
 
             for (WindowNode.Function function : node.getWindowFunctions().values()) {
                 Set<Symbol> dependencies = extractUnique(function);
-                checkDependencies(inputs, dependencies, "Invalid node. Window function dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+                checkDependencies(inputs, dependencies, "Invalid node. Window function dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().outputSymbols());
             }
 
             return null;
@@ -396,12 +396,12 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundSymbols); // visit child
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
-            checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().outputSymbols());
             checkDependencies(
                     inputs,
                     node.getOrderingScheme().getOrderBy(),
                     "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                    node.getOrderingScheme().getOrderBy(), node.getSource().getOutputSymbols());
+                    node.getOrderingScheme().getOrderBy(), node.getSource().outputSymbols());
 
             return null;
         }
@@ -412,7 +412,7 @@ public final class ValidateDependenciesChecker
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
 
-            checkDependencies(source.getOutputSymbols(), node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().getOutputSymbols());
+            checkDependencies(source.outputSymbols(), node.getPartitionBy(), "Invalid node. Partition by symbols (%s) not in source plan output (%s)", node.getPartitionBy(), node.getSource().outputSymbols());
 
             return null;
         }
@@ -424,10 +424,10 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundSymbols); // visit child
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
-            checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, node.outputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.outputSymbols(), node.getSource().outputSymbols());
 
             Set<Symbol> dependencies = extractUnique(node.getPredicate());
-            checkDependencies(inputs, dependencies, "Invalid node. Predicate dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+            checkDependencies(inputs, dependencies, "Invalid node. Predicate dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().outputSymbols());
 
             return null;
         }
@@ -463,13 +463,13 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundSymbols); // visit child
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
-            checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, node.outputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.outputSymbols(), node.getSource().outputSymbols());
             checkDependencies(
                     inputs,
                     node.getOrderingScheme().getOrderBy(),
                     "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
                     node.getOrderingScheme().getOrderBy(),
-                    node.getSource().getOutputSymbols());
+                    node.getSource().outputSymbols());
 
             return null;
         }
@@ -481,12 +481,12 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundSymbols); // visit child
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
-            checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
+            checkDependencies(inputs, node.outputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.outputSymbols(), node.getSource().outputSymbols());
             checkDependencies(
                     inputs,
                     node.getOrderingScheme().getOrderBy(),
                     "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
-                    node.getOrderingScheme().getOrderBy(), node.getSource().getOutputSymbols());
+                    node.getOrderingScheme().getOrderBy(), node.getSource().outputSymbols());
 
             return null;
         }
@@ -497,7 +497,7 @@ public final class ValidateDependenciesChecker
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
 
-            checkDependencies(source.getOutputSymbols(), node.getOutputSymbols(), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getOutputSymbols(), source.getOutputSymbols());
+            checkDependencies(source.outputSymbols(), node.outputSymbols(), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.outputSymbols(), source.outputSymbols());
 
             return null;
         }
@@ -522,15 +522,15 @@ public final class ValidateDependenciesChecker
                         createInputs(source, boundSymbols),
                         node.getTiesResolvingScheme().get().getOrderBy(),
                         "Invalid node. Ties resolving dependencies (%s) not in source plan output (%s)",
-                        node.getTiesResolvingScheme().get().getOrderBy(), node.getSource().getOutputSymbols());
+                        node.getTiesResolvingScheme().get().getOrderBy(), node.getSource().outputSymbols());
             }
 
             checkDependencies(
-                    source.getOutputSymbols(),
+                    source.outputSymbols(),
                     node.getPreSortedInputs(),
                     "Invalid node. Pre-sorted input column dependencies (%s) not in source plan output (%s)",
                     node.getPreSortedInputs(),
-                    source.getOutputSymbols());
+                    source.outputSymbols());
 
             return null;
         }
@@ -541,7 +541,7 @@ public final class ValidateDependenciesChecker
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
 
-            checkDependencies(source.getOutputSymbols(), node.getOutputSymbols(), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getOutputSymbols(), source.getOutputSymbols());
+            checkDependencies(source.outputSymbols(), node.outputSymbols(), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.outputSymbols(), source.outputSymbols());
 
             return null;
         }
@@ -560,8 +560,8 @@ public final class ValidateDependenciesChecker
                     .build();
 
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                checkArgument(leftInputs.contains(clause.getLeft()), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputSymbols());
-                checkArgument(rightInputs.contains(clause.getRight()), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().getOutputSymbols());
+                checkArgument(leftInputs.contains(clause.getLeft()), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().outputSymbols());
+                checkArgument(rightInputs.contains(clause.getRight()), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().outputSymbols());
             }
 
             node.getFilter().ifPresent(predicate -> {
@@ -575,10 +575,10 @@ public final class ValidateDependenciesChecker
 
             if (node.isCrossJoin()) {
                 Set<Symbol> inputs = ImmutableSet.<Symbol>builder()
-                        .addAll(node.getLeft().getOutputSymbols())
-                        .addAll(node.getRight().getOutputSymbols())
+                        .addAll(node.getLeft().outputSymbols())
+                        .addAll(node.getRight().outputSymbols())
                         .build();
-                checkDependencies(node.getOutputSymbols(), inputs, "Cross join output symbols (%s) must contain all of the source symbols (%s)", node.getOutputSymbols(), inputs);
+                checkDependencies(node.outputSymbols(), inputs, "Cross join output symbols (%s) must contain all of the source symbols (%s)", node.outputSymbols(), inputs);
             }
 
             return null;
@@ -590,14 +590,14 @@ public final class ValidateDependenciesChecker
             node.getSource().accept(this, boundSymbols);
             node.getFilteringSource().accept(this, boundSymbols);
 
-            checkArgument(node.getSource().getOutputSymbols().contains(node.getSourceJoinSymbol()), "Symbol from semi join clause (%s) not in source (%s)", node.getSourceJoinSymbol(), node.getSource().getOutputSymbols());
-            checkArgument(node.getFilteringSource().getOutputSymbols().contains(node.getFilteringSourceJoinSymbol()), "Symbol from semi join clause (%s) not in filtering source (%s)", node.getSourceJoinSymbol(), node.getFilteringSource().getOutputSymbols());
+            checkArgument(node.getSource().outputSymbols().contains(node.getSourceJoinSymbol()), "Symbol from semi join clause (%s) not in source (%s)", node.getSourceJoinSymbol(), node.getSource().outputSymbols());
+            checkArgument(node.getFilteringSource().outputSymbols().contains(node.getFilteringSourceJoinSymbol()), "Symbol from semi join clause (%s) not in filtering source (%s)", node.getSourceJoinSymbol(), node.getFilteringSource().outputSymbols());
 
             Set<Symbol> outputs = createInputs(node, boundSymbols);
-            checkArgument(outputs.containsAll(node.getSource().getOutputSymbols()), "Semi join output symbols (%s) must contain all of the source symbols (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
+            checkArgument(outputs.containsAll(node.getSource().outputSymbols()), "Semi join output symbols (%s) must contain all of the source symbols (%s)", node.outputSymbols(), node.getSource().outputSymbols());
             checkArgument(outputs.contains(node.getSemiJoinOutput()),
                     "Semi join output symbols (%s) must contain join result (%s)",
-                    node.getOutputSymbols(),
+                    node.outputSymbols(),
                     node.getSemiJoinOutput());
 
             return null;
@@ -623,7 +623,7 @@ public final class ValidateDependenciesChecker
                     predicateSymbols,
                     allInputs);
 
-            checkLeftOutputSymbolsBeforeRight(node.getLeft().getOutputSymbols(), node.getOutputSymbols());
+            checkLeftOutputSymbolsBeforeRight(node.getLeft().outputSymbols(), node.outputSymbols());
             return null;
         }
 
@@ -653,8 +653,8 @@ public final class ValidateDependenciesChecker
             Set<Symbol> probeInputs = createInputs(node.getProbeSource(), boundSymbols);
             Set<Symbol> indexSourceInputs = createInputs(node.getIndexSource(), boundSymbols);
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                checkArgument(probeInputs.contains(clause.getProbe()), "Probe symbol from index join clause (%s) not in probe source (%s)", clause.getProbe(), node.getProbeSource().getOutputSymbols());
-                checkArgument(indexSourceInputs.contains(clause.getIndex()), "Index symbol from index join clause (%s) not in index source (%s)", clause.getIndex(), node.getIndexSource().getOutputSymbols());
+                checkArgument(probeInputs.contains(clause.getProbe()), "Probe symbol from index join clause (%s) not in probe source (%s)", clause.getProbe(), node.getProbeSource().outputSymbols());
+                checkArgument(indexSourceInputs.contains(clause.getIndex()), "Index symbol from index join clause (%s) not in index source (%s)", clause.getIndex(), node.getIndexSource().outputSymbols());
             }
 
             Set<Symbol> lookupSymbols = node.getCriteria().stream()
@@ -669,8 +669,8 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitIndexSource(IndexSourceNode node, Set<Symbol> boundSymbols)
         {
-            checkDependencies(node.getOutputSymbols(), node.getLookupSymbols(), "Lookup symbols must be part of output symbols");
-            checkDependencies(node.getAssignments().keySet(), node.getOutputSymbols(), "Assignments must contain mappings for output symbols");
+            checkDependencies(node.outputSymbols(), node.getLookupSymbols(), "Lookup symbols must be part of output symbols");
+            checkDependencies(node.getAssignments().keySet(), node.outputSymbols(), "Assignments must contain mappings for output symbols");
 
             return null;
         }
@@ -679,7 +679,7 @@ public final class ValidateDependenciesChecker
         public Void visitDynamicFilterSource(DynamicFilterSourceNode node, Set<Symbol> boundSymbols)
         {
             node.getSource().accept(this, boundSymbols); // visit child
-            checkDependencies(node.getOutputSymbols(), node.getDynamicFilters().values(), "Dynamic filter symbols must be part of output symbols");
+            checkDependencies(node.outputSymbols(), node.getDynamicFilters().values(), "Dynamic filter symbols must be part of output symbols");
 
             return null;
         }
@@ -717,7 +717,7 @@ public final class ValidateDependenciesChecker
                     .map(UnnestNode.Mapping::getInput)
                     .forEach(required::add);
 
-            checkDependencies(source.getOutputSymbols(), required.build(), "Invalid node. Dependencies (%s) not in source plan output (%s)", required, source.getOutputSymbols());
+            checkDependencies(source.outputSymbols(), required.build(), "Invalid node. Dependencies (%s) not in source plan output (%s)", required, source.outputSymbols());
 
             return null;
         }
@@ -731,13 +731,13 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitExchange(ExchangeNode node, Set<Symbol> boundSymbols)
         {
-            for (int i = 0; i < node.getSources().size(); i++) {
-                PlanNode subplan = node.getSources().get(i);
-                checkDependencies(subplan.getOutputSymbols(), node.getInputs().get(i), "EXCHANGE subplan must provide all of the necessary symbols");
+            for (int i = 0; i < node.sources().size(); i++) {
+                PlanNode subplan = node.sources().get(i);
+                checkDependencies(subplan.outputSymbols(), node.getInputs().get(i), "EXCHANGE subplan must provide all of the necessary symbols");
                 subplan.accept(this, boundSymbols); // visit child
             }
 
-            checkDependencies(node.getOutputSymbols(), node.getPartitioningScheme().getOutputLayout(), "EXCHANGE must provide all of the necessary symbols for partition function");
+            checkDependencies(node.outputSymbols(), node.getPartitioningScheme().getOutputLayout(), "EXCHANGE must provide all of the necessary symbols for partition function");
 
             return null;
         }
@@ -779,8 +779,8 @@ public final class ValidateDependenciesChecker
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
 
-            checkArgument(source.getOutputSymbols().contains(node.getRowIdSymbol()), "Invalid node. rowId symbol (%s) is not in source plan output (%s)", node.getRowIdSymbol(), node.getSource().getOutputSymbols());
-            checkArgument(source.getOutputSymbols().contains(node.getMergeRowSymbol()), "Invalid node. Merge row symbol (%s) is not in source plan output (%s)", node.getMergeRowSymbol(), node.getSource().getOutputSymbols());
+            checkArgument(source.outputSymbols().contains(node.getRowIdSymbol()), "Invalid node. rowId symbol (%s) is not in source plan output (%s)", node.getRowIdSymbol(), node.getSource().outputSymbols());
+            checkArgument(source.outputSymbols().contains(node.getMergeRowSymbol()), "Invalid node. Merge row symbol (%s) is not in source plan output (%s)", node.getMergeRowSymbol(), node.getSource().outputSymbols());
 
             return null;
         }
@@ -814,7 +814,7 @@ public final class ValidateDependenciesChecker
                     .addAll(descriptor.getColumnStatistics().values())
                     .addAll(descriptor.getTableStatistics().values())
                     .build();
-            List<Symbol> outputSymbols = node.getSource().getOutputSymbols();
+            List<Symbol> outputSymbols = node.getSource().outputSymbols();
             checkDependencies(outputSymbols, dependencies, "Invalid node. Dependencies (%s) not in source plan output (%s)", dependencies, outputSymbols);
             return null;
         }
@@ -835,9 +835,9 @@ public final class ValidateDependenciesChecker
 
         private Void visitSetOperation(SetOperationNode node, Set<Symbol> boundSymbols)
         {
-            for (int i = 0; i < node.getSources().size(); i++) {
-                PlanNode subplan = node.getSources().get(i);
-                checkDependencies(subplan.getOutputSymbols(), node.sourceOutputLayout(i), "%s subplan must provide all of the necessary symbols", node.getClass().getSimpleName());
+            for (int i = 0; i < node.sources().size(); i++) {
+                PlanNode subplan = node.sources().get(i);
+                checkDependencies(subplan.outputSymbols(), node.sourceOutputLayout(i), "%s subplan must provide all of the necessary symbols", node.getClass().getSimpleName());
                 subplan.accept(this, boundSymbols); // visit child
             }
 
@@ -883,7 +883,7 @@ public final class ValidateDependenciesChecker
             node.getInput().accept(this, boundSymbols); // visit child
             node.getSubquery().accept(this, subqueryCorrelation); // visit child
 
-            checkDependencies(node.getInput().getOutputSymbols(), node.getCorrelation(), "APPLY input must provide all the necessary correlation symbols for subquery");
+            checkDependencies(node.getInput().outputSymbols(), node.getCorrelation(), "APPLY input must provide all the necessary correlation symbols for subquery");
 
             ImmutableSet<Symbol> inputs = ImmutableSet.<Symbol>builder()
                     .addAll(createInputs(node.getSubquery(), boundSymbols))
@@ -915,7 +915,7 @@ public final class ValidateDependenciesChecker
             node.getSubquery().accept(this, subqueryCorrelation); // visit child
 
             checkDependencies(
-                    node.getInput().getOutputSymbols(),
+                    node.getInput().outputSymbols(),
                     node.getCorrelation(),
                     "Correlated JOIN input must provide all the necessary correlation symbols for subquery");
 
@@ -934,7 +934,7 @@ public final class ValidateDependenciesChecker
         private static ImmutableSet<Symbol> createInputs(PlanNode source, Set<Symbol> boundSymbols)
         {
             return ImmutableSet.<Symbol>builder()
-                    .addAll(source.getOutputSymbols())
+                    .addAll(source.outputSymbols())
                     .addAll(boundSymbols)
                     .build();
         }

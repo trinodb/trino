@@ -43,7 +43,7 @@ public class RemoveRedundantOffset
     public Result apply(OffsetNode offset, Captures captures, Context context)
     {
         if (isAtMost(offset.getSource(), context.getLookup(), offset.getCount())) {
-            return Result.ofPlanNode(new ValuesNode(offset.getId(), offset.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(offset.id(), offset.outputSymbols(), ImmutableList.of()));
         }
         if (offset.getCount() == 0) {
             return Result.ofPlanNode(offset.getSource());

@@ -47,7 +47,7 @@ public class PruneWindowColumns
         }
 
         ImmutableSet.Builder<Symbol> referencedInputs = ImmutableSet.<Symbol>builder()
-                .addAll(windowNode.getSource().getOutputSymbols().stream()
+                .addAll(windowNode.getSource().outputSymbols().stream()
                         .filter(referencedOutputs::contains)
                         .iterator())
                 .addAll(windowNode.getPartitionBy());
@@ -63,7 +63,7 @@ public class PruneWindowColumns
         }
 
         PlanNode prunedWindowNode = new WindowNode(
-                windowNode.getId(),
+                windowNode.id(),
                 restrictOutputs(context.getIdAllocator(), windowNode.getSource(), referencedInputs.build())
                         .orElse(windowNode.getSource()),
                 windowNode.getSpecification(),
@@ -72,7 +72,7 @@ public class PruneWindowColumns
                 windowNode.getPrePartitionedInputs(),
                 windowNode.getPreSortedOrderPrefix());
 
-        if (prunedWindowNode.getOutputSymbols().size() == windowNode.getOutputSymbols().size()) {
+        if (prunedWindowNode.outputSymbols().size() == windowNode.outputSymbols().size()) {
             // Neither function pruning nor input pruning was successful.
             return Optional.empty();
         }

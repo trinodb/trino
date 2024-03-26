@@ -58,11 +58,11 @@ public class PushTopNThroughUnion
 
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
 
-        for (PlanNode source : unionNode.getSources()) {
+        for (PlanNode source : unionNode.sources()) {
             SymbolMapper.Builder symbolMapper = SymbolMapper.builder();
-            Set<Symbol> sourceOutputSymbols = ImmutableSet.copyOf(source.getOutputSymbols());
+            Set<Symbol> sourceOutputSymbols = ImmutableSet.copyOf(source.outputSymbols());
 
-            for (Symbol unionOutput : unionNode.getOutputSymbols()) {
+            for (Symbol unionOutput : unionNode.outputSymbols()) {
                 Set<Symbol> inputSymbols = ImmutableSet.copyOf(unionNode.getSymbolMapping().get(unionOutput));
                 Symbol unionInput = getLast(intersection(inputSymbols, sourceOutputSymbols));
                 symbolMapper.put(unionOutput, unionInput);
@@ -71,9 +71,9 @@ public class PushTopNThroughUnion
         }
 
         return Result.ofPlanNode(new UnionNode(
-                unionNode.getId(),
+                unionNode.id(),
                 sources.build(),
                 unionNode.getSymbolMapping(),
-                unionNode.getOutputSymbols()));
+                unionNode.outputSymbols()));
     }
 }

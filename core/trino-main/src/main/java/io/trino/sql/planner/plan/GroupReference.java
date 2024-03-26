@@ -39,7 +39,7 @@ public final class GroupReference
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         throw new UnsupportedOperationException();
     }
@@ -51,7 +51,7 @@ public final class GroupReference
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return outputs;
     }

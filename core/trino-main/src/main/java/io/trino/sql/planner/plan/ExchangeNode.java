@@ -91,7 +91,7 @@ public final class ExchangeNode
         checkArgument(inputs.stream().allMatch(inputSymbols -> inputSymbols.size() == partitioningScheme.getOutputLayout().size()), "Input symbols do not match output symbols");
         checkArgument(inputs.size() == sources.size(), "Must have same number of input lists as sources");
         for (int i = 0; i < inputs.size(); i++) {
-            checkArgument(ImmutableSet.copyOf(sources.get(i).getOutputSymbols()).containsAll(inputs.get(i)), "Source does not supply all required input symbols");
+            checkArgument(ImmutableSet.copyOf(sources.get(i).outputSymbols()).containsAll(inputs.get(i)), "Source does not supply all required input symbols");
         }
 
         checkArgument(scope != LOCAL || partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable),
@@ -128,7 +128,7 @@ public final class ExchangeNode
                 child,
                 new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitioningColumns),
-                        child.getOutputSymbols(),
+                        child.outputSymbols(),
                         hashColumns,
                         replicateNullsAndAny,
                         Optional.empty(),
@@ -156,9 +156,9 @@ public final class ExchangeNode
                 id,
                 ExchangeNode.Type.REPLICATE,
                 scope,
-                new PartitioningScheme(Partitioning.create(FIXED_BROADCAST_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
+                new PartitioningScheme(Partitioning.create(FIXED_BROADCAST_DISTRIBUTION, ImmutableList.of()), child.outputSymbols()),
                 ImmutableList.of(child),
-                ImmutableList.of(child.getOutputSymbols()),
+                ImmutableList.of(child.outputSymbols()),
                 Optional.empty());
     }
 
@@ -168,9 +168,9 @@ public final class ExchangeNode
                 id,
                 ExchangeNode.Type.GATHER,
                 scope,
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), child.outputSymbols()),
                 ImmutableList.of(child),
-                ImmutableList.of(child.getOutputSymbols()),
+                ImmutableList.of(child.outputSymbols()),
                 Optional.empty());
     }
 
@@ -180,7 +180,7 @@ public final class ExchangeNode
                 id,
                 scope,
                 child,
-                new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()));
+                new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), child.outputSymbols()));
     }
 
     public static ExchangeNode mergingExchange(PlanNodeId id, Scope scope, PlanNode child, OrderingScheme orderingScheme)
@@ -190,9 +190,9 @@ public final class ExchangeNode
                 id,
                 Type.GATHER,
                 scope,
-                new PartitioningScheme(Partitioning.create(partitioningHandle, ImmutableList.of()), child.getOutputSymbols()),
+                new PartitioningScheme(Partitioning.create(partitioningHandle, ImmutableList.of()), child.outputSymbols()),
                 ImmutableList.of(child),
-                ImmutableList.of(child.getOutputSymbols()),
+                ImmutableList.of(child.outputSymbols()),
                 Optional.of(orderingScheme));
     }
 
@@ -210,13 +210,13 @@ public final class ExchangeNode
 
     @Override
     @JsonProperty
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return sources;
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return partitioningScheme.getOutputLayout();
     }
@@ -248,6 +248,6 @@ public final class ExchangeNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ExchangeNode(getId(), type, scope, partitioningScheme, newChildren, inputs, orderingScheme);
+        return new ExchangeNode(id(), type, scope, partitioningScheme, newChildren, inputs, orderingScheme);
     }
 }

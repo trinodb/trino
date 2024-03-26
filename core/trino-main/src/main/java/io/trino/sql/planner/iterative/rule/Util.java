@@ -73,7 +73,7 @@ final class Util
     {
         return child.replaceChildren(ImmutableList.of(
                 parent.replaceChildren(
-                        child.getSources())));
+                        child.sources())));
     }
 
     /**
@@ -81,11 +81,11 @@ final class Util
      */
     public static Optional<PlanNode> restrictOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<Symbol> permittedOutputs)
     {
-        List<Symbol> restrictedOutputs = node.getOutputSymbols().stream()
+        List<Symbol> restrictedOutputs = node.outputSymbols().stream()
                 .filter(permittedOutputs::contains)
                 .collect(toImmutableList());
 
-        if (restrictedOutputs.size() == node.getOutputSymbols().size()) {
+        if (restrictedOutputs.size() == node.outputSymbols().size()) {
             return Optional.empty();
         }
 
@@ -106,16 +106,16 @@ final class Util
         List<Set<Symbol>> permittedChildOutputs = ImmutableList.copyOf(permittedChildOutputsArgs);
 
         checkArgument(
-                (node.getSources().size() == permittedChildOutputs.size()),
+                (node.sources().size() == permittedChildOutputs.size()),
                 "Mismatched child (%s) and permitted outputs (%s) sizes",
-                node.getSources().size(),
+                node.sources().size(),
                 permittedChildOutputs.size());
 
         ImmutableList.Builder<PlanNode> newChildrenBuilder = ImmutableList.builder();
         boolean rewroteChildren = false;
 
-        for (int i = 0; i < node.getSources().size(); ++i) {
-            PlanNode oldChild = node.getSources().get(i);
+        for (int i = 0; i < node.sources().size(); ++i) {
+            PlanNode oldChild = node.sources().get(i);
             Optional<PlanNode> newChild = restrictOutputs(idAllocator, oldChild, permittedChildOutputs.get(i));
             rewroteChildren |= newChild.isPresent();
             newChildrenBuilder.add(newChild.orElse(oldChild));

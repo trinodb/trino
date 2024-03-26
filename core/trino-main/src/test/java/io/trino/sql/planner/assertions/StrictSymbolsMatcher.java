@@ -49,7 +49,7 @@ public class StrictSymbolsMatcher
 
     public static Function<PlanNode, Set<Symbol>> actualOutputs()
     {
-        return node -> ImmutableSet.copyOf(node.getOutputSymbols());
+        return node -> ImmutableSet.copyOf(node.outputSymbols());
     }
 
     @Override

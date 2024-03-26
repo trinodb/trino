@@ -42,15 +42,15 @@ public class PruneValuesColumns
     protected Optional<PlanNode> pushDownProjectOff(Context context, ValuesNode valuesNode, Set<Symbol> referencedOutputs)
     {
         // no symbols to prune
-        if (valuesNode.getOutputSymbols().isEmpty()) {
+        if (valuesNode.outputSymbols().isEmpty()) {
             return Optional.empty();
         }
 
-        List<Symbol> newOutputs = filteredCopy(valuesNode.getOutputSymbols(), referencedOutputs::contains);
+        List<Symbol> newOutputs = filteredCopy(valuesNode.outputSymbols(), referencedOutputs::contains);
 
         // no output symbols left
         if (newOutputs.isEmpty()) {
-            return Optional.of(new ValuesNode(valuesNode.getId(), valuesNode.getRowCount()));
+            return Optional.of(new ValuesNode(valuesNode.id(), valuesNode.getRowCount()));
         }
 
         checkState(valuesNode.getRows().isPresent(), "rows is empty");
@@ -62,7 +62,7 @@ public class PruneValuesColumns
         // for each output of project, the corresponding column in the values node
         int[] mapping = new int[newOutputs.size()];
         for (int i = 0; i < mapping.length; i++) {
-            mapping[i] = valuesNode.getOutputSymbols().indexOf(newOutputs.get(i));
+            mapping[i] = valuesNode.outputSymbols().indexOf(newOutputs.get(i));
         }
 
         ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
@@ -72,6 +72,6 @@ public class PruneValuesColumns
                     .collect(Collectors.toList())));
         }
 
-        return Optional.of(new ValuesNode(valuesNode.getId(), newOutputs, rowsBuilder.build()));
+        return Optional.of(new ValuesNode(valuesNode.id(), newOutputs, rowsBuilder.build()));
     }
 }

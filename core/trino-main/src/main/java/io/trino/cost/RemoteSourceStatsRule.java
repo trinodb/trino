@@ -64,7 +64,7 @@ public class RemoteSourceStatsRule
 
             PlanNodeStatsEstimate stageEstimatedStats = getEstimatedStats(runtimeInfoProvider, context.statsProvider(), planFragmentId);
             PlanNodeStatsEstimate adjustedStageStats = adjustStats(
-                    node.getOutputSymbols(),
+                    node.outputSymbols(),
                     stageRuntimeStats,
                     stageEstimatedStats);
 
@@ -84,7 +84,7 @@ public class RemoteSourceStatsRule
     {
         PlanFragment fragment = runtimeInfoProvider.getPlanFragment(fragmentId);
         PlanNode fragmentRoot = fragment.getRoot();
-        PlanNodeStatsEstimate estimate = fragment.getStatsAndCosts().getStats().get(fragmentRoot.getId());
+        PlanNodeStatsEstimate estimate = fragment.getStatsAndCosts().getStats().get(fragmentRoot.id());
         // We will not have stats for the root node in a PlanFragment if collect_plan_statistics_for_all_queries
         // is disabled and query isn't an explain analyze.
         if (estimate != null && !estimate.isOutputRowCountUnknown()) {

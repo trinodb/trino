@@ -108,7 +108,7 @@ public class BeginTableWrite
 
             WriterTarget writerTarget = getContextTarget(context);
             return new TableWriterNode(
-                    node.getId(),
+                    node.id(),
                     context.rewrite(node.getSource(), context.get()),
                     writerTarget,
                     node.getRowCountSymbol(),
@@ -125,7 +125,7 @@ public class BeginTableWrite
         {
             TableExecuteTarget tableExecuteTarget = (TableExecuteTarget) getContextTarget(context);
             return new TableExecuteNode(
-                    node.getId(),
+                    node.id(),
                     rewriteModifyTableScan(node.getSource(), tableExecuteTarget.getSourceHandle().orElseThrow(), false),
                     tableExecuteTarget,
                     node.getRowCountSymbol(),
@@ -140,12 +140,12 @@ public class BeginTableWrite
         {
             MergeTarget mergeTarget = (MergeTarget) getContextTarget(context);
             return new MergeWriterNode(
-                    mergeNode.getId(),
+                    mergeNode.id(),
                     rewriteModifyTableScan(mergeNode.getSource(), mergeTarget.getHandle(), true),
                     mergeTarget,
                     mergeNode.getProjectedSymbols(),
                     mergeNode.getPartitioningScheme(),
-                    mergeNode.getOutputSymbols());
+                    mergeNode.outputSymbols());
         }
 
         @Override
@@ -158,7 +158,7 @@ public class BeginTableWrite
                     new StatisticsWriterNode.WriteStatisticsHandle(metadata.beginStatisticsCollection(session, ((StatisticsWriterNode.WriteStatisticsReference) node.getTarget()).getHandle()));
 
             return new StatisticsWriterNode(
-                    node.getId(),
+                    node.id(),
                     child,
                     analyzeHandle,
                     node.getRowCountSymbol(),
@@ -177,7 +177,7 @@ public class BeginTableWrite
             child = context.rewrite(child, Optional.of(newTarget));
 
             return new TableFinishNode(
-                    node.getId(),
+                    node.id(),
                     child,
                     newTarget,
                     node.getRowCountSymbol(),
@@ -215,7 +215,7 @@ public class BeginTableWrite
             }
 
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
-                Set<WriterTarget> writerTargets = node.getSources().stream()
+                Set<WriterTarget> writerTargets = node.sources().stream()
                         .map(this::getWriterTarget)
                         .collect(toSet());
                 return getOnlyElement(writerTargets);
@@ -321,9 +321,9 @@ public class BeginTableWrite
                             }
                             modifyCount.incrementAndGet();
                             return new TableScanNode(
-                                    scan.getId(),
+                                    scan.id(),
                                     handle,
-                                    scan.getOutputSymbols(),
+                                    scan.outputSymbols(),
                                     scan.getAssignments(),
                                     scan.getEnforcedConstraint(),
                                     scan.getStatistics(),

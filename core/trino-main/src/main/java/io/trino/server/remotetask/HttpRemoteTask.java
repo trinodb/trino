@@ -802,7 +802,7 @@ public final class HttpRemoteTask
     {
         return Stream.concat(planFragment.getPartitionedSourceNodes().stream(), planFragment.getRemoteSourceNodes().stream())
                 .filter(Objects::nonNull)
-                .map(PlanNode::getId)
+                .map(PlanNode::id)
                 .map(planNodeId -> getSplitAssignment(planNodeId, currentSplitBatchSize))
                 .filter(Objects::nonNull)
                 .collect(toImmutableList());

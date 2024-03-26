@@ -132,7 +132,7 @@ public class ExpressionRewriteRuleSet
             if (projectNode.getAssignments().equals(assignments)) {
                 return Result.empty();
             }
-            return Result.ofPlanNode(new ProjectNode(projectNode.getId(), projectNode.getSource(), assignments));
+            return Result.ofPlanNode(new ProjectNode(projectNode.id(), projectNode.getSource(), assignments));
         }
 
         @Override
@@ -217,7 +217,7 @@ public class ExpressionRewriteRuleSet
             if (filterNode.getPredicate().equals(rewritten)) {
                 return Result.empty();
             }
-            return Result.ofPlanNode(new FilterNode(filterNode.getId(), filterNode.getSource(), rewritten));
+            return Result.ofPlanNode(new FilterNode(filterNode.id(), filterNode.getSource(), rewritten));
         }
 
         @Override
@@ -249,7 +249,7 @@ public class ExpressionRewriteRuleSet
             Optional<Expression> filter = joinNode.getFilter().map(x -> rewriter.rewrite(x, context));
             if (!joinNode.getFilter().equals(filter)) {
                 return Result.ofPlanNode(new JoinNode(
-                        joinNode.getId(),
+                        joinNode.id(),
                         joinNode.getType(),
                         joinNode.getLeft(),
                         joinNode.getRight(),
@@ -317,7 +317,7 @@ public class ExpressionRewriteRuleSet
                 rows.add(rewritten);
             }
             if (anyRewritten) {
-                return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputSymbols(), rows.build()));
+                return Result.ofPlanNode(new ValuesNode(valuesNode.id(), valuesNode.outputSymbols(), rows.build()));
             }
             return Result.empty();
         }
@@ -380,7 +380,7 @@ public class ExpressionRewriteRuleSet
 
             if (anyRewritten) {
                 return Result.ofPlanNode(new PatternRecognitionNode(
-                        node.getId(),
+                        node.id(),
                         node.getSource(),
                         node.getSpecification(),
                         node.getHashSymbol(),

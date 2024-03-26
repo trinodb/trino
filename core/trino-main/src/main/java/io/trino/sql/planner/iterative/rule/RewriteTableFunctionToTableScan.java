@@ -64,16 +64,16 @@ public class RewriteTableFunctionToTableScan
         }
 
         List<ColumnHandle> columnHandles = result.get().getColumnHandles();
-        checkState(node.getOutputSymbols().size() == columnHandles.size(), "returned table does not match the node's output");
+        checkState(node.outputSymbols().size() == columnHandles.size(), "returned table does not match the node's output");
         ImmutableMap.Builder<Symbol, ColumnHandle> assignments = ImmutableMap.builder();
         for (int i = 0; i < columnHandles.size(); i++) {
-            assignments.put(node.getOutputSymbols().get(i), columnHandles.get(i));
+            assignments.put(node.outputSymbols().get(i), columnHandles.get(i));
         }
 
         return Result.ofPlanNode(new TableScanNode(
-                node.getId(),
+                node.id(),
                 result.get().getTableHandle(),
-                node.getOutputSymbols(),
+                node.outputSymbols(),
                 assignments.buildOrThrow(),
                 TupleDomain.all(),
                 Optional.empty(),

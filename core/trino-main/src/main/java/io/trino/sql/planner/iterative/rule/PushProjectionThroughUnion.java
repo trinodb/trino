@@ -58,7 +58,7 @@ public class PushProjectionThroughUnion
         UnionNode source = captures.get(CHILD);
 
         // OutputLayout of the resultant Union, will be same as the layout of the Project
-        List<Symbol> outputLayout = parent.getOutputSymbols();
+        List<Symbol> outputLayout = parent.outputSymbols();
 
         // Mapping from the output symbol to ordered list of symbols from each of the sources
         ImmutableListMultimap.Builder<Symbol, Symbol> mappings = ImmutableListMultimap.builder();
@@ -66,7 +66,7 @@ public class PushProjectionThroughUnion
         // sources for the resultant UnionNode
         ImmutableList.Builder<PlanNode> outputSources = ImmutableList.builder();
 
-        for (int i = 0; i < source.getSources().size(); i++) {
+        for (int i = 0; i < source.sources().size(); i++) {
             Map<Symbol, Reference> outputToInput = source.sourceSymbolMap(i);   // Map: output of union -> input of this source to the union
             Assignments.Builder assignments = Assignments.builder(); // assignments for the new ProjectNode
 
@@ -80,11 +80,11 @@ public class PushProjectionThroughUnion
                 assignments.put(symbol, translatedExpression);
                 projectSymbolMapping.put(entry.getKey(), symbol);
             }
-            outputSources.add(new ProjectNode(context.getIdAllocator().getNextId(), source.getSources().get(i), assignments.build()));
+            outputSources.add(new ProjectNode(context.getIdAllocator().getNextId(), source.sources().get(i), assignments.build()));
             outputLayout.forEach(symbol -> mappings.put(symbol, projectSymbolMapping.get(symbol)));
         }
 
-        return Result.ofPlanNode(new UnionNode(parent.getId(), outputSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet())));
+        return Result.ofPlanNode(new UnionNode(parent.id(), outputSources.build(), mappings.build(), ImmutableList.copyOf(mappings.build().keySet())));
     }
 
     private static boolean nonTrivialProjection(ProjectNode project)

@@ -54,7 +54,7 @@ public class PruneCorrelatedJoinCorrelation
 
         if (newCorrelation.size() < correlatedJoinNode.getCorrelation().size()) {
             return Result.ofPlanNode(new CorrelatedJoinNode(
-                    correlatedJoinNode.getId(),
+                    correlatedJoinNode.id(),
                     correlatedJoinNode.getInput(),
                     correlatedJoinNode.getSubquery(),
                     newCorrelation,

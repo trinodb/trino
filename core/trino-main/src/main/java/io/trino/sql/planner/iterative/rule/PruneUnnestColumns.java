@@ -83,7 +83,7 @@ public class PruneUnnestColumns
         }
 
         return Optional.of(new UnnestNode(
-                unnestNode.getId(),
+                unnestNode.id(),
                 unnestNode.getSource(),
                 prunedReplicateSymbols,
                 unnestNode.getMappings(),

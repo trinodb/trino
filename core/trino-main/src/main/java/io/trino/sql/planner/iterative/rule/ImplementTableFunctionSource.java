@@ -153,9 +153,9 @@ public class ImplementTableFunctionSource
     @Override
     public Result apply(TableFunctionNode node, Captures captures, Context context)
     {
-        if (node.getSources().isEmpty()) {
+        if (node.sources().isEmpty()) {
             return Result.ofPlanNode(new TableFunctionProcessorNode(
-                    node.getId(),
+                    node.id(),
                     node.getName(),
                     node.getProperOutputs(),
                     Optional.empty(),
@@ -170,17 +170,17 @@ public class ImplementTableFunctionSource
                     node.getHandle()));
         }
 
-        if (node.getSources().size() == 1) {
+        if (node.sources().size() == 1) {
             // Single source does not require pre-processing.
             // If the source has row semantics, its specification is empty.
             // If the source has set semantics, its specification is present, even if there is no partitioning or ordering specified.
             // This property can be used later to choose optimal distribution.
             TableArgumentProperties sourceProperties = getOnlyElement(node.getTableArgumentProperties());
             return Result.ofPlanNode(new TableFunctionProcessorNode(
-                    node.getId(),
+                    node.id(),
                     node.getName(),
                     node.getProperOutputs(),
-                    Optional.of(getOnlyElement(node.getSources())),
+                    Optional.of(getOnlyElement(node.sources())),
                     sourceProperties.isPruneWhenEmpty(),
                     ImmutableList.of(sourceProperties.getPassThroughSpecification()),
                     ImmutableList.of(sourceProperties.getRequiredColumns()),
@@ -191,7 +191,7 @@ public class ImplementTableFunctionSource
                     Optional.empty(),
                     node.getHandle()));
         }
-        Map<String, SourceWithProperties> sources = mapSourcesByName(node.getSources(), node.getTableArgumentProperties());
+        Map<String, SourceWithProperties> sources = mapSourcesByName(node.sources(), node.getTableArgumentProperties());
         ImmutableList.Builder<NodeWithSymbols> intermediateResultsBuilder = ImmutableList.builder();
         ResolvedFunction rowNumberFunction = metadata.resolveBuiltinFunction("row_number", ImmutableList.of());
         ResolvedFunction countFunction = metadata.resolveBuiltinFunction("count", ImmutableList.of());
@@ -272,7 +272,7 @@ public class ImplementTableFunctionSource
                 .collect(toImmutableList());
 
         return Result.ofPlanNode(new TableFunctionProcessorNode(
-                node.getId(),
+                node.id(),
                 node.getName(),
                 node.getProperOutputs(),
                 Optional.of(marked.node()),
@@ -303,7 +303,7 @@ public class ImplementTableFunctionSource
         String argumentName = argumentProperties.getArgumentName();
 
         Symbol rowNumber = context.getSymbolAllocator().newSymbol(argumentName + "_row_number", BIGINT);
-        Map<Symbol, Symbol> rowNumberSymbolMapping = source.getOutputSymbols().stream()
+        Map<Symbol, Symbol> rowNumberSymbolMapping = source.outputSymbols().stream()
                 .collect(toImmutableMap(identity(), symbol -> rowNumber));
 
         Symbol partitionSize = context.getSymbolAllocator().newSymbol(argumentName + "_partition_size", BIGINT);
@@ -462,8 +462,8 @@ public class ImplementTableFunctionSource
                         left.node(),
                         right.node(),
                         ImmutableList.of(),
-                        left.node().getOutputSymbols(),
-                        right.node().getOutputSymbols(),
+                        left.node().outputSymbols(),
+                        right.node().outputSymbols(),
                         false,
                         Optional.of(joinCondition),
                         Optional.empty(),
@@ -534,7 +534,7 @@ public class ImplementTableFunctionSource
                 context.getIdAllocator().getNextId(),
                 copartitionedNodes.joinedNode(),
                 Assignments.builder()
-                        .putIdentities(copartitionedNodes.joinedNode().getOutputSymbols())
+                        .putIdentities(copartitionedNodes.joinedNode().outputSymbols())
                         .put(joinedRowNumber, rowNumberExpression)
                         .put(joinedPartitionSize, partitionSizeExpression)
                         .putAll(joinedPartitionByAssignments.build())
@@ -597,8 +597,8 @@ public class ImplementTableFunctionSource
                         left.node(),
                         right.node(),
                         ImmutableList.of(),
-                        left.node().getOutputSymbols(),
-                        right.node().getOutputSymbols(),
+                        left.node().outputSymbols(),
+                        right.node().outputSymbols(),
                         false,
                         Optional.of(joinCondition),
                         Optional.empty(),
@@ -650,7 +650,7 @@ public class ImplementTableFunctionSource
                 context.getIdAllocator().getNextId(),
                 joinedNodes.joinedNode(),
                 Assignments.builder()
-                        .putIdentities(joinedNodes.joinedNode().getOutputSymbols())
+                        .putIdentities(joinedNodes.joinedNode().outputSymbols())
                         .put(joinedRowNumber, rowNumberExpression)
                         .put(joinedPartitionSize, partitionSizeExpression)
                         .build());
@@ -673,7 +673,7 @@ public class ImplementTableFunctionSource
     private static NodeWithMarkers appendMarkerSymbols(PlanNode node, Set<Symbol> symbols, Symbol referenceSymbol, Context context)
     {
         Assignments.Builder assignments = Assignments.builder();
-        assignments.putIdentities(node.getOutputSymbols());
+        assignments.putIdentities(node.outputSymbols());
 
         ImmutableMap.Builder<Symbol, Symbol> symbolsToMarkers = ImmutableMap.builder();
 

@@ -56,12 +56,12 @@ public class RemoveEmptyUnionBranches
         int emptyBranches = 0;
         ImmutableList.Builder<PlanNode> newSourcesBuilder = ImmutableList.builder();
         ImmutableListMultimap.Builder<Symbol, Symbol> outputsToInputsBuilder = ImmutableListMultimap.builder();
-        for (int i = 0; i < node.getSources().size(); i++) {
-            PlanNode source = node.getSources().get(i);
+        for (int i = 0; i < node.sources().size(); i++) {
+            PlanNode source = node.sources().get(i);
             if (!isEmpty(source, context.getLookup())) {
                 newSourcesBuilder.add(source);
 
-                for (Symbol column : node.getOutputSymbols()) {
+                for (Symbol column : node.outputSymbols()) {
                     outputsToInputsBuilder.put(column, node.getSymbolMapping().get(column).get(i));
                 }
             }
@@ -74,8 +74,8 @@ public class RemoveEmptyUnionBranches
             return Result.empty();
         }
 
-        if (emptyBranches == node.getSources().size()) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+        if (emptyBranches == node.sources().size()) {
+            return Result.ofPlanNode(new ValuesNode(node.id(), node.outputSymbols(), ImmutableList.of()));
         }
 
         List<PlanNode> newSources = newSourcesBuilder.build();
@@ -89,11 +89,11 @@ public class RemoveEmptyUnionBranches
 
             return Result.ofPlanNode(
                     new ProjectNode(
-                            node.getId(),
+                            node.id(),
                             newSources.get(0),
                             assignments.build()));
         }
 
-        return Result.ofPlanNode(new UnionNode(node.getId(), newSources, outputsToInputs, node.getOutputSymbols()));
+        return Result.ofPlanNode(new UnionNode(node.id(), newSources, outputsToInputs, node.outputSymbols()));
     }
 }

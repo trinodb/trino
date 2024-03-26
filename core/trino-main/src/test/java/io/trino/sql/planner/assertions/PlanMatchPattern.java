@@ -881,7 +881,7 @@ public final class PlanMatchPattern
     {
         ImmutableList.Builder<PlanMatchingState> states = ImmutableList.builder();
         if (anyTree) {
-            int sourcesCount = node.getSources().size();
+            int sourcesCount = node.sources().size();
             if (sourcesCount > 1) {
                 states.add(new PlanMatchingState(nCopies(sourcesCount, this)));
             }
@@ -894,7 +894,7 @@ public final class PlanMatchPattern
                 states.add(new PlanMatchingState(ImmutableList.of()));
             }
         }
-        else if (node.getSources().size() == sourcePatterns.size() && shapeMatchesMatchers(node)) {
+        else if (node.sources().size() == sourcePatterns.size() && shapeMatchesMatchers(node)) {
             states.add(new PlanMatchingState(sourcePatterns));
         }
         return states.build();

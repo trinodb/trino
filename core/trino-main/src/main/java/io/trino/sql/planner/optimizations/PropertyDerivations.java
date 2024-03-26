@@ -122,7 +122,7 @@ public final class PropertyDerivations
             PlannerContext plannerContext,
             Session session)
     {
-        List<ActualProperties> inputProperties = node.getSources().stream()
+        List<ActualProperties> inputProperties = node.sources().stream()
                 .map(source -> derivePropertiesRecursively(source, plannerContext, session))
                 .collect(toImmutableList());
         return deriveProperties(node, inputProperties, plannerContext, session);
@@ -137,15 +137,15 @@ public final class PropertyDerivations
         ActualProperties output = node.accept(new Visitor(plannerContext, session), inputProperties);
 
         output.getNodePartitioning().ifPresent(partitioning ->
-                verify(node.getOutputSymbols().containsAll(partitioning.getColumns()), "Node-level partitioning properties contain columns not present in node's output"));
+                verify(node.outputSymbols().containsAll(partitioning.getColumns()), "Node-level partitioning properties contain columns not present in node's output"));
 
-        verify(node.getOutputSymbols().containsAll(output.getConstants().keySet()), "Node-level constant properties contain columns not present in node's output");
+        verify(node.outputSymbols().containsAll(output.getConstants().keySet()), "Node-level constant properties contain columns not present in node's output");
 
         Set<Symbol> localPropertyColumns = output.getLocalProperties().stream()
                 .flatMap(property -> property.getColumns().stream())
                 .collect(Collectors.toSet());
 
-        verify(node.getOutputSymbols().containsAll(localPropertyColumns), "Node-level local properties contain columns not present in node's output");
+        verify(node.outputSymbols().containsAll(localPropertyColumns), "Node-level local properties contain columns not present in node's output");
         return output;
     }
 
@@ -188,7 +188,7 @@ public final class PropertyDerivations
         public ActualProperties visitOutput(OutputNode node, List<ActualProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties)
-                    .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column));
+                    .translate(column -> PropertyDerivations.filterIfMissing(node.outputSymbols(), column));
         }
 
         @Override
@@ -205,7 +205,7 @@ public final class PropertyDerivations
             ImmutableList.Builder<LocalProperty<Symbol>> newLocalProperties = ImmutableList.builder();
             newLocalProperties.addAll(properties.getLocalProperties());
             newLocalProperties.add(new GroupingProperty<>(ImmutableList.of(node.getIdColumn())));
-            node.getSource().getOutputSymbols()
+            node.getSource().outputSymbols()
                     .forEach(column -> newLocalProperties.add(new ConstantProperty<>(column)));
 
             if (properties.getNodePartitioning().isPresent()) {
@@ -282,7 +282,7 @@ public final class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
             // Crop properties to output columns.
-            ActualProperties translatedProperties = properties.translate(symbol -> node.getOutputSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+            ActualProperties translatedProperties = properties.translate(symbol -> node.outputSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
 
             // If the input is completely pre-partitioned and sorted, then the original input properties will be respected is some cases.
             // ALL ROW PER MATCH with overlapping matches might shuffle rows and break the order.
@@ -319,7 +319,7 @@ public final class PropertyDerivations
             // Sorted properties should be propagated only in certain cases.
             // ALL ROW PER MATCH with overlapping matches might shuffle rows.
             if (node.getRowsPerMatch().isOneRow() || node.getSkipToPosition() == PAST_LAST) {
-                Set<Symbol> outputs = ImmutableSet.copyOf(node.getOutputSymbols());
+                Set<Symbol> outputs = ImmutableSet.copyOf(node.outputSymbols());
                 orderingScheme.ifPresent(ordering ->
                         ordering.toLocalProperties().stream()
                                 .filter(property -> outputs.containsAll(property.getColumns()))
@@ -372,7 +372,7 @@ public final class PropertyDerivations
                     .local(localProperties.build())
                     .build()
                     // Crop properties to output columns.
-                    .translate(symbol -> node.getOutputSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+                    .translate(symbol -> node.outputSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
         }
 
         @Override
@@ -542,8 +542,8 @@ public final class PropertyDerivations
 
             return switch (node.getType()) {
                 case INNER -> {
-                    probeProperties = probeProperties.translate(column -> filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
-                    buildProperties = buildProperties.translate(column -> filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
+                    probeProperties = probeProperties.translate(column -> filterOrRewrite(node.outputSymbols(), node.getCriteria(), column));
+                    buildProperties = buildProperties.translate(column -> filterOrRewrite(node.outputSymbols(), node.getCriteria(), column));
 
                     Map<Symbol, NullableValue> constants = new HashMap<>();
                     constants.putAll(probeProperties.getConstants());
@@ -564,10 +564,10 @@ public final class PropertyDerivations
                             .unordered(unordered)
                             .build();
                 }
-                case LEFT -> ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
+                case LEFT -> ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.outputSymbols(), column)))
                         .unordered(unordered)
                         .build();
-                case RIGHT -> ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
+                case RIGHT -> ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.outputSymbols(), column)))
                         .local(ImmutableList.of())
                         .unordered(true)
                         .build();
@@ -594,8 +594,8 @@ public final class PropertyDerivations
 
             return switch (node.getType()) {
                 case INNER -> {
-                    probeProperties = probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column));
-                    buildProperties = buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column));
+                    probeProperties = probeProperties.translate(column -> filterIfMissing(node.outputSymbols(), column));
+                    buildProperties = buildProperties.translate(column -> filterIfMissing(node.outputSymbols(), column));
 
                     Map<Symbol, NullableValue> constants = new HashMap<>();
                     constants.putAll(probeProperties.getConstants());
@@ -605,7 +605,7 @@ public final class PropertyDerivations
                             .constants(constants)
                             .build();
                 }
-                case LEFT -> ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
+                case LEFT -> ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.outputSymbols(), column)))
                         .build();
             };
         }
@@ -648,8 +648,8 @@ public final class PropertyDerivations
         {
             List<Symbol> inputSymbols = node.getInputs().get(sourceIndex);
             Map<Symbol, Symbol> inputToOutput = new HashMap<>();
-            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                inputToOutput.put(inputSymbols.get(i), node.getOutputSymbols().get(i));
+            for (int i = 0; i < node.outputSymbols().size(); i++) {
+                inputToOutput.put(inputSymbols.get(i), node.outputSymbols().get(i));
             }
             return inputToOutput;
         }
@@ -660,7 +660,7 @@ public final class PropertyDerivations
             checkArgument(node.getScope() != REMOTE || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated), "Null-and-any replicated inputs should not be remotely exchanged");
 
             Set<Map.Entry<Symbol, NullableValue>> entries = null;
-            for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
+            for (int sourceIndex = 0; sourceIndex < node.sources().size(); sourceIndex++) {
                 Map<Symbol, Symbol> inputToOutput = exchangeInputToOutput(node, sourceIndex);
                 ActualProperties translated = inputProperties.get(sourceIndex).translate(symbol -> Optional.ofNullable(inputToOutput.get(symbol)));
 
@@ -686,7 +686,7 @@ public final class PropertyDerivations
                     ActualProperties inputProperty = inputProperties.get(0);
                     if (inputProperty.isEffectivelySinglePartition() && node.getOrderingScheme().isEmpty() && !inputProperty.getLocalProperties().isEmpty()) {
                         verify(node.getInputs().size() == 1);
-                        verify(node.getSources().size() == 1);
+                        verify(node.sources().size() == 1);
                         Map<Symbol, Symbol> inputToOutput = exchangeInputToOutput(node, 0);
                         List<LocalProperty<Symbol>> inputLocalProperties = LocalProperties.translate(inputProperty.getLocalProperties(), symbol -> Optional.ofNullable(inputToOutput.get(symbol)));
                         // If no local properties are present to propagate, then we can skip recursive stream properties derivation

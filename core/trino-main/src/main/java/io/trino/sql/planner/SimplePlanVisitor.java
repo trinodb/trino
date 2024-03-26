@@ -22,7 +22,7 @@ public class SimplePlanVisitor<C>
     @Override
     protected Void visitPlan(PlanNode node, C context)
     {
-        for (PlanNode source : node.getSources()) {
+        for (PlanNode source : node.sources()) {
             source.accept(this, context);
         }
         return null;

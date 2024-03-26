@@ -40,10 +40,10 @@ public class EvaluateEmptyIntersect
     @Override
     public Result apply(IntersectNode node, Captures captures, Context context)
     {
-        boolean hasEmptyBranches = node.getSources().stream().anyMatch(source -> isEmpty(source, context.getLookup()));
+        boolean hasEmptyBranches = node.sources().stream().anyMatch(source -> isEmpty(source, context.getLookup()));
 
         if (hasEmptyBranches) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(node.id(), node.outputSymbols(), ImmutableList.of()));
         }
 
         return Result.empty();

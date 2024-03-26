@@ -114,12 +114,12 @@ public class PushPredicateThroughProjectIntoRowNumber
             return Result.empty();
         }
         if (upperBound.getAsInt() <= 0) {
-            return Result.ofPlanNode(new ValuesNode(filter.getId(), filter.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(filter.id(), filter.outputSymbols(), ImmutableList.of()));
         }
         boolean updatedMaxRowCountPerPartition = false;
         if (rowNumber.getMaxRowCountPerPartition().isEmpty() || rowNumber.getMaxRowCountPerPartition().get() > upperBound.getAsInt()) {
             rowNumber = new RowNumberNode(
-                    rowNumber.getId(),
+                    rowNumber.id(),
                     rowNumber.getSource(),
                     rowNumber.getPartitionBy(),
                     rowNumber.isOrderSensitive(),
@@ -143,7 +143,7 @@ public class PushPredicateThroughProjectIntoRowNumber
         if (newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(project);
         }
-        return Result.ofPlanNode(new FilterNode(filter.getId(), project, newPredicate));
+        return Result.ofPlanNode(new FilterNode(filter.id(), project, newPredicate));
     }
 
     private static OptionalInt extractUpperBound(TupleDomain<Symbol> tupleDomain, Symbol symbol)

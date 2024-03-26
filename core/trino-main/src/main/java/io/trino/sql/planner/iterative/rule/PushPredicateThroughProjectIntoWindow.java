@@ -126,11 +126,11 @@ public class PushPredicateThroughProjectIntoWindow
             return Result.empty();
         }
         if (upperBound.getAsInt() <= 0) {
-            return Result.ofPlanNode(new ValuesNode(filter.getId(), filter.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(filter.id(), filter.outputSymbols(), ImmutableList.of()));
         }
         RankingType rankingType = toTopNRankingType(window).orElseThrow();
         project = (ProjectNode) project.replaceChildren(ImmutableList.of(new TopNRankingNode(
-                window.getId(),
+                window.id(),
                 window.getSource(),
                 window.getSpecification(),
                 rankingType,
@@ -149,7 +149,7 @@ public class PushPredicateThroughProjectIntoWindow
         if (newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(project);
         }
-        return Result.ofPlanNode(new FilterNode(filter.getId(), project, newPredicate));
+        return Result.ofPlanNode(new FilterNode(filter.id(), project, newPredicate));
     }
 
     private static OptionalInt extractUpperBound(TupleDomain<Symbol> tupleDomain, Symbol symbol)

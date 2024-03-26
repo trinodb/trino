@@ -85,15 +85,15 @@ public final class WindowNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
-        return ImmutableList.copyOf(concat(source.getOutputSymbols(), windowFunctions.keySet()));
+        return ImmutableList.copyOf(concat(source.outputSymbols(), windowFunctions.keySet()));
     }
 
     public Set<Symbol> getCreatedSymbols()
@@ -163,7 +163,7 @@ public final class WindowNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new WindowNode(getId(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, hashSymbol, prePartitionedInputs, preSortedOrderPrefix);
+        return new WindowNode(id(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, hashSymbol, prePartitionedInputs, preSortedOrderPrefix);
     }
 
     @Immutable

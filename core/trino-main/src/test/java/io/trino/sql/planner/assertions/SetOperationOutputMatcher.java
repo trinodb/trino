@@ -41,10 +41,10 @@ public class SetOperationOutputMatcher
             return Optional.empty();
         }
 
-        if (index >= setOperationNode.getOutputSymbols().size()) {
+        if (index >= setOperationNode.outputSymbols().size()) {
             return Optional.empty();
         }
 
-        return Optional.of(node.getOutputSymbols().get(index));
+        return Optional.of(node.outputSymbols().get(index));
     }
 }

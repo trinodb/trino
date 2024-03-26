@@ -63,6 +63,6 @@ public class RemoveUnreferencedScalarSubqueries
 
     private boolean isUnreferencedScalar(PlanNode planNode, Lookup lookup)
     {
-        return planNode.getOutputSymbols().isEmpty() && isScalar(planNode, lookup);
+        return planNode.outputSymbols().isEmpty() && isScalar(planNode, lookup);
     }
 }

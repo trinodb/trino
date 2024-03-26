@@ -43,7 +43,7 @@ public final class Plans
         @Override
         protected PlanNode visitPlan(PlanNode node, Void context)
         {
-            List<PlanNode> children = node.getSources().stream()
+            List<PlanNode> children = node.sources().stream()
                     .map(child -> child.accept(this, context))
                     .collect(Collectors.toList());
 

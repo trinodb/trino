@@ -56,7 +56,7 @@ public final class DistinctLimitNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
@@ -92,7 +92,7 @@ public final class DistinctLimitNode
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
         outputSymbols.addAll(distinctSymbols);
@@ -109,6 +109,6 @@ public final class DistinctLimitNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new DistinctLimitNode(getId(), Iterables.getOnlyElement(newChildren), limit, partial, distinctSymbols, hashSymbol);
+        return new DistinctLimitNode(id(), Iterables.getOnlyElement(newChildren), limit, partial, distinctSymbols, hashSymbol);
     }
 }

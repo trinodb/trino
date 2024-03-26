@@ -105,8 +105,8 @@ public class RuleBuilder
         @Override
         public PlanNodeStatsEstimate calculateStats(PlanNode node, Context context)
         {
-            if (stats.containsKey(node.getId())) {
-                return stats.get(node.getId());
+            if (stats.containsKey(node.id())) {
+                return stats.get(node.id());
             }
             return delegate.calculateStats(node, context);
         }

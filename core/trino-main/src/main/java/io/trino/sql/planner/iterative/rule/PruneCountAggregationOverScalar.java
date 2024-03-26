@@ -57,7 +57,7 @@ public class PruneCountAggregationOverScalar
     @Override
     public Result apply(AggregationNode parent, Captures captures, Context context)
     {
-        if (!parent.hasDefaultOutput() || parent.getOutputSymbols().size() != 1) {
+        if (!parent.hasDefaultOutput() || parent.outputSymbols().size() != 1) {
             return Result.empty();
         }
         FunctionId countFunctionId = metadata.resolveBuiltinFunction("count", ImmutableList.of()).getFunctionId();
@@ -71,7 +71,7 @@ public class PruneCountAggregationOverScalar
             }
         }
         if (!assignments.isEmpty() && isScalar(parent.getSource(), context.getLookup())) {
-            return Result.ofPlanNode(new ValuesNode(parent.getId(), parent.getOutputSymbols(), ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, 1L))))));
+            return Result.ofPlanNode(new ValuesNode(parent.id(), parent.outputSymbols(), ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, 1L))))));
         }
         return Result.empty();
     }

@@ -65,13 +65,13 @@ public class SetOperationNodeTranslator
     public TranslationResult makeSetContainmentPlanForDistinct(SetOperationNode node)
     {
         checkArgument(!(node instanceof UnionNode), "Cannot simplify a UnionNode");
-        List<Symbol> markers = allocateSymbols(node.getSources().size(), MARKER, BOOLEAN);
+        List<Symbol> markers = allocateSymbols(node.sources().size(), MARKER, BOOLEAN);
         // identity projection for all the fields in each of the sources plus marker columns
-        List<PlanNode> withMarkers = appendMarkers(markers, node.getSources(), node);
+        List<PlanNode> withMarkers = appendMarkers(markers, node.sources(), node);
 
         // add a union over all the rewritten sources. The outputs of the union have the same name as the
         // original intersect node
-        List<Symbol> outputs = node.getOutputSymbols();
+        List<Symbol> outputs = node.outputSymbols();
         UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
 
         // add count aggregations
@@ -93,12 +93,12 @@ public class SetOperationNodeTranslator
     public TranslationResult makeSetContainmentPlanForAll(SetOperationNode node)
     {
         checkArgument(!(node instanceof UnionNode), "Cannot simplify a UnionNode");
-        List<Symbol> markers = allocateSymbols(node.getSources().size(), MARKER, BOOLEAN);
+        List<Symbol> markers = allocateSymbols(node.sources().size(), MARKER, BOOLEAN);
         // identity projection for all the fields in each of the sources plus marker columns
-        List<PlanNode> withMarkers = appendMarkers(markers, node.getSources(), node);
+        List<PlanNode> withMarkers = appendMarkers(markers, node.sources(), node);
 
         // add a union over all the rewritten sources
-        List<Symbol> outputs = node.getOutputSymbols();
+        List<Symbol> outputs = node.outputSymbols();
         UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
 
         // add counts and row number
@@ -155,8 +155,8 @@ public class SetOperationNodeTranslator
     {
         ImmutableListMultimap.Builder<Symbol, Symbol> outputsToInputs = ImmutableListMultimap.builder();
         for (PlanNode source : nodes) {
-            for (int i = 0; i < source.getOutputSymbols().size(); i++) {
-                outputsToInputs.put(outputs.get(i), source.getOutputSymbols().get(i));
+            for (int i = 0; i < source.outputSymbols().size(); i++) {
+                outputsToInputs.put(outputs.get(i), source.outputSymbols().get(i));
             }
         }
 

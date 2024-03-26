@@ -51,6 +51,6 @@ public class RemoveAggregationInSemiJoin
     {
         AggregationNode filteringSource = captures.get(CHILD);
         return Result.ofPlanNode(semiJoinNode
-                .replaceChildren(ImmutableList.of(semiJoinNode.getSource(), getOnlyElement(filteringSource.getSources()))));
+                .replaceChildren(ImmutableList.of(semiJoinNode.getSource(), getOnlyElement(filteringSource.sources()))));
     }
 }

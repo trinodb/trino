@@ -205,10 +205,10 @@ public class DeterminePartitionCount
     {
         double sourceTablesOutputSize = getSourceNodesOutputStats(
                 plan,
-                node -> statsProvider.getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
+                node -> statsProvider.getStats(node).getOutputSizeInBytes(node.outputSymbols()));
         double expandingNodesMaxOutputSize = getExpandingNodesMaxOutputStats(
                 plan,
-                node -> statsProvider.getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
+                node -> statsProvider.getStats(node).getOutputSizeInBytes(node.outputSymbols()));
         if (isNaN(sourceTablesOutputSize) || isNaN(expandingNodesMaxOutputSize)) {
             return Optional.empty();
         }
@@ -285,7 +285,7 @@ public class DeterminePartitionCount
                 // consider union node and exchange node with multiple sources as expanding since it merge the rows
                 // from two different sources, thus more data is transferred over the network.
                 || node instanceof UnionNode
-                || (node instanceof ExchangeNode && node.getSources().size() > 1);
+                || (node instanceof ExchangeNode && node.sources().size() > 1);
     }
 
     private static double getSourceNodesOutputStats(PlanNode root, ToDoubleFunction<PlanNode> statsMapper)
@@ -335,7 +335,7 @@ public class DeterminePartitionCount
         @Override
         public PlanNode visitExchange(ExchangeNode node, RewriteContext<Void> context)
         {
-            List<PlanNode> sources = node.getSources().stream()
+            List<PlanNode> sources = node.sources().stream()
                     .map(context::rewrite)
                     .collect(toImmutableList());
 
@@ -345,7 +345,7 @@ public class DeterminePartitionCount
             }
 
             return new ExchangeNode(
-                    node.getId(),
+                    node.id(),
                     node.getType(),
                     node.getScope(),
                     partitioningScheme,

@@ -151,13 +151,13 @@ public final class AggregationNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(source);
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return outputs;
     }
@@ -518,7 +518,7 @@ public final class AggregationNode
         public Builder(AggregationNode node)
         {
             requireNonNull(node, "node is null");
-            this.id = node.getId();
+            this.id = node.id();
             this.source = node.getSource();
             this.aggregations = node.getAggregations();
             this.groupingSets = node.getGroupingSets();

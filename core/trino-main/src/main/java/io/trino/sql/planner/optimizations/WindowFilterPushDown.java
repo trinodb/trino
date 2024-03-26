@@ -161,7 +161,7 @@ public class WindowFilterPushDown
 
                 if (upperBound.isPresent()) {
                     if (upperBound.getAsInt() <= 0) {
-                        return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
+                        return new ValuesNode(node.id(), node.outputSymbols(), ImmutableList.of());
                     }
                     source = mergeLimit((RowNumberNode) source, upperBound.getAsInt());
                     return rewriteFilterSource(node, source, rowNumberSymbol, ((RowNumberNode) source).getMaxRowCountPerPartition().get());
@@ -175,7 +175,7 @@ public class WindowFilterPushDown
 
                     if (upperBound.isPresent()) {
                         if (upperBound.getAsInt() <= 0) {
-                            return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
+                            return new ValuesNode(node.id(), node.outputSymbols(), ImmutableList.of());
                         }
                         source = convertToTopNRanking(windowNode, rankingType.get(), upperBound.getAsInt());
                         return rewriteFilterSource(node, source, rankingSymbol, upperBound.getAsInt());
@@ -191,7 +191,7 @@ public class WindowFilterPushDown
             TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
 
             if (!allRankingValuesInDomain(tupleDomain, rankingSymbol, upperBound)) {
-                return new FilterNode(filterNode.getId(), source, filterNode.getPredicate());
+                return new FilterNode(filterNode.id(), source, filterNode.getPredicate());
             }
 
             // Remove the ranking domain because it is absorbed into the node
@@ -203,7 +203,7 @@ public class WindowFilterPushDown
             if (newPredicate.equals(Booleans.TRUE)) {
                 return source;
             }
-            return new FilterNode(filterNode.getId(), source, newPredicate);
+            return new FilterNode(filterNode.id(), source, newPredicate);
         }
 
         private static boolean allRankingValuesInDomain(TupleDomain<Symbol> tupleDomain, Symbol symbol, long upperBound)
@@ -257,7 +257,7 @@ public class WindowFilterPushDown
                 newRowCountPerPartition = Math.min(node.getMaxRowCountPerPartition().get(), newRowCountPerPartition);
             }
             return new RowNumberNode(
-                    node.getId(),
+                    node.id(),
                     node.getSource(),
                     node.getPartitionBy(),
                     node.isOrderSensitive(),

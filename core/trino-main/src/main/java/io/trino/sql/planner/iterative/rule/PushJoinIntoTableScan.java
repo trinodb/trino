@@ -184,7 +184,7 @@ public class PushJoinIntoTableScan
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
                         new TableScanNode(
-                                joinNode.getId(),
+                                joinNode.id(),
                                 handle,
                                 ImmutableList.copyOf(assignments.keySet()),
                                 assignments,
@@ -192,7 +192,7 @@ public class PushJoinIntoTableScan
                                 deriveTableStatisticsForPushdown(context.getStatsProvider(), context.getSession(), joinApplicationResult.get().isPrecalculateStatistics(), joinNode),
                                 false,
                                 Optional.empty()),
-                        Assignments.identity(joinNode.getOutputSymbols())));
+                        Assignments.identity(joinNode.outputSymbols())));
     }
 
     private JoinStatistics getJoinStatistics(JoinNode join, TableScanNode left, TableScanNode right, Context context)
@@ -202,19 +202,19 @@ public class PushJoinIntoTableScan
             @Override
             public Optional<BasicRelationStatistics> getLeftStatistics()
             {
-                return getBasicRelationStats(left, left.getOutputSymbols(), context);
+                return getBasicRelationStats(left, left.outputSymbols(), context);
             }
 
             @Override
             public Optional<BasicRelationStatistics> getRightStatistics()
             {
-                return getBasicRelationStats(right, right.getOutputSymbols(), context);
+                return getBasicRelationStats(right, right.outputSymbols(), context);
             }
 
             @Override
             public Optional<BasicRelationStatistics> getJoinStatistics()
             {
-                return getBasicRelationStats(join, join.getOutputSymbols(), context);
+                return getBasicRelationStats(join, join.outputSymbols(), context);
             }
 
             private Optional<BasicRelationStatistics> getBasicRelationStats(PlanNode node, List<Symbol> outputSymbols, Context context)

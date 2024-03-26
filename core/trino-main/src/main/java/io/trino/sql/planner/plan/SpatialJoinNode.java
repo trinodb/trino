@@ -99,16 +99,16 @@ public final class SpatialJoinNode
         this.kdbTree = requireNonNull(kdbTree, "kdbTree is null");
 
         Set<Symbol> inputSymbols = ImmutableSet.<Symbol>builder()
-                .addAll(left.getOutputSymbols())
-                .addAll(right.getOutputSymbols())
+                .addAll(left.outputSymbols())
+                .addAll(right.outputSymbols())
                 .build();
 
         checkArgument(inputSymbols.containsAll(outputSymbols), "Left and right join inputs do not contain all output symbols");
         if (kdbTree.isPresent()) {
             checkArgument(leftPartitionSymbol.isPresent(), "Left partition symbol is missing");
             checkArgument(rightPartitionSymbol.isPresent(), "Right partition symbol is missing");
-            checkArgument(left.getOutputSymbols().contains(leftPartitionSymbol.get()), "Left side of join does not contain left partition symbol");
-            checkArgument(right.getOutputSymbols().contains(rightPartitionSymbol.get()), "Right side of join does not contain right partition symbol");
+            checkArgument(left.outputSymbols().contains(leftPartitionSymbol.get()), "Left side of join does not contain left partition symbol");
+            checkArgument(right.outputSymbols().contains(rightPartitionSymbol.get()), "Right side of join does not contain right partition symbol");
             this.distributionType = DistributionType.PARTITIONED;
         }
         else {
@@ -155,14 +155,14 @@ public final class SpatialJoinNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(left, right);
     }
 
     @Override
     @JsonProperty("outputSymbols")
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return outputSymbols;
     }
@@ -189,6 +189,6 @@ public final class SpatialJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new SpatialJoinNode(getId(), type, newChildren.get(0), newChildren.get(1), outputSymbols, filter, leftPartitionSymbol, rightPartitionSymbol, kdbTree);
+        return new SpatialJoinNode(id(), type, newChildren.get(0), newChildren.get(1), outputSymbols, filter, leftPartitionSymbol, rightPartitionSymbol, kdbTree);
     }
 }

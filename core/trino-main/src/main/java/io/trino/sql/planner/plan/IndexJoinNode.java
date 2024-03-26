@@ -112,17 +112,17 @@ public final class IndexJoinNode
     }
 
     @Override
-    public List<PlanNode> getSources()
+    public List<PlanNode> sources()
     {
         return ImmutableList.of(probeSource, indexSource);
     }
 
     @Override
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> outputSymbols()
     {
         return ImmutableList.<Symbol>builder()
-                .addAll(probeSource.getOutputSymbols())
-                .addAll(indexSource.getOutputSymbols())
+                .addAll(probeSource.outputSymbols())
+                .addAll(indexSource.outputSymbols())
                 .build();
     }
 
@@ -136,7 +136,7 @@ public final class IndexJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new IndexJoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, probeHashSymbol, indexHashSymbol);
+        return new IndexJoinNode(id(), type, newChildren.get(0), newChildren.get(1), criteria, probeHashSymbol, indexHashSymbol);
     }
 
     public static class EquiJoinClause

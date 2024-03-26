@@ -43,7 +43,7 @@ public class TestSchedulingOrderVisitor
         TableScanNode a = planBuilder.tableScan(emptyList(), emptyMap());
         TableScanNode b = planBuilder.tableScan(emptyList(), emptyMap());
         List<PlanNodeId> order = scheduleOrder(planBuilder.join(JoinType.INNER, a, b));
-        assertThat(order).isEqualTo(ImmutableList.of(b.getId(), a.getId()));
+        assertThat(order).isEqualTo(ImmutableList.of(b.id(), a.id()));
     }
 
     @Test
@@ -53,7 +53,7 @@ public class TestSchedulingOrderVisitor
         TableScanNode a = planBuilder.tableScan(emptyList(), emptyMap());
         TableScanNode b = planBuilder.tableScan(emptyList(), emptyMap());
         List<PlanNodeId> order = scheduleOrder(planBuilder.indexJoin(IndexJoinNode.Type.INNER, a, b));
-        assertThat(order).isEqualTo(ImmutableList.of(b.getId(), a.getId()));
+        assertThat(order).isEqualTo(ImmutableList.of(b.id(), a.id()));
     }
 
     @Test
@@ -72,6 +72,6 @@ public class TestSchedulingOrderVisitor
                 Optional.empty(),
                 a,
                 b));
-        assertThat(order).isEqualTo(ImmutableList.of(b.getId(), a.getId()));
+        assertThat(order).isEqualTo(ImmutableList.of(b.id(), a.id()));
     }
 }

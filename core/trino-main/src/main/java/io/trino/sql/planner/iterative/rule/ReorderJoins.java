@@ -259,10 +259,10 @@ public class ReorderJoins
         private JoinEnumerationResult createJoin(LinkedHashSet<PlanNode> leftSources, LinkedHashSet<PlanNode> rightSources, List<Symbol> outputSymbols)
         {
             Set<Symbol> leftSymbols = leftSources.stream()
-                    .flatMap(node -> node.getOutputSymbols().stream())
+                    .flatMap(node -> node.outputSymbols().stream())
                     .collect(toImmutableSet());
             Set<Symbol> rightSymbols = rightSources.stream()
-                    .flatMap(node -> node.getOutputSymbols().stream())
+                    .flatMap(node -> node.outputSymbols().stream())
                     .collect(toImmutableSet());
 
             List<Expression> joinPredicates = getJoinPredicates(leftSymbols, rightSymbols);
@@ -310,10 +310,10 @@ public class ReorderJoins
 
             PlanNode right = rightResult.planNode.orElseThrow(() -> new VerifyException("Plan node is not present"));
 
-            List<Symbol> leftOutputSymbols = left.getOutputSymbols().stream()
+            List<Symbol> leftOutputSymbols = left.outputSymbols().stream()
                     .filter(outputSymbols::contains)
                     .collect(toImmutableList());
-            List<Symbol> rightOutputSymbols = right.getOutputSymbols().stream()
+            List<Symbol> rightOutputSymbols = right.outputSymbols().stream()
                     .filter(outputSymbols::contains)
                     .collect(toImmutableList());
 
@@ -449,7 +449,7 @@ public class ReorderJoins
             return JoinEnumerationResult.createJoinEnumerationResult(
                     Optional.of(joinNode.withReorderJoinStatsAndCost(new PlanNodeStatsAndCostSummary(
                             statsEstimate.getOutputRowCount(),
-                            statsEstimate.getOutputSizeInBytes(joinNode.getOutputSymbols()),
+                            statsEstimate.getOutputSizeInBytes(joinNode.outputSymbols()),
                             costEstimate.getCpuCost(),
                             costEstimate.getMaxMemory(),
                             costEstimate.getNetworkCost()))),
@@ -486,7 +486,7 @@ public class ReorderJoins
             this.outputSymbols = ImmutableList.copyOf(outputSymbols);
             this.pushedProjectionThroughJoin = pushedProjectionThroughJoin;
 
-            List<Symbol> inputSymbols = sources.stream().flatMap(source -> source.getOutputSymbols().stream()).collect(toImmutableList());
+            List<Symbol> inputSymbols = sources.stream().flatMap(source -> source.outputSymbols().stream()).collect(toImmutableList());
             checkArgument(inputSymbols.containsAll(outputSymbols), "inputs do not contain all output symbols");
         }
 
@@ -581,7 +581,7 @@ public class ReorderJoins
             {
                 requireNonNull(node, "node is null");
                 checkState(node.getType() == INNER, "join type must be INNER");
-                this.outputSymbols = node.getOutputSymbols();
+                this.outputSymbols = node.outputSymbols();
                 this.lookup = requireNonNull(lookup, "lookup is null");
                 this.planNodeIdAllocator = requireNonNull(planNodeIdAllocator, "planNodeIdAllocator is null");
                 this.pushProjectionsThroughJoin = pushProjectionsThroughJoin;

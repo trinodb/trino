@@ -65,9 +65,9 @@ public class PruneTableScanColumns
 
     public static Optional<PlanNode> pruneColumns(Metadata metadata, Session session, TableScanNode node, Set<Symbol> referencedOutputs)
     {
-        List<Symbol> newOutputs = filteredCopy(node.getOutputSymbols(), referencedOutputs::contains);
+        List<Symbol> newOutputs = filteredCopy(node.outputSymbols(), referencedOutputs::contains);
 
-        if (newOutputs.size() == node.getOutputSymbols().size()) {
+        if (newOutputs.size() == node.outputSymbols().size()) {
             return Optional.empty();
         }
 
@@ -117,7 +117,7 @@ public class PruneTableScanColumns
                                 .collect(toImmutableMap(Entry::getKey, Entry::getValue))));
 
         return Optional.of(new TableScanNode(
-                node.getId(),
+                node.id(),
                 handle,
                 newOutputs,
                 newAssignments,

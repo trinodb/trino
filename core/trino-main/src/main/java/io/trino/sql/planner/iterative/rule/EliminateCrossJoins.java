@@ -82,7 +82,7 @@ public class EliminateCrossJoins
             return Result.empty();
         }
 
-        PlanNode replacement = buildJoinTree(node.getOutputSymbols(), joinGraph, joinOrder, context.getIdAllocator());
+        PlanNode replacement = buildJoinTree(node.outputSymbols(), joinGraph, joinOrder, context.getIdAllocator());
         return Result.ofPlanNode(replacement);
     }
 
@@ -109,12 +109,12 @@ public class EliminateCrossJoins
 
         Map<PlanNodeId, Integer> priorities = new HashMap<>();
         for (int i = 0; i < graph.size(); i++) {
-            priorities.put(graph.getNode(i).getId(), i);
+            priorities.put(graph.getNode(i).id(), i);
         }
 
         PriorityQueue<PlanNode> nodesToVisit = new PriorityQueue<>(
                 graph.size(),
-                comparing(node -> priorities.get(node.getId())));
+                comparing(node -> priorities.get(node.id())));
         Set<PlanNode> visited = new HashSet<>();
 
         nodesToVisit.add(graph.getNode(0));
@@ -140,7 +140,7 @@ public class EliminateCrossJoins
 
         checkState(visited.size() == graph.size());
         return joinOrder.build().stream()
-                .map(node -> priorities.get(node.getId()))
+                .map(node -> priorities.get(node.id()))
                 .collect(toImmutableList());
     }
 
@@ -154,17 +154,17 @@ public class EliminateCrossJoins
 
         PlanNode result = graph.getNode(joinOrder.get(0));
         Set<PlanNodeId> alreadyJoinedNodes = new HashSet<>();
-        alreadyJoinedNodes.add(result.getId());
+        alreadyJoinedNodes.add(result.id());
 
         for (int i = 1; i < joinOrder.size(); i++) {
             PlanNode rightNode = graph.getNode(joinOrder.get(i));
-            alreadyJoinedNodes.add(rightNode.getId());
+            alreadyJoinedNodes.add(rightNode.id());
 
             ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
 
             for (JoinGraph.Edge edge : graph.getEdges(rightNode)) {
                 PlanNode targetNode = edge.getTargetNode();
-                if (alreadyJoinedNodes.contains(targetNode.getId())) {
+                if (alreadyJoinedNodes.contains(targetNode.id())) {
                     criteria.add(new JoinNode.EquiJoinClause(
                             edge.getTargetSymbol(),
                             edge.getSourceSymbol()));
@@ -177,8 +177,8 @@ public class EliminateCrossJoins
                     result,
                     rightNode,
                     criteria.build(),
-                    result.getOutputSymbols(),
-                    rightNode.getOutputSymbols(),
+                    result.outputSymbols(),
+                    rightNode.outputSymbols(),
                     false,
                     Optional.empty(),
                     Optional.empty(),

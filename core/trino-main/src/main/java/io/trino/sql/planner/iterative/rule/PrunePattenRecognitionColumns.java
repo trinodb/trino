@@ -59,7 +59,7 @@ public class PrunePattenRecognitionColumns
         // TODO prune unreferenced variable definitions when we have pattern transformations that delete parts of the pattern
 
         ImmutableSet.Builder<Symbol> referencedInputs = ImmutableSet.builder();
-        patternRecognitionNode.getSource().getOutputSymbols().stream()
+        patternRecognitionNode.getSource().outputSymbols().stream()
                 .filter(referencedOutputs::contains)
                 .forEach(referencedInputs::add);
         referencedInputs.addAll(patternRecognitionNode.getPartitionBy());
@@ -86,7 +86,7 @@ public class PrunePattenRecognitionColumns
         }
 
         return Optional.of(new PatternRecognitionNode(
-                patternRecognitionNode.getId(),
+                patternRecognitionNode.id(),
                 prunedSource.orElse(patternRecognitionNode.getSource()),
                 patternRecognitionNode.getSpecification(),
                 patternRecognitionNode.getHashSymbol(),

@@ -117,11 +117,11 @@ public class OptimizeDuplicateInsensitiveJoins
         @Override
         public Optional<PlanNode> visitUnion(UnionNode node, Void context)
         {
-            List<PlanNode> rewrittenSources = node.getSources().stream()
+            List<PlanNode> rewrittenSources = node.sources().stream()
                     .map(source -> source.accept(this, null).orElse(source))
                     .collect(toImmutableList());
 
-            if (rewrittenSources.equals(node.getSources())) {
+            if (rewrittenSources.equals(node.sources())) {
                 return Optional.empty();
             }
 

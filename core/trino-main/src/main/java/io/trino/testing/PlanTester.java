@@ -757,11 +757,11 @@ public class PlanTester
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {
                 for (Split split : getNextBatch(splitSource)) {
-                    scheduledSplits.add(new ScheduledSplit(sequenceId++, tableScan.getId(), split));
+                    scheduledSplits.add(new ScheduledSplit(sequenceId++, tableScan.id(), split));
                 }
             }
 
-            splitAssignments.add(new SplitAssignment(tableScan.getId(), scheduledSplits.build(), true));
+            splitAssignments.add(new SplitAssignment(tableScan.id(), scheduledSplits.build(), true));
         }
 
         // create drivers

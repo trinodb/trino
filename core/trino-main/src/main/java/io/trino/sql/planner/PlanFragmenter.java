@@ -128,7 +128,7 @@ public class PlanFragmenter
                 forceSingleNode,
                 warningCollector,
                 new PlanFragmentIdAllocator(0),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().outputSymbols()),
                 ImmutableMap.of());
     }
 
@@ -363,7 +363,7 @@ public class PlanFragmenter
                     .map(TablePartitioning::getPartitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
 
-            context.get().addSourceDistribution(node.getId(), partitioning, metadata, session);
+            context.get().addSourceDistribution(node.id(), partitioning, metadata, session);
             return context.defaultRewrite(node, context.get());
         }
 
@@ -429,7 +429,7 @@ public class PlanFragmenter
         {
             if (node.getSource().isEmpty()) {
                 // context is mutable. The leaf node should set the PartitioningHandle.
-                context.get().addSourceDistribution(node.getId(), SOURCE_DISTRIBUTION, metadata, session);
+                context.get().addSourceDistribution(node.id(), SOURCE_DISTRIBUTION, metadata, session);
             }
             return context.defaultRewrite(node, context.get());
         }
@@ -466,7 +466,7 @@ public class PlanFragmenter
             ExchangeNodeToRemoteSourceRewriter rewriter = new ExchangeNodeToRemoteSourceRewriter(remoteSourceNodes, unchangedSubPlans.keySet());
             PlanNode newInitialPlan = SimplePlanRewriter.rewriteWith(rewriter, adaptivePlan.getInitialPlan());
             Set<Symbol> dependencies = SymbolsExtractor.extractOutputSymbols(newInitialPlan);
-            return new AdaptivePlanNode(adaptivePlan.getId(), newInitialPlan, dependencies, adaptivePlan.getCurrentPlan());
+            return new AdaptivePlanNode(adaptivePlan.id(), newInitialPlan, dependencies, adaptivePlan.getCurrentPlan());
         }
 
         @Override
@@ -516,12 +516,12 @@ public class PlanFragmenter
 
             ImmutableList.Builder<FragmentProperties> childrenProperties = ImmutableList.builder();
             ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
-            for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
+            for (int sourceIndex = 0; sourceIndex < exchange.sources().size(); sourceIndex++) {
                 FragmentProperties childProperties = new FragmentProperties(partitioningScheme.translateOutputLayout(exchange.getInputs().get(sourceIndex)));
                 childrenProperties.add(childProperties);
                 childrenBuilder.add(buildSubPlan(
-                        exchange.getSources().get(sourceIndex),
-                        new ExchangeSourceId(exchange.getId(), exchange.getSources().get(sourceIndex).getId()),
+                        exchange.sources().get(sourceIndex),
+                        new ExchangeSourceId(exchange.id(), exchange.sources().get(sourceIndex).id()),
                         childProperties,
                         context));
             }
@@ -535,9 +535,9 @@ public class PlanFragmenter
                     .collect(toImmutableList());
 
             return new RemoteSourceNode(
-                    exchange.getId(),
+                    exchange.id(),
                     childrenIds,
-                    exchange.getOutputSymbols(),
+                    exchange.outputSymbols(),
                     exchange.getOrderingScheme(),
                     exchange.getType(),
                     isWorkerCoordinatorBoundary(context.get(), childrenProperties.build()) ? getRetryPolicy(session) : RetryPolicy.NONE);
@@ -807,9 +807,9 @@ public class PlanFragmenter
 
             TableHandle newTable = metadata.makeCompatiblePartitioning(session, node.getTable(), fragmentPartitioningHandle);
             return new TableScanNode(
-                    node.getId(),
+                    node.id(),
                     newTable,
-                    node.getOutputSymbols(),
+                    node.outputSymbols(),
                     node.getAssignments(),
                     node.getEnforcedConstraint(),
                     node.getStatistics(),
@@ -835,11 +835,11 @@ public class PlanFragmenter
         @Override
         public PlanNode visitExchange(ExchangeNode node, RewriteContext<Void> context)
         {
-            if (node.getScope() != REMOTE || !isUnchangedFragment(node.getId())) {
+            if (node.getScope() != REMOTE || !isUnchangedFragment(node.id())) {
                 return context.defaultRewrite(node, context.get());
             }
             return remoteSourceNodes.stream()
-                    .filter(remoteSource -> remoteSource.getId().equals(node.getId()))
+                    .filter(remoteSource -> remoteSource.id().equals(node.id()))
                     .findFirst()
                     .orElse(node);
         }

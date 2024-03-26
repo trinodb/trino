@@ -124,8 +124,8 @@ public class TestTopologicalOrderSubPlanVisitor
                 left,
                 right,
                 ImmutableList.of(),
-                left.getOutputSymbols(),
-                right.getOutputSymbols(),
+                left.outputSymbols(),
+                right.outputSymbols(),
                 false,
                 Optional.empty(),
                 Optional.empty(),
@@ -142,8 +142,8 @@ public class TestTopologicalOrderSubPlanVisitor
                 new PlanNodeId(id),
                 left,
                 right,
-                left.getOutputSymbols().get(0),
-                right.getOutputSymbols().get(0),
+                left.outputSymbols().get(0),
+                right.outputSymbols().get(0),
                 new Symbol(UNKNOWN, id),
                 Optional.empty(),
                 Optional.empty(),
@@ -170,7 +170,7 @@ public class TestTopologicalOrderSubPlanVisitor
                 SpatialJoinNode.Type.INNER,
                 left,
                 right,
-                left.getOutputSymbols(),
+                left.outputSymbols(),
                 Booleans.TRUE,
                 Optional.empty(),
                 Optional.empty(),
@@ -188,7 +188,7 @@ public class TestTopologicalOrderSubPlanVisitor
 
     private static SubPlan createSubPlan(String fragmentId, PlanNode plan, List<SubPlan> children)
     {
-        Symbol symbol = plan.getOutputSymbols().get(0);
+        Symbol symbol = plan.outputSymbols().get(0);
         PlanNodeId valuesNodeId = new PlanNodeId("plan");
         PlanFragment planFragment = new PlanFragment(
                 new PlanFragmentId(fragmentId),

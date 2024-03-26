@@ -436,7 +436,7 @@ public class LogicalPlanner
                 symbolAllocator.newSymbol("rows", BIGINT),
                 tableStatisticsMetadata.getTableStatistics().contains(ROW_COUNT),
                 tableStatisticAggregation.getDescriptor());
-        return new RelationPlan(planNode, analysis.getScope(analyzeStatement), planNode.getOutputSymbols(), Optional.empty());
+        return new RelationPlan(planNode, analysis.getScope(analyzeStatement), planNode.outputSymbols(), Optional.empty());
     }
 
     private RelationPlan createTableCreationPlan(Analysis analysis, Query query)
@@ -482,7 +482,7 @@ public class LogicalPlanner
 
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments);
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
-        plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols(), Optional.empty());
+        plan = new RelationPlan(projectNode, scope, projectNode.outputSymbols(), Optional.empty());
 
         List<String> columnNames = finalColumns.stream()
                 .map(ColumnMetadata::getName)
@@ -557,7 +557,7 @@ public class LogicalPlanner
                 .collect(toImmutableList());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
 
-        plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols(), Optional.empty());
+        plan = new RelationPlan(projectNode, scope, projectNode.outputSymbols(), Optional.empty());
 
         plan = planner.addRowFilters(
                 table,
@@ -757,7 +757,7 @@ public class LogicalPlanner
                     Optional.of(aggregations.getFinalAggregation()),
                     Optional.of(result.getDescriptor()));
 
-            return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols(), Optional.empty());
+            return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.outputSymbols(), Optional.empty());
         }
 
         TableFinishNode commitNode = new TableFinishNode(
@@ -778,7 +778,7 @@ public class LogicalPlanner
                 Optional.empty(),
                 Optional.empty());
 
-        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols(), Optional.empty());
+        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.outputSymbols(), Optional.empty());
     }
 
     /*
@@ -843,7 +843,7 @@ public class LogicalPlanner
                 Optional.empty(),
                 Optional.empty());
 
-        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputSymbols(), Optional.empty());
+        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.outputSymbols(), Optional.empty());
     }
 
     private RelationPlan createUpdatePlan(Analysis analysis, Update node)
@@ -860,7 +860,7 @@ public class LogicalPlanner
                 Optional.empty(),
                 Optional.empty());
 
-        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputSymbols(), Optional.empty());
+        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.outputSymbols(), Optional.empty());
     }
 
     private RelationPlan createMergePlan(Analysis analysis, Merge node)
@@ -876,7 +876,7 @@ public class LogicalPlanner
                 Optional.empty(),
                 Optional.empty());
 
-        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputSymbols(), Optional.empty());
+        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.outputSymbols(), Optional.empty());
     }
 
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
@@ -953,7 +953,7 @@ public class LogicalPlanner
                     idAllocator.getNextId(),
                     symbolAllocator.newSymbol("rows", BIGINT),
                     executeHandle);
-            return new RelationPlan(node, analysis.getRootScope(), node.getOutputSymbols(), Optional.empty());
+            return new RelationPlan(node, analysis.getRootScope(), node.outputSymbols(), Optional.empty());
         }
 
         TableHandle tableHandle = analysis.getTableHandle(table);
@@ -1035,7 +1035,7 @@ public class LogicalPlanner
                 Optional.empty(),
                 Optional.empty());
 
-        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols(), Optional.empty());
+        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.outputSymbols(), Optional.empty());
     }
 
     private static class Key

@@ -128,7 +128,7 @@ public class PushAggregationThroughOuterJoin
 
         if (join.getFilter().isPresent()
                 || !(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT)
-                || !groupsOnAllColumns(aggregation, getOuterTable(join).getOutputSymbols())
+                || !groupsOnAllColumns(aggregation, getOuterTable(join).outputSymbols())
                 || !isDistinct(context.getLookup().resolve(getOuterTable(join)), context.getLookup()::resolve)
                 || !isAggregationOnSymbols(aggregation, getInnerTable(join))) {
             return Result.empty();
@@ -146,12 +146,12 @@ public class PushAggregationThroughOuterJoin
         JoinNode rewrittenJoin;
         if (join.getType() == JoinType.LEFT) {
             rewrittenJoin = new JoinNode(
-                    join.getId(),
+                    join.id(),
                     join.getType(),
                     join.getLeft(),
                     rewrittenAggregation,
                     join.getCriteria(),
-                    join.getLeft().getOutputSymbols(),
+                    join.getLeft().outputSymbols(),
                     ImmutableList.copyOf(rewrittenAggregation.getAggregations().keySet()),
                     // there are no duplicate rows possible since outer rows were guaranteed to be distinct
                     false,
@@ -165,13 +165,13 @@ public class PushAggregationThroughOuterJoin
         }
         else {
             rewrittenJoin = new JoinNode(
-                    join.getId(),
+                    join.id(),
                     join.getType(),
                     rewrittenAggregation,
                     join.getRight(),
                     join.getCriteria(),
                     ImmutableList.copyOf(rewrittenAggregation.getAggregations().keySet()),
-                    join.getRight().getOutputSymbols(),
+                    join.getRight().outputSymbols(),
                     // there are no duplicate rows possible since outer rows were guaranteed to be distinct
                     false,
                     join.getFilter(),
@@ -245,8 +245,8 @@ public class PushAggregationThroughOuterJoin
                 outerJoin,
                 aggregationOverNull,
                 ImmutableList.of(),
-                outerJoin.getOutputSymbols(),
-                aggregationOverNull.getOutputSymbols(),
+                outerJoin.outputSymbols(),
+                aggregationOverNull.outputSymbols(),
                 false,
                 Optional.empty(),
                 Optional.empty(),
@@ -258,7 +258,7 @@ public class PushAggregationThroughOuterJoin
 
         // Add coalesce expressions for all aggregation functions
         Assignments.Builder assignmentsBuilder = Assignments.builder();
-        for (Symbol symbol : outerJoin.getOutputSymbols()) {
+        for (Symbol symbol : outerJoin.outputSymbols()) {
             if (aggregationNode.getAggregations().containsKey(symbol)) {
                 assignmentsBuilder.put(symbol, new Coalesce(symbol.toSymbolReference(), sourceAggregationToOverNullMapping.get(symbol).toSymbolReference()));
             }
@@ -277,7 +277,7 @@ public class PushAggregationThroughOuterJoin
         ImmutableList.Builder<Symbol> nullSymbols = ImmutableList.builder();
         ImmutableList.Builder<Expression> nullLiterals = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, Symbol> sourcesSymbolMappingBuilder = ImmutableMap.builder();
-        for (Symbol sourceSymbol : referenceAggregation.getSource().getOutputSymbols()) {
+        for (Symbol sourceSymbol : referenceAggregation.getSource().outputSymbols()) {
             Type type = sourceSymbol.getType();
             nullLiterals.add(new Constant(type, null));
             Symbol nullSymbol = symbolAllocator.newSymbol("null", type);
@@ -316,7 +316,7 @@ public class PushAggregationThroughOuterJoin
 
     private static boolean isAggregationOnSymbols(AggregationNode aggregationNode, PlanNode source)
     {
-        Set<Symbol> sourceSymbols = ImmutableSet.copyOf(source.getOutputSymbols());
+        Set<Symbol> sourceSymbols = ImmutableSet.copyOf(source.outputSymbols());
         return aggregationNode.getAggregations().values().stream()
                 .allMatch(aggregation -> sourceSymbols.containsAll(SymbolsExtractor.extractUnique(aggregation)));
     }

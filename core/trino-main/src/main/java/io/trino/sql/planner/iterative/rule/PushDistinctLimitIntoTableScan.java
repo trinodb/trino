@@ -83,7 +83,7 @@ public class PushDistinctLimitIntoTableScan
         return Result.ofPlanNode(
                 // The LimitNode retained here may be later pushed into TableScan as well by a different rule
                 new LimitNode(
-                        node.getId(),
+                        node.id(),
                         result.get(),
                         node.getLimit(),
                         node.isPartial()));

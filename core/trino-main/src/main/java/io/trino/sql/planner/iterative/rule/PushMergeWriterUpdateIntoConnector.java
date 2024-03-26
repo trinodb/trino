@@ -104,7 +104,7 @@ public class PushMergeWriterUpdateIntoConnector
                 .map(newHandle -> new TableUpdateNode(
                         context.getIdAllocator().getNextId(),
                         newHandle,
-                        getOnlyElement(node.getOutputSymbols())))
+                        getOnlyElement(node.outputSymbols())))
                 .map(Result::ofPlanNode)
                 .orElseGet(Result::empty);
     }

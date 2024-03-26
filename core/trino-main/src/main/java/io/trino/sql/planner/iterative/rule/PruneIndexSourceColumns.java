@@ -48,13 +48,13 @@ public class PruneIndexSourceColumns
                 entry -> referencedOutputs.contains(entry.getKey()));
 
         List<Symbol> prunedOutputList =
-                indexSourceNode.getOutputSymbols().stream()
+                indexSourceNode.outputSymbols().stream()
                         .filter(referencedOutputs::contains)
                         .collect(toImmutableList());
 
         return Optional.of(
                 new IndexSourceNode(
-                        indexSourceNode.getId(),
+                        indexSourceNode.id(),
                         indexSourceNode.getIndexHandle(),
                         indexSourceNode.getTableHandle(),
                         prunedLookupSymbols,

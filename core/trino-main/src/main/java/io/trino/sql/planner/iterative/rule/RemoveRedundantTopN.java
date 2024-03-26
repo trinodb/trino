@@ -46,7 +46,7 @@ public class RemoveRedundantTopN
     public Result apply(TopNNode node, Captures captures, Context context)
     {
         if (node.getCount() == 0) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(node.id(), node.outputSymbols(), ImmutableList.of()));
         }
         Cardinality sourceCardinality = extractCardinality(node.getSource(), context.getLookup());
         if (sourceCardinality.isScalar()) {

@@ -182,7 +182,7 @@ public class IterativeOptimizer
                     Rule.Result result = transform(node, rule, context);
                     timeEnd = nanoTime();
                     if (result.getTransformedPlan().isPresent()) {
-                        changedPlanNodeIds.add(result.getTransformedPlan().get().getId());
+                        changedPlanNodeIds.add(result.getTransformedPlan().get().id());
                     }
                     if (result.getTransformedPlan().isPresent()) {
                         node = context.memo.replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
@@ -259,7 +259,7 @@ public class IterativeOptimizer
         boolean progress = false;
 
         PlanNode expression = context.memo.getNode(group);
-        for (PlanNode child : expression.getSources()) {
+        for (PlanNode child : expression.sources()) {
             checkState(child instanceof GroupReference, "Expected child to be a group reference. Found: " + child.getClass().getName());
 
             if (exploreGroup(((GroupReference) child).getGroupId(), context, changedPlanNodeIds)) {

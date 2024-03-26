@@ -155,7 +155,7 @@ public class PlanNodeDecorrelator
 
             DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
             FilterNode newFilterNode = new FilterNode(
-                    node.getId(),
+                    node.id(),
                     childDecorrelationResult.node,
                     combineConjuncts(uncorrelatedPredicates));
 
@@ -196,7 +196,7 @@ public class PlanNodeDecorrelator
             }
 
             if (node.getCount() == 1) {
-                return rewriteLimitWithRowCountOne(childDecorrelationResult, node.getId());
+                return rewriteLimitWithRowCountOne(childDecorrelationResult, node.id());
             }
             return rewriteLimitWithRowCountGreaterThanOne(childDecorrelationResult, node);
         }
@@ -220,7 +220,7 @@ public class PlanNodeDecorrelator
             PlanNode decorrelatedChildNode = childDecorrelationResult.node;
             Set<Symbol> constantSymbols = childDecorrelationResult.getConstantSymbols();
 
-            if (constantSymbols.isEmpty() || !constantSymbols.containsAll(decorrelatedChildNode.getOutputSymbols())) {
+            if (constantSymbols.isEmpty() || !constantSymbols.containsAll(decorrelatedChildNode.outputSymbols())) {
                 return Optional.empty();
             }
 
@@ -229,7 +229,7 @@ public class PlanNodeDecorrelator
                     nodeId,
                     decorrelatedChildNode,
                     ImmutableMap.of(),
-                    singleGroupingSet(decorrelatedChildNode.getOutputSymbols()));
+                    singleGroupingSet(decorrelatedChildNode.outputSymbols()));
 
             return Optional.of(new DecorrelationResult(
                     aggregationNode,
@@ -262,7 +262,7 @@ public class PlanNodeDecorrelator
 
             // rewrite Limit to RowNumberNode partitioned by constant symbols
             RowNumberNode rowNumberNode = new RowNumberNode(
-                    node.getId(),
+                    node.id(),
                     decorrelatedChildNode,
                     ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
                     false,
@@ -305,7 +305,7 @@ public class PlanNodeDecorrelator
                 return decorrelatedOrderingScheme
                         .map(orderingScheme -> new DecorrelationResult(
                                 // ordering symbols are present - return decorrelated TopNNode
-                                new TopNNode(node.getId(), decorrelatedChildNode, node.getCount(), orderingScheme, node.getStep()),
+                                new TopNNode(node.id(), decorrelatedChildNode, node.getCount(), orderingScheme, node.getStep()),
                                 childDecorrelationResult.symbolsToPropagate,
                                 childDecorrelationResult.correlatedPredicates,
                                 childDecorrelationResult.correlatedSymbolsMapping,
@@ -313,7 +313,7 @@ public class PlanNodeDecorrelator
                                 node.getCount() == 1))
                         .or(() -> Optional.of(new DecorrelationResult(
                                 // no ordering symbols are left - convert to LimitNode
-                                new LimitNode(node.getId(), decorrelatedChildNode, node.getCount(), false),
+                                new LimitNode(node.id(), decorrelatedChildNode, node.getCount(), false),
                                 childDecorrelationResult.symbolsToPropagate,
                                 childDecorrelationResult.correlatedPredicates,
                                 childDecorrelationResult.correlatedSymbolsMapping,
@@ -329,7 +329,7 @@ public class PlanNodeDecorrelator
                     .map(orderingScheme -> {
                         // ordering symbols are present - rewrite TopN to TopNRankingNode partitioned by constant symbols
                         TopNRankingNode topNRankingNode = new TopNRankingNode(
-                                node.getId(),
+                                node.id(),
                                 decorrelatedChildNode,
                                 new DataOrganizationSpecification(
                                         ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
@@ -351,7 +351,7 @@ public class PlanNodeDecorrelator
                     .orElseGet(() -> {
                         // no ordering symbols are left - rewrite TopN to RowNumberNode partitioned by constant symbols
                         RowNumberNode rowNumberNode = new RowNumberNode(
-                                node.getId(),
+                                node.id(),
                                 decorrelatedChildNode,
                                 ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
                                 false,
@@ -451,7 +451,7 @@ public class PlanNodeDecorrelator
             }
 
             DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
-            Set<Symbol> nodeOutputSymbols = ImmutableSet.copyOf(node.getOutputSymbols());
+            Set<Symbol> nodeOutputSymbols = ImmutableSet.copyOf(node.outputSymbols());
             List<Symbol> symbolsToAdd = childDecorrelationResult.symbolsToPropagate.stream()
                     .filter(symbol -> !nodeOutputSymbols.contains(symbol))
                     .collect(toImmutableList());
@@ -462,7 +462,7 @@ public class PlanNodeDecorrelator
                     .build();
 
             return Optional.of(new DecorrelationResult(
-                    new ProjectNode(node.getId(), childDecorrelationResult.node, assignments),
+                    new ProjectNode(node.id(), childDecorrelationResult.node, assignments),
                     childDecorrelationResult.symbolsToPropagate,
                     childDecorrelationResult.correlatedPredicates,
                     childDecorrelationResult.correlatedSymbolsMapping,

@@ -43,7 +43,7 @@ public class RemoveRedundantLimit
     public Result apply(LimitNode limit, Captures captures, Context context)
     {
         if (limit.getCount() == 0) {
-            return Result.ofPlanNode(new ValuesNode(limit.getId(), limit.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(limit.id(), limit.outputSymbols(), ImmutableList.of()));
         }
         if (isAtMost(limit.getSource(), context.getLookup(), limit.getCount())) {
             return Result.ofPlanNode(limit.getSource());

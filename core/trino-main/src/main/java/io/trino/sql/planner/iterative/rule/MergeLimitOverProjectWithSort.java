@@ -73,7 +73,7 @@ public class MergeLimitOverProjectWithSort
         return Result.ofPlanNode(
                 project.replaceChildren(ImmutableList.of(
                         new TopNNode(
-                                parent.getId(),
+                                parent.id(),
                                 sort.getSource(),
                                 parent.getCount(),
                                 sort.getOrderingScheme(),

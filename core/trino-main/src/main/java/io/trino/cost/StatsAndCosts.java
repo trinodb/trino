@@ -62,16 +62,16 @@ public class StatsAndCosts
 
     public StatsAndCosts getForSubplan(PlanNode root)
     {
-        Iterable<PlanNode> planIterator = Traverser.forTree(PlanNode::getSources)
+        Iterable<PlanNode> planIterator = Traverser.forTree(PlanNode::sources)
                 .depthFirstPreOrder(root);
         ImmutableMap.Builder<PlanNodeId, PlanNodeStatsEstimate> filteredStats = ImmutableMap.builder();
         ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> filteredCosts = ImmutableMap.builder();
         for (PlanNode node : planIterator) {
-            if (stats.containsKey(node.getId())) {
-                filteredStats.put(node.getId(), stats.get(node.getId()));
+            if (stats.containsKey(node.id())) {
+                filteredStats.put(node.id(), stats.get(node.id()));
             }
-            if (costs.containsKey(node.getId())) {
-                filteredCosts.put(node.getId(), costs.get(node.getId()));
+            if (costs.containsKey(node.id())) {
+                filteredCosts.put(node.id(), costs.get(node.id()));
             }
         }
         return new StatsAndCosts(filteredStats.buildOrThrow(), filteredCosts.buildOrThrow());
@@ -79,13 +79,13 @@ public class StatsAndCosts
 
     public static StatsAndCosts create(PlanNode root, StatsProvider statsProvider, CostProvider costProvider)
     {
-        Iterable<PlanNode> planIterator = Traverser.forTree(PlanNode::getSources)
+        Iterable<PlanNode> planIterator = Traverser.forTree(PlanNode::sources)
                 .depthFirstPreOrder(root);
         ImmutableMap.Builder<PlanNodeId, PlanNodeStatsEstimate> stats = ImmutableMap.builder();
         ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> costs = ImmutableMap.builder();
         for (PlanNode node : planIterator) {
-            stats.put(node.getId(), statsProvider.getStats(node));
-            costs.put(node.getId(), costProvider.getCost(node));
+            stats.put(node.id(), statsProvider.getStats(node));
+            costs.put(node.id(), costProvider.getCost(node));
         }
         return new StatsAndCosts(stats.buildOrThrow(), costs.buildOrThrow());
     }

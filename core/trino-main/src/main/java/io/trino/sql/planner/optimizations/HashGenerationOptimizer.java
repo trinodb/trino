@@ -187,7 +187,7 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitGroupId(GroupIdNode node, HashComputationSet parentPreference)
         {
             // remove any hash symbols not exported by the source of this node
-            return planSimpleNodeWithProperties(node, parentPreference.pruneSymbols(node.getSource().getOutputSymbols()));
+            return planSimpleNodeWithProperties(node, parentPreference.pruneSymbols(node.getSource().outputSymbols()));
         }
 
         @Override
@@ -210,7 +210,7 @@ public class HashGenerationOptimizer
             // that's functionally dependent on the distinct field in the set of distinct fields of the new node to be able to propagate it downstream.
             // Currently, such precomputed hashes will be dropped by this operation.
             return new PlanWithProperties(
-                    new DistinctLimitNode(node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
+                    new DistinctLimitNode(node.id(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
                     ImmutableMap.of(hashComputation.get(), hashSymbol));
         }
 
@@ -231,7 +231,7 @@ public class HashGenerationOptimizer
             Symbol hashSymbol = child.getRequiredHashSymbol(hashComputation.get());
 
             return new PlanWithProperties(
-                    new MarkDistinctNode(node.getId(), child.getNode(), node.getMarkerSymbol(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
+                    new MarkDistinctNode(node.id(), child.getNode(), node.getMarkerSymbol(), node.getDistinctSymbols(), Optional.of(hashSymbol)),
                     child.getHashSymbols());
         }
 
@@ -252,7 +252,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new RowNumberNode(
-                            node.getId(),
+                            node.id(),
                             child.getNode(),
                             node.getPartitionBy(),
                             node.isOrderSensitive(),
@@ -279,7 +279,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new TopNRankingNode(
-                            node.getId(),
+                            node.id(),
                             child.getNode(),
                             node.getSpecification(),
                             node.getRankingType(),
@@ -348,16 +348,16 @@ public class HashGenerationOptimizer
             Set<Symbol> leftOutputSymbols = ImmutableSet.copyOf(node.getLeftOutputSymbols());
             Set<Symbol> rightOutputSymbols = ImmutableSet.copyOf(node.getRightOutputSymbols());
 
-            List<Symbol> newLeftOutputSymbols = left.getNode().getOutputSymbols().stream()
+            List<Symbol> newLeftOutputSymbols = left.getNode().outputSymbols().stream()
                     .filter(symbol -> leftOutputSymbols.contains(symbol) || preferredHashSymbols.contains(symbol))
                     .collect(toImmutableList());
-            List<Symbol> newRightOutputSymbols = right.getNode().getOutputSymbols().stream()
+            List<Symbol> newRightOutputSymbols = right.getNode().outputSymbols().stream()
                     .filter(symbol -> rightOutputSymbols.contains(symbol) || preferredHashSymbols.contains(symbol))
                     .collect(toImmutableList());
 
             return new PlanWithProperties(
                     new JoinNode(
-                            node.getId(),
+                            node.id(),
                             node.getType(),
                             left.getNode(),
                             right.getNode(),
@@ -393,7 +393,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new SemiJoinNode(
-                            node.getId(),
+                            node.id(),
                             source.getNode(),
                             filteringSource.getNode(),
                             node.getSourceJoinSymbol(),
@@ -447,7 +447,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new IndexJoinNode(
-                            node.getId(),
+                            node.id(),
                             node.getType(),
                             probe.getNode(),
                             index.getNode(),
@@ -475,7 +475,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new WindowNode(
-                            node.getId(),
+                            node.id(),
                             child.getNode(),
                             node.getSpecification(),
                             node.getWindowFunctions(),
@@ -489,7 +489,7 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitExchange(ExchangeNode node, HashComputationSet parentPreference)
         {
             // remove any hash symbols not exported by this node
-            HashComputationSet preference = parentPreference.pruneSymbols(node.getOutputSymbols());
+            HashComputationSet preference = parentPreference.pruneSymbols(node.outputSymbols());
 
             // Currently, precomputed hash values are only supported for system hash distributions without constants
             Optional<HashComputation> partitionSymbols = Optional.empty();
@@ -530,13 +530,13 @@ public class HashGenerationOptimizer
             // add hash symbols to sources
             ImmutableList.Builder<List<Symbol>> newInputs = ImmutableList.builder();
             ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
-            for (int sourceId = 0; sourceId < node.getSources().size(); sourceId++) {
-                PlanNode source = node.getSources().get(sourceId);
+            for (int sourceId = 0; sourceId < node.sources().size(); sourceId++) {
+                PlanNode source = node.sources().get(sourceId);
                 List<Symbol> inputSymbols = node.getInputs().get(sourceId);
 
                 Map<Symbol, Symbol> outputToInputMap = new HashMap<>();
                 for (int symbolId = 0; symbolId < inputSymbols.size(); symbolId++) {
-                    outputToInputMap.put(node.getOutputSymbols().get(symbolId), inputSymbols.get(symbolId));
+                    outputToInputMap.put(node.outputSymbols().get(symbolId), inputSymbols.get(symbolId));
                 }
                 Function<Symbol, Optional<Symbol>> outputToInputTranslator = symbol -> Optional.of(outputToInputMap.get(symbol));
 
@@ -557,7 +557,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new ExchangeNode(
-                            node.getId(),
+                            node.id(),
                             node.getType(),
                             node.getScope(),
                             partitioningScheme,
@@ -571,7 +571,7 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitUnion(UnionNode node, HashComputationSet parentPreference)
         {
             // remove any hash symbols not exported by this node
-            HashComputationSet preference = parentPreference.pruneSymbols(node.getOutputSymbols());
+            HashComputationSet preference = parentPreference.pruneSymbols(node.outputSymbols());
 
             // create new hash symbols
             Map<HashComputation, Symbol> newHashSymbols = new HashMap<>();
@@ -583,16 +583,16 @@ public class HashGenerationOptimizer
             ImmutableListMultimap.Builder<Symbol, Symbol> newSymbolMapping = ImmutableListMultimap.builder();
             newSymbolMapping.putAll(node.getSymbolMapping());
             ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
-            for (int sourceId = 0; sourceId < node.getSources().size(); sourceId++) {
+            for (int sourceId = 0; sourceId < node.sources().size(); sourceId++) {
                 // translate preference to input symbols
                 Map<Symbol, Symbol> outputToInputMap = new HashMap<>();
-                for (Symbol outputSymbol : node.getOutputSymbols()) {
+                for (Symbol outputSymbol : node.outputSymbols()) {
                     outputToInputMap.put(outputSymbol, node.getSymbolMapping().get(outputSymbol).get(sourceId));
                 }
                 Function<Symbol, Optional<Symbol>> outputToInputTranslator = symbol -> Optional.of(outputToInputMap.get(symbol));
 
                 HashComputationSet sourcePreference = preference.translate(outputToInputTranslator);
-                PlanWithProperties child = planAndEnforce(node.getSources().get(sourceId), sourcePreference, true, sourcePreference);
+                PlanWithProperties child = planAndEnforce(node.sources().get(sourceId), sourcePreference, true, sourcePreference);
                 newSources.add(child.getNode());
 
                 // add hash symbols to inputs
@@ -604,7 +604,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new UnionNode(
-                            node.getId(),
+                            node.id(),
                             newSources.build(),
                             newSymbolMapping.build(),
                             ImmutableList.copyOf(newSymbolMapping.build().keySet())),
@@ -640,13 +640,13 @@ public class HashGenerationOptimizer
                 }
             }
 
-            return new PlanWithProperties(new ProjectNode(node.getId(), child.getNode(), newAssignments.build()), allHashSymbols);
+            return new PlanWithProperties(new ProjectNode(node.id(), child.getNode(), newAssignments.build()), allHashSymbols);
         }
 
         @Override
         public PlanWithProperties visitUnnest(UnnestNode node, HashComputationSet parentPreference)
         {
-            PlanWithProperties child = plan(node.getSource(), parentPreference.pruneSymbols(node.getSource().getOutputSymbols()));
+            PlanWithProperties child = plan(node.getSource(), parentPreference.pruneSymbols(node.getSource().outputSymbols()));
 
             // only pass through hash symbols requested by the parent
             Map<HashComputation, Symbol> hashSymbols = new HashMap<>(child.getHashSymbols());
@@ -654,7 +654,7 @@ public class HashGenerationOptimizer
 
             return new PlanWithProperties(
                     new UnnestNode(
-                            node.getId(),
+                            node.id(),
                             child.getNode(),
                             ImmutableList.<Symbol>builder()
                                     .addAll(node.getReplicateSymbols())
@@ -676,17 +676,17 @@ public class HashGenerationOptimizer
                 HashComputationSet preferredHashes,
                 boolean alwaysPruneExtraHashSymbols)
         {
-            if (node.getSources().isEmpty()) {
+            if (node.sources().isEmpty()) {
                 return new PlanWithProperties(node, ImmutableMap.of());
             }
 
             // There is no requirement to produce hash symbols and only preference for symbols
-            PlanWithProperties source = planAndEnforce(Iterables.getOnlyElement(node.getSources()), new HashComputationSet(), alwaysPruneExtraHashSymbols, preferredHashes);
+            PlanWithProperties source = planAndEnforce(Iterables.getOnlyElement(node.sources()), new HashComputationSet(), alwaysPruneExtraHashSymbols, preferredHashes);
             PlanNode result = replaceChildren(node, ImmutableList.of(source.getNode()));
 
             // return only hash symbols that are passed through the new node
             Map<HashComputation, Symbol> hashSymbols = new HashMap<>(source.getHashSymbols());
-            hashSymbols.values().retainAll(result.getOutputSymbols());
+            hashSymbols.values().retainAll(result.outputSymbols());
 
             return new PlanWithProperties(result, hashSymbols);
         }
@@ -731,7 +731,7 @@ public class HashGenerationOptimizer
 
             // copy through all symbols from child, except for hash symbols not needed by the parent
             Map<Symbol, HashComputation> resultHashSymbols = planWithProperties.getHashSymbols().inverse();
-            for (Symbol symbol : planWithProperties.getNode().getOutputSymbols()) {
+            for (Symbol symbol : planWithProperties.getNode().outputSymbols()) {
                 HashComputation partitionSymbols = resultHashSymbols.get(symbol);
                 if (partitionSymbols == null || requiredHashes.getHashes().contains(partitionSymbols)) {
                     assignments.putIdentity(symbol);
@@ -760,7 +760,7 @@ public class HashGenerationOptimizer
         {
             PlanWithProperties result = node.accept(this, parentPreference);
             checkState(
-                    result.getNode().getOutputSymbols().containsAll(result.getHashSymbols().values()),
+                    result.getNode().outputSymbols().containsAll(result.getHashSymbols().values()),
                     "Node %s declares hash symbols not in the output",
                     result.getNode().getClass().getSimpleName());
             return result;
@@ -827,7 +827,7 @@ public class HashGenerationOptimizer
 
         public HashComputationSet withHashComputation(PlanNode node, Optional<HashComputation> hashComputation)
         {
-            return pruneSymbols(node.getOutputSymbols()).withHashComputation(hashComputation);
+            return pruneSymbols(node.outputSymbols()).withHashComputation(hashComputation);
         }
 
         public HashComputationSet withHashComputation(Optional<HashComputation> hashComputation)
