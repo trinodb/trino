@@ -62,7 +62,7 @@ public final class ResourceGroupId
 
     public String getLastSegment()
     {
-        return segments.get(segments.size() - 1);
+        return segments.getLast();
     }
 
     @JsonValue

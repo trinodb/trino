@@ -394,7 +394,7 @@ class FunctionBinder
             int variableArgumentCount = signature.getArgumentTypes().size() - fixedArgumentNullability.size();
             argumentNullability = ImmutableList.<Boolean>builder()
                     .addAll(fixedArgumentNullability)
-                    .addAll(nCopies(variableArgumentCount, argumentNullability.get(argumentNullability.size() - 1)))
+                    .addAll(nCopies(variableArgumentCount, argumentNullability.getLast()))
                     .build();
         }
         newMetadata.argumentNullability(argumentNullability);

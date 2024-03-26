@@ -289,7 +289,7 @@ final class JsonWriter
         if (scopes.isEmpty()) {
             throw new IllegalStateException("Nesting problem");
         }
-        return scopes.get(scopes.size() - 1);
+        return scopes.getLast();
     }
 
     private void replaceCurrentScope(Scope topOfStack)

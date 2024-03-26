@@ -50,9 +50,9 @@ public class SwitchCodeGenerator
         requireNonNull(specialForm, "specialForm is null");
         returnType = specialForm.getType();
         List<RowExpression> arguments = specialForm.getArguments();
-        value = arguments.get(0);
+        value = arguments.getFirst();
 
-        RowExpression last = arguments.get(arguments.size() - 1);
+        RowExpression last = arguments.getLast();
         if (last instanceof SpecialForm && ((SpecialForm) last).getForm() == WHEN) {
             whenClauses = arguments.subList(1, arguments.size()).stream()
                     .map(SpecialForm.class::cast)

@@ -140,7 +140,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
         }
 
         // if there are multiple global aggregations, the one that is closest to the source is the "reducing" aggregation, because it reduces multiple input rows to single output row
-        AggregationNode reducingAggregation = (AggregationNode) globalAggregations.get(globalAggregations.size() - 1);
+        AggregationNode reducingAggregation = (AggregationNode) globalAggregations.getLast();
 
         // find unnest in subquery
         Optional<UnnestNode> subqueryUnnest = PlanNodeSearcher.searchFrom(reducingAggregation.getSource(), context.getLookup())
