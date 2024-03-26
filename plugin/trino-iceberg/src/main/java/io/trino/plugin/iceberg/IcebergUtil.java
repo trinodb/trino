@@ -406,9 +406,15 @@ public final class IcebergUtil
             IcebergColumnHandle columnHandle,
             Domain domain)
     {
-        return table.specs().values().stream()
+        List<PartitionSpec> partitionSpecs = table.specs().values().stream()
                 .filter(partitionSpec -> partitionSpecIds.contains(partitionSpec.specId()))
-                .allMatch(spec -> canEnforceConstraintWithinPartitioningSpec(typeOperators, spec, columnHandle, domain));
+                .collect(toImmutableList());
+
+        if (partitionSpecs.isEmpty()) {
+            return false;
+        }
+
+        return partitionSpecs.stream().allMatch(spec -> canEnforceConstraintWithinPartitioningSpec(typeOperators, spec, columnHandle, domain));
     }
 
     static boolean canEnforceConstraintWithinPartitioningSpec(TypeOperators typeOperators, PartitionSpec spec, IcebergColumnHandle column, Domain domain)

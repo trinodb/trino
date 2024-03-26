@@ -3803,6 +3803,21 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testPredicateOnDataColumnIsNotPushedDown()
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_predicate_on_data_column_is_not_pushed_down",
+                "(a integer)")) {
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE a = 10"))
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES 10", 1);
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE a = 10"))
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
+    }
+
+    @Test
     public void testPredicatesWithStructuralTypes()
     {
         String tableName = "test_predicate_with_structural_types";
