@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -28,6 +29,7 @@ import static java.util.Objects.requireNonNull;
  * The node processes the result of the Searched CASE and RIGHT JOIN
  * derived from a MERGE statement.
  */
+@Immutable
 public final class MergeProcessorNode
         extends PlanNode
 {

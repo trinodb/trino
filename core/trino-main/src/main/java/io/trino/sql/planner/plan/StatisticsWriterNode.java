@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.metadata.AnalyzeTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.sql.planner.Symbol;
@@ -27,6 +28,7 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public final class StatisticsWriterNode
         extends PlanNode
 {

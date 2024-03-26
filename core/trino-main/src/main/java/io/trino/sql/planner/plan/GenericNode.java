@@ -14,10 +14,12 @@
 package io.trino.sql.planner.plan;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 
+@Immutable
 public final class GenericNode
         extends PlanNode
 {

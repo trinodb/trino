@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -25,6 +26,7 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public final class AdaptivePlanNode
         extends PlanNode
 {
