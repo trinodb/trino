@@ -75,10 +75,10 @@ public class ServerIT
     {
         // Release names as in the https://api.adoptium.net/q/swagger-ui/#/Release%20Info/getReleaseNames
         testInstall("jdk-21.0.2+13", "/usr/lib/jvm/temurin-21", "21");
-        testUninstall("jdk-21.0.2+13", "/usr/lib/jvm/temurin-21", "21");
+        testUninstall("jdk-21.0.2+13", "/usr/lib/jvm/temurin-21");
 
         testInstall("jdk-22+36", "/usr/lib/jvm/temurin-22", "22");
-        testUninstall("jdk-22+36", "/usr/lib/jvm/temurin-22", "22");
+        testUninstall("jdk-22+36", "/usr/lib/jvm/temurin-22");
     }
 
     private void testInstall(String temurinReleaseName, String javaHome, String expectedJavaVersion)
@@ -121,7 +121,7 @@ public class ServerIT
     }
 
 
-    private void testUninstall(String temurinReleaseName, String javaHome, String expectedJavaVersion)
+    private void testUninstall(String temurinReleaseName, String javaHome)
             throws Exception
     {
         String rpm = "/" + new File(rpmHostPath).getName();
