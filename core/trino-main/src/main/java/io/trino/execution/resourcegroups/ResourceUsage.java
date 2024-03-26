@@ -21,7 +21,7 @@ import static com.google.common.math.LongMath.saturatedAdd;
 import static com.google.common.math.LongMath.saturatedSubtract;
 
 @Immutable
-class ResourceUsage
+final class ResourceUsage
 {
     private final long cpuUsageMillis;
     private final long memoryUsageBytes;
