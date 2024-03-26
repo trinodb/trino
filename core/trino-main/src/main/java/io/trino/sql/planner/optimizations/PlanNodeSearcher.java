@@ -151,7 +151,7 @@ public class PlanNodeSearcher
             checkArgument(
                     node.getSources().size() == 1,
                     "Unable to remove plan node as it contains 0 or more than 1 children");
-            return node.getSources().get(0);
+            return getOnlyElement(node.getSources());
         }
         if (recurseOnlyWhen.test(node)) {
             List<PlanNode> sources = node.getSources().stream()
@@ -175,7 +175,7 @@ public class PlanNodeSearcher
             checkArgument(
                     node.getSources().size() == 1,
                     "Unable to remove plan node as it contains 0 or more than 1 children");
-            return node.getSources().get(0);
+            return getOnlyElement(node.getSources());
         }
         if (recurseOnlyWhen.test(node)) {
             List<PlanNode> sources = node.getSources();
@@ -183,7 +183,7 @@ public class PlanNodeSearcher
                 return node;
             }
             if (sources.size() == 1) {
-                return replaceChildren(node, ImmutableList.of(removeFirstRecursive(sources.get(0))));
+                return replaceChildren(node, ImmutableList.of(removeFirstRecursive(getOnlyElement(sources))));
             }
             throw new IllegalArgumentException("Unable to remove first node when a node has multiple children, use removeAll instead");
         }
@@ -228,7 +228,7 @@ public class PlanNodeSearcher
             return node;
         }
         if (sources.size() == 1) {
-            return replaceChildren(node, ImmutableList.of(replaceFirstRecursive(node, sources.get(0))));
+            return replaceChildren(node, ImmutableList.of(replaceFirstRecursive(node, getOnlyElement(sources))));
         }
         throw new IllegalArgumentException("Unable to replace first node when a node has multiple children, use replaceAll instead");
     }
