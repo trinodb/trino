@@ -73,7 +73,6 @@ public class AzureFileSystemConfig
         return this;
     }
 
-    @NotNull
     public int getMaxWriteConcurrency()
     {
         return maxWriteConcurrency;

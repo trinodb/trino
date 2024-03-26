@@ -114,7 +114,6 @@ public class AccumuloConfig
         return this;
     }
 
-    @NotNull
     @Min(1)
     public int getCardinalityCacheSize()
     {

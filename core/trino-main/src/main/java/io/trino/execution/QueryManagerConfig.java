@@ -626,7 +626,6 @@ public class QueryManagerConfig
         return this;
     }
 
-    @NotNull
     public double getRetryDelayScaleFactor()
     {
         return retryDelayScaleFactor;

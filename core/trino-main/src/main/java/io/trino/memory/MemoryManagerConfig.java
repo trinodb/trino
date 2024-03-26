@@ -137,7 +137,6 @@ public class MemoryManagerConfig
         return this;
     }
 
-    @NotNull
     public double getFaultTolerantExecutionTaskMemoryGrowthFactor()
     {
         return faultTolerantExecutionTaskMemoryGrowthFactor;
@@ -152,7 +151,6 @@ public class MemoryManagerConfig
         return this;
     }
 
-    @NotNull
     public double getFaultTolerantExecutionTaskMemoryEstimationQuantile()
     {
         return faultTolerantExecutionTaskMemoryEstimationQuantile;
