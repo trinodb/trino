@@ -150,16 +150,16 @@ public class UnwrapYearInComparison
             Expression argument = getOnlyElement(call.arguments());
             Type argumentType = argument.type();
 
-            Object right = new IrExpressionInterpreter(expression.right(), plannerContext, session).optimize();
+            Expression right = new IrExpressionInterpreter(expression.right(), plannerContext, session).optimize();
 
-            if (right == null) {
+            if (right instanceof Constant constant && constant.value() == null) {
                 return switch (expression.operator()) {
                     case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Constant(BOOLEAN, null);
                     case IS_DISTINCT_FROM -> new Not(new IsNull(argument));
                 };
             }
 
-            if (right instanceof Expression) {
+            if (!(right instanceof Constant(Type rightType, Object rightValue))) {
                 return expression;
             }
             if (argumentType instanceof TimestampWithTimeZoneType) {
@@ -172,7 +172,7 @@ public class UnwrapYearInComparison
                 return expression;
             }
 
-            int year = toIntExact((Long) right);
+            int year = toIntExact((Long) rightValue);
             return switch (expression.operator()) {
                 case EQUAL -> between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType));
                 case NOT_EQUAL -> new Not(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType)));

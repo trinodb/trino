@@ -31,6 +31,7 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.DomainTranslator;
@@ -767,23 +768,22 @@ public final class PropertyDerivations
                 Expression expression = assignment.getValue();
 
                 Type type = expression.type();
-                IrExpressionInterpreter optimizer = new IrExpressionInterpreter(expression, plannerContext, session);
                 // TODO:
                 // We want to use a symbol resolver that looks up in the constants from the input subplan
                 // to take advantage of constant-folding for complex expressions
                 // However, that currently causes errors when those expressions operate on arrays or row types
                 // ("ROW comparison not supported for fields with null elements", etc)
-                Object value = optimizer.optimize();
+                Expression value = new IrExpressionInterpreter(expression, plannerContext, session).optimize();
 
                 if (value instanceof Reference) {
-                    Symbol symbol = Symbol.from((Reference) value);
+                    Symbol symbol = Symbol.from(value);
                     NullableValue existingConstantValue = constants.get(symbol);
                     if (existingConstantValue != null) {
                         constants.put(assignment.getKey(), new NullableValue(type, value));
                     }
                 }
-                else if (!(value instanceof Expression)) {
-                    constants.put(assignment.getKey(), new NullableValue(type, value));
+                else if (value instanceof Constant constant) {
+                    constants.put(assignment.getKey(), new NullableValue(type, constant.value()));
                 }
             }
             constants.putAll(translatedProperties.getConstants());
