@@ -101,7 +101,6 @@ public class OpenSearchConfig
         return this;
     }
 
-    @NotNull
     @Min(1)
     public int getScrollSize()
     {
@@ -223,7 +222,6 @@ public class OpenSearchConfig
         return this;
     }
 
-    @NotNull
     public int getMaxHttpConnections()
     {
         return maxHttpConnections;
@@ -237,7 +235,6 @@ public class OpenSearchConfig
         return this;
     }
 
-    @NotNull
     public int getHttpThreadCount()
     {
         return httpThreadCount;
