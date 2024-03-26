@@ -983,7 +983,7 @@ public class TestLogicalPlanner
                                 new Switch(
                                         new Reference(BOOLEAN, "is_distinct"),
                                         ImmutableList.of(new WhenClause(TRUE, TRUE)),
-                                        Optional.of(new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN))),
+                                        new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN)),
                                 project(
                                         markDistinct("is_distinct", ImmutableList.of("unique"),
                                                 join(LEFT, builder -> builder
@@ -1001,7 +1001,7 @@ public class TestLogicalPlanner
                                 new Switch(
                                         new Reference(BOOLEAN, "is_distinct"),
                                         ImmutableList.of(new WhenClause(TRUE, TRUE)),
-                                        Optional.of(new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN))),
+                                        new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN)),
                                 project(
                                         markDistinct("is_distinct", ImmutableList.of("unique"),
                                                 join(LEFT, builder -> builder
@@ -1259,7 +1259,7 @@ public class TestLogicalPlanner
                                 new Switch(
                                         new Reference(BOOLEAN, "is_distinct"),
                                         ImmutableList.of(new WhenClause(TRUE, TRUE)),
-                                        Optional.of(new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN))),
+                                        new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN)),
                                 project(markDistinct(
                                         "is_distinct",
                                         ImmutableList.of("unique"),

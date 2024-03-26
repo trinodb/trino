@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -26,7 +25,7 @@ import static io.trino.sql.ir.IrUtils.validateType;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record Case(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+public record Case(List<WhenClause> whenClauses, Expression defaultValue)
         implements Expression
 {
     public Case
@@ -42,9 +41,7 @@ public record Case(List<WhenClause> whenClauses, Optional<Expression> defaultVal
             validateType(whenClauses.getFirst().getResult().type(), whenClauses.get(i).getResult());
         }
 
-        if (defaultValue.isPresent()) {
-            validateType(whenClauses.getFirst().getResult().type(), defaultValue.get());
-        }
+        validateType(whenClauses.getFirst().getResult().type(), defaultValue);
     }
 
     @Override
@@ -67,7 +64,8 @@ public record Case(List<WhenClause> whenClauses, Optional<Expression> defaultVal
             builder.add(clause.getOperand());
             builder.add(clause.getResult());
         });
-        defaultValue.ifPresent(builder::add);
+
+        builder.add(defaultValue);
 
         return builder.build();
     }
@@ -79,6 +77,6 @@ public record Case(List<WhenClause> whenClauses, Optional<Expression> defaultVal
                 whenClauses.stream()
                         .map(WhenClause::toString)
                         .collect(Collectors.joining(", ")),
-                defaultValue.map(Expression::toString).orElse("null"));
+                defaultValue);
     }
 }

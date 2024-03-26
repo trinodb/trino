@@ -18,13 +18,12 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.trino.sql.ir.IrUtils.validateType;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record Switch(Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+public record Switch(Expression operand, List<WhenClause> whenClauses, Expression defaultValue)
         implements Expression
 {
     public Switch
@@ -40,9 +39,7 @@ public record Switch(Expression operand, List<WhenClause> whenClauses, Optional<
             validateType(whenClauses.getFirst().getResult().type(), whenClauses.get(i).getResult());
         }
 
-        if (defaultValue.isPresent()) {
-            validateType(whenClauses.getFirst().getResult().type(), defaultValue.get());
-        }
+        validateType(whenClauses.getFirst().getResult().type(), defaultValue);
     }
 
     @Override
@@ -68,8 +65,7 @@ public record Switch(Expression operand, List<WhenClause> whenClauses, Optional<
             builder.add(clause.getResult());
         });
 
-        defaultValue.ifPresent(builder::add);
-
+        builder.add(defaultValue);
         return builder.build();
     }
 }

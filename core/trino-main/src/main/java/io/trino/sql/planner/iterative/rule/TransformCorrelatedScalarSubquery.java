@@ -163,9 +163,9 @@ public class TransformCorrelatedScalarSubquery
                         isDistinct.toSymbolReference(),
                         ImmutableList.of(
                                 new WhenClause(TRUE, TRUE)),
-                        Optional.of(new Cast(
+                        new Cast(
                                 failFunction(metadata, SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
-                                BOOLEAN))));
+                                BOOLEAN)));
 
         return Result.ofPlanNode(new ProjectNode(
                 context.getIdAllocator().getNextId(),

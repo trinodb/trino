@@ -55,6 +55,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
@@ -220,7 +221,7 @@ public class TransformCorrelatedInPredicateToJoin
                 ImmutableList.of(
                         new WhenClause(isGreaterThan(countMatchesSymbol, 0), booleanConstant(true)),
                         new WhenClause(isGreaterThan(countNullMatchesSymbol, 0), booleanConstant(null))),
-                Optional.of(booleanConstant(false)));
+                FALSE);
         return new ProjectNode(
                 idAllocator.getNextId(),
                 aggregation,
