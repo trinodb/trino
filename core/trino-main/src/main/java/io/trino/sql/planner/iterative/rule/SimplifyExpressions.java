@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.IrExpressionInterpreter;
@@ -41,12 +40,7 @@ public class SimplifyExpressions
         expression = pushDownNegations(expression);
         expression = extractCommonPredicates(expression);
         expression = normalizeOrExpression(expression);
-        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, plannerContext, session);
-        Object optimized = interpreter.optimize();
-
-        return optimized instanceof Expression optimizedExpression ?
-                optimizedExpression :
-                new Constant(expression.type(), optimized);
+        return new IrExpressionInterpreter(expression, plannerContext, session).optimize();
     }
 
     public SimplifyExpressions(PlannerContext plannerContext)

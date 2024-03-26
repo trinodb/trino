@@ -383,22 +383,21 @@ public class PreAggregateCaseAggregations
 
         Optional<Expression> cumulativeAggregationDefaultValue = Optional.empty();
         if (caseExpression.defaultValue().isPresent()) {
-            Type defaultType = getType(caseExpression.defaultValue().get());
-            Object defaultValue = optimizeExpression(caseExpression.defaultValue().get(), context);
-            if (defaultValue != null) {
+            Expression defaultValue = optimizeExpression(caseExpression.defaultValue().get(), context);
+            if (defaultValue instanceof Constant(Type type, Object value) && value != null) {
                 if (!name.equals(SUM)) {
                     return Optional.empty();
                 }
 
                 // sum aggregation is only supported if default value is null or 0, otherwise it wouldn't be cumulative
-                if (defaultType instanceof BigintType
-                        || defaultType == INTEGER
-                        || defaultType == SMALLINT
-                        || defaultType == TINYINT
-                        || defaultType == DOUBLE
-                        || defaultType == REAL
-                        || defaultType instanceof DecimalType) {
-                    if (!defaultValue.equals(0L) && !defaultValue.equals(0.0d) && !defaultValue.equals(Int128.ZERO)) {
+                if (type instanceof BigintType
+                        || type == INTEGER
+                        || type == SMALLINT
+                        || type == TINYINT
+                        || type == DOUBLE
+                        || type == REAL
+                        || type instanceof DecimalType) {
+                    if (!value.equals(0L) && !value.equals(0.0d) && !value.equals(Int128.ZERO)) {
                         return Optional.empty();
                     }
                 }
@@ -426,10 +425,9 @@ public class PreAggregateCaseAggregations
         return expression.type();
     }
 
-    private Object optimizeExpression(Expression expression, Context context)
+    private Expression optimizeExpression(Expression expression, Context context)
     {
-        IrExpressionInterpreter expressionInterpreter = new IrExpressionInterpreter(expression, plannerContext, context.getSession());
-        return expressionInterpreter.optimize();
+        return new IrExpressionInterpreter(expression, plannerContext, context.getSession()).optimize();
     }
 
     private static class CaseAggregation

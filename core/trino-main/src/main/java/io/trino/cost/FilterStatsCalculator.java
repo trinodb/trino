@@ -98,20 +98,14 @@ public class FilterStatsCalculator
     private Expression simplifyExpression(Session session, Expression predicate)
     {
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
+        Expression value = new IrExpressionInterpreter(predicate, plannerContext, session).optimize();
 
-        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(predicate, plannerContext, session);
-        Object value = interpreter.optimize();
-
-        if (value instanceof Expression expression) {
-            return expression;
-        }
-
-        if (value == null) {
+        if (value instanceof Constant constant && constant.value() == null) {
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
-            value = false;
+            value = Booleans.FALSE;
         }
 
-        return new Constant(BOOLEAN, value);
+        return value;
     }
 
     private class FilterExpressionStatsCalculatingVisitor

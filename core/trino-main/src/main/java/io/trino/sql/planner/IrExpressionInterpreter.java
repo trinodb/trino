@@ -124,14 +124,20 @@ public class IrExpressionInterpreter
         return result;
     }
 
-    public Object optimize(SymbolResolver inputs)
+    public Expression optimize(SymbolResolver inputs)
     {
-        return new Visitor(true).processWithExceptionHandling(expression, inputs);
+        Object result = new Visitor(true).processWithExceptionHandling(expression, inputs);
+
+        if (result instanceof Expression expression) {
+            return expression;
+        }
+
+        return new Constant(expression.type(), result);
     }
 
-    public Object optimize()
+    public Expression optimize()
     {
-        return new Visitor(true).processWithExceptionHandling(expression, NoOpSymbolResolver.INSTANCE);
+        return optimize(NoOpSymbolResolver.INSTANCE);
     }
 
     private class Visitor

@@ -87,11 +87,6 @@ public class TestSqlToRowExpressionTranslator
     private Expression simplifyExpression(Expression expression)
     {
         // Testing simplified expressions is important, since simplification may create CASTs or function calls that cannot be simplified by the ExpressionOptimizer
-        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION);
-        Object value = interpreter.optimize();
-
-        return value instanceof Expression optimized ?
-                optimized :
-                new Constant(expression.type(), value);
+        return new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION).optimize();
     }
 }

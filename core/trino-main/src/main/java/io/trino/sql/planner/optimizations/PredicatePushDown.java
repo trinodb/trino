@@ -1230,8 +1230,8 @@ public class PredicatePushDown
             for (Expression conjunct : extractConjuncts(inheritedPredicate)) {
                 if (isDeterministic(conjunct)) {
                     // Ignore a conjunct for this test if we cannot deterministically get responses from it
-                    Object response = nullInputEvaluator(innerSymbols, conjunct);
-                    if (response == null || Boolean.FALSE.equals(response)) {
+                    Expression response = nullInputEvaluator(innerSymbols, conjunct);
+                    if (response instanceof Constant constant && (constant.value() == null || Boolean.FALSE.equals(constant.value()))) {
                         // If there is a single conjunct that returns FALSE or NULL given all NULL inputs for the inner side symbols of an outer join
                         // then this conjunct removes all effects of the outer join, and effectively turns this into an equivalent of an inner join.
                         // So, let's just rewrite this join as an INNER join
@@ -1245,18 +1245,13 @@ public class PredicatePushDown
         // Temporary implementation for joins because the SimplifyExpressions optimizers cannot run properly on join clauses
         private Expression simplifyExpression(Expression expression)
         {
-            IrExpressionInterpreter optimizer = new IrExpressionInterpreter(expression, plannerContext, session);
-            Object object = optimizer.optimize();
-
-            return object instanceof Expression optimized ?
-                    optimized :
-                    new Constant(expression.type(), object);
+            return new IrExpressionInterpreter(expression, plannerContext, session).optimize();
         }
 
         /**
          * Evaluates an expression's response to binding the specified input symbols to NULL
          */
-        private Object nullInputEvaluator(Collection<Symbol> nullSymbols, Expression expression)
+        private Expression nullInputEvaluator(Collection<Symbol> nullSymbols, Expression expression)
         {
             return new IrExpressionInterpreter(expression, plannerContext, session)
                     .optimize(symbol -> nullSymbols.contains(symbol) ? Optional.of(new Constant(symbol.getType(), null)) : Optional.empty());
