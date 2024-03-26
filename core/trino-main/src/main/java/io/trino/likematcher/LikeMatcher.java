@@ -91,12 +91,12 @@ public class LikeMatcher
 
         int patternStart = 0;
         int patternEnd = parsed.size() - 1;
-        if (parsed.size() > 0 && parsed.get(0) instanceof Literal literal) {
+        if (parsed.size() > 0 && parsed.getFirst() instanceof Literal literal) {
             prefix = literal.value().getBytes(UTF_8);
             patternStart++;
         }
 
-        if (parsed.size() > 1 && parsed.get(parsed.size() - 1) instanceof Literal literal) {
+        if (parsed.size() > 1 && parsed.getLast() instanceof Literal literal) {
             suffix = literal.value().getBytes(UTF_8);
             patternEnd--;
         }

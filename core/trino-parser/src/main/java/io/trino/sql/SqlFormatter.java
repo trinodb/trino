@@ -334,7 +334,7 @@ public final class SqlFormatter
                 process(columns.get(i), indent + 1);
                 builder.append(",\n");
             }
-            process(columns.get(columns.size() - 1), indent + 1);
+            process(columns.getLast(), indent + 1);
             builder.append(")");
         }
 
@@ -444,7 +444,7 @@ public final class SqlFormatter
                         .append(" ");
             }
             builder.append("(");
-            process(node.getSiblings().get(node.getSiblings().size() - 1));
+            process(node.getSiblings().getLast());
             builder.append(")");
             return null;
         }
@@ -2610,7 +2610,7 @@ public final class SqlFormatter
                     append(indent, elements.get(i))
                             .append(",\n");
                 }
-                append(indent, elements.get(elements.size() - 1))
+                append(indent, elements.getLast())
                         .append("\n");
             }
         }
