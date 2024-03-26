@@ -21,6 +21,7 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.testing.TestingMetadata;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -34,7 +35,7 @@ public class TestRemoveRedundantExists
     public void testExistsFalse()
     {
         tester().assertThat(new RemoveRedundantExists())
-                .on(p -> p.apply(ImmutableMap.of(p.symbol("exists"), new ApplyNode.Exists()),
+                .on(p -> p.apply(ImmutableMap.of(p.symbol("exists", BOOLEAN), new ApplyNode.Exists()),
                         ImmutableList.of(),
                         p.values(1),
                         p.values(0)))
@@ -48,7 +49,7 @@ public class TestRemoveRedundantExists
     public void testExistsTrue()
     {
         tester().assertThat(new RemoveRedundantExists())
-                .on(p -> p.apply(ImmutableMap.of(p.symbol("exists"), new ApplyNode.Exists()),
+                .on(p -> p.apply(ImmutableMap.of(p.symbol("exists", BOOLEAN), new ApplyNode.Exists()),
                         ImmutableList.of(),
                         p.values(1),
                         p.values(1)))
@@ -62,7 +63,7 @@ public class TestRemoveRedundantExists
     public void testDoesNotFire()
     {
         tester().assertThat(new RemoveRedundantExists())
-                .on(p -> p.apply(ImmutableMap.of(p.symbol("exists"), new ApplyNode.Exists()),
+                .on(p -> p.apply(ImmutableMap.of(p.symbol("exists", BOOLEAN), new ApplyNode.Exists()),
                         ImmutableList.of(),
                         p.values(1),
                         p.tableScan(ImmutableList.of(), ImmutableMap.of())))
@@ -71,7 +72,7 @@ public class TestRemoveRedundantExists
         tester().assertThat(new RemoveRedundantExists())
                 .on(p -> p.apply(
                         ImmutableMap.<Symbol, ApplyNode.SetExpression>builder()
-                                .put(p.symbol("exists"), new ApplyNode.Exists())
+                                .put(p.symbol("exists", BOOLEAN), new ApplyNode.Exists())
                                 .put(p.symbol("other"), new ApplyNode.In(p.symbol("value"), p.symbol("list")))
                                 .buildOrThrow(),
                         ImmutableList.of(),

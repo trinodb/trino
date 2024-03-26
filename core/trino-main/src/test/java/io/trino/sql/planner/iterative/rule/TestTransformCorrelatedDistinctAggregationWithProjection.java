@@ -86,7 +86,7 @@ public class TestTransformCorrelatedDistinctAggregationWithProjection
                         JoinType.LEFT,
                         TRUE,
                         p.project(
-                                Assignments.of(p.symbol("x"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 100L)))),
+                                Assignments.of(p.symbol("x", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 100L)))),
                                 p.aggregation(innerBuilder -> innerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .source(p.filter(

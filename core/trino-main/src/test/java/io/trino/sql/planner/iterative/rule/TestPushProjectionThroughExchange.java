@@ -54,7 +54,7 @@ public class TestPushProjectionThroughExchange
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), new Constant(INTEGER, 3L)),
+                                Assignments.of(p.symbol("x", INTEGER), new Constant(INTEGER, 3L)),
                                 p.values(p.symbol("a"))))
                 .doesNotFire();
     }
@@ -90,7 +90,7 @@ public class TestPushProjectionThroughExchange
                     Symbol b = p.symbol("b");
                     Symbol c = p.symbol("c");
                     Symbol c2 = p.symbol("c2");
-                    Symbol x = p.symbol("x");
+                    Symbol x = p.symbol("x", INTEGER);
                     return p.project(
                             Assignments.of(
                                     x, new Constant(INTEGER, 3L),
@@ -126,7 +126,7 @@ public class TestPushProjectionThroughExchange
                     Symbol h1 = p.symbol("h_1");
                     Symbol c = p.symbol("c", INTEGER);
                     Symbol h = p.symbol("h");
-                    Symbol cTimes5 = p.symbol("c_times_5");
+                    Symbol cTimes5 = p.symbol("c_times_5", INTEGER);
                     return p.project(
                             Assignments.of(
                                     cTimes5, new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "c"), new Constant(INTEGER, 5L)))),

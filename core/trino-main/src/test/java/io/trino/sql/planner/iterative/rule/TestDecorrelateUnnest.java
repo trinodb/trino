@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.type.ArrayType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
@@ -348,7 +349,7 @@ public class TestDecorrelateUnnest
                         JoinType.LEFT,
                         TRUE,
                         p.project(
-                                Assignments.of(p.symbol("boolean_result"), new IsNull(new Reference(BIGINT, "unnested_corr"))),
+                                Assignments.of(p.symbol("boolean_result", BOOLEAN), new IsNull(new Reference(BIGINT, "unnested_corr"))),
                                 p.unnest(
                                         ImmutableList.of(),
                                         ImmutableList.of(new UnnestNode.Mapping(p.symbol("corr"), ImmutableList.of(p.symbol("unnested_corr")))),
@@ -414,11 +415,11 @@ public class TestDecorrelateUnnest
                         TRUE,
                         p.enforceSingleRow(
                                 p.project(
-                                        Assignments.of(p.symbol("integer_result"), ifExpression(new Reference(BOOLEAN, "boolean_result"), new Constant(INTEGER, 1L), new Constant(INTEGER, 1L))),
+                                        Assignments.of(p.symbol("integer_result", INTEGER), ifExpression(new Reference(BOOLEAN, "boolean_result"), new Constant(INTEGER, 1L), new Constant(INTEGER, 1L))),
                                         p.limit(
                                                 5,
                                                 p.project(
-                                                        Assignments.of(p.symbol("boolean_result"), new IsNull(new Reference(BIGINT, "unnested_corr"))),
+                                                        Assignments.of(p.symbol("boolean_result", BOOLEAN), new IsNull(new Reference(BIGINT, "unnested_corr"))),
                                                         p.topN(
                                                                 10,
                                                                 ImmutableList.of(p.symbol("unnested_corr")),
@@ -509,11 +510,11 @@ public class TestDecorrelateUnnest
                             TRUE,
                             p.unnest(
                                     ImmutableList.of(),
-                                    ImmutableList.of(new UnnestNode.Mapping(p.symbol("char_array"), ImmutableList.of(p.symbol("unnested_char")))),
+                                    ImmutableList.of(new UnnestNode.Mapping(p.symbol("char_array", new ArrayType(VARCHAR)), ImmutableList.of(p.symbol("unnested_char")))),
                                     Optional.empty(),
                                     LEFT,
                                     p.project(
-                                            Assignments.of(p.symbol("char_array"), regexpExtractAll),
+                                            Assignments.of(p.symbol("char_array", new ArrayType(VARCHAR)), regexpExtractAll),
                                             p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())))));
                 })
                 .matches(

@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.ArrayType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
@@ -56,7 +57,8 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction REGEXP_EXTRACT_ALL = FUNCTIONS.resolveFunction("regexp_extract_all", fromTypes(VARCHAR, VARCHAR));
     private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
-    private static final ResolvedFunction MODULUS_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
     private static final ResolvedFunction NEGATION_BIGINT = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(BIGINT));
 
     @Test
@@ -261,7 +263,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.project(
-                                Assignments.of(p.symbol("sum_1"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)))),
+                                Assignments.of(p.symbol("sum_1", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(innerBuilder -> innerBuilder
                                         .globalGrouping()
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "unnested_corr"))), ImmutableList.of(BIGINT))
@@ -310,11 +312,11 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                                     .addAggregation(p.symbol("max"), PlanBuilder.aggregation("max", ImmutableList.of(new Reference(BIGINT, "unnested_char"))), ImmutableList.of(BIGINT))
                                     .source(p.unnest(
                                             ImmutableList.of(),
-                                            ImmutableList.of(new UnnestNode.Mapping(p.symbol("char_array"), ImmutableList.of(p.symbol("unnested_char")))),
+                                            ImmutableList.of(new UnnestNode.Mapping(p.symbol("char_array", new ArrayType(VARCHAR)), ImmutableList.of(p.symbol("unnested_char")))),
                                             Optional.empty(),
                                             LEFT,
                                             p.project(
-                                                    Assignments.of(p.symbol("char_array"), regexpExtractAll),
+                                                    Assignments.of(p.symbol("char_array", new ArrayType(VARCHAR)), regexpExtractAll),
                                                     p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of())))))));
                 })
                 .matches(
@@ -345,7 +347,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                         ImmutableList.of(p.symbol("groups"), p.symbol("numbers")),
                         p.values(p.symbol("groups"), p.symbol("numbers")),
                         p.project(
-                                Assignments.of(p.symbol("sum_1"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L)))),
+                                Assignments.of(p.symbol("sum_1", BIGINT), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "sum"), new Constant(BIGINT, 1L)))),
                                 p.aggregation(globalBuilder -> globalBuilder
                                         .globalGrouping()
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "negate"))), ImmutableList.of(BIGINT))
@@ -360,7 +362,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                                                                 p.project(
                                                                         Assignments.builder()
                                                                                 .putIdentities(ImmutableList.of(p.symbol("group"), p.symbol("number")))
-                                                                                .put(p.symbol("modulo"), new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "number"), new Constant(INTEGER, 10L))))
+                                                                                .put(p.symbol("modulo", BIGINT), new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "number"), new Constant(BIGINT, 10L))))
                                                                                 .build(),
                                                                         p.unnest(
                                                                                 ImmutableList.of(),
@@ -373,7 +375,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                 .matches(
                         project(
                                 project(
-                                        ImmutableMap.of("sum_1", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))))),
+                                        ImmutableMap.of("sum_1", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "sum"), new Constant(BIGINT, 1L))))),
                                         aggregation(
                                                 singleGroupingSet("groups", "numbers", "unique"),
                                                 ImmutableMap.of(Optional.of("sum"), aggregationFunction("sum", ImmutableList.of("negated"))),
@@ -390,7 +392,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
                                                                 Optional.empty(),
                                                                 SINGLE,
                                                                 project(
-                                                                        ImmutableMap.of("modulo", expression(new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "number"), new Constant(INTEGER, 10L))))),
+                                                                        ImmutableMap.of("modulo", expression(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "number"), new Constant(BIGINT, 10L))))),
                                                                         unnest(
                                                                                 ImmutableList.of("groups", "numbers", "unique"),
                                                                                 ImmutableList.of(

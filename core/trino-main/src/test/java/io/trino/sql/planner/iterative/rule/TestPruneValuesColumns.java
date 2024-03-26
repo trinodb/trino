@@ -42,7 +42,7 @@ public class TestPruneValuesColumns
         tester().assertThat(new PruneValuesColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("y"), new Reference(INTEGER, "x")),
+                                Assignments.of(p.symbol("y", INTEGER), new Reference(INTEGER, "x")),
                                 p.values(
                                         ImmutableList.of(p.symbol("unused"), p.symbol("x")),
                                         ImmutableList.of(
@@ -105,9 +105,9 @@ public class TestPruneValuesColumns
         tester().assertThat(new PruneValuesColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("x"), new Reference(INTEGER, "x")),
+                                Assignments.of(p.symbol("x", INTEGER), new Reference(INTEGER, "x")),
                                 p.valuesOfExpressions(
-                                        ImmutableList.of(p.symbol("x"), p.symbol("y")),
+                                        ImmutableList.of(p.symbol("x", INTEGER), p.symbol("y")),
                                         ImmutableList.of(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")))), anonymousRow(BIGINT, createCharType(2)))))))
                 .doesNotFire();
     }

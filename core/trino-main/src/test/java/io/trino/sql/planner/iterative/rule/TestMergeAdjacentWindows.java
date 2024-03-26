@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
@@ -176,7 +175,7 @@ public class TestMergeAdjacentWindows
                                 ImmutableMap.of(p.symbol("lagOutput"), newWindowNodeFunction(LAG, new Symbol(DOUBLE, "a"), new Symbol(INTEGER, "one"))),
                                 p.project(
                                         Assignments.builder()
-                                                .put(p.symbol("one", INTEGER), new Cast(new Constant(INTEGER, 1L), BIGINT))
+                                                .put(p.symbol("one", INTEGER), new Constant(INTEGER, 1L))
                                                 .putIdentities(ImmutableList.of(new Symbol(DOUBLE, "a"), p.symbol("avgOutput", DOUBLE)))
                                                 .build(),
                                         p.project(
@@ -198,7 +197,7 @@ public class TestMergeAdjacentWindows
                                                 .addFunction(avgOutputAlias, windowFunction(AVG.getSignature().getName().getFunctionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME)),
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        oneAlias, PlanMatchPattern.expression(new Cast(new Constant(INTEGER, 1L), BIGINT)),
+                                                        oneAlias, PlanMatchPattern.expression(new Constant(INTEGER, 1L)),
                                                         columnAAlias, PlanMatchPattern.expression(new Reference(BIGINT, columnAAlias)),
                                                         unusedAlias, PlanMatchPattern.expression(new Reference(BIGINT, unusedAlias))),
                                                 strictProject(
