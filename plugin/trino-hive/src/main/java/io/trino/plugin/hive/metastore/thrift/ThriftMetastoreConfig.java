@@ -207,7 +207,6 @@ public class ThriftMetastoreConfig
         return this;
     }
 
-    @NotNull
     @Min(0)
     public long getDelegationTokenCacheMaximumSize()
     {
