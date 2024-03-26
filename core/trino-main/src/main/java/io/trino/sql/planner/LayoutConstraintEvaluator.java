@@ -19,6 +19,8 @@ import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Booleans;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 
 import java.util.Map;
@@ -57,9 +59,9 @@ public class LayoutConstraintEvaluator
 
         // Skip pruning if evaluation fails in a recoverable way. Failing here can cause
         // spurious query failures for partitions that would otherwise be filtered out.
-        Object optimized = TryFunction.evaluate(() -> evaluator.optimize(inputs), true);
+        Expression optimized = TryFunction.evaluate(() -> evaluator.optimize(inputs), Booleans.TRUE);
 
         // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-        return !(Boolean.FALSE.equals(optimized) || optimized == null);
+        return !(optimized instanceof Constant constant) || Boolean.TRUE.equals(constant.value());
     }
 }

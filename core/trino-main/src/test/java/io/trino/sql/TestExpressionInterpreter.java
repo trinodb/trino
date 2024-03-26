@@ -167,7 +167,7 @@ public class TestExpressionInterpreter
     {
         assertOptimizedEquals(
                 new Comparison(EQUAL, new Constant(UNKNOWN, null), new Constant(UNKNOWN, null)),
-                new Constant(UNKNOWN, null));
+                new Constant(BOOLEAN, null));
 
         assertOptimizedEquals(
                 new Comparison(EQUAL, new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("b"))),
@@ -253,15 +253,15 @@ public class TestExpressionInterpreter
     {
         assertOptimizedEquals(
                 new NullIf(new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("a"))),
-                new Constant(UNKNOWN, null));
+                new Constant(VARCHAR, null));
         assertOptimizedEquals(
                 new NullIf(new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("b"))),
                 new Constant(VARCHAR, Slices.utf8Slice("a")));
         assertOptimizedEquals(
-                new NullIf(new Constant(UNKNOWN, null), new Constant(VARCHAR, Slices.utf8Slice("b"))),
-                new Constant(UNKNOWN, null));
+                new NullIf(new Constant(VARCHAR, null), new Constant(VARCHAR, Slices.utf8Slice("b"))),
+                new Constant(VARCHAR, null));
         assertOptimizedEquals(
-                new NullIf(new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(UNKNOWN, null)),
+                new NullIf(new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, null)),
                 new Constant(VARCHAR, Slices.utf8Slice("a")));
         assertOptimizedEquals(
                 new NullIf(new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)),
@@ -363,10 +363,10 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals(
                 new In(new Constant(INTEGER, null), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, null), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
-                new Constant(UNKNOWN, null));
+                new Constant(BOOLEAN, null));
         assertOptimizedEquals(
                 new In(new Constant(INTEGER, 3L), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, null))),
-                new Constant(UNKNOWN, null));
+                new Constant(BOOLEAN, null));
 
         assertOptimizedEquals(
                 new In(new Reference(INTEGER, "bound_value"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 1234L), new Constant(INTEGER, 3L), new Constant(INTEGER, 5L))),
@@ -433,13 +433,13 @@ public class TestExpressionInterpreter
     {
         assertOptimizedEquals(
                 new Cast(new Constant(UNKNOWN, null), BIGINT, true),
-                new Constant(UNKNOWN, null));
+                new Constant(BIGINT, null));
         assertOptimizedEquals(
                 new Cast(new Constant(INTEGER, 123L), BIGINT, true),
-                new Constant(INTEGER, 123L));
+                new Constant(BIGINT, 123L));
         assertOptimizedEquals(
                 new Cast(new Constant(UNKNOWN, null), INTEGER, true),
-                new Constant(UNKNOWN, null));
+                new Constant(INTEGER, null));
         assertOptimizedEquals(
                 new Cast(new Constant(INTEGER, 123L), INTEGER, true),
                 new Constant(INTEGER, 123L));
@@ -558,7 +558,7 @@ public class TestExpressionInterpreter
                         ImmutableList.of(
                                 new WhenClause(TRUE, new Constant(INTEGER, 33L))),
                         Optional.empty()),
-                new Constant(UNKNOWN, null));
+                new Constant(INTEGER, null));
         for (Switch aSwitch : Arrays.asList(new Switch(
                         new Constant(BOOLEAN, null),
                         ImmutableList.of(
@@ -693,7 +693,7 @@ public class TestExpressionInterpreter
                                 new WhenClause(new Constant(INTEGER, 2L), new Constant(INTEGER, 2L)),
                                 new WhenClause(new Constant(INTEGER, 3L), new Constant(INTEGER, 3L))),
                         Optional.empty()),
-                new Constant(UNKNOWN, null));
+                new Constant(INTEGER, null));
 
         assertEvaluatedEquals(
                 new Switch(
@@ -799,19 +799,19 @@ public class TestExpressionInterpreter
                 new Constant(INTEGER, 3L));
         assertOptimizedEquals(
                 ifExpression(FALSE, new Constant(INTEGER, 3L), new Constant(INTEGER, null)),
-                new Constant(UNKNOWN, null));
+                new Constant(INTEGER, null));
         assertOptimizedEquals(
                 ifExpression(TRUE, new Constant(INTEGER, null), new Constant(INTEGER, 4L)),
-                new Constant(UNKNOWN, null));
+                new Constant(INTEGER, null));
         assertOptimizedEquals(
                 ifExpression(FALSE, new Constant(INTEGER, null), new Constant(INTEGER, 4L)),
                 new Constant(INTEGER, 4L));
         assertOptimizedEquals(
                 ifExpression(TRUE, new Constant(INTEGER, null), new Constant(INTEGER, null)),
-                new Constant(UNKNOWN, null));
+                new Constant(INTEGER, null));
         assertOptimizedEquals(
                 ifExpression(FALSE, new Constant(INTEGER, null), new Constant(INTEGER, null)),
-                new Constant(UNKNOWN, null));
+                new Constant(INTEGER, null));
 
         assertOptimizedEquals(
                 ifExpression(TRUE, new Call(DIVIDE_INTEGER, ImmutableList.of(new Constant(INTEGER, 0L), new Constant(INTEGER, 0L)))),

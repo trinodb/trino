@@ -69,7 +69,7 @@ public class RemoveRedundantDateTrunc
                 Expression unitExpression = node.arguments().get(0);
                 Expression argument = node.arguments().get(1);
                 if (argument.type() == DATE && unitExpression.type() instanceof VarcharType && unitExpression instanceof Constant) {
-                    Slice unitValue = (Slice) new IrExpressionInterpreter(unitExpression, plannerContext, session).optimize();
+                    Slice unitValue = (Slice) new IrExpressionInterpreter(unitExpression, plannerContext, session).evaluate();
                     if (unitValue != null && "day".equals(unitValue.toStringUtf8().toLowerCase(Locale.ENGLISH))) {
                         // date_trunc(day, a_date) is a no-op
                         return treeRewriter.rewrite(argument, context);
