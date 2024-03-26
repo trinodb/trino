@@ -14,7 +14,6 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Primitives;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -52,7 +51,6 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
-import io.trino.type.FunctionType;
 import io.trino.type.TypeCoercion;
 import io.trino.util.FastutilSetHelper;
 
@@ -60,6 +58,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -68,13 +67,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
@@ -84,19 +78,41 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.NEGATION;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
-import static io.trino.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
+import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
+import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class IrExpressionInterpreter
 {
     private static final CatalogSchemaFunctionName FAIL_NAME = builtinFunctionName("fail");
+    private static final MethodHandle LAMBDA_EVALUATOR;
+
+    static {
+        try {
+            LAMBDA_EVALUATOR = MethodHandles.lookup()
+                    .findVirtual(Visitor.class, "evaluate", methodType(Object.class, Expression.class, Map.class, new Object[0].getClass()));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final Expression expression;
     private final PlannerContext plannerContext;
@@ -119,20 +135,14 @@ public class IrExpressionInterpreter
 
     public Object evaluate()
     {
-        Object result = new Visitor(false).processWithExceptionHandling(expression, null);
-        verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
-        return result;
+        Expression result = new Visitor(true).processWithExceptionHandling(expression, NoOpSymbolResolver.INSTANCE);
+        verify(result instanceof Constant, "Expected constant, but got: " + result);
+        return ((Constant) result).value();
     }
 
     public Expression optimize(SymbolResolver inputs)
     {
-        Object result = new Visitor(true).processWithExceptionHandling(expression, inputs);
-
-        if (result instanceof Expression expression) {
-            return expression;
-        }
-
-        return new Constant(expression.type(), result);
+        return new Visitor(false).processWithExceptionHandling(expression, inputs);
     }
 
     public Expression optimize()
@@ -141,26 +151,22 @@ public class IrExpressionInterpreter
     }
 
     private class Visitor
-            extends IrVisitor<Object, SymbolResolver>
+            extends IrVisitor<Expression, SymbolResolver>
     {
-        private final boolean optimize;
+        private final boolean evaluate;
 
-        private Visitor(boolean optimize)
+        private Visitor(boolean evaluate)
         {
-            this.optimize = optimize;
+            this.evaluate = evaluate;
         }
 
-        private Object processWithExceptionHandling(Expression expression, SymbolResolver context)
+        private Expression processWithExceptionHandling(Expression expression, SymbolResolver context)
         {
-            if (expression == null) {
-                return null;
-            }
-
             try {
                 return process(expression, context);
             }
             catch (TrinoException e) {
-                if (optimize) {
+                if (!evaluate) {
                     // Certain operations like 0 / 0 or likeExpression may throw exceptions.
                     // When optimizing, do not throw the exception, but delay it until the expression is actually executed.
                     // This is to take advantage of the possibility that some other optimization removes the erroneous
@@ -173,190 +179,154 @@ public class IrExpressionInterpreter
         }
 
         @Override
-        protected Object visitReference(Reference node, SymbolResolver context)
+        protected Expression visitReference(Reference node, SymbolResolver context)
         {
             Optional<Constant> binding = context.getValue(Symbol.from(node));
             if (binding.isPresent()) {
-                return binding.get().value();
+                return binding.get();
             }
 
             return node;
         }
 
         @Override
-        protected Object visitConstant(Constant node, SymbolResolver context)
+        protected Expression visitConstant(Constant node, SymbolResolver context)
         {
-            return node.value();
+            return node;
         }
 
         @Override
-        protected Object visitIsNull(IsNull node, SymbolResolver context)
+        protected Expression visitIsNull(IsNull node, SymbolResolver context)
         {
-            Object value = processWithExceptionHandling(node.value(), context);
+            Expression value = processWithExceptionHandling(node.value(), context);
 
-            if (value instanceof Expression) {
-                return new IsNull(toExpression(value, node.value().type()));
+            if (value instanceof Constant constant) {
+                return new Constant(BOOLEAN, constant.value() == null);
             }
 
-            return value == null;
+            return new IsNull(value);
         }
 
         @Override
-        protected Object visitCase(Case node, SymbolResolver context)
+        protected Expression visitCase(Case node, SymbolResolver context)
         {
-            Object newDefault = null;
-            boolean foundNewDefault = false;
+            List<Expression> operands = node.whenClauses().stream()
+                    .map(WhenClause::getOperand)
+                    .map(operand -> processWithExceptionHandling(operand, context))
+                    .toList();
 
-            List<WhenClause> whenClauses = new ArrayList<>();
-            for (WhenClause whenClause : node.whenClauses()) {
-                Object whenOperand = processWithExceptionHandling(whenClause.getOperand(), context);
+            List<WhenClause> newClauses = new ArrayList<>();
+            Expression newDefault = null;
+            for (int i = 0; i < node.whenClauses().size() && newDefault == null; i++) {
+                Expression operand = operands.get(i);
 
-                if (whenOperand instanceof Expression) {
-                    // cannot fully evaluate, add updated whenClause
-                    whenClauses.add(new WhenClause(
-                            toExpression(whenOperand, whenClause.getOperand().type()),
-                            toExpression(processWithExceptionHandling(whenClause.getResult(), context), whenClause.getResult().type())));
+                if (operand instanceof Constant(Type type, Boolean value) && value) {
+                    newDefault = processWithExceptionHandling(node.whenClauses().get(i).getResult(), context);
                 }
-                else if (Boolean.TRUE.equals(whenOperand)) {
-                    // condition is true, use this as default
-                    foundNewDefault = true;
-                    newDefault = processWithExceptionHandling(whenClause.getResult(), context);
-                    break;
+                else if (!(operand instanceof Constant)) {
+                    newClauses.add(new WhenClause(operand, processWithExceptionHandling(node.whenClauses().get(i).getResult(), context)));
                 }
             }
 
-            Object defaultResult;
-            if (foundNewDefault) {
-                defaultResult = newDefault;
-            }
-            else {
-                defaultResult = processWithExceptionHandling(node.defaultValue(), context);
+            if (newDefault == null) {
+                newDefault = processWithExceptionHandling(node.defaultValue(), context);
             }
 
-            if (whenClauses.isEmpty()) {
-                return defaultResult;
+            if (!newClauses.isEmpty()) {
+                return new Case(newClauses, newDefault);
             }
 
-            return new Case(whenClauses, toExpression(defaultResult, ((Expression) node).type()));
+            return newDefault;
         }
 
         @Override
-        protected Object visitSwitch(Switch node, SymbolResolver context)
+        protected Expression visitSwitch(Switch node, SymbolResolver context)
         {
-            Object operand = processWithExceptionHandling(node.operand(), context);
-            Type operandType = node.operand().type();
+            ResolvedFunction equals = metadata.resolveOperator(EQUAL, ImmutableList.of(node.operand().type(), node.operand().type()));
 
-            // if operand is null, return defaultValue
-            if (operand == null) {
-                return processWithExceptionHandling(node.defaultValue(), context);
-            }
+            Expression operand = processWithExceptionHandling(node.operand(), context);
 
-            Object newDefault = null;
-            boolean foundNewDefault = false;
+            List<Expression> candidates = node.whenClauses().stream()
+                    .map(WhenClause::getOperand)
+                    .map(candidate -> processWithExceptionHandling(candidate, context))
+                    .toList();
 
-            List<WhenClause> whenClauses = new ArrayList<>();
-            for (WhenClause whenClause : node.whenClauses()) {
-                Object whenOperand = processWithExceptionHandling(whenClause.getOperand(), context);
-
-                if (whenOperand instanceof Expression || operand instanceof Expression) {
-                    // cannot fully evaluate, add updated whenClause
-                    whenClauses.add(new WhenClause(
-                            toExpression(whenOperand, whenClause.getOperand().type()),
-                            toExpression(processWithExceptionHandling(whenClause.getResult(), context), whenClause.getResult().type())));
-                }
-                else {
-                    if (whenOperand != null && isEqual(operand, operandType, whenOperand, whenClause.getOperand().type())) {
-                        // condition is true, use this as default
-                        foundNewDefault = true;
-                        newDefault = processWithExceptionHandling(whenClause.getResult(), context);
-                        break;
+            List<WhenClause> newClauses = new ArrayList<>();
+            Expression newDefault = null;
+            for (int i = 0; i < node.whenClauses().size() && newDefault == null; i++) {
+                if (operand instanceof Constant operandConstant && operandConstant.value() != null &&
+                        candidates.get(i) instanceof Constant candidateConstant && candidateConstant.value() != null) {
+                    if (Boolean.TRUE.equals(functionInvoker.invoke(equals, connectorSession, ImmutableList.of(operandConstant.value(), candidateConstant.value())))) {
+                        newDefault = processWithExceptionHandling(node.whenClauses().get(i).getResult(), context);
                     }
                 }
+                else if (!isConstantNull(operand) && !isConstantNull(candidates.get(i))) {
+                    newClauses.add(new WhenClause(candidates.get(i), processWithExceptionHandling(node.whenClauses().get(i).getResult(), context)));
+                }
             }
 
-            Object defaultResult;
-            if (foundNewDefault) {
-                defaultResult = newDefault;
-            }
-            else {
-                defaultResult = processWithExceptionHandling(node.defaultValue(), context);
+            if (newDefault == null) {
+                newDefault = processWithExceptionHandling(node.defaultValue(), context);
             }
 
-            if (whenClauses.isEmpty()) {
-                return defaultResult;
+            if (!newClauses.isEmpty()) {
+                return new Switch(operand, newClauses, newDefault);
             }
 
-            Expression defaultExpression = toExpression(defaultResult, ((Expression) node).type());
-            return new Switch(toExpression(operand, node.operand().type()), whenClauses, defaultExpression);
-        }
-
-        private boolean isEqual(Object operand1, Type type1, Object operand2, Type type2)
-        {
-            return Boolean.TRUE.equals(invokeOperator(OperatorType.EQUAL, ImmutableList.of(type1, type2), ImmutableList.of(operand1, operand2)));
+            return newDefault;
         }
 
         @Override
-        protected Object visitCoalesce(Coalesce node, SymbolResolver context)
+        protected Expression visitCoalesce(Coalesce node, SymbolResolver context)
         {
-            List<Object> newOperands = processOperands(node, context);
+            Set<Expression> seen = new HashSet<>();
+            List<Expression> newOperands = processArguments(node, context, seen);
+
             if (newOperands.isEmpty()) {
-                return null;
+                return new Constant(node.type(), null);
             }
+
             if (newOperands.size() == 1) {
                 return getOnlyElement(newOperands);
             }
-            return new Coalesce(newOperands.stream()
-                    .map(value -> toExpression(value, ((Expression) node).type()))
-                    .collect(toImmutableList()));
+
+            return new Coalesce(newOperands);
         }
 
-        private List<Object> processOperands(Coalesce node, SymbolResolver context)
+        private List<Expression> processArguments(Coalesce node, SymbolResolver context, Set<Expression> seen)
         {
-            List<Object> newOperands = new ArrayList<>();
-            Set<Expression> uniqueNewOperands = new HashSet<>();
+            List<Expression> newOperands = new ArrayList<>();
             for (Expression operand : node.operands()) {
-                Object value = processWithExceptionHandling(operand, context);
-                if (value instanceof Coalesce) {
-                    // The nested CoalesceExpression was recursively processed. It does not contain null.
-                    for (Expression nestedOperand : ((Coalesce) value).operands()) {
-                        // Skip duplicates unless they are non-deterministic.
-                        if (!isDeterministic(nestedOperand) || uniqueNewOperands.add(nestedOperand)) {
-                            newOperands.add(nestedOperand);
-                        }
-                        // This operand can be evaluated to a non-null value. Remaining operands can be skipped.
-                        if (nestedOperand instanceof Constant constant && constant.value() != null) {
-                            return newOperands;
-                        }
+                Expression value = processWithExceptionHandling(operand, context);
+                if (value instanceof Constant constant) {
+                    if (constant.value() != null) {
+                        newOperands.add(value);
+                        break;
                     }
                 }
-                else if (value instanceof Expression expression) {
+                else if (!(value instanceof Coalesce) && !isDeterministic(value) || seen.add(value)) {
                     // Skip duplicates unless they are non-deterministic.
-                    if (!isDeterministic(expression) || uniqueNewOperands.add(expression)) {
-                        newOperands.add(expression);
-                    }
-                }
-                else if (value != null) {
-                    // This operand can be evaluated to a non-null value. Remaining operands can be skipped.
                     newOperands.add(value);
-                    return newOperands;
+                }
+                else if (value instanceof Coalesce inner) {
+                    // The nested Coalesce was processed recursively and flattened. It does not contain null.
+                    newOperands.addAll(processArguments(inner, context, seen));
                 }
             }
             return newOperands;
         }
 
         @Override
-        protected Object visitIn(In node, SymbolResolver context)
+        protected Expression visitIn(In node, SymbolResolver context)
         {
-            Object value = processWithExceptionHandling(node.value(), context);
+            Expression value = processWithExceptionHandling(node.value(), context);
 
-            List<Expression> valueList = node.valueList();
-            // `NULL IN ()` would be false, but InListExpression cannot be empty by construction
-            if (value == null) {
-                return null;
+            if (isConstantNull(value)) {
+                return node.valueList().isEmpty() ? FALSE : NULL_BOOLEAN;
             }
 
-            Type type = node.value().type();
-            if (!(value instanceof Expression) &&
+            List<Expression> valueList = node.valueList();
+            if ((value instanceof Constant(Type type, Object constantValue)) &&
                     !(type instanceof ArrayType) && // equals/hashcode doesn't work for complex types that may contain nulls
                     !(type instanceof MapType) &&
                     !(type instanceof RowType)) {
@@ -372,515 +342,470 @@ public class IrExpressionInterpreter
                                     .map(Constant::value)
                                     .noneMatch(Objects::isNull);
                     if (nonNullConstants) {
-                        Set<Object> objectSet = valueList.stream().map(expression -> processWithExceptionHandling(expression, context)).collect(Collectors.toSet());
+                        Set<Object> values = valueList.stream()
+                                .map(expression -> ((Constant) processWithExceptionHandling(expression, context)).value())
+                                .collect(Collectors.toSet());
+
                         set = FastutilSetHelper.toFastutilHashSet(
-                                objectSet,
+                                values,
                                 type,
                                 plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle(),
-                                plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
+                                plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
                     }
                     inListCache.put(valueList, set);
                 }
 
                 if (set != null) {
-                    return set.contains(value);
+                    return new Constant(BOOLEAN, set.contains(constantValue));
                 }
             }
 
-            boolean hasUnresolvedValue = value instanceof Expression;
-            boolean hasNullValue = false;
-            boolean found = false;
-            List<Object> values = new ArrayList<>(valueList.size());
-            List<Type> types = new ArrayList<>(valueList.size());
+            ResolvedFunction equalsOperator = metadata.resolveOperator(EQUAL, ImmutableList.of(node.value().type(), node.value().type()));
 
-            ResolvedFunction equalsOperator = metadata.resolveOperator(OperatorType.EQUAL, types(node.value(), node.value()));
-            for (Expression expression : valueList) {
-                if (value instanceof Expression && expression instanceof Constant) {
-                    // skip interpreting of literal IN term since it cannot be compared
-                    // with unresolved "value" and it cannot be simplified further
-                    values.add(expression);
-                    types.add(expression.type());
-                    continue;
-                }
+            Set<Expression> seen = new HashSet<>();
+            List<Expression> values = node.valueList().stream()
+                    .map(item -> processWithExceptionHandling(item, context))
+                    .toList();
 
-                // Use process() instead of processWithExceptionHandling() for processing in-list items.
-                // Do not handle exceptions thrown while processing a single in-list expression,
-                // but fail the whole in-predicate evaluation.
-                // According to in-predicate semantics, all in-list items must be successfully evaluated
-                // before a check for the match is performed.
-                Object inValue = process(expression, context);
-                if (value instanceof Expression || inValue instanceof Expression) {
-                    hasUnresolvedValue = true;
-                    values.add(inValue);
-                    types.add(expression.type());
-                    continue;
-                }
-
-                if (inValue == null) {
-                    hasNullValue = true;
+            Constant match = null;
+            boolean hasNullMatch = false;
+            List<Expression> newList = new ArrayList<>();
+            for (Expression item : values) {
+                if (value instanceof Constant constantValue && item instanceof Constant constantItem) {
+                    Boolean equal = (Boolean) functionInvoker.invoke(equalsOperator, connectorSession, constantValue.value(), constantItem.value());
+                    if (Boolean.TRUE.equals(equal)) {
+                        if (evaluate) {
+                            return TRUE;
+                        }
+                        else {
+                            match = constantItem;
+                        }
+                    }
+                    else if (equal == null) {
+                        hasNullMatch = true;
+                    }
                 }
                 else {
-                    Boolean result = (Boolean) functionInvoker.invoke(equalsOperator, connectorSession, ImmutableList.of(value, inValue));
-                    if (result == null) {
-                        hasNullValue = true;
+                    if (!seen.contains(item)) {
+                        newList.add(item);
                     }
-                    else if (!found && result) {
-                        // in does not short-circuit so we must evaluate all value in the list
-                        found = true;
+
+                    if (isDeterministic(item)) {
+                        seen.add(item);
                     }
                 }
             }
-            if (found) {
-                return true;
-            }
 
-            if (hasUnresolvedValue) {
-                List<Expression> expressionValues = toExpressions(values, types);
-                List<Expression> simplifiedExpressionValues = Stream.concat(
-                                expressionValues.stream()
-                                        .filter(expression -> isDeterministic(expression))
-                                        .distinct(),
-                                expressionValues.stream()
-                                        .filter(expression -> !isDeterministic(expression)))
-                        .collect(toImmutableList());
-
-                if (simplifiedExpressionValues.size() == 1) {
-                    return new Comparison(Operator.EQUAL, toExpression(value, type), simplifiedExpressionValues.get(0));
+            if (match != null) {
+                if (newList.isEmpty()) {
+                    return TRUE;
                 }
 
-                return new In(toExpression(value, type), simplifiedExpressionValues);
+                // if the list is not empty, there are either unresolved expressions
+                // or expressions that would fail upon evaluation. Leave them in the
+                // list and place the match at the end to force the other expressions
+                // to be evaluated at some point
+                newList.add(match);
             }
-            if (hasNullValue) {
-                return null;
+
+            if (newList.isEmpty()) {
+                return hasNullMatch ? NULL_BOOLEAN : FALSE;
             }
-            return false;
+
+            if (newList.size() == 1) {
+                return hasNullMatch ? NULL_BOOLEAN : new Comparison(Operator.EQUAL, value, newList.getFirst());
+            }
+
+            return new In(value, newList);
         }
 
         @Override
-        protected Object visitComparison(Comparison node, SymbolResolver context)
+        protected Expression visitComparison(Comparison node, SymbolResolver context)
         {
             Operator operator = node.operator();
-            Expression left = node.left();
-            Expression right = node.right();
+            Expression left = processWithExceptionHandling(node.left(), context);
+            Expression right = processWithExceptionHandling(node.right(), context);
 
             if (operator == Operator.IS_DISTINCT_FROM) {
-                return processIsDistinctFrom(context, left, right);
-            }
-            // Execution engine does not have not equal and greater than operators, so interpret with
-            // equal or less than, but do not flip operator in result, as many optimizers depend on
-            // operators not flipping
-            if (node.operator() == Operator.NOT_EQUAL) {
-                Object result = visitComparison(flipComparison(node), context);
-                if (result == null) {
-                    return null;
+                if (left instanceof Constant(Type leftType, Object leftValue) && right instanceof Constant(Type rightType, Object rightValue)) {
+                    return new Constant(
+                            BOOLEAN,
+                            invokeOperator(IS_DISTINCT_FROM, ImmutableList.of(leftType, rightType), Arrays.asList(leftValue, rightValue)));
                 }
-                if (result instanceof Comparison) {
-                    return flipComparison((Comparison) result);
+
+                if (isConstantNull(left)) {
+                    return new Not(new IsNull(right));
                 }
-                return !(Boolean) result;
-            }
-            if (node.operator() == Operator.GREATER_THAN || node.operator() == Operator.GREATER_THAN_OR_EQUAL) {
-                Object result = visitComparison(flipComparison(node), context);
-                if (result instanceof Comparison) {
-                    return flipComparison((Comparison) result);
+
+                if (isConstantNull(right)) {
+                    return new Not(new IsNull(left));
                 }
-                return result;
             }
 
-            return processComparisonExpression(context, operator, left, right);
-        }
-
-        private Object processIsDistinctFrom(SymbolResolver context, Expression leftExpression, Expression rightExpression)
-        {
-            Object left = processWithExceptionHandling(leftExpression, context);
-            Object right = processWithExceptionHandling(rightExpression, context);
-
-            if (left == null && right instanceof Expression) {
-                return new Not(new IsNull(((Expression) right)));
+            if (left instanceof Constant(Type leftType, Object leftValue) && right instanceof Constant(Type rightType, Object rightValue)) {
+                List<Type> types = ImmutableList.of(leftType, rightType);
+                return new Constant(
+                        BOOLEAN,
+                        switch (operator) {
+                            case EQUAL -> invokeOperator(EQUAL, types, Arrays.asList(leftValue, rightValue));
+                            case NOT_EQUAL -> switch (invokeOperator(EQUAL, types, Arrays.asList(leftValue, rightValue))) {
+                                case null -> null;
+                                case Boolean result -> !result;
+                                default -> throw new IllegalStateException("Unexpected value for boolean expression");
+                            };
+                            case LESS_THAN -> invokeOperator(LESS_THAN, types, Arrays.asList(leftValue, rightValue));
+                            case LESS_THAN_OR_EQUAL -> invokeOperator(LESS_THAN_OR_EQUAL, types, Arrays.asList(leftValue, rightValue));
+                            case GREATER_THAN -> invokeOperator(LESS_THAN, types, Arrays.asList(rightValue, leftValue));
+                            case GREATER_THAN_OR_EQUAL -> invokeOperator(LESS_THAN_OR_EQUAL, types, Arrays.asList(rightValue, leftValue));
+                            default -> throw new IllegalStateException("Unexpected operator: " + operator);
+                        });
             }
 
-            if (right == null && left instanceof Expression) {
-                return new Not(new IsNull(((Expression) left)));
-            }
-
-            if (left instanceof Expression || right instanceof Expression) {
-                return new Comparison(Operator.IS_DISTINCT_FROM, toExpression(left, leftExpression.type()), toExpression(right, rightExpression.type()));
-            }
-
-            return invokeOperator(OperatorType.valueOf(Operator.IS_DISTINCT_FROM.name()), types(leftExpression, rightExpression), Arrays.asList(left, right));
-        }
-
-        private Object processComparisonExpression(SymbolResolver context, Operator operator, Expression leftExpression, Expression rightExpression)
-        {
-            Object left = processWithExceptionHandling(leftExpression, context);
-            if (left == null) {
-                return null;
-            }
-
-            Object right = processWithExceptionHandling(rightExpression, context);
-            if (right == null) {
-                return null;
-            }
-
-            if (left instanceof Expression || right instanceof Expression) {
-                return new Comparison(operator, toExpression(left, leftExpression.type()), toExpression(right, rightExpression.type()));
-            }
-
-            return invokeOperator(OperatorType.valueOf(operator.name()), types(leftExpression, rightExpression), ImmutableList.of(left, right));
-        }
-
-        // TODO define method contract or split into separate methods, as flip(EQUAL) is a negation, while flip(LESS_THAN) is just flipping sides
-        private Comparison flipComparison(Comparison comparison)
-        {
-            return switch (comparison.operator()) {
-                case EQUAL -> new Comparison(Operator.NOT_EQUAL, comparison.left(), comparison.right());
-                case NOT_EQUAL -> new Comparison(Operator.EQUAL, comparison.left(), comparison.right());
-                case LESS_THAN -> new Comparison(Operator.GREATER_THAN, comparison.right(), comparison.left());
-                case LESS_THAN_OR_EQUAL -> new Comparison(Operator.GREATER_THAN_OR_EQUAL, comparison.right(), comparison.left());
-                case GREATER_THAN -> new Comparison(Operator.LESS_THAN, comparison.right(), comparison.left());
-                case GREATER_THAN_OR_EQUAL -> new Comparison(Operator.LESS_THAN_OR_EQUAL, comparison.right(), comparison.left());
-                default -> throw new IllegalStateException("Unexpected value: " + comparison.operator());
-            };
+            return new Comparison(operator, left, right);
         }
 
         @Override
-        protected Object visitBetween(Between node, SymbolResolver context)
+        protected Expression visitBetween(Between node, SymbolResolver context)
         {
-            Object value = processWithExceptionHandling(node.value(), context);
-            if (value == null) {
-                return null;
-            }
-            Object min = processWithExceptionHandling(node.min(), context);
-            Object max = processWithExceptionHandling(node.max(), context);
+            Expression value = processWithExceptionHandling(node.value(), context);
+            Expression min = processWithExceptionHandling(node.min(), context);
+            Expression max = processWithExceptionHandling(node.max(), context);
 
-            if (value instanceof Expression || min instanceof Expression || max instanceof Expression) {
-                return new Between(
-                        toExpression(value, node.value().type()),
-                        toExpression(min, node.min().type()),
-                        toExpression(max, node.max().type()));
+            ResolvedFunction lessThanOrEqual = metadata.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(value.type(), value.type()));
+
+            if (min instanceof Constant minConstant && max instanceof Constant maxConstant) {
+                if (!isConstantNull(minConstant) && !isConstantNull(maxConstant) && !Boolean.TRUE.equals(functionInvoker.invoke(lessThanOrEqual, connectorSession, minConstant.value(), maxConstant.value()))) {
+                    return ifExpression(new Not(new IsNull(value)), FALSE);
+                }
+
+                if (value instanceof Constant valueConstant) {
+                    Boolean minComparison = (Boolean) functionInvoker.invoke(lessThanOrEqual, connectorSession, minConstant.value(), valueConstant.value());
+                    Boolean maxComparison = (Boolean) functionInvoker.invoke(lessThanOrEqual, connectorSession, valueConstant.value(), maxConstant.value());
+
+                    if (Boolean.TRUE.equals(minComparison) && Boolean.TRUE.equals(maxComparison)) {
+                        return TRUE;
+                    }
+                    else if (Boolean.FALSE.equals(minComparison) || Boolean.FALSE.equals(maxComparison)) {
+                        return FALSE;
+                    }
+                    return NULL_BOOLEAN;
+                }
+            }
+            else if (min instanceof Constant minConstant && value instanceof Constant valueConstant) {
+                Boolean comparison = (Boolean) functionInvoker.invoke(lessThanOrEqual, connectorSession, minConstant.value(), valueConstant.value());
+                return Boolean.FALSE.equals(comparison) ? FALSE : new Comparison(Operator.LESS_THAN, value, max);
+            }
+            else if (max instanceof Constant maxConstant && value instanceof Constant valueConstant) {
+                Boolean comparison = (Boolean) functionInvoker.invoke(lessThanOrEqual, connectorSession, valueConstant.value(), maxConstant.value());
+                return Boolean.FALSE.equals(comparison) ? FALSE : new Comparison(Operator.LESS_THAN, min, value);
             }
 
-            Boolean greaterOrEqualToMin = null;
-            if (min != null) {
-                greaterOrEqualToMin = (Boolean) invokeOperator(OperatorType.LESS_THAN_OR_EQUAL, types(node.min(), node.value()), ImmutableList.of(min, value));
-            }
-            Boolean lessThanOrEqualToMax = null;
-            if (max != null) {
-                lessThanOrEqualToMax = (Boolean) invokeOperator(OperatorType.LESS_THAN_OR_EQUAL, types(node.value(), node.max()), ImmutableList.of(value, max));
-            }
-
-            if (greaterOrEqualToMin == null) {
-                return Objects.equals(lessThanOrEqualToMax, Boolean.FALSE) ? false : null;
-            }
-            if (lessThanOrEqualToMax == null) {
-                return Objects.equals(greaterOrEqualToMin, Boolean.FALSE) ? false : null;
-            }
-            return greaterOrEqualToMin && lessThanOrEqualToMax;
+            return new Between(value, min, max);
         }
 
         @Override
-        protected Object visitNullIf(NullIf node, SymbolResolver context)
+        protected Expression visitNullIf(NullIf node, SymbolResolver context)
         {
-            Object first = processWithExceptionHandling(node.first(), context);
-            if (first == null) {
-                return null;
+            Expression first = processWithExceptionHandling(node.first(), context);
+            if (isConstantNull(first)) {
+                return new Constant(first.type(), null);
             }
-            Object second = processWithExceptionHandling(node.second(), context);
-            if (second == null) {
+
+            Expression second = processWithExceptionHandling(node.second(), context);
+            if (isConstantNull(second)) {
                 return first;
             }
 
-            Type firstType = node.first().type();
-            Type secondType = node.second().type();
+            if (first instanceof Constant(Type firstType, Object firstValue) && second instanceof Constant(Type secondType, Object secondValue)) {
+                Type commonType = typeCoercion.getCommonSuperType(firstType, secondType).get();
 
-            if (hasUnresolvedValue(first, second)) {
-                return new NullIf(toExpression(first, firstType), toExpression(second, secondType));
+                ResolvedFunction firstCast = metadata.getCoercion(firstType, commonType);
+                ResolvedFunction secondCast = metadata.getCoercion(secondType, commonType);
+
+                // cast(first as <common type>) == cast(second as <common type>)
+                boolean equal = Boolean.TRUE.equals(invokeOperator(
+                        EQUAL,
+                        ImmutableList.of(commonType, commonType),
+                        ImmutableList.of(
+                                functionInvoker.invoke(firstCast, connectorSession, ImmutableList.of(firstValue)),
+                                functionInvoker.invoke(secondCast, connectorSession, ImmutableList.of(secondValue)))));
+
+                return equal ? new Constant(firstType, null) : first;
             }
 
-            Type commonType = typeCoercion.getCommonSuperType(firstType, secondType).get();
-
-            ResolvedFunction firstCast = metadata.getCoercion(firstType, commonType);
-            ResolvedFunction secondCast = metadata.getCoercion(secondType, commonType);
-
-            // cast(first as <common type>) == cast(second as <common type>)
-            boolean equal = Boolean.TRUE.equals(invokeOperator(
-                    OperatorType.EQUAL,
-                    ImmutableList.of(commonType, commonType),
-                    ImmutableList.of(
-                            functionInvoker.invoke(firstCast, connectorSession, ImmutableList.of(first)),
-                            functionInvoker.invoke(secondCast, connectorSession, ImmutableList.of(second)))));
-
-            if (equal) {
-                return null;
-            }
-            return first;
+            return new NullIf(first, second);
         }
 
         @Override
-        protected Object visitNot(Not node, SymbolResolver context)
+        protected Expression visitNot(Not node, SymbolResolver context)
         {
-            Object value = processWithExceptionHandling(node.value(), context);
-            if (value == null) {
-                return null;
-            }
+            Expression argument = processWithExceptionHandling(node.value(), context);
 
-            if (value instanceof Expression) {
-                return new Not(toExpression(value, node.value().type()));
-            }
-
-            return !(Boolean) value;
-        }
-
-        @Override
-        protected Object visitLogical(Logical node, SymbolResolver context)
-        {
-            List<Object> terms = new ArrayList<>();
-            List<Type> types = new ArrayList<>();
-
-            for (Expression term : node.terms()) {
-                Object processed = processWithExceptionHandling(term, context);
-
-                switch (node.operator()) {
-                    case AND -> {
-                        if (Boolean.FALSE.equals(processed)) {
-                            return false;
-                        }
-                        if (!Boolean.TRUE.equals(processed)) {
-                            terms.add(processed);
-                            types.add(term.type());
-                        }
-                    }
-                    case OR -> {
-                        if (Boolean.TRUE.equals(processed)) {
-                            return true;
-                        }
-                        if (!Boolean.FALSE.equals(processed)) {
-                            terms.add(processed);
-                            types.add(term.type());
-                        }
-                    }
-                }
-            }
-
-            if (terms.isEmpty()) {
-                return switch (node.operator()) {
-                    case AND -> true; // terms are true
-                    case OR -> false; // all terms are false
-                };
-            }
-
-            if (terms.size() == 1) {
-                return terms.get(0);
-            }
-
-            if (terms.stream().allMatch(Objects::isNull)) {
-                return null;
-            }
-
-            ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
-            for (int i = 0; i < terms.size(); i++) {
-                expressions.add(toExpression(terms.get(i), types.get(i)));
-            }
-            return new Logical(node.operator(), expressions.build());
-        }
-
-        @Override
-        protected Object visitCall(Call node, SymbolResolver context)
-        {
-            if (node.function().getName().getFunctionName().equals(mangleOperatorName(NEGATION))) {
-                return processNegation(node, context);
-            }
-
-            List<Type> argumentTypes = new ArrayList<>();
-            List<Object> argumentValues = new ArrayList<>();
-            for (Expression expression : node.arguments()) {
-                Object value = processWithExceptionHandling(expression, context);
-                Type type = expression.type();
-                argumentValues.add(value);
-                argumentTypes.add(type);
-            }
-
-            ResolvedFunction resolvedFunction = node.function();
-            FunctionNullability functionNullability = resolvedFunction.getFunctionNullability();
-            for (int i = 0; i < argumentValues.size(); i++) {
-                Object value = argumentValues.get(i);
-                if (value == null && !functionNullability.isArgumentNullable(i)) {
-                    return null;
-                }
-            }
-
-            // do not optimize non-deterministic functions
-            if (optimize && (!resolvedFunction.isDeterministic() ||
-                    hasUnresolvedValue(argumentValues) ||
-                    isDynamicFilter(node) ||
-                    resolvedFunction.getSignature().getName().equals(FAIL_NAME))) {
-                return ResolvedFunctionCallBuilder.builder(resolvedFunction)
-                        .setArguments(toExpressions(argumentValues, argumentTypes))
-                        .build();
-            }
-            return functionInvoker.invoke(resolvedFunction, connectorSession, argumentValues);
-        }
-
-        private Object processNegation(Call negation, SymbolResolver context)
-        {
-            Object value = processWithExceptionHandling(negation.arguments().getFirst(), context);
-
-            return switch (value) {
-                case Call inner when inner.function().getName().getFunctionName().equals(mangleOperatorName(NEGATION)) -> inner.arguments().getFirst(); // double negation
-                case Expression inner -> new Call(negation.function(), ImmutableList.of(inner));
-                case null -> null;
-                default -> functionInvoker.invoke(negation.function(), connectorSession, ImmutableList.of(value));
+            return switch (argument) {
+                case Constant constant when constant.value() == null -> NULL_BOOLEAN;
+                case Constant(Type type, Boolean value) -> new Constant(BOOLEAN, !value);
+                default -> new Not(argument);
             };
         }
 
         @Override
-        protected Object visitLambda(Lambda node, SymbolResolver context)
+        protected Expression visitLogical(Logical node, SymbolResolver context)
         {
-            if (optimize) {
-                // TODO: enable optimization related to lambda expression
-                // A mechanism to convert function type back into lambda expression need to exist to enable optimization
-                Object value = processWithExceptionHandling(node.body(), context);
-                Expression optimizedBody;
+            List<Expression> terms = node.terms().stream()
+                    .map(term -> processWithExceptionHandling(term, context))
+                    .toList();
 
-                // value may be null, converted to an expression by toExpression(value, type)
-                if (value instanceof Expression) {
-                    optimizedBody = (Expression) value;
+            Set<Expression> seen = new HashSet<>();
+            List<Expression> newTerms = new ArrayList<>();
+            for (Expression term : terms) {
+                if (term instanceof Constant(Type type, Boolean value)) {
+                    if (node.operator() == AND && !value) {
+                        return FALSE;
+                    }
+
+                    if (node.operator() == OR && value) {
+                        return TRUE;
+                    }
+                }
+                else if (!seen.contains(term)) {
+                    newTerms.add(term);
+
+                    if (isDeterministic(term)) {
+                        seen.add(term);
+                    }
+                }
+            }
+
+            if (newTerms.isEmpty()) {
+                return switch (node.operator()) {
+                    case AND -> TRUE; // terms are true
+                    case OR -> FALSE; // all terms are false
+                };
+            }
+
+            if (newTerms.size() == 1) {
+                return newTerms.getFirst();
+            }
+
+            return new Logical(node.operator(), newTerms);
+        }
+
+        @Override
+        protected Expression visitCall(Call node, SymbolResolver context)
+        {
+            ResolvedFunction function = node.function();
+            if (function.getName().getFunctionName().equals(mangleOperatorName(NEGATION))) {
+                return processNegation(node, context);
+            }
+
+            List<Expression> arguments = node.arguments().stream()
+                    .map(argument -> processWithExceptionHandling(argument, context))
+                    .toList();
+
+            FunctionNullability nullability = function.getFunctionNullability();
+            for (int i = 0; i < arguments.size(); i++) {
+                Expression argument = arguments.get(i);
+                if (isConstantNull(argument) && !nullability.isArgumentNullable(i)) {
+                    return new Constant(node.type(), null);
+                }
+            }
+
+            if ((evaluate ||
+                    function.isDeterministic() && // constant fold non-deterministic functions only in evaluation mode
+                            !isDynamicFilter(node) &&
+                            !function.getName().equals(FAIL_NAME) &&
+                            arguments.stream().allMatch(e -> e instanceof Constant || e instanceof Lambda && isDeterministic(e)))) {
+                List<Object> argumentValues = arguments.stream()
+                        .map(argument -> switch (argument) {
+                            case Constant constant -> constant.value();
+                            case Lambda lambda -> makeLambdaInvoker(lambda);
+                            default -> throw new IllegalArgumentException("Expected lambda or constant, found: " + argument);
+                        })
+                        .collect(toList());
+
+                try {
+                    return new Constant(node.type(), functionInvoker.invoke(function, connectorSession, argumentValues));
+                }
+                catch (TrinoException e) {
+                    if (evaluate) {
+                        throw e;
+                    }
+
+                    return new Call(
+                            node.function(),
+                            node.arguments().stream()
+                                    .map(argument -> processWithExceptionHandling(argument, context))
+                                    .toList());
+                }
+            }
+
+            return new Call(function, arguments);
+        }
+
+        private Object evaluate(Expression body, Map<Symbol, Integer> mappings, Object... arguments)
+        {
+            Constant result = (Constant) new Visitor(true).process(
+                    body,
+                    symbol -> {
+                        Integer index = mappings.get(symbol);
+                        if (index == null) {
+                            return Optional.empty();
+                        }
+                        return Optional.of(new Constant(symbol.type(), arguments[index]));
+                    });
+
+            return result.value();
+        }
+
+        private MethodHandle makeLambdaInvoker(Lambda lambda)
+        {
+            Map<Symbol, Integer> mappings = new HashMap<>();
+            for (int i = 0; i < lambda.arguments().size(); i++) {
+                mappings.put(lambda.arguments().get(i), i);
+            }
+
+            return LAMBDA_EVALUATOR.bindTo(this)
+                    .bindTo(lambda.body())
+                    .bindTo(mappings)
+                    .asVarargsCollector(new Object[0].getClass());
+        }
+
+        private Expression processNegation(Call negation, SymbolResolver context)
+        {
+            Expression value = processWithExceptionHandling(negation.arguments().getFirst(), context);
+
+            return switch (value) {
+                case Constant constant -> new Constant(negation.type(), functionInvoker.invoke(negation.function(), connectorSession, ImmutableList.of(constant.value())));
+                case Call inner when inner.function().getName().equals(builtinFunctionName(NEGATION)) -> inner.arguments().getFirst(); // double negation
+                case Expression inner -> new Call(negation.function(), ImmutableList.of(inner));
+            };
+        }
+
+        @Override
+        protected Expression visitLambda(Lambda node, SymbolResolver context)
+        {
+            if (evaluate) {
+                return node;
+            }
+
+            return new Lambda(
+                    node.arguments(),
+                    processWithExceptionHandling(node.body(), context));
+        }
+
+        @Override
+        protected Expression visitBind(Bind node, SymbolResolver context)
+        {
+            List<Expression> values = node.values().stream()
+                    .map(value -> processWithExceptionHandling(value, context))
+                    .toList();
+
+            Map<Symbol, Constant> bindings = new HashMap<>();
+
+            List<Symbol> newArguments = new ArrayList<>();
+            List<Expression> newBindings = new ArrayList<>();
+            for (int i = 0; i < values.size(); i++) {
+                Symbol argument = node.function().arguments().get(i);
+                Expression value = values.get(i);
+
+                if (value instanceof Constant constant) {
+                    bindings.put(argument, constant);
                 }
                 else {
-                    Type type = node.body().type();
-                    optimizedBody = toExpression(value, type);
+                    newArguments.add(argument);
+                    newBindings.add(value);
                 }
-                return new Lambda(node.arguments(), optimizedBody);
+            }
+            for (int i = values.size(); i < node.function().arguments().size(); i++) {
+                newArguments.add(node.function().arguments().get(i));
             }
 
-            Expression body = node.body();
-            List<String> argumentNames = node.arguments().stream()
-                    .map(Symbol::name)
-                    .toList();
-            FunctionType functionType = (FunctionType) node.type();
-            checkArgument(argumentNames.size() == functionType.getArgumentTypes().size());
-
-            return generateVarArgsToMapAdapter(
-                    Primitives.wrap(functionType.getReturnType().getJavaType()),
-                    functionType.getArgumentTypes().stream()
-                            .map(Type::getJavaType)
-                            .map(Primitives::wrap)
-                            .collect(toImmutableList()),
-                    argumentNames,
-                    map -> processWithExceptionHandling(body, new LambdaSymbolResolver(map)));
-        }
-
-        @Override
-        protected Object visitBind(Bind node, SymbolResolver context)
-        {
-            List<Object> values = node.values().stream()
-                    .map(value -> processWithExceptionHandling(value, context))
-                    .collect(toList()); // values are nullable
-            Object function = processWithExceptionHandling(node.function(), context);
-
-            if (hasUnresolvedValue(values) || hasUnresolvedValue(function)) {
-                ImmutableList.Builder<Expression> builder = ImmutableList.builder();
-                for (int i = 0; i < values.size(); i++) {
-                    builder.add(toExpression(values.get(i), node.values().get(i).type()));
+            Expression body = new Visitor(false).process(node.function().body(), symbol -> {
+                Constant result = bindings.get(symbol);
+                if (result != null) {
+                    return Optional.of(result);
                 }
-
-                return new Bind(builder.build(), (Lambda) function);
-            }
-
-            return MethodHandles.insertArguments((MethodHandle) function, 0, values.toArray());
-        }
-
-        @Override
-        public Object visitCast(Cast node, SymbolResolver context)
-        {
-            Object value = processWithExceptionHandling(node.expression(), context);
-            Type targetType = node.type();
-            Type sourceType = node.expression().type();
-            if (value instanceof Expression) {
-                if (targetType.equals(sourceType)) {
-                    return value;
-                }
-
-                return new Cast((Expression) value, node.type(), node.safe());
-            }
-
-            if (value == null) {
-                return null;
-            }
-
-            ResolvedFunction operator = metadata.getCoercion(sourceType, targetType);
-
-            try {
-                return functionInvoker.invoke(operator, connectorSession, ImmutableList.of(value));
-            }
-            catch (RuntimeException e) {
-                if (node.safe()) {
-                    return null;
-                }
-                throw e;
-            }
-        }
-
-        @Override
-        protected Object visitRow(Row node, SymbolResolver context)
-        {
-            RowType rowType = (RowType) ((Expression) node).type();
-            List<Type> parameterTypes = rowType.getTypeParameters();
-            List<Expression> arguments = node.items();
-
-            int cardinality = arguments.size();
-            List<Object> values = new ArrayList<>(cardinality);
-            for (Expression argument : arguments) {
-                values.add(processWithExceptionHandling(argument, context));
-            }
-            if (hasUnresolvedValue(values)) {
-                return new Row(toExpressions(values, parameterTypes));
-            }
-            return buildRowValue(rowType, fields -> {
-                for (int i = 0; i < cardinality; ++i) {
-                    writeNativeValue(parameterTypes.get(i), fields.get(i), values.get(i));
-                }
+                return context.getValue(symbol);
             });
+
+            if (newBindings.isEmpty()) {
+                return new Lambda(newArguments, body);
+            }
+
+            return new Bind(newBindings, new Lambda(newArguments, body));
         }
 
         @Override
-        protected Object visitFieldReference(FieldReference node, SymbolResolver context)
+        public Expression visitCast(Cast node, SymbolResolver context)
         {
-            Object base = processWithExceptionHandling(node.base(), context);
-            if (base == null) {
-                return null;
-            }
+            Expression value = processWithExceptionHandling(node.expression(), context);
 
-            if (hasUnresolvedValue(base)) {
-                return new FieldReference(toExpression(base, node.base().type()), node.field());
-            }
+            return switch (value) {
+                case Expression expression when expression.type().equals(node.type()) -> expression;
+                case Constant constant when constant.value() == null -> new Constant(node.type(), null);
+                case Constant constant -> {
+                    try {
+                        yield new Constant(node.type(), functionInvoker.invoke(metadata.getCoercion(constant.type(), node.type()), connectorSession, ImmutableList.of(constant.value())));
+                    }
+                    catch (TrinoException e) {
+                        if (node.safe()) {
+                            yield new Constant(node.type(), null);
+                        }
 
-            SqlRow row = (SqlRow) base;
-            Type returnType = node.base().type().getTypeParameters().get(node.field());
-            return readNativeValue(returnType, row.getRawFieldBlock(node.field()), row.getRawIndex());
+                        if (evaluate) {
+                            throw e;
+                        }
+
+                        yield new Cast(constant, node.type());
+                    }
+                }
+                default -> new Cast(value, node.type(), node.safe());
+            };
         }
 
         @Override
-        protected Object visitExpression(Expression node, SymbolResolver context)
+        protected Expression visitRow(Row node, SymbolResolver context)
+        {
+            List<Expression> fields = node.items().stream()
+                    .map(field -> processWithExceptionHandling(field, context))
+                    .toList();
+
+            if (fields.stream().allMatch(Constant.class::isInstance)) {
+                RowType rowType = (RowType) node.type();
+                return new Constant(
+                        rowType,
+                        buildRowValue(rowType, builders -> {
+                            for (int i = 0; i < fields.size(); ++i) {
+                                writeNativeValue(fields.get(i).type(), builders.get(i), ((Constant) fields.get(i)).value());
+                            }
+                        }));
+            }
+
+            return new Row(fields);
+        }
+
+        @Override
+        protected Expression visitFieldReference(FieldReference node, SymbolResolver context)
+        {
+            Expression base = processWithExceptionHandling(node.base(), context);
+
+            return switch (base) {
+                case Constant(RowType type, SqlRow row) -> {
+                    Type fieldType = type.getFields().get(node.field()).getType();
+                    yield new Constant(
+                            fieldType,
+                            readNativeValue(fieldType, row.getRawFieldBlock(node.field()), row.getRawIndex()));
+                }
+                case Constant(RowType type, Object value) -> new Constant(type.getFields().get(node.field()).getType(), null);
+                case Row row -> row.items().get(node.field());
+                default -> new FieldReference(base, node.field());
+            };
+        }
+
+        @Override
+        protected Expression visitExpression(Expression node, SymbolResolver context)
         {
             throw new TrinoException(NOT_SUPPORTED, "not yet implemented: " + node.getClass().getName());
-        }
-
-        private List<Type> types(Expression... expressions)
-        {
-            return Stream.of(expressions)
-                    .map(Expression::type)
-                    .collect(toImmutableList());
-        }
-
-        private boolean hasUnresolvedValue(Object... values)
-        {
-            return hasUnresolvedValue(ImmutableList.copyOf(values));
-        }
-
-        private boolean hasUnresolvedValue(List<Object> values)
-        {
-            return values.stream().anyMatch(instanceOf(Expression.class));
         }
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
@@ -888,51 +813,10 @@ public class IrExpressionInterpreter
             ResolvedFunction operator = metadata.resolveOperator(operatorType, argumentTypes);
             return functionInvoker.invoke(operator, connectorSession, argumentValues);
         }
-
-        private Expression toExpression(Object base, Type type)
-        {
-            if (base instanceof Expression expression) {
-                return expression;
-            }
-
-            return new Constant(type, base);
-        }
-
-        private List<Expression> toExpressions(List<Object> values, List<Type> types)
-        {
-            checkArgument(values.size() == types.size(), "values and types do not have the same size");
-
-            ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
-            for (int i = 0; i < values.size(); i++) {
-                Object object = values.get(i);
-                expressions.add(object instanceof Expression expression ?
-                        expression :
-                        new Constant(types.get(i), object));
-            }
-            return expressions.build();
-        }
     }
 
-    private static boolean isArray(Type type)
+    private static boolean isConstantNull(Expression operand)
     {
-        return type instanceof ArrayType;
-    }
-
-    private static class LambdaSymbolResolver
-            implements SymbolResolver
-    {
-        private final Map<String, Object> values;
-
-        public LambdaSymbolResolver(Map<String, Object> values)
-        {
-            this.values = requireNonNull(values, "values is null");
-        }
-
-        @Override
-        public Optional<Constant> getValue(Symbol symbol)
-        {
-            checkState(values.containsKey(symbol.name()), "values does not contain %s", symbol);
-            return Optional.of(new Constant(symbol.type(), values.get(symbol.name())));
-        }
+        return operand instanceof Constant constant && constant.value() == null;
     }
 }
