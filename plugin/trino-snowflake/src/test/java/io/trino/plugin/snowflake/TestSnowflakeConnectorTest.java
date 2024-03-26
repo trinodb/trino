@@ -142,14 +142,14 @@ public class TestSnowflakeConnectorTest
     {
         // Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
         return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
+                .row("orderkey", "decimal(19,0)", "", "")
+                .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
                 .row("totalprice", "double", "", "")
                 .row("orderdate", "date", "", "")
                 .row("orderpriority", "varchar(15)", "", "")
                 .row("clerk", "varchar(15)", "", "")
-                .row("shippriority", "bigint", "", "")
+                .row("shippriority", "decimal(10,0)", "", "")
                 .row("comment", "varchar(79)", "", "")
                 .build();
     }
@@ -159,6 +159,20 @@ public class TestSnowflakeConnectorTest
     public void testShowColumns()
     {
         assertThat(query("SHOW COLUMNS FROM orders")).result().matches(getDescribeOrdersResult());
+    }
+
+    @Test
+    @Override
+    public void testInformationSchemaFiltering()
+    {
+        assertQuery(
+                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' LIMIT 1",
+                "SELECT 'orders' table_name");
+        // Overriding this method to change "data_type" from "bigint" to "decimal(19,0)". When creating a Trino BIGINT
+        // column using Trino Snowflake Connector, a "decimal(19,0)" column is created under the hood.
+        assertQuery(
+                "SELECT table_name FROM information_schema.columns WHERE data_type = 'decimal(19,0)' AND table_name = 'nation' and column_name = 'nationkey' LIMIT 1",
+                "SELECT 'nation' table_name");
     }
 
     @Test
@@ -177,14 +191,14 @@ public class TestSnowflakeConnectorTest
         // Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo("CREATE TABLE snowflake.tpch.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
+                        "   orderkey decimal(19, 0),\n" +
+                        "   custkey decimal(19, 0),\n" +
                         "   orderstatus varchar(1),\n" +
                         "   totalprice double,\n" +
                         "   orderdate date,\n" +
                         "   orderpriority varchar(15),\n" +
                         "   clerk varchar(15),\n" +
-                        "   shippriority bigint,\n" +
+                        "   shippriority decimal(10, 0),\n" +
                         "   comment varchar(79)\n" +
                         ")");
     }

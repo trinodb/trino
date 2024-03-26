@@ -49,30 +49,163 @@ multiple instances of the Snowflake connector.
 
 ## Type mapping
 
-Trino supports the following Snowflake data types:
+Because Trino and Snowflake each support types that the other does not, this
+connector {ref}`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
-| Snowflake Type | Trino Type     |
-| -------------- | -------------- |
-| `boolean`      | `boolean`      |
-| `tinyint`      | `bigint`       |
-| `smallint`     | `bigint`       |
-| `byteint`      | `bigint`       |
-| `int`          | `bigint`       |
-| `integer`      | `bigint`       |
-| `bigint`       | `bigint`       |
-| `float`        | `real`         |
-| `real`         | `real`         |
-| `double`       | `double`       |
-| `decimal`      | `decimal(P,S)` |
-| `varchar(n)`   | `varchar(n)`   |
-| `char(n)`      | `varchar(n)`   |
-| `binary(n)`    | `varbinary`    |
-| `varbinary`    | `varbinary`    |
-| `date`         | `date`         |
-| `time`         | `time`         |
-| `timestampntz` | `timestamp`    |
+List of [Snowflake data types](https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html).
 
-Complete list of [Snowflake data types](https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html).
+### Snowflake type to Trino type mapping
+
+The connector maps Snowflake types to the corresponding Trino types following
+this table:
+
+:::{list-table} Snowflake type to Trino type mapping
+:widths: 30, 30, 40
+:header-rows: 1
+
+* - Snowflake type
+  - Trino type
+  - Notes
+* - `NUMBER`
+  - `DECIMAL`
+  - Default precision and scale are (38,0).
+* - `DECIMAL`, `NUMERIC`
+  - `DECIMAL`
+  - Synonymous with `NUMBER`. See Snowflake 
+    [data types for fixed point numbers](https://docs.snowflake.com/en/sql-reference/data-types-numeric#data-types-for-fixed-point-numbers)
+    for more information.
+* - `INT`, `INTEGER`, `BIGINT`, `SMALLINT`, `TINYINT`, `BYTEINT`
+  - `DECIMAL(38,0)`
+  - Synonymous with `NUMBER(38,0)`. See Snowflake 
+    [data types for fixed point numbers](https://docs.snowflake.com/en/sql-reference/data-types-numeric#data-types-for-fixed-point-numbers)
+    for more information.
+* - `FLOAT`, `FLOAT4`, `FLOAT8`
+  - `DOUBLE`
+  - The names `FLOAT`, `FLOAT4`, and `FLOAT8` are for compatibility with other systems; Snowflake treats all three as
+    64-bit floating-point numbers. See Snowflake 
+    [data types for floating point numbers](https://docs.snowflake.com/en/sql-reference/data-types-numeric#data-types-for-floating-point-numbers)
+    for more information.
+* - `DOUBLE`, `DOUBLE PRECISION`, `REAL`
+  - `DOUBLE`
+  - Synonymous with `FLOAT`. See Snowflake 
+    [data types for floating point numbers](https://docs.snowflake.com/en/sql-reference/data-types-numeric#data-types-for-floating-point-numbers)
+    for more information.
+* - `VARCHAR`
+  - `VARCHAR`
+  -
+* - `CHAR`, `CHARACTER`
+  - `VARCHAR`
+  - Synonymous with `VARCHAR` except default length is `VARCHAR(1)`. See Snowflake 
+    [String & Binary Data Types](https://docs.snowflake.com/en/sql-reference/data-types-text)
+    for more information.
+* - `STRING`, `TEXT`
+  - `VARCHAR`
+  - Synonymous with `VARCHAR`. See Snowflake 
+    [String & Binary Data Types](https://docs.snowflake.com/en/sql-reference/data-types-text)
+    for more information.
+* - `BINARY`
+  - `VARBINARY`
+  - 
+* - `VARBINARY`
+  - `VARBINARY`
+  - Synonymous with `BINARY`. See Snowflake 
+    [String & Binary Data Types](https://docs.snowflake.com/en/sql-reference/data-types-text)
+    for more information.
+* - `BOOLEAN`
+  - `BOOLEAN`
+  - 
+* - `DATE`
+  - `DATE`
+  -
+* - `TIME`
+  - `TIME`
+  -
+* - `TIMESTAMP_NTZ`
+  - `TIMESTAMP`
+  - TIMESTAMP with no time zone; time zone, if provided, is not stored. See Snowflake 
+    [Date & Time Data Types](https://docs.snowflake.com/en/sql-reference/data-types-datetime)
+    for more information.
+* - `DATETIME`
+  - `TIMESTAMP`
+  - Alias for `TIMESTAMP_NTZ`. See Snowflake 
+    [Date & Time Data Types](https://docs.snowflake.com/en/sql-reference/data-types-datetime)
+    for more information.
+* - `TIMESTAMP`
+  - `TIMESTAMP`
+  - Alias for one of the `TIMESTAMP` variations (`TIMESTAMP_NTZ` by default). This connector always sets `TIMESTAMP_NTZ` as the variant.
+* - `TIMESTAMP_TZ`
+  - `TIMESTAMP WITH TIME ZONE`
+  - TIMESTAMP with time zone.
+:::
+
+No other types are supported.
+
+### Trino type to Snowflake type mapping
+
+The connector maps Trino types to the corresponding Snowflake types following
+this table:
+
+:::{list-table} Trino type to Snowflake type mapping
+:widths: 30, 30, 40
+:header-rows: 1
+
+* - Trino type
+  - Snowflake type
+  - Notes
+* - `TINYINT`
+  - `NUMBER(3, 0)`
+  -
+* - `SMALLINT`
+  - `NUMBER(5, 0)`
+  -
+* - `INTEGER`
+  - `NUMBER(10, 0)`
+  -
+* - `BIGINT`
+  - `NUMBER(19, 0)`
+  -
+* - `DECIMAL`
+  - `NUMBER`
+  -
+* - `REAL`
+  - `DOUBLE`
+  -
+* - `DOUBLE`
+  - `DOUBLE`
+  -
+* - `VARCHAR`
+  - `VARCHAR`
+  -
+* - `CHAR`
+  - `VARCHAR`
+  -
+* - `VARBINARY`
+  - `BINARY`
+  -
+* - `VARBINARY`
+  - `VARBINARY`
+  -
+* - `BOOLEAN`
+  - `BOOLEAN`
+  -
+* - `DATE`
+  - `DATE`
+  -
+* - `TIME`
+  - `TIME`
+  -
+* - `TIMESTAMP`
+  - `TIMESTAMP_NTZ`
+  -
+* - `TIMESTAMP WITH TIME ZONE`
+  - `TIMESTAMP_TZ`
+  -
+::::
+
+No other types are supported.
 
 (snowflake-sql-support)=
 
