@@ -37,8 +37,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class TableFunctionProcessorNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final String name;
 
     // symbols produced by the function
@@ -88,7 +89,7 @@ public final class TableFunctionProcessorNode
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("handle") TableFunctionHandle handle)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.name = requireNonNull(name, "name is null");
         this.properOutputs = ImmutableList.copyOf(properOutputs);
         this.source = requireNonNull(source, "source is null");
@@ -188,6 +189,13 @@ public final class TableFunctionProcessorNode
     public TableFunctionHandle getHandle()
     {
         return handle;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @JsonProperty

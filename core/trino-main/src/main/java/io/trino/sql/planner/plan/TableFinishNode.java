@@ -29,8 +29,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class TableFinishNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final WriterTarget target;
     private final Symbol rowCountSymbol;
@@ -46,9 +47,8 @@ public final class TableFinishNode
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
             @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor)
     {
-        super(id);
-
         checkArgument(target != null || source instanceof TableWriterNode);
+        this.id = requireNonNull(id, "id is null");
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
         this.rowCountSymbol = requireNonNull(rowCountSymbol, "rowCountSymbol is null");
@@ -85,6 +85,13 @@ public final class TableFinishNode
     public Optional<StatisticAggregationsDescriptor<Symbol>> getStatisticsAggregationDescriptor()
     {
         return statisticsAggregationDescriptor;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

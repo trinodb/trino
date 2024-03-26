@@ -29,8 +29,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class LimitNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final long count;
     private final Optional<OrderingScheme> tiesResolvingScheme;
@@ -51,7 +52,7 @@ public final class LimitNode
             @JsonProperty("partial") boolean partial,
             @JsonProperty("requiresPreSortedInputs") List<Symbol> preSortedInputs)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.partial = partial;
 
         requireNonNull(source, "source is null");
@@ -63,6 +64,13 @@ public final class LimitNode
         this.count = count;
         this.tiesResolvingScheme = tiesResolvingScheme;
         this.preSortedInputs = ImmutableList.copyOf(preSortedInputs);
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

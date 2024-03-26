@@ -27,8 +27,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class AssignUniqueId
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final Symbol idColumn;
 
@@ -38,7 +39,7 @@ public final class AssignUniqueId
             @JsonProperty("source") PlanNode source,
             @JsonProperty("idColumn") Symbol idColumn)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.source = requireNonNull(source, "source is null");
         this.idColumn = requireNonNull(idColumn, "idColumn is null");
     }
@@ -56,6 +57,13 @@ public final class AssignUniqueId
     public PlanNode getSource()
     {
         return source;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

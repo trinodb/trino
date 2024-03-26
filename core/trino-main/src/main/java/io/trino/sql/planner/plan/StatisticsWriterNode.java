@@ -30,8 +30,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class StatisticsWriterNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final Symbol rowCountSymbol;
     private final WriteStatisticsTarget target;
@@ -47,7 +48,7 @@ public final class StatisticsWriterNode
             @JsonProperty("rowCountEnabled") boolean rowCountEnabled,
             @JsonProperty("descriptor") StatisticAggregationsDescriptor<Symbol> descriptor)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
         this.rowCountSymbol = requireNonNull(rowCountSymbol, "rowCountSymbol is null");
@@ -83,6 +84,13 @@ public final class StatisticsWriterNode
     public boolean isRowCountEnabled()
     {
         return rowCountEnabled;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

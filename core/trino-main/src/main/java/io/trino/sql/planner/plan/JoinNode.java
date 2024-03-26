@@ -42,7 +42,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class JoinNode
-        extends PlanNode
+        implements PlanNode
 {
     public enum DistributionType
     {
@@ -50,6 +50,7 @@ public final class JoinNode
         REPLICATED
     }
 
+    private final PlanNodeId id;
     private final JoinType type;
     private final PlanNode left;
     private final PlanNode right;
@@ -85,7 +86,7 @@ public final class JoinNode
             @JsonProperty("dynamicFilters") Map<DynamicFilterId, Symbol> dynamicFilters,
             @JsonProperty("reorderJoinStatsAndCost") Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost)
     {
-        super(id);
+        requireNonNull(id, "id is null");
         requireNonNull(type, "type is null");
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
@@ -98,6 +99,7 @@ public final class JoinNode
         requireNonNull(distributionType, "distributionType is null");
         requireNonNull(spillable, "spillable is null");
 
+        this.id = id;
         this.type = type;
         this.left = left;
         this.right = right;
@@ -231,6 +233,13 @@ public final class JoinNode
     public Optional<Symbol> getRightHashSymbol()
     {
         return rightHashSymbol;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

@@ -26,8 +26,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class EnforceSingleRowNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
 
     @JsonCreator
@@ -35,9 +36,15 @@ public final class EnforceSingleRowNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source)
     {
-        super(id);
-
+        this.id = requireNonNull(id, "id is null");
         this.source = requireNonNull(source, "source is null");
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

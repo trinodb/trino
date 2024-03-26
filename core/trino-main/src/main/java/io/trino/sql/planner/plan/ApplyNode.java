@@ -28,8 +28,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class ApplyNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode input;
     private final PlanNode subquery;
 
@@ -74,7 +75,7 @@ public final class ApplyNode
             @JsonProperty("correlation") List<Symbol> correlation,
             @JsonProperty("originSubquery") Node originSubquery)
     {
-        super(id);
+        requireNonNull(id, "id is null");
         requireNonNull(input, "input is null");
         requireNonNull(subquery, "subquery is null");
         requireNonNull(subqueryAssignments, "subqueryAssignments is null");
@@ -83,6 +84,7 @@ public final class ApplyNode
 
         checkArgument(input.outputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
 
+        this.id = id;
         this.input = input;
         this.subquery = subquery;
         this.subqueryAssignments = subqueryAssignments;
@@ -120,6 +122,14 @@ public final class ApplyNode
         return originSubquery;
     }
 
+    @JsonProperty
+    @Override
+    public PlanNodeId id()
+    {
+        return id;
+    }
+
+    @JsonProperty
     @Override
     public List<PlanNode> sources()
     {

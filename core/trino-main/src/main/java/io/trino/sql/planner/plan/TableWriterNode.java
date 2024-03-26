@@ -48,8 +48,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class TableWriterNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final WriterTarget target;
     private final Symbol rowCountSymbol;
@@ -74,12 +75,11 @@ public final class TableWriterNode
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
             @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor)
     {
-        super(id);
-
         requireNonNull(columns, "columns is null");
         requireNonNull(columnNames, "columnNames is null");
         checkArgument(columns.size() == columnNames.size(), "columns and columnNames sizes don't match");
 
+        this.id = requireNonNull(id, "id is null");
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
         this.rowCountSymbol = requireNonNull(rowCountSymbol, "rowCountSymbol is null");
@@ -153,6 +153,12 @@ public final class TableWriterNode
     public Optional<StatisticAggregationsDescriptor<Symbol>> getStatisticsAggregationDescriptor()
     {
         return statisticsAggregationDescriptor;
+    }
+
+    @Override
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

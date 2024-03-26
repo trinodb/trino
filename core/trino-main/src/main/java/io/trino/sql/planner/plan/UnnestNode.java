@@ -30,8 +30,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class UnnestNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final List<Symbol> replicateSymbols;
     private final List<Mapping> mappings;
@@ -47,7 +48,7 @@ public final class UnnestNode
             @JsonProperty("ordinalitySymbol") Optional<Symbol> ordinalitySymbol,
             @JsonProperty("joinType") JoinType joinType)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.source = requireNonNull(source, "source is null");
         this.replicateSymbols = ImmutableList.copyOf(requireNonNull(replicateSymbols, "replicateSymbols is null"));
         checkArgument(source.outputSymbols().containsAll(replicateSymbols), "Source does not contain all replicateSymbols");
@@ -100,6 +101,13 @@ public final class UnnestNode
     public JoinType getJoinType()
     {
         return joinType;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

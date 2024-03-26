@@ -41,8 +41,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class WindowNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final Set<Symbol> prePartitionedInputs;
     private final DataOrganizationSpecification specification;
@@ -60,8 +61,7 @@ public final class WindowNode
             @JsonProperty("prePartitionedInputs") Set<Symbol> prePartitionedInputs,
             @JsonProperty("preSortedOrderPrefix") int preSortedOrderPrefix)
     {
-        super(id);
-
+        requireNonNull(id, "id is null");
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
         requireNonNull(windowFunctions, "windowFunctions is null");
@@ -76,12 +76,20 @@ public final class WindowNode
         checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().getOrderBy().size()), "Cannot have sorted more symbols than those requested");
         checkArgument(preSortedOrderPrefix == 0 || partitionBy.equals(prePartitionedInputs), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
 
+        this.id = id;
         this.source = source;
         this.prePartitionedInputs = prePartitionedInputs;
         this.specification = specification;
         this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
         this.hashSymbol = hashSymbol;
         this.preSortedOrderPrefix = preSortedOrderPrefix;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

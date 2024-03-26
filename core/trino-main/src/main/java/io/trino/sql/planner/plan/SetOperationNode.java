@@ -38,9 +38,10 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public abstract sealed class SetOperationNode
-        extends PlanNode
+        implements PlanNode
         permits ExceptNode, IntersectNode, UnionNode
 {
+    private final PlanNodeId id;
     private final List<PlanNode> sources;
     private final ListMultimap<Symbol, Symbol> outputToInputs;
     private final List<Symbol> outputs;
@@ -52,13 +53,13 @@ public abstract sealed class SetOperationNode
             @JsonProperty("outputToInputs") ListMultimap<Symbol, Symbol> outputToInputs,
             @JsonProperty("outputs") List<Symbol> outputs)
     {
-        super(id);
-
+        requireNonNull(id, "id is null");
         requireNonNull(sources, "sources is null");
         checkArgument(!sources.isEmpty(), "Must have at least one source");
         requireNonNull(outputToInputs, "outputToInputs is null");
         requireNonNull(outputs, "outputs is null");
 
+        this.id = id;
         this.sources = ImmutableList.copyOf(sources);
         this.outputToInputs = ImmutableListMultimap.copyOf(outputToInputs);
         this.outputs = ImmutableList.copyOf(outputs);
@@ -73,6 +74,13 @@ public abstract sealed class SetOperationNode
                 checkArgument(sources.get(i).outputSymbols().contains(Iterables.get(expectedInputs, i)), "Source does not provide required symbols");
             }
         }
+    }
+
+    @Override
+    @JsonProperty("id")
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

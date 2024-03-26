@@ -27,8 +27,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class SimpleTableExecuteNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final Symbol output;
     private final TableExecuteHandle executeHandle;
 
@@ -38,9 +39,16 @@ public final class SimpleTableExecuteNode
             @JsonProperty("output") Symbol output,
             @JsonProperty("executeHandle") TableExecuteHandle executeHandle)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.output = requireNonNull(output, "output is null");
         this.executeHandle = requireNonNull(executeHandle, "executeHandle is null");
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

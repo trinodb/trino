@@ -27,8 +27,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class TableUpdateNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final TableHandle target;
     private final Symbol output;
 
@@ -38,7 +39,7 @@ public final class TableUpdateNode
             @JsonProperty("target") TableHandle target,
             @JsonProperty("output") Symbol output)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.target = requireNonNull(target, "target is null");
         this.output = requireNonNull(output, "output is null");
     }
@@ -59,6 +60,13 @@ public final class TableUpdateNode
     public List<Symbol> outputSymbols()
     {
         return ImmutableList.of(output);
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

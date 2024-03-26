@@ -44,8 +44,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class AggregationNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final Map<Symbol, Aggregation> aggregations;
     private final GroupingSetDescriptor groupingSets;
@@ -75,8 +76,7 @@ public final class AggregationNode
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
     {
-        super(id);
-
+        this.id = requireNonNull(id, "id is null");
         this.source = source;
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
         aggregations.values().forEach(aggregation -> aggregation.verifyArguments(step));
@@ -148,6 +148,13 @@ public final class AggregationNode
     public boolean hasNonEmptyGroupingSet()
     {
         return groupingSets.getGroupingSetCount() > groupingSets.getGlobalGroupingSets().size();
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

@@ -36,8 +36,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class GroupIdNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
 
     // in terms of output symbols
@@ -58,7 +59,7 @@ public final class GroupIdNode
             @JsonProperty("aggregationArguments") List<Symbol> aggregationArguments,
             @JsonProperty("groupIdSymbol") Symbol groupIdSymbol)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.source = requireNonNull(source, "source is null");
         this.groupingSets = listOfListsCopy(requireNonNull(groupingSets, "groupingSets is null"));
         this.groupingColumns = ImmutableMap.copyOf(requireNonNull(groupingColumns));
@@ -81,6 +82,13 @@ public final class GroupIdNode
                 .addAll(aggregationArguments)
                 .add(groupIdSymbol)
                 .build();
+    }
+
+    @JsonProperty
+    @Override
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

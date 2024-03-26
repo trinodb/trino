@@ -26,8 +26,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class ProjectNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final Assignments assignments;
 
@@ -37,11 +38,11 @@ public final class ProjectNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("assignments") Assignments assignments)
     {
-        super(id);
-
+        requireNonNull(id, "id is null");
         requireNonNull(source, "source is null");
         requireNonNull(assignments, "assignments is null");
 
+        this.id = id;
         this.source = source;
         this.assignments = assignments;
     }
@@ -56,6 +57,13 @@ public final class ProjectNode
     public Assignments getAssignments()
     {
         return assignments;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

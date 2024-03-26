@@ -28,8 +28,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class ExplainAnalyzeNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final Symbol outputSymbol;
     private final List<Symbol> actualOutputs;
@@ -43,7 +44,7 @@ public final class ExplainAnalyzeNode
             @JsonProperty("actualOutputs") List<Symbol> actualOutputs,
             @JsonProperty("verbose") boolean verbose)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.source = requireNonNull(source, "source is null");
         this.outputSymbol = requireNonNull(outputSymbol, "outputSymbol is null");
         requireNonNull(actualOutputs, "actualOutputs is null");
@@ -74,6 +75,13 @@ public final class ExplainAnalyzeNode
     public boolean isVerbose()
     {
         return verbose;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

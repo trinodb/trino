@@ -28,8 +28,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class MarkDistinctNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final Symbol markerSymbol;
 
@@ -43,7 +44,7 @@ public final class MarkDistinctNode
             @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.source = requireNonNull(source, "source is null");
         this.markerSymbol = requireNonNull(markerSymbol, "markerSymbol is null");
         this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
@@ -59,6 +60,13 @@ public final class MarkDistinctNode
                 .addAll(source.outputSymbols())
                 .add(markerSymbol)
                 .build();
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

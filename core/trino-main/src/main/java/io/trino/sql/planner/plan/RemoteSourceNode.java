@@ -29,8 +29,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class RemoteSourceNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final List<PlanFragmentId> sourceFragmentIds;
     private final List<Symbol> outputs;
     private final Optional<OrderingScheme> orderingScheme;
@@ -46,10 +47,10 @@ public final class RemoteSourceNode
             @JsonProperty("exchangeType") ExchangeNode.Type exchangeType,
             @JsonProperty("retryPolicy") RetryPolicy retryPolicy)
     {
-        super(id);
-
+        requireNonNull(id, "id is null");
         requireNonNull(outputs, "outputs is null");
 
+        this.id = id;
         this.sourceFragmentIds = sourceFragmentIds;
         this.outputs = ImmutableList.copyOf(outputs);
         this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
@@ -66,6 +67,13 @@ public final class RemoteSourceNode
             RetryPolicy retryPolicy)
     {
         this(id, ImmutableList.of(sourceFragmentId), outputs, orderingScheme, exchangeType, retryPolicy);
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

@@ -30,8 +30,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class DynamicFilterSourceNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final Map<DynamicFilterId, Symbol> dynamicFilters;
 
@@ -41,7 +42,7 @@ public final class DynamicFilterSourceNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("dynamicFilters") Map<DynamicFilterId, Symbol> dynamicFilters)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.source = requireNonNull(source, "source is null");
         this.dynamicFilters = ImmutableMap.copyOf(requireNonNull(dynamicFilters, "dynamicFilters is null"));
         Set<Symbol> outputSymbols = ImmutableSet.copyOf(source.outputSymbols());
@@ -66,6 +67,13 @@ public final class DynamicFilterSourceNode
     public PlanNode getSource()
     {
         return source;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

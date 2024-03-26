@@ -44,8 +44,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class TableScanNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final TableHandle table;
     private final List<Symbol> outputSymbols;
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
@@ -103,7 +104,7 @@ public final class TableScanNode
             boolean updateTarget,
             Optional<Boolean> useConnectorNodePartitioning)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.table = requireNonNull(table, "table is null");
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
@@ -124,7 +125,7 @@ public final class TableScanNode
             boolean updateTarget,
             Optional<Boolean> useConnectorNodePartitioning)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.table = requireNonNull(table, "table is null");
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
@@ -222,6 +223,13 @@ public final class TableScanNode
     {
         return useConnectorNodePartitioning
                 .orElseThrow(() -> new VerifyException("useConnectorNodePartitioning is not present"));
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

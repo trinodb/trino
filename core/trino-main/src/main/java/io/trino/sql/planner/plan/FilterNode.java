@@ -27,8 +27,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class FilterNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final Expression predicate;
 
@@ -37,8 +38,7 @@ public final class FilterNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("predicate") Expression predicate)
     {
-        super(id);
-
+        this.id = requireNonNull(id, "id is null");
         this.source = source;
         requireNonNull(predicate, "predicate is null");
         this.predicate = predicate;
@@ -54,6 +54,13 @@ public final class FilterNode
     public List<Symbol> outputSymbols()
     {
         return source.outputSymbols();
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

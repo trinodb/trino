@@ -29,8 +29,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class RowNumberNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final List<Symbol> partitionBy;
     /*
@@ -55,8 +56,7 @@ public final class RowNumberNode
             @JsonProperty("maxRowCountPerPartition") Optional<Integer> maxRowCountPerPartition,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
-        super(id);
-
+        requireNonNull(id, "id is null");
         requireNonNull(source, "source is null");
         requireNonNull(partitionBy, "partitionBy is null");
         checkArgument(!orderSensitive || partitionBy.isEmpty(), "unexpected partitioning in order sensitive node");
@@ -65,12 +65,20 @@ public final class RowNumberNode
         checkArgument(maxRowCountPerPartition.isEmpty() || maxRowCountPerPartition.get() > 0, "maxRowCountPerPartition must be greater than zero");
         requireNonNull(hashSymbol, "hashSymbol is null");
 
+        this.id = id;
         this.source = source;
         this.partitionBy = ImmutableList.copyOf(partitionBy);
         this.orderSensitive = orderSensitive;
         this.rowNumberSymbol = rowNumberSymbol;
         this.maxRowCountPerPartition = maxRowCountPerPartition;
         this.hashSymbol = hashSymbol;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

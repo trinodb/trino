@@ -28,8 +28,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class DistinctLimitNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final long limit;
     private final boolean partial;
@@ -45,7 +46,7 @@ public final class DistinctLimitNode
             @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.source = requireNonNull(source, "source is null");
         checkArgument(limit >= 0, "limit must be greater than or equal to zero");
         this.limit = limit;
@@ -53,6 +54,13 @@ public final class DistinctLimitNode
         this.distinctSymbols = ImmutableList.copyOf(distinctSymbols);
         this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
         checkArgument(hashSymbol.isEmpty() || !distinctSymbols.contains(hashSymbol.get()), "distinctSymbols should not contain hash symbol");
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

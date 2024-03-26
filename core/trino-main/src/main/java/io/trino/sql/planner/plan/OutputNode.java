@@ -27,8 +27,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class OutputNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final List<String> columnNames;
     private final List<Symbol> outputs; // column name = symbol
@@ -39,16 +40,23 @@ public final class OutputNode
             @JsonProperty("columns") List<String> columnNames,
             @JsonProperty("outputs") List<Symbol> outputs)
     {
-        super(id);
-
+        requireNonNull(id, "id is null");
         requireNonNull(source, "source is null");
         requireNonNull(columnNames, "columnNames is null");
         requireNonNull(outputs, "outputs is null");
         checkArgument(columnNames.size() == outputs.size(), "columnNames and assignments sizes don't match");
 
+        this.id = id;
         this.source = source;
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.outputs = ImmutableList.copyOf(outputs);
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

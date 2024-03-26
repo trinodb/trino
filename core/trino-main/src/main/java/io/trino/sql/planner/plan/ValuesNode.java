@@ -32,8 +32,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class ValuesNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final List<Symbol> outputSymbols;
     private final int rowCount;
     // If ValuesNode produces output symbols, each row in ValuesNode is represented by a single expression in `rows` list.
@@ -65,7 +66,7 @@ public final class ValuesNode
             @JsonProperty("rowCount") int rowCount,
             @JsonProperty("rows") Optional<List<Expression>> rows)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
         this.rowCount = rowCount;
 
@@ -116,6 +117,13 @@ public final class ValuesNode
     public Optional<List<Expression>> getRows()
     {
         return rows;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

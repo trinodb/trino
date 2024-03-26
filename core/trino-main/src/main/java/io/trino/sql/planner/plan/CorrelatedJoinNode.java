@@ -35,8 +35,9 @@ import static java.util.Objects.requireNonNull;
  */
 @Immutable
 public final class CorrelatedJoinNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode input;
     private final PlanNode subquery;
 
@@ -63,7 +64,7 @@ public final class CorrelatedJoinNode
             @JsonProperty("filter") Expression filter,
             @JsonProperty("originSubquery") Node originSubquery)
     {
-        super(id);
+        requireNonNull(id, "id is null");
         requireNonNull(input, "input is null");
         requireNonNull(subquery, "subquery is null");
         requireNonNull(correlation, "correlation is null");
@@ -72,6 +73,7 @@ public final class CorrelatedJoinNode
 
         checkArgument(input.outputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
 
+        this.id = id;
         this.input = input;
         this.subquery = subquery;
         this.correlation = ImmutableList.copyOf(correlation);
@@ -114,6 +116,13 @@ public final class CorrelatedJoinNode
     public Node getOriginSubquery()
     {
         return originSubquery;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class AdaptivePlanNode
-        extends PlanNode
+        implements PlanNode
 {
     private final PlanNode initialPlan;
     // We do not store the initial plan types in PlanFragment#types since initial plan is only stored for
@@ -36,6 +36,7 @@ public final class AdaptivePlanNode
     // initial plan.
     private final Set<Symbol> initialSymbols;
     private final PlanNode currentPlan;
+    private final PlanNodeId id;
 
     @JsonCreator
     public AdaptivePlanNode(
@@ -44,8 +45,7 @@ public final class AdaptivePlanNode
             @JsonProperty("initialSymbols") Set<Symbol> initialSymbols,
             @JsonProperty("currentPlan") PlanNode currentPlan)
     {
-        super(id);
-
+        this.id = requireNonNull(id, "id is null");
         this.initialPlan = requireNonNull(initialPlan, "initialPlan is null");
         this.initialSymbols = ImmutableSet.copyOf(initialSymbols);
         this.currentPlan = requireNonNull(currentPlan, "currentPlan is null");
@@ -67,6 +67,13 @@ public final class AdaptivePlanNode
     public PlanNode getCurrentPlan()
     {
         return currentPlan;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

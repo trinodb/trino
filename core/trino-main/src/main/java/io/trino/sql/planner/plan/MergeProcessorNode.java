@@ -31,8 +31,9 @@ import static java.util.Objects.requireNonNull;
  */
 @Immutable
 public final class MergeProcessorNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final MergeTarget target;
     private final Symbol rowIdSymbol;
@@ -52,8 +53,7 @@ public final class MergeProcessorNode
             @JsonProperty("redistributionColumnSymbols") List<Symbol> redistributionColumnSymbols,
             @JsonProperty("outputs") List<Symbol> outputs)
     {
-        super(id);
-
+        this.id = requireNonNull(id, "id is null");
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
         this.mergeRowSymbol = requireNonNull(mergeRowSymbol, "mergeRowSymbol is null");
@@ -104,6 +104,13 @@ public final class MergeProcessorNode
     public List<Symbol> outputSymbols()
     {
         return outputs;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

@@ -19,16 +19,25 @@ import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
+
 @Immutable
 public final class GenericNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final List<PlanNode> sources;
 
     public GenericNode(PlanNodeId id, List<PlanNode> sources)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.sources = ImmutableList.copyOf(sources);
+    }
+
+    @Override
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

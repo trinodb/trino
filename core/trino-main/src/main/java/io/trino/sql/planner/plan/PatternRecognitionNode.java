@@ -45,8 +45,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class PatternRecognitionNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final DataOrganizationSpecification specification;
     private final Optional<Symbol> hashSymbol;
@@ -91,8 +92,7 @@ public final class PatternRecognitionNode
             @JsonProperty("variableDefinitions") Map<IrLabel, ExpressionAndValuePointers> variableDefinitions)
 
     {
-        super(id);
-
+        requireNonNull(id, "id is null");
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
         requireNonNull(hashSymbol, "hashSymbol is null");
@@ -113,6 +113,7 @@ public final class PatternRecognitionNode
         requireNonNull(pattern, "pattern is null");
         requireNonNull(variableDefinitions, "variableDefinitions is null");
 
+        this.id = id;
         this.source = source;
         this.specification = specification;
         this.hashSymbol = hashSymbol;
@@ -127,6 +128,13 @@ public final class PatternRecognitionNode
         this.initial = initial;
         this.pattern = pattern;
         this.variableDefinitions = ImmutableMap.copyOf(variableDefinitions);
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

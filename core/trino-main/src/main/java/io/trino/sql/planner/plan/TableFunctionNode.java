@@ -34,8 +34,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class TableFunctionNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final String name;
     private final CatalogHandle functionCatalog;
     private final Map<String, Argument> arguments;
@@ -57,7 +58,7 @@ public final class TableFunctionNode
             @JsonProperty("copartitioningLists") List<List<String>> copartitioningLists,
             @JsonProperty("handle") TableFunctionHandle handle)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.name = requireNonNull(name, "name is null");
         this.functionCatalog = requireNonNull(functionCatalog, "functionCatalog is null");
         this.arguments = ImmutableMap.copyOf(arguments);
@@ -110,6 +111,13 @@ public final class TableFunctionNode
     public TableFunctionHandle getHandle()
     {
         return handle;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @JsonProperty

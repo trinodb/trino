@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class SpatialJoinNode
-        extends PlanNode
+        implements PlanNode
 {
     public enum Type
     {
@@ -59,6 +59,7 @@ public final class SpatialJoinNode
         }
     }
 
+    private final PlanNodeId id;
     private final Type type;
     private final PlanNode left;
     private final PlanNode right;
@@ -87,8 +88,7 @@ public final class SpatialJoinNode
             @JsonProperty("rightPartitionSymbol") Optional<Symbol> rightPartitionSymbol,
             @JsonProperty("kdbTree") Optional<String> kdbTree)
     {
-        super(id);
-
+        this.id = requireNonNull(id, "id is null");
         this.type = requireNonNull(type, "type is null");
         this.left = requireNonNull(left, "left is null");
         this.right = requireNonNull(right, "right is null");
@@ -152,6 +152,13 @@ public final class SpatialJoinNode
     public Optional<Symbol> getRightPartitionSymbol()
     {
         return rightPartitionSymbol;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

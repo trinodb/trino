@@ -30,8 +30,10 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class TopNNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
+
     public enum Step
     {
         SINGLE,
@@ -51,17 +53,24 @@ public final class TopNNode
             @JsonProperty("orderingScheme") OrderingScheme orderingScheme,
             @JsonProperty("step") Step step)
     {
-        super(id);
-
+        requireNonNull(id, "id is null");
         requireNonNull(source, "source is null");
         checkArgument(count >= 0, "count must be positive");
         checkCondition(count <= Integer.MAX_VALUE, NOT_SUPPORTED, "ORDER BY LIMIT > %s is not supported", Integer.MAX_VALUE);
         requireNonNull(orderingScheme, "orderingScheme is null");
 
+        this.id = id;
         this.source = source;
         this.count = count;
         this.orderingScheme = orderingScheme;
         this.step = requireNonNull(step, "step is null");
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

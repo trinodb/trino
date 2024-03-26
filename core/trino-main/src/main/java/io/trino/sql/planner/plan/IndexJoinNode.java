@@ -29,8 +29,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class IndexJoinNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final Type type;
     private final PlanNode probeSource;
     private final PlanNode indexSource;
@@ -48,7 +49,7 @@ public final class IndexJoinNode
             @JsonProperty("probeHashSymbol") Optional<Symbol> probeHashSymbol,
             @JsonProperty("indexHashSymbol") Optional<Symbol> indexHashSymbol)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.type = requireNonNull(type, "type is null");
         this.probeSource = requireNonNull(probeSource, "probeSource is null");
         this.indexSource = requireNonNull(indexSource, "indexSource is null");
@@ -109,6 +110,12 @@ public final class IndexJoinNode
     public Optional<Symbol> getIndexHashSymbol()
     {
         return indexHashSymbol;
+    }
+
+    @Override
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

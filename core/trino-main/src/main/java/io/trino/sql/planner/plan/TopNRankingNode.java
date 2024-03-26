@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class TopNRankingNode
-        extends PlanNode
+        implements PlanNode
 {
     public enum RankingType
     {
@@ -39,6 +39,7 @@ public final class TopNRankingNode
         DENSE_RANK
     }
 
+    private final PlanNodeId id;
     private final PlanNode source;
     private final DataOrganizationSpecification specification;
     private final RankingType rankingType;
@@ -58,8 +59,7 @@ public final class TopNRankingNode
             @JsonProperty("partial") boolean partial,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
-        super(id);
-
+        requireNonNull(id, "id is null");
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
         checkArgument(specification.getOrderingScheme().isPresent(), "specification orderingScheme is absent");
@@ -68,6 +68,7 @@ public final class TopNRankingNode
         checkArgument(maxRankingPerPartition > 0, "maxRankingPerPartition must be > 0");
         requireNonNull(hashSymbol, "hashSymbol is null");
 
+        this.id = id;
         this.source = source;
         this.specification = specification;
         this.rankingType = rankingType;
@@ -75,6 +76,13 @@ public final class TopNRankingNode
         this.maxRankingPerPartition = maxRankingPerPartition;
         this.partial = partial;
         this.hashSymbol = hashSymbol;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

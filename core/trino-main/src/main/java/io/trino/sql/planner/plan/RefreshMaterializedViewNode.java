@@ -27,8 +27,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class RefreshMaterializedViewNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final QualifiedObjectName viewName;
 
     @JsonCreator
@@ -36,7 +37,7 @@ public final class RefreshMaterializedViewNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("viewName") QualifiedObjectName viewName)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.viewName = requireNonNull(viewName, "viewName is null");
     }
 
@@ -44,6 +45,13 @@ public final class RefreshMaterializedViewNode
     public QualifiedObjectName getViewName()
     {
         return viewName;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

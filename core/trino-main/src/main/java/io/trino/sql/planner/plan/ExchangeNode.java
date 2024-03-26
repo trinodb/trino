@@ -41,8 +41,10 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class ExchangeNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
+
     public enum Type
     {
         GATHER,
@@ -78,8 +80,7 @@ public final class ExchangeNode
             @JsonProperty("inputs") List<List<Symbol>> inputs,
             @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme)
     {
-        super(id);
-
+        requireNonNull(id, "id is null");
         requireNonNull(type, "type is null");
         requireNonNull(scope, "scope is null");
         requireNonNull(sources, "sources is null");
@@ -107,6 +108,7 @@ public final class ExchangeNode
             checkArgument(type == Type.GATHER, "Merging exchange must be of GATHER type");
             checkArgument(inputs.size() == 1, "Merging exchange must have single input");
         });
+        this.id = id;
         this.type = type;
         this.sources = sources;
         this.scope = scope;
@@ -194,6 +196,13 @@ public final class ExchangeNode
                 ImmutableList.of(child),
                 ImmutableList.of(child.outputSymbols()),
                 Optional.of(orderingScheme));
+    }
+
+    @JsonProperty
+    @Override
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @JsonProperty

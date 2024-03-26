@@ -33,8 +33,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class IndexSourceNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final IndexHandle indexHandle;
     private final TableHandle tableHandle;
     private final Set<Symbol> lookupSymbols;
@@ -50,7 +51,7 @@ public final class IndexSourceNode
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.lookupSymbols = ImmutableSet.copyOf(requireNonNull(lookupSymbols, "lookupSymbols is null"));
@@ -91,6 +92,12 @@ public final class IndexSourceNode
     public Map<Symbol, ColumnHandle> getAssignments()
     {
         return assignments;
+    }
+
+    @Override
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

@@ -19,16 +19,19 @@ import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
+
 @Immutable
 public final class GroupReference
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final int groupId;
     private final List<Symbol> outputs;
 
     public GroupReference(PlanNodeId id, int groupId, List<Symbol> outputs)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.groupId = groupId;
         this.outputs = ImmutableList.copyOf(outputs);
     }
@@ -36,6 +39,12 @@ public final class GroupReference
     public int getGroupId()
     {
         return groupId;
+    }
+
+    @Override
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

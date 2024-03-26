@@ -20,9 +20,6 @@ import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
-
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
         property = "@type")
@@ -78,7 +75,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = ValuesNode.class, name = "values"),
         @JsonSubTypes.Type(value = WindowNode.class, name = "window"),
 })
-public abstract sealed class PlanNode
+public sealed interface PlanNode
         permits AdaptivePlanNode, AggregationNode, ApplyNode, AssignUniqueId, CorrelatedJoinNode, DistinctLimitNode, DynamicFilterSourceNode,
         EnforceSingleRowNode, ExchangeNode, ExplainAnalyzeNode, FilterNode, GenericNode, GroupIdNode, GroupReference, IndexJoinNode, IndexSourceNode,
         JoinNode, LimitNode, MarkDistinctNode, MergeProcessorNode, MergeWriterNode, OffsetNode, OutputNode, PatternRecognitionNode, ProjectNode, RefreshMaterializedViewNode,
@@ -86,36 +83,17 @@ public abstract sealed class PlanNode
         TableExecuteNode, TableFinishNode, TableFunctionNode, TableFunctionProcessorNode, TableScanNode, TableUpdateNode, TableWriterNode, TopNNode, TopNRankingNode, UnnestNode,
         ValuesNode, WindowNode
 {
-    private final PlanNodeId id;
-
-    protected PlanNode(PlanNodeId id)
-    {
-        requireNonNull(id, "id is null");
-        this.id = id;
-    }
-
     @JsonProperty("id")
-    public PlanNodeId id()
-    {
-        return id;
-    }
+    PlanNodeId id();
 
-    public abstract List<PlanNode> sources();
+    List<PlanNode> sources();
 
-    public abstract List<Symbol> outputSymbols();
+    List<Symbol> outputSymbols();
 
-    public abstract PlanNode replaceChildren(List<PlanNode> newChildren);
+    PlanNode replaceChildren(List<PlanNode> newChildren);
 
-    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
+    default <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitPlan(this, context);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("id", id)
-                .toString();
     }
 }

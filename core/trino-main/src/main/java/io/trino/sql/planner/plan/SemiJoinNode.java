@@ -27,8 +27,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class SemiJoinNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final PlanNode filteringSource;
     private final Symbol sourceJoinSymbol;
@@ -51,7 +52,7 @@ public final class SemiJoinNode
             @JsonProperty("distributionType") Optional<DistributionType> distributionType,
             @JsonProperty("dynamicFilterId") Optional<DynamicFilterId> dynamicFilterId)
     {
-        super(id);
+        this.id = requireNonNull(id, "id is null");
         this.source = requireNonNull(source, "source is null");
         this.filteringSource = requireNonNull(filteringSource, "filteringSource is null");
         this.sourceJoinSymbol = requireNonNull(sourceJoinSymbol, "sourceJoinSymbol is null");
@@ -118,6 +119,13 @@ public final class SemiJoinNode
     public Optional<DistributionType> getDistributionType()
     {
         return distributionType;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

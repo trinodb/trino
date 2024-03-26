@@ -29,8 +29,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class MergeWriterNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final MergeTarget target;
     private final List<Symbol> projectedSymbols;
@@ -46,8 +47,7 @@ public final class MergeWriterNode
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme,
             @JsonProperty("outputs") List<Symbol> outputs)
     {
-        super(id);
-
+        this.id = requireNonNull(id, "id is null");
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
         this.projectedSymbols = requireNonNull(projectedSymbols, "projectedSymbols is null");
@@ -77,6 +77,13 @@ public final class MergeWriterNode
     public Optional<PartitioningScheme> getPartitioningScheme()
     {
         return partitioningScheme;
+    }
+
+    @JsonProperty
+    @Override
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     /**

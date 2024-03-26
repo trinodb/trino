@@ -27,8 +27,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class SortNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final OrderingScheme orderingScheme;
     private final boolean partial;
@@ -39,14 +40,21 @@ public final class SortNode
             @JsonProperty("orderingScheme") OrderingScheme orderingScheme,
             @JsonProperty("partial") boolean partial)
     {
-        super(id);
-
+        requireNonNull(id, "id is null");
         requireNonNull(source, "source is null");
         requireNonNull(orderingScheme, "orderingScheme is null");
 
+        this.id = id;
         this.source = source;
         this.orderingScheme = orderingScheme;
         this.partial = partial;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

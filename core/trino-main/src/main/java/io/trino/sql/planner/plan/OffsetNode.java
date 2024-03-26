@@ -27,8 +27,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class OffsetNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final long count;
 
@@ -38,13 +39,19 @@ public final class OffsetNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("count") long count)
     {
-        super(id);
-
+        requireNonNull(id, "id is null");
         requireNonNull(source, "source is null");
         checkArgument(count >= 0, "count must be greater than or equal to zero");
 
+        this.id = id;
         this.source = source;
         this.count = count;
+    }
+
+    @Override
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override

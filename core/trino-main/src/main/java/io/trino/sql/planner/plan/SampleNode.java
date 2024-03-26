@@ -27,8 +27,9 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class SampleNode
-        extends PlanNode
+        implements PlanNode
 {
+    private final PlanNodeId id;
     private final PlanNode source;
     private final double sampleRatio;
     private final Type sampleType;
@@ -46,14 +47,20 @@ public final class SampleNode
             @JsonProperty("sampleRatio") double sampleRatio,
             @JsonProperty("sampleType") Type sampleType)
     {
-        super(id);
-
         checkArgument(sampleRatio >= 0.0, "sample ratio must be greater than or equal to 0");
         checkArgument(sampleRatio <= 1.0, "sample ratio must be less than or equal to 1");
 
+        this.id = requireNonNull(id, "id is null");
         this.sampleType = requireNonNull(sampleType, "sampleType is null");
         this.source = requireNonNull(source, "source is null");
         this.sampleRatio = sampleRatio;
+    }
+
+    @Override
+    @JsonProperty
+    public PlanNodeId id()
+    {
+        return id;
     }
 
     @Override
