@@ -346,7 +346,7 @@ public class ParquetPageSourceFactory
         }
 
         List<org.apache.parquet.schema.Type> subfieldTypes = subFieldTypesOptional.get();
-        org.apache.parquet.schema.Type type = subfieldTypes.get(subfieldTypes.size() - 1);
+        org.apache.parquet.schema.Type type = subfieldTypes.getLast();
         for (int i = subfieldTypes.size() - 2; i >= 0; --i) {
             GroupType groupType = subfieldTypes.get(i).asGroupType();
             type = new GroupType(groupType.getRepetition(), groupType.getName(), ImmutableList.of(type));

@@ -414,7 +414,7 @@ public class MongoPageSource
         checkArgument(columnHandle.isDbRefField(), "columnHandle is not a dbRef field: %s", columnHandle);
         List<String> dereferenceNames = columnHandle.getDereferenceNames();
         checkState(!dereferenceNames.isEmpty(), "dereferenceNames is empty");
-        String leafColumnName = dereferenceNames.get(dereferenceNames.size() - 1);
+        String leafColumnName = dereferenceNames.getLast();
         return switch (leafColumnName) {
             case DATABASE_NAME -> dbRefValue.getDatabaseName();
             case COLLECTION_NAME -> dbRefValue.getCollectionName();

@@ -388,7 +388,7 @@ public final class TypedHeap
             openChunkOffset = newSize;
         }
         else {
-            openChunkOffset = newSlices.get(newSlices.size() - 1).length;
+            openChunkOffset = newSlices.getLast().length;
         }
 
         return new VariableWidthData(newSlices, openChunkOffset);

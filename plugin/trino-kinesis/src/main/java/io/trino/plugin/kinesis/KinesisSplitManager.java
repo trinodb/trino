@@ -151,7 +151,7 @@ public class KinesisSplitManager
                 internalStreamDescription.addAllShards(describeStreamResult.getStreamDescription().getShards());
 
                 if (describeStreamResult.getStreamDescription().getHasMoreShards() && (shards.size() > 0)) {
-                    exclusiveStartShardId = shards.get(shards.size() - 1).getShardId();
+                    exclusiveStartShardId = shards.getLast().getShardId();
                 }
                 else {
                     exclusiveStartShardId = null;
