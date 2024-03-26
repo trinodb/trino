@@ -169,17 +169,17 @@ public class DecorrelateUnnest
         PlanNode searchRoot = correlatedJoinNode.getSubquery();
 
         // 1. find EnforceSingleRowNode in the subquery
-        Optional<EnforceSingleRowNode> enforceSingleRow = PlanNodeSearcher.searchFrom(searchRoot, context.getLookup())
+        Optional<PlanNode> enforceSingleRow = PlanNodeSearcher.searchFrom(searchRoot, context.getLookup())
                 .where(EnforceSingleRowNode.class::isInstance)
                 .recurseOnlyWhen(planNode -> false)
                 .findFirst();
 
         if (enforceSingleRow.isPresent()) {
-            searchRoot = enforceSingleRow.get().getSource();
+            searchRoot = ((EnforceSingleRowNode) enforceSingleRow.get()).getSource();
         }
 
         // 2. find correlated UnnestNode in the subquery
-        Optional<UnnestNode> subqueryUnnest = PlanNodeSearcher.searchFrom(searchRoot, context.getLookup())
+        Optional<PlanNode> subqueryUnnest = PlanNodeSearcher.searchFrom(searchRoot, context.getLookup())
                 .where(node -> isSupportedUnnest(node, correlatedJoinNode.getCorrelation(), context.getLookup()))
                 .recurseOnlyWhen(node -> node instanceof ProjectNode ||
                         (node instanceof LimitNode limitNode && limitNode.getCount() > 0) ||
@@ -190,7 +190,7 @@ public class DecorrelateUnnest
             return Result.empty();
         }
 
-        UnnestNode unnestNode = subqueryUnnest.get();
+        UnnestNode unnestNode = (UnnestNode) subqueryUnnest.get();
 
         // assign unique id to input rows
         Symbol uniqueSymbol = context.getSymbolAllocator().newSymbol("unique", BIGINT);

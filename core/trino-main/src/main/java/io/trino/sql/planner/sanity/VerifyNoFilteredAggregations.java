@@ -32,8 +32,9 @@ public final class VerifyNoFilteredAggregations
     {
         searchFrom(plan)
                 .where(AggregationNode.class::isInstance)
-                .<AggregationNode>findAll()
+                .findAll()
                 .stream()
+                .map(AggregationNode.class::cast)
                 .flatMap(node -> node.getAggregations().values().stream())
                 .filter(aggregation -> aggregation.getFilter().isPresent())
                 .forEach(ignored -> {
