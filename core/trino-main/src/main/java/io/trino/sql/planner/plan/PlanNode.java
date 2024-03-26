@@ -20,6 +20,7 @@ import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @JsonTypeInfo(
@@ -108,5 +109,13 @@ public abstract sealed class PlanNode
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitPlan(this, context);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("id", id)
+                .toString();
     }
 }
