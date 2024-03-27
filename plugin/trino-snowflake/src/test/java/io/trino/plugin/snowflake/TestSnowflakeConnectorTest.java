@@ -189,13 +189,10 @@ public class TestSnowflakeConnectorTest
                         ")");
     }
 
-    @Test
     @Override
-    public void testAddNotNullColumn()
+    protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
-        assertThatThrownBy(super::testAddNotNullColumn)
-                .isInstanceOf(AssertionError.class)
-                .hasMessage("Unexpected failure when adding not null column");
+        assertThat(e).hasMessageMatching("SQL compilation error: Non-nullable column .* cannot be added to non-empty table .* unless it has a non-null default value.");
     }
 
     @Test
