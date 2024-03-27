@@ -106,6 +106,11 @@ enable and configure caching for the specific catalogs.
     caching. All directories must exist on the coordinator and all workers.
     Trino must have read and write permissions for files and nested directories.
     A valid example with only one directory is `/tmp/trino-cache`.
+
+    Directories must be specific for each catalog with caching enabled. When
+    enabling caching in multiple catalogs, you must use different directories
+    and set the values for `fs.cache.max-sizes` or
+    `fs.cache.max-disk-usage-percentages` accordingly.
 * - `fs.cache.max-sizes`
   - Optional, comma-separated list of maximum [data sizes](prop-type-data-size)
     for each caching directory. Order of values must be identical to the
@@ -128,9 +133,9 @@ enable and configure caching for the specific catalogs.
     available node is chosen at random from the cluster. More information in
     [](fs-cache-distributed).
 * - `fs.cache.page-size`
-  - The page [data size](prop-type-data-size) used for caching data. Each transfer of files 
-    uses at least this amount of data. Defaults to `1MB`. Values must be between 
-    `64kB` and `15MB`. Larger value potentially result in too much data transfer 
+  - The page [data size](prop-type-data-size) used for caching data. Each transfer of files
+    uses at least this amount of data. Defaults to `1MB`. Values must be between
+    `64kB` and `15MB`. Larger value potentially result in too much data transfer
     smaller values are less efficient since they result in more individual downloads.
 :::
 
