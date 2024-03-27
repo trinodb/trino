@@ -81,6 +81,8 @@ public final class ReportLeakedContainers
 
             List<Container> containers = dockerClient.listContainersCmd()
                     .withLabelFilter(Map.of(DockerClientFactory.TESTCONTAINERS_SESSION_ID_LABEL, DockerClientFactory.SESSION_ID))
+                    // ignore status "exited" - for example, failed containers after using `withStartupAttempts()`
+                    .withStatusFilter(List.of("created", "restarting", "running", "paused"))
                     .exec()
                     .stream()
                     .filter(container -> !ignoredIds.contains(container.getId()))
