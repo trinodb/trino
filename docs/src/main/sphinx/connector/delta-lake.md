@@ -600,7 +600,7 @@ one of the following conditions:
 
 * The table type is external.
 * The table is backed by a metastore that does not perform object storage
-  operations, for example, AWS Glue or Thrift.
+  operations, for example, AWS Glue.
 
 #### Table properties
 
