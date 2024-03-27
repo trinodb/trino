@@ -9,7 +9,7 @@
 
 ## Delta Lake connector
 
-* Automatically use `timestamp(3)` as type during table creation when other
+* Automatically use `timestamp(6)` as type during table creation when other
   timestamp precision is specified. ({issue}`19336`)
 * Ensure all files are deleted when native S3 file system support is enabled. ({issue}`21111`)
 
