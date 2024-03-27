@@ -85,8 +85,8 @@ public class RemoveRedundantPredicateAboveTableScan
         TableScanNode node = captures.get(TABLE_SCAN);
         Expression predicate = filterNode.getPredicate();
 
-        Expression deterministicPredicate = filterDeterministicConjuncts(plannerContext.getMetadata(), predicate);
-        Expression nonDeterministicPredicate = filterNonDeterministicConjuncts(plannerContext.getMetadata(), predicate);
+        Expression deterministicPredicate = filterDeterministicConjuncts(predicate);
+        Expression nonDeterministicPredicate = filterNonDeterministicConjuncts(predicate);
 
         ExtractionResult decomposedPredicate = getFullyExtractedPredicates(
                 session,

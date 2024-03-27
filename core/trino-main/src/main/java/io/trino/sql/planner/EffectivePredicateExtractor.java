@@ -162,7 +162,7 @@ public class EffectivePredicateExtractor
             Expression predicate = node.getPredicate();
 
             // Remove non-deterministic conjuncts
-            predicate = filterDeterministicConjuncts(metadata, predicate);
+            predicate = filterDeterministicConjuncts(predicate);
 
             return combineConjuncts(predicate, underlyingPredicate);
         }

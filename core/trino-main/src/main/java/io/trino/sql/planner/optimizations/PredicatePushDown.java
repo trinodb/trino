@@ -832,14 +832,14 @@ public class PredicatePushDown
             extractConjuncts(inheritedPredicate).stream()
                     .filter(expression -> !isDeterministic(expression))
                     .forEach(postJoinConjuncts::add);
-            inheritedPredicate = filterDeterministicConjuncts(metadata, inheritedPredicate);
+            inheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
 
-            outerEffectivePredicate = filterDeterministicConjuncts(metadata, outerEffectivePredicate);
-            innerEffectivePredicate = filterDeterministicConjuncts(metadata, innerEffectivePredicate);
+            outerEffectivePredicate = filterDeterministicConjuncts(outerEffectivePredicate);
+            innerEffectivePredicate = filterDeterministicConjuncts(innerEffectivePredicate);
             extractConjuncts(joinPredicate).stream()
                     .filter(expression -> !isDeterministic(expression))
                     .forEach(joinConjuncts::add);
-            joinPredicate = filterDeterministicConjuncts(metadata, joinPredicate);
+            joinPredicate = filterDeterministicConjuncts(joinPredicate);
 
             // Generate equality inferences
             EqualityInference inheritedInference = new EqualityInference(inheritedPredicate);
@@ -964,15 +964,15 @@ public class PredicatePushDown
             extractConjuncts(inheritedPredicate).stream()
                     .filter(deterministic -> !isDeterministic(deterministic))
                     .forEach(joinConjuncts::add);
-            inheritedPredicate = filterDeterministicConjuncts(metadata, inheritedPredicate);
+            inheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
 
             extractConjuncts(joinPredicate).stream()
                     .filter(expression -> !isDeterministic(expression))
                     .forEach(joinConjuncts::add);
-            joinPredicate = filterDeterministicConjuncts(metadata, joinPredicate);
+            joinPredicate = filterDeterministicConjuncts(joinPredicate);
 
-            leftEffectivePredicate = filterDeterministicConjuncts(metadata, leftEffectivePredicate);
-            rightEffectivePredicate = filterDeterministicConjuncts(metadata, rightEffectivePredicate);
+            leftEffectivePredicate = filterDeterministicConjuncts(leftEffectivePredicate);
+            rightEffectivePredicate = filterDeterministicConjuncts(rightEffectivePredicate);
 
             ImmutableSet<Symbol> leftScope = ImmutableSet.copyOf(leftSymbols);
             ImmutableSet<Symbol> rightScope = ImmutableSet.copyOf(rightSymbols);
@@ -1373,9 +1373,9 @@ public class PredicatePushDown
         private PlanNode visitFilteringSemiJoin(SemiJoinNode node, RewriteContext<Expression> context)
         {
             Expression inheritedPredicate = context.get();
-            Expression deterministicInheritedPredicate = filterDeterministicConjuncts(metadata, inheritedPredicate);
-            Expression sourceEffectivePredicate = filterDeterministicConjuncts(metadata, effectivePredicateExtractor.extract(session, node.getSource()));
-            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(metadata, effectivePredicateExtractor.extract(session, node.getFilteringSource()));
+            Expression deterministicInheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
+            Expression sourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(session, node.getSource()));
+            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(session, node.getFilteringSource()));
             Expression joinExpression = new Comparison(
                     EQUAL,
                     node.getSourceJoinSymbol().toSymbolReference(),
@@ -1490,7 +1490,7 @@ public class PredicatePushDown
             extractConjuncts(inheritedPredicate).stream()
                     .filter(expression -> !isDeterministic(expression))
                     .forEach(postAggregationConjuncts::add);
-            inheritedPredicate = filterDeterministicConjuncts(metadata, inheritedPredicate);
+            inheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             Set<Symbol> groupingKeys = ImmutableSet.copyOf(node.getGroupingKeys());
@@ -1552,7 +1552,7 @@ public class PredicatePushDown
             extractConjuncts(inheritedPredicate).stream()
                     .filter(expression -> !isDeterministic(expression))
                     .forEach(postUnnestConjuncts::add);
-            inheritedPredicate = filterDeterministicConjuncts(metadata, inheritedPredicate);
+            inheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
 
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             Set<Symbol> replicatedSymbols = ImmutableSet.copyOf(node.getReplicateSymbols());
