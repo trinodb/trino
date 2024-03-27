@@ -152,7 +152,6 @@ public class PredicatePushDown
         private final PlannerContext plannerContext;
         private final Metadata metadata;
         private final Session session;
-        private final ExpressionEquivalence expressionEquivalence;
         private final boolean dynamicFiltering;
         private final EffectivePredicateExtractor effectivePredicateExtractor;
 
@@ -169,7 +168,6 @@ public class PredicatePushDown
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.metadata = plannerContext.getMetadata();
             this.session = requireNonNull(session, "session is null");
-            this.expressionEquivalence = new ExpressionEquivalence(plannerContext.getMetadata(), plannerContext.getFunctionManager(), plannerContext.getTypeManager());
             this.dynamicFiltering = dynamicFiltering;
 
             this.effectivePredicateExtractor = new EffectivePredicateExtractor(
@@ -382,7 +380,7 @@ public class PredicatePushDown
                 return rewrittenPlan;
             }
 
-            if (!areExpressionsEquivalent(rewrittenFilterNode.getPredicate(), node.getPredicate())
+            if (!rewrittenFilterNode.getPredicate().equals(node.getPredicate())
                     || node.getSource() != rewrittenFilterNode.getSource()) {
                 return rewrittenPlan;
             }
@@ -530,7 +528,7 @@ public class PredicatePushDown
 
             boolean filtersEquivalent =
                     newJoinFilter.isPresent() == node.getFilter().isPresent() &&
-                            (newJoinFilter.isEmpty() || areExpressionsEquivalent(newJoinFilter.get(), node.getFilter().get()));
+                            (newJoinFilter.isEmpty() || newJoinFilter.get().equals(node.getFilter().get()));
 
             PlanNode output = node;
             if (leftSource != node.getLeft() ||
@@ -766,7 +764,7 @@ public class PredicatePushDown
             PlanNode output = node;
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
-                    !areExpressionsEquivalent(newJoinPredicate, joinPredicate)) {
+                    !newJoinPredicate.equals(joinPredicate)) {
                 // Create identity projections for all existing symbols
                 Assignments.Builder leftProjections = Assignments.builder();
                 leftProjections.putAll(node.getLeft()
@@ -1243,11 +1241,6 @@ public class PredicatePushDown
             return object instanceof Expression optimized ?
                     optimized :
                     new Constant(expression.type(), object);
-        }
-
-        private boolean areExpressionsEquivalent(Expression leftExpression, Expression rightExpression)
-        {
-            return expressionEquivalence.areExpressionsEquivalent(session, leftExpression, rightExpression, ImmutableSet.copyOf(symbolAllocator.getSymbols()));
         }
 
         /**
