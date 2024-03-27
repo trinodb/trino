@@ -524,8 +524,7 @@ public class TypeOperators
             return switch (operatorConvention.operatorType()) {
                 case EQUAL, IS_DISTINCT_FROM, COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST, LESS_THAN, LESS_THAN_OR_EQUAL ->
                         List.of(operatorConvention.type(), operatorConvention.type());
-                case READ_VALUE, HASH_CODE, XX_HASH_64, INDETERMINATE ->
-                        List.of(operatorConvention.type());
+                case READ_VALUE, HASH_CODE, XX_HASH_64, INDETERMINATE -> List.of(operatorConvention.type());
                 default -> throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.operatorType());
             };
         }
