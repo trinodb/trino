@@ -35,9 +35,9 @@
 
 ### Java runtime environment
 
-Trino requires a 64-bit version of Java 21, with a minimum required version of 21.0.1.
-Earlier major versions such as Java 8, Java 11 or Java 17 do not work.
-Newer major versions such as Java 22 are not supported -- they may work, but are not tested.
+Trino requires a 64-bit version of Java 22, with a minimum required version of 22.0.0.
+Earlier major versions such as Java 8, Java 11, Java 17 or Java 21 do not work.
+Newer major versions such as Java 23 are not supported -- they may work, but are not tested.
 
 We recommend using the Eclipse Temurin OpenJDK distribution from
 [Adoptium](https://adoptium.net/) as the JDK for Trino, as Trino is tested
@@ -142,9 +142,6 @@ The following provides a good starting point for creating `etc/jvm.config`:
 -Djdk.attach.allowAttachSelf=true
 -Djdk.nio.maxCachedBufferSize=2000000
 -Dfile.encoding=UTF-8
-# Reduce starvation of threads by GClocker, recommend to set about the number of cpu cores (JDK-8192647)
--XX:+UnlockDiagnosticVMOptions
--XX:GCLockerRetryAllocationCount=32
 # Allow loading dynamic agent used by JOL
 -XX:+EnableDynamicAgentLoading
 ```
@@ -176,8 +173,6 @@ Specifically, the mount must not have the `noexec` flag set. The default
 prevents Trino from starting. You can workaround this by overriding the
 temporary directory by adding `-Djava.io.tmpdir=/path/to/other/tmpdir` to the
 list of JVM options.
-
-We set GCLocker retry allocation count (`-XX:GCLockerRetryAllocationCount=32`) to avoid OOM too early (see [JDK-8192647](https://bugs.openjdk.org/browse/JDK-8192647))
 
 (config-properties)=
 

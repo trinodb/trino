@@ -34,12 +34,8 @@ check_if_correct_java_version() {
 if ! check_if_correct_java_version "$JAVA_HOME"; then
     java_found=false
     for candidate in \
-        /usr/lib/jvm/java-21-* \
         /usr/lib/jvm/java-22-* \
-        /usr/lib/jvm/zulu-21 \
         /usr/lib/jvm/zulu-22 \
-        /usr/lib/jvm/temurin-21 \
-        /usr/lib/jvm/temurin-21-* \
         /usr/lib/jvm/temurin-22 \
         /usr/lib/jvm/temurin-22-* \
         /usr/lib/jvm/default-java \
@@ -61,7 +57,7 @@ if [ "$java_found" = false ]; then
 +======================================================================+
 |            Error: Required Java version could not be found           |
 +----------------------------------------------------------------------+
-|                       JDK 21 was not detected.                       |
+|                       JDK 22 was not detected.                       |
 |           Recommended JDK distribution is Eclipse Temurin.           |
 |     Installation guide: https://adoptium.net/installation/linux/     |
 |                                                                      |
