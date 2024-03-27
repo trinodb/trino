@@ -442,7 +442,7 @@ public class TestSpatialJoinPlanning
                         "ON ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat)) AND rand() < 0.5",
                 anyTree(
                         spatialLeftJoin(
-                                new Logical(AND, ImmutableList.of(new Call(ST_CONTAINS, ImmutableList.of(new Reference(GEOMETRY, "st_geometryfromtext"), new Reference(GEOMETRY, "st_point"))), new Comparison(LESS_THAN, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.5)))),
+                                new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 0.5)), new Call(ST_CONTAINS, ImmutableList.of(new Reference(GEOMETRY, "st_geometryfromtext"), new Reference(GEOMETRY, "st_point"))))),
                                 project(ImmutableMap.of("st_point", expression(new Call(ST_POINT, ImmutableList.of(new Reference(DOUBLE, "lng"), new Reference(DOUBLE, "lat"))))),
                                         tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))),
                                 anyTree(
