@@ -66,7 +66,7 @@ public class TestJdbcTableProperties
     public void testGetTablePropertiesIsCalled()
     {
         AtomicInteger counter = new AtomicInteger();
-        onGetTableProperties = () -> counter.incrementAndGet();
+        onGetTableProperties = counter::incrementAndGet;
         assertQuerySucceeds("SHOW CREATE TABLE nation");
         assertThat(counter.get()).isOne();
     }

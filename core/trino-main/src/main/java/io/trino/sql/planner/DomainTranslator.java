@@ -46,6 +46,7 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
@@ -114,7 +115,7 @@ public final class DomainTranslator
         Map<Symbol, Domain> domains = tupleDomain.getDomains().get();
         return domains.entrySet().stream()
                 .map(entry -> toPredicate(entry.getValue(), entry.getKey().toSymbolReference()))
-                .collect(collectingAndThen(toImmutableList(), expressions -> combineConjuncts(expressions)));
+                .collect(collectingAndThen(toImmutableList(), IrUtils::combineConjuncts));
     }
 
     private Expression toPredicate(Domain domain, Reference reference)
