@@ -227,8 +227,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     private final FailureDetector failureDetector;
     private final DynamicFilterService dynamicFilterService;
     private final TaskExecutionStats taskExecutionStats;
-    private final AdaptivePlanner adaptivePlanner;
-    private final boolean adaptiveQueryPlanningEnabled;
+    private final Optional<AdaptivePlanner> adaptivePlanner;
     private final SubPlan originalPlan;
     private final boolean stageEstimationForEagerParentEnabled;
 
@@ -283,8 +282,9 @@ public class EventDrivenFaultTolerantQueryScheduler
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.taskExecutionStats = requireNonNull(taskExecutionStats, "taskExecutionStats is null");
-        this.adaptivePlanner = requireNonNull(adaptivePlanner, "adaptivePlanner is null");
-        this.adaptiveQueryPlanningEnabled = isFaultTolerantExecutionAdaptiveQueryPlanningEnabled(queryStateMachine.getSession());
+        this.adaptivePlanner = isFaultTolerantExecutionAdaptiveQueryPlanningEnabled(queryStateMachine.getSession()) ?
+                Optional.of(requireNonNull(adaptivePlanner, "adaptivePlanner is null")) :
+                Optional.empty();
         this.originalPlan = requireNonNull(originalPlan, "originalPlan is null");
 
         this.stageEstimationForEagerParentEnabled = isFaultTolerantExecutionStageEstimationForEagerParentEnabled(queryStateMachine.getSession());
@@ -371,8 +371,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(session),
                     getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(session),
                     stageEstimationForEagerParentEnabled,
-                    adaptivePlanner,
-                    adaptiveQueryPlanningEnabled);
+                    adaptivePlanner);
             queryExecutor.submit(scheduler::run);
         }
         catch (Throwable t) {
@@ -729,8 +728,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private SubPlan plan;
         private List<SubPlan> planInTopologicalOrder;
 
-        private final AdaptivePlanner adaptivePlanner;
-        private final boolean adaptiveQueryPlanningEnabled;
+        private final Optional<AdaptivePlanner> adaptivePlanner;
 
         private final Map<StageId, StageExecution> stageExecutions = new HashMap<>();
         private final Map<SubPlan, IsReadyForExecutionResult> isReadyForExecutionCache = new HashMap<>();
@@ -778,8 +776,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 int runtimeAdaptivePartitioningPartitionCount,
                 DataSize runtimeAdaptivePartitioningMaxTaskSize,
                 boolean stageEstimationForEagerParentEnabled,
-                AdaptivePlanner adaptivePlanner,
-                boolean adaptiveQueryPlanningEnabled)
+                Optional<AdaptivePlanner> adaptivePlanner)
         {
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -814,7 +811,6 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.runtimeAdaptivePartitioningPartitionCount = runtimeAdaptivePartitioningPartitionCount;
             this.runtimeAdaptivePartitioningMaxTaskSizeInBytes = requireNonNull(runtimeAdaptivePartitioningMaxTaskSize, "runtimeAdaptivePartitioningMaxTaskSize is null").toBytes();
             this.adaptivePlanner = requireNonNull(adaptivePlanner, "adaptivePlanner is null");
-            this.adaptiveQueryPlanningEnabled = adaptiveQueryPlanningEnabled;
             this.stageEstimationForEagerParentEnabled = stageEstimationForEagerParentEnabled;
             this.schedulerSpan = tracer.spanBuilder("scheduler")
                 .setParent(Context.current().with(queryStateMachine.getSession().getQuerySpan()))
@@ -1111,7 +1107,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             // Re-optimize plan here based on available runtime statistics.
             // Fragments changed due to re-optimization as well as their downstream stages are expected to be assigned new fragment ids.
-            if (!adaptiveQueryPlanningEnabled) {
+            if (adaptivePlanner.isEmpty()) {
                 return plan;
             }
 
@@ -1141,7 +1137,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 // already ready for execution.
                 if (isReadyForExecutionResult.isReadyForExecution()
                         && (oldValue == null || !oldValue.isReadyForExecution())) {
-                    return adaptivePlanner.optimize(plan, createRuntimeInfoProvider());
+                    return adaptivePlanner.get().optimize(plan, createRuntimeInfoProvider());
                 }
             }
 
