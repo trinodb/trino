@@ -48,7 +48,7 @@ public final class StaticHostProvider
      */
     public StaticHostProvider(Collection<InetSocketAddress> serverAddresses)
     {
-        this.resolver = name -> InetAddress.getAllByName(name);
+        this.resolver = InetAddress::getAllByName;
         init(serverAddresses);
     }
 

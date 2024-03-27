@@ -62,7 +62,7 @@ public class TestLazyConnectionFactory
         try (LazyConnectionFactory lazyConnectionFactory = injector.getInstance(LazyConnectionFactory.class)) {
             Connection connection = lazyConnectionFactory.openConnection(SESSION);
             connection.close();
-            assertThatThrownBy(() -> connection.createStatement())
+            assertThatThrownBy(connection::createStatement)
                     .hasMessage("Connection is already closed");
         }
     }

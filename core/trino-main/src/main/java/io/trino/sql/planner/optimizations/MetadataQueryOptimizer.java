@@ -31,6 +31,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
+import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -186,7 +187,7 @@ public class MetadataQueryOptimizer
                 }
                 else if (source instanceof ProjectNode project) {
                     // verify projections are deterministic
-                    if (!Iterables.all(project.getAssignments().getExpressions(), expression -> isDeterministic(expression))) {
+                    if (!Iterables.all(project.getAssignments().getExpressions(), DeterminismEvaluator::isDeterministic)) {
                         return Optional.empty();
                     }
                     source = project.getSource();

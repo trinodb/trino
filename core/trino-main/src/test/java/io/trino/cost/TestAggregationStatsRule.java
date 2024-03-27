@@ -182,6 +182,6 @@ public class TestAggregationStatsRule
                         .addSymbolStatistics(new Symbol(UNKNOWN, "y"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
                         .addSymbolStatistics(new Symbol(UNKNOWN, "z"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
                         .build())
-                .check(check -> check.outputRowsCountUnknown());
+                .check(PlanNodeStatsAssertion::outputRowsCountUnknown);
     }
 }

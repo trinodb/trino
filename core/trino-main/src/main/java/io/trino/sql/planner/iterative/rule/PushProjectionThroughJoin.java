@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
@@ -48,7 +49,7 @@ public final class PushProjectionThroughJoin
             Lookup lookup,
             PlanNodeIdAllocator planNodeIdAllocator)
     {
-        if (!projectNode.getAssignments().getExpressions().stream().allMatch(expression -> isDeterministic(expression))) {
+        if (!projectNode.getAssignments().getExpressions().stream().allMatch(DeterminismEvaluator::isDeterministic)) {
             return Optional.empty();
         }
 
