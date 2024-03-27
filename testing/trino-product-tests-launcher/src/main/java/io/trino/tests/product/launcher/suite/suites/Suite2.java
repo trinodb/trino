@@ -44,6 +44,8 @@ public class Suite2
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
                         .withGroups(CONFIGURED_FEATURES, HDFS_NO_IMPERSONATION)
+                        // hive.non-managed-table-writes-enabled is mandatory for this test,
+                        // setting up this property will break other tests
                         .withExcludedTests("io.trino.tests.product.TestImpersonation.testExternalLocationTableCreationSuccess")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsNoImpersonation.class)
