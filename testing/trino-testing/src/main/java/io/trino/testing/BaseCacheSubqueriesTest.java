@@ -83,6 +83,7 @@ import static io.trino.SystemSessionProperties.CACHE_AGGREGATIONS_ENABLED;
 import static io.trino.SystemSessionProperties.CACHE_COMMON_SUBQUERIES_ENABLED;
 import static io.trino.SystemSessionProperties.CACHE_PROJECTIONS_ENABLED;
 import static io.trino.SystemSessionProperties.DYNAMIC_ROW_FILTERING_ENABLED;
+import static io.trino.SystemSessionProperties.DYNAMIC_ROW_FILTERING_WAIT_TIMEOUT;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.cache.CommonSubqueriesExtractor.scanFilterProjectKey;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
@@ -101,7 +102,6 @@ import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.PART;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -111,7 +111,7 @@ import static org.junit.jupiter.api.Assumptions.abort;
 public abstract class BaseCacheSubqueriesTest
         extends AbstractTestQueryFramework
 {
-    protected static final Set<TpchTable<?>> REQUIRED_TABLES = ImmutableSet.of(NATION, LINE_ITEM, ORDERS, CUSTOMER, PART);
+    protected static final Set<TpchTable<?>> REQUIRED_TABLES = ImmutableSet.of(NATION, LINE_ITEM, ORDERS, CUSTOMER);
     protected static final Map<String, String> EXTRA_PROPERTIES = ImmutableMap.of("cache.enabled", "true");
 
     @BeforeEach
@@ -163,19 +163,28 @@ public abstract class BaseCacheSubqueriesTest
     @Test
     public void testQueryWithDynamicFilterFallback()
     {
-         @Language("SQL") String selectQuery = """
-                SELECT l.extendedprice FROM lineitem l, part p 
-                WHERE p.partkey = l.partkey AND p.container = 'MED BOX'
-                AND l.quantity < (SELECT avg(l.quantity) FROM lineitem l WHERE l.partkey = p.partkey)""";
-        // caching data
-        executeWithPlan(withCacheEnabled(), selectQuery);
-        selectQuery = """
-                SELECT l.extendedprice FROM lineitem l, part p 
-                WHERE p.retailprice = l.extendedprice AND p.container = 'MED BOX'
-                AND l.quantity < (SELECT avg(l.quantity) FROM lineitem l WHERE p.retailprice = l.extendedprice)""";
+        // fallback within single query
+        // Table scan from lineitem with predicate on shipdate populates cache and table scan with DF on orderkey use it as a fallback
+        @Language("SQL") String selectQuery = """
+                    SELECT l.partkey FROM lineitem l, lineitem r
+                    WHERE l.orderkey = r.orderkey AND r.shipdate = DATE('1992-01-04')""";
         MaterializedResultWithPlan queryResult = executeWithPlan(withCacheEnabled(), selectQuery);
-        // use fallback cache
         assertThat(getLoadCachedDataOperatorInputPositions(queryResult.queryId())).isPositive();
+        assertThat(getScanSplitsWithDynamicFiltersApplied(queryResult.queryId())).isZero();
+        assertThat(getLoadCachedDataOperatorsWithDynamicFiltersApplied(queryResult.queryId())).isPositive();
+        // fallback between queries
+        selectQuery = "SELECT o.custkey, o.totalprice from orders o";
+        queryResult = executeWithPlan(withCacheEnabled(), selectQuery);
+        assertThat(getLoadCachedDataOperatorInputPositions(queryResult.queryId())).isZero();
+        assertThat(getCacheDataOperatorInputPositions(queryResult.queryId())).isPositive();
+        selectQuery = "SELECT max(o.totalprice) from orders o, customer c where o.custkey = c.custkey AND c.nationkey = 5";
+        queryResult = executeWithPlan(withCacheEnabled(), selectQuery);
+        // orders use fallback cache
+        assertThat(getLoadCachedDataOperatorInputPositions(queryResult.queryId())).isPositive();
+        assertThat(getLoadCachedDataOperatorsWithDynamicFiltersApplied(queryResult.queryId())).isPositive();
+        // customer cached
+        assertThat(getCacheDataOperatorInputPositions(queryResult.queryId())).isPositive();
+        assertThat(getScanSplitsWithDynamicFiltersApplied(queryResult.queryId())).isZero();
     }
 
     @Test
@@ -806,6 +815,15 @@ public abstract class BaseCacheSubqueriesTest
                 .sum();
     }
 
+    protected Long getLoadCachedDataOperatorsWithDynamicFiltersApplied(QueryId queryId)
+    {
+        return getOperatorStats(queryId, LoadCachedDataOperator.class.getSimpleName())
+                .map(OperatorStats::getDynamicFilterSplitsProcessed)
+                .mapToLong(Long::valueOf)
+                .sum();
+    }
+
+
     protected Long getScanOperatorInputPositions(QueryId queryId)
     {
         return getOperatorInputPositions(queryId, TableScanOperator.class.getSimpleName(), ScanFilterAndProjectOperator.class.getSimpleName());
@@ -848,6 +866,7 @@ public abstract class BaseCacheSubqueriesTest
                 .setSystemProperty(CACHE_COMMON_SUBQUERIES_ENABLED, "true")
                 .setSystemProperty(CACHE_AGGREGATIONS_ENABLED, "true")
                 .setSystemProperty(CACHE_PROJECTIONS_ENABLED, "true")
+                .setSystemProperty(DYNAMIC_ROW_FILTERING_WAIT_TIMEOUT, "10s")
                 .build();
     }
 

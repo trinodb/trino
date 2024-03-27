@@ -80,6 +80,13 @@ public class TestTpchCacheSubqueriesTest
     }
 
     @Override
+    @Test
+    public void testQueryWithDynamicFilterFallback()
+    {
+        abort("tpch does not support for partitioned tables");
+    }
+
+    @Override
     protected void createPartitionedTableAsSelect(String tableName, List<String> partitionColumns, String asSelect)
     {
         throw new UnsupportedOperationException("tpch does not support for partitioned tables");
