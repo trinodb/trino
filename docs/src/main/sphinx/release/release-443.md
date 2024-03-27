@@ -41,6 +41,3 @@
 
 * Add catalog store support for dynamic catalog storage implementation in
   connector plugins. ({issue}`21114`)
-
-
-Thanks again for presenting at Trino Summit last year .. sending you a reminder to register for Trino Fest in June ..https://trino.io/blog/2024/02/20/announcing-trino-fest-2024
