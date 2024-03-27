@@ -273,7 +273,7 @@ public class JoinStatsRule
                 .map(drivingClause -> calculateJoinComplementStats(leftStats, rightStats, drivingClause, criteria.size() - 1 + numberOfFilterClauses))
                 .filter(estimate -> !estimate.isOutputRowCountUnknown())
                 .max(comparingDouble(PlanNodeStatsEstimate::getOutputRowCount))
-                .map(estimate -> normalizer.normalize(estimate))
+                .map(normalizer::normalize)
                 .orElse(PlanNodeStatsEstimate.unknown());
     }
 

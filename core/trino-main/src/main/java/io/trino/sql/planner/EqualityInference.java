@@ -71,7 +71,7 @@ public class EqualityInference
         DisjointSet<Expression> equalities = new DisjointSet<>();
         expressions.stream()
                 .flatMap(expression -> extractConjuncts(expression).stream())
-                .filter(expression -> isInferenceCandidate(expression))
+                .filter(EqualityInference::isInferenceCandidate)
                 .forEach(expression -> {
                     Comparison comparison = (Comparison) expression;
                     Expression expression1 = comparison.left();

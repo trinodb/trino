@@ -64,7 +64,7 @@ public final class SortExpressionExtractor
         SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols);
 
         List<SortExpressionContext> sortExpressionCandidates = ImmutableList.copyOf(filterConjuncts.stream()
-                .filter(expression -> DeterminismEvaluator.isDeterministic(expression))
+                .filter(DeterminismEvaluator::isDeterministic)
                 .map(visitor::process)
                 .filter(Optional::isPresent)
                 .map(Optional::get)

@@ -71,7 +71,7 @@ public class PinotSegmentPageSource
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         this.columnTypes = columnHandles
                 .stream()
-                .map(columnHandle -> columnHandle.getDataType())
+                .map(PinotColumnHandle::getDataType)
                 .collect(Collectors.toList());
         this.targetSegmentPageSizeBytes = targetSegmentPageSizeBytes;
         this.pinotDataFetcher = requireNonNull(pinotDataFetcher, "pinotDataFetcher is null");

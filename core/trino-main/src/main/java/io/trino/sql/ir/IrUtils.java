@@ -204,12 +204,12 @@ public final class IrUtils
 
     public static Expression filterDeterministicConjuncts(Metadata metadata, Expression expression)
     {
-        return filterConjuncts(expression, expression1 -> DeterminismEvaluator.isDeterministic(expression1));
+        return filterConjuncts(expression, DeterminismEvaluator::isDeterministic);
     }
 
     public static Expression filterNonDeterministicConjuncts(Metadata metadata, Expression expression)
     {
-        return filterConjuncts(expression, not(testExpression -> DeterminismEvaluator.isDeterministic(testExpression)));
+        return filterConjuncts(expression, not(DeterminismEvaluator::isDeterministic));
     }
 
     public static Expression filterConjuncts(Expression expression, Predicate<Expression> predicate)

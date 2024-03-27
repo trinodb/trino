@@ -235,14 +235,14 @@ public class SnowflakeClient
 
         final Map<String, WriteMappingFunction> snowflakeWriteMappings = ImmutableMap.<String, WriteMappingFunction>builder()
                 .put("TimeType", writeType -> WriteMapping.longMapping("time", timeWriteFunction(((TimeType) writeType).getPrecision())))
-                .put("ShortTimestampType", writeType -> SnowflakeClient.snowFlakeTimestampWriter(writeType))
-                .put("ShortTimestampWithTimeZoneType", writeType -> SnowflakeClient.snowFlakeTimestampWithTZWriter(writeType))
-                .put("LongTimestampType", writeType -> SnowflakeClient.snowFlakeTimestampWithTZWriter(writeType))
-                .put("LongTimestampWithTimeZoneType", writeType -> SnowflakeClient.snowFlakeTimestampWithTZWriter(writeType))
-                .put("VarcharType", writeType -> SnowflakeClient.snowFlakeVarCharWriter(writeType))
-                .put("CharType", writeType -> SnowflakeClient.snowFlakeCharWriter(writeType))
-                .put("LongDecimalType", writeType -> SnowflakeClient.snowFlakeDecimalWriter(writeType))
-                .put("ShortDecimalType", writeType -> SnowflakeClient.snowFlakeDecimalWriter(writeType))
+                .put("ShortTimestampType", SnowflakeClient::snowFlakeTimestampWriter)
+                .put("ShortTimestampWithTimeZoneType", SnowflakeClient::snowFlakeTimestampWithTZWriter)
+                .put("LongTimestampType", SnowflakeClient::snowFlakeTimestampWithTZWriter)
+                .put("LongTimestampWithTimeZoneType", SnowflakeClient::snowFlakeTimestampWithTZWriter)
+                .put("VarcharType", SnowflakeClient::snowFlakeVarCharWriter)
+                .put("CharType", SnowflakeClient::snowFlakeCharWriter)
+                .put("LongDecimalType", SnowflakeClient::snowFlakeDecimalWriter)
+                .put("ShortDecimalType", SnowflakeClient::snowFlakeDecimalWriter)
                 .buildOrThrow();
 
         WriteMappingFunction writeMappingFunction = snowflakeWriteMappings.get(simple);

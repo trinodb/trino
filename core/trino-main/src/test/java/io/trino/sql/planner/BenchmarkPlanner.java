@@ -165,7 +165,7 @@ public class BenchmarkPlanner
                         .collect(joining(", ", "(", ")")))),
         // 86k columns present in the query with 500 group bys
         MULTIPLE_GROUP_BY(() -> ImmutableList.of("WITH " + IntStream.rangeClosed(0, 500)
-                .mapToObj(i -> """
+                .mapToObj("""
                         t%s AS (
                         SELECT * FROM lineitem a
                         JOIN tiny.lineitem b ON a.l_orderkey = b.l_orderkey
@@ -173,8 +173,7 @@ public class BenchmarkPlanner
                         JOIN sf100.lineitem d ON a.l_orderkey = d.l_orderkey
                         JOIN sf1000.lineitem e ON a.l_orderkey = e.l_orderkey
                         WHERE a.l_orderkey = (SELECT max(o_orderkey) FROM orders GROUP BY o_orderkey))
-                        """
-                        .formatted(i))
+                        """::formatted)
                 .collect(joining(",")) +
                 "SELECT 1 FROM lineitem")),
         GROUP_BY_WITH_MANY_REFERENCED_COLUMNS(() -> ImmutableList.of("SELECT * FROM mock.default.t GROUP BY " +

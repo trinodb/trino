@@ -881,7 +881,7 @@ public class TestQueryStateMachine
             if (setAuthorizationUser != null) {
                 stateMachine.setSetAuthorizationUser(setAuthorizationUser);
             }
-            addPreparedStatements.forEach((key, value) -> stateMachine.addPreparedStatement(key, value));
+            addPreparedStatements.forEach(stateMachine::addPreparedStatement);
             if (transactionId != null) {
                 stateMachine.setStartedTransactionId(transactionId);
             }

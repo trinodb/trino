@@ -20,6 +20,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.Logical;
+import io.trino.sql.planner.DeterminismEvaluator;
 
 import java.util.Collection;
 import java.util.List;
@@ -168,7 +169,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
         private Set<Expression> filterDeterministicPredicates(List<Expression> predicates)
         {
             return predicates.stream()
-                    .filter(expression -> isDeterministic(expression))
+                    .filter(DeterminismEvaluator::isDeterministic)
                     .collect(toSet());
         }
 

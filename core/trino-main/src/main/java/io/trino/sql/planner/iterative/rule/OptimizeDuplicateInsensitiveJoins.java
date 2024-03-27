@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
@@ -103,7 +104,7 @@ public class OptimizeDuplicateInsensitiveJoins
         public Optional<PlanNode> visitProject(ProjectNode node, Void context)
         {
             boolean isDeterministic = node.getAssignments().getExpressions().stream()
-                    .allMatch(expression -> isDeterministic(expression));
+                    .allMatch(DeterminismEvaluator::isDeterministic);
             if (!isDeterministic) {
                 // non-deterministic projections could be used in downstream filters which could
                 // filter duplicate rows probabilistically

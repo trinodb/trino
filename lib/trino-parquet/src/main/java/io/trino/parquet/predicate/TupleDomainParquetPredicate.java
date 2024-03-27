@@ -810,11 +810,11 @@ public class TupleDomainParquetPredicate
         {
             return switch (primitiveType.getPrimitiveTypeName()) {
                 case BOOLEAN -> throw new ParquetDecodingException("Dictionary encoding does not support: " + primitiveType.getPrimitiveTypeName());
-                case INT32 -> (i) -> dictionary.decodeToInt(i);
-                case INT64 -> (i) -> dictionary.decodeToLong(i);
-                case FLOAT -> (i) -> dictionary.decodeToFloat(i);
-                case DOUBLE -> (i) -> dictionary.decodeToDouble(i);
-                case FIXED_LEN_BYTE_ARRAY, BINARY, INT96 -> (i) -> dictionary.decodeToSlice(i);
+                case INT32 -> dictionary::decodeToInt;
+                case INT64 -> dictionary::decodeToLong;
+                case FLOAT -> dictionary::decodeToFloat;
+                case DOUBLE -> dictionary::decodeToDouble;
+                case FIXED_LEN_BYTE_ARRAY, BINARY, INT96 -> dictionary::decodeToSlice;
             };
         }
     }

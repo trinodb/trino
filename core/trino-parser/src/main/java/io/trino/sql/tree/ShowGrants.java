@@ -44,7 +44,7 @@ public class ShowGrants
 
     public Optional<String> getEntityKind()
     {
-        return grantObject.flatMap(scope -> scope.getEntityKind());
+        return grantObject.flatMap(GrantObject::getEntityKind);
     }
 
     public Optional<GrantObject> getGrantObject()
