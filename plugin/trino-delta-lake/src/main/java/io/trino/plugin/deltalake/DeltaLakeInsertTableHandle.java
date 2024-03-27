@@ -28,6 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class DeltaLakeInsertTableHandle
         implements ConnectorInsertTableHandle
 {
+    private final String operationName;
     private final SchemaTableName tableName;
     private final String location;
     private final MetadataEntry metadataEntry;
@@ -38,6 +39,7 @@ public class DeltaLakeInsertTableHandle
 
     @JsonCreator
     public DeltaLakeInsertTableHandle(
+            @JsonProperty("operationName") String operationName,
             @JsonProperty("tableName") SchemaTableName tableName,
             @JsonProperty("location") String location,
             @JsonProperty("metadataEntry") MetadataEntry metadataEntry,
@@ -46,6 +48,7 @@ public class DeltaLakeInsertTableHandle
             @JsonProperty("readVersion") long readVersion,
             @JsonProperty("retriesEnabled") boolean retriesEnabled)
     {
+        this.operationName = requireNonNull(operationName, "operationName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
         this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
@@ -53,6 +56,12 @@ public class DeltaLakeInsertTableHandle
         this.location = requireNonNull(location, "location is null");
         this.readVersion = readVersion;
         this.retriesEnabled = retriesEnabled;
+    }
+
+    @JsonProperty
+    public String getOperationName()
+    {
+        return operationName;
     }
 
     @JsonProperty

@@ -3410,7 +3410,7 @@ public class TestDeltaLakeConnectorTest
                                 (1, 'WRITE', 0),
                                 (2, 'WRITE', 1),
                                 (3, 'WRITE', 2),
-                                (4, 'MERGE', 3)
+                                (4, 'UPDATE', 3)
                             """);
         }
     }

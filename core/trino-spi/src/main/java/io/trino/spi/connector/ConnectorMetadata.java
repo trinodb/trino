@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Experimental;
 import io.trino.spi.TrinoException;
+import io.trino.spi.UpdateType;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -950,6 +951,15 @@ public interface ConnectorMetadata
      * Do whatever is necessary to start an MERGE query, returning the {@link ConnectorMergeTableHandle}
      * instance that will be passed to the PageSink, and to the {@link #finishMerge} method.
      */
+    default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode, UpdateType updateType)
+    {
+        return beginMerge(session, tableHandle, retryMode);
+    }
+
+    /**
+     * @deprecated Use {@link #beginMerge(ConnectorSession, ConnectorTableHandle, RetryMode, UpdateType)}
+     */
+    @Deprecated
     default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
         throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);

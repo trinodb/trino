@@ -45,6 +45,7 @@ import io.trino.metadata.TableSchema;
 import io.trino.metadata.TableVersion;
 import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewInfo;
+import io.trino.spi.UpdateType;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -821,11 +822,11 @@ public class TracingMetadata
     }
 
     @Override
-    public MergeHandle beginMerge(Session session, TableHandle tableHandle)
+    public MergeHandle beginMerge(Session session, TableHandle tableHandle, UpdateType updateType)
     {
         Span span = startSpan("beginMerge", tableHandle);
         try (var ignored = scopedSpan(span)) {
-            return delegate.beginMerge(session, tableHandle);
+            return delegate.beginMerge(session, tableHandle, updateType);
         }
     }
 

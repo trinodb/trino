@@ -211,7 +211,8 @@ public class BeginTableWrite
                         tableHandle.get(),
                         mergeTarget.getMergeHandle(),
                         mergeTarget.getSchemaTableName(),
-                        mergeTarget.getMergeParadigmAndTypes());
+                        mergeTarget.getMergeParadigmAndTypes(),
+                        mergeTarget.getUpdateType());
             }
 
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
@@ -246,12 +247,13 @@ public class BeginTableWrite
                         findSourceTableHandles(planNode));
             }
             if (target instanceof MergeTarget merge) {
-                MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle());
+                MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle(), merge.getUpdateType());
                 return new MergeTarget(
                         mergeHandle.getTableHandle(),
                         Optional.of(mergeHandle),
                         merge.getSchemaTableName(),
-                        merge.getMergeParadigmAndTypes());
+                        merge.getMergeParadigmAndTypes(),
+                        merge.getUpdateType());
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewReference refreshMV) {
                 return new TableWriterNode.RefreshMaterializedViewTarget(
