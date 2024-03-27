@@ -77,6 +77,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -98,6 +99,10 @@ public class Server
 
     private void doStart(String trinoVersion)
     {
+        // Trino server behavior does not depend on locale settings.
+        // Use en_US as this is what Trino is tested with.
+        Locale.setDefault(Locale.US);
+
         long startTime = System.nanoTime();
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
