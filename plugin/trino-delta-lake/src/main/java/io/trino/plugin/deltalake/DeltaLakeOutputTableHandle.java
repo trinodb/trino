@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
@@ -43,6 +44,8 @@ public class DeltaLakeOutputTableHandle
     private final ColumnMappingMode columnMappingMode;
     private final OptionalInt maxColumnId;
     private final String schemaString;
+    private final boolean replace;
+    private final OptionalLong readVersion;
     private final ProtocolEntry protocolEntry;
 
     @JsonCreator
@@ -58,6 +61,8 @@ public class DeltaLakeOutputTableHandle
             @JsonProperty("schemaString") String schemaString,
             @JsonProperty("columnMappingMode") ColumnMappingMode columnMappingMode,
             @JsonProperty("maxColumnId") OptionalInt maxColumnId,
+            @JsonProperty("replace") boolean replace,
+            @JsonProperty("readVersion") OptionalLong readVersion,
             @JsonProperty("protocolEntry") ProtocolEntry protocolEntry)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -71,6 +76,8 @@ public class DeltaLakeOutputTableHandle
         this.schemaString = requireNonNull(schemaString, "schemaString is null");
         this.columnMappingMode = requireNonNull(columnMappingMode, "columnMappingMode is null");
         this.maxColumnId = requireNonNull(maxColumnId, "maxColumnId is null");
+        this.replace = replace;
+        this.readVersion = requireNonNull(readVersion, "readVersion is null");
         this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
     }
 
@@ -147,6 +154,18 @@ public class DeltaLakeOutputTableHandle
     public OptionalInt getMaxColumnId()
     {
         return maxColumnId;
+    }
+
+    @JsonProperty
+    public boolean isReplace()
+    {
+        return replace;
+    }
+
+    @JsonProperty
+    public OptionalLong getReadVersion()
+    {
+        return readVersion;
     }
 
     @JsonProperty
