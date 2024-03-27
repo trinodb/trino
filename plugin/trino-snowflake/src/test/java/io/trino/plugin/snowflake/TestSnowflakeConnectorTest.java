@@ -222,12 +222,10 @@ public class TestSnowflakeConnectorTest
         abort("TODO");
     }
 
-    @Test
     @Override
-    public void testInsertIntoNotNullColumn()
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        // TODO: java.lang.UnsupportedOperationException: This method should be overridden
-        assertThatThrownBy(super::testInsertIntoNotNullColumn);
+        return "NULL result in a non-nullable column";
     }
 
     @Test
