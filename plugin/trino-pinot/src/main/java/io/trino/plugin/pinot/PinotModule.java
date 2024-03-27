@@ -99,7 +99,7 @@ public class PinotModule
 
         install(conditionalModule(
                 PinotConfig.class,
-                config -> config.isGrpcEnabled(),
+                PinotConfig::isGrpcEnabled,
                 new PinotGrpcModule(),
                 new LegacyClientModule()));
     }
@@ -136,7 +136,7 @@ public class PinotModule
             binder.bind(PinotDataFetcher.Factory.class).to(PinotGrpcDataFetcher.Factory.class).in(Scopes.SINGLETON);
             install(conditionalModule(
                     PinotGrpcServerQueryClientConfig.class,
-                    config -> config.isUsePlainText(),
+                    PinotGrpcServerQueryClientConfig::isUsePlainText,
                     plainTextBinder -> plainTextBinder.bind(PinotGrpcDataFetcher.GrpcQueryClientFactory.class).to(PinotGrpcDataFetcher.PlainTextGrpcQueryClientFactory.class).in(Scopes.SINGLETON),
                     tlsBinder -> {
                         configBinder(tlsBinder).bindConfig(PinotGrpcServerQueryClientTlsConfig.class);

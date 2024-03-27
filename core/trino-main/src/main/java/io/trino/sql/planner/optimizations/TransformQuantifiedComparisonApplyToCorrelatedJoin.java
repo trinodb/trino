@@ -22,6 +22,7 @@ import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -179,11 +180,11 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             Function<List<Expression>, Expression> quantifier;
             if (quantifiedComparison.quantifier() == ALL) {
                 emptySetResult = TRUE;
-                quantifier = expressions -> combineConjuncts(expressions);
+                quantifier = IrUtils::combineConjuncts;
             }
             else {
                 emptySetResult = FALSE;
-                quantifier = expressions -> combineDisjuncts(expressions);
+                quantifier = IrUtils::combineDisjuncts;
             }
             Expression comparisonWithExtremeValue = getBoundComparisons(quantifiedComparison, minValue, maxValue);
 

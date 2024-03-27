@@ -682,7 +682,7 @@ public class LocalExecutionPlanner
         Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(outputLayout, physicalOperation.getLayout());
 
         List<Type> outputTypes = outputLayout.stream()
-                .map(symbol -> symbol.getType())
+                .map(Symbol::getType)
                 .collect(toImmutableList());
 
         context.addDriverFactory(
@@ -3927,7 +3927,7 @@ public class LocalExecutionPlanner
         private List<Type> getSymbolTypes(List<Symbol> symbols)
         {
             return symbols.stream()
-                    .map(symbol -> symbol.getType())
+                    .map(Symbol::getType)
                     .collect(toImmutableList());
         }
 

@@ -182,7 +182,7 @@ public final class TypedKeyValueHeap
         for (int i = 0; i < indexes.length; i++) {
             indexes[i] = i;
         }
-        IntArrays.quickSort(indexes, (a, b) -> compare(a, b));
+        IntArrays.quickSort(indexes, this::compare);
 
         for (int index : indexes) {
             write(index, null, valueBlockBuilder);

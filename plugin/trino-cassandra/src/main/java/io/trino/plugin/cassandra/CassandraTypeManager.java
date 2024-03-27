@@ -150,7 +150,7 @@ public class CassandraTypeManager
     {
         TupleType tupleType = (TupleType) dataType;
         List<Optional<CassandraType>> argumentTypesOptionals = tupleType.getComponentTypes().stream()
-                .map(componentType -> toCassandraType(componentType))
+                .map(this::toCassandraType)
                 .collect(toImmutableList());
 
         if (argumentTypesOptionals.stream().anyMatch(Optional::isEmpty)) {

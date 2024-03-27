@@ -8696,7 +8696,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testTimestampPrecisionCtas()
     {
-        testWithAllStorageFormats((session, storageFormat) -> testTimestampPrecisionCtas(session, storageFormat));
+        testWithAllStorageFormats(this::testTimestampPrecisionCtas);
     }
 
     private void testTimestampPrecisionCtas(Session session, HiveStorageFormat storageFormat)

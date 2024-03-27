@@ -39,7 +39,7 @@ public class TestingH2JdbcModule
 
     public TestingH2JdbcModule()
     {
-        this((config, connectionFactory, identifierMapping) -> new TestingH2JdbcClient(config, connectionFactory, identifierMapping));
+        this(TestingH2JdbcClient::new);
     }
 
     public TestingH2JdbcModule(TestingH2JdbcClientFactory testingH2JdbcClientFactory)
