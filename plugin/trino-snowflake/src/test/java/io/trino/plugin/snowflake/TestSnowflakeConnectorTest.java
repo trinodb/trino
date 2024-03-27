@@ -371,7 +371,7 @@ public class TestSnowflakeConnectorTest
     @Override
     public void testCharTrailingSpace()
     {
-        assertThatThrownBy(super::testCharVarcharComparison)
+        assertThatThrownBy(super::testCharTrailingSpace)
                 .hasMessageContaining("For query")
                 .hasMessageContaining("Actual rows")
                 .hasMessageContaining("Expected rows");
