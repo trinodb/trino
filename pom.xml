@@ -2276,7 +2276,7 @@
             <dependency>
                 <groupId>org.threeten</groupId>
                 <artifactId>threetenbp</artifactId>
-                <version>1.6.8</version>
+                <version>1.6.9</version>
             </dependency>
 
             <dependency>
