@@ -324,7 +324,7 @@ public class TestEventDrivenTaskSource
                 partitioningScheme,
                 getSplitDuration -> getSplitInvocations.incrementAndGet())) {
             while (tester.getTaskDescriptors().isEmpty()) {
-                AssignmentResult result = taskSource.process().get(10, SECONDS);
+                AssignmentResult result = taskSource.process().orElseThrow().get(10, SECONDS);
                 tester.update(result);
             }
             taskDescriptors = tester.getTaskDescriptors().get();

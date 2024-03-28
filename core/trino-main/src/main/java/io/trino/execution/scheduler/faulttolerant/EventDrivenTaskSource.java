@@ -95,6 +95,8 @@ class EventDrivenTaskSource
     @GuardedBy("this")
     private ListenableFuture<AssignmentResult> future;
     @GuardedBy("this")
+    private boolean finished;
+    @GuardedBy("this")
     private boolean closed;
     @GuardedBy("this")
     private final Closer closer = Closer.create();
@@ -125,10 +127,14 @@ class EventDrivenTaskSource
         this.getSplitTimeRecorder = requireNonNull(getSplitTimeRecorder, "getSplitTimeRecorder is null");
     }
 
-    public synchronized ListenableFuture<AssignmentResult> process()
+    public synchronized Optional<ListenableFuture<AssignmentResult>> process()
     {
         checkState(!closed, "closed");
         checkState(future == null || future.isDone(), "still in process");
+
+        if (finished) {
+            return Optional.empty();
+        }
 
         if (!initialized) {
             initialize();
@@ -136,7 +142,7 @@ class EventDrivenTaskSource
         }
 
         future = processNext();
-        return future;
+        return Optional.of(future);
     }
 
     @GuardedBy("this")
@@ -169,6 +175,7 @@ class EventDrivenTaskSource
                 .collect(toImmutableList());
 
         if (futures.isEmpty()) {
+            finished = true;
             return immediateFuture(assigner.finish());
         }
 
