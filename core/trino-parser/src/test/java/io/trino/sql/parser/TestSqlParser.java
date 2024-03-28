@@ -1635,7 +1635,7 @@ public class TestSqlParser
                         selectList(new AllColumns()),
                         new Table(QualifiedName.of("table1")),
                         Optional.empty(),
-                        Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(new Identifier("a")))))),
+                        Optional.of(new GroupBy(Optional.empty(), ImmutableList.of(new SimpleGroupBy(ImmutableList.of(new Identifier("a")))))),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -1646,7 +1646,7 @@ public class TestSqlParser
                         selectList(new AllColumns()),
                         new Table(QualifiedName.of("table1")),
                         Optional.empty(),
-                        Optional.of(new GroupBy(false, ImmutableList.of(
+                        Optional.of(new GroupBy(Optional.empty(), ImmutableList.of(
                                 new SimpleGroupBy(ImmutableList.of(new Identifier("a"))),
                                 new SimpleGroupBy(ImmutableList.of(new Identifier("b")))))),
                         Optional.empty(),
@@ -1659,7 +1659,18 @@ public class TestSqlParser
                         selectList(new AllColumns()),
                         new Table(QualifiedName.of("table1")),
                         Optional.empty(),
-                        Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of())))),
+                        Optional.of(new GroupBy(Optional.empty(), ImmutableList.of(new SimpleGroupBy(ImmutableList.of())))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 GROUP BY ALL",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(QualifiedName.of("table1")),
+                        Optional.empty(),
+                        Optional.of(new GroupBy(Optional.of(GroupBy.Type.ALL), ImmutableList.of())),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -1670,7 +1681,7 @@ public class TestSqlParser
                         selectList(new AllColumns()),
                         new Table(QualifiedName.of("table1")),
                         Optional.empty(),
-                        Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(
+                        Optional.of(new GroupBy(Optional.empty(), ImmutableList.of(new GroupingSets(
                                 GroupingSets.Type.EXPLICIT,
                                 ImmutableList.of(
                                         ImmutableList.of(new Identifier("a"))))))),
@@ -1689,7 +1700,7 @@ public class TestSqlParser
                                         ImmutableList.of(QualifiedName.of("a"), QualifiedName.of("b")))),
                         new Table(QualifiedName.of("table1")),
                         Optional.empty(),
-                        Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(
+                        Optional.of(new GroupBy(Optional.empty(), ImmutableList.of(new GroupingSets(
                                 GroupingSets.Type.EXPLICIT,
                                 ImmutableList.of(
                                         ImmutableList.of(new Identifier("a")),
@@ -1704,7 +1715,7 @@ public class TestSqlParser
                         selectList(new AllColumns()),
                         new Table(QualifiedName.of("table1")),
                         Optional.empty(),
-                        Optional.of(new GroupBy(false, ImmutableList.of(
+                        Optional.of(new GroupBy(Optional.of(GroupBy.Type.ALL), ImmutableList.of(
                                 new GroupingSets(
                                         GroupingSets.Type.EXPLICIT,
                                         ImmutableList.of(
@@ -1723,7 +1734,7 @@ public class TestSqlParser
                         selectList(new AllColumns()),
                         new Table(QualifiedName.of("table1")),
                         Optional.empty(),
-                        Optional.of(new GroupBy(true, ImmutableList.of(
+                        Optional.of(new GroupBy(Optional.of(GroupBy.Type.DISTINCT), ImmutableList.of(
                                 new GroupingSets(
                                         GroupingSets.Type.EXPLICIT,
                                         ImmutableList.of(
@@ -1755,7 +1766,7 @@ public class TestSqlParser
                         ImmutableList.of(
                                 new Property(new Identifier("a"), new StringLiteral("apple")),
                                 new Property(new Identifier("b"), new LongLiteral("123"))),
-                        Optional.of(new PrincipalSpecification(Type.ROLE, new Identifier("dragon"))),
+                        Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("dragon"))),
                         Optional.of("awesome")));
 
         assertStatement("CREATE CATALOG \"some name that contains space\" USING \"conn-with-dash\"",
@@ -3952,10 +3963,9 @@ public class TestSqlParser
                                 new Identifier("EXCLUDING"),
                                 new Identifier("PROPERTIES")),
                         table(QualifiedName.of("t"))));
-        assertStatement("SELECT ALL, SOME, ANY FROM t",
+        assertStatement("SELECT SOME, ANY FROM t",
                 simpleQuery(
                         selectList(
-                                new Identifier("ALL"),
                                 new Identifier("SOME"),
                                 new Identifier("ANY")),
                         table(QualifiedName.of("t"))));

@@ -9,6 +9,7 @@ be quoted (using double quotes) in order to be used as an identifier.
 
 | Keyword             | SQL:2016 | SQL-92   |
 | ------------------- | -------- | -------- |
+| `ALL`               | reserved | reserved |
 | `ALTER`             | reserved | reserved |
 | `AND`               | reserved | reserved |
 | `AS`                | reserved | reserved |

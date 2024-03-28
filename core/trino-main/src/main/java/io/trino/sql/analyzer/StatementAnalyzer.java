@@ -4445,6 +4445,32 @@ class StatementAnalyzer
                 ImmutableList.Builder<Expression> groupingExpressions = ImmutableList.builder();
 
                 checkGroupingSetsCount(node.getGroupBy().get());
+                if (node.getGroupBy().get().isAll() && node.getGroupBy().get().getGroupingElements().isEmpty()) {
+                    // Analyze non-aggregation outputs for GROUP BY ALL
+                    for (Expression column : outputExpressions) {
+                        if (column instanceof FunctionCall functionCall) {
+                            ResolvedFunction function = getResolvedFunction(functionCall);
+                            if (function.getFunctionKind() == AGGREGATE) {
+                                continue;
+                            }
+                        }
+                        else {
+                            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, column, "GROUP BY clause");
+                            analyzeExpression(column, scope);
+                        }
+
+                        ResolvedField field = analysis.getColumnReferenceFields().get(NodeRef.of(column));
+                        if (field != null) {
+                            sets.add(ImmutableList.of(ImmutableSet.of(field.getFieldId())));
+                        }
+                        else {
+                            analysis.recordSubqueries(node, analyzeExpression(column, scope));
+                            complexExpressions.add(column);
+                        }
+
+                        groupingExpressions.add(column);
+                    }
+                }
                 for (GroupingElement groupingElement : node.getGroupBy().get().getGroupingElements()) {
                     if (groupingElement instanceof SimpleGroupBy) {
                         for (Expression column : groupingElement.getExpressions()) {

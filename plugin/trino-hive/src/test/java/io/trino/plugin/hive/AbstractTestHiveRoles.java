@@ -93,7 +93,7 @@ abstract class AbstractTestHiveRoles
     @Test
     public void testCreateReservedRole()
     {
-        assertQueryFails(createAdminSession(), createRoleSql("all"), "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
+        assertQueryFails(createAdminSession(), createRoleSql("\"all\""), "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
         assertQueryFails(createAdminSession(), createRoleSql("default"), "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
         assertQueryFails(createAdminSession(), createRoleSql("none"), "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
         assertQueryFails(createAdminSession(), createRoleSql("None"), "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
