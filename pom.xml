@@ -141,12 +141,12 @@
     </scm>
 
     <properties>
-        <project.build.targetJdk>21</project.build.targetJdk>
+        <project.build.targetJdk>23</project.build.targetJdk>
 
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
-        <air.java.version>21.0.1</air.java.version>
+        <air.java.version>23</air.java.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
         <air.main.basedir>${project.basedir}</air.main.basedir>
         <air.modernizer.java-version>8</air.modernizer.java-version>
@@ -182,6 +182,8 @@
         <dep.airlift.version>243</dep.airlift.version>
         <dep.alluxio.version>311</dep.alluxio.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
+        <!-- upgrades ASM in plugins to understand class format 67.0 -->
+        <dep.asm.version>9.7</dep.asm.version>
         <dep.avro.version>1.11.3</dep.avro.version>
         <dep.aws-sdk.version>1.12.688</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
@@ -2598,6 +2600,7 @@
                         <junit.jupiter.execution.parallel.enabled>true</junit.jupiter.execution.parallel.enabled>
                         <junit.jupiter.execution.parallel.mode.default>concurrent</junit.jupiter.execution.parallel.mode.default>
                         <junit.jupiter.execution.parallel.mode.classes.default>concurrent</junit.jupiter.execution.parallel.mode.classes.default>
+                        <java.security.manager>allow</java.security.manager>
                     </systemPropertyVariables>
                     <includes>
                         <!-- Tests classes should start with "Test", but we do also want to include tests incorrectly named, with "Test" at the end -->
