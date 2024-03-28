@@ -112,6 +112,7 @@ public class TableChangesSplitSource
                         if (!containsRemoveEntry) {
                             for (DeltaLakeTransactionLogEntry entry : entries) {
                                 if (entry.getAdd() != null && entry.getAdd().isDataChange()) {
+                                    // paths can be absolute as well in case of shallow-cloned tables
                                     AddFileEntry addEntry = entry.getAdd();
                                     splits.add(mapToDeltaLakeTableChangesSplit(
                                             commitInfo,

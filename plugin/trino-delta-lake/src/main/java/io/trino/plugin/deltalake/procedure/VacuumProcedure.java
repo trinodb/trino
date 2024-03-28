@@ -210,6 +210,7 @@ public class VacuumProcedure
                     alwaysFalse())) {
                 retainedPaths = Stream.concat(
                                 activeAddEntries
+                                        // paths can be absolute as well in case of shallow-cloned tables, but they shouldn't and aren't being deleted as part of vacuum
                                         .map(AddFileEntry::getPath),
                                 transactionLogAccess.getJsonEntries(
                                                 fileSystem,
