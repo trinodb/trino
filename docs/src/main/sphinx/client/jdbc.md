@@ -250,3 +250,6 @@ may not be specified using both methods.
     `PREPARE <statement>` followed by `EXECUTE <statement>`. This reduces
     network overhead and uses smaller HTTP headers and requires Trino 431 or
     greater.
+* - `followRedirects`
+  - Defaults to `false` as a security measure. When set to `true`, allows trino client to follow a redirect.
+  

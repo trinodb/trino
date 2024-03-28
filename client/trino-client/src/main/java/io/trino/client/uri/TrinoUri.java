@@ -76,6 +76,7 @@ import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_R
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_TIMEOUT;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_TOKEN_CACHE;
 import static io.trino.client.uri.ConnectionProperties.EXTRA_CREDENTIALS;
+import static io.trino.client.uri.ConnectionProperties.FOLLOW_REDIRECTS;
 import static io.trino.client.uri.ConnectionProperties.HOSTNAME_IN_CERTIFICATE;
 import static io.trino.client.uri.ConnectionProperties.HTTP_PROXY;
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_CONFIG_PATH;
@@ -169,6 +170,7 @@ public class TrinoUri
     private Optional<Map<String, String>> sessionProperties;
     private Optional<String> source;
     private Optional<Boolean> explicitPrepare;
+    private Optional<Boolean> followRedirects;
 
     private Optional<String> catalog = Optional.empty();
     private Optional<String> schema = Optional.empty();
@@ -222,7 +224,8 @@ public class TrinoUri
             Optional<String> traceToken,
             Optional<Map<String, String>> sessionProperties,
             Optional<String> source,
-            Optional<Boolean> explicitPrepare)
+            Optional<Boolean> explicitPrepare,
+            Optional<Boolean> followRedirects)
             throws SQLException
     {
         this.uri = requireNonNull(uri, "uri is null");
@@ -276,6 +279,7 @@ public class TrinoUri
         this.sessionProperties = SESSION_PROPERTIES.getValueOrDefault(urlProperties, sessionProperties);
         this.source = SOURCE.getValueOrDefault(urlProperties, source);
         this.explicitPrepare = EXPLICIT_PREPARE.getValueOrDefault(urlProperties, explicitPrepare);
+        this.followRedirects = FOLLOW_REDIRECTS.getValueOrDefault(urlProperties, followRedirects);
 
         properties = buildProperties();
 
@@ -362,6 +366,7 @@ public class TrinoUri
         traceToken.ifPresent(value -> properties.setProperty(PropertyName.TRACE_TOKEN.toString(), value));
         source.ifPresent(value -> properties.setProperty(PropertyName.SOURCE.toString(), value));
         explicitPrepare.ifPresent(value -> properties.setProperty(PropertyName.EXPLICIT_PREPARE.toString(), value.toString()));
+        followRedirects.ifPresent(value -> properties.setProperty(PropertyName.FOLLOW_REDIRECTS.toString(), value.toString()));
         return properties;
     }
 
@@ -422,6 +427,7 @@ public class TrinoUri
         this.sessionProperties = SESSION_PROPERTIES.getValue(properties);
         this.source = SOURCE.getValue(properties);
         this.explicitPrepare = EXPLICIT_PREPARE.getValue(properties);
+        this.followRedirects = FOLLOW_REDIRECTS.getValue(properties);
 
         // enable SSL by default for the trino schema and the standard port
         useSecureConnection = ssl.orElse(uri.getScheme().equals("https") || (uri.getScheme().equals("trino") && uri.getPort() == 443));
@@ -664,7 +670,7 @@ public class TrinoUri
                 if (!useSecureConnection) {
                     throw new SQLException("TLS/SSL required for authentication using an access token");
                 }
-                builder.addInterceptor(tokenAuth(accessToken.get()));
+                builder.addInterceptor(tokenAuth(accessToken.get(), followRedirects.orElse(false)));
             }
 
             if (externalAuthentication.orElse(false)) {
@@ -939,6 +945,7 @@ public class TrinoUri
         private Map<String, String> sessionProperties;
         private String source;
         private Boolean explicitPrepare;
+        private Boolean followRedirects;
 
         private Builder() {}
 
@@ -1233,6 +1240,12 @@ public class TrinoUri
             return this;
         }
 
+        public Builder setFollowRedirects(Boolean followRedirects)
+        {
+            this.followRedirects = requireNonNull(followRedirects, "followRedirects is null");
+            return this;
+        }
+
         public TrinoUri build()
                 throws SQLException
         {
@@ -1282,7 +1295,8 @@ public class TrinoUri
                     Optional.ofNullable(traceToken),
                     Optional.ofNullable(sessionProperties),
                     Optional.ofNullable(source),
-                    Optional.ofNullable(explicitPrepare));
+                    Optional.ofNullable(explicitPrepare),
+                    Optional.ofNullable(followRedirects));
         }
     }
 }

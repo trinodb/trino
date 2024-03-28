@@ -269,6 +269,15 @@ public class TestClientOptions
     }
 
     @Test
+    public void testFollowRedirects()
+    {
+        Console console = createConsole("--follow-redirects");
+
+        ClientOptions options = console.clientOptions;
+        assertThat(options.followRedirects).isTrue();
+    }
+
+    @Test
     public void testThreePartPropertyName()
     {
         assertThatThrownBy(() -> new ClientSessionProperty("foo.bar.baz=value"))
