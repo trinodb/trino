@@ -252,28 +252,11 @@ properties for topics such as {doc}`/admin/properties-general`,
 {doc}`/admin/properties-query-management`,
 {doc}`/admin/properties-web-interface`, and others.
 
-(log-levels)=
-
-### Log levels
-
-The optional log levels file, `etc/log.properties`, allows setting the
-minimum log level for named logger hierarchies. Every logger has a name,
-which is typically the fully qualified name of the class that uses the logger.
-Loggers have a hierarchy based on the dots in the name, like Java packages.
-For example, consider the following log levels file:
-
-```text
-io.trino=INFO
-```
-
-This would set the minimum level to `INFO` for both
-`io.trino.server` and `io.trino.plugin.hive`.
-The default minimum level is `INFO`,
-thus the above example does not actually change anything.
-There are four levels: `DEBUG`, `INFO`, `WARN` and `ERROR`.
+Further configuration can include [](/admin/logging), [](/admin/opentelemetry),
+[](/admin/jmx), [](/admin/openmetrics), and other functionality described in the
+[](/admin) section.
 
 (catalog-properties)=
-
 ### Catalog properties
 
 Trino accesses data via *connectors*, which are mounted in catalogs.
