@@ -306,7 +306,7 @@ No other types are supported.
 
 The Iceberg connector supports Kerberos authentication for the Hive metastore
 and HDFS and is configured using the same parameters as the Hive connector. Find
-more information in the [](/connector/hive-security) section.
+more information in the [](/object-storage/file-system-hdfs) section.
 
 (iceberg-authorization)=
 ### Authorization
@@ -579,15 +579,15 @@ The {ref}`sql-schema-table-management` functionality includes support for:
 #### Schema evolution
 
 Iceberg supports schema evolution, with safe column add, drop, reorder, and
-rename operations, including in nested structures. 
+rename operations, including in nested structures.
 
 Iceberg supports updating column types only for widening operations:
- 
+
 - `INTEGER` to `BIGINT`
 - `REAL` to `DOUBLE`
 - `DECIMAL(p,s)` to `DECIMAL(p2,s)` when `p2` > `p` (scale cannot change)
 
-Partitioning can also be changed and the connector can still query data 
+Partitioning can also be changed and the connector can still query data
 created before the partitioning change.
 
 (iceberg-alter-table-execute)=
@@ -1353,7 +1353,7 @@ replacement creates a new snapshot with the new table definition (see
 {doc}`/sql/create-table` and {doc}`/sql/create-table-as`), but keeps table history.
 
 The new table after replacement is completely new and separate from the old table.
-Only the name of the table remains identical. Earlier snapshots can be retrieved 
+Only the name of the table remains identical. Earlier snapshots can be retrieved
 through Iceberg's [time travel](iceberg-time-travel).
 
 For example a partitioned table `my_table` can be replaced by completely new
@@ -1402,7 +1402,7 @@ FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09
 The connector allows to create a new snapshot through Iceberg's [replace table](iceberg-create-or-replace).
 
 ```
-CREATE OR REPLACE TABLE example.testdb.customer_orders AS 
+CREATE OR REPLACE TABLE example.testdb.customer_orders AS
 SELECT *
 FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 Europe/Vienna'
 ```

@@ -105,7 +105,7 @@ public class HdfsConfig
     }
 
     @Config("hive.fs.new-file-inherit-ownership")
-    @ConfigDescription("File system permissions for new directories")
+    @ConfigDescription("Flag to determine if new files inherit the ownership information from the directory.")
     public HdfsConfig setNewFileInheritOwnership(boolean newFileInheritOwnership)
     {
         this.newFileInheritOwnership = newFileInheritOwnership;
