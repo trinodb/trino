@@ -74,11 +74,8 @@ public class ServerIT
             throws Exception
     {
         // Release names as in the https://api.adoptium.net/q/swagger-ui/#/Release%20Info/getReleaseNames
-        testInstall("jdk-21.0.2+13", "/usr/lib/jvm/temurin-21", "21");
-        testUninstall("jdk-21.0.2+13", "/usr/lib/jvm/temurin-21");
-
-        testInstall("jdk-22+36", "/usr/lib/jvm/temurin-22", "22");
-        testUninstall("jdk-22+36", "/usr/lib/jvm/temurin-22");
+        testInstall("jdk-23+15-ea-beta", "/usr/lib/jvm/temurin-23", "23");
+        testUninstall("jdk-23+15-ea-beta", "/usr/lib/jvm/temurin-23");
     }
 
     private void testInstall(String temurinReleaseName, String javaHome, String expectedJavaVersion)
