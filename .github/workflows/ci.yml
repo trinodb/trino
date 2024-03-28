@@ -56,7 +56,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { java-version: 21, cache: 'true', cleanup-node: 'true' }
           - { java-version: 22, cache: 'restore', cleanup-node: 'false' }
           - { java-version: 23-ea, cache: 'restore', cleanup-node: 'true' }
     timeout-minutes: 45

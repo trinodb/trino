@@ -141,12 +141,12 @@
     </scm>
 
     <properties>
-        <project.build.targetJdk>21</project.build.targetJdk>
+        <project.build.targetJdk>22</project.build.targetJdk>
 
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
-        <air.java.version>21.0.1</air.java.version>
+        <air.java.version>22.0.0</air.java.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
         <air.main.basedir>${project.basedir}</air.main.basedir>
         <air.modernizer.java-version>8</air.modernizer.java-version>
@@ -169,8 +169,6 @@
         <air.test.jvm.additional-arguments.default>
             -XX:G1HeapRegionSize=32M
             -XX:+UnlockDiagnosticVMOptions
-            <!-- bump from default of 2 -->
-            -XX:GCLockerRetryAllocationCount=10
             <!-- # Allow loading dynamic agent used by JOL -->
             -XX:+EnableDynamicAgentLoading
         </air.test.jvm.additional-arguments.default>
