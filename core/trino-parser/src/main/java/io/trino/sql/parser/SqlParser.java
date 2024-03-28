@@ -23,6 +23,7 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.PathSpecification;
 import io.trino.sql.tree.RowPattern;
+import io.trino.sql.tree.SessionSpecification;
 import io.trino.sql.tree.Statement;
 import org.antlr.v4.runtime.ANTLRErrorListener;
 import org.antlr.v4.runtime.BaseErrorListener;
@@ -118,6 +119,11 @@ public class SqlParser
     public FunctionSpecification createFunctionSpecification(String sql)
     {
         return (FunctionSpecification) invokeParser("function specification", sql, SqlBaseParser::standaloneFunctionSpecification);
+    }
+
+    public SessionSpecification createSessionSpecification(String sql)
+    {
+        return (SessionSpecification) invokeParser("session specification", sql, SqlBaseParser::standaloneSessionSpecification);
     }
 
     private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction)

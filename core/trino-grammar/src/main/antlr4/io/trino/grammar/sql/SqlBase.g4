@@ -44,6 +44,10 @@ standaloneFunctionSpecification
     : functionSpecification EOF
     ;
 
+standaloneSessionSpecification
+    : sessionSpecification EOF
+    ;
+
 statement
     : rootQuery                                                        #statementDefault
     | USE schema=identifier                                            #use
@@ -197,11 +201,23 @@ statement
     ;
 
 rootQuery
-    : withFunction? query
+    : queryScoped? query
+    ;
+
+queryScoped
+    : WITH withFunction? withSession?
     ;
 
 withFunction
-    : WITH functionSpecification (',' functionSpecification)*
+    : functionSpecification (',' functionSpecification)*
+    ;
+
+withSession
+    : sessionSpecification (',' sessionSpecification)*
+    ;
+
+sessionSpecification
+    : SESSION qualifiedName EQ expression
     ;
 
 query

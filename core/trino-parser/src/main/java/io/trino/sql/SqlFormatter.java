@@ -137,6 +137,7 @@ import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
+import io.trino.sql.tree.SessionSpecification;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
@@ -641,15 +642,29 @@ public final class SqlFormatter
         @Override
         protected Void visitQuery(Query node, Integer indent)
         {
-            if (!node.getFunctions().isEmpty()) {
+            if (!node.getFunctions().isEmpty() || !node.getSessionProperties().isEmpty()) {
                 builder.append("WITH\n");
-                Iterator<FunctionSpecification> functions = node.getFunctions().iterator();
-                while (functions.hasNext()) {
-                    process(functions.next(), indent + 1);
-                    if (functions.hasNext()) {
-                        builder.append(',');
+
+                if (!node.getFunctions().isEmpty()) {
+                    Iterator<FunctionSpecification> functions = node.getFunctions().iterator();
+                    while (functions.hasNext()) {
+                        process(functions.next(), indent + 1);
+                        if (functions.hasNext()) {
+                            builder.append(',');
+                        }
+                        builder.append('\n');
                     }
-                    builder.append('\n');
+                }
+
+                if (!node.getSessionProperties().isEmpty()) {
+                    Iterator<SessionSpecification> sessionProperty = node.getSessionProperties().iterator();
+                    while (sessionProperty.hasNext()) {
+                        process(sessionProperty.next(), indent + 1);
+                        if (sessionProperty.hasNext()) {
+                            builder.append(',');
+                        }
+                        builder.append('\n');
+                    }
                 }
             }
 
@@ -2302,6 +2317,16 @@ public final class SqlFormatter
                 builder.append("\n");
             }
             process(node.getStatement(), indent);
+            return null;
+        }
+
+        @Override
+        protected Void visitSessionSpecification(SessionSpecification node, Integer indent)
+        {
+            append(indent, "SESSION ")
+                    .append(formatName(node.getName()))
+                    .append(" = ")
+                    .append(formatExpression(node.getExpression()));
             return null;
         }
 

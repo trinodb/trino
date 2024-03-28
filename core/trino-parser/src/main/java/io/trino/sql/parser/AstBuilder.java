@@ -238,6 +238,7 @@ import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
+import io.trino.sql.tree.SessionSpecification;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
@@ -1091,9 +1092,15 @@ class AstBuilder
 
         return new Query(
                 getLocation(context),
-                Optional.ofNullable(context.withFunction())
+                Optional.ofNullable(context.queryScoped())
+                        .map(SqlBaseParser.QueryScopedContext::withFunction)
                         .map(SqlBaseParser.WithFunctionContext::functionSpecification)
                         .map(contexts -> visit(contexts, FunctionSpecification.class))
+                        .orElseGet(ImmutableList::of),
+                Optional.ofNullable(context.queryScoped())
+                        .map(SqlBaseParser.QueryScopedContext::withSession)
+                        .map(SqlBaseParser.WithSessionContext::sessionSpecification)
+                        .map(contexts -> visit(contexts, SessionSpecification.class))
                         .orElseGet(ImmutableList::of),
                 query.getWith(),
                 query.getQueryBody(),
@@ -1109,6 +1116,7 @@ class AstBuilder
 
         return new Query(
                 getLocation(context),
+                ImmutableList.of(),
                 ImmutableList.of(),
                 visitIfPresent(context.with(), With.class),
                 body.getQueryBody(),
@@ -1206,6 +1214,7 @@ class AstBuilder
             return new Query(
                     getLocation(context),
                     ImmutableList.of(),
+                    ImmutableList.of(),
                     Optional.empty(),
                     new QuerySpecification(
                             getLocation(context),
@@ -1225,6 +1234,7 @@ class AstBuilder
 
         return new Query(
                 getLocation(context),
+                ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
                 term,
@@ -3731,6 +3741,15 @@ class AstBuilder
                 (ReturnsClause) visit(context.returnsClause()),
                 visit(context.routineCharacteristic(), RoutineCharacteristic.class),
                 statement);
+    }
+
+    @Override
+    public Node visitSessionSpecification(SqlBaseParser.SessionSpecificationContext context)
+    {
+        return new SessionSpecification(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                (Expression) visit(context.expression()));
     }
 
     @Override

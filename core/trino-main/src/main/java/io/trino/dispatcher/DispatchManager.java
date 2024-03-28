@@ -42,6 +42,8 @@ import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
+import io.trino.sql.SessionSpecificationInterpreter;
+import io.trino.sql.SessionSpecificationInterpreter.ResolvedSessionSpecifications;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Flatten;
@@ -194,6 +196,10 @@ public class DispatchManager
 
             // prepare query
             preparedQuery = queryPreparer.prepareQuery(session, query);
+
+            // pass query scoped session properties
+            ResolvedSessionSpecifications sessionSpecifications = SessionSpecificationInterpreter.evaluate(preparedQuery.getStatement());
+            session = session.overrideProperties(sessionSpecifications.systemProperties(), sessionSpecifications.catalogProperties());
 
             // select resource group
             Optional<String> queryType = getQueryType(preparedQuery.getStatement()).map(Enum::name);

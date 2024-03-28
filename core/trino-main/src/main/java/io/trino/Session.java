@@ -436,6 +436,53 @@ public final class Session
                 exchangeEncryptionKey);
     }
 
+    public Session overrideProperties(Map<String, String> systemPropertyOverrides, Map<String, Map<String, String>> catalogPropertyOverrides)
+    {
+        requireNonNull(systemPropertyOverrides, "systemPropertyOverrides is null");
+        requireNonNull(catalogPropertyOverrides, "catalogPropertyOverrides is null");
+
+        checkState(transactionId.isEmpty(), "property overrides can not be added to a transaction already in progress");
+
+        // NOTE: properties should not be validated here and instead will be validated in beginTransactionId
+        Map<String, String> systemProperties = new HashMap<>();
+        systemProperties.putAll(this.systemProperties);
+        systemProperties.putAll(systemPropertyOverrides);
+
+        Map<String, Map<String, String>> catalogProperties = new HashMap<>(this.catalogProperties);
+        for (Entry<String, Map<String, String>> catalogEntry : catalogPropertyOverrides.entrySet()) {
+            catalogProperties.computeIfAbsent(catalogEntry.getKey(), id -> new HashMap<>())
+                    .putAll(catalogEntry.getValue());
+        }
+
+        return new Session(
+                queryId,
+                querySpan,
+                transactionId,
+                clientTransactionSupport,
+                identity,
+                originalIdentity,
+                source,
+                catalog,
+                schema,
+                path,
+                traceToken,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                clientInfo,
+                clientTags,
+                clientCapabilities,
+                resourceEstimates,
+                start,
+                systemProperties,
+                catalogProperties,
+                sessionPropertyManager,
+                preparedStatements,
+                protocolHeaders,
+                exchangeEncryptionKey);
+    }
+
     public Session withExchangeEncryption(Slice encryptionKey)
     {
         checkState(exchangeEncryptionKey.isEmpty(), "exchangeEncryptionKey is already present");
