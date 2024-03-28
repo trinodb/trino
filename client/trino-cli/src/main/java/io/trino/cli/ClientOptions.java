@@ -273,6 +273,9 @@ public class ClientOptions
     @Option(names = "--disable-auto-suggestion", description = "Disable auto suggestion")
     public boolean disableAutoSuggestion;
 
+    @Option(names = "--decimal-data-size", description = "Show data size and rate in base 10 rather than base 2")
+    public boolean decimalDataSize;
+
     public enum OutputFormat
     {
         AUTO,

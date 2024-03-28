@@ -94,10 +94,10 @@ public class TestQueryRunner
         QueryRunner queryRunner = createQueryRunner(createTrinoUri(server, false), createClientSession(server));
 
         try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
-            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false);
+            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false, false);
         }
         try (Query query = queryRunner.startQuery("second query should carry the cookie")) {
-            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false);
+            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false, false);
         }
 
         assertThat(server.takeRequest().getHeader("Cookie")).isNull();

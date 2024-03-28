@@ -78,7 +78,7 @@ public class TestInsecureQueryRunner
         QueryRunner queryRunner = createQueryRunner(createTrinoUri(server, true), createClientSession(server));
 
         try (Query query = queryRunner.startQuery("query with insecure mode")) {
-            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false);
+            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false, false);
         }
 
         assertThat(server.takeRequest().getPath()).isEqualTo("/v1/statement");

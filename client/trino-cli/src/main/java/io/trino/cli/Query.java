@@ -136,7 +136,7 @@ public class Query
         return client.isClearTransactionId();
     }
 
-    public boolean renderOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, Optional<String> pager, boolean showProgress)
+    public boolean renderOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, Optional<String> pager, boolean showProgress, boolean decimalDataSize)
     {
         Thread clientThread = Thread.currentThread();
         SignalHandler oldHandler = terminal.handle(Signal.INT, signal -> {
@@ -147,7 +147,7 @@ public class Query
             clientThread.interrupt();
         });
         try {
-            return renderQueryOutput(terminal, out, errorChannel, outputFormat, pager, showProgress);
+            return renderQueryOutput(terminal, out, errorChannel, outputFormat, pager, showProgress, decimalDataSize);
         }
         finally {
             terminal.handle(Signal.INT, oldHandler);
@@ -155,13 +155,13 @@ public class Query
         }
     }
 
-    private boolean renderQueryOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, Optional<String> pager, boolean showProgress)
+    private boolean renderQueryOutput(Terminal terminal, PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, Optional<String> pager, boolean showProgress, boolean decimalDataSize)
     {
         StatusPrinter statusPrinter = null;
         WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(errorChannel);
 
         if (showProgress) {
-            statusPrinter = new StatusPrinter(client, errorChannel, debug, isInteractive(pager));
+            statusPrinter = new StatusPrinter(client, errorChannel, debug, isInteractive(pager), decimalDataSize);
             statusPrinter.printInitialStatusUpdates(terminal);
         }
         else {
