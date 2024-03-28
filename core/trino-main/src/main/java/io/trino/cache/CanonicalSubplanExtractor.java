@@ -94,7 +94,8 @@ public final class CanonicalSubplanExtractor
     public static CacheColumnId canonicalAggregationToColumnId(CanonicalAggregation aggregation)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(aggregation.resolvedFunction().getName().toString())
+        builder.append("aggregation ")
+                .append(aggregation.resolvedFunction().getName().toString())
                 .append('(')
                 .append(aggregation.arguments().stream()
                         .map(ExpressionFormatter::formatExpression)
