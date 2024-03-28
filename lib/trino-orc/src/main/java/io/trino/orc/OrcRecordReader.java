@@ -62,6 +62,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static io.trino.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
+import static io.trino.orc.OrcReader.wrapWithCacheIfTiny;
 import static io.trino.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static io.trino.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static io.trino.orc.reader.ColumnReaders.createColumnReader;
@@ -226,6 +227,15 @@ public class OrcRecordReader
         this.stripes = stripes.build();
         this.stripeFilePositions = stripeFilePositions.build();
 
+        if (!this.stripes.isEmpty()) {
+            // If we know we need to at least read one stripe, then read file in its entirety if it's below the tiny stripe threshold
+            try {
+                orcDataSource = wrapWithCacheIfTiny(orcDataSource, options.getTinyStripeThreshold());
+            }
+            catch (IOException e) {
+                throw new OrcCorruptionException(e, orcDataSource.getId(), "Unable to read ORC file into memory");
+            }
+        }
         orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, options.getMaxMergeDistance(), options.getTinyStripeThreshold());
         this.orcDataSource = orcDataSource;
         this.orcDataSourceMemoryUsage = memoryUsage.newLocalMemoryContext(OrcDataSource.class.getSimpleName());
