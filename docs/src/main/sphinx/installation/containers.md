@@ -96,7 +96,7 @@ environmental variable to `dynamic`.
 $ docker run --name trino -d -p 8080:8080 -e CATALOG_MANAGEMENT=dynamic trinodb/trino
 ```
 
-After connecting to Trino, execute (sql-catalog-management)= statements to
+After connecting to Trino, execute {ref}`sql-catalog-management` statements to
 create drop catalogs as desired. To make these changes persistent across
 container restarts, a volume must be mounted at `/etc/trino/catalog`.
 
