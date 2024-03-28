@@ -609,6 +609,434 @@ public class TestDeltaLakeLocalConcurrentWritesTest
         }
     }
 
+    // Copied from BaseDeltaLakeConnectorSmokeTest
+    @Test
+    public void testConcurrentDeletePushdownReconciliation()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_inserts_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioned_by = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, 30), (31, 40)", 4);
+
+        try {
+            // delete data concurrently by using non-overlapping partition predicate
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("DELETE FROM " + tableName + " WHERE part = 10");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("DELETE FROM " + tableName + " WHERE part = 20");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("DELETE FROM " + tableName + " WHERE part = 30");
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (31, 40)");
+            assertQuery("SELECT version, operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
+                    """
+                            VALUES
+                                (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                                (1, 'DELETE', 'WriteSerializable', false),
+                                (2, 'DELETE', 'WriteSerializable', false),
+                                (3, 'DELETE', 'WriteSerializable', false)
+                            """);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, SECONDS));
+        }
+    }
+
+    @Test
+    public void testConcurrentDeletePushdownFromTheSamePartition()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_delete_from_same_partition_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part) WITH (partitioned_by = ARRAY['part']) AS VALUES (0, 10), (11, 20), (22, 30)", 3);
+
+        try {
+            List<Future<Boolean>> futures = IntStream.range(0, threads)
+                    .mapToObj(threadNumber -> executor.submit(() -> {
+                        barrier.await(10, SECONDS);
+                        try {
+                            getQueryRunner().execute("DELETE FROM " + tableName + "  WHERE part = 10");
+                            return true;
+                        }
+                        catch (Exception e) {
+                            RuntimeException trinoException = getTrinoExceptionCause(e);
+                            try {
+                                assertThat(trinoException).hasMessage("Failed to write Delta Lake transaction log entry");
+                            }
+                            catch (Throwable verifyFailure) {
+                                if (verifyFailure != e) {
+                                    verifyFailure.addSuppressed(e);
+                                }
+                                throw verifyFailure;
+                            }
+                            return false;
+                        }
+                    }))
+                    .collect(toImmutableList());
+
+            long successfulDeletesCount = futures.stream()
+                    .map(MoreFutures::getFutureValue)
+                    .filter(success -> success)
+                    .count();
+
+            assertThat(successfulDeletesCount).isGreaterThanOrEqualTo(1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (11, 20), (22, 30)");
+            assertQuery(
+                    "SELECT version, operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
+                    "VALUES (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', true)" +
+                            LongStream.rangeClosed(1, successfulDeletesCount)
+                                    .boxed()
+                                    .map("(%s, 'DELETE', 'WriteSerializable', false)"::formatted)
+                                    .collect(joining(", ", ", ", "")));
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, SECONDS));
+        }
+    }
+
+    @Test
+    public void testConcurrentTruncateReconciliationFailure()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_delete_from_same_partition_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part) WITH (partitioned_by = ARRAY['part']) AS VALUES (0, 10), (11, 20), (22, 30)", 3);
+
+        try {
+            List<Future<Boolean>> futures = IntStream.range(0, threads)
+                    .mapToObj(threadNumber -> executor.submit(() -> {
+                        barrier.await(10, SECONDS);
+                        try {
+                            getQueryRunner().execute("TRUNCATE TABLE " + tableName);
+                            return true;
+                        }
+                        catch (Exception e) {
+                            RuntimeException trinoException = getTrinoExceptionCause(e);
+                            try {
+                                assertThat(trinoException).hasMessage("Failed to write Delta Lake transaction log entry");
+                            }
+                            catch (Throwable verifyFailure) {
+                                if (verifyFailure != e) {
+                                    verifyFailure.addSuppressed(e);
+                                }
+                                throw verifyFailure;
+                            }
+                            return false;
+                        }
+                    }))
+                    .collect(toImmutableList());
+
+            long successfulTruncatesCount = futures.stream()
+                    .map(MoreFutures::getFutureValue)
+                    .filter(success -> success)
+                    .count();
+
+            assertThat(successfulTruncatesCount).isGreaterThanOrEqualTo(1);
+            assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+            assertQuery(
+                    "SELECT version, operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
+                    "VALUES (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', true)" +
+                            LongStream.rangeClosed(1, successfulTruncatesCount)
+                                    .boxed()
+                                    .map("(%s, 'TRUNCATE', 'WriteSerializable', false)"::formatted)
+                                    .collect(joining(", ", ", ", "")));
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, SECONDS));
+        }
+    }
+
+    @Test
+    public void testConcurrentDeletePushdownAndBlindInsertsReconciliation()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_delete_and_inserts_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioned_by = ARRAY['part']) AS VALUES (1, 10), (11, 20)", 2);
+
+        try {
+            // delete whole data from the table while concurrently adding new blind inserts
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("DELETE FROM " + tableName);
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " VALUES (21, 30)");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " VALUES (31, 40)");
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            // Depending on the read version of the operation we may have different results for the following query
+            // although it will most likely be 52 (sum of 21 and 31).
+            assertThat((long) computeActual("SELECT sum(a) FROM " + tableName).getOnlyValue()).isIn(0L, 21L, 31L, (long)(21 + 31));
+            assertQuery(
+                    "SELECT operation, isolation_level FROM \"" + tableName + "$history\"",
+                    """
+                            VALUES
+                                ('CREATE TABLE AS SELECT', 'WriteSerializable'),
+                                ('DELETE', 'WriteSerializable'),
+                                ('WRITE', 'WriteSerializable'),
+                                ('WRITE', 'WriteSerializable')
+                            """);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, SECONDS));
+        }
+    }
+
+    @Test
+    public void testConcurrentTruncateAndBlindInsertsReconciliation()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_truncate_and_inserts_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioned_by = ARRAY['part']) AS VALUES (1, 10), (11, 20)", 2);
+
+        try {
+            // truncate data while concurrently adding new blind inserts
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("TRUNCATE TABLE " + tableName);
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " VALUES (21, 30)");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " VALUES (31, 40)");
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            // Depending on the read version of the operation we may have different results for the following query
+            // although it will most likely be 52 (sum of 21 and 31).
+            assertThat((long) computeActual("SELECT sum(a) FROM " + tableName).getOnlyValue()).isIn(0L, 21L, 31L, (long)(21 + 31), (long)(1 + 11 + 21 + 31));
+            assertQuery(
+                    "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
+                    """
+                            VALUES
+                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                                ('TRUNCATE', 'WriteSerializable', false),
+                                ('WRITE', 'WriteSerializable', true),
+                                ('WRITE', 'WriteSerializable', true)
+                            """);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, SECONDS));
+        }
+    }
+
+    @Test
+    public void testConcurrentDeletePushdownAndNonBlindInsertsReconciliation()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_delete_and_inserts_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioned_by = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, 30)", 3);
+        // Add more files in the partition 10
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 10)", 1);
+
+        try {
+            // The DELETE and non-blind INSERT operations operate on non-overlapping partitions
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("DELETE FROM " + tableName + " WHERE part = 10");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " SELECT a + 1, part FROM " + tableName + " WHERE part = 20");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("DELETE FROM " + tableName + " WHERE part = 30");
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (11, 20), (12, 20)");
+            assertQuery(
+                    "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
+                    """
+                            VALUES
+                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                                ('WRITE', 'WriteSerializable', true),
+                                ('DELETE', 'WriteSerializable', false),
+                                ('DELETE', 'WriteSerializable', false),
+                                ('WRITE', 'WriteSerializable', false)
+                            """);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, SECONDS));
+        }
+    }
+
+    @Test
+    public void testConcurrentSerializableDeletesPushdownReconciliationFailure()
+            throws Exception
+    {
+        int threads = 5;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_serializable_delete_reconciliation" + randomNameSuffix();
+
+        // TODO create the table through Trino when `isolation_level` table property can be set
+        registerTableFromResources(tableName, "deltalake/serializable_partitioned_table", getQueryRunner());
+
+        assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (0, 10), (33, 40)");
+
+        try {
+            List<Future<Boolean>> futures = IntStream.range(0, threads)
+                    .mapToObj(threadNumber -> executor.submit(() -> {
+                        barrier.await(10, SECONDS);
+                        try {
+                            // Deleting concurrently from the same partition even when doing blind inserts is not permitted
+                            // in Serializable isolation level
+                            getQueryRunner().execute("DELETE FROM " + tableName + " WHERE part = 10");
+                            return true;
+                        }
+                        catch (Exception e) {
+                            RuntimeException trinoException = getTrinoExceptionCause(e);
+                            try {
+                                assertThat(trinoException).hasMessage("Failed to write Delta Lake transaction log entry");
+                            }
+                            catch (Throwable verifyFailure) {
+                                if (verifyFailure != e) {
+                                    verifyFailure.addSuppressed(e);
+                                }
+                                throw verifyFailure;
+                            }
+                            return false;
+                        }
+                    }))
+                    .collect(toImmutableList());
+
+            long successfulDeletesCount = futures.stream()
+                    .map(MoreFutures::getFutureValue)
+                    .filter(success -> success)
+                    .count();
+            assertThat(successfulDeletesCount).isGreaterThanOrEqualTo(1);
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (33, 40)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, SECONDS));
+        }
+    }
+
+    @Test
+    public void testConcurrentSerializableTruncateReconciliationFailure()
+            throws Exception
+    {
+        int threads = 5;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_serializable_delete_reconciliation" + randomNameSuffix();
+
+        // TODO create the table through Trino when `isolation_level` table property can be set
+        registerTableFromResources(tableName, "deltalake/serializable_partitioned_table", getQueryRunner());
+
+        assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (0, 10), (33, 40)");
+
+        try {
+            List<Future<Boolean>> futures = IntStream.range(0, threads)
+                    .mapToObj(threadNumber -> executor.submit(() -> {
+                        barrier.await(10, SECONDS);
+                        try {
+                            // Truncating concurrently is not permitted in Serializable or WriteSerializable isolation level
+                            getQueryRunner().execute("TRUNCATE TABLE " + tableName);
+                            return true;
+                        }
+                        catch (Exception e) {
+                            RuntimeException trinoException = getTrinoExceptionCause(e);
+                            try {
+                                assertThat(trinoException).hasMessage("Failed to write Delta Lake transaction log entry");
+                            }
+                            catch (Throwable verifyFailure) {
+                                if (verifyFailure != e) {
+                                    verifyFailure.addSuppressed(e);
+                                }
+                                throw verifyFailure;
+                            }
+                            return false;
+                        }
+                    }))
+                    .collect(toImmutableList());
+
+            long successfulTruncatesCount = futures.stream()
+                    .map(MoreFutures::getFutureValue)
+                    .filter(success -> success)
+                    .count();
+            assertThat(successfulTruncatesCount).isGreaterThanOrEqualTo(1);
+            assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, SECONDS));
+        }
+    }
+
     protected void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
             throws IOException
     {
