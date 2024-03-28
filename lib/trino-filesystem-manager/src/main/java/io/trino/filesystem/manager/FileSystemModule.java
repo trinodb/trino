@@ -35,6 +35,8 @@ import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
+import io.trino.filesystem.ozone.OzoneFileSystemFactory;
+import io.trino.filesystem.ozone.OzoneFileSystemModule;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
@@ -100,6 +102,13 @@ public class FileSystemModule
         if (config.isNativeGcsEnabled()) {
             install(new GcsFileSystemModule());
             factories.addBinding("gs").to(GcsFileSystemFactory.class);
+        }
+
+        if (config.isNativeOzoneEnabled()) {
+            install(new OzoneFileSystemModule());
+            factories.addBinding("o3").to(OzoneFileSystemFactory.class);
+            factories.addBinding("o3fs").to(OzoneFileSystemFactory.class);
+            factories.addBinding("ofs").to(OzoneFileSystemFactory.class);
         }
 
         newOptionalBinder(binder, CachingHostAddressProvider.class).setDefault().to(DefaultCachingHostAddressProvider.class).in(Scopes.SINGLETON);

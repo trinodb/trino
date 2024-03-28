@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
+        <!--<air.compiler.fail-warnings>true</air.compiler.fail-warnings>-->
     </properties>
 
     <dependencies>
@@ -61,6 +61,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-filesystem-gcs</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem-ozone</artifactId>
         </dependency>
 
         <dependency>

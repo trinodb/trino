@@ -21,6 +21,7 @@ public class FileSystemConfig
     private boolean nativeAzureEnabled;
     private boolean nativeS3Enabled;
     private boolean nativeGcsEnabled;
+    private boolean nativeOzoneEnabled;
     private boolean cacheEnabled;
 
     public boolean isHadoopEnabled()
@@ -68,6 +69,18 @@ public class FileSystemConfig
     public FileSystemConfig setNativeGcsEnabled(boolean nativeGcsEnabled)
     {
         this.nativeGcsEnabled = nativeGcsEnabled;
+        return this;
+    }
+
+    public boolean isNativeOzoneEnabled()
+    {
+        return nativeOzoneEnabled;
+    }
+
+    @Config("fs.native-ozone.enabled")
+    public FileSystemConfig setNativeOzoneEnabled(boolean nativeOzoneEnabled)
+    {
+        this.nativeOzoneEnabled = nativeOzoneEnabled;
         return this;
     }
 
