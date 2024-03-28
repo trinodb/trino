@@ -20,14 +20,25 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Maps.filterKeys;
+import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public final class KafkaTableHandle
         implements ConnectorTableHandle, ConnectorInsertTableHandle
@@ -55,7 +66,18 @@ public final class KafkaTableHandle
     private final Optional<String> keySubject;
     private final Optional<String> messageSubject;
     private final List<KafkaColumnHandle> columns;
+    private final TupleDomain<KafkaColumnHandle> compactEffectivePredicate;
     private final TupleDomain<ColumnHandle> constraint;
+    private final Map<String, KafkaColumnHandle> predicateColumns;
+    /**
+     * Represents the flag indicating whether the table is right for pushdown.
+     */
+    private final boolean rightForPush;
+    /**
+     * Represents a handle to a limit value in a Kafka table.
+     * The limit is an optional value indicating the maximum number of records to return in a query.
+     */
+    private final OptionalLong limit;
 
     @JsonCreator
     public KafkaTableHandle(
@@ -69,7 +91,11 @@ public final class KafkaTableHandle
             @JsonProperty("keySubject") Optional<String> keySubject,
             @JsonProperty("messageSubject") Optional<String> messageSubject,
             @JsonProperty("columns") List<KafkaColumnHandle> columns,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+            @JsonProperty("compactEffectivePredicate") TupleDomain<KafkaColumnHandle> compactEffectivePredicate,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("predicateColumns") Map<String, KafkaColumnHandle> predicateColumns,
+            @JsonProperty("rightForPush") boolean rightForPush,
+            @JsonProperty("limit") OptionalLong limit)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -81,7 +107,43 @@ public final class KafkaTableHandle
         this.keySubject = requireNonNull(keySubject, "keySubject is null");
         this.messageSubject = requireNonNull(messageSubject, "messageSubject is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "constraint is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
+        this.predicateColumns = predicateColumns;
+        this.rightForPush = rightForPush;
+        this.limit = requireNonNull(limit, "constraint is null");
+    }
+
+    public KafkaTableHandle(
+            String schemaName,
+            String tableName,
+            String topicName,
+            String keyDataFormat,
+            String messageDataFormat,
+            Optional<String> keyDataSchemaLocation,
+            Optional<String> messageDataSchemaLocation,
+            Optional<String> keySubject,
+            Optional<String> messageSubject,
+            List<KafkaColumnHandle> columns,
+            TupleDomain<ColumnHandle> constraint,
+            OptionalLong limit)
+    {
+        this(
+                schemaName,
+                tableName,
+                topicName,
+                keyDataFormat,
+                messageDataFormat,
+                keyDataSchemaLocation,
+                messageDataSchemaLocation,
+                keySubject,
+                messageSubject,
+                columns,
+                TupleDomain.all(),
+                constraint,
+                null,
+                false,
+                limit);
     }
 
     @JsonProperty
@@ -150,6 +212,30 @@ public final class KafkaTableHandle
         return constraint;
     }
 
+    @JsonProperty
+    public TupleDomain<KafkaColumnHandle> getCompactEffectivePredicate()
+    {
+        return compactEffectivePredicate;
+    }
+
+    @JsonProperty
+    public Map<String, KafkaColumnHandle> getPredicateColumns()
+    {
+        return predicateColumns;
+    }
+
+    @JsonProperty
+    public boolean isRightForPush()
+    {
+        return rightForPush;
+    }
+
+    @JsonProperty
+    public OptionalLong getLimit()
+    {
+        return limit;
+    }
+
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -169,7 +255,8 @@ public final class KafkaTableHandle
                 keySubject,
                 messageSubject,
                 columns,
-                constraint);
+                constraint,
+                limit);
     }
 
     @Override
@@ -193,7 +280,11 @@ public final class KafkaTableHandle
                 && Objects.equals(this.keySubject, other.keySubject)
                 && Objects.equals(this.messageSubject, other.messageSubject)
                 && Objects.equals(this.columns, other.columns)
-                && Objects.equals(this.constraint, other.constraint);
+                && Objects.equals(this.compactEffectivePredicate, other.compactEffectivePredicate)
+                && Objects.equals(this.constraint, other.constraint)
+                && Objects.equals(this.predicateColumns, other.predicateColumns)
+                && this.rightForPush == other.rightForPush
+                && Objects.equals(this.limit, other.limit);
     }
 
     @Override
@@ -211,6 +302,76 @@ public final class KafkaTableHandle
                 .add("messageSubject", messageSubject)
                 .add("columns", columns)
                 .add("constraint", constraint)
+                .add("limit", limit)
                 .toString();
+    }
+
+    /**
+     * Returns the list of KafkaColumnHandles that represent the remaining predicate columns.
+     * The method filters out the columns that are not compatible with the Kafka connector,
+     * such as columns that are not part of the supported types or columns associated with unsupported operations.
+     *
+     * @param internalFieldManager The KafkaInternalFieldManager used to retrieve the internal field ID of a column
+     * @return The list of remaining predicate columns that can be used for filtering
+     */
+    public List<KafkaColumnHandle> getRemainingPredicateColumn(final KafkaInternalFieldManager internalFieldManager)
+    {
+        // the connector for database does not support discrete range matching(or multiple ranges) at right now
+        // such as a query with the clause "where condition" like "where x in (2, 6) and (y > 7 or y = 7)"
+        return constraint.getDomains()
+                .orElseGet(HashMap::new)
+                .entrySet().stream()
+                .collect(toMap(e -> (KafkaColumnHandle) e.getKey(), e -> e.getValue()))
+                .entrySet().stream()
+                .filter(kafkaColumnHandleDomainEntry -> {
+                    switch (internalFieldManager.getInternalFieldId(kafkaColumnHandleDomainEntry.getKey())) {
+                        case PARTITION_OFFSET_FIELD -> {
+                            ValueSet valueSet = kafkaColumnHandleDomainEntry.getValue().getValues();
+                            if (valueSet instanceof SortedRangeSet sortedSet
+                                    && sortedSet.getRanges().getRangeCount() == 1) {
+                                return true;
+                            }
+                            return false;
+                        }
+                        case PARTITION_ID_FIELD -> {
+                            return true;
+                        }
+                        default ->
+                        {
+                            return false;
+                        }
+                    }
+                })
+                .map(entity -> entity.getKey())
+                .collect(toImmutableList());
+    }
+
+    /**
+     * Returns the remaining filter for the Kafka table.
+     *
+     * This method filters out unnecessary predicates and returns the remaining filter as a TupleDomain of ColumnHandles.
+     * The remaining filter includes only the predicate columns that are compatible with the Kafka connector, such as
+     * columns that are part of the supported types and are associated with supported operations.
+     *
+     * @param internalFieldManager The KafkaInternalFieldManager used to retrieve the internal field ID of a column.
+     * @return The remaining filter as a TupleDomain of ColumnHandles that can be used for filtering.
+     */
+    public TupleDomain<ColumnHandle> getRemainingFilter(final KafkaInternalFieldManager internalFieldManager)
+    {
+        // filter some unnecessary predicates
+        return TupleDomain.<ColumnHandle>all()
+                .intersect(withColumnDomains(filterKeys(constraint.getDomains().get(), not(in(getRemainingPredicateColumn(internalFieldManager))))));
+    }
+
+    /**
+     * Returns the enforced predicate for the Kafka table.
+     *
+     * @param internalFieldManager The KafkaInternalFieldManager used to retrieve the internal field ID of a column
+     * @return The enforced predicate for the Kafka table
+     */
+    public TupleDomain<ColumnHandle> getEnforcedPredicate(final KafkaInternalFieldManager internalFieldManager)
+    {
+        return TupleDomain.<ColumnHandle>all()
+                .intersect(withColumnDomains(filterKeys(constraint.getDomains().get(), in(getRemainingPredicateColumn(internalFieldManager)))));
     }
 }
