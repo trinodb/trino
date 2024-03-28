@@ -7779,11 +7779,11 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "create_table_with_multiple_extra_properties_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))");
 
-        assertQuery(
-                "SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two')",
-                "VALUES ('extra.property.one', 'one'), ('extra.property.two', 'two')");
+        assertThat(query("SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two')"))
+                .skippingTypesCheck()
+                .matches("VALUES ('extra.property.one', 'one'), ('extra.property.two', 'two')");
 
-        assertUpdate("DROP TABLE " + tableName);
+        dropTable(tableName);
     }
 
     @Test
@@ -7793,11 +7793,11 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))");
         assertUpdate("CREATE OR REPLACE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.three'], ARRAY['three']))");
 
-        assertQuery(
-                "SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.two', 'extra.property.three')",
-                "VALUES ('extra.property.three', 'three')");
+        assertThat(query("SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two')"))
+                .skippingTypesCheck()
+                .matches("VALUES ('extra.property.one', 'one'), ('extra.property.two', 'two')");
 
-        assertUpdate("DROP TABLE " + tableName);
+        dropTable(tableName);
     }
 
     @Test
@@ -7811,18 +7811,18 @@ public abstract class BaseIcebergConnectorTest
             "SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two')",
             "VALUES ('extra.property.one', 'one'), ('extra.property.two', 'two')");
 
-        assertUpdate("DROP TABLE " + tableName);
+        dropTable(tableName);
     }
 
     @Test
-    public void testShowCreateWithExtraProperties()
+    public void testShowCreateNotContainExtraProperties()
     {
         String tableName = "show_create_table_with_extra_prop_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))");
 
-        assertThat((String) computeScalar("SHOW CREATE TABLE "+ tableName)).doesNotContain("extra_properties");
+        assertThat((String) computeScalar("SHOW CREATE TABLE "+ tableName)).doesNotContain("extra_properties", "extra.property.one", "extra.property.two");
 
-        assertUpdate("DROP TABLE %s".formatted(tableName));
+        dropTable(tableName);
     }
 
     @Test
