@@ -13,9 +13,12 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
+import com.google.common.collect.ImmutableMap;
+
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#checkpoint-metadata
@@ -23,6 +26,8 @@ public record CheckpointMetadataEntry(long version, Optional<Map<String, String>
 {
     public CheckpointMetadataEntry
     {
+        checkArgument(version > 0, "version is not positive: %s", version);
         requireNonNull(tags, "tags is null");
+        tags = tags.map(ImmutableMap::copyOf);
     }
 }

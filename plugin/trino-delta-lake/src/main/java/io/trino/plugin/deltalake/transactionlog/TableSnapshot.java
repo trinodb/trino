@@ -205,6 +205,7 @@ public class TableSnapshot
                 .map(fileSystem::newInputFile)
                 .flatMap(checkpointFile -> getCheckpointTransactionLogEntries(
                         session,
+                        fileSystem,
                         entryTypes,
                         metadataAndProtocol.map(MetadataAndProtocolEntry::metadataEntry),
                         metadataAndProtocol.map(MetadataAndProtocolEntry::protocolEntry),
@@ -214,8 +215,7 @@ public class TableSnapshot
                         checkpoint,
                         checkpointFile,
                         partitionConstraint,
-                        addStatsMinMaxColumnFilter,
-                        fileSystem));
+                        addStatsMinMaxColumnFilter));
     }
 
     public Optional<Long> getLastCheckpointVersion()
@@ -225,6 +225,7 @@ public class TableSnapshot
 
     private Stream<DeltaLakeTransactionLogEntry> getCheckpointTransactionLogEntries(
             ConnectorSession session,
+            TrinoFileSystem fileSystem,
             Set<CheckpointEntryIterator.EntryType> entryTypes,
             Optional<MetadataEntry> metadataEntry,
             Optional<ProtocolEntry> protocolEntry,
@@ -234,8 +235,7 @@ public class TableSnapshot
             LastCheckpoint checkpoint,
             TrinoInputFile checkpointFile,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
-            Optional<Predicate<String>> addStatsMinMaxColumnFilter,
-            TrinoFileSystem fileSystem)
+            Optional<Predicate<String>> addStatsMinMaxColumnFilter)
     {
         long fileSize;
         try {
@@ -278,8 +278,7 @@ public class TableSnapshot
                 domainCompactionThreshold,
                 partitionConstraint,
                 addStatsMinMaxColumnFilter);
-        return stream(checkpointEntryIterator)
-                .onClose(checkpointEntryIterator::close);
+        return stream(checkpointEntryIterator).onClose(checkpointEntryIterator::close);
     }
 
     private Stream<DeltaLakeTransactionLogEntry> getV2CheckpointTransactionLogEntriesFrom(
@@ -298,9 +297,10 @@ public class TableSnapshot
             long fileSize)
     {
         return getV2CheckpointEntries(session, entryTypes, metadataEntry, protocolEntry, checkpointSchemaManager, typeManager, stats, checkpoint, checkpointFile, partitionConstraint, addStatsMinMaxColumnFilter, fileSystem, fileSize)
-                .flatMap(entry -> {
+                .mapMulti((entry, builder) -> {
                     if (entry.getSidecar() == null) {
-                        return Stream.of(entry);
+                        builder.accept(entry);
+                        return;
                     }
                     Location sidecar = checkpointFile.location().sibling("_sidecars").appendPath(entry.getSidecar().path());
                     CheckpointEntryIterator iterator = new CheckpointEntryIterator(
@@ -318,8 +318,7 @@ public class TableSnapshot
                             domainCompactionThreshold,
                             partitionConstraint,
                             addStatsMinMaxColumnFilter);
-                    return stream(iterator)
-                            .onClose(iterator::close);
+                    stream(iterator).onClose(iterator::close).forEach(builder);
                 });
     }
 

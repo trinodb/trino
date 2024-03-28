@@ -13,9 +13,12 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
+import com.google.common.collect.ImmutableMap;
+
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#sidecar-file-information
@@ -23,7 +26,9 @@ public record SidecarEntry(String path, long sizeInBytes, long modificationTime,
 {
     public SidecarEntry
     {
+        checkArgument(sizeInBytes > 0, "sizeInBytes is not positive: %s", sizeInBytes);
         requireNonNull(path, "path is null");
         requireNonNull(tags, "tags is null");
+        tags = tags.map(ImmutableMap::copyOf);
     }
 }

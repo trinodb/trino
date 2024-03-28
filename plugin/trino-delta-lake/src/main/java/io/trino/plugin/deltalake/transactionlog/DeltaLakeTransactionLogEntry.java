@@ -202,13 +202,15 @@ public class DeltaLakeTransactionLogEntry
                 Objects.equals(metaData, that.metaData) &&
                 Objects.equals(protocol, that.protocol) &&
                 Objects.equals(commitInfo, that.commitInfo) &&
-                Objects.equals(cdcEntry, that.cdcEntry);
+                Objects.equals(cdcEntry, that.cdcEntry) &&
+                Objects.equals(sidecar, that.sidecar) &&
+                Objects.equals(checkpointMetadata, that.checkpointMetadata);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(txn, add, remove, metaData, protocol, commitInfo, cdcEntry);
+        return Objects.hash(txn, add, remove, metaData, protocol, commitInfo, cdcEntry, sidecar, checkpointMetadata);
     }
 
     @Override
