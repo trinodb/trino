@@ -22,6 +22,7 @@ import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotSessionProperties;
 import io.trino.plugin.pinot.PinotSplit;
 import io.trino.spi.connector.ConnectorSession;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pinot.common.datatable.DataTable;
 import org.apache.pinot.common.metrics.BrokerMetrics;
 import org.apache.pinot.common.request.BrokerRequest;
@@ -41,7 +42,6 @@ import org.apache.pinot.sql.parsers.SqlCompilationException;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -218,12 +218,12 @@ public class PinotLegacyDataFetcher
                 throw new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.of(query), format("Parsing error with on %s, Error = %s", serverHost, e.getMessage()), e);
             }
             ServerInstance serverInstance = pinotHostMapper.getServerInstance(serverHost);
-            Map<ServerInstance, List<String>> routingTable = new HashMap<>();
-            routingTable.put(serverInstance, new ArrayList<>(segments));
+            Map<ServerInstance, Pair<List<String>, List<String>>> routingTable = new HashMap<>();
+            routingTable.put(serverInstance, Pair.of(segments, segments));
             String tableName = brokerRequest.getQuerySource().getTableName();
             String rawTableName = TableNameBuilder.extractRawTableName(tableName);
-            Map<ServerInstance, List<String>> offlineRoutingTable = TableNameBuilder.isOfflineTableResource(tableName) ? routingTable : null;
-            Map<ServerInstance, List<String>> realtimeRoutingTable = TableNameBuilder.isRealtimeTableResource(tableName) ? routingTable : null;
+            Map<ServerInstance, Pair<List<String>, List<String>>> offlineRoutingTable = TableNameBuilder.isOfflineTableResource(tableName) ? routingTable : null;
+            Map<ServerInstance, Pair<List<String>, List<String>>> realtimeRoutingTable = TableNameBuilder.isRealtimeTableResource(tableName) ? routingTable : null;
             BrokerRequest offlineBrokerRequest = TableNameBuilder.isOfflineTableResource(tableName) ? brokerRequest : null;
             BrokerRequest realtimeBrokerRequest = TableNameBuilder.isRealtimeTableResource(tableName) ? brokerRequest : null;
             AsyncQueryResponse asyncQueryResponse =

@@ -65,8 +65,8 @@ import static org.testcontainers.utility.DockerImageName.parse;
 public class TestingPinotCluster
         implements Closeable
 {
-    public static final String PINOT_LATEST_IMAGE_NAME = "apachepinot/pinot:0.12.1";
-    public static final String PINOT_PREVIOUS_IMAGE_NAME = "apachepinot/pinot:0.11.0";
+    public static final String PINOT_LATEST_IMAGE_NAME = "apachepinot/pinot:1.0.0";
+    public static final String PINOT_PREVIOUS_IMAGE_NAME = "apachepinot/pinot:0.12.1";
 
     private static final String ZOOKEEPER_INTERNAL_HOST = "zookeeper";
     private static final JsonCodec<List<String>> LIST_JSON_CODEC = listJsonCodec(String.class);
@@ -90,7 +90,7 @@ public class TestingPinotCluster
     public TestingPinotCluster(Network network, boolean secured, String pinotImageName)
     {
         httpClient = closer.register(new JettyHttpClient());
-        zookeeper = new GenericContainer<>(parse("zookeeper:3.5.6"))
+        zookeeper = new GenericContainer<>(parse("zookeeper:3.9"))
                 .withStartupAttempts(3)
                 .withNetwork(network)
                 .withNetworkAliases(ZOOKEEPER_INTERNAL_HOST)
