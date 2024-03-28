@@ -11,19 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake.transactionlog.checkpoint;
+package io.trino.plugin.deltalake.transactionlog;
 
-import io.trino.plugin.deltalake.transactionlog.V2Checkpoint;
+import com.google.common.collect.ImmutableMap;
 
+import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public record LastCheckpoint(long version, long size, Optional<Integer> parts, Optional<V2Checkpoint> v2Checkpoint)
+// https://github.com/delta-io/delta/blob/master/PROTOCOL.md#checkpoint-metadata
+public record CheckpointMetadataEntry(long version, Optional<Map<String, String>> tags)
 {
-    public LastCheckpoint
+    public CheckpointMetadataEntry
     {
-        requireNonNull(parts, "parts is null");
-        requireNonNull(v2Checkpoint, "v2Checkpoint is null");
+        checkArgument(version > 0, "version is not positive: %s", version);
+        requireNonNull(tags, "tags is null");
+        tags = tags.map(ImmutableMap::copyOf);
     }
 }
