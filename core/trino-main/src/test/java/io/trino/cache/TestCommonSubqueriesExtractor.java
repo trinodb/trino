@@ -207,7 +207,7 @@ public class TestCommonSubqueriesExtractor
                     Range.lessThan(BIGINT, 30L),
                     Range.greaterThan(BIGINT, 70L)), false)));
     private static final SchemaTableName TABLE_NAME = new SchemaTableName(TEST_SCHEMA, TEST_TABLE);
-    private static final ExpressionWithType NATIONKEY_EXPRESSION = new ExpressionWithType(new SymbolReference(BIGINT, "[nationkey:bigint]"), BIGINT);
+    private static final Expression NATIONKEY_EXPRESSION = new SymbolReference(BIGINT, "[nationkey:bigint]");
 
     private TableHandle testTableHandle;
     private String tpchCatalogId;
@@ -953,12 +953,12 @@ public class TestCommonSubqueriesExtractor
         CanonicalAggregation max = canonicalAggregation(
                 "max",
                 Optional.of(columnIdToSymbol(nationKeyGreaterThan10, BOOLEAN)),
-                new ExpressionWithType(new SymbolReference(BIGINT, "[regionkey:bigint]"), BIGINT));
+                new SymbolReference(BIGINT, "[regionkey:bigint]"));
         CanonicalAggregation sum = canonicalAggregation("sum", NATIONKEY_EXPRESSION);
         CanonicalAggregation avg = canonicalAggregation(
                 "avg",
                 Optional.of(columnIdToSymbol(nationKeyGreaterThan10, BOOLEAN)),
-                new ExpressionWithType(nationKeyMultiplyBy2, BIGINT));
+                columnIdToSymbol(nationKeyMultiplyBy2, BIGINT).toSymbolReference());
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalAggregationToColumnId(max), canonicalAggregationToColumnId(sum), canonicalAggregationToColumnId(avg));
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT,
@@ -1141,7 +1141,7 @@ public class TestCommonSubqueriesExtractor
 
         // make sure plan signatures are same
         CacheColumnId nationKeyPlusOne = canonicalExpressionToColumnId(new ArithmeticBinaryExpression(ADD_BIGINT, ADD, new SymbolReference(BIGINT, "[nationkey:bigint]"), new Constant(BIGINT, 1L)));
-        CanonicalAggregation sum = canonicalAggregation("sum", new ExpressionWithType(nationKeyPlusOne, BIGINT));
+        CanonicalAggregation sum = canonicalAggregation("sum", columnIdToSymbol(nationKeyPlusOne, BIGINT).toSymbolReference());
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(NAME_ID, REGIONKEY_ID, canonicalAggregationToColumnId(sum));
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
@@ -1989,34 +1989,22 @@ public class TestCommonSubqueriesExtractor
                         new CacheColumnId("[cache_column1]"), Domain.create(ValueSet.ofRanges(lessThan(BIGINT, 5L), lessThan(BIGINT, 42L)), false)))));
     }
 
-    private CanonicalAggregation canonicalAggregation(String name, ExpressionWithType... arguments)
+    private CanonicalAggregation canonicalAggregation(String name, Expression... arguments)
     {
         return canonicalAggregation(name, Optional.empty(), arguments);
     }
 
-    private CanonicalAggregation canonicalAggregation(String name, Optional<Symbol> mask, ExpressionWithType... arguments)
+    private CanonicalAggregation canonicalAggregation(String name, Optional<Symbol> mask, Expression... arguments)
     {
         ResolvedFunction resolvedFunction = getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction(
                 name,
                 TypeSignatureProvider.fromTypes(Stream.of(arguments)
-                        .map(ExpressionWithType::type)
+                        .map(Expression::type)
                         .collect(toImmutableList())));
         return new CanonicalAggregation(
                 resolvedFunction,
                 mask,
-                Stream.of(arguments)
-                        .map(ExpressionWithType::expression)
-                        .collect(toImmutableList()));
-    }
-
-    // workaround for https://github.com/google/error-prone/issues/2713
-    @SuppressWarnings("unused")
-    private record ExpressionWithType(Expression expression, Type type)
-    {
-        public ExpressionWithType(CacheColumnId columnId, Type type)
-        {
-            this(columnIdToSymbol(columnId, type).toSymbolReference(), type);
-        }
+                ImmutableList.copyOf(arguments));
     }
 
     private CommonSubqueries extractTpchCommonSubqueries(@Language("SQL") String query)
