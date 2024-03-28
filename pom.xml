@@ -178,6 +178,8 @@
             <!-- # Allow loading dynamic agent used by JOL -->
             -XX:+EnableDynamicAgentLoading
             ${extraJavaVectorArgs}
+            <!-- # https://bugs.openjdk.org/browse/JDK-8327134 -->
+            -Djava.security.manager=allow
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 

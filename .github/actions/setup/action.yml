@@ -3,7 +3,7 @@ description: "Verify checked out commits and setup Java"
 inputs:
   java-version:
     description: "Java version to setup"
-    default: 22
+    default: 23
   cache:
     description: "Cache Maven repo (true/false/restore)"
     default: restore
