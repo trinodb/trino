@@ -32,6 +32,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public final class PageListBuilder
@@ -125,6 +126,11 @@ public final class PageListBuilder
                 VARCHAR.writeString(valueBuilder, value);
             }
         }));
+    }
+
+    public void appendNativeValue(Type type, Object object)
+    {
+        writeNativeValue(type, nextColumn(), object);
     }
 
     public BlockBuilder nextColumn()

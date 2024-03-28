@@ -103,4 +103,172 @@ public class TestDeltaLakeSystemTables
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
+
+    @Test
+    public void testPartitionsTable()
+    {
+        String tableName = "test_simple_partitions_table";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT, _date DATE) WITH (partitioned_by = ARRAY['_date'] )");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (6, NULL)", 1);
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 7");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 4");
+
+            assertQuery("SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
+                    """
+                            VALUES
+                            ('partition', 'row(_date date)', '', ''),
+                            ('file_count', 'bigint', '', ''),
+                            ('total_size', 'bigint', '', '')
+                            """);
+
+            assertQuery(
+                "SElECT partition._date FROM \"" + tableName + "$partitions\"", " VALUES (DATE '2019-09-08'), (DATE '2019-09-09'), (DATE '2019-09-10'), (NULL)");
+        }
+        finally{
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testColumnMappingModePartitionsTable()
+    {
+        String tableName = "test_simple_column_mapping_mode_partitions_table";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, _date DATE) WITH (column_mapping_mode = 'id', partitioned_by = ARRAY['_date'] )");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (6, NULL)", 1);
+
+            assertQuerySucceeds("SELECT * FROM " + tableName);
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 7");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 4");
+
+            assertQuery("SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
+                    """
+                            VALUES
+                            ('partition', 'row(_date date)', '', ''),
+                            ('file_count', 'bigint', '', ''),
+                            ('total_size', 'bigint', '', '')
+                            """);
+
+            assertQuery(
+                "SElECT partition._date FROM \"" + tableName + "$partitions\"", " VALUES (DATE '2019-09-08'), (DATE '2019-09-09'), (DATE '2019-09-10'), (NULL)");
+        }
+        finally{
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testPartitionsTableMultipleColumns()
+    {
+        String tableName = "test_partitions_table_multiple_columns";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT, _date DATE, _varchar VARCHAR) WITH (partitioned_by = ARRAY['_date', '_varchar'] )");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (0, CAST('2019-09-08' AS DATE), 'a'), (1, CAST('2019-09-09' AS DATE), 'b'), (2, CAST('2019-09-09' AS DATE), 'c')", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, CAST('2019-09-09' AS DATE), 'd'), (4, CAST('2019-09-10' AS DATE), 'e'), (5, CAST('2019-09-10' AS DATE), 'f'), (4, CAST('2019-09-10' AS DATE), 'f')", 4);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (6, null, 'g'), (6, CAST('2019-09-10' AS DATE), null), (7, null, null), (8, null, 'g')", 4);
+            assertUpdate("UPDATE " + tableName + " SET _bigint = 50 WHERE _bigint =  BIGINT '5'", 1);
+            assertUpdate("DELETE FROM " + tableName + " WHERE _date =  DATE '2019-09-08'", 1);
+            assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 10");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 8");
+            assertQuery("SELECT count(partition._varchar) FROM \"" + tableName + "$partitions\"", "VALUES 6");
+            assertQuery("SELECT count(distinct partition._date) FROM \"" + tableName + "$partitions\"", "VALUES 2");
+
+            assertQuery("SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
+                    """
+                            VALUES
+                            ('partition', 'row(_date date, _varchar varchar)', '', ''),
+                            ('file_count', 'bigint', '', ''),
+                            ('total_size', 'bigint', '', '')
+                            """);
+
+            assertQuery(
+                    "SELECT partition._date, partition._varchar FROM \"" + tableName + "$partitions\"",
+                    """
+                            VALUES
+                                (DATE '2019-09-09', 'b'),
+                                (DATE '2019-09-09', 'c'),
+                                (DATE '2019-09-09', 'd'),
+                                (DATE '2019-09-10', 'e'),
+                                (DATE '2019-09-10', 'f'),
+                                (DATE '2019-09-10', null),
+                                (null, 'g'),
+                                (null, null)""");
+        }
+        finally{
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testPartitionsTableDifferentOrderFromDefinitionMultipleColumns()
+    {
+        String tableName = "test_partitions_table_different_order_from_definition_multiple_columns";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT, _date DATE, _varchar VARCHAR) WITH (partitioned_by = ARRAY['_varchar', '_date'] )");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (0, CAST('2019-09-08' AS DATE), 'a'), (1, CAST('2019-09-09' AS DATE), 'b'), (2, CAST('2019-09-09' AS DATE), 'c')", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, CAST('2019-09-09' AS DATE), 'd'), (4, CAST('2019-09-10' AS DATE), 'e'), (5, CAST('2019-09-10' AS DATE), 'f'), (4, CAST('2019-09-10' AS DATE), 'f')", 4);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (6, null, 'g'), (6, CAST('2019-09-10' AS DATE), null), (7, null, null), (8, null, 'g')", 4);
+            assertUpdate("UPDATE " + tableName + " SET _bigint = 50 WHERE _bigint =  BIGINT '5'", 1);
+            assertUpdate("DELETE FROM " + tableName + " WHERE _date =  DATE '2019-09-08'", 1);
+            assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 10");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 8");
+            assertQuery("SELECT count(partition._varchar) FROM \"" + tableName + "$partitions\"", "VALUES 6");
+            assertQuery("SELECT count(distinct partition._date) FROM \"" + tableName + "$partitions\"", "VALUES 2");
+
+            assertQuery("SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
+                    """
+                            VALUES
+                            ('partition', 'row(_varchar varchar, _date date)', '', ''),
+                            ('file_count', 'bigint', '', ''),
+                            ('total_size', 'bigint', '', '')
+                            """);
+
+            assertQuery(
+                    "SELECT partition._varchar, partition._date FROM \"" + tableName + "$partitions\"",
+                    """
+                            VALUES
+                                ('b', DATE '2019-09-09'),
+                                ('c', DATE '2019-09-09'),
+                                ('d', DATE '2019-09-09'),
+                                ('e', DATE '2019-09-10'),
+                                ('f', DATE '2019-09-10'),
+                                (null, DATE '2019-09-10'),
+                                ('g', null),
+                                (null, null)""");
+        }
+        finally{
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testPartitionsTableUnPartitioned()
+    {
+        String tableName = "test_partitions_table_unpartitioned";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT, _date DATE)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 6");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$partitions\"", "VALUES 0");
+            assertQueryReturnsEmptyResult("SELECT * FROM \"" + tableName + "$partitions\"");
+
+            assertQuery("SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
+                    """
+                            VALUES
+                            ('file_count', 'bigint', '', ''),
+                            ('total_size', 'bigint', '', '')
+                            """);
+        }
+        finally{
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
 }

@@ -24,6 +24,7 @@ import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -140,11 +141,49 @@ public class TestDeltaLakePartitioning
     }
 
     @Test
-    public void testPartitionsSystemTableDoesNotExist()
+    public void testPartitionsSystemTableExists()
     {
-        assertQueryFails(
-                "SELECT * FROM \"partitions$partitions\"",
-                ".*'delta\\.tpch\\.\"partitions\\$partitions\"' does not exist");
+        assertQuerySucceeds("SELECT * FROM \"partitions$partitions\"");
+    }
+
+    @Test
+    public void testReadAllTypesPartitionsSystemTable()
+    {
+        assertThat(
+                query("SELECT " +
+                        "partition.p_string, " +
+                        "partition.p_byte, " +
+                        "partition.p_short, " +
+                        "partition.p_int, " +
+                        "partition.p_long, " +
+                        "partition.p_decimal, " +
+                        "partition.p_boolean, " +
+                        "partition.p_float, " +
+                        "partition.p_double, " +
+                        "partition.p_date, " +
+                        // H2QueryRunner does not support TIMESTAMP WITH TIME ZONE,
+                        // so instead we convert the TIMESTAMP WITH TIME ZONE from Delta to a string representation and compare that.
+                        "CAST(partition.p_timestamp AS VARCHAR), " +
+                        "file_count, " +
+                        "total_size " +
+                        "FROM \"partitions$partitions\" " +
+                        "LIMIT 1 "))
+                .skippingTypesCheck()
+                .matches("VALUES (" +
+                        "'Alice', " +
+                        "CAST(123 as tinyint), " +
+                        "CAST(12345 as smallint), " +
+                        "123456789, " +
+                        "1234567890123456789, " +
+                        "12345678901234567890.123456789012345678, " +
+                        "true, " +
+                        "CAST(3.1415927 as real), " +
+                        "CAST(3.141592653589793 as double), " +
+                        "DATE '2014-01-01', " +
+                        "'2014-01-01 23:00:01.123 UTC', " +
+                        "CAST(30 as bigint), " +
+                        "CAST(136080 as bigint) " +
+                        ")");
     }
 
     @Test
