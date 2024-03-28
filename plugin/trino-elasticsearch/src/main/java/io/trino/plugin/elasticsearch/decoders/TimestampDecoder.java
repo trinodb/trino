@@ -20,10 +20,13 @@ import io.trino.plugin.elasticsearch.DecoderDescriptor;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.common.document.DocumentField;
+import org.elasticsearch.common.time.DateFormatter;
+import org.elasticsearch.common.time.DateMathParser;
 import org.elasticsearch.search.SearchHit;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -39,10 +42,12 @@ public class TimestampDecoder
         implements Decoder
 {
     private final String path;
+    private final List<String> pattern;
 
-    public TimestampDecoder(String path)
+    public TimestampDecoder(String path, List<String> pattern)
     {
         this.path = requireNonNull(path, "path is null");
+        this.pattern = requireNonNull(pattern, "pattern is null");
     }
 
     @Override
@@ -50,45 +55,61 @@ public class TimestampDecoder
     {
         DocumentField documentField = hit.getFields().get(path);
         Object value;
+        long epochMicros;
 
-        if (documentField != null) {
-            if (documentField.getValues().size() > 1) {
-                throw new TrinoException(TYPE_MISMATCH, format("Expected single value for column '%s', found: %s", path, documentField.getValues().size()));
+        if (pattern == null || pattern.isEmpty()) {
+            if (documentField != null) {
+                if (documentField.getValues().size() > 1) {
+                    throw new TrinoException(TYPE_MISMATCH, format("Expected single value for column '%s', found: %s", path, documentField.getValues().size()));
+                }
+                value = documentField.getValue();
             }
-            value = documentField.getValue();
+            else {
+                value = getter.get();
+            }
+
+            if (value == null) {
+                output.appendNull();
+            }
+            else {
+                LocalDateTime timestamp;
+                if (value instanceof String valueString) {
+                    Long epochMillis = Longs.tryParse(valueString);
+                    if (epochMillis != null) {
+                        timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), UTC);
+                    }
+                    else {
+                        timestamp = ISO_DATE_TIME.parse(valueString, LocalDateTime::from);
+                    }
+                }
+                else if (value instanceof Number) {
+                    timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), UTC);
+                }
+                else {
+                    throw new TrinoException(NOT_SUPPORTED, format(
+                            "Unsupported representation for field '%s' of type TIMESTAMP: %s [%s]",
+                            path,
+                            value,
+                            value.getClass().getSimpleName()));
+                }
+
+                epochMicros = timestamp.atOffset(UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+                TIMESTAMP_MILLIS.writeLong(output, epochMicros);
+            }
         }
         else {
             value = getter.get();
-        }
-
-        if (value == null) {
-            output.appendNull();
-        }
-        else {
-            LocalDateTime timestamp;
-            if (value instanceof String valueString) {
-                Long epochMillis = Longs.tryParse(valueString);
-                if (epochMillis != null) {
-                    timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), UTC);
-                }
-                else {
-                    timestamp = ISO_DATE_TIME.parse(valueString, LocalDateTime::from);
-                }
-            }
-            else if (value instanceof Number) {
-                timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), UTC);
+            if (value == null) {
+                output.appendNull();
             }
             else {
-                throw new TrinoException(NOT_SUPPORTED, format(
-                        "Unsupported representation for field '%s' of type TIMESTAMP: %s [%s]",
-                        path,
-                        value,
-                        value.getClass().getSimpleName()));
+                String patternString = String.join("||", pattern);
+                DateFormatter formatter = DateFormatter.forPattern(patternString).withZone(UTC);
+
+                DateMathParser parser = formatter.toDateMathParser();
+                epochMicros = parser.parse(value.toString(), () -> 0, false, UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+                TIMESTAMP_MILLIS.writeLong(output, epochMicros);
             }
-
-            long epochMicros = timestamp.atOffset(UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
-
-            TIMESTAMP_MILLIS.writeLong(output, epochMicros);
         }
     }
 
@@ -96,11 +117,13 @@ public class TimestampDecoder
             implements DecoderDescriptor
     {
         private final String path;
+        private final List<String> pattern;
 
         @JsonCreator
-        public Descriptor(String path)
+        public Descriptor(String path, List<String> pattern)
         {
             this.path = path;
+            this.pattern = pattern;
         }
 
         @JsonProperty
@@ -109,10 +132,16 @@ public class TimestampDecoder
             return path;
         }
 
+        @JsonProperty
+        public List<String> getPattern()
+        {
+            return pattern;
+        }
+
         @Override
         public Decoder createDecoder()
         {
-            return new TimestampDecoder(path);
+            return new TimestampDecoder(path, pattern);
         }
     }
 }
