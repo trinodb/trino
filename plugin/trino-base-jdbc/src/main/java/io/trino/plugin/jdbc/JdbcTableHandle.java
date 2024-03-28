@@ -146,6 +146,16 @@ public final class JdbcTableHandle
         return getRequiredNamedRelation();
     }
 
+    public JdbcTableHandle toPlainTableWithoutColumns()
+    {
+        if (!isSynthetic() && columns.isEmpty()) {
+            return this;
+        }
+
+        JdbcNamedRelationHandle requiredNamedRelation = getRequiredNamedRelation();
+        return new JdbcTableHandle(requiredNamedRelation.getSchemaTableName(), requiredNamedRelation.getRemoteTableName(), requiredNamedRelation.getComment());
+    }
+
     @JsonIgnore
     public JdbcNamedRelationHandle getRequiredNamedRelation()
     {

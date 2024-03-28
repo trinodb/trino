@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.phoenix5;
+package io.trino.plugin.jdbc;
 
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -24,13 +24,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static java.util.Objects.requireNonNull;
 
-public class PhoenixPageSource
+public class JdbcPageSource
         implements ConnectorPageSource
 {
     private final ConnectorPageSource delegate;
     private final List<ColumnAdaptation> columnAdaptations;
 
-    public PhoenixPageSource(ConnectorPageSource delegate, List<ColumnAdaptation> columnAdaptations)
+    public JdbcPageSource(ConnectorPageSource delegate, List<ColumnAdaptation> columnAdaptations)
     {
         this.delegate = delegate;
         this.columnAdaptations = columnAdaptations;
