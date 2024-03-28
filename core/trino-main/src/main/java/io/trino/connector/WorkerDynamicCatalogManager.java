@@ -14,8 +14,7 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
@@ -28,24 +27,21 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorName;
 import jakarta.annotation.PreDestroy;
 
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -60,8 +56,8 @@ public class WorkerDynamicCatalogManager
     private final ReadWriteLock catalogsLock = new ReentrantReadWriteLock();
     private final Lock catalogLoadingLock = catalogsLock.readLock();
     private final Lock catalogRemovingLock = catalogsLock.writeLock();
-    private final ConcurrentMap<CatalogHandle, CatalogConnector> catalogs = new ConcurrentHashMap<>();
-    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    private final ConcurrentMap<CatalogHandle, Future<CatalogConnector>> catalogs = new ConcurrentHashMap<>();
+    private final ExecutorService executor = Executors.newCachedThreadPool();
 
     @GuardedBy("catalogsUpdateLock")
     private boolean stopped;
@@ -75,7 +71,7 @@ public class WorkerDynamicCatalogManager
     @PreDestroy
     public void stop()
     {
-        List<CatalogConnector> catalogs;
+        List<Future<CatalogConnector>> catalogs;
 
         catalogRemovingLock.lock();
         try {
@@ -91,8 +87,12 @@ public class WorkerDynamicCatalogManager
             catalogRemovingLock.unlock();
         }
 
-        for (CatalogConnector connector : catalogs) {
-            connector.shutdown();
+        for (Future<CatalogConnector> connector : catalogs) {
+            switch (connector.state()) {
+                case SUCCESS -> connector.resultNow().shutdown();
+                case RUNNING -> connector.cancel(true);
+                case CANCELLED, FAILED -> {}
+            }
         }
     }
 
@@ -114,43 +114,44 @@ public class WorkerDynamicCatalogManager
 
             List<CatalogProperties> missingCatalogs = getMissingCatalogs(expectedCatalogs);
             missingCatalogs.forEach(catalog -> checkArgument(!catalog.catalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE), "Global system catalog not registered"));
-            List<ListenableFuture<Void>> loadedCatalogs = Futures.inCompletionOrder(
-                    missingCatalogs.stream()
-                            .map(catalog ->
-                                    Futures.submit(() -> {
-                                        catalogs.computeIfAbsent(catalog.catalogHandle(), ignore -> {
-                                            CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
-                                            log.debug("Added catalog: " + catalog.catalogHandle());
-                                            return newCatalog;
-                                        });
-                                    }, executor))
-                            .collect(toImmutableList()));
 
-            Deque<Throwable> catalogLoadingExceptions = new LinkedList<>();
-            for (ListenableFuture<Void> loadedCatalog : loadedCatalogs) {
+            ImmutableList.Builder<Future<CatalogConnector>> futures = ImmutableList.builder();
+
+            for (CatalogProperties catalogProperties : missingCatalogs) {
+                futures.add(catalogs.computeIfAbsent(catalogProperties.catalogHandle(), ignore -> executor.submit(() -> {
+                    CatalogConnector newCatalog = catalogFactory.createCatalog(catalogProperties);
+                    log.debug("Added catalog: " + catalogProperties.catalogHandle());
+                    return newCatalog;
+                })));
+            }
+
+            ImmutableList.Builder<Throwable> exceptionsBuilder = ImmutableList.builder();
+            for (Future<CatalogConnector> loadedCatalog : futures.build()) {
                 try {
                     loadedCatalog.get();
                 }
                 catch (ExecutionException e) {
                     if (e.getCause() != null) {
-                        catalogLoadingExceptions.add(e.getCause());
+                        exceptionsBuilder.add(e.getCause());
                     }
                     else {
-                        catalogLoadingExceptions.add(e);
+                        exceptionsBuilder.add(e);
                     }
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    catalogLoadingExceptions.add(e);
+                    exceptionsBuilder.add(e);
                 }
                 finally {
                     loadedCatalog.cancel(true);
                 }
             }
+
+            List<Throwable> catalogLoadingExceptions = exceptionsBuilder.build();
             if (!catalogLoadingExceptions.isEmpty()) {
-                Throwable firstError = catalogLoadingExceptions.poll();
+                Throwable firstError = catalogLoadingExceptions.removeFirst();
                 while (!catalogLoadingExceptions.isEmpty()) {
-                    firstError.addSuppressed(catalogLoadingExceptions.poll());
+                    firstError.addSuppressed(catalogLoadingExceptions.getFirst());
                 }
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error loading catalogs on worker", firstError);
             }
@@ -163,36 +164,45 @@ public class WorkerDynamicCatalogManager
     @Override
     public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
     {
-        List<CatalogConnector> removedCatalogs = new ArrayList<>();
+        ImmutableList.Builder<Future<CatalogConnector>> futures = ImmutableList.builder();
         catalogRemovingLock.lock();
         try {
             if (stopped) {
                 return;
             }
-            Iterator<Entry<CatalogHandle, CatalogConnector>> iterator = catalogs.entrySet().iterator();
-            while (iterator.hasNext()) {
-                Entry<CatalogHandle, CatalogConnector> entry = iterator.next();
-                if (!catalogsInUse.contains(entry.getKey())) {
-                    iterator.remove();
-                    removedCatalogs.add(entry.getValue());
-                }
+
+            Set<CatalogHandle> catalogsToPrune = Sets.difference(catalogs.keySet(), catalogsInUse);
+            if (catalogsToPrune.isEmpty()) {
+                return;
+            }
+
+            for (CatalogHandle catalogHandleToPrune : catalogsToPrune) {
+                futures.add(catalogs.remove(catalogHandleToPrune));
             }
         }
         finally {
             catalogRemovingLock.unlock();
         }
 
-        removedCatalogs.forEach(removedCatalog -> Futures.submit(
-                () -> {
+        for (Future<CatalogConnector> future : futures.build()) {
+            switch (future.state()) {
+                case RUNNING, SUCCESS -> {
                     try {
-                        removedCatalog.shutdown();
-                        log.debug("Pruned catalog: %s", removedCatalog.getCatalogHandle());
+                        CatalogConnector catalogConnector = future.get();
+                        catalogConnector.shutdown();
+                        log.debug("Pruned catalog: %s", catalogConnector.getCatalogHandle());
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        log.error(e, "Error shutting down catalog");
                     }
                     catch (Throwable e) {
-                        log.error(e, "Error shutting down catalog: %s".formatted(removedCatalog));
+                        log.error(e, "Error shutting down catalog");
                     }
-                },
-                executor).state());
+                }
+                case CANCELLED, FAILED -> {}
+            }
+        }
     }
 
     private List<CatalogProperties> getMissingCatalogs(List<CatalogProperties> expectedCatalogs)
@@ -205,9 +215,20 @@ public class WorkerDynamicCatalogManager
     @Override
     public ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
     {
-        CatalogConnector catalogConnector = catalogs.get(catalogHandle.getRootCatalogHandle());
+        Future<CatalogConnector> catalogConnector = catalogs.get(catalogHandle.getRootCatalogHandle());
         checkArgument(catalogConnector != null, "No catalog '%s'", catalogHandle.getCatalogName());
-        return catalogConnector.getMaterializedConnector(catalogHandle.getType());
+
+        try {
+            // This will synchronize while catalog is loading
+            return catalogConnector.get().getMaterializedConnector(catalogHandle.getType());
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public void registerGlobalSystemConnector(GlobalSystemConnector connector)
@@ -221,7 +242,7 @@ public class WorkerDynamicCatalogManager
             }
 
             CatalogConnector catalog = catalogFactory.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, new ConnectorName(GlobalSystemConnector.NAME), connector);
-            if (catalogs.putIfAbsent(GlobalSystemConnector.CATALOG_HANDLE, catalog) != null) {
+            if (catalogs.putIfAbsent(GlobalSystemConnector.CATALOG_HANDLE, immediateFuture(catalog)) != null) {
                 throw new IllegalStateException("Global system catalog already registered");
             }
         }
