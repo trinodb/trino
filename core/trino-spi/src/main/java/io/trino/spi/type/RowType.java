@@ -426,6 +426,15 @@ public class RowType
                 new OperatorMethodHandle(WRITE_FLAT_CONVENTION, writeFlat));
     }
 
+    public static SqlRow getSqlRowFromFieldBuilders(BlockBuilder[] fieldBuilders)
+    {
+        Block[] fieldBlocks = new Block[fieldBuilders.length];
+        for (int i = 0; i < fieldBuilders.length; i++) {
+            fieldBlocks[i] = fieldBuilders[i].build();
+        }
+        return new SqlRow(0, fieldBlocks);
+    }
+
     private static SqlRow read(RowBlock block, int position)
     {
         return block.getRow(position);

@@ -21,17 +21,22 @@ import io.airlift.bytecode.control.IfStatement;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlRow;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
+import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
@@ -42,6 +47,7 @@ public class RowConstructorCodeGenerator
 {
     private final Type rowType;
     private final List<RowExpression> arguments;
+    private static final int MEGAMORPHIC_FIELD_COUNT = 64;
 
     public RowConstructorCodeGenerator(SpecialForm specialForm)
     {
@@ -53,6 +59,9 @@ public class RowConstructorCodeGenerator
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext context)
     {
+        if (arguments.size() > MEGAMORPHIC_FIELD_COUNT) {
+            return generateExpressionForLargeRows(context);
+        }
         BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for " + rowType);
         CallSiteBinder binder = context.getCallSiteBinder();
         Scope scope = context.getScope();
@@ -85,6 +94,40 @@ public class RowConstructorCodeGenerator
         }
 
         block.append(newInstance(SqlRow.class, constantInt(0), fieldBlocks));
+        block.append(context.wasNull().set(constantFalse()));
+        return block;
+    }
+
+    private BytecodeNode generateExpressionForLargeRows(BytecodeGeneratorContext context)
+    {
+        BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for " + rowType);
+        CallSiteBinder binder = context.getCallSiteBinder();
+        Scope scope = context.getScope();
+        List<Type> types = rowType.getTypeParameters();
+
+        Variable fieldBuilders = scope.createTempVariable(BlockBuilder[].class);
+        block.append(fieldBuilders.set(invokeStatic(RowBlockBuilder.class, "createFieldBlockBuilders", BlockBuilder[].class, constantType(binder, rowType))));
+
+        // Cache local variable declarations per java type on stack for reuse
+        Map<Class<?>, Variable> javaTypeTempVariables = new HashMap<>();
+        Variable blockBuilder = scope.createTempVariable(BlockBuilder.class);
+        for (int i = 0; i < arguments.size(); ++i) {
+            Type fieldType = types.get(i);
+            Variable field = javaTypeTempVariables.computeIfAbsent(fieldType.getJavaType(), scope::createTempVariable);
+
+            block.append(blockBuilder.set(fieldBuilders.getElement(constantInt(i))));
+
+            block.comment("Clean wasNull and Generate + " + i + "-th field of row");
+            block.append(context.wasNull().set(constantFalse()));
+            block.append(context.generate(arguments.get(i)));
+            block.putVariable(field);
+            block.append(new IfStatement()
+                    .condition(context.wasNull())
+                    .ifTrue(blockBuilder.invoke("appendNull", BlockBuilder.class).pop())
+                    .ifFalse(constantType(binder, fieldType).writeValue(blockBuilder, field).pop()));
+        }
+
+        block.append(invokeStatic(RowType.class, "getSqlRowFromFieldBuilders", SqlRow.class, fieldBuilders));
         block.append(context.wasNull().set(constantFalse()));
         return block;
     }

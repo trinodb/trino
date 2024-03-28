@@ -14,6 +14,7 @@
 
 package io.trino.spi.block;
 
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -59,6 +60,14 @@ public class RowBlockBuilder
         this.rowIsNull = requireNonNull(rowIsNull, "rowIsNull is null");
         this.fieldBlockBuilders = requireNonNull(fieldBlockBuilders, "fieldBlockBuilders is null");
         this.fieldBlockBuildersList = List.of(fieldBlockBuilders);
+    }
+
+    public static BlockBuilder[] createFieldBlockBuilders(Type rowType)
+    {
+        if (!(rowType instanceof RowType)) {
+            throw new IllegalArgumentException("Not a row type: " + rowType);
+        }
+        return createFieldBlockBuilders(rowType.getTypeParameters(), null, 1);
     }
 
     private static BlockBuilder[] createFieldBlockBuilders(List<Type> fieldTypes, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
