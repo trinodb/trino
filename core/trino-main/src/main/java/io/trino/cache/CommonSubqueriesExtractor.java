@@ -803,7 +803,10 @@ public final class CommonSubqueriesExtractor
         Map<CacheColumnId, CacheExpression> projections = canonicalSubplan.getAssignments().keySet().stream()
                 .collect(toImmutableMap(
                         identity(),
-                        id -> CacheExpression.ofProjection(columnIdToSymbol(id, requireNonNull(columnIdMapping.get(id), format("No symbol for column id: %s", id)).getType()).toSymbolReference())));
+                        id -> {
+                            Symbol symbol = requireNonNull(columnIdMapping.get(id), format("No symbol for column id: %s", id));
+                            return CacheExpression.ofProjection(columnIdToSymbol(id, symbol.getType()).toSymbolReference());
+                        }));
         return createSubplanAssignments(
                 subplan,
                 projections,
