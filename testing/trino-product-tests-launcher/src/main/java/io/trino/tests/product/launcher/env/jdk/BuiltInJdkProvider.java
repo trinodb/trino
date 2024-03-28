@@ -15,12 +15,10 @@ package io.trino.tests.product.launcher.env.jdk;
 
 import io.trino.tests.product.launcher.env.DockerContainer;
 
-import static io.trino.tests.product.launcher.Configurations.nameForJdkProvider;
-
 public class BuiltInJdkProvider
         implements JdkProvider
 {
-    public static final String BUILT_IN_NAME = nameForJdkProvider(BuiltInJdkProvider.class);
+    public static final String BUILT_IN_NAME = "builtin";
 
     @Override
     public DockerContainer applyTo(DockerContainer container)
