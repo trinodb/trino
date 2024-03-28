@@ -2077,9 +2077,10 @@ public class DeltaLakeMetadata
                             List<TupleDomain<DeltaLakeColumnHandle>> enforcedSourcePartitionConstraints = sameAsTargetSourceTableHandles.stream()
                                     .map(DeltaLakeTableHandle::getEnforcedPartitionConstraint)
                                     .collect(toImmutableList());
+                            TupleDomain<DeltaLakeColumnHandle> enforcedSourcePartitionConstraintsUnion = TupleDomain.columnWiseUnion(enforcedSourcePartitionConstraints);
 
-                            checkIfCommittedAddedFilesConflictWithCurrentOperation(TupleDomain.columnWiseUnion(enforcedSourcePartitionConstraints), commitSummary);
-                            checkIfCommittedRemovedFilesConflictWithCurrentOperation(commitSummary);
+                            checkIfCommittedAddedFilesConflictWithCurrentOperation(enforcedSourcePartitionConstraintsUnion, commitSummary);
+                            checkIfCommittedRemovedFilesConflictWithCurrentOperation(enforcedSourcePartitionConstraintsUnion, commitSummary);
                         }
                     }
                     case SERIALIZABLE -> throw new TransactionFailedException("Conflicting concurrent writes with the current operation on Serializable isolation level");
@@ -2132,21 +2133,35 @@ public class DeltaLakeMetadata
         }
     }
 
-    private static void checkIfCommittedRemovedFilesConflictWithCurrentOperation(DeltaLakeCommitSummary commitSummary)
+    private static void checkIfCommittedRemovedFilesConflictWithCurrentOperation(TupleDomain<DeltaLakeColumnHandle> enforcedSourcePartitionConstraints, DeltaLakeCommitSummary commitSummary)
     {
         if (commitSummary.getIsBlindAppend().orElse(false)) {
             // Do not conflict with blind appends. Blind appends can be placed before or after the current operation
             // when backtracking which serializable sequence of operations led to the current state of the table.
-            checkState(!commitSummary.isContainingRemovedFiles(), "Blind append transaction %s cannot contain removed files", commitSummary.getVersion());
+            checkState(commitSummary.getRemovedFilesCanonicalPartitionValues().isEmpty(), "Blind append transaction %s cannot contain removed files", commitSummary.getVersion());
+            checkState(!commitSummary.isContainsRemoveFileWithoutPartitionValues(), "Blind append transaction %s cannot contain removed files", commitSummary.getVersion());
+            return;
+        }
+        if (commitSummary.isContainsRemoveFileWithoutPartitionValues()) {
+            // Can't perform reconciliation between disjoint partitions when it is not clear which partitions are affected by the winning commit.
+            throw new TransactionFailedException("Conflicting concurrent writes found. Data files removed in the modified table by another concurrent write operation.");
+        }
+
+        if (commitSummary.getRemovedFilesCanonicalPartitionValues().isEmpty()) {
             return;
         }
 
-        if (!commitSummary.isContainingRemovedFiles()) {
-            return;
+        boolean readWholeTable = enforcedSourcePartitionConstraints.isAll();
+        if (readWholeTable) {
+            throw new TransactionFailedException("Conflicting concurrent writes found. Data files removed in the modified table by another concurrent write operation.");
         }
 
-        // TODO Pass active files of the target table read in DeltaLakeSplitSource to figure out whether the removed files do actually conflict with the read table partitions
-        throw new TransactionFailedException("Conflicting concurrent writes found. Data files were removed from the modified table by another concurrent write operation.");
+        Map<DeltaLakeColumnHandle, Domain> enforcedDomains = enforcedSourcePartitionConstraints.getDomains().orElseThrow();
+        boolean conflictingRemoveFilesFound = commitSummary.getRemovedFilesCanonicalPartitionValues().stream()
+                .anyMatch(canonicalPartitionValues -> partitionMatchesPredicate(canonicalPartitionValues, enforcedDomains));
+        if (conflictingRemoveFilesFound) {
+            throw new TransactionFailedException("Conflicting concurrent writes found. Data files were removed from the modified table by another concurrent write operation.");
+        }
     }
 
     private void writeTransactionLogForInsertOperation(
@@ -3813,7 +3828,11 @@ public class DeltaLakeMetadata
         checkWriteSupported(tableHandle);
 
         try {
-            CommitDeleteOperationResult commitDeleteOperationResult = commitDeleteOperation(session, tableHandle, operation);
+            IsolationLevel isolationLevel = getIsolationLevel(tableHandle.getMetadataEntry());
+            AtomicReference<Long> readVersion = new AtomicReference<>(tableHandle.getReadVersion());
+            CommitDeleteOperationResult commitDeleteOperationResult = Failsafe.with(TRANSACTION_CONFLICT_RETRY_POLICY)
+                    .get(context -> commitDeleteOperation(session, tableHandle, operation, isolationLevel, readVersion, context.getAttemptCount()));
+
             writeCheckpointIfNeeded(
                     session,
                     tableHandle.getSchemaTableName(),
@@ -3831,18 +3850,20 @@ public class DeltaLakeMetadata
     private CommitDeleteOperationResult commitDeleteOperation(
             ConnectorSession session,
             DeltaLakeTableHandle tableHandle,
-            String operation)
+            String operation,
+            IsolationLevel isolationLevel,
+            AtomicReference<Long> readVersion,
+            int attemptCount)
             throws IOException
     {
         String tableLocation = tableHandle.location();
+
         TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, tableLocation);
 
         long writeTimestamp = Instant.now().toEpochMilli();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation, tableHandle.getReadVersion());
-        if (currentVersion != tableHandle.getReadVersion()) {
-            throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s", tableHandle.getReadVersion(), currentVersion));
-        }
+        long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation, readVersion.get());
+        checkForConcurrentTransactionConflicts(session, fileSystem, ImmutableList.of(tableHandle), isolationLevel, currentVersion, readVersion, tableHandle.getLocation(), attemptCount);
         long commitVersion = currentVersion + 1;
         transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, IsolationLevel.WRITESERIALIZABLE, commitVersion, writeTimestamp, operation, tableHandle.getReadVersion(), false));
 
