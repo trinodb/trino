@@ -393,4 +393,14 @@ public abstract class AbstractDistributedEngineOnlyQueries
                         "LIMIT 1",
                 "VALUES -1");
     }
+
+    @Test
+    public void testRowConstructorColumnLimit()
+    {
+        // Generate a query with 859 columns: SELECT row(col1, col2, ....col859) from t
+        String colNames = "orderkey, custkey, orderstatus, totalprice, orderpriority, clerk, shippriority, comment, orderdate";
+        String rowFields = colNames + (", " + colNames).repeat(94) + ", orderkey, custkey,  orderstatus, totalprice";
+        @Language("SQL") String query = "SELECT row(" + rowFields + ") FROM (select * from tpch.tiny.orders limit 1) t(" + colNames + ")";
+        assertThat(getQueryRunner().execute(query).getOnlyValue()).isNotNull();
+    }
 }
