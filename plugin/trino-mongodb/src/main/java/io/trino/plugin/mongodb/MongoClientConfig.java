@@ -18,14 +18,18 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+
+import java.util.Optional;
 
 @DefunctConfig({"mongodb.connection-per-host", "mongodb.socket-keep-alive", "mongodb.seeds", "mongodb.credentials"})
 public class MongoClientConfig
 {
     private String schemaCollection = "_schema";
+    private Optional<String> schemaDatabase = Optional.empty();
     private boolean caseInsensitiveNameMatching;
     private String connectionUrl;
 
@@ -46,6 +50,26 @@ public class MongoClientConfig
     private String implicitRowFieldPrefix = "_pos";
     private boolean projectionPushDownEnabled = true;
     private boolean allowLocalScheduling;
+
+    @AssertTrue(message = "Exactly one of 'mongodb.schema-database' or 'mongodb.schema-collection' must be specified, or the default _schema could be created in the same database")
+    public boolean isSchemaManagementConfigValid()
+    {
+        return schemaDatabase.isEmpty() || schemaCollection.equals("_schema");
+    }
+
+    @NotNull
+    public Optional<String> getSchemaDatabase()
+    {
+        return schemaDatabase;
+    }
+
+    @ConfigDescription("Database name for managing schemas of collections in the different databases")
+    @Config("mongodb.schema-database")
+    public MongoClientConfig setSchemaDatabase(String schemaDatabase)
+    {
+        this.schemaDatabase = Optional.ofNullable(schemaDatabase);
+        return this;
+    }
 
     @NotNull
     public String getSchemaCollection()
