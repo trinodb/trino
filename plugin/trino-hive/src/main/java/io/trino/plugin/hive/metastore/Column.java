@@ -102,4 +102,14 @@ public class Column
     {
         return Objects.hash(name, type, comment, properties);
     }
+
+    public Column withName(String newColumnName)
+    {
+        return new Column(newColumnName, type, comment, properties);
+    }
+
+    public Column withComment(Optional<String> comment)
+    {
+        return new Column(name, type, comment, properties);
+    }
 }

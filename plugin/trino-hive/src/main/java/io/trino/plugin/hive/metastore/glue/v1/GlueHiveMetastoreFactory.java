@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue;
+package io.trino.plugin.hive.metastore.glue.v1;
 
 import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Tracer;
@@ -32,12 +32,6 @@ public class GlueHiveMetastoreFactory
     public GlueHiveMetastoreFactory(GlueHiveMetastore metastore, Tracer tracer)
     {
         this.metastore = new TracingHiveMetastore(tracer, metastore);
-    }
-
-    @Override
-    public boolean hasBuiltInCaching()
-    {
-        return true;
     }
 
     @Override

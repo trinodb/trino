@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue;
+package io.trino.plugin.hive.metastore.glue.v1;
 
 import com.amazonaws.services.glue.model.Database;
 import com.amazonaws.services.glue.model.Partition;
@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Storage;
-import io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter;
-import io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.GluePartitionConverter;
+import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter;
+import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.GluePartitionConverter;
 import io.trino.spi.security.PrincipalType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,15 +38,15 @@ import static com.amazonaws.util.CollectionUtils.isNullOrEmpty;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
-import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestColumn;
-import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestDatabase;
-import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestPartition;
-import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestStorageDescriptor;
-import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestTable;
-import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestTrinoMaterializedView;
-import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getPartitionParameters;
-import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
-import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableTypeNullable;
+import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getGlueTestColumn;
+import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getGlueTestDatabase;
+import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getGlueTestPartition;
+import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getGlueTestStorageDescriptor;
+import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getGlueTestTable;
+import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getGlueTestTrinoMaterializedView;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getPartitionParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_NAME;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_VALUE;

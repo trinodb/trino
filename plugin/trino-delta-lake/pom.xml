@@ -262,6 +262,12 @@
         </dependency>
 
         <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>glue</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.github.docker-java</groupId>
             <artifactId>docker-java-api</artifactId>
             <scope>test</scope>

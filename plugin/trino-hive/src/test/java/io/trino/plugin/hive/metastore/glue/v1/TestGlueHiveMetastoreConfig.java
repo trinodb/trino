@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue;
+package io.trino.plugin.hive.metastore.glue.v1;
 
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
@@ -22,16 +22,17 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-class TestGlueHiveMetastoreConfig
+public class TestGlueHiveMetastoreConfig
 {
     @Test
-    void testDefaults()
+    public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(GlueHiveMetastoreConfig.class)
                 .setGlueRegion(null)
                 .setGlueEndpointUrl(null)
                 .setGlueStsRegion(null)
                 .setGlueStsEndpointUrl(null)
+                .setGlueProxyApiId(null)
                 .setPinGlueClientToCurrentRegion(false)
                 .setMaxGlueConnections(30)
                 .setMaxGlueErrorRetries(10)
@@ -43,17 +44,21 @@ class TestGlueHiveMetastoreConfig
                 .setAwsCredentialsProvider(null)
                 .setCatalogId(null)
                 .setPartitionSegments(5)
-                .setAssumeCanonicalPartitionKeys(false));
+                .setGetPartitionThreads(20)
+                .setAssumeCanonicalPartitionKeys(false)
+                .setReadStatisticsThreads(5)
+                .setWriteStatisticsThreads(20));
     }
 
     @Test
-    void testExplicitPropertyMapping()
+    public void testExplicitPropertyMapping()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.glue.region", "us-east-1")
                 .put("hive.metastore.glue.endpoint-url", "http://foo.bar")
                 .put("hive.metastore.glue.sts.region", "us-east-3")
                 .put("hive.metastore.glue.sts.endpoint", "http://sts.foo.bar")
+                .put("hive.metastore.glue.proxy-api-id", "abc123")
                 .put("hive.metastore.glue.pin-client-to-current-region", "true")
                 .put("hive.metastore.glue.max-connections", "10")
                 .put("hive.metastore.glue.max-error-retries", "20")
@@ -65,7 +70,10 @@ class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.aws-credentials-provider", "custom")
                 .put("hive.metastore.glue.catalogid", "0123456789")
                 .put("hive.metastore.glue.partitions-segments", "10")
+                .put("hive.metastore.glue.get-partition-threads", "42")
                 .put("hive.metastore.glue.assume-canonical-partition-keys", "true")
+                .put("hive.metastore.glue.read-statistics-threads", "42")
+                .put("hive.metastore.glue.write-statistics-threads", "43")
                 .buildOrThrow();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
@@ -73,6 +81,7 @@ class TestGlueHiveMetastoreConfig
                 .setGlueEndpointUrl("http://foo.bar")
                 .setGlueStsRegion("us-east-3")
                 .setGlueStsEndpointUrl("http://sts.foo.bar")
+                .setGlueProxyApiId("abc123")
                 .setPinGlueClientToCurrentRegion(true)
                 .setMaxGlueConnections(10)
                 .setMaxGlueErrorRetries(20)
@@ -84,7 +93,10 @@ class TestGlueHiveMetastoreConfig
                 .setAwsCredentialsProvider("custom")
                 .setCatalogId("0123456789")
                 .setPartitionSegments(10)
-                .setAssumeCanonicalPartitionKeys(true);
+                .setGetPartitionThreads(42)
+                .setAssumeCanonicalPartitionKeys(true)
+                .setReadStatisticsThreads(42)
+                .setWriteStatisticsThreads(43);
 
         assertFullMapping(properties, expected);
     }

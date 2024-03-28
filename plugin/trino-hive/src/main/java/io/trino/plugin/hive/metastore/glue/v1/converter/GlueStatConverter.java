@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue.converter;
+package io.trino.plugin.hive.metastore.glue.v1.converter;
 
 import com.amazonaws.services.glue.model.BinaryColumnStatisticsData;
 import com.amazonaws.services.glue.model.BooleanColumnStatisticsData;

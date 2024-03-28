@@ -134,7 +134,6 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 
 public final class HiveUtil
 {
@@ -820,10 +819,11 @@ public final class HiveUtil
 
     public static boolean isHudiTable(Table table)
     {
-        requireNonNull(table, "table is null");
-        @Nullable
-        String inputFormat = table.getStorage().getStorageFormat().getInputFormatNullable();
+        return isHudiTable(table.getStorage().getStorageFormat().getInputFormatNullable());
+    }
 
+    public static boolean isHudiTable(String inputFormat)
+    {
         return HUDI_PARQUET_INPUT_FORMAT.equals(inputFormat) ||
                 HUDI_PARQUET_REALTIME_INPUT_FORMAT.equals(inputFormat) ||
                 HUDI_INPUT_FORMAT.equals(inputFormat) ||

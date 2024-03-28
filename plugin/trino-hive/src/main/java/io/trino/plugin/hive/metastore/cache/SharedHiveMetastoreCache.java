@@ -119,7 +119,7 @@ public class SharedHiveMetastoreCache
 
     public HiveMetastoreFactory createCachingHiveMetastoreFactory(HiveMetastoreFactory metastoreFactory)
     {
-        if (!enabled) {
+        if (!enabled || metastoreFactory.hasBuiltInCaching()) {
             return metastoreFactory;
         }
 

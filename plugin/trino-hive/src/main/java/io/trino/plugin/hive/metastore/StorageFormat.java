@@ -29,7 +29,8 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class StorageFormat
 {
-    public static final StorageFormat VIEW_STORAGE_FORMAT = createNullable(null, null, null);
+    public static final StorageFormat NULL_STORAGE_FORMAT = new StorageFormat(null, null, null);
+    public static final StorageFormat VIEW_STORAGE_FORMAT = NULL_STORAGE_FORMAT;
 
     private final String serde;
     private final String inputFormat;
@@ -103,6 +104,9 @@ public class StorageFormat
             @JsonProperty("inputFormat") String inputFormat,
             @JsonProperty("outputFormat") String outputFormat)
     {
+        if (serde == null && inputFormat == null && outputFormat == null) {
+            return NULL_STORAGE_FORMAT;
+        }
         return new StorageFormat(serde, inputFormat, outputFormat);
     }
 

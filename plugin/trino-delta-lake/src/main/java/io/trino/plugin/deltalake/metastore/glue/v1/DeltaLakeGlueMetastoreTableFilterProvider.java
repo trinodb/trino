@@ -11,16 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake.metastore.glue;
+package io.trino.plugin.deltalake.metastore.glue.v1;
 
 import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import io.trino.plugin.deltalake.metastore.glue.DeltaLakeGlueMetastoreConfig;
 import io.trino.plugin.hive.util.HiveUtil;
 
 import java.util.function.Predicate;
 
-import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
 
 public class DeltaLakeGlueMetastoreTableFilterProvider
         implements Provider<Predicate<Table>>

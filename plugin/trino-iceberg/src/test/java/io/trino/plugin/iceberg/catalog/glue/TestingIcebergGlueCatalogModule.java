@@ -22,11 +22,11 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.HideDeltaLakeTables;
-import io.trino.plugin.hive.metastore.glue.ForGlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.GlueCredentialsProvider;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import io.trino.plugin.hive.metastore.glue.v1.ForGlueHiveMetastore;
+import io.trino.plugin.hive.metastore.glue.v1.GlueCredentialsProvider;
+import io.trino.plugin.hive.metastore.glue.v1.GlueHiveMetastoreConfig;
+import io.trino.plugin.hive.metastore.glue.v1.GlueMetastoreModule;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 

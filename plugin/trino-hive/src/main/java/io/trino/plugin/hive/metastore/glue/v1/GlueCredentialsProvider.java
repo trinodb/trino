@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue;
+package io.trino.plugin.hive.metastore.glue.v1;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -23,7 +23,7 @@ import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 
-import static io.trino.plugin.hive.metastore.glue.AwsCurrentRegionHolder.getCurrentRegionFromEc2Metadata;
+import static io.trino.plugin.hive.metastore.glue.v1.AwsCurrentRegionHolder.getCurrentRegionFromEc2Metadata;
 import static java.lang.String.format;
 
 public class GlueCredentialsProvider

@@ -143,6 +143,13 @@ public class Partition
         return new Builder(partition);
     }
 
+    public Partition withParameters(Map<String, String> parameters)
+    {
+        return builder(this)
+                .setParameters(parameters)
+                .build();
+    }
+
     public static class Builder
     {
         private final Storage.Builder storageBuilder;

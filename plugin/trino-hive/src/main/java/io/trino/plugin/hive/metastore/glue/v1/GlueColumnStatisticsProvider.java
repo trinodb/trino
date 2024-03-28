@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue;
+package io.trino.plugin.hive.metastore.glue.v1;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;

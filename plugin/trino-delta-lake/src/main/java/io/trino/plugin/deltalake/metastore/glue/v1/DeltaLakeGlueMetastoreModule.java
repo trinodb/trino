@@ -11,21 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake.metastore.glue;
+package io.trino.plugin.deltalake.metastore.glue.v1;
 
+import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
-import com.google.inject.Singleton;
-import com.google.inject.multibindings.ProvidesIntoOptional;
+import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
+import io.trino.plugin.deltalake.metastore.glue.DeltaLakeGlueMetastoreConfig;
+import io.trino.plugin.hive.metastore.glue.v1.ForGlueHiveMetastore;
+import io.trino.plugin.hive.metastore.glue.v1.GlueMetastoreModule;
 
-import java.util.EnumSet;
-import java.util.Set;
+import java.util.function.Predicate;
 
-import static com.google.inject.multibindings.ProvidesIntoOptional.Type.ACTUAL;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class DeltaLakeGlueMetastoreModule
@@ -36,17 +36,10 @@ public class DeltaLakeGlueMetastoreModule
     {
         configBinder(binder).bindConfig(DeltaLakeGlueMetastoreConfig.class);
 
+        newOptionalBinder(binder, Key.get(new TypeLiteral<Predicate<Table>>() {}, ForGlueHiveMetastore.class))
+                .setBinding().toProvider(DeltaLakeGlueMetastoreTableFilterProvider.class);
+
         install(new GlueMetastoreModule());
         binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(true);
-    }
-
-    @ProvidesIntoOptional(ACTUAL)
-    @Singleton
-    public static Set<GlueHiveMetastore.TableKind> getTableKinds(DeltaLakeGlueMetastoreConfig config)
-    {
-        if (config.isHideNonDeltaLakeTables()) {
-            return EnumSet.of(GlueHiveMetastore.TableKind.DELTA);
-        }
-        return EnumSet.allOf(GlueHiveMetastore.TableKind.class);
     }
 }

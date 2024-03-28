@@ -13,17 +13,14 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.google.inject.BindingAnnotation;
+import java.util.List;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+import static java.util.Objects.requireNonNull;
 
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-@Retention(RUNTIME)
-@Target({FIELD, PARAMETER, METHOD})
-@BindingAnnotation
-public @interface ForGlueColumnStatisticsRead {}
+record PartitionName(List<String> partitionValues)
+{
+    PartitionName
+    {
+        requireNonNull(partitionValues, "partitionValues is null");
+    }
+}

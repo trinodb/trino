@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue;
+package io.trino.plugin.hive.metastore.glue.v1;
 
 import com.amazonaws.services.glue.model.DatabaseInput;
 import com.amazonaws.services.glue.model.PartitionInput;
@@ -27,8 +27,8 @@ import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter;
-import io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter;
+import io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter;
+import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter;
 import io.trino.spi.function.LanguageFunction;
 import org.junit.jupiter.api.Test;
 
@@ -37,9 +37,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
-import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getTrinoTestDatabase;
-import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getTrinoTestPartition;
-import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getTrinoTestTable;
+import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getTrinoTestDatabase;
+import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getTrinoTestPartition;
+import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getTrinoTestTable;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGlueInputConverter
