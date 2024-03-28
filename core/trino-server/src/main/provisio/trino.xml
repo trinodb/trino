@@ -337,4 +337,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/vertica">
+        <artifact id="${project.groupId}:trino-vertica:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>

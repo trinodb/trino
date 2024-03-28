@@ -390,6 +390,7 @@ jobs:
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests,
             !:trino-thrift'
+            !:trino-vertica'
       - name: Upload test results
         uses: ./.github/actions/process-test-results
         if: always()
@@ -496,6 +497,7 @@ jobs:
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
             - { modules: testing/trino-tests }
+            - { modules: testing/trino-vertica }
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
