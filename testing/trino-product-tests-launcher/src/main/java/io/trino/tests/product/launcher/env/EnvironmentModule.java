@@ -30,20 +30,22 @@ import io.trino.tests.product.launcher.env.common.Kerberos;
 import io.trino.tests.product.launcher.env.common.Minio;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
+import io.trino.tests.product.launcher.env.jdk.BuiltInJdkProvider;
 import io.trino.tests.product.launcher.env.jdk.JdkProvider;
-import io.trino.tests.product.launcher.env.jdk.JdkProviderFactory;
+import io.trino.tests.product.launcher.env.jdk.TemurinReleaseJdkProvider;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.trino.tests.product.launcher.Configurations.findConfigsByBasePackage;
 import static io.trino.tests.product.launcher.Configurations.findEnvironmentsByBasePackage;
-import static io.trino.tests.product.launcher.Configurations.findJdkProvidersByBasePackage;
 import static io.trino.tests.product.launcher.Configurations.nameForConfigClass;
 import static io.trino.tests.product.launcher.Configurations.nameForEnvironmentClass;
-import static io.trino.tests.product.launcher.Configurations.nameForJdkProvider;
+import static io.trino.tests.product.launcher.env.jdk.BuiltInJdkProvider.BUILT_IN_NAME;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -53,7 +55,6 @@ public final class EnvironmentModule
     private static final String LAUNCHER_PACKAGE = "io.trino.tests.product.launcher";
     private static final String ENVIRONMENT_PACKAGE = LAUNCHER_PACKAGE + ".env.environment";
     private static final String CONFIG_PACKAGE = LAUNCHER_PACKAGE + ".env.configs";
-    private static final String JDK_PACKAGE = LAUNCHER_PACKAGE + ".env.jdk";
 
     private final EnvironmentOptions environmentOptions;
     private final Module additionalEnvironments;
@@ -91,10 +92,6 @@ public final class EnvironmentModule
         findConfigsByBasePackage(CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz).in(SINGLETON));
 
         binder.install(additionalEnvironments);
-
-        binder.bind(JdkProviderFactory.class).in(SINGLETON);
-        MapBinder<String, JdkProvider> providers = newMapBinder(binder, String.class, JdkProvider.class);
-        findJdkProvidersByBasePackage(JDK_PACKAGE).forEach(clazz -> providers.addBinding(nameForJdkProvider(clazz)).to(clazz).in(SINGLETON));
     }
 
     @Provides
@@ -102,6 +99,21 @@ public final class EnvironmentModule
     public EnvironmentConfig provideEnvironmentConfig(EnvironmentOptions options, EnvironmentConfigFactory factory)
     {
         return factory.getConfig(options.config);
+    }
+
+    @Provides
+    @Singleton
+    public JdkProvider provideJdk(EnvironmentOptions options)
+    {
+        String version = firstNonNull(options.jdkVersion, "").trim().toLowerCase(ENGLISH);
+        if (version.isBlank()) {
+            throw new IllegalArgumentException("Expected non-empty --trino-jdk-version");
+        }
+
+        if (version.equals(BUILT_IN_NAME)) {
+            return new BuiltInJdkProvider();
+        }
+        return new TemurinReleaseJdkProvider(version, options.jdkDownloadPath);
     }
 
     @Provides
@@ -126,13 +138,6 @@ public final class EnvironmentModule
     {
         // fallback to dummy - nonNull to prevent injection errors when listing environments
         return requireNonNullElse(options.serverPackage, new File("dummy.tar.gz"));
-    }
-
-    @Provides
-    @Singleton
-    public JdkProvider provideJdkProvider(JdkProviderFactory factory, EnvironmentOptions options)
-    {
-        return factory.get(requireNonNull(options.jdkProvider, "options.jdkProvider is null"));
     }
 
     @Provides

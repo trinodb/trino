@@ -14,30 +14,41 @@
 package io.trino.tests.product.launcher.env.jdk;
 
 import io.trino.testing.containers.TestContainers;
-import io.trino.tests.product.launcher.env.EnvironmentOptions;
+import jakarta.annotation.Nullable;
 
-public abstract class AdoptiumApiResolvingJdkProvider
+import java.nio.file.Path;
+
+import static java.util.Objects.requireNonNull;
+
+public final class TemurinReleaseJdkProvider
         extends TarDownloadingJdkProvider
 {
-    public AdoptiumApiResolvingJdkProvider(EnvironmentOptions environmentOptions)
-    {
-        super(environmentOptions);
-    }
+    private final String releaseName;
 
-    protected abstract String getReleaseName();
+    public TemurinReleaseJdkProvider(String releaseName, @Nullable Path downloadPath)
+    {
+        super(downloadPath);
+        this.releaseName = requireNonNull(releaseName, "releaseName");
+    }
 
     @Override
     public String getDescription()
     {
-        return "Temurin " + getReleaseName();
+        return "Temurin " + releaseName;
+    }
+
+    @Override
+    protected String getName()
+    {
+        return releaseName;
     }
 
     @Override
     protected String getDownloadUri(TestContainers.DockerArchitecture architecture)
     {
         return switch (architecture) {
-            case AMD64 -> "https://api.adoptium.net/v3/binary/version/%s/linux/%s/jdk/hotspot/normal/eclipse?project=jdk".formatted(getReleaseName(), "x64");
-            case ARM64 -> "https://api.adoptium.net/v3/binary/version/%s/linux/%s/jdk/hotspot/normal/eclipse?project=jdk".formatted(getReleaseName(), "aarch64");
+            case AMD64 -> "https://api.adoptium.net/v3/binary/version/%s/linux/%s/jdk/hotspot/normal/eclipse?project=jdk".formatted(releaseName, "x64");
+            case ARM64 -> "https://api.adoptium.net/v3/binary/version/%s/linux/%s/jdk/hotspot/normal/eclipse?project=jdk".formatted(releaseName, "aarch64");
             default -> throw new UnsupportedOperationException("Fetching Temurin JDK for arch " + architecture + " is not supported");
         };
     }
