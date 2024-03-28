@@ -1,8 +1,12 @@
 # SQL language
 
-Trino is an ANSI SQL compliant query engine. This standard compliance allows
-Trino users to integrate their favorite data tools, including BI and ETL tools
-with any underlying data source.
+Trino is an ANSI SQL compliant query engine. ANSI compliance means that all SQL
+language implemented in Trino adheres to the ANSI SQL specification, but not
+that Trino fully implements every part of the specification. Other SQL engines
+often deviate from the ANSI standard with custom features, keywords, and
+functions that lead to limitations to interoperability. Trino's compliance to
+the ANSI specification allows Trino users to more easily integrate their
+favorite data tools, including BI and ETL tools with any underlying data source.
 
 Trino validates and translates the received SQL statements into the necessary
 operations on the connected data source.
