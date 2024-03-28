@@ -231,3 +231,13 @@ The output of the query has the following columns:
   - `VARCHAR`
   - Current state of the instant.
 :::
+
+## Performance
+
+The connector includes a number of performance improvements detailed in the
+following sections.
+
+### File system cache
+
+The connector supports configuring and using [file system
+caching](/object-storage/file-system-cache).
