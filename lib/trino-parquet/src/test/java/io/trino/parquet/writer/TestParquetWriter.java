@@ -15,6 +15,7 @@ package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
@@ -27,9 +28,12 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.reader.ChunkedInputStream;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.PageReader;
+import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.TestingParquetDataSource;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.VersionParser;
@@ -41,27 +45,39 @@ import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.PrimitiveType;
+import org.assertj.core.data.Percentage;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
+import java.util.stream.LongStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.scalar.CharacterStringCasts.varcharToVarcharSaturatedFloorCast;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
+import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.parquet.ParquetTestUtils.createParquetWriter;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
@@ -347,5 +363,83 @@ public class TestParquetWriter
                 assertThat(ids[i]).isEqualTo(i);
             }
         }
+    }
+
+    @Test
+    public void testWriteBloomFilters()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("columnInteger", "columnBigint", "columnReal", "columnDouble", "columnVarbinary", "columnVarchar", "columnUUID");
+        List<Type> types = ImmutableList.of(INTEGER, BIGINT, REAL, DOUBLE, VARBINARY, VARCHAR,
+                // This should be UUID, but we can only read, not write UUID natively
+                VARBINARY);
+
+        int size = 2000;
+        Random random = new Random(42);
+        List<List<?>> data = ImmutableList.of(
+                shuffle(random, LongStream.range(0, size).boxed().toList()),
+                shuffle(random, LongStream.range(0, size).boxed().toList()),
+                shuffle(random, LongStream.range(0, size).boxed().map(x -> (long) floatToRawIntBits((float) x)).toList()),
+                shuffle(random, LongStream.range(0, size).asDoubleStream().boxed().toList()),
+                shuffle(random, LongStream.range(0, size).boxed().map(i -> Slices.utf8Slice(i.toString())).toList()),
+                shuffle(random, LongStream.range(0, size).boxed().map(i -> Slices.utf8Slice(i.toString())).toList()),
+                shuffle(random, LongStream.range(0, size).boxed().map(i -> javaUuidToTrinoUuid(new java.util.UUID(i, i))).toList()));
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxBlockSize(DataSize.ofBytes(64 * 1024))
+                                .setBloomFilterColumns(columnNames.stream().collect(toImmutableSet()))
+                                .build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, data)),
+                new ParquetReaderOptions());
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        // Check that bloom filters are right after each other at the end of each row group
+        for (BlockMetaData block : parquetMetadata.getBlocks()) {
+            assertThat(block.getColumns().get(1).getBloomFilterOffset() - block.getColumns().get(0).getBloomFilterOffset())
+                    .isEqualTo(1024 * 1024 + 18);
+        }
+        int rowGroupCount = parquetMetadata.getBlocks().size();
+        assertThat(rowGroupCount).isEqualTo(2);
+
+        ImmutableList.Builder<TupleDomain<String>> predicateBuilder = ImmutableList.builder();
+        for (int i = 0; i < columnNames.size(); i++) {
+            predicateBuilder.add(
+                    TupleDomain.withColumnDomains(
+                            ImmutableMap.of(
+                                    columnNames.get(i), Domain.singleValue(types.get(i), data.get(i).get(size / 2)))));
+        }
+        List<TupleDomain<String>> predicates = predicateBuilder.build();
+        for (TupleDomain<String> predicate : predicates) {
+            try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, new ParquetReaderOptions().withBloomFilter(true), newSimpleAggregatedMemoryContext(), types, columnNames, predicate)) {
+                Page page = reader.nextPage();
+                int rowsRead = 0;
+                while (page != null) {
+                    rowsRead += page.getPositionCount();
+                    page = reader.nextPage();
+                }
+                assertThat(rowsRead).isCloseTo(size / rowGroupCount, Percentage.withPercentage(20));
+            }
+
+            try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, new ParquetReaderOptions().withBloomFilter(false), newSimpleAggregatedMemoryContext(), types, columnNames, predicate)) {
+                Page page = reader.nextPage();
+                int rowsRead = 0;
+                while (page != null) {
+                    rowsRead += page.getPositionCount();
+                    page = reader.nextPage();
+                }
+                assertThat(rowsRead).isEqualTo(size);
+            }
+        }
+    }
+
+    private static List<?> shuffle(Random random, List<?> data)
+    {
+        ArrayList<?> shuffledData = new ArrayList<>(data);
+        Collections.shuffle(shuffledData, random);
+        return shuffledData;
     }
 }
