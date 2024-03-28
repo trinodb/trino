@@ -18,7 +18,6 @@ import io.trino.plugin.hive.util.AsyncQueue;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.partition.HudiPartitionInfoLoader;
 import io.trino.plugin.hudi.query.HudiDirectoryLister;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 
@@ -26,11 +25,10 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 
-import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hudi.HudiSessionProperties.getSplitGeneratorParallelism;
 import static java.util.Objects.requireNonNull;
 
@@ -44,6 +42,8 @@ public class HudiBackgroundSplitLoader
     private final HudiSplitFactory hudiSplitFactory;
     private final List<String> partitions;
 
+    private final Consumer<Throwable> errorListener;
+
     public HudiBackgroundSplitLoader(
             ConnectorSession session,
             HudiTableHandle tableHandle,
@@ -51,7 +51,8 @@ public class HudiBackgroundSplitLoader
             AsyncQueue<ConnectorSplit> asyncQueue,
             Executor splitGeneratorExecutor,
             HudiSplitWeightProvider hudiSplitWeightProvider,
-            List<String> partitions)
+            List<String> partitions,
+            Consumer<Throwable> errorListener)
     {
         this.hudiDirectoryLister = requireNonNull(hudiDirectoryLister, "hudiDirectoryLister is null");
         this.asyncQueue = requireNonNull(asyncQueue, "asyncQueue is null");
@@ -59,6 +60,7 @@ public class HudiBackgroundSplitLoader
         this.splitGeneratorNumThreads = getSplitGeneratorParallelism(session);
         this.hudiSplitFactory = new HudiSplitFactory(tableHandle, hudiSplitWeightProvider);
         this.partitions = requireNonNull(partitions, "partitions is null");
+        this.errorListener = requireNonNull(errorListener, "errorListener is null");
     }
 
     @Override
@@ -85,8 +87,8 @@ public class HudiBackgroundSplitLoader
             try {
                 future.get();
             }
-            catch (InterruptedException | ExecutionException e) {
-                throw new TrinoException(HUDI_CANNOT_OPEN_SPLIT, "Error generating Hudi split", e);
+            catch (Exception e) {
+                errorListener.accept(e);
             }
         }
         asyncQueue.finish();
