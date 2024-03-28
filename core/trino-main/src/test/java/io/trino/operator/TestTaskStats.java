@@ -84,6 +84,9 @@ public class TestTaskStats
             DataSize.ofBytes(25),
             Optional.of(2),
 
+            Optional.empty(),
+            Optional.empty(),
+
             26,
             new Duration(27, NANOSECONDS),
 

@@ -302,6 +302,8 @@ public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
                         DataSize.ofBytes(0),
                         DataSize.ofBytes(0),
                         Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
                         0,
                         new Duration(0, MILLISECONDS),
                         ImmutableList.of()),

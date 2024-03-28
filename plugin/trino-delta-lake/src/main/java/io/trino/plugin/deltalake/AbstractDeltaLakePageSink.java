@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
@@ -21,10 +22,13 @@ import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.stats.TDigest;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.parquet.writer.ParquetWriterOptions;
+import io.trino.plugin.base.metrics.LongCount;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
 import io.trino.plugin.deltalake.util.DeltaLakeWriteUtils;
 import io.trino.plugin.hive.HivePartitionKey;
@@ -37,6 +41,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import org.apache.parquet.format.CompressionCodec;
@@ -110,6 +115,8 @@ public abstract class AbstractDeltaLakePageSink
     protected final ImmutableList.Builder<DataFileInfo> dataFileInfos = ImmutableList.builder();
     private final DeltaLakeParquetSchemaMapping parquetSchemaMapping;
     private long currentOpenWriters;
+    private final TDigest fileSizeHistogram = new TDigest();
+    private long numberOfIdleWritersClosed;
 
     public AbstractDeltaLakePageSink(
             TypeOperators typeOperators,
@@ -341,7 +348,16 @@ public abstract class AbstractDeltaLakePageSink
             }
             LOG.debug("Closing writer %s with %s bytes written", writerIndex, writer.getWrittenBytes());
             closeWriter(writerIndex);
+            numberOfIdleWritersClosed++;
         }
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return new Metrics(ImmutableMap.of(
+                "fileSizeHistogram", new TDigestHistogram(fileSizeHistogram),
+                "numberOfIdleWritersClosed", new LongCount(numberOfIdleWritersClosed)));
     }
 
     private int[] getWriterIndexes(Page page)
@@ -416,6 +432,7 @@ public abstract class AbstractDeltaLakePageSink
 
         long currentWritten = writer.getWrittenBytes();
         long currentMemory = writer.getMemoryUsage();
+        fileSizeHistogram.add(currentWritten);
 
         closedWriterRollbackActions.add(writer.commit());
 
