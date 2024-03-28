@@ -965,9 +965,12 @@ public class IcebergMetadata
 
         if (tableLocation == null) {
             tableLocation = getTableLocation(tableMetadata.getProperties())
+                    .map(location -> {
+                        locationAccessControl.checkCanUseLocation(session.getIdentity(), location);
+                        return location;
+                    })
                     .orElseGet(() -> catalog.defaultTableLocation(session, tableMetadata.getTable()));
         }
-        locationAccessControl.checkCanUseLocation(session.getIdentity(), tableLocation);
         transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation);
         Location location = Location.of(transaction.table().location());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties());
