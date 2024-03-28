@@ -3781,22 +3781,43 @@ public class DeltaLakeMetadata
         checkWriteAllowed(session, tableHandle);
         checkWriteSupported(tableHandle);
 
+        try {
+            CommitDeleteOperationResult commitDeleteOperationResult = commitDeleteOperation(session, tableHandle, operation);
+            writeCheckpointIfNeeded(
+                    session,
+                    tableHandle.getSchemaTableName(),
+                    tableHandle.location(),
+                    tableHandle.getReadVersion(),
+                    tableHandle.getMetadataEntry().getCheckpointInterval(),
+                    commitDeleteOperationResult.commitVersion());
+            return commitDeleteOperationResult.deletedRecords();
+        }
+        catch (Exception e) {
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
+        }
+    }
+
+    private CommitDeleteOperationResult commitDeleteOperation(
+            ConnectorSession session,
+            DeltaLakeTableHandle tableHandle,
+            String operation)
+            throws IOException
+    {
         String tableLocation = tableHandle.location();
+        TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, tableLocation);
 
+        long writeTimestamp = Instant.now().toEpochMilli();
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation, tableHandle.getReadVersion());
+        if (currentVersion != tableHandle.getReadVersion()) {
+            throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s", tableHandle.getReadVersion(), currentVersion));
+        }
+        long commitVersion = currentVersion + 1;
+        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, IsolationLevel.WRITESERIALIZABLE, commitVersion, writeTimestamp, operation, tableHandle.getReadVersion(), false));
+
+        long deletedRecords = 0L;
+        boolean allDeletedFilesStatsPresent = true;
         try (Stream<AddFileEntry> activeFiles = getAddFileEntriesMatchingEnforcedPartitionConstraint(session, tableHandle)) {
-            TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, tableLocation);
-
-            long writeTimestamp = Instant.now().toEpochMilli();
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation, tableHandle.getReadVersion());
-            if (currentVersion != tableHandle.getReadVersion()) {
-                throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s", tableHandle.getReadVersion(), currentVersion));
-            }
-            long commitVersion = currentVersion + 1;
-            transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, IsolationLevel.WRITESERIALIZABLE, commitVersion, writeTimestamp, operation, tableHandle.getReadVersion(), false));
-
-            long deletedRecords = 0L;
-            boolean allDeletedFilesStatsPresent = true;
             Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
             while (addFileEntryIterator.hasNext()) {
                 AddFileEntry addFileEntry = addFileEntryIterator.next();
@@ -3806,19 +3827,17 @@ public class DeltaLakeMetadata
                 allDeletedFilesStatsPresent &= fileRecords.isPresent();
                 deletedRecords += fileRecords.orElse(0L);
             }
-
-            transactionLogWriter.flush();
-            writeCheckpointIfNeeded(
-                    session,
-                    tableHandle.getSchemaTableName(),
-                    tableHandle.location(),
-                    tableHandle.getReadVersion(),
-                    tableHandle.getMetadataEntry().getCheckpointInterval(),
-                    commitVersion);
-            return allDeletedFilesStatsPresent ? OptionalLong.of(deletedRecords) : OptionalLong.empty();
         }
-        catch (Exception e) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
+
+        transactionLogWriter.flush();
+        return new CommitDeleteOperationResult(commitVersion, allDeletedFilesStatsPresent ? OptionalLong.of(deletedRecords) : OptionalLong.empty());
+    }
+
+    private record CommitDeleteOperationResult(long commitVersion, OptionalLong deletedRecords)
+    {
+        CommitDeleteOperationResult
+        {
+            requireNonNull(deletedRecords, "deletedRecords is null");
         }
     }
 
