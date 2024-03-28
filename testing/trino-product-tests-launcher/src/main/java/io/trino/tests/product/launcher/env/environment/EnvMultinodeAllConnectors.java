@@ -71,7 +71,6 @@ public final class EnvMultinodeAllConnectors
                         "mysql",
                         "opensearch",
                         "oracle",
-                        "phoenix5",
                         "pinot",
                         "postgresql",
                         "prometheus",

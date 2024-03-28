@@ -54,8 +54,6 @@
         <module>lib/trino-memory-context</module>
         <module>lib/trino-orc</module>
         <module>lib/trino-parquet</module>
-        <!-- TODO(https://github.com/trinodb/trino/issues/13051): Remove whole module when Phoenix5 is released -->
-        <module>lib/trino-phoenix5-patched</module>
         <module>lib/trino-plugin-toolkit</module>
         <module>lib/trino-record-decoder</module>
         <module>plugin/trino-accumulo</module>
@@ -95,7 +93,6 @@
         <module>plugin/trino-opensearch</module>
         <module>plugin/trino-oracle</module>
         <module>plugin/trino-password-authenticators</module>
-        <module>plugin/trino-phoenix5</module>
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
         <module>plugin/trino-prometheus</module>
@@ -1311,13 +1308,6 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-password-authenticators</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <!-- TODO(https://github.com/trinodb/trino/issues/13051): Remove when Phoenix5 is released -->
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-phoenix5-patched</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

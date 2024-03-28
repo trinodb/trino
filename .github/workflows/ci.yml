@@ -375,7 +375,6 @@ jobs:
             !:trino-oracle,
             !:trino-orc,
             !:trino-parquet,
-            !:trino-phoenix5,
             !:trino-pinot,
             !:trino-postgresql,
             !:trino-raptor-legacy,
@@ -478,7 +477,6 @@ jobs:
             - { modules: plugin/trino-mysql }
             - { modules: plugin/trino-opensearch }
             - { modules: plugin/trino-oracle }
-            - { modules: plugin/trino-phoenix5 }
             - { modules: plugin/trino-pinot }
             - { modules: plugin/trino-postgresql }
             - { modules: plugin/trino-raptor-legacy }
