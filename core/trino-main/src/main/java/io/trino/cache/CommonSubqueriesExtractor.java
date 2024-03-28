@@ -804,7 +804,7 @@ public final class CommonSubqueriesExtractor
                 .collect(toImmutableMap(
                         identity(),
                         id -> {
-                            Symbol symbol = requireNonNull(columnIdMapping.get(id), format("No symbol for column id: %s", id));
+                            Symbol symbol = requireNonNull(columnIdMapping.get(id), () -> format("No symbol for column id: %s", id));
                             return CacheExpression.ofProjection(columnIdToSymbol(id, symbol.getType()).toSymbolReference());
                         }));
         return createSubplanAssignments(
