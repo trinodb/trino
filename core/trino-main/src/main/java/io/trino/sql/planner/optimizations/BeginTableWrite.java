@@ -272,7 +272,7 @@ public class BeginTableWrite
         private static List<TableHandle> findSourceTableHandles(PlanNode startNode)
         {
             return PlanNodeSearcher.searchFrom(startNode)
-                    .where(TableScanNode.class::isInstance)
+                    .where(node -> node instanceof TableScanNode tableScanNode && !tableScanNode.isUpdateTarget())
                     .findAll()
                     .stream()
                     .map(TableScanNode.class::cast)
