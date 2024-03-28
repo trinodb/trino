@@ -62,6 +62,7 @@ public class TestKuduConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ARRAY,
+                    SUPPORTS_ADD_COLUMN_WITH_POSITION,
                     SUPPORTS_COMMENT_ON_COLUMN,
                     SUPPORTS_COMMENT_ON_TABLE,
                     SUPPORTS_CREATE_MATERIALIZED_VIEW,

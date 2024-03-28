@@ -43,6 +43,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
@@ -368,14 +369,30 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
+        public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column, ColumnPosition position, Optional<String> afterColumnName)
         {
             SchemaTableName tableName = table.getSchemaTableName();
             ConnectorTableMetadata metadata = tables.get(tableName);
 
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(metadata.getColumns().size() + 1);
-            columns.addAll(metadata.getColumns());
-            columns.add(column);
+            switch (position) {
+                case FIRST -> {
+                    columns.add(column);
+                    columns.addAll(metadata.getColumns());
+                }
+                case AFTER -> {
+                    for (ColumnMetadata existingColumn : metadata.getColumns()) {
+                        columns.add(existingColumn);
+                        if (existingColumn.getName().equals(afterColumnName.orElseThrow())) {
+                            columns.add(column);
+                        }
+                    }
+                }
+                case LAST -> {
+                    columns.addAll(metadata.getColumns());
+                    columns.add(column);
+                }
+            }
             tables.put(tableName, new ConnectorTableMetadata(tableName, columns.build()));
         }
 
