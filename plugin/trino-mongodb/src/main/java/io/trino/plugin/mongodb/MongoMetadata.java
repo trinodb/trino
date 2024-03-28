@@ -21,6 +21,7 @@ import com.google.common.io.Closer;
 import com.mongodb.client.MongoCollection;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.mongodb.MongoIndex.MongodbIndexKey;
 import io.trino.plugin.mongodb.ptf.Query.QueryFunctionHandle;
@@ -68,6 +69,7 @@ import io.trino.spi.type.VarcharType;
 import org.bson.Document;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -91,6 +93,7 @@ import static com.mongodb.client.model.Aggregates.project;
 import static com.mongodb.client.model.Filters.ne;
 import static com.mongodb.client.model.Projections.exclude;
 import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
+import static io.trino.plugin.base.expression.ConnectorExpressions.and;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
@@ -99,6 +102,7 @@ import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
 import static io.trino.plugin.mongodb.MongoSession.ID;
 import static io.trino.plugin.mongodb.MongoSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
+import static io.trino.plugin.mongodb.ptf.Query.parseFilter;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -624,19 +628,40 @@ public class MongoMetadata
             remainingFilter = TupleDomain.withColumnDomains(unsupported);
         }
 
-        if (oldDomain.equals(newDomain)) {
+        ConnectorExpression oldExpression = constraint.getExpression();
+        List<ConnectorExpression> expressions = ConnectorExpressions.extractConjuncts(constraint.getExpression());
+        List<ConnectorExpression> notHandledExpressions = new ArrayList<>();
+        List<Document> supportedExpressions = new ArrayList<>();
+        for (ConnectorExpression expression : expressions) {
+            Optional<Document> predicate = mongoSession.convertExpression(session, expression, constraint.getAssignments());
+            if (predicate.isPresent()) {
+                supportedExpressions.add(predicate.get());
+            }
+            else {
+                notHandledExpressions.add(expression);
+            }
+        }
+
+        ConnectorExpression newExpression = and(notHandledExpressions);
+        if (oldDomain.equals(newDomain) && oldExpression.equals(newExpression)) {
             return Optional.empty();
         }
+
+        handle.getFilter().ifPresent(json -> supportedExpressions.add(parseFilter(json)));
+        Optional<Document> newFilterDocument =
+                supportedExpressions.isEmpty() ? Optional.empty() :
+                        Optional.ofNullable(supportedExpressions.size() == 1 ? supportedExpressions.getFirst() :
+                                new Document("$and", supportedExpressions));
 
         handle = new MongoTableHandle(
                 handle.getSchemaTableName(),
                 handle.getRemoteTableName(),
-                handle.getFilter(),
+                newFilterDocument.flatMap(document -> document.toJson().describeConstable()),
                 newDomain,
                 handle.getProjectedColumns(),
                 handle.getLimit());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
+        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, and(notHandledExpressions), false));
     }
 
     @Override
