@@ -19,6 +19,7 @@ import io.trino.plugin.jdbc.DefaultJdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
+import io.trino.plugin.jdbc.TimestampTimeZoneDomain;
 
 import java.util.Set;
 
@@ -27,18 +28,20 @@ import static java.util.Objects.requireNonNull;
 public class IgniteJdbcMetadataFactory
         extends DefaultJdbcMetadataFactory
 {
+    private final TimestampTimeZoneDomain timestampTimeZoneDomain;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
     @Inject
-    public IgniteJdbcMetadataFactory(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public IgniteJdbcMetadataFactory(JdbcClient jdbcClient, TimestampTimeZoneDomain timestampTimeZoneDomain, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
-        super(jdbcClient, jdbcQueryEventListeners);
+        super(jdbcClient, timestampTimeZoneDomain, jdbcQueryEventListeners);
+        this.timestampTimeZoneDomain = requireNonNull(timestampTimeZoneDomain, "timestampTimeZoneDomain is null");
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "jdbcQueryEventListeners is null"));
     }
 
     @Override
     protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
     {
-        return new IgniteMetadata(transactionCachingJdbcClient, jdbcQueryEventListeners);
+        return new IgniteMetadata(transactionCachingJdbcClient, timestampTimeZoneDomain, jdbcQueryEventListeners);
     }
 }

@@ -73,6 +73,7 @@ public class TestDefaultJdbcMetadata
         database = new TestingDatabase();
         metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(),
                 Optional.empty()),
+                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
@@ -83,17 +84,16 @@ public class TestDefaultJdbcMetadata
     {
         metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(),
                 Optional.of(false)),
+                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
 
-        assertThatThrownBy(() -> {
-            metadata.beginCreateTable(SESSION, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED);
-        }).hasMessageContaining("This connector does not support query or task retries");
+        assertThatThrownBy(() -> metadata.beginCreateTable(SESSION, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED))
+                .hasMessageContaining("This connector does not support query or task retries");
 
-        assertThatThrownBy(() -> {
-            metadata.beginInsert(SESSION, tableHandle, ImmutableList.of(), RetryMode.RETRIES_ENABLED);
-        }).hasMessageContaining("This connector does not support query or task retries");
+        assertThatThrownBy(() -> metadata.beginInsert(SESSION, tableHandle, ImmutableList.of(), RetryMode.RETRIES_ENABLED))
+                .hasMessageContaining("This connector does not support query or task retries");
     }
 
     @Test
@@ -101,6 +101,7 @@ public class TestDefaultJdbcMetadata
     {
         metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(),
                 Optional.of(true)),
+                TimestampTimeZoneDomain.ANY,
                 false,
                 ImmutableSet.of());
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
@@ -110,13 +111,11 @@ public class TestDefaultJdbcMetadata
                         PropertyMetadata.booleanProperty(JdbcWriteSessionProperties.NON_TRANSACTIONAL_INSERT, "description", true, false)))
                 .build();
 
-        assertThatThrownBy(() -> {
-            metadata.beginCreateTable(session, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED);
-        }).hasMessageContaining("Query and task retries are incompatible with non-transactional inserts");
+        assertThatThrownBy(() -> metadata.beginCreateTable(session, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED))
+                .hasMessageContaining("Query and task retries are incompatible with non-transactional inserts");
 
-        assertThatThrownBy(() -> {
-            metadata.beginInsert(session, tableHandle, ImmutableList.of(), RetryMode.RETRIES_ENABLED);
-        }).hasMessageContaining("Query and task retries are incompatible with non-transactional inserts");
+        assertThatThrownBy(() -> metadata.beginInsert(session, tableHandle, ImmutableList.of(), RetryMode.RETRIES_ENABLED))
+                .hasMessageContaining("Query and task retries are incompatible with non-transactional inserts");
     }
 
     @AfterEach
@@ -248,28 +247,29 @@ public class TestDefaultJdbcMetadata
 
         ConnectorTableMetadata layout = metadata.getTableMetadata(SESSION, handle);
         assertThat(layout.getTable()).isEqualTo(table);
-        assertThat(layout.getColumns()).hasSize(1);
-        assertThat(layout.getColumns().get(0)).isEqualTo(new ColumnMetadata("text", VARCHAR));
+        assertThat(layout.getColumns())
+                .containsExactly(new ColumnMetadata("text", VARCHAR));
 
         metadata.addColumn(SESSION, handle, new ColumnMetadata("x", VARCHAR));
         layout = metadata.getTableMetadata(SESSION, handle);
-        assertThat(layout.getColumns()).hasSize(2);
-        assertThat(layout.getColumns().get(0)).isEqualTo(new ColumnMetadata("text", VARCHAR));
-        assertThat(layout.getColumns().get(1)).isEqualTo(new ColumnMetadata("x", VARCHAR));
+        assertThat(layout.getColumns())
+                .containsExactly(
+                        new ColumnMetadata("text", VARCHAR),
+                        new ColumnMetadata("x", VARCHAR));
 
         JdbcColumnHandle columnHandle = new JdbcColumnHandle("x", JDBC_VARCHAR, VARCHAR);
         metadata.dropColumn(SESSION, handle, columnHandle);
         layout = metadata.getTableMetadata(SESSION, handle);
-        assertThat(layout.getColumns()).hasSize(1);
-        assertThat(layout.getColumns().get(0)).isEqualTo(new ColumnMetadata("text", VARCHAR));
+        assertThat(layout.getColumns())
+                .containsExactly(new ColumnMetadata("text", VARCHAR));
 
         SchemaTableName newTableName = new SchemaTableName("example", "bar");
         metadata.renameTable(SESSION, handle, newTableName);
         handle = metadata.getTableHandle(SESSION, newTableName);
         layout = metadata.getTableMetadata(SESSION, handle);
         assertThat(layout.getTable()).isEqualTo(newTableName);
-        assertThat(layout.getColumns()).hasSize(1);
-        assertThat(layout.getColumns().get(0)).isEqualTo(new ColumnMetadata("text", VARCHAR));
+        assertThat(layout.getColumns())
+                .containsExactly(new ColumnMetadata("text", VARCHAR));
     }
 
     @Test

@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.filter.UtcConstraintExtractor;
+import io.trino.plugin.base.filter.UtcConstraintExtractor.ExtractionResult;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
@@ -117,14 +119,20 @@ public class DefaultJdbcMetadata
     private static final String MERGE_ROW_ID = "$merge_row_id";
 
     private final JdbcClient jdbcClient;
+    private final TimestampTimeZoneDomain timestampTimeZoneDomain;
     private final boolean precalculateStatisticsForPushdown;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public DefaultJdbcMetadata(JdbcClient jdbcClient, boolean precalculateStatisticsForPushdown, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public DefaultJdbcMetadata(
+            JdbcClient jdbcClient,
+            TimestampTimeZoneDomain timestampTimeZoneDomain,
+            boolean precalculateStatisticsForPushdown,
+            Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.timestampTimeZoneDomain = requireNonNull(timestampTimeZoneDomain, "timestampTimeZoneDomain is null");
         this.precalculateStatisticsForPushdown = precalculateStatisticsForPushdown;
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
     }
@@ -173,16 +181,30 @@ public class DefaultJdbcMetadata
             return Optional.empty();
         }
 
+        TupleDomain<ColumnHandle> filterDomain;
+        ConnectorExpression remainingExpression;
+        switch (timestampTimeZoneDomain) {
+            case ANY -> {
+                filterDomain = constraint.getSummary();
+                remainingExpression = constraint.getExpression();
+            }
+            case UTC_ONLY -> {
+                ExtractionResult extractionResult = UtcConstraintExtractor.extractTupleDomain(constraint);
+                filterDomain = extractionResult.tupleDomain();
+                remainingExpression = extractionResult.remainingExpression();
+            }
+            default -> throw new UnsupportedOperationException("Unsupported timestamp time zone domain: " + timestampTimeZoneDomain);
+        }
+
         JdbcTableHandle handle = (JdbcTableHandle) table;
         if (handle.getSortOrder().isPresent() && handle.getLimit().isPresent()) {
             handle = flushAttributesAsQuery(session, handle);
         }
 
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
-        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(filterDomain);
         List<ParameterizedExpression> newConstraintExpressions;
         TupleDomain<ColumnHandle> remainingFilter;
-        ConnectorExpression remainingExpression;
         if (newDomain.isNone()) {
             newConstraintExpressions = ImmutableList.of();
             remainingFilter = TupleDomain.all();
@@ -215,7 +237,7 @@ public class DefaultJdbcMetadata
             if (isComplexExpressionPushdown(session)) {
                 List<ParameterizedExpression> newExpressions = new ArrayList<>();
                 List<ConnectorExpression> remainingExpressions = new ArrayList<>();
-                for (ConnectorExpression expression : extractConjuncts(constraint.getExpression())) {
+                for (ConnectorExpression expression : extractConjuncts(remainingExpression)) {
                     Optional<ParameterizedExpression> converted = jdbcClient.convertPredicate(session, expression, constraint.getAssignments());
                     if (converted.isPresent()) {
                         newExpressions.add(converted.get());
@@ -232,7 +254,6 @@ public class DefaultJdbcMetadata
             }
             else {
                 newConstraintExpressions = ImmutableList.of();
-                remainingExpression = constraint.getExpression();
             }
         }
 
