@@ -121,7 +121,7 @@ public final class BigQueryQueryRunner
     {
         return testSessionBuilder()
                 .setCatalog("bigquery")
-                .setSchema(TPCH_SCHEMA)
+                .setSchema(TEST_SCHEMA)
                 .build();
     }
 
