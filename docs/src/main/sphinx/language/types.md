@@ -159,12 +159,14 @@ Single quotes in string literals can be escaped by using another single quote:
 
 ### `CHAR`
 
-Fixed length character data. A `CHAR` type without length specified has a default length of 1.
-A `CHAR(x)` value always has `x` characters. For example, casting `dog` to `CHAR(7)`
-adds 4 implicit trailing spaces. Leading and trailing spaces are included in comparisons of
-`CHAR` values. As a result, two character values with different lengths (`CHAR(x)` and
-`CHAR(y)` where `x != y`) will never be equal. As with `VARCHAR`, a single quote in a `CHAR` 
-literal can be escaped with another single quote:
+Fixed length character data. A `CHAR` type without length specified has a
+default length of 1. A `CHAR(x)` value always has a fixed length of `x`
+characters. For example, casting `dog` to `CHAR(7)` adds four implicit trailing
+spaces.
+
+As with `VARCHAR`, a single quote in a `CHAR` literal can be escaped with
+another single quote:
+
 ```sql
 SELECT CHAR 'All right, Mr. DeMille, I''m ready for my close-up.'
 ```
