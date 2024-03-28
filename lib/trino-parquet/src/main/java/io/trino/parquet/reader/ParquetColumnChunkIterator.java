@@ -37,6 +37,7 @@ import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ParquetColumnChunkIterator
@@ -87,7 +88,7 @@ public final class ParquetColumnChunkIterator
             switch (pageHeader.type) {
                 case DICTIONARY_PAGE:
                     if (dataPageCount != 0) {
-                        throw new ParquetCorruptionException(dataSourceId, "Column (%s) has a dictionary page after the first position in column chunk", descriptor);
+                        throw new ParquetCorruptionException(dataSourceId, format("Column (%s) has a dictionary page after the first position in column chunk", descriptor));
                     }
                     result = readDictionaryPage(pageHeader, pageHeader.getUncompressed_page_size(), pageHeader.getCompressed_page_size());
                     break;

@@ -56,7 +56,7 @@ public final class ParquetCompressionUtils
             case LZO -> decompressLZO(input, uncompressedSize);
             case LZ4 -> decompressLz4(input, uncompressedSize);
             case ZSTD -> decompressZstd(input, uncompressedSize);
-            case BROTLI, LZ4_RAW -> throw new ParquetCorruptionException(dataSourceId, "Codec not supported in Parquet: %s", codec);
+            case BROTLI, LZ4_RAW -> throw new ParquetCorruptionException(dataSourceId, format("Codec not supported in Parquet: %s", codec));
         };
     }
 

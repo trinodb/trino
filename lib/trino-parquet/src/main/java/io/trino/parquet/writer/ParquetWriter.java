@@ -69,6 +69,7 @@ import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuil
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
@@ -227,7 +228,7 @@ public class ParquetWriter
             if (e instanceof ParquetCorruptionException) {
                 throw (ParquetCorruptionException) e;
             }
-            throw new ParquetCorruptionException(input.getId(), "Validation failed with exception %s", e);
+            throw new ParquetCorruptionException(input.getId(), format("Validation failed with exception %s", e));
         }
     }
 
