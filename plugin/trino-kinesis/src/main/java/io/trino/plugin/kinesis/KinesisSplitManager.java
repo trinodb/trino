@@ -13,10 +13,6 @@
  */
 package io.trino.plugin.kinesis;
 
-import com.amazonaws.services.kinesis.model.DescribeStreamRequest;
-import com.amazonaws.services.kinesis.model.DescribeStreamResult;
-import com.amazonaws.services.kinesis.model.ResourceNotFoundException;
-import com.amazonaws.services.kinesis.model.Shard;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
@@ -29,6 +25,10 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
+import software.amazon.awssdk.services.kinesis.model.DescribeStreamRequest;
+import software.amazon.awssdk.services.kinesis.model.DescribeStreamResponse;
+import software.amazon.awssdk.services.kinesis.model.ResourceNotFoundException;
+import software.amazon.awssdk.services.kinesis.model.Shard;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -113,9 +113,9 @@ public class KinesisSplitManager
                     kinesisTableHandle.getStreamName(),
                     kinesisTableHandle.getMessageDataFormat(),
                     kinesisTableHandle.getCompressionCodec(),
-                    shard.getShardId(),
-                    shard.getSequenceNumberRange().getStartingSequenceNumber(),
-                    shard.getSequenceNumberRange().getEndingSequenceNumber());
+                    shard.shardId(),
+                    shard.sequenceNumberRange().startingSequenceNumber(),
+                    shard.sequenceNumberRange().endingSequenceNumber());
             builder.add(split);
         }
 
@@ -133,25 +133,25 @@ public class KinesisSplitManager
         if (internalStreamDescription == null || System.currentTimeMillis() - internalStreamDescription.getCreateTimeStamp() >= MAX_CACHE_AGE_MILLIS) {
             internalStreamDescription = new InternalStreamDescription(streamName);
 
-            DescribeStreamRequest describeStreamRequest = new DescribeStreamRequest();
-            describeStreamRequest.setStreamName(streamName);
+            DescribeStreamRequest.Builder describeStreamRequest = DescribeStreamRequest.builder()
+                    .streamName(streamName);
 
             // Collect shards from Kinesis
             String exclusiveStartShardId = null;
-            List<Shard> shards = new ArrayList<>();
-            do {
-                describeStreamRequest.setExclusiveStartShardId(exclusiveStartShardId);
-                DescribeStreamResult describeStreamResult = clientManager.getClient().describeStream(describeStreamRequest);
 
-                String streamStatus = describeStreamResult.getStreamDescription().getStreamStatus();
+            do {
+                describeStreamRequest.exclusiveStartShardId(exclusiveStartShardId);
+                DescribeStreamResponse describeStreamResult = clientManager.getClient().describeStream(describeStreamRequest.build());
+
+                String streamStatus = describeStreamResult.streamDescription().streamStatusAsString();
                 if (!streamStatus.equals("ACTIVE") && !streamStatus.equals("UPDATING")) {
-                    throw new ResourceNotFoundException("Stream not Active");
+                    throw ResourceNotFoundException.builder().message("Stream not Active").build();
                 }
 
-                internalStreamDescription.addAllShards(describeStreamResult.getStreamDescription().getShards());
-
-                if (describeStreamResult.getStreamDescription().getHasMoreShards() && (shards.size() > 0)) {
-                    exclusiveStartShardId = shards.getLast().getShardId();
+                internalStreamDescription.addAllShards(describeStreamResult.streamDescription().shards());
+                int shardSize = internalStreamDescription.getShards().size();
+                if (describeStreamResult.streamDescription().hasMoreShards() && (shardSize > 0)) {
+                    exclusiveStartShardId = internalStreamDescription.getShards().get(shardSize - 1).shardId();
                 }
                 else {
                     exclusiveStartShardId = null;

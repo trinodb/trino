@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.kinesis.util;
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
-import com.amazonaws.services.kinesis.AmazonKinesisClient;
-import com.amazonaws.services.s3.AmazonS3Client;
 import io.trino.plugin.kinesis.KinesisClientProvider;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.kinesis.KinesisClient;
+import software.amazon.awssdk.services.s3.S3Client;
 
 /**
  * Test implementation of KinesisClientProvider that incorporates a mock Kinesis client.
@@ -24,30 +26,34 @@ import io.trino.plugin.kinesis.KinesisClientProvider;
 public class KinesisTestClientManager
         implements KinesisClientProvider
 {
-    private final AmazonKinesisClient client = new MockKinesisClient();
-    private final AmazonDynamoDBClient dynamoDBClient;
-    private final AmazonS3Client amazonS3Client;
+    private KinesisClient client = new MockKinesisClient();
+    private final DynamoDbAsyncClient dynamoDBClient;
+    private final S3Client amazonS3Client;
 
     public KinesisTestClientManager()
     {
-        this.dynamoDBClient = new AmazonDynamoDBClient();
-        this.amazonS3Client = new AmazonS3Client();
+        this.dynamoDBClient = DynamoDbAsyncClient.builder()
+                .httpClient(NettyNioAsyncHttpClient.create())
+                .build();
+        this.amazonS3Client = S3Client.builder()
+                .httpClient(ApacheHttpClient.create())
+                .build();
     }
 
     @Override
-    public AmazonKinesisClient getClient()
+    public KinesisClient getClient()
     {
         return client;
     }
 
     @Override
-    public AmazonDynamoDBClient getDynamoDbClient()
+    public DynamoDbAsyncClient getDynamoDbClient()
     {
         return this.dynamoDBClient;
     }
 
     @Override
-    public AmazonS3Client getS3Client()
+    public S3Client getS3Client()
     {
         return amazonS3Client;
     }
