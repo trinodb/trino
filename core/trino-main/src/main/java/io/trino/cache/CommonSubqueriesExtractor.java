@@ -332,14 +332,16 @@ public final class CommonSubqueriesExtractor
                     SymbolMapper symbolMapper = createSymbolMapper(columnIdMapping);
                     TopNRankingNode originalPlanNode = (TopNRankingNode) subplan.getOriginalPlanNode();
                     TopNRankingKey key = (TopNRankingKey) subplan.getKey();
-                    List<Symbol> partitionedBy = key.partitionBy().stream().map(columnIdMapping::get).toList();
-                    DataOrganizationSpecification dataOrganizationSpecific = new DataOrganizationSpecification(
-                            partitionedBy,
+                    // recreate specification that matches common partition column order
+                    DataOrganizationSpecification specification = new DataOrganizationSpecification(
+                            key.partitionBy().stream()
+                                    .map(columnIdMapping::get)
+                                    .collect(toImmutableList()),
                             Optional.of(originalPlanNode.getOrderingScheme()));
                     PlanNode commonSubplan = new TopNRankingNode(
                             idAllocator.getNextId(),
                             childAdaptation.getCommonSubplan(),
-                            dataOrganizationSpecific,
+                            specification,
                             originalPlanNode.getRankingType(),
                             originalPlanNode.getRankingSymbol(),
                             originalPlanNode.getMaxRankingPerPartition(),
@@ -380,7 +382,7 @@ public final class CommonSubqueriesExtractor
                     PlanNode commonSubplan = new TopNNode(
                             idAllocator.getNextId(),
                             childAdaptation.getCommonSubplan(),
-                            topNKey.count(),
+                            originalPlanNode.getCount(),
                             originalPlanNode.getOrderingScheme(),
                             TopNNode.Step.PARTIAL);
                     List<Expression> adaptationConjuncts = createAdaptationConjuncts(subplan, TRUE_LITERAL, ImmutableSet.of(), Optional.of(childAdaptation));

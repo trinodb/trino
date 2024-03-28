@@ -193,7 +193,7 @@ public class CacheDriverFactory
             if (pageSource.isPresent()) {
                 // apply dynamic row filtering
                 Map<ColumnHandle, Integer> channelIndexes = commonColumnHandles.entrySet().stream()
-                        // Projection on top of TableScan can modify page source channels
+                        // Cached subplan might not contain all table scan columns
                         .filter(entry -> projectedColumns.containsKey(entry.getValue()))
                         .collect(toImmutableMap(Map.Entry::getKey, entry -> projectedColumns.get(entry.getValue())));
                 checkState(channelIndexes.keySet().containsAll(dynamicFilter.getColumnsCovered()), "Cached pageSource does not contain all columns required by dynamic filter");
