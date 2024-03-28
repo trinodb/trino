@@ -41,6 +41,7 @@ public class AlluxioFileSystemCacheConfig
     static final String CACHE_MAX_PERCENTAGES = "fs.cache.max-disk-usage-percentages";
 
     private List<String> cacheDirectories;
+    private List<String> skipPaths = ImmutableList.of();
     private List<DataSize> maxCacheSizes = ImmutableList.of();
     private Optional<Duration> cacheTTL = Optional.of(Duration.valueOf("7d"));
     private List<Integer> maxCacheDiskUsagePercentages = ImmutableList.of();
@@ -90,6 +91,20 @@ public class AlluxioFileSystemCacheConfig
     public AlluxioFileSystemCacheConfig disableTTL()
     {
         this.cacheTTL = Optional.empty();
+        return this;
+    }
+
+    @NotNull
+    public List<String> getSkipPaths()
+    {
+        return skipPaths;
+    }
+
+    @Config("fs.cache.skip-paths")
+    @ConfigDescription("Comma-separated list of path patterns that will not be cached")
+    public AlluxioFileSystemCacheConfig setSkipPaths(String skipPathsParam)
+    {
+        this.skipPaths = skipPathsParam == null ? ImmutableList.of() : SPLITTER.splitToList(skipPathsParam);
         return this;
     }
 
