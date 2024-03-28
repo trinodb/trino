@@ -40,7 +40,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
@@ -226,7 +225,6 @@ public class TpcdsMetadata
             case DECIMAL:
                 return createDecimalType(tpcdsType.getPrecision().get(), tpcdsType.getScale().get());
             case CHAR:
-                return createCharType(tpcdsType.getPrecision().get());
             case VARCHAR:
                 return createVarcharType(tpcdsType.getPrecision().get());
             case TIME:
