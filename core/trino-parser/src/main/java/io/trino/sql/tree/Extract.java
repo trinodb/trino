@@ -23,7 +23,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class Extract
+public final class Extract
         extends Expression
 {
     private final Expression expression;

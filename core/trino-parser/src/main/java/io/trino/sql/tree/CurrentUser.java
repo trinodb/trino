@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
-public class CurrentUser
+public final class CurrentUser
         extends Expression
 {
     public CurrentUser()

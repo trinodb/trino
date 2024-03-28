@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * IF(v1,v2[,v3]): CASE WHEN v1 THEN v2 [ELSE v3] END
  */
-public class IfExpression
+public final class IfExpression
         extends Expression
 {
     private final Expression condition;

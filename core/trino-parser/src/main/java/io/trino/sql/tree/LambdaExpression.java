@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class LambdaExpression
+public final class LambdaExpression
         extends Expression
 {
     private final List<LambdaArgumentDeclaration> arguments;

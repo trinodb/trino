@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class InPredicate
+public final class InPredicate
         extends Expression
 {
     private final Expression value;

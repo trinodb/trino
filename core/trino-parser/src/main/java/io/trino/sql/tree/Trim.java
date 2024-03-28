@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class Trim
+public final class Trim
         extends Expression
 {
     private final Specification specification;

@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class SubqueryExpression
+public final class SubqueryExpression
         extends Expression
 {
     private final Query query;

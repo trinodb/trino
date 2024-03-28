@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class SubscriptExpression
+public final class SubscriptExpression
         extends Expression
 {
     private final Expression base;

@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class ArithmeticBinaryExpression
+public final class ArithmeticBinaryExpression
         extends Expression
 {
     public enum Operator

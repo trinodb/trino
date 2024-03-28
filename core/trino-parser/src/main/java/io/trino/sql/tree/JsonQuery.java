@@ -22,7 +22,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class JsonQuery
+public final class JsonQuery
         extends Expression
 {
     private final JsonPathInvocation jsonPathInvocation;

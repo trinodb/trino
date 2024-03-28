@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
  * is represented as `FunctionCall` having a `Window` member.
  * // TODO refactor `FunctionCall` so that it does not contain `Window`, and instead represent a windowed function call as `WindowOperation`
  */
-public class WindowOperation
+public final class WindowOperation
         extends Expression
 {
     private final Identifier name;

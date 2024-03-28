@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class ComparisonExpression
+public final class ComparisonExpression
         extends Expression
 {
     public enum Operator

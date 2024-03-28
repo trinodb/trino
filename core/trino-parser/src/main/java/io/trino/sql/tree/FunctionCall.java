@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class FunctionCall
+public final class FunctionCall
         extends Expression
 {
     private final QualifiedName name;

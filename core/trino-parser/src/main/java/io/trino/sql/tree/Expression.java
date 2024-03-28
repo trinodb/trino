@@ -19,8 +19,14 @@ import io.trino.sql.ExpressionFormatter;
 import java.util.Optional;
 
 @Immutable
-public abstract class Expression
+public abstract sealed class Expression
         extends Node
+        permits AllRows, ArithmeticBinaryExpression, ArithmeticUnaryExpression, Array, AtTimeZone, BetweenPredicate, Cast, CoalesceExpression,
+        ComparisonExpression, CurrentCatalog, CurrentDate, CurrentPath, CurrentSchema, CurrentTime, CurrentTimestamp, CurrentUser, DataType, DereferenceExpression,
+        ExistsPredicate, Extract, FieldReference, Format, FunctionCall, GroupingOperation, Identifier, IfExpression, InListExpression, InPredicate, IsNotNullPredicate,
+        IsNullPredicate, JsonArray, JsonExists, JsonObject, JsonQuery, JsonValue, LambdaArgumentDeclaration, LambdaExpression, LikePredicate, Literal, LocalTime, LocalTimestamp,
+        LogicalExpression, NotExpression, NullIfExpression, Parameter, QuantifiedComparisonExpression, Row, SearchedCaseExpression, SimpleCaseExpression, SubqueryExpression,
+        SubscriptExpression, Trim, TryExpression, WhenClause, WindowOperation
 {
     protected Expression(Optional<NodeLocation> location)
     {

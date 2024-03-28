@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class InListExpression
+public final class InListExpression
         extends Expression
 {
     private final List<Expression> values;

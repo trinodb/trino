@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class DateTimeDataType
+public final class DateTimeDataType
         extends DataType
 {
     public enum Type

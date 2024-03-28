@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class ArithmeticUnaryExpression
+public final class ArithmeticUnaryExpression
         extends Expression
 {
     public enum Sign

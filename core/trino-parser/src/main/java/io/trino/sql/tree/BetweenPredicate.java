@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class BetweenPredicate
+public final class BetweenPredicate
         extends Expression
 {
     private final Expression value;

@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IsNullPredicate
+public final class IsNullPredicate
         extends Expression
 {
     private final Expression value;
