@@ -46,6 +46,7 @@ The following Web UI authentication types are also supported:
 - `KERBEROS`, see details in {doc}`/security/kerberos`
 - `JWT`, see details in {doc}`/security/jwt`
 - `OAUTH2`, see details in {doc}`/security/oauth2`
+- `HEADER`, see details in {doc}`/develop/header-authenticator`
 
 For these authentication types, the username is defined by {doc}`/security/user-mapping`.
 
