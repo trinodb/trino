@@ -13,16 +13,22 @@
  */
 package io.trino.sql.planner.optimizations;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.ImmutableLongArray;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator;
 import io.trino.sql.planner.OptimizerConfig;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.SubPlanMatcher;
+import io.trino.sql.planner.plan.AdaptivePlanNode;
+import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT;
@@ -31,9 +37,19 @@ import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_RUNTIME_
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_MAX_TASK_SIZE;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
+import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.operator.RetryPolicy.TASK;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.remoteSource;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestAdaptivePartitioning
         extends BasePlanTest
@@ -78,6 +94,46 @@ public class TestAdaptivePartitioning
                         new PlanFragmentId("3"), createRuntimeStats(ImmutableLongArray.of(ONE_MB, ONE_MB * 2, ONE_MB), 10000),
                         new PlanFragmentId("4"), createRuntimeStats(ImmutableLongArray.of(ONE_MB, ONE_MB, ONE_MB), 500),
                         new PlanFragmentId("1"), createRuntimeStats(ImmutableLongArray.of(ONE_MB, ONE_MB, ONE_MB), 500)),
+                matcher);
+    }
+
+    @Test
+    public void testNoPartitionCountInLocalExchange()
+    {
+        SubPlanMatcher matcher = SubPlanMatcher.builder()
+                .fragmentMatcher(fm -> fm
+                        .fragmentId(3)
+                        .inputPartitionCount(10)
+                        .planPattern(
+                                output(
+                                        join(LEFT, builder -> builder
+                                                .equiCriteria(ImmutableList.of(aliases ->
+                                                        new JoinNode.EquiJoinClause(
+                                                                new Symbol(UNKNOWN, "suppkey"),
+                                                                new Symbol(UNKNOWN, "nationkey"))))
+                                                .left(node(AdaptivePlanNode.class,
+                                                        remoteSource(ImmutableList.of(new PlanFragmentId("4")))))
+                                                // validate no partitionCount in local exchange
+                                                .right(exchange(LOCAL, Optional.empty(),
+                                                        node(AdaptivePlanNode.class,
+                                                                remoteSource(ImmutableList.of(new PlanFragmentId("5"))))))))))
+                .children(
+                        sb1 -> sb1.fragmentMatcher(fm -> fm.fragmentId(4).outputPartitionCount(10).inputPartitionCount(1))
+                                .children(sb2 -> sb2.fragmentMatcher(fm -> fm.fragmentId(1).outputPartitionCount(1))),
+                        sb1 -> sb1.fragmentMatcher(fm -> fm.fragmentId(5).outputPartitionCount(10).inputPartitionCount(1))
+                                .children(sb2 -> sb2.fragmentMatcher(fm -> fm.fragmentId(2).outputPartitionCount(1))))
+                .build();
+
+        assertAdaptivePlan(
+                """
+                SELECT l.* FROM lineitem l
+                LEFT JOIN nation n
+                ON l.suppkey = n.nationkey
+                """,
+                getSession(),
+                ImmutableMap.of(
+                        new PlanFragmentId("1"), createRuntimeStats(ImmutableLongArray.of(ONE_MB, ONE_MB, ONE_MB), 500),
+                        new PlanFragmentId("2"), createRuntimeStats(ImmutableLongArray.of(ONE_MB, ONE_MB * 2, ONE_MB), 10000)),
                 matcher);
     }
 
@@ -165,6 +221,8 @@ public class TestAdaptivePartitioning
     {
         return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(RETRY_POLICY, TASK.name())
+                .setSystemProperty(TASK_CONCURRENCY, "4")
+                .setSystemProperty(JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT, "0")
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, OptimizerConfig.JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, OptimizerConfig.JoinDistributionType.PARTITIONED.name())
                 .setSystemProperty(FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_ENABLED, "true")

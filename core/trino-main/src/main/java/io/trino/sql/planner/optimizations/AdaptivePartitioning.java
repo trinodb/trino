@@ -159,8 +159,9 @@ public class AdaptivePartitioning
                     .collect(toImmutableList());
             PartitioningScheme partitioningScheme = node.getPartitioningScheme();
 
-            // for FTE it only makes sense to set partition count fot hash partitioned fragments
-            if (node.getPartitioningScheme().getPartitioning().getHandle() == FIXED_HASH_DISTRIBUTION) {
+            // for FTE it only makes sense to set partition count for hash partitioned fragments
+            if (node.getScope() == REMOTE
+                    && node.getPartitioningScheme().getPartitioning().getHandle() == FIXED_HASH_DISTRIBUTION) {
                 partitioningScheme = partitioningScheme.withPartitionCount(Optional.of(partitionCount));
                 changedPlanIds.add(node.getId());
             }
