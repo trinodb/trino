@@ -523,7 +523,7 @@ public class TestDefaultJdbcQueryBuilder
                 List.of(new ParameterizedExpression("\"lcol7\" = \"rcol8\"", List.of())));
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.empty())) {
             assertThat(preparedQuery.getQuery()).isEqualTo("""
-                    SELECT * FROM \
+                    SELECT "name1", "lcol7", "name2", "rcol8" FROM \
                     (SELECT "col_2" AS "name1", "col_7" AS "lcol7" FROM (SELECT * FROM "test_table") l) l \
                     INNER JOIN \
                     (SELECT "col_3" AS "name2", "col_8" AS "rcol8" FROM (SELECT * FROM "test_table") r) r \

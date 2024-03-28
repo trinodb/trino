@@ -36,6 +36,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -128,7 +129,9 @@ public class DefaultQueryBuilder
         String query = format(
                 // The subquery aliases (`l` and `r`) are needed by some databases, but are not needed for expressions
                 // The joinConditions and output columns are aliased to use unique names.
-                "SELECT * FROM (SELECT %s FROM (%s) l) l %s (SELECT %s FROM (%s) r) r ON %s",
+                "SELECT %s, %s FROM (SELECT %s FROM (%s) l) l %s (SELECT %s FROM (%s) r) r ON %s",
+                formatProjectionAliases(client, leftProjections.values()),
+                formatProjectionAliases(client, rightProjections.values()),
                 formatProjections(client, leftProjections),
                 leftSource.getQuery(),
                 formatJoinType(joinType),
@@ -337,6 +340,13 @@ public class DefaultQueryBuilder
     {
         return projections.entrySet().stream()
                 .map(entry -> format("%s AS %s", client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
+                .collect(joining(", "));
+    }
+
+    protected String formatProjectionAliases(JdbcClient client, Collection<String> aliases)
+    {
+        return aliases.stream()
+                .map(s -> format("%s", client.quoted(s)))
                 .collect(joining(", "));
     }
 
