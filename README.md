@@ -54,7 +54,7 @@ Trino supports [reproducible builds](https://reproducible-builds.org) as of vers
 ## Build requirements
 
 * Mac OS X or Linux
-* Java 22.0.0+, 64-bit
+* Java 23.0.0+, 64-bit
 * Docker
   * Turn SELinux or other systems disabling write access to the local checkout
     off, to allow containers to mount parts of the Trino source tree
@@ -90,8 +90,8 @@ After opening the project in IntelliJ, double check that the Java SDK is
 properly configured for the project:
 
 * Open the File menu and select Project Structure
-* In the SDKs section, ensure that JDK 22 is selected (create one if none exist)
-* In the Project section, ensure the Project language level is set to 22
+* In the SDKs section, ensure that JDK 23 is selected (create one if none exist)
+* In the Project section, ensure the Project language level is set to 23
 
 ### Running a testing server
 
