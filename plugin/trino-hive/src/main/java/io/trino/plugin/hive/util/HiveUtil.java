@@ -168,6 +168,7 @@ public final class HiveUtil
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
+                DateTimeFormat.forPattern("yyyyMd").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s").getParser(),
