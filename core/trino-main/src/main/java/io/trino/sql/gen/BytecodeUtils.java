@@ -55,11 +55,9 @@ import static io.airlift.bytecode.OpCode.NOP;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
@@ -242,7 +240,7 @@ public final class BytecodeUtils
             }
             else {
                 BytecodeNode argument = argumentCompilers.get(i).apply(Optional.empty());
-                argumentConventions.add(getPreferredArgumentConvention(argument, argumentCompilers.size(), functionNullability.isArgumentNullable(i)));
+                argumentConventions.add(functionNullability.isArgumentNullable(i) ? BOXED_NULLABLE : NEVER_NULL);
                 arguments.add(argument);
             }
         }
@@ -348,21 +346,6 @@ public final class BytecodeUtils
         block.visitLabel(end);
 
         return block;
-    }
-
-    private static InvocationArgumentConvention getPreferredArgumentConvention(BytecodeNode argument, int argumentCount, boolean nullable)
-    {
-        // a Java function can only have 255 arguments, so if the count is low use block position or boxed nullable as they are more efficient
-        if (argumentCount <= 64) {
-            if (argument instanceof InputReferenceNode) {
-                return BLOCK_POSITION;
-            }
-            if (nullable) {
-                return NULL_FLAG;
-            }
-        }
-
-        return nullable ? BOXED_NULLABLE : NEVER_NULL;
     }
 
     public static BytecodeBlock unboxPrimitiveIfNecessary(Scope scope, Class<?> boxedType)
