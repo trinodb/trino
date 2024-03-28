@@ -30,6 +30,7 @@ import com.google.inject.Singleton;
 import io.airlift.json.JsonCodec;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.cassandra.v4_4.CassandraTelemetry;
+import io.trino.plugin.base.ssl.SslTrustConfig;
 import io.trino.plugin.cassandra.ptf.Query;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -85,6 +86,7 @@ public class CassandraClientModule
         binder.bind(CassandraTypeManager.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(CassandraClientConfig.class);
+        configBinder(binder).bindConfig(SslTrustConfig.class, "cassandra.tls");
 
         jsonCodecBinder(binder).bindListJsonCodec(ExtraColumnMetadata.class);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
@@ -114,6 +116,7 @@ public class CassandraClientModule
     public static CassandraSession createCassandraSession(
             CassandraTypeManager cassandraTypeManager,
             CassandraClientConfig config,
+            SslTrustConfig trustConfig,
             JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec,
             OpenTelemetry openTelemetry)
     {
@@ -155,7 +158,7 @@ public class CassandraClientModule
             driverConfigLoaderBuilder.withInt(DefaultDriverOption.SOCKET_LINGER_INTERVAL, config.getClientSoLinger());
         }
         if (config.isTlsEnabled()) {
-            buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTruststorePath(), config.getTruststorePassword())
+            buildSslContext(trustConfig.getKeystorePath(), trustConfig.getKeystorePassword(), trustConfig.getTruststorePath(), trustConfig.getTruststorePassword())
                     .ifPresent(cqlSessionBuilder::withSslContext);
         }
 

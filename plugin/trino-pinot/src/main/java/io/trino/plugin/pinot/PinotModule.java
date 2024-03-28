@@ -139,7 +139,7 @@ public class PinotModule
                     PinotGrpcServerQueryClientConfig::isUsePlainText,
                     plainTextBinder -> plainTextBinder.bind(PinotGrpcDataFetcher.GrpcQueryClientFactory.class).to(PinotGrpcDataFetcher.PlainTextGrpcQueryClientFactory.class).in(Scopes.SINGLETON),
                     tlsBinder -> {
-                        configBinder(tlsBinder).bindConfig(PinotGrpcServerQueryClientTlsConfig.class);
+                        configBinder(tlsBinder).bindConfig(PinotGrpcServerQueryClientTlsConfig.class, "pinot.grpc.tls");
                         tlsBinder.bind(PinotGrpcDataFetcher.GrpcQueryClientFactory.class).to(PinotGrpcDataFetcher.TlsGrpcQueryClientFactory.class).in(Scopes.SINGLETON);
                     }));
         }

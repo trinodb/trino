@@ -25,8 +25,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-import static io.trino.plugin.pinot.client.PinotKeystoreTrustStoreType.JKS;
-import static io.trino.plugin.pinot.client.PinotKeystoreTrustStoreType.PKCS12;
+import static io.trino.plugin.base.ssl.TruststoreType.JKS;
+import static io.trino.plugin.base.ssl.TruststoreType.PKCS12;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -37,13 +37,13 @@ public class TestPinotGrpcServerQueryClientTlsConfig
     {
         ConfigAssertions.assertRecordedDefaults(
                 ConfigAssertions.recordDefaults(PinotGrpcServerQueryClientTlsConfig.class)
+                        .setSslProvider("JDK")
                         .setKeystoreType(JKS)
+                        .setTruststoreType(JKS)
                         .setKeystorePath(null)
                         .setKeystorePassword(null)
-                        .setTruststoreType(JKS)
                         .setTruststorePath(null)
-                        .setTruststorePassword(null)
-                        .setSslProvider("JDK"));
+                        .setTruststorePassword(null));
     }
 
     @Test
@@ -54,22 +54,22 @@ public class TestPinotGrpcServerQueryClientTlsConfig
         Path truststoreFile = Files.createTempFile(null, null);
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("pinot.grpc.tls.keystore-type", "PKCS12")
-                .put("pinot.grpc.tls.keystore-path", keystoreFile.toString())
-                .put("pinot.grpc.tls.keystore-password", "password")
-                .put("pinot.grpc.tls.truststore-type", "PKCS12")
-                .put("pinot.grpc.tls.truststore-path", truststoreFile.toString())
-                .put("pinot.grpc.tls.truststore-password", "password")
-                .put("pinot.grpc.tls.ssl-provider", "OPENSSL")
+                .put("keystore-type", "PKCS12")
+                .put("keystore-path", keystoreFile.toString())
+                .put("keystore-password", "password")
+                .put("truststore-type", "PKCS12")
+                .put("truststore-path", truststoreFile.toString())
+                .put("truststore-password", "password")
+                .put("ssl-provider", "OPENSSL")
                 .buildOrThrow();
-        PinotGrpcServerQueryClientTlsConfig expected = new PinotGrpcServerQueryClientTlsConfig()
+        PinotGrpcServerQueryClientTlsConfig expected = (PinotGrpcServerQueryClientTlsConfig) new PinotGrpcServerQueryClientTlsConfig()
+                .setSslProvider("OPENSSL")
                 .setKeystoreType(PKCS12)
+                .setTruststoreType(PKCS12)
                 .setKeystorePath(keystoreFile.toFile())
                 .setKeystorePassword("password")
-                .setTruststoreType(PKCS12)
                 .setTruststorePath(truststoreFile.toFile())
-                .setTruststorePassword("password")
-                .setSslProvider("OPENSSL");
+                .setTruststorePassword("password");
         ConfigAssertions.assertFullMapping(properties, expected);
     }
 

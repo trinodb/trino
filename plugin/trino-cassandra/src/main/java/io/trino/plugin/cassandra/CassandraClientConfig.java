@@ -23,7 +23,6 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
@@ -32,7 +31,6 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -72,10 +70,6 @@ public class CassandraClientConfig
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
     private ProtocolVersion protocolVersion;
     private boolean tlsEnabled;
-    private File keystorePath;
-    private String keystorePassword;
-    private File truststorePath;
-    private String truststorePassword;
 
     @NotNull
     @Size(min = 1)
@@ -388,56 +382,6 @@ public class CassandraClientConfig
     public CassandraClientConfig setTlsEnabled(boolean tlsEnabled)
     {
         this.tlsEnabled = tlsEnabled;
-        return this;
-    }
-
-    public Optional<@FileExists File> getKeystorePath()
-    {
-        return Optional.ofNullable(keystorePath);
-    }
-
-    @Config("cassandra.tls.keystore-path")
-    public CassandraClientConfig setKeystorePath(File keystorePath)
-    {
-        this.keystorePath = keystorePath;
-        return this;
-    }
-
-    public Optional<String> getKeystorePassword()
-    {
-        return Optional.ofNullable(keystorePassword);
-    }
-
-    @Config("cassandra.tls.keystore-password")
-    @ConfigSecuritySensitive
-    public CassandraClientConfig setKeystorePassword(String keystorePassword)
-    {
-        this.keystorePassword = keystorePassword;
-        return this;
-    }
-
-    public Optional<@FileExists File> getTruststorePath()
-    {
-        return Optional.ofNullable(truststorePath);
-    }
-
-    @Config("cassandra.tls.truststore-path")
-    public CassandraClientConfig setTruststorePath(File truststorePath)
-    {
-        this.truststorePath = truststorePath;
-        return this;
-    }
-
-    public Optional<String> getTruststorePassword()
-    {
-        return Optional.ofNullable(truststorePassword);
-    }
-
-    @Config("cassandra.tls.truststore-password")
-    @ConfigSecuritySensitive
-    public CassandraClientConfig setTruststorePassword(String truststorePassword)
-    {
-        this.truststorePassword = truststorePassword;
         return this;
     }
 }

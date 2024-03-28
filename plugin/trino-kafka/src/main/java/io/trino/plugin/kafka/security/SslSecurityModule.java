@@ -24,6 +24,6 @@ public class SslSecurityModule
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfig(KafkaSslConfig.class);
+        configBinder(binder).bindConfig(KafkaSslConfig.class, "kafka.ssl");
     }
 }

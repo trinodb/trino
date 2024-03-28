@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.ProvidesIntoSet;
+import io.trino.plugin.base.ssl.SslTrustConfig;
 import io.trino.spi.TrinoException;
 
 import javax.net.ssl.SSLContext;
@@ -36,12 +37,12 @@ public class MongoSslModule
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfig(MongoSslConfig.class);
+        configBinder(binder).bindConfig(SslTrustConfig.class, "mongodb.tls");
     }
 
     @ProvidesIntoSet
     @Singleton
-    public MongoClientSettingConfigurator sslSpecificConfigurator(MongoSslConfig config)
+    public MongoClientSettingConfigurator sslSpecificConfigurator(SslTrustConfig config)
     {
         return options -> options.applyToSslSettings(
                 builder -> {

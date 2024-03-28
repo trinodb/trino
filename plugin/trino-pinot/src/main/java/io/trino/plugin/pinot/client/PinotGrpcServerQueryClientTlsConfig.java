@@ -17,101 +17,23 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.ConfigurationException;
 import com.google.inject.spi.Message;
 import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigSecuritySensitive;
-import io.airlift.configuration.validation.FileExists;
+import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
+import io.trino.plugin.base.ssl.SslTrustConfig;
+import io.trino.plugin.base.ssl.TruststoreType;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotNull;
 
-import java.io.File;
 import java.util.Optional;
 
-import static io.trino.plugin.pinot.client.PinotKeystoreTrustStoreType.JKS;
+import static io.trino.plugin.base.ssl.TruststoreType.JKS;
 
 public class PinotGrpcServerQueryClientTlsConfig
+        extends SslTrustConfig
 {
-    private PinotKeystoreTrustStoreType keystoreType = JKS;
-    private File keystorePath;
-    private String keystorePassword;
-    private PinotKeystoreTrustStoreType truststoreType = JKS;
-    private File truststorePath;
-    private String truststorePassword;
     private String sslProvider = "JDK";
-
-    @NotNull
-    public PinotKeystoreTrustStoreType getKeystoreType()
-    {
-        return keystoreType;
-    }
-
-    @Config("pinot.grpc.tls.keystore-type")
-    public PinotGrpcServerQueryClientTlsConfig setKeystoreType(PinotKeystoreTrustStoreType keystoreType)
-    {
-        this.keystoreType = keystoreType;
-        return this;
-    }
-
-    public Optional<@FileExists File> getKeystorePath()
-    {
-        return Optional.ofNullable(keystorePath);
-    }
-
-    @Config("pinot.grpc.tls.keystore-path")
-    public PinotGrpcServerQueryClientTlsConfig setKeystorePath(File keystorePath)
-    {
-        this.keystorePath = keystorePath;
-        return this;
-    }
-
-    public Optional<String> getKeystorePassword()
-    {
-        return Optional.ofNullable(keystorePassword);
-    }
-
-    @Config("pinot.grpc.tls.keystore-password")
-    @ConfigSecuritySensitive
-    public PinotGrpcServerQueryClientTlsConfig setKeystorePassword(String keystorePassword)
-    {
-        this.keystorePassword = keystorePassword;
-        return this;
-    }
-
-    @NotNull
-    public PinotKeystoreTrustStoreType getTruststoreType()
-    {
-        return truststoreType;
-    }
-
-    @Config("pinot.grpc.tls.truststore-type")
-    public PinotGrpcServerQueryClientTlsConfig setTruststoreType(PinotKeystoreTrustStoreType truststoreType)
-    {
-        this.truststoreType = truststoreType;
-        return this;
-    }
-
-    public Optional<@FileExists File> getTruststorePath()
-    {
-        return Optional.ofNullable(truststorePath);
-    }
-
-    @Config("pinot.grpc.tls.truststore-path")
-    public PinotGrpcServerQueryClientTlsConfig setTruststorePath(File truststorePath)
-    {
-        this.truststorePath = truststorePath;
-        return this;
-    }
-
-    public Optional<String> getTruststorePassword()
-    {
-        return Optional.ofNullable(truststorePassword);
-    }
-
-    @Config("pinot.grpc.tls.truststore-password")
-    @ConfigSecuritySensitive
-    public PinotGrpcServerQueryClientTlsConfig setTruststorePassword(String truststorePassword)
-    {
-        this.truststorePassword = truststorePassword;
-        return this;
-    }
+    private TruststoreType truststoreType = JKS;
+    private TruststoreType keystoreType = JKS;
 
     @NotNull
     public String getSslProvider()
@@ -119,10 +41,37 @@ public class PinotGrpcServerQueryClientTlsConfig
         return sslProvider;
     }
 
-    @Config("pinot.grpc.tls.ssl-provider")
+    @Config("ssl-provider")
     public PinotGrpcServerQueryClientTlsConfig setSslProvider(String sslProvider)
     {
         this.sslProvider = sslProvider;
+        return this;
+    }
+
+    public Optional<TruststoreType> getTruststoreType()
+    {
+        return Optional.ofNullable(truststoreType);
+    }
+
+    @Config("truststore-type")
+    @LegacyConfig("truststore.type")
+    @ConfigDescription("The file format of the trust store file")
+    public PinotGrpcServerQueryClientTlsConfig setTruststoreType(TruststoreType truststoreType)
+    {
+        this.truststoreType = truststoreType;
+        return this;
+    }
+
+    public Optional<TruststoreType> getKeystoreType()
+    {
+        return Optional.ofNullable(keystoreType);
+    }
+
+    @Config("keystore-type")
+    @LegacyConfig("keystore.type")
+    public PinotGrpcServerQueryClientTlsConfig setKeystoreType(TruststoreType keystoreType)
+    {
+        this.keystoreType = keystoreType;
         return this;
     }
 
