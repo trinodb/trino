@@ -30,8 +30,6 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.math.DoubleMath.roundToLong;
-import static java.math.RoundingMode.HALF_UP;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -48,6 +46,8 @@ public class MultilevelSplitQueue
 
     private final AtomicLong[] levelMinPriority;
     private final CounterStat[] selectedLevelCounters;
+
+    private final double[] levelWeight = new double[LEVEL_THRESHOLD_SECONDS.length];
 
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition notEmpty = lock.newCondition();
@@ -72,6 +72,7 @@ public class MultilevelSplitQueue
             levelMinPriority[level] = new AtomicLong(-1);
             levelWaitingSplits[level] = new PriorityQueue<>();
             selectedLevelCounters[level] = new CounterStat();
+            levelWeight[level] = Math.pow(levelTimeMultiplier, LEVEL_THRESHOLD_SECONDS.length - 1 - level);
         }
 
         this.levelTimeMultiplier = levelTimeMultiplier;
@@ -106,7 +107,7 @@ public class MultilevelSplitQueue
                 // the fact that only running splits that complete during this computation
                 // can update the level time. Therefore, this is benign.
                 long level0Time = getLevel0TargetTime();
-                long levelExpectedTime = (long) (level0Time / Math.pow(levelTimeMultiplier, level));
+                long levelExpectedTime = (long) (level0Time / levelWeight[LEVEL_THRESHOLD_SECONDS.length - 1 - level]);
                 long delta = levelExpectedTime - levelScheduledTime[level].get();
                 levelScheduledTime[level].addAndGet(delta);
             }
@@ -158,20 +159,17 @@ public class MultilevelSplitQueue
     @GuardedBy("lock")
     private PrioritizedSplitRunner pollSplit()
     {
-        long targetScheduledTime = getLevel0TargetTime();
-        double worstRatio = 1;
+        double minScheduledTimeWithoutWeight = Double.MAX_VALUE;
         int selectedLevel = -1;
         for (int level = 0; level < LEVEL_THRESHOLD_SECONDS.length; level++) {
             if (!levelWaitingSplits[level].isEmpty()) {
                 long levelTime = levelScheduledTime[level].get();
-                double ratio = levelTime == 0 ? 0 : targetScheduledTime / (1.0 * levelTime);
-                if (selectedLevel == -1 || ratio > worstRatio) {
-                    worstRatio = ratio;
+                double scheduledTimeWithoutWeight = levelTime == 0 ? 0 : levelTime / levelWeight[level];
+                if (selectedLevel == -1 || scheduledTimeWithoutWeight < minScheduledTimeWithoutWeight) {
+                    minScheduledTimeWithoutWeight = scheduledTimeWithoutWeight;
                     selectedLevel = level;
                 }
             }
-
-            targetScheduledTime = roundToLong(targetScheduledTime / levelTimeMultiplier, HALF_UP);
         }
 
         if (selectedLevel == -1) {
