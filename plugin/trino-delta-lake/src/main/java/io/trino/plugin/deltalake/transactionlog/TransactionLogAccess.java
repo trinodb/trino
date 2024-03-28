@@ -294,7 +294,7 @@ public class TransactionLogAccess
         }
     }
 
-    private Stream<AddFileEntry> loadActiveFiles(
+    public Stream<AddFileEntry> loadActiveFiles(
             ConnectorSession session,
             TableSnapshot tableSnapshot,
             MetadataEntry metadataEntry,

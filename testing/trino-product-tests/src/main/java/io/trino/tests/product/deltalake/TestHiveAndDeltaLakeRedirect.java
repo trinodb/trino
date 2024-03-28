@@ -127,33 +127,15 @@ public class TestHiveAndDeltaLakeRedirect
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testHiveToUnpartitionedDeltaPartitionsRedirectFailure()
+    public void testHiveToUnpartitionedDeltaPartitionsRedirect()
     {
         String tableName = "test_delta_lake_unpartitioned_table_" + randomNameSuffix();
 
         onDelta().executeQuery(createTableOnDelta(tableName, false));
 
         try {
-            assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$partitions\"", tableName)))
-                    .hasMessageMatching(".*Table 'hive.default.\"test_delta_lake_unpartitioned_table_.*\\$partitions\"' redirected to 'delta.default.\"test_delta_lake_unpartitioned_table_.*\\$partitions\"', " +
-                            "but the target table 'delta.default.\"test_delta_lake_unpartitioned_table_.*\\$partitions\"' does not exist");
-        }
-        finally {
-            dropDeltaTableWithRetry(tableName);
-        }
-    }
-
-    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testHiveToPartitionedDeltaPartitionsRedirectFailure()
-    {
-        String tableName = "test_delta_lake_partitioned_table_" + randomNameSuffix();
-
-        onDelta().executeQuery(createTableOnDelta(tableName, true));
-
-        try {
-            assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$partitions\"", tableName)))
-                    .hasMessageMatching(".*Table 'hive.default.\"test_delta_lake_partitioned_table_.*\\$partitions\"' redirected to 'delta.default.\"test_delta_lake_partitioned_table_.*\\$partitions\"', " +
-                            "but the target table 'delta.default.\"test_delta_lake_partitioned_table_.*\\$partitions\"' does not exist");
+            assertThat(onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$partitions\"", tableName)))
+                    .hasRowsCount(0);
         }
         finally {
             dropDeltaTableWithRetry(tableName);
@@ -865,6 +847,26 @@ public class TestHiveAndDeltaLakeRedirect
         }
     }
 
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testHiveToDeltaPartitionsRedirect()
+    {
+        String tableName = "test_redirect_to_delta_partitions_" + randomNameSuffix();
+
+        onDelta().executeQuery(createTableOnDelta(tableName, true));
+
+        List<Row> expected = List.of(
+                row(rowBuilder().addField("regionkey", 1L).build(), 3L, 4711L),
+                row(rowBuilder().addField("regionkey", 0L).build(), 1L, 1322L));
+
+        try {
+            assertThat(onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s$partitions\"", tableName))).containsOnly(expected);
+            assertThat(onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$partitions\"", tableName))).containsOnly(expected);
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
     @DataProvider
     public Object[][] trueFalse()
     {
@@ -950,5 +952,10 @@ public class TestHiveAndDeltaLakeRedirect
         assertThat(second).containsOnly(first.rows().stream()
                 .map(Row::new)
                 .collect(toImmutableList()));
+    }
+
+    private static io.trino.jdbc.Row.Builder rowBuilder()
+    {
+        return io.trino.jdbc.Row.builder();
     }
 }
