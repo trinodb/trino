@@ -95,17 +95,23 @@ public class IndexMetadata
             implements Type
     {
         private final List<String> formats;
+        private int precision;
 
-        public DateTimeType(List<String> formats)
+        public DateTimeType(List<String> formats, int precision)
         {
             requireNonNull(formats, "formats is null");
-
             this.formats = ImmutableList.copyOf(formats);
+            this.precision = precision;
         }
 
         public List<String> getFormats()
         {
             return formats;
+        }
+
+        public int getPrecision()
+        {
+            return precision;
         }
     }
 
