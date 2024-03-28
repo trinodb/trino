@@ -232,6 +232,8 @@ import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.METADATA_PREVIOUS_VERSIONS_MAX_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
@@ -299,6 +301,8 @@ import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
+import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.types.TypeUtil.indexParents;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
@@ -313,7 +317,13 @@ public class IcebergMetadata
     private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 2;
     private static final String RETENTION_THRESHOLD = "retention_threshold";
     private static final String UNKNOWN_SNAPSHOT_TOKEN = "UNKNOWN";
-    public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.of(FILE_FORMAT_PROPERTY, FORMAT_VERSION_PROPERTY, PARTITIONING_PROPERTY, SORTED_BY_PROPERTY);
+    public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.of(
+            FILE_FORMAT_PROPERTY,
+            FORMAT_VERSION_PROPERTY,
+            PARTITIONING_PROPERTY,
+            SORTED_BY_PROPERTY,
+            METADATA_PREVIOUS_VERSIONS_MAX_PROPERTY,
+            METADATA_DELETE_AFTER_COMMIT_ENABLED_PROPERTY);
 
     public static final String NUMBER_OF_DISTINCT_VALUES_NAME = "NUMBER_OF_DISTINCT_VALUES";
     private static final FunctionName NUMBER_OF_DISTINCT_VALUES_FUNCTION = new FunctionName(IcebergThetaSketchForStats.NAME);
@@ -1805,6 +1815,18 @@ public class IcebergMetadata
             int formatVersion = (int) properties.get(FORMAT_VERSION_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The format_version property cannot be empty"));
             updateProperties.set(FORMAT_VERSION, Integer.toString(formatVersion));
+        }
+
+        if (properties.containsKey(METADATA_DELETE_AFTER_COMMIT_ENABLED_PROPERTY)) {
+            boolean commitEnabled = (boolean) properties.get(METADATA_DELETE_AFTER_COMMIT_ENABLED_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The metadata_delete_after_commit_enabled property cannot be empty"));
+            updateProperties.set(METADATA_DELETE_AFTER_COMMIT_ENABLED, String.valueOf(commitEnabled));
+        }
+
+        if (properties.containsKey(METADATA_PREVIOUS_VERSIONS_MAX_PROPERTY)) {
+            int metadataPerviousVersionMax = (int) properties.get(METADATA_PREVIOUS_VERSIONS_MAX_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The metadata_previous_versions_max property cannot be empty"));
+            updateProperties.set(METADATA_PREVIOUS_VERSIONS_MAX, Integer.toString(metadataPerviousVersionMax));
         }
 
         try {

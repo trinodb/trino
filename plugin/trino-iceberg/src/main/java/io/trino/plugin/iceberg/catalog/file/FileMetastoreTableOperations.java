@@ -56,7 +56,7 @@ public class FileMetastoreTableOperations
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
         Table currentTable = getTable();
-        commitTableUpdate(currentTable, metadata, (table, newMetadataLocation) -> Table.builder(table)
+        commitTableUpdate(currentTable, base, metadata, (table, newMetadataLocation) -> Table.builder(table)
                 .apply(builder -> updateMetastoreTable(builder, metadata, newMetadataLocation, Optional.of(currentMetadataLocation)))
                 .build());
     }
@@ -65,12 +65,12 @@ public class FileMetastoreTableOperations
     protected void commitMaterializedViewRefresh(TableMetadata base, TableMetadata metadata)
     {
         Table materializedView = getTable(database, tableNameFrom(tableName));
-        commitTableUpdate(materializedView, metadata, (table, newMetadataLocation) -> Table.builder(table)
+        commitTableUpdate(materializedView, base, metadata, (table, newMetadataLocation) -> Table.builder(table)
                 .apply(builder -> builder.setParameter(METADATA_LOCATION_PROP, newMetadataLocation).setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation))
                 .build());
     }
 
-    private void commitTableUpdate(Table table, TableMetadata metadata, BiFunction<Table, String, Table> tableUpdateFunction)
+    private void commitTableUpdate(Table table, TableMetadata base, TableMetadata metadata, BiFunction<Table, String, Table> tableUpdateFunction)
     {
         checkState(currentMetadataLocation != null, "No current metadata location for existing table");
         String metadataLocation = table.getParameters().get(METADATA_LOCATION_PROP);
@@ -97,5 +97,6 @@ public class FileMetastoreTableOperations
             }
             throw new CommitStateUnknownException(e);
         }
+        deleteRemovedMetadataFiles(base, metadata);
     }
 }
