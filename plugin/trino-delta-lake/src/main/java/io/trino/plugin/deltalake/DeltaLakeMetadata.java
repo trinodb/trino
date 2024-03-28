@@ -2243,7 +2243,12 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public void finishMerge(
+            ConnectorSession session,
+            ConnectorMergeTableHandle mergeTableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
     {
         DeltaLakeMergeTableHandle mergeHandle = (DeltaLakeMergeTableHandle) mergeTableHandle;
         DeltaLakeTableHandle handle = mergeHandle.tableHandle();
@@ -2267,12 +2272,15 @@ public class DeltaLakeMetadata
         String tableLocation = handle.getLocation();
         boolean writeCommitted = false;
         try {
-            long commitVersion = commitMergeOperation(session, mergeHandle, mergeResults, allFiles);
+            IsolationLevel isolationLevel = getIsolationLevel(handle.getMetadataEntry());
+            AtomicReference<Long> readVersion = new AtomicReference<>(handle.getReadVersion());
+            long commitVersion = Failsafe.with(TRANSACTION_CONFLICT_RETRY_POLICY)
+                    .get(context -> commitMergeOperation(session, mergeHandle, mergeResults, sourceTableHandles, isolationLevel, allFiles, readVersion, context.getAttemptCount()));
             writeCommitted = true;
 
             writeCheckpointIfNeeded(session, handle.getSchemaTableName(), handle.getLocation(), handle.getReadVersion(), checkpointInterval, commitVersion);
         }
-        catch (IOException | RuntimeException e) {
+        catch (RuntimeException e) {
             if (!writeCommitted) {
                 // TODO perhaps it should happen in a background thread (https://github.com/trinodb/trino/issues/12011)
                 cleanupFailedWrite(session, tableLocation, allFiles);
@@ -2285,7 +2293,11 @@ public class DeltaLakeMetadata
             ConnectorSession session,
             DeltaLakeMergeTableHandle mergeHandle,
             List<DeltaLakeMergeResult> mergeResults,
-            List<DataFileInfo> allFiles)
+            List<ConnectorTableHandle> sourceTableHandles,
+            IsolationLevel isolationLevel,
+            List<DataFileInfo> allFiles,
+            AtomicReference<Long> readVersion,
+            int attemptCount)
             throws IOException
     {
         Map<Boolean, List<DataFileInfo>> split = allFiles.stream()
@@ -2301,14 +2313,13 @@ public class DeltaLakeMetadata
 
         long createdTime = Instant.now().toEpochMilli();
 
+        List<DeltaLakeTableHandle> sameAsTargetSourceTableHandles = getSameAsTargetSourceTableHandles(sourceTableHandles, handle.getSchemaTableName());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation, handle.getReadVersion());
-        if (currentVersion != handle.getReadVersion()) {
-            throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s", handle.getReadVersion(), currentVersion));
-        }
+        long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation, readVersion.get());
+        checkForConcurrentTransactionConflicts(session, fileSystem, sameAsTargetSourceTableHandles, isolationLevel, currentVersion, readVersion, handle.getLocation(), attemptCount);
         long commitVersion = currentVersion + 1;
 
-        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, IsolationLevel.WRITESERIALIZABLE, commitVersion, createdTime, MERGE_OPERATION, handle.getReadVersion(), false));
+        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, isolationLevel, commitVersion, createdTime, MERGE_OPERATION, handle.getReadVersion(), sameAsTargetSourceTableHandles.isEmpty()));
         // TODO: Delta writes another field "operationMetrics" (https://github.com/trinodb/trino/issues/12005)
 
         long writeTimestamp = Instant.now().toEpochMilli();

@@ -2700,6 +2700,72 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         }
     }
 
+    @RepeatedTest(3)
+    public void testConcurrentMergeReconciliation()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_merges_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioned_by = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, 30), (31, 40)", 4);
+        // Add more files in the partition 30
+        assertUpdate("INSERT INTO " + tableName + " VALUES (22, 30)", 1);
+
+
+        try {
+            // merge data concurrently by using non-overlapping partition predicate
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                // No source table handles are employed for this MERGE statement, which causes a blind insert
+                                getQueryRunner().execute("""
+                                        MERGE INTO %s t USING (VALUES (12, 20)) AS s(a, part)
+                                          ON (FALSE)
+                                            WHEN NOT MATCHED THEN INSERT (a, part) VALUES(s.a, s.part)
+                                        """.formatted(tableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("""
+                                        MERGE INTO %s t USING (VALUES (21, 30)) AS s(a, part)
+                                          ON (t.part = s.part)
+                                            WHEN MATCHED THEN DELETE
+                                        """.formatted(tableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("""
+                                        MERGE INTO %s t USING (VALUES (32, 40)) AS s(a, part)
+                                          ON (t.part = s.part)
+                                            WHEN MATCHED THEN UPDATE SET a = s.a
+                                        """.formatted(tableName));
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (12, 20), (32, 40)");
+            assertQuery("SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
+                    """
+                            VALUES
+                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                                ('WRITE', 'WriteSerializable', true),
+                                ('MERGE', 'WriteSerializable', true),
+                                ('MERGE', 'WriteSerializable', false),
+                                ('MERGE', 'WriteSerializable', false)
+                            """);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, SECONDS));
+        }
+    }
+
     protected List<String> listCheckpointFiles(String transactionLogDirectory)
     {
         return listFiles(transactionLogDirectory).stream()
