@@ -60,7 +60,7 @@ import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
-import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
+import static io.trino.plugin.iceberg.IcebergUtil.getTopLevelColumns;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Long.parseLong;
@@ -118,7 +118,7 @@ public final class TableStatisticsReader
         Schema icebergTableSchema = icebergTable.schema();
         List<Types.NestedField> columns = icebergTableSchema.columns();
 
-        List<IcebergColumnHandle> columnHandles = getColumns(icebergTableSchema, typeManager);
+        List<IcebergColumnHandle> columnHandles = getTopLevelColumns(icebergTableSchema, typeManager);
         Map<Integer, IcebergColumnHandle> idToColumnHandle = columnHandles.stream()
                 .collect(toUnmodifiableMap(IcebergColumnHandle::getId, identity()));
         Map<Integer, org.apache.iceberg.types.Type> idToType = columns.stream()
