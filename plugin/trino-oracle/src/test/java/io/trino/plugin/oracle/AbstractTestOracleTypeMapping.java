@@ -704,14 +704,14 @@ public abstract class AbstractTestOracleTypeMapping
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_dt", "(ts date)")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (DATE '-4713-12-31')", table.getName()),
-                    "\\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
+                    "\\QInsert failed: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
             assertQueryFails(
                     format("INSERT INTO %s VALUES (DATE '0000-01-01')", table.getName()),
-                    "\\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
+                    "\\QInsert failed: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
             // The error message sounds invalid date format in the connector, but it's no problem as the max year is 9999 in Oracle
             assertQueryFails(
                     format("INSERT INTO %s VALUES (DATE '10000-01-01')", table.getName()),
-                    "\\QFailed to insert data: ORA-01861: literal does not match format string\n");
+                    "\\QInsert failed: ORA-01861: literal does not match format string\n");
         }
     }
 
@@ -960,13 +960,13 @@ public abstract class AbstractTestOracleTypeMapping
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_ts", "(ts timestamp)")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (TIMESTAMP '-4713-12-31 00:00:00.000')", table.getName()),
-                    "\\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
+                    "\\QInsert failed: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
             assertQueryFails(
                     format("INSERT INTO %s VALUES (TIMESTAMP '0000-01-01 00:00:00.000')", table.getName()),
-                    "\\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
+                    "\\QInsert failed: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
             assertQueryFails(
                     format("INSERT INTO %s VALUES (TIMESTAMP '10000-01-01 00:00:00.000')", table.getName()),
-                    "\\QFailed to insert data: ORA-01862: the numeric value does not match the length of the format item\n");
+                    "\\QInsert failed: ORA-01862: the numeric value does not match the length of the format item\n");
         }
     }
 

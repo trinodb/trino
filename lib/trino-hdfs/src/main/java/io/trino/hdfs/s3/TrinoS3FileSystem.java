@@ -150,7 +150,6 @@ import static com.amazonaws.services.s3.Headers.SERVER_SIDE_ENCRYPTION;
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
 import static com.amazonaws.services.s3.model.StorageClass.DeepArchive;
 import static com.amazonaws.services.s3.model.StorageClass.Glacier;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
@@ -167,6 +166,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.hdfs.s3.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.trino.hdfs.s3.RetryDriver.retry;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.plugin.base.util.Exceptions.messageOrToString;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -2071,7 +2071,7 @@ public class TrinoS3FileSystem
     {
         String errorCode = s3Exception.getErrorCode();
         if (NO_SUCH_KEY_ERROR_CODE.equals(errorCode) || NO_SUCH_BUCKET_ERROR_CODE.equals(errorCode)) {
-            FileNotFoundException fileNotFoundException = new FileNotFoundException(format("%s (Bucket: %s, Key: %s)", firstNonNull(s3Exception.getMessage(), s3Exception), bucket, key));
+            FileNotFoundException fileNotFoundException = new FileNotFoundException(format("%s (Bucket: %s, Key: %s)", messageOrToString(s3Exception), bucket, key));
             fileNotFoundException.initCause(s3Exception);
             throw fileNotFoundException;
         }

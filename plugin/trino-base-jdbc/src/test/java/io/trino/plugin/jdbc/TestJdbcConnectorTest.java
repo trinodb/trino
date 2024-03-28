@@ -261,7 +261,7 @@ public class TestJdbcConnectorTest
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("NULL not allowed for column \"%s\"(?s).*", columnName.toUpperCase(ENGLISH));
+        return format("Insert failed: NULL not allowed for column \"%s\"(?s).*", columnName.toUpperCase(ENGLISH));
     }
 
     @Override
@@ -306,7 +306,7 @@ public class TestJdbcConnectorTest
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching("(?s)(.*The name that starts with .* is too long\\..*)");
+        assertThat(e).hasMessageMatching("Schema creation failed: (?s)(.*The name that starts with .* is too long\\..*)");
     }
 
     @Override

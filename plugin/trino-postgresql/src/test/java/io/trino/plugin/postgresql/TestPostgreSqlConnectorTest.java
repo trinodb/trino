@@ -261,7 +261,7 @@ public class TestPostgreSqlConnectorTest
     @Override
     protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching("ERROR: column \".*\" contains null values");
+        assertThat(e).hasMessageMatching("Failed to add column: ERROR: column \".*\" contains null values");
     }
 
     @Test
@@ -955,7 +955,7 @@ public class TestPostgreSqlConnectorTest
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("(?s).*null value in column \"%s\" violates not-null constraint.*", columnName);
+        return format("Insert failed: (?s).*null value in column \"%s\" violates not-null constraint.*", columnName);
     }
 
     @Test
@@ -1097,7 +1097,7 @@ public class TestPostgreSqlConnectorTest
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessage("Schema name must be shorter than or equal to '63' characters but got '64'");
+        assertThat(e).hasMessage("Schema creation failed: Schema name must be shorter than or equal to '63' characters but got '64'");
     }
 
     @Override
@@ -1127,7 +1127,7 @@ public class TestPostgreSqlConnectorTest
     @Override
     protected void verifySetColumnTypeFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching("(?s)ERROR: .*(cannot be cast automatically to type|out of range).*");
+        assertThat(e).hasMessageMatching("Failed to add column: (?s)ERROR: .*(cannot be cast automatically to type|out of range).*");
     }
 
     @Override

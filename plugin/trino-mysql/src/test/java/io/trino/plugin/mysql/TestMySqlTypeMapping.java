@@ -365,11 +365,11 @@ public class TestMySqlTypeMapping
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
                     "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
+                    "Failed to read value: Rounding necessary");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 0),
                     "SELECT d_col FROM " + testTable.getName(),
-                    "Decimal overflow");
+                    "Failed to read value: Decimal overflow");
             assertQuery(
                     sessionWithDecimalMappingStrict(CONVERT_TO_VARCHAR),
                     format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
@@ -396,7 +396,7 @@ public class TestMySqlTypeMapping
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
                     "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
+                    "Failed to read value: Rounding necessary");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 0),
                     "SELECT d_col FROM " + testTable.getName(),
@@ -408,7 +408,7 @@ public class TestMySqlTypeMapping
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 8),
                     "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
+                    "Failed to read value: Rounding necessary");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 8),
                     "SELECT d_col FROM " + testTable.getName(),
@@ -420,7 +420,7 @@ public class TestMySqlTypeMapping
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 20),
                     "SELECT d_col FROM " + testTable.getName(),
-                    "Decimal overflow");
+                    "Failed to read value: Decimal overflow");
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 9),
                     "SELECT d_col FROM " + testTable.getName(),
@@ -457,7 +457,7 @@ public class TestMySqlTypeMapping
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 0),
                     "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
+                    "Failed to read value: Rounding necessary");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 0),
                     "SELECT d_col FROM " + testTable.getName(),
@@ -473,7 +473,7 @@ public class TestMySqlTypeMapping
             assertQueryFails(
                     sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 3),
                     "SELECT d_col FROM " + testTable.getName(),
-                    "Rounding necessary");
+                    "Failed to read value: Rounding necessary");
             assertQuery(
                     sessionWithDecimalMappingAllowOverflow(HALF_UP, 8),
                     format("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_schema||'.'||table_name = '%s'", testTable.getName()),
@@ -1111,10 +1111,10 @@ public class TestMySqlTypeMapping
             // Verify Trino writes
             assertQueryFails(
                     "INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '1970-01-01 00:00:00 UTC')", // min - 1
-                    "Failed to insert data: Data truncation: Incorrect datetime value: '1969-12-31 16:00:00' for column 'data' at row 1");
+                    "Insert failed: Data truncation: Incorrect datetime value: '1969-12-31 16:00:00' for column 'data' at row 1");
             assertQueryFails(
                     "INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '2038-01-19 03:14:08 UTC')", // max + 1
-                    "Failed to insert data: Data truncation: Incorrect datetime value: '2038-01-18 21:14:08' for column 'data' at row 1");
+                    "Insert failed: Data truncation: Incorrect datetime value: '2038-01-18 21:14:08' for column 'data' at row 1");
         }
     }
 

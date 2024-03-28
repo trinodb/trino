@@ -49,7 +49,7 @@ public class TestMySqlLegacyConnectorTest
     public void testCreateTableAsSelectWithUnicode()
     {
         assertThatThrownBy(super::testCreateTableAsSelectWithUnicode)
-                .hasStackTraceContaining("Failed to insert data: Incorrect string value: '\\xE2\\x98\\x83'");
+                .hasStackTraceContaining("Insert failed: Incorrect string value: '\\xE2\\x98\\x83'");
     }
 
     @Test

@@ -233,19 +233,19 @@ public abstract class BaseMySqlConnectorTest
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return format("Failed to insert data: Data truncation: Incorrect datetime value: '%s'", date);
+        return format("Insert failed: Data truncation: Incorrect datetime value: '%s'", date);
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return format("Failed to insert data: Data truncation: Incorrect datetime value: '%s'", date);
+        return format("Insert failed: Data truncation: Incorrect datetime value: '%s'", date);
     }
 
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("Failed to insert data: Field '%s' doesn't have a default value", columnName);
+        return format("Insert failed: Field '%s' doesn't have a default value", columnName);
     }
 
     @Test
@@ -562,7 +562,7 @@ public abstract class BaseMySqlConnectorTest
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching("Identifier name .* is too long");
+        assertThat(e).hasMessageMatching("Schema creation failed: Identifier name .* is too long");
     }
 
     @Override

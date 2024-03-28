@@ -29,6 +29,7 @@ import java.time.Duration;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.RemovalCause.EXPLICIT;
+import static io.trino.plugin.base.util.Exceptions.messageOrToString;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -112,7 +113,7 @@ public final class ReusableConnectionFactory
                 connection.close();
             }
             catch (SQLException e) {
-                throw new TrinoException(JDBC_ERROR, e);
+                throw new TrinoException(JDBC_ERROR, "Failed to close connection: " + messageOrToString(e), e);
             }
         }
     }

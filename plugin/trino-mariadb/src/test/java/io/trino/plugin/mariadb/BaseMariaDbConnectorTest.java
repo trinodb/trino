@@ -318,19 +318,19 @@ public abstract class BaseMariaDbConnectorTest
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return format("Failed to insert data: \\(conn=.*\\) Incorrect date value: '%s'.*", date);
+        return format("Insert failed: \\(conn=.*\\) Incorrect date value: '%s'.*", date);
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return format("Failed to insert data: \\(conn=.*\\) Incorrect date value: '%s'.*", date);
+        return format("Insert failed: \\(conn=.*\\) Incorrect date value: '%s'.*", date);
     }
 
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("Failed to insert data: \\(conn=.*\\) Field '%s' doesn't have a default value", columnName);
+        return format("Insert failed: \\(conn=.*\\) Field '%s' doesn't have a default value", columnName);
     }
 
     @Override
