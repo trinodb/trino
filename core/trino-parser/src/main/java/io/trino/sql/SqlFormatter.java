@@ -1163,6 +1163,8 @@ public final class SqlFormatter
                     .append(" SECURITY ")
                     .append(security.name()));
 
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
+
             builder.append(" AS\n");
 
             process(node.getQuery(), indent);
