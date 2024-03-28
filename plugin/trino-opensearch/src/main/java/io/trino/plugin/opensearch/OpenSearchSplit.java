@@ -37,16 +37,22 @@ public class OpenSearchSplit
     private final String index;
     private final int shard;
     private final Optional<String> address;
+    private final int shardCount;
+    private final String pitId;
 
     @JsonCreator
     public OpenSearchSplit(
             @JsonProperty("index") String index,
             @JsonProperty("shard") int shard,
-            @JsonProperty("address") Optional<String> address)
+            @JsonProperty("address") Optional<String> address,
+            @JsonProperty("shardCount") int shardCount,
+            @JsonProperty("pitId") String pitId)
     {
         this.index = requireNonNull(index, "index is null");
         this.shard = shard;
         this.address = requireNonNull(address, "address is null");
+        this.shardCount = shardCount;
+        this.pitId = pitId;
     }
 
     @JsonProperty
@@ -94,6 +100,20 @@ public class OpenSearchSplit
         return toStringHelper(this)
                 .add("index", index)
                 .add("shard", shard)
+                .add("shardCount", shardCount)
+                .add("pitId", pitId)
                 .toString();
+    }
+
+    @JsonProperty
+    public int getShardCount()
+    {
+        return shardCount;
+    }
+
+    @JsonProperty
+    public String getPitId()
+    {
+        return pitId;
     }
 }

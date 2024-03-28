@@ -26,6 +26,10 @@ import io.trino.plugin.opensearch.OpenSearchConfig;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.ClearScrollRequest;
 import org.opensearch.action.search.ClearScrollResponse;
+import org.opensearch.action.search.CreatePitRequest;
+import org.opensearch.action.search.CreatePitResponse;
+import org.opensearch.action.search.DeletePitRequest;
+import org.opensearch.action.search.DeletePitResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
@@ -138,5 +142,17 @@ public class BackpressureRestHighLevelClient
         if (!stopwatch.get().isRunning()) {
             stopwatch.get().start();
         }
+    }
+
+    public CreatePitResponse createPointInTime(CreatePitRequest pitRequest)
+            throws IOException
+    {
+        return executeWithRetries(() -> delegate.createPit(pitRequest, RequestOptions.DEFAULT));
+    }
+
+    public DeletePitResponse deletePointInTime(DeletePitRequest deletePitRequest)
+            throws IOException
+    {
+        return executeWithRetries(() -> delegate.deletePit(deletePitRequest, RequestOptions.DEFAULT));
     }
 }
