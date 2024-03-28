@@ -21,13 +21,15 @@ import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 
 import java.io.File;
 
+import static com.google.common.base.Verify.verify;
+
 public final class TestingFileHiveMetastore
 {
     private TestingFileHiveMetastore() {}
 
     public static FileHiveMetastore createTestingFileHiveMetastore(File catalogDirectory)
     {
-        catalogDirectory.mkdirs();
+        verify(catalogDirectory.mkdirs());
         return createTestingFileHiveMetastore(
                 new LocalFileSystemFactory(catalogDirectory.toPath()),
                 Location.of("local:///"));

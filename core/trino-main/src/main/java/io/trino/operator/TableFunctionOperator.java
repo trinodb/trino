@@ -427,10 +427,8 @@ public class TableFunctionOperator
                     processEmptyInput = false;
                     return WorkProcessor.TransformationState.ofResult(pagesIndex, false);
                 }
-                else {
-                    memoryContext.close();
-                    return WorkProcessor.TransformationState.finished();
-                }
+                memoryContext.close();
+                return WorkProcessor.TransformationState.finished();
             }
 
             // there is input, so we are not interested in processing empty input

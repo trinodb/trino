@@ -47,7 +47,7 @@ public class TestingIcebergConnectorFactory
             Path localFileSystemRootPath,
             Optional<Module> icebergCatalogModule)
     {
-        localFileSystemRootPath.toFile().mkdirs();
+        boolean ignored = localFileSystemRootPath.toFile().mkdirs();
         this.icebergCatalogModule = requireNonNull(icebergCatalogModule, "icebergCatalogModule is null");
         this.module = binder -> {
             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
