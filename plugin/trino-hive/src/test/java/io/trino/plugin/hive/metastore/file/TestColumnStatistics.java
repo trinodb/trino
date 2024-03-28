@@ -96,7 +96,7 @@ class TestColumnStatistics
                         "max": 11
                     },
                     "maxValueSizeInBytes": 1,
-                    "averageColumnLength": 1.1,
+                    "averageColumnLength": 1.2359550561797752,
                     "nullsCount": 11,
                     "distinctValuesCount": 111
                 },
@@ -106,7 +106,7 @@ class TestColumnStatistics
                         "max": 12.0
                     },
                     "maxValueSizeInBytes": 2,
-                    "averageColumnLength": 2.2,
+                    "averageColumnLength": 2.8205128205128207,
                     "nullsCount": 22,
                     "distinctValuesCount": 222
                 },
@@ -116,7 +116,7 @@ class TestColumnStatistics
                         "max": 13.0
                     },
                     "maxValueSizeInBytes": 3,
-                    "averageColumnLength": 3.3,
+                    "averageColumnLength": 4.925373134328358,
                     "nullsCount": 33,
                     "distinctValuesCount": 333
                 },
@@ -126,7 +126,7 @@ class TestColumnStatistics
                         "max": "0014-04-04"
                     },
                     "maxValueSizeInBytes": 4,
-                    "averageColumnLength": 4.4,
+                    "averageColumnLength": 7.857142857142857,
                     "nullsCount": 44,
                     "distinctValuesCount": 444
                 },
@@ -136,13 +136,13 @@ class TestColumnStatistics
                         "falseCount": 5
                     },
                     "maxValueSizeInBytes": 5,
-                    "averageColumnLength": 5.5,
+                    "averageColumnLength": 12.222222222222221,
                     "nullsCount": 55,
                     "distinctValuesCount": 555
                 },
                 "basic": {
                     "maxValueSizeInBytes": 6,
-                    "averageColumnLength": 6.6,
+                    "averageColumnLength": 19.41176470588235,
                     "nullsCount": 66,
                     "distinctValuesCount": 666
                 }
@@ -231,7 +231,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(1),
-                    OptionalDouble.of(1.1),
+                    OptionalDouble.of(1.2359550561797752),
                     OptionalLong.empty(),
                     OptionalLong.of(11),
                     OptionalLong.of(111)))
@@ -242,7 +242,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(2),
-                    OptionalDouble.of(2.2),
+                    OptionalDouble.of(2.8205128205128207),
                     OptionalLong.empty(),
                     OptionalLong.of(22),
                     OptionalLong.of(222)))
@@ -253,7 +253,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(3),
-                    OptionalDouble.of(3.3),
+                    OptionalDouble.of(4.925373134328358),
                     OptionalLong.empty(),
                     OptionalLong.of(33),
                     OptionalLong.of(333)))
@@ -264,7 +264,7 @@ class TestColumnStatistics
                     Optional.of(new ColumnStatistics.DateStatistics(Optional.of(LocalDate.of(4, 4, 4)), Optional.of(LocalDate.of(14, 4, 4)))),
                     Optional.empty(),
                     OptionalLong.of(4),
-                    OptionalDouble.of(4.4),
+                    OptionalDouble.of(7.857142857142857),
                     OptionalLong.empty(),
                     OptionalLong.of(44),
                     OptionalLong.of(444)))
@@ -275,7 +275,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.of(new ColumnStatistics.BooleanStatistics(OptionalLong.of(5), OptionalLong.of(5))),
                     OptionalLong.of(5),
-                    OptionalDouble.of(5.5),
+                    OptionalDouble.of(12.222222222222221),
                     OptionalLong.empty(),
                     OptionalLong.of(55),
                     OptionalLong.of(555)))
@@ -286,7 +286,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(6),
-                    OptionalDouble.of(6.6),
+                    OptionalDouble.of(19.41176470588235),
                     OptionalLong.empty(),
                     OptionalLong.of(66),
                     OptionalLong.of(666)))
@@ -310,7 +310,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(1),
-                    OptionalDouble.of(1.1),
+                    OptionalDouble.of(1.2359550561797752),
                     OptionalLong.of(11),
                     OptionalLong.of(111)))
             .put("double", new HiveColumnStatistics(
@@ -320,7 +320,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(2),
-                    OptionalDouble.of(2.2),
+                    OptionalDouble.of(2.8205128205128207),
                     OptionalLong.of(22),
                     OptionalLong.of(222)))
             .put("decimal", new HiveColumnStatistics(
@@ -330,7 +330,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(3),
-                    OptionalDouble.of(3.3),
+                    OptionalDouble.of(4.925373134328358),
                     OptionalLong.of(33),
                     OptionalLong.of(333)))
             .put("date", new HiveColumnStatistics(
@@ -340,7 +340,7 @@ class TestColumnStatistics
                     Optional.of(new DateStatistics(Optional.of(LocalDate.of(4, 4, 4)), Optional.of(LocalDate.of(14, 4, 4)))),
                     Optional.empty(),
                     OptionalLong.of(4),
-                    OptionalDouble.of(4.4),
+                    OptionalDouble.of(7.857142857142857),
                     OptionalLong.of(44),
                     OptionalLong.of(444)))
             .put("boolean", new HiveColumnStatistics(
@@ -350,7 +350,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.of(new BooleanStatistics(OptionalLong.of(5), OptionalLong.of(5))),
                     OptionalLong.of(5),
-                    OptionalDouble.of(5.5),
+                    OptionalDouble.of(12.222222222222221),
                     OptionalLong.of(55),
                     OptionalLong.of(555)))
             .put("basic", new HiveColumnStatistics(
@@ -360,7 +360,7 @@ class TestColumnStatistics
                     Optional.empty(),
                     Optional.empty(),
                     OptionalLong.of(6),
-                    OptionalDouble.of(6.6),
+                    OptionalDouble.of(19.41176470588235),
                     OptionalLong.of(66),
                     OptionalLong.of(666)))
             .buildOrThrow();
