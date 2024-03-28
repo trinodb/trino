@@ -20,6 +20,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.UnrecoverableIOException;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
@@ -97,7 +98,7 @@ final class S3FileSystem
             client.deleteObject(request);
         }
         catch (SdkException e) {
-            throw new IOException("Failed to delete file: " + location, e);
+            throw asIOException("Failed to delete file: " + location, e);
         }
     }
 
@@ -155,7 +156,7 @@ final class S3FileSystem
                     }
                 }
                 catch (SdkException e) {
-                    throw new IOException("Error while batch deleting files", e);
+                    throw asIOException("Error while batch deleting files", e);
                 }
             }
         }
@@ -169,7 +170,7 @@ final class S3FileSystem
     public void renameFile(Location source, Location target)
             throws IOException
     {
-        throw new IOException("S3 does not support renames");
+        throw new UnrecoverableIOException("S3 does not support renames");
     }
 
     @Override
@@ -203,7 +204,7 @@ final class S3FileSystem
             return new S3FileIterator(s3Location, s3ObjectStream.iterator());
         }
         catch (SdkException e) {
-            throw new IOException("Failed to list location: " + location, e);
+            throw asIOException("Failed to list location: " + location, e);
         }
     }
 
@@ -229,7 +230,7 @@ final class S3FileSystem
     public void renameDirectory(Location source, Location target)
             throws IOException
     {
-        throw new IOException("S3 does not support directory renames");
+        throw new UnrecoverableIOException("S3 does not support directory renames");
     }
 
     @Override
@@ -259,7 +260,7 @@ final class S3FileSystem
                     .collect(toImmutableSet());
         }
         catch (SdkException e) {
-            throw new IOException("Failed to list location: " + location, e);
+            throw asIOException("Failed to list location: " + location, e);
         }
     }
 
@@ -269,6 +270,13 @@ final class S3FileSystem
         validateS3Location(targetPath);
         // S3 does not have directories
         return Optional.empty();
+    }
+
+    private IOException asIOException(String message, SdkException exception)
+    {
+        return exception.retryable() ?
+                new IOException(message, exception) :
+                new UnrecoverableIOException(message, exception);
     }
 
     @SuppressWarnings("ResultOfObjectAllocationIgnored")

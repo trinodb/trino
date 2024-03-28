@@ -88,6 +88,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v1_11.AwsSdkTelemetry;
+import io.trino.filesystem.UnrecoverableIOException;
 import io.trino.hdfs.FSDataInputStreamTail;
 import io.trino.hdfs.FileSystemWithBatchDelete;
 import io.trino.hdfs.MemoryAwareFileSystem;
@@ -924,17 +925,12 @@ public class TrinoS3FileSystem
         return object.getKey().endsWith("_$folder$");
     }
 
-    /**
-     * This exception is for stopping retries for S3 calls that shouldn't be retried.
-     * For example, "Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden (Service: Amazon S3; Status Code: 403 ..."
-     */
-    public static class UnrecoverableS3OperationException
-            extends IOException
+    static class UnrecoverableS3OperationException
+            extends UnrecoverableIOException
     {
         public UnrecoverableS3OperationException(String bucket, String key, Throwable cause)
         {
-            // append bucket and key to the message
-            super(format("%s (Bucket: %s, Key: %s)", cause, bucket, key));
+            super(format("%s (Bucket: %s, Key: %s)", cause, bucket, key), cause);
         }
     }
 
