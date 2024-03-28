@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.cache.CacheColumnId;
@@ -29,12 +30,12 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.LogicalExpression;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
@@ -48,7 +49,7 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.cache.CanonicalSubplanExtractor.canonicalExpressionToColumnId;
+import static io.trino.cache.CanonicalSubplanExtractor.canonicalAggregationToColumnId;
 import static io.trino.cache.CommonSubqueriesExtractor.aggregationKey;
 import static io.trino.cache.CommonSubqueriesExtractor.combine;
 import static io.trino.cache.CommonSubqueriesExtractor.scanFilterProjectKey;
@@ -274,11 +275,11 @@ public class TestCacheCommonSubqueries
     @Test
     public void testAggregationQuery()
     {
-        ExpressionWithType nationkey = new ExpressionWithType(new SymbolReference(BIGINT, "[nationkey:bigint]"), BIGINT);
-        Expression max = getFunctionCallBuilder("max", nationkey).build();
-        Expression sum = getFunctionCallBuilder("sum", nationkey).build();
-        Expression avg = getFunctionCallBuilder("avg", nationkey).build();
-        List<CacheColumnId> cacheColumnIds = ImmutableList.of(REGIONKEY_COLUMN_ID, canonicalExpressionToColumnId(max), canonicalExpressionToColumnId(sum), canonicalExpressionToColumnId(avg));
+        SymbolReference nationkey = new SymbolReference(BIGINT, "[nationkey:bigint]");
+        CanonicalAggregation max = canonicalAggregation("max", nationkey);
+        CanonicalAggregation sum = canonicalAggregation("sum", nationkey);
+        CanonicalAggregation avg = canonicalAggregation("avg", nationkey);
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(REGIONKEY_COLUMN_ID, canonicalAggregationToColumnId(max), canonicalAggregationToColumnId(sum), canonicalAggregationToColumnId(avg));
         List<Type> cacheColumnTypes = ImmutableList.of(BIGINT, BIGINT, RowType.anonymousRow(BIGINT, BIGINT), RowType.anonymousRow(DOUBLE, BIGINT));
         PlanSignatureWithPredicate signature = new PlanSignatureWithPredicate(
                 new PlanSignature(
@@ -371,20 +372,9 @@ public class TestCacheCommonSubqueries
                                                         loadCachedDataPlanNode(signature, "REGIONKEY_B", "MAX_PARTIAL_B", "SUM_PARTIAL_B", "AVG_PARTIAL_B"))))))));
     }
 
-    private BuiltinFunctionCallBuilder getFunctionCallBuilder(String name, ExpressionWithType... arguments)
+    private CanonicalAggregation canonicalAggregation(String name, Expression input)
     {
-        PlanTester planTester = getPlanTester();
-        BuiltinFunctionCallBuilder builder = BuiltinFunctionCallBuilder.resolve(planTester.getPlannerContext().getMetadata())
-                .setName(name);
-        for (ExpressionWithType argument : arguments) {
-            builder.addArgument(argument.type, argument.expression);
-        }
-        return builder;
-    }
-
-    // workaround for https://github.com/google/error-prone/issues/2713
-    @SuppressWarnings("unused")
-    private record ExpressionWithType(Expression expression, Type type)
-    {
+        ResolvedFunction resolvedFunction = getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction(name, TypeSignatureProvider.fromTypes(input.type()));
+        return new CanonicalAggregation(resolvedFunction, Optional.empty(), ImmutableList.of(input));
     }
 }
