@@ -49,6 +49,7 @@ import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
@@ -64,6 +65,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.math.BigDecimal;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -84,6 +86,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -92,6 +95,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.DateTimes.formatTimestamp;
+import static io.trino.type.DateTimes.formatTimestampWithTimeZone;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.DateTimeUtils.printDate;
@@ -156,6 +160,7 @@ public final class JsonUtil
                 type instanceof VarcharType ||
                 type instanceof JsonType ||
                 type instanceof TimestampType ||
+                type instanceof TimestampWithTimeZoneType ||
                 type instanceof DateType) {
             return true;
         }
@@ -297,6 +302,9 @@ public final class JsonUtil
             }
             if (type instanceof TimestampType timestampType) {
                 return new TimestampJsonGeneratorWriter(timestampType);
+            }
+            if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+                return new TimestampWithTimeZoneJsonGeneratorWriter(timestampWithTimeZoneType);
             }
             if (type instanceof DateType) {
                 return new DateGeneratorWriter();
@@ -534,6 +542,44 @@ public final class JsonUtil
                 }
 
                 jsonGenerator.writeString(formatTimestamp(type.getPrecision(), epochMicros, fraction, UTC));
+            }
+        }
+    }
+
+    private static class TimestampWithTimeZoneJsonGeneratorWriter
+            implements JsonGeneratorWriter
+    {
+        private final TimestampWithTimeZoneType type;
+
+        public TimestampWithTimeZoneJsonGeneratorWriter(TimestampWithTimeZoneType type)
+        {
+            this.type = type;
+        }
+
+        @Override
+        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                jsonGenerator.writeNull();
+            }
+            else {
+                long epochMicros;
+                int fraction;
+                ZoneId zoneId;
+
+                if (type.isShort()) {
+                    epochMicros = type.getLong(block, position);
+                    fraction = 0;
+                }
+                else {
+                    LongTimestamp timestamp = (LongTimestamp) type.getObject(block, position);
+                    epochMicros = timestamp.getEpochMicros();
+                    fraction = timestamp.getPicosOfMicro();
+                }
+                zoneId = unpackZoneKey(epochMicros).getZoneId();
+
+                jsonGenerator.writeString(formatTimestampWithTimeZone(type.getPrecision(), epochMicros, fraction, zoneId));
             }
         }
     }
