@@ -67,6 +67,7 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_AND_INSERT;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_AS_SELECT;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_WITH_NO_DATA_AND_INSERT;
+import static io.trino.tests.product.iceberg.util.IcebergTestUtils.getLatestMetadataFilename;
 import static io.trino.tests.product.iceberg.util.IcebergTestUtils.getTableLocation;
 import static io.trino.tests.product.iceberg.util.IcebergTestUtils.stripNamenodeURI;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
@@ -2524,9 +2525,8 @@ public class TestIcebergSparkCompatibility
 
         onSpark().executeQuery(format("CREATE TABLE %s (a INT, b STRING, c BOOLEAN) USING ICEBERG TBLPROPERTIES ('write.format.default' = '%s')", sparkTableName, storageFormat));
         onSpark().executeQuery(format("INSERT INTO %s values(1, 'INDIA', true)", sparkTableName));
-        onTrino().executeQuery(format("INSERT INTO %s values(2, 'USA', false)", trinoTableName));
 
-        List<Row> expected = List.of(row(1, "INDIA", true), row(2, "USA", false));
+        List<Row> expected = List.of(row(1, "INDIA", true));
         String tableLocation = getTableLocation(trinoTableName);
         // Drop table from hive metastore and use the same table name to register again with the metadata
         dropTableFromMetastore(baseTableName);
@@ -2555,10 +2555,11 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(format("COMMENT ON COLUMN %s.c is 'c-comment'", trinoTableName));
 
         String tableLocation = getTableLocation(trinoTableName);
+        String metadataFileName = getLatestMetadataFilename(TRINO_CATALOG, TEST_SCHEMA_NAME, baseTableName);
         // Drop table from hive metastore and use the same table name to register again with the metadata
         dropTableFromMetastore(baseTableName);
 
-        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableName, tableLocation));
+        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableName, tableLocation, metadataFileName));
 
         assertThat(getTableComment(baseTableName)).isEqualTo("my-table-comment");
         assertThat(getColumnComment(baseTableName, "a")).isEqualTo("a-comment");
@@ -2586,10 +2587,11 @@ public class TestIcebergSparkCompatibility
         List<Row> expectedShowCreateTableRows = expectedShowCreateTable.rows().stream().map(columns -> row(columns.toArray())).collect(toImmutableList());
 
         String tableLocation = getTableLocation(trinoTableName);
+        String metadataFileName = getLatestMetadataFilename(TRINO_CATALOG, TEST_SCHEMA_NAME, baseTableName);
         // Drop table from hive metastore and use the same table name to register again with the metadata
         dropTableFromMetastore(baseTableName);
 
-        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableName, tableLocation));
+        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableName, tableLocation, metadataFileName));
 
         QueryResult actualDescribeTable = onSpark().executeQuery("DESCRIBE TABLE EXTENDED " + sparkTableName);
         QueryResult actualShowCreateTable = onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName);
@@ -2612,10 +2614,11 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(format("INSERT INTO %s values(2, 'USA', false)", trinoTableName));
 
         String tableLocation = getTableLocation(trinoTableName);
+        String metadataFileName = getLatestMetadataFilename(TRINO_CATALOG, TEST_SCHEMA_NAME, baseTableName);
         // Drop table from hive metastore and use the same table name to register again with the metadata
         dropTableFromMetastore(baseTableName);
 
-        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableName, tableLocation));
+        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableName, tableLocation, metadataFileName));
         onSpark().executeQuery(format("INSERT INTO %s values(3, 'POLAND', true)", sparkTableName));
 
         List<Row> expected = List.of(row(1, "INDIA", true), row(2, "USA", false), row(3, "POLAND", true));
@@ -2659,13 +2662,14 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(format("INSERT INTO %s values(2, 'USA', false)", trinoTableName));
 
         String tableLocation = getTableLocation(trinoTableName);
+        String metadataFileName = getLatestMetadataFilename(TRINO_CATALOG, TEST_SCHEMA_NAME, baseTableName);
         String baseTableNameNew = baseTableName + "_new";
         String trinoTableNameNew = trinoTableName(baseTableNameNew);
         String sparkTableNameNew = sparkTableName(baseTableNameNew);
         // Drop table from hive metastore and use the same table name to register again with the metadata
         dropTableFromMetastore(baseTableName);
 
-        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableNameNew, tableLocation));
+        onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableNameNew, tableLocation, metadataFileName));
         onSpark().executeQuery(format("INSERT INTO %s values(3, 'POLAND', true)", sparkTableNameNew));
         List<Row> expected = List.of(row(1, "INDIA", true), row(2, "USA", false), row(3, "POLAND", true));
 
