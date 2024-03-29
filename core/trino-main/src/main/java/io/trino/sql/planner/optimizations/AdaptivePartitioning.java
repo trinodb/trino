@@ -72,7 +72,18 @@ public class AdaptivePartitioning
         int runtimeAdaptivePartitioningPartitionCount = getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(context.session());
         long runtimeAdaptivePartitioningMaxTaskSizeInBytes = getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(context.session()).toBytes();
         RuntimeInfoProvider runtimeInfoProvider = context.runtimeInfoProvider();
-        for (PlanFragment fragment : runtimeInfoProvider.getAllPlanFragments()) {
+        List<PlanFragment> fragments = runtimeInfoProvider.getAllPlanFragments();
+
+        // Skip if there are already some fragments with the maximum partition count. This is to avoid re-planning
+        // since currently we apply this rule on the entire plan. Once, we have a granular way of applying this rule,
+        // we can remove this check.
+        if (fragments.stream()
+                .anyMatch(fragment ->
+                        fragment.getPartitionCount().orElse(maxPartitionCount) >= runtimeAdaptivePartitioningPartitionCount)) {
+            return new Result(plan, ImmutableSet.of());
+        }
+
+        for (PlanFragment fragment : fragments) {
             // Skip if the stage is not consuming hash partitioned input or if the runtime stats are accurate which
             // basically means that the stage can't be re-planned in the current implementation of AdaptivePlaner.
             // TODO: We need add an ability to re-plan fragment whose stats are estimated by progress.
@@ -81,11 +92,6 @@ public class AdaptivePartitioning
             }
 
             int partitionCount = fragment.getPartitionCount().orElse(maxPartitionCount);
-            // Skip if partition count is already at the maximum
-            if (partitionCount >= runtimeAdaptivePartitioningPartitionCount) {
-                continue;
-            }
-
             // calculate (estimated) input data size to determine if we want to change number of partitions at runtime
             List<Long> partitionedInputBytes = fragment.getRemoteSourceNodes().stream()
                     // skip for replicate exchange since it's assumed that broadcast join will be chosen by
