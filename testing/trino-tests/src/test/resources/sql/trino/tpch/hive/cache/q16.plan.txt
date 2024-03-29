@@ -13,10 +13,10 @@ remote exchange (GATHER, SINGLE, [])
                                                 join (INNER, PARTITIONED):
                                                     remote exchange (REPARTITION, HASH, [partkey])
                                                         alternatives
-                                                            dynamic filter ([Reference[type=bigint, name=partkey]])
+                                                            dynamic filter ([partkey::bigint])
                                                                 scan partsupp
                                                             cache data
-                                                                dynamic filter ([Reference[type=bigint, name=partkey]])
+                                                                dynamic filter ([partkey::bigint])
                                                                     scan partsupp
                                                             load from cache
                                                     local exchange (GATHER, SINGLE, [])

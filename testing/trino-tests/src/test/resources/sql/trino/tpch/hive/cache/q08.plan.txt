@@ -12,20 +12,20 @@ remote exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [orderkey_11])
                                                     alternatives
-                                                        dynamic filter ([Reference[type=bigint, name=custkey], Reference[type=bigint, name=orderkey_11]])
+                                                        dynamic filter ([custkey::bigint, orderkey_11::bigint])
                                                             scan orders
                                                         cache data
-                                                            dynamic filter ([Reference[type=bigint, name=custkey], Reference[type=bigint, name=orderkey_11]])
+                                                            dynamic filter ([custkey::bigint, orderkey_11::bigint])
                                                                 scan orders
                                                         load from cache
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [orderkey])
                                                         join (INNER, REPLICATED):
                                                             alternatives
-                                                                dynamic filter ([Reference[type=bigint, name=partkey_5], Reference[type=bigint, name=suppkey_6]])
+                                                                dynamic filter ([partkey_5::bigint, suppkey_6::bigint])
                                                                     scan lineitem
                                                                 cache data
-                                                                    dynamic filter ([Reference[type=bigint, name=partkey_5], Reference[type=bigint, name=suppkey_6]])
+                                                                    dynamic filter ([partkey_5::bigint, suppkey_6::bigint])
                                                                         scan lineitem
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])
@@ -39,20 +39,20 @@ remote exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [custkey_16])
                                                 join (INNER, REPLICATED):
                                                     alternatives
-                                                        dynamic filter (await [Reference[type=bigint, name=nationkey_19]])
+                                                        dynamic filter (await [nationkey_19::bigint])
                                                             scan customer
                                                         cache data
-                                                            dynamic filter (await [Reference[type=bigint, name=nationkey_19]])
+                                                            dynamic filter (await [nationkey_19::bigint])
                                                                 scan customer
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             join (INNER, REPLICATED):
                                                                 alternatives
-                                                                    dynamic filter (await [Reference[type=bigint, name=regionkey]])
+                                                                    dynamic filter (await [regionkey::bigint])
                                                                         scan nation
                                                                     cache data
-                                                                        dynamic filter (await [Reference[type=bigint, name=regionkey]])
+                                                                        dynamic filter (await [regionkey::bigint])
                                                                             scan nation
                                                                     load from cache
                                                                 local exchange (GATHER, SINGLE, [])
@@ -66,10 +66,10 @@ remote exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [suppkey])
                                         join (INNER, REPLICATED):
                                             alternatives
-                                                dynamic filter (await [Reference[type=bigint, name=nationkey]])
+                                                dynamic filter (await [nationkey::bigint])
                                                     scan supplier
                                                 cache data
-                                                    dynamic filter (await [Reference[type=bigint, name=nationkey]])
+                                                    dynamic filter (await [nationkey::bigint])
                                                         scan supplier
                                                 load from cache
                                             local exchange (GATHER, SINGLE, [])

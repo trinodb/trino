@@ -14,28 +14,28 @@ final aggregation over ()
                                                     join (INNER, PARTITIONED, can skip output duplicates):
                                                         remote exchange (REPARTITION, HASH, [ws_order_number_107])
                                                             alternatives
-                                                                dynamic filter ([Reference[type=bigint, name=ws_order_number_107], Reference[type=bigint, name=ws_order_number_107], Reference[type=bigint, name=ws_order_number_107]])
+                                                                dynamic filter ([ws_order_number_107::bigint, ws_order_number_107::bigint, ws_order_number_107::bigint])
                                                                     scan web_sales
                                                                 cache data
-                                                                    dynamic filter ([Reference[type=bigint, name=ws_order_number_107], Reference[type=bigint, name=ws_order_number_107], Reference[type=bigint, name=ws_order_number_107]])
+                                                                    dynamic filter ([ws_order_number_107::bigint, ws_order_number_107::bigint, ws_order_number_107::bigint])
                                                                         scan web_sales
                                                                 load from cache
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, [wr_order_number])
                                                                 alternatives
-                                                                    dynamic filter ([Reference[type=bigint, name=wr_order_number], Reference[type=bigint, name=wr_order_number]])
+                                                                    dynamic filter ([wr_order_number::bigint, wr_order_number::bigint])
                                                                         scan web_returns
                                                                     cache data
-                                                                        dynamic filter ([Reference[type=bigint, name=wr_order_number], Reference[type=bigint, name=wr_order_number]])
+                                                                        dynamic filter ([wr_order_number::bigint, wr_order_number::bigint])
                                                                             scan web_returns
                                                                     load from cache
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, [ws_order_number_144])
                                                             alternatives
-                                                                dynamic filter ([Reference[type=bigint, name=ws_order_number_144]])
+                                                                dynamic filter ([ws_order_number_144::bigint])
                                                                     scan web_sales
                                                                 cache data
-                                                                    dynamic filter ([Reference[type=bigint, name=ws_order_number_144]])
+                                                                    dynamic filter ([ws_order_number_144::bigint])
                                                                         scan web_sales
                                                                 load from cache
                                     join (INNER, PARTITIONED):
@@ -45,19 +45,19 @@ final aggregation over ()
                                                     join (INNER, PARTITIONED, can skip output duplicates):
                                                         remote exchange (REPARTITION, HASH, [ws_order_number_26])
                                                             alternatives
-                                                                dynamic filter ([Reference[type=bigint, name=ws_order_number_26], Reference[type=bigint, name=ws_order_number_26]])
+                                                                dynamic filter ([ws_order_number_26::bigint, ws_order_number_26::bigint])
                                                                     scan web_sales
                                                                 cache data
-                                                                    dynamic filter ([Reference[type=bigint, name=ws_order_number_26], Reference[type=bigint, name=ws_order_number_26]])
+                                                                    dynamic filter ([ws_order_number_26::bigint, ws_order_number_26::bigint])
                                                                         scan web_sales
                                                                 load from cache
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, [ws_order_number_63])
                                                                 alternatives
-                                                                    dynamic filter ([Reference[type=bigint, name=ws_order_number_63]])
+                                                                    dynamic filter ([ws_order_number_63::bigint])
                                                                         scan web_sales
                                                                     cache data
-                                                                        dynamic filter ([Reference[type=bigint, name=ws_order_number_63]])
+                                                                        dynamic filter ([ws_order_number_63::bigint])
                                                                             scan web_sales
                                                                     load from cache
                                         local exchange (GATHER, SINGLE, [])
@@ -66,10 +66,10 @@ final aggregation over ()
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
                                                             alternatives
-                                                                dynamic filter ([Reference[type=bigint, name=ws_ship_addr_sk]], await [Reference[type=bigint, name=ws_ship_date_sk], Reference[type=bigint, name=ws_web_site_sk]])
+                                                                dynamic filter ([ws_ship_addr_sk::bigint], await [ws_ship_date_sk::bigint, ws_web_site_sk::bigint])
                                                                     scan web_sales
                                                                 cache data
-                                                                    dynamic filter ([Reference[type=bigint, name=ws_ship_addr_sk]], await [Reference[type=bigint, name=ws_ship_date_sk], Reference[type=bigint, name=ws_web_site_sk]])
+                                                                    dynamic filter ([ws_ship_addr_sk::bigint], await [ws_ship_date_sk::bigint, ws_web_site_sk::bigint])
                                                                         scan web_sales
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])

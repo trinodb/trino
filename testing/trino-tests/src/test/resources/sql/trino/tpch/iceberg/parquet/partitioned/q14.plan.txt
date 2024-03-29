@@ -4,7 +4,7 @@ final aggregation over ()
             partial aggregation over ()
                 join (INNER, PARTITIONED):
                     remote exchange (REPARTITION, HASH, [partkey_0])
-                        dynamic filter ([Reference[type=bigint, name=partkey_0]])
+                        dynamic filter ([partkey_0::bigint])
                             scan part
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [partkey])

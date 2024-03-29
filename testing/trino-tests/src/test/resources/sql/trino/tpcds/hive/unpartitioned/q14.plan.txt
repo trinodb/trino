@@ -15,7 +15,7 @@ local exchange (GATHER, SINGLE, [])
                                                         join (INNER, REPLICATED):
                                                             partial aggregation over (ss_item_sk)
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter ([Reference[type=bigint, name=ss_item_sk]], await [Reference[type=bigint, name=ss_sold_date_sk]])
+                                                                    dynamic filter ([ss_item_sk::bigint], await [ss_sold_date_sk::bigint])
                                                                         scan store_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -24,7 +24,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     join (INNER, PARTITIONED):
                                                                         remote exchange (REPARTITION, HASH, [i_item_sk])
-                                                                            dynamic filter ([Reference[type=bigint, name=i_item_sk]])
+                                                                            dynamic filter ([i_item_sk::bigint])
                                                                                 scan item
                                                                         final aggregation over (i_item_sk_15)
                                                                             local exchange (GATHER, SINGLE, [])
@@ -32,7 +32,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                     partial aggregation over (i_item_sk_15)
                                                                                         join (INNER, PARTITIONED, can skip output duplicates):
                                                                                             remote exchange (REPARTITION, HASH, [i_brand_id_22, i_category_id_26, i_class_id_24])
-                                                                                                dynamic filter ([Reference[type=integer, name=i_brand_id_22], Reference[type=integer, name=i_category_id_26], Reference[type=integer, name=i_class_id_24]])
+                                                                                                dynamic filter ([i_brand_id_22::integer, i_category_id_26::integer, i_class_id_24::integer])
                                                                                                     scan item
                                                                                             final aggregation over (brand_id, category_id, class_id)
                                                                                                 local exchange (GATHER, SINGLE, [])
@@ -41,7 +41,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                                             join (INNER, REPLICATED):
                                                                                                                 partial aggregation over (ss_item_sk_45)
                                                                                                                     join (INNER, REPLICATED):
-                                                                                                                        dynamic filter ([Reference[type=bigint, name=ss_item_sk_45]], await [Reference[type=bigint, name=ss_sold_date_sk_43]])
+                                                                                                                        dynamic filter ([ss_item_sk_45::bigint], await [ss_sold_date_sk_43::bigint])
                                                                                                                             scan store_sales
                                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -54,7 +54,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                                             join (INNER, REPLICATED):
                                                                                                                 partial aggregation over (cs_item_sk)
                                                                                                                     join (INNER, REPLICATED):
-                                                                                                                        dynamic filter ([Reference[type=bigint, name=cs_item_sk]], await [Reference[type=bigint, name=cs_sold_date_sk]])
+                                                                                                                        dynamic filter ([cs_item_sk::bigint], await [cs_sold_date_sk::bigint])
                                                                                                                             scan catalog_sales
                                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -67,7 +67,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                                             join (INNER, REPLICATED):
                                                                                                                 partial aggregation over (ws_item_sk)
                                                                                                                     join (INNER, REPLICATED):
-                                                                                                                        dynamic filter ([Reference[type=bigint, name=ws_item_sk]], await [Reference[type=bigint, name=ws_sold_date_sk]])
+                                                                                                                        dynamic filter ([ws_item_sk::bigint], await [ws_sold_date_sk::bigint])
                                                                                                                             scan web_sales
                                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -82,21 +82,21 @@ local exchange (GATHER, SINGLE, [])
                                                         remote exchange (GATHER, SINGLE, [])
                                                             partial aggregation over ()
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter (await [Reference[type=bigint, name=ss_sold_date_sk_248]])
+                                                                    dynamic filter (await [ss_sold_date_sk_248::bigint])
                                                                         scan store_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                             scan date_dim
                                                             partial aggregation over ()
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter (await [Reference[type=bigint, name=cs_sold_date_sk_305]])
+                                                                    dynamic filter (await [cs_sold_date_sk_305::bigint])
                                                                         scan catalog_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                             scan date_dim
                                                             partial aggregation over ()
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter (await [Reference[type=bigint, name=ws_sold_date_sk_373]])
+                                                                    dynamic filter (await [ws_sold_date_sk_373::bigint])
                                                                         scan web_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -109,7 +109,7 @@ local exchange (GATHER, SINGLE, [])
                                                         join (INNER, REPLICATED):
                                                             partial aggregation over (cs_item_sk_459)
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter ([Reference[type=bigint, name=cs_item_sk_459]], await [Reference[type=bigint, name=cs_sold_date_sk_444]])
+                                                                    dynamic filter ([cs_item_sk_459::bigint], await [cs_sold_date_sk_444::bigint])
                                                                         scan catalog_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -118,7 +118,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     join (INNER, PARTITIONED):
                                                                         remote exchange (REPARTITION, HASH, [i_item_sk_481])
-                                                                            dynamic filter ([Reference[type=bigint, name=i_item_sk_481]])
+                                                                            dynamic filter ([i_item_sk_481::bigint])
                                                                                 scan item
                                                                         final aggregation over (i_item_sk_539)
                                                                             local exchange (GATHER, SINGLE, [])
@@ -126,7 +126,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                     partial aggregation over (i_item_sk_539)
                                                                                         join (INNER, PARTITIONED, can skip output duplicates):
                                                                                             remote exchange (REPARTITION, HASH, [i_brand_id_546, i_category_id_550, i_class_id_548])
-                                                                                                dynamic filter ([Reference[type=integer, name=i_brand_id_546], Reference[type=integer, name=i_category_id_550], Reference[type=integer, name=i_class_id_548]])
+                                                                                                dynamic filter ([i_brand_id_546::integer, i_category_id_550::integer, i_class_id_548::integer])
                                                                                                     scan item
                                                                                             final aggregation over (brand_id_564, category_id_566, class_id_565)
                                                                                                 local exchange (GATHER, SINGLE, [])
@@ -135,7 +135,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                                             join (INNER, REPLICATED):
                                                                                                                 partial aggregation over (ss_item_sk_572)
                                                                                                                     join (INNER, REPLICATED):
-                                                                                                                        dynamic filter ([Reference[type=bigint, name=ss_item_sk_572]], await [Reference[type=bigint, name=ss_sold_date_sk_570]])
+                                                                                                                        dynamic filter ([ss_item_sk_572::bigint], await [ss_sold_date_sk_570::bigint])
                                                                                                                             scan store_sales
                                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -148,7 +148,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                                             join (INNER, REPLICATED):
                                                                                                                 partial aggregation over (cs_item_sk_667)
                                                                                                                     join (INNER, REPLICATED):
-                                                                                                                        dynamic filter ([Reference[type=bigint, name=cs_item_sk_667]], await [Reference[type=bigint, name=cs_sold_date_sk_652]])
+                                                                                                                        dynamic filter ([cs_item_sk_667::bigint], await [cs_sold_date_sk_652::bigint])
                                                                                                                             scan catalog_sales
                                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -161,7 +161,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                                             join (INNER, REPLICATED):
                                                                                                                 partial aggregation over (ws_item_sk_748)
                                                                                                                     join (INNER, REPLICATED):
-                                                                                                                        dynamic filter ([Reference[type=bigint, name=ws_item_sk_748]], await [Reference[type=bigint, name=ws_sold_date_sk_745]])
+                                                                                                                        dynamic filter ([ws_item_sk_748::bigint], await [ws_sold_date_sk_745::bigint])
                                                                                                                             scan web_sales
                                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -176,21 +176,21 @@ local exchange (GATHER, SINGLE, [])
                                                         remote exchange (GATHER, SINGLE, [])
                                                             partial aggregation over ()
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter (await [Reference[type=bigint, name=ss_sold_date_sk_847]])
+                                                                    dynamic filter (await [ss_sold_date_sk_847::bigint])
                                                                         scan store_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                             scan date_dim
                                                             partial aggregation over ()
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter (await [Reference[type=bigint, name=cs_sold_date_sk_904]])
+                                                                    dynamic filter (await [cs_sold_date_sk_904::bigint])
                                                                         scan catalog_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                             scan date_dim
                                                             partial aggregation over ()
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter (await [Reference[type=bigint, name=ws_sold_date_sk_972]])
+                                                                    dynamic filter (await [ws_sold_date_sk_972::bigint])
                                                                         scan web_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -203,7 +203,7 @@ local exchange (GATHER, SINGLE, [])
                                                         join (INNER, REPLICATED):
                                                             partial aggregation over (ws_item_sk_1046)
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter ([Reference[type=bigint, name=ws_item_sk_1046]], await [Reference[type=bigint, name=ws_sold_date_sk_1043]])
+                                                                    dynamic filter ([ws_item_sk_1046::bigint], await [ws_sold_date_sk_1043::bigint])
                                                                         scan web_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -212,7 +212,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     join (INNER, PARTITIONED):
                                                                         remote exchange (REPARTITION, HASH, [i_item_sk_1080])
-                                                                            dynamic filter ([Reference[type=bigint, name=i_item_sk_1080]])
+                                                                            dynamic filter ([i_item_sk_1080::bigint])
                                                                                 scan item
                                                                         final aggregation over (i_item_sk_1138)
                                                                             local exchange (GATHER, SINGLE, [])
@@ -220,7 +220,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                     partial aggregation over (i_item_sk_1138)
                                                                                         join (INNER, PARTITIONED, can skip output duplicates):
                                                                                             remote exchange (REPARTITION, HASH, [i_brand_id_1145, i_category_id_1149, i_class_id_1147])
-                                                                                                dynamic filter ([Reference[type=integer, name=i_brand_id_1145], Reference[type=integer, name=i_category_id_1149], Reference[type=integer, name=i_class_id_1147]])
+                                                                                                dynamic filter ([i_brand_id_1145::integer, i_category_id_1149::integer, i_class_id_1147::integer])
                                                                                                     scan item
                                                                                             final aggregation over (brand_id_1163, category_id_1165, class_id_1164)
                                                                                                 local exchange (GATHER, SINGLE, [])
@@ -229,7 +229,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                                             join (INNER, REPLICATED):
                                                                                                                 partial aggregation over (ss_item_sk_1171)
                                                                                                                     join (INNER, REPLICATED):
-                                                                                                                        dynamic filter ([Reference[type=bigint, name=ss_item_sk_1171]], await [Reference[type=bigint, name=ss_sold_date_sk_1169]])
+                                                                                                                        dynamic filter ([ss_item_sk_1171::bigint], await [ss_sold_date_sk_1169::bigint])
                                                                                                                             scan store_sales
                                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -242,7 +242,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                                             join (INNER, REPLICATED):
                                                                                                                 partial aggregation over (cs_item_sk_1266)
                                                                                                                     join (INNER, REPLICATED):
-                                                                                                                        dynamic filter ([Reference[type=bigint, name=cs_item_sk_1266]], await [Reference[type=bigint, name=cs_sold_date_sk_1251]])
+                                                                                                                        dynamic filter ([cs_item_sk_1266::bigint], await [cs_sold_date_sk_1251::bigint])
                                                                                                                             scan catalog_sales
                                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -255,7 +255,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                                             join (INNER, REPLICATED):
                                                                                                                 partial aggregation over (ws_item_sk_1347)
                                                                                                                     join (INNER, REPLICATED):
-                                                                                                                        dynamic filter ([Reference[type=bigint, name=ws_item_sk_1347]], await [Reference[type=bigint, name=ws_sold_date_sk_1344]])
+                                                                                                                        dynamic filter ([ws_item_sk_1347::bigint], await [ws_sold_date_sk_1344::bigint])
                                                                                                                             scan web_sales
                                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -270,21 +270,21 @@ local exchange (GATHER, SINGLE, [])
                                                         remote exchange (GATHER, SINGLE, [])
                                                             partial aggregation over ()
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter (await [Reference[type=bigint, name=ss_sold_date_sk_1446]])
+                                                                    dynamic filter (await [ss_sold_date_sk_1446::bigint])
                                                                         scan store_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                             scan date_dim
                                                             partial aggregation over ()
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter (await [Reference[type=bigint, name=cs_sold_date_sk_1503]])
+                                                                    dynamic filter (await [cs_sold_date_sk_1503::bigint])
                                                                         scan catalog_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                             scan date_dim
                                                             partial aggregation over ()
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter (await [Reference[type=bigint, name=ws_sold_date_sk_1571]])
+                                                                    dynamic filter (await [ws_sold_date_sk_1571::bigint])
                                                                         scan web_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])

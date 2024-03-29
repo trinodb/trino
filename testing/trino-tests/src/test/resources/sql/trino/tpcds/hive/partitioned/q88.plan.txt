@@ -12,7 +12,7 @@ cross join:
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (await [Reference[type=bigint, name=ss_hdemo_sk], Reference[type=bigint, name=ss_sold_time_sk], Reference[type=bigint, name=ss_store_sk]])
+                                                        dynamic filter (await [ss_hdemo_sk::bigint, ss_sold_time_sk::bigint, ss_store_sk::bigint])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -30,7 +30,7 @@ cross join:
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (await [Reference[type=bigint, name=ss_hdemo_sk_13], Reference[type=bigint, name=ss_sold_time_sk_9], Reference[type=bigint, name=ss_store_sk_15]])
+                                                        dynamic filter (await [ss_hdemo_sk_13::bigint, ss_sold_time_sk_9::bigint, ss_store_sk_15::bigint])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -48,7 +48,7 @@ cross join:
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (await [Reference[type=bigint, name=ss_hdemo_sk_94], Reference[type=bigint, name=ss_sold_time_sk_90], Reference[type=bigint, name=ss_store_sk_96]])
+                                                    dynamic filter (await [ss_hdemo_sk_94::bigint, ss_sold_time_sk_90::bigint, ss_store_sk_96::bigint])
                                                         scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -66,7 +66,7 @@ cross join:
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                dynamic filter (await [Reference[type=bigint, name=ss_hdemo_sk_175], Reference[type=bigint, name=ss_sold_time_sk_171], Reference[type=bigint, name=ss_store_sk_177]])
+                                                dynamic filter (await [ss_hdemo_sk_175::bigint, ss_sold_time_sk_171::bigint, ss_store_sk_177::bigint])
                                                     scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -84,7 +84,7 @@ cross join:
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            dynamic filter (await [Reference[type=bigint, name=ss_hdemo_sk_256], Reference[type=bigint, name=ss_sold_time_sk_252], Reference[type=bigint, name=ss_store_sk_258]])
+                                            dynamic filter (await [ss_hdemo_sk_256::bigint, ss_sold_time_sk_252::bigint, ss_store_sk_258::bigint])
                                                 scan store_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -102,7 +102,7 @@ cross join:
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        dynamic filter (await [Reference[type=bigint, name=ss_hdemo_sk_337], Reference[type=bigint, name=ss_sold_time_sk_333], Reference[type=bigint, name=ss_store_sk_339]])
+                                        dynamic filter (await [ss_hdemo_sk_337::bigint, ss_sold_time_sk_333::bigint, ss_store_sk_339::bigint])
                                             scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -120,7 +120,7 @@ cross join:
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    dynamic filter (await [Reference[type=bigint, name=ss_hdemo_sk_418], Reference[type=bigint, name=ss_sold_time_sk_414], Reference[type=bigint, name=ss_store_sk_420]])
+                                    dynamic filter (await [ss_hdemo_sk_418::bigint, ss_sold_time_sk_414::bigint, ss_store_sk_420::bigint])
                                         scan store_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -138,7 +138,7 @@ cross join:
                     join (INNER, REPLICATED):
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
-                                dynamic filter (await [Reference[type=bigint, name=ss_hdemo_sk_499], Reference[type=bigint, name=ss_sold_time_sk_495], Reference[type=bigint, name=ss_store_sk_501]])
+                                dynamic filter (await [ss_hdemo_sk_499::bigint, ss_sold_time_sk_495::bigint, ss_store_sk_501::bigint])
                                     scan store_sales
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])

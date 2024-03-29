@@ -10,15 +10,15 @@ remote exchange (GATHER, SINGLE, [])
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                dynamic filter ([Reference[type=bigint, name=inv_item_sk]], unestimatable [Reference[type=bigint, name=inv_item_sk], Reference[type=bigint, name=inv_warehouse_sk]], await [Reference[type=bigint, name=inv_date_sk], Reference[type=bigint, name=inv_warehouse_sk]])
+                                                dynamic filter ([inv_item_sk::bigint], unestimatable [inv_item_sk::bigint, inv_warehouse_sk::bigint], await [inv_date_sk::bigint, inv_warehouse_sk::bigint])
                                                     scan inventory
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        dynamic filter (unestimatable [Reference[type=bigint, name=i_item_sk]])
+                                                        dynamic filter (unestimatable [i_item_sk::bigint])
                                                             scan item
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    dynamic filter (unestimatable [Reference[type=bigint, name=w_warehouse_sk]])
+                                                    dynamic filter (unestimatable [w_warehouse_sk::bigint])
                                                         scan warehouse
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -32,7 +32,7 @@ remote exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter ([Reference[type=bigint, name=inv_item_sk_9]], await [Reference[type=bigint, name=inv_date_sk_8], Reference[type=bigint, name=inv_warehouse_sk_10]])
+                                                    dynamic filter ([inv_item_sk_9::bigint], await [inv_date_sk_8::bigint, inv_warehouse_sk_10::bigint])
                                                         scan inventory
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])

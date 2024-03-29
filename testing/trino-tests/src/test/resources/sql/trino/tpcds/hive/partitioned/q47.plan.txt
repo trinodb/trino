@@ -14,18 +14,18 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
                                                             partial aggregation over (ss_item_sk, ss_sold_date_sk, ss_store_sk)
-                                                                dynamic filter ([Reference[type=bigint, name=ss_item_sk]], await [Reference[type=bigint, name=ss_sold_date_sk], Reference[type=bigint, name=ss_store_sk]])
+                                                                dynamic filter ([ss_item_sk::bigint], await [ss_sold_date_sk::bigint, ss_store_sk::bigint])
                                                                     scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter ([Reference[type=varchar(50), name=s_company_name], Reference[type=varchar(50), name=s_company_name], Reference[type=varchar(50), name=s_store_name], Reference[type=varchar(50), name=s_store_name]])
+                                                                dynamic filter ([s_company_name::varchar(50), s_company_name::varchar(50), s_store_name::varchar(50), s_store_name::varchar(50)])
                                                                     scan store
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter ([Reference[type=char(50), name=i_brand], Reference[type=char(50), name=i_brand], Reference[type=char(50), name=i_category], Reference[type=char(50), name=i_category]])
+                                                            dynamic filter ([i_brand::char(50), i_brand::char(50), i_category::char(50), i_category::char(50)])
                                                                 scan item
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [i_brand_17, i_category_21, s_company_name_109, s_store_name_97])
@@ -37,18 +37,18 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
                                                             partial aggregation over (ss_item_sk_35, ss_sold_date_sk_56, ss_store_sk_40)
-                                                                dynamic filter ([Reference[type=bigint, name=ss_item_sk_35]], await [Reference[type=bigint, name=ss_sold_date_sk_56], Reference[type=bigint, name=ss_store_sk_40]])
+                                                                dynamic filter ([ss_item_sk_35::bigint], await [ss_sold_date_sk_56::bigint, ss_store_sk_40::bigint])
                                                                     scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter ([Reference[type=varchar(50), name=s_company_name_109], Reference[type=varchar(50), name=s_store_name_97]])
+                                                                dynamic filter ([s_company_name_109::varchar(50), s_store_name_97::varchar(50)])
                                                                     scan store
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter ([Reference[type=char(50), name=i_brand_17], Reference[type=char(50), name=i_category_21]])
+                                                            dynamic filter ([i_brand_17::char(50), i_category_21::char(50)])
                                                                 scan item
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [i_brand_135, i_category_139, s_company_name_227, s_store_name_215])
@@ -60,7 +60,7 @@ local exchange (GATHER, SINGLE, [])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ss_item_sk_153, ss_sold_date_sk_174, ss_store_sk_158)
-                                                            dynamic filter ([Reference[type=bigint, name=ss_item_sk_153]], await [Reference[type=bigint, name=ss_sold_date_sk_174], Reference[type=bigint, name=ss_store_sk_158]])
+                                                            dynamic filter ([ss_item_sk_153::bigint], await [ss_sold_date_sk_174::bigint, ss_store_sk_158::bigint])
                                                                 scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

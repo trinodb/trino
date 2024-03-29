@@ -8,7 +8,7 @@ local exchange (GATHER, SINGLE, [])
                             partial aggregation over (i_product_name)
                                 single aggregation over (i_manufact, i_manufact_id, i_product_name, unique)
                                     join (INNER, REPLICATED, can skip output duplicates):
-                                        dynamic filter (await [Reference[type=char(50), name=i_manufact]])
+                                        dynamic filter (await [i_manufact::char(50)])
                                             scan item
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])

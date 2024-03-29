@@ -14,10 +14,10 @@ local exchange (GATHER, SINGLE, [])
                                                     partial aggregation over (cr_returning_addr_sk, cr_returning_customer_sk)
                                                         join (INNER, REPLICATED):
                                                             alternatives
-                                                                dynamic filter ([Reference[type=bigint, name=cr_returning_addr_sk], Reference[type=bigint, name=cr_returning_customer_sk]], await [Reference[type=bigint, name=cr_returned_date_sk]])
+                                                                dynamic filter ([cr_returning_addr_sk::bigint, cr_returning_customer_sk::bigint], await [cr_returned_date_sk::bigint])
                                                                     scan catalog_returns
                                                                 cache data
-                                                                    dynamic filter ([Reference[type=bigint, name=cr_returning_addr_sk], Reference[type=bigint, name=cr_returning_customer_sk]], await [Reference[type=bigint, name=cr_returned_date_sk]])
+                                                                    dynamic filter ([cr_returning_addr_sk::bigint, cr_returning_customer_sk::bigint], await [cr_returned_date_sk::bigint])
                                                                         scan catalog_returns
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])
@@ -38,10 +38,10 @@ local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
                                     join (INNER, REPLICATED):
                                         alternatives
-                                            dynamic filter ([Reference[type=bigint, name=c_current_addr_sk]])
+                                            dynamic filter ([c_current_addr_sk::bigint])
                                                 scan customer
                                             cache data
-                                                dynamic filter ([Reference[type=bigint, name=c_current_addr_sk]])
+                                                dynamic filter ([c_current_addr_sk::bigint])
                                                     scan customer
                                             load from cache
                                         local exchange (GATHER, SINGLE, [])
@@ -66,10 +66,10 @@ local exchange (GATHER, SINGLE, [])
                                                                         partial aggregation over (cr_returning_addr_sk_35, cr_returning_customer_sk_32)
                                                                             join (INNER, REPLICATED):
                                                                                 alternatives
-                                                                                    dynamic filter ([Reference[type=bigint, name=cr_returning_addr_sk_35]], await [Reference[type=bigint, name=cr_returned_date_sk_25]])
+                                                                                    dynamic filter ([cr_returning_addr_sk_35::bigint], await [cr_returned_date_sk_25::bigint])
                                                                                         scan catalog_returns
                                                                                     cache data
-                                                                                        dynamic filter ([Reference[type=bigint, name=cr_returning_addr_sk_35]], await [Reference[type=bigint, name=cr_returned_date_sk_25]])
+                                                                                        dynamic filter ([cr_returning_addr_sk_35::bigint], await [cr_returned_date_sk_25::bigint])
                                                                                             scan catalog_returns
                                                                                     load from cache
                                                                                 local exchange (GATHER, SINGLE, [])

@@ -9,30 +9,30 @@ remote exchange (GATHER, SINGLE, [])
                                 partial aggregation over (partkey_23)
                                     join (INNER, REPLICATED):
                                         alternatives
-                                            dynamic filter ([Reference[type=bigint, name=partkey_23], Reference[type=bigint, name=suppkey_24]])
+                                            dynamic filter ([partkey_23::bigint, suppkey_24::bigint])
                                                 scan partsupp
                                             cache data
-                                                dynamic filter ([Reference[type=bigint, name=partkey_23], Reference[type=bigint, name=suppkey_24]])
+                                                dynamic filter ([partkey_23::bigint, suppkey_24::bigint])
                                                     scan partsupp
                                             load from cache
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 join (INNER, REPLICATED):
                                                     alternatives
-                                                        dynamic filter (await [Reference[type=bigint, name=nationkey_34]])
+                                                        dynamic filter (await [nationkey_34::bigint])
                                                             scan supplier
                                                         cache data
-                                                            dynamic filter (await [Reference[type=bigint, name=nationkey_34]])
+                                                            dynamic filter (await [nationkey_34::bigint])
                                                                 scan supplier
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             join (INNER, REPLICATED):
                                                                 alternatives
-                                                                    dynamic filter (await [Reference[type=bigint, name=regionkey_43]])
+                                                                    dynamic filter (await [regionkey_43::bigint])
                                                                         scan nation
                                                                     cache data
-                                                                        dynamic filter (await [Reference[type=bigint, name=regionkey_43]])
+                                                                        dynamic filter (await [regionkey_43::bigint])
                                                                             scan nation
                                                                     load from cache
                                                                 local exchange (GATHER, SINGLE, [])
@@ -48,10 +48,10 @@ remote exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, [suppkey_6])
                                     join (INNER, REPLICATED):
                                         alternatives
-                                            dynamic filter ([Reference[type=bigint, name=partkey_5], Reference[type=bigint, name=suppkey_6]])
+                                            dynamic filter ([partkey_5::bigint, suppkey_6::bigint])
                                                 scan partsupp
                                             cache data
-                                                dynamic filter ([Reference[type=bigint, name=partkey_5], Reference[type=bigint, name=suppkey_6]])
+                                                dynamic filter ([partkey_5::bigint, suppkey_6::bigint])
                                                     scan partsupp
                                             load from cache
                                         local exchange (GATHER, SINGLE, [])
@@ -65,20 +65,20 @@ remote exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [suppkey])
                                         join (INNER, REPLICATED):
                                             alternatives
-                                                dynamic filter (await [Reference[type=bigint, name=nationkey]])
+                                                dynamic filter (await [nationkey::bigint])
                                                     scan supplier
                                                 cache data
-                                                    dynamic filter (await [Reference[type=bigint, name=nationkey]])
+                                                    dynamic filter (await [nationkey::bigint])
                                                         scan supplier
                                                 load from cache
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     join (INNER, REPLICATED):
                                                         alternatives
-                                                            dynamic filter (await [Reference[type=bigint, name=regionkey]])
+                                                            dynamic filter (await [regionkey::bigint])
                                                                 scan nation
                                                             cache data
-                                                                dynamic filter (await [Reference[type=bigint, name=regionkey]])
+                                                                dynamic filter (await [regionkey::bigint])
                                                                     scan nation
                                                             load from cache
                                                         local exchange (GATHER, SINGLE, [])

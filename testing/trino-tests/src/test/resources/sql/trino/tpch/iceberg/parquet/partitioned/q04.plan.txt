@@ -10,7 +10,7 @@ remote exchange (GATHER, SINGLE, [])
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [orderkey_0])
                                             partial aggregation over (orderkey_0)
-                                                dynamic filter ([Reference[type=bigint, name=orderkey_0]])
+                                                dynamic filter ([orderkey_0::bigint])
                                                     scan lineitem
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [orderkey])

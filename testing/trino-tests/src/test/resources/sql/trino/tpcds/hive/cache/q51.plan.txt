@@ -12,11 +12,11 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, REPLICATED):
                                                 alternatives
                                                     partial aggregation over (ws_item_sk, ws_sold_date_sk)
-                                                        dynamic filter (await [Reference[type=bigint, name=ws_sold_date_sk]])
+                                                        dynamic filter (await [ws_sold_date_sk::bigint])
                                                             scan web_sales
                                                     cache data
                                                         partial aggregation over (ws_item_sk, ws_sold_date_sk)
-                                                            dynamic filter (await [Reference[type=bigint, name=ws_sold_date_sk]])
+                                                            dynamic filter (await [ws_sold_date_sk::bigint])
                                                                 scan web_sales
                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])
@@ -33,11 +33,11 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, REPLICATED):
                                                 alternatives
                                                     partial aggregation over (ss_item_sk, ss_sold_date_sk)
-                                                        dynamic filter (await [Reference[type=bigint, name=ss_sold_date_sk]])
+                                                        dynamic filter (await [ss_sold_date_sk::bigint])
                                                             scan store_sales
                                                     cache data
                                                         partial aggregation over (ss_item_sk, ss_sold_date_sk)
-                                                            dynamic filter (await [Reference[type=bigint, name=ss_sold_date_sk]])
+                                                            dynamic filter (await [ss_sold_date_sk::bigint])
                                                                 scan store_sales
                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])

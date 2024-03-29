@@ -10,19 +10,19 @@ remote exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [suppkey_5])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [partkey])
-                                                dynamic filter ([Reference[type=bigint, name=partkey]])
+                                                dynamic filter ([partkey::bigint])
                                                     scan part
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [partkey_4])
-                                                    dynamic filter ([Reference[type=bigint, name=suppkey_5]])
+                                                    dynamic filter ([suppkey_5::bigint])
                                                         scan partsupp
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [suppkey])
-                                            dynamic filter (await [Reference[type=bigint, name=nationkey]])
+                                            dynamic filter (await [nationkey::bigint])
                                                 scan supplier
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        dynamic filter (await [Reference[type=bigint, name=regionkey]])
+                                        dynamic filter (await [regionkey::bigint])
                                             scan nation
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -35,15 +35,15 @@ remote exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [suppkey_20])
-                                                    dynamic filter ([Reference[type=bigint, name=suppkey_20]])
+                                                    dynamic filter ([suppkey_20::bigint])
                                                         scan partsupp
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [suppkey_26])
-                                                        dynamic filter (await [Reference[type=bigint, name=nationkey_29]])
+                                                        dynamic filter (await [nationkey_29::bigint])
                                                             scan supplier
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    dynamic filter (await [Reference[type=bigint, name=regionkey_37]])
+                                                    dynamic filter (await [regionkey_37::bigint])
                                                         scan nation
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])

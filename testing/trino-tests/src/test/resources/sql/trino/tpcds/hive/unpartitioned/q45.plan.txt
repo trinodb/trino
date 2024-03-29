@@ -11,7 +11,7 @@ local exchange (GATHER, SINGLE, [])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [ws_bill_customer_sk])
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter ([Reference[type=bigint, name=ws_bill_customer_sk], Reference[type=bigint, name=ws_item_sk]], await [Reference[type=bigint, name=ws_sold_date_sk]])
+                                                    dynamic filter ([ws_bill_customer_sk::bigint, ws_item_sk::bigint], await [ws_sold_date_sk::bigint])
                                                         scan web_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -20,7 +20,7 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [c_customer_sk])
                                                     join (INNER, PARTITIONED):
                                                         remote exchange (REPARTITION, HASH, [c_current_addr_sk])
-                                                            dynamic filter ([Reference[type=bigint, name=c_current_addr_sk]])
+                                                            dynamic filter ([c_current_addr_sk::bigint])
                                                                 scan customer
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, [ca_address_sk])

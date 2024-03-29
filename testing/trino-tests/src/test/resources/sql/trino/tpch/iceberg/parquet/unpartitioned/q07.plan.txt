@@ -13,19 +13,19 @@ remote exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [orderkey])
                                                     join (INNER, PARTITIONED):
                                                         remote exchange (REPARTITION, HASH, [suppkey_0])
-                                                            dynamic filter ([Reference[type=bigint, name=orderkey], Reference[type=bigint, name=suppkey_0]])
+                                                            dynamic filter ([orderkey::bigint, suppkey_0::bigint])
                                                                 scan lineitem
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, [suppkey])
-                                                                dynamic filter (await [Reference[type=bigint, name=nationkey]])
+                                                                dynamic filter (await [nationkey::bigint])
                                                                     scan supplier
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [orderkey_4])
-                                                        dynamic filter ([Reference[type=bigint, name=custkey]])
+                                                        dynamic filter ([custkey::bigint])
                                                             scan orders
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [custkey_8])
-                                                dynamic filter (await [Reference[type=bigint, name=nationkey_11]])
+                                                dynamic filter (await [nationkey_11::bigint])
                                                     scan customer
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])

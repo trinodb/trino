@@ -13,18 +13,18 @@ local exchange (GATHER, SINGLE, [])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter ([Reference[type=bigint, name=ss_item_sk]], await [Reference[type=bigint, name=ss_sold_date_sk], Reference[type=bigint, name=ss_store_sk]])
+                                                            dynamic filter ([ss_item_sk::bigint], await [ss_sold_date_sk::bigint, ss_store_sk::bigint])
                                                                 scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    dynamic filter (unestimatable [Reference[type=varchar, name=i_brand], Reference[type=varchar, name=i_brand], Reference[type=varchar, name=i_category], Reference[type=varchar, name=i_category]])
+                                                                    dynamic filter (unestimatable [i_brand::varchar, i_brand::varchar, i_category::varchar, i_category::varchar])
                                                                         scan item
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (unestimatable [Reference[type=varchar, name=s_company_name], Reference[type=varchar, name=s_company_name], Reference[type=varchar, name=s_store_name], Reference[type=varchar, name=s_store_name]])
+                                                            dynamic filter (unestimatable [s_company_name::varchar, s_company_name::varchar, s_store_name::varchar, s_store_name::varchar])
                                                                 scan store
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [i_brand_14, i_category_18, s_company_name_102, s_store_name_90])
@@ -35,18 +35,18 @@ local exchange (GATHER, SINGLE, [])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter ([Reference[type=bigint, name=ss_item_sk_32]], await [Reference[type=bigint, name=ss_sold_date_sk_30], Reference[type=bigint, name=ss_store_sk_37]])
+                                                            dynamic filter ([ss_item_sk_32::bigint], await [ss_sold_date_sk_30::bigint, ss_store_sk_37::bigint])
                                                                 scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    dynamic filter (unestimatable [Reference[type=varchar, name=i_brand_14], Reference[type=varchar, name=i_category_18]])
+                                                                    dynamic filter (unestimatable [i_brand_14::varchar, i_category_18::varchar])
                                                                         scan item
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (unestimatable [Reference[type=varchar, name=s_company_name_102], Reference[type=varchar, name=s_store_name_90]])
+                                                            dynamic filter (unestimatable [s_company_name_102::varchar, s_store_name_90::varchar])
                                                                 scan store
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [i_brand_127, i_category_131, s_company_name_215, s_store_name_203])
@@ -57,7 +57,7 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter ([Reference[type=bigint, name=ss_item_sk_145]], await [Reference[type=bigint, name=ss_sold_date_sk_143], Reference[type=bigint, name=ss_store_sk_150]])
+                                                        dynamic filter ([ss_item_sk_145::bigint], await [ss_sold_date_sk_143::bigint, ss_store_sk_150::bigint])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

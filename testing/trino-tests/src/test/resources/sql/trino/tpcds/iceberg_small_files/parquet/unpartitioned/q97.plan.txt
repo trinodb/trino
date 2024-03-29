@@ -8,7 +8,7 @@ final aggregation over ()
                             remote exchange (REPARTITION, HASH, [ss_customer_sk, ss_item_sk])
                                 partial aggregation over (ss_customer_sk, ss_item_sk)
                                     join (INNER, REPLICATED, can skip output duplicates):
-                                        dynamic filter (await [Reference[type=bigint, name=ss_sold_date_sk]])
+                                        dynamic filter (await [ss_sold_date_sk::bigint])
                                             scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -18,7 +18,7 @@ final aggregation over ()
                             remote exchange (REPARTITION, HASH, [cs_bill_customer_sk, cs_item_sk])
                                 partial aggregation over (cs_bill_customer_sk, cs_item_sk)
                                     join (INNER, REPLICATED, can skip output duplicates):
-                                        dynamic filter (await [Reference[type=bigint, name=cs_sold_date_sk]])
+                                        dynamic filter (await [cs_sold_date_sk::bigint])
                                             scan catalog_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])

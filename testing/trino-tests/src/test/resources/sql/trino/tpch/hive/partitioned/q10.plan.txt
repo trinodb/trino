@@ -8,14 +8,14 @@ local exchange (GATHER, SINGLE, [])
                             partial aggregation over (acctbal, address, comment_7, custkey_6, name, name_12, phone)
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, [orderkey])
-                                        dynamic filter ([Reference[type=bigint, name=orderkey]])
+                                        dynamic filter ([orderkey::bigint])
                                             scan lineitem
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [orderkey_0])
                                             join (INNER, REPLICATED):
                                                 join (INNER, PARTITIONED):
                                                     remote exchange (REPARTITION, HASH, [custkey_6])
-                                                        dynamic filter ([Reference[type=bigint, name=custkey_6]], await [Reference[type=bigint, name=nationkey]])
+                                                        dynamic filter ([custkey_6::bigint], await [nationkey::bigint])
                                                             scan customer
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, [custkey])

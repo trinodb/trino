@@ -15,19 +15,19 @@ local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, [d_day_name, d_week_seq, ss_store_sk])
                                                             partial aggregation over (d_day_name, d_week_seq, ss_store_sk)
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter (await [Reference[type=bigint, name=ss_sold_date_sk], Reference[type=bigint, name=ss_store_sk]])
+                                                                    dynamic filter (await [ss_sold_date_sk::bigint, ss_store_sk::bigint])
                                                                         scan store_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                                            dynamic filter (unestimatable [Reference[type=integer, name=d_week_seq]], await [Reference[type=integer, name=d_week_seq]])
+                                                                            dynamic filter (unestimatable [d_week_seq::integer], await [d_week_seq::integer])
                                                                                 scan date_dim
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        dynamic filter (unestimatable [Reference[type=varchar, name=s_store_id]])
+                                        dynamic filter (unestimatable [s_store_id::varchar])
                                             scan store
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
-                                    dynamic filter (unestimatable [Reference[type=integer, name=d_week_seq_20]])
+                                    dynamic filter (unestimatable [d_week_seq_20::integer])
                                         scan date_dim
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [operator_subtract, s_store_id_116])
@@ -42,11 +42,11 @@ local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, [d_day_name_85, d_week_seq_75, ss_store_sk_53])
                                                                 partial aggregation over (d_day_name_85, d_week_seq_75, ss_store_sk_53)
                                                                     join (INNER, REPLICATED):
-                                                                        dynamic filter (await [Reference[type=bigint, name=ss_sold_date_sk_46], Reference[type=bigint, name=ss_store_sk_53]])
+                                                                        dynamic filter (await [ss_sold_date_sk_46::bigint, ss_store_sk_53::bigint])
                                                                             scan store_sales
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                                dynamic filter (await [Reference[type=integer, name=d_week_seq_75]])
+                                                                                dynamic filter (await [d_week_seq_75::integer])
                                                                                     scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])

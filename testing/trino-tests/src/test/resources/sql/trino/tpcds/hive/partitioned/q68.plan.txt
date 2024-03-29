@@ -4,12 +4,12 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 join (INNER, PARTITIONED):
                     remote exchange (REPARTITION, HASH, [ca_address_sk_17])
-                        dynamic filter ([Reference[type=bigint, name=ca_address_sk_17]])
+                        dynamic filter ([ca_address_sk_17::bigint])
                             scan customer_address
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [c_current_addr_sk])
                             join (INNER, REPLICATED):
-                                dynamic filter ([Reference[type=bigint, name=c_customer_sk]])
+                                dynamic filter ([c_customer_sk::bigint])
                                     scan customer
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -18,14 +18,14 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [ca_address_sk, ca_city, ss_customer_sk, ss_ticket_number])
                                                     partial aggregation over (ca_address_sk, ca_city, ss_customer_sk, ss_ticket_number)
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter ([Reference[type=bigint, name=ca_address_sk]])
+                                                            dynamic filter ([ca_address_sk::bigint])
                                                                 scan customer_address
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     join (INNER, REPLICATED):
                                                                         join (INNER, REPLICATED):
                                                                             join (INNER, REPLICATED):
-                                                                                dynamic filter (await [Reference[type=bigint, name=ss_hdemo_sk], Reference[type=bigint, name=ss_sold_date_sk], Reference[type=bigint, name=ss_store_sk]])
+                                                                                dynamic filter (await [ss_hdemo_sk::bigint, ss_sold_date_sk::bigint, ss_store_sk::bigint])
                                                                                     scan store_sales
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])

@@ -8,11 +8,11 @@ local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [orderkey_5])
                                 alternatives
                                     partial aggregation over (orderkey_5)
-                                        dynamic filter ([Reference[type=bigint, name=orderkey_5]])
+                                        dynamic filter ([orderkey_5::bigint])
                                             scan lineitem
                                     cache data
                                         partial aggregation over (orderkey_5)
-                                            dynamic filter ([Reference[type=bigint, name=orderkey_5]])
+                                            dynamic filter ([orderkey_5::bigint])
                                                 scan lineitem
                                     load from cache
                             local exchange (GATHER, SINGLE, [])
@@ -22,10 +22,10 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [orderkey])
                                                     alternatives
-                                                        dynamic filter ([Reference[type=bigint, name=custkey_0], Reference[type=bigint, name=orderkey]])
+                                                        dynamic filter ([custkey_0::bigint, orderkey::bigint])
                                                             scan orders
                                                         cache data
-                                                            dynamic filter ([Reference[type=bigint, name=custkey_0], Reference[type=bigint, name=orderkey]])
+                                                            dynamic filter ([custkey_0::bigint, orderkey::bigint])
                                                                 scan orders
                                                         load from cache
                                                 single aggregation over (orderkey_10)

@@ -12,14 +12,14 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [s_state])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (await [Reference[type=bigint, name=ss_sold_date_sk], Reference[type=bigint, name=ss_store_sk]])
+                                                        dynamic filter (await [ss_sold_date_sk::bigint, ss_store_sk::bigint])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (unestimatable [Reference[type=varchar, name=s_state]])
+                                                            dynamic filter (unestimatable [s_state::varchar])
                                                                 scan store
                                             single aggregation over (s_state_53)
                                                 final aggregation over (s_state_53)
@@ -28,7 +28,7 @@ local exchange (GATHER, SINGLE, [])
                                                             partial aggregation over (s_state_53)
                                                                 join (INNER, REPLICATED):
                                                                     join (INNER, REPLICATED):
-                                                                        dynamic filter (await [Reference[type=bigint, name=ss_sold_date_sk_26], Reference[type=bigint, name=ss_store_sk_10]])
+                                                                        dynamic filter (await [ss_sold_date_sk_26::bigint, ss_store_sk_10::bigint])
                                                                             scan store_sales
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])

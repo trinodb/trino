@@ -11,11 +11,11 @@ remote exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             alternatives
                                                 partial aggregation over (inv_date_sk, inv_item_sk, inv_warehouse_sk)
-                                                    dynamic filter ([Reference[type=bigint, name=inv_item_sk], Reference[type=bigint, name=inv_item_sk], Reference[type=bigint, name=inv_warehouse_sk]], await [Reference[type=bigint, name=inv_date_sk], Reference[type=bigint, name=inv_warehouse_sk]])
+                                                    dynamic filter ([inv_item_sk::bigint, inv_item_sk::bigint, inv_warehouse_sk::bigint], await [inv_date_sk::bigint, inv_warehouse_sk::bigint])
                                                         scan inventory
                                                 cache data
                                                     partial aggregation over (inv_date_sk, inv_item_sk, inv_warehouse_sk)
-                                                        dynamic filter ([Reference[type=bigint, name=inv_item_sk], Reference[type=bigint, name=inv_item_sk], Reference[type=bigint, name=inv_warehouse_sk]], await [Reference[type=bigint, name=inv_date_sk], Reference[type=bigint, name=inv_warehouse_sk]])
+                                                        dynamic filter ([inv_item_sk::bigint, inv_item_sk::bigint, inv_warehouse_sk::bigint], await [inv_date_sk::bigint, inv_warehouse_sk::bigint])
                                                             scan inventory
                                                 load from cache
                                             local exchange (GATHER, SINGLE, [])
@@ -28,19 +28,19 @@ remote exchange (GATHER, SINGLE, [])
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 alternatives
-                                                    dynamic filter ([Reference[type=bigint, name=i_item_sk]])
+                                                    dynamic filter ([i_item_sk::bigint])
                                                         scan item
                                                     cache data
-                                                        dynamic filter ([Reference[type=bigint, name=i_item_sk]])
+                                                        dynamic filter ([i_item_sk::bigint])
                                                             scan item
                                                     load from cache
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             alternatives
-                                                dynamic filter ([Reference[type=bigint, name=w_warehouse_sk]])
+                                                dynamic filter ([w_warehouse_sk::bigint])
                                                     scan warehouse
                                                 cache data
-                                                    dynamic filter ([Reference[type=bigint, name=w_warehouse_sk]])
+                                                    dynamic filter ([w_warehouse_sk::bigint])
                                                         scan warehouse
                                                 load from cache
                 local exchange (GATHER, SINGLE, [])
@@ -53,11 +53,11 @@ remote exchange (GATHER, SINGLE, [])
                                             join (INNER, REPLICATED):
                                                 alternatives
                                                     partial aggregation over (inv_date_sk_11, inv_item_sk_12, inv_warehouse_sk_13)
-                                                        dynamic filter ([Reference[type=bigint, name=inv_item_sk_12]], await [Reference[type=bigint, name=inv_date_sk_11], Reference[type=bigint, name=inv_warehouse_sk_13]])
+                                                        dynamic filter ([inv_item_sk_12::bigint], await [inv_date_sk_11::bigint, inv_warehouse_sk_13::bigint])
                                                             scan inventory
                                                     cache data
                                                         partial aggregation over (inv_date_sk_11, inv_item_sk_12, inv_warehouse_sk_13)
-                                                            dynamic filter ([Reference[type=bigint, name=inv_item_sk_12]], await [Reference[type=bigint, name=inv_date_sk_11], Reference[type=bigint, name=inv_warehouse_sk_13]])
+                                                            dynamic filter ([inv_item_sk_12::bigint], await [inv_date_sk_11::bigint, inv_warehouse_sk_13::bigint])
                                                                 scan inventory
                                                     load from cache
                                                 local exchange (GATHER, SINGLE, [])

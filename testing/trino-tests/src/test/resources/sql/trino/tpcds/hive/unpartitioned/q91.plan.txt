@@ -10,7 +10,7 @@ remote exchange (GATHER, SINGLE, [])
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, [cr_returning_customer_sk])
                                             join (INNER, REPLICATED):
-                                                dynamic filter ([Reference[type=bigint, name=cr_returning_customer_sk]], await [Reference[type=bigint, name=cr_call_center_sk], Reference[type=bigint, name=cr_returned_date_sk]])
+                                                dynamic filter ([cr_returning_customer_sk::bigint], await [cr_call_center_sk::bigint, cr_returned_date_sk::bigint])
                                                     scan catalog_returns
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -20,7 +20,7 @@ remote exchange (GATHER, SINGLE, [])
                                                 join (INNER, PARTITIONED):
                                                     remote exchange (REPARTITION, HASH, [c_current_addr_sk])
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter ([Reference[type=bigint, name=c_current_addr_sk], Reference[type=bigint, name=c_current_cdemo_sk]], await [Reference[type=bigint, name=c_current_hdemo_sk]])
+                                                            dynamic filter ([c_current_addr_sk::bigint, c_current_cdemo_sk::bigint], await [c_current_hdemo_sk::bigint])
                                                                 scan customer
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])

@@ -16,26 +16,26 @@ remote exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, [suppkey_5])
                                                                 join (INNER, PARTITIONED):
                                                                     remote exchange (REPARTITION, HASH, [partkey_4])
-                                                                        dynamic filter ([Reference[type=bigint, name=orderkey], Reference[type=bigint, name=partkey_4], Reference[type=bigint, name=suppkey_5]])
+                                                                        dynamic filter ([orderkey::bigint, partkey_4::bigint, suppkey_5::bigint])
                                                                             scan lineitem
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPARTITION, HASH, [partkey])
                                                                             scan part
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, [suppkey])
-                                                                    dynamic filter (await [Reference[type=bigint, name=nationkey]])
+                                                                    dynamic filter (await [nationkey::bigint])
                                                                         scan supplier
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, [orderkey_9])
-                                                            dynamic filter ([Reference[type=bigint, name=custkey]])
+                                                            dynamic filter ([custkey::bigint])
                                                                 scan orders
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [custkey_13])
-                                                    dynamic filter (await [Reference[type=bigint, name=nationkey_16]])
+                                                    dynamic filter (await [nationkey_16::bigint])
                                                         scan customer
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                dynamic filter (await [Reference[type=bigint, name=regionkey]])
+                                                dynamic filter (await [regionkey::bigint])
                                                     scan nation
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])

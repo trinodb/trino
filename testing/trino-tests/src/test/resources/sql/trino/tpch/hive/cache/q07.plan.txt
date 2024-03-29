@@ -9,20 +9,20 @@ remote exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, [orderkey])
                                     join (INNER, REPLICATED):
                                         alternatives
-                                            dynamic filter ([Reference[type=bigint, name=orderkey], Reference[type=bigint, name=suppkey_0]])
+                                            dynamic filter ([orderkey::bigint, suppkey_0::bigint])
                                                 scan lineitem
                                             cache data
-                                                dynamic filter ([Reference[type=bigint, name=orderkey], Reference[type=bigint, name=suppkey_0]])
+                                                dynamic filter ([orderkey::bigint, suppkey_0::bigint])
                                                     scan lineitem
                                             load from cache
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 join (INNER, REPLICATED):
                                                     alternatives
-                                                        dynamic filter (await [Reference[type=bigint, name=nationkey]])
+                                                        dynamic filter (await [nationkey::bigint])
                                                             scan supplier
                                                         cache data
-                                                            dynamic filter (await [Reference[type=bigint, name=nationkey]])
+                                                            dynamic filter (await [nationkey::bigint])
                                                                 scan supplier
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])
@@ -37,20 +37,20 @@ remote exchange (GATHER, SINGLE, [])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [custkey])
                                                 alternatives
-                                                    dynamic filter ([Reference[type=bigint, name=custkey]])
+                                                    dynamic filter ([custkey::bigint])
                                                         scan orders
                                                     cache data
-                                                        dynamic filter ([Reference[type=bigint, name=custkey]])
+                                                        dynamic filter ([custkey::bigint])
                                                             scan orders
                                                     load from cache
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [custkey_10])
                                                     join (INNER, REPLICATED):
                                                         alternatives
-                                                            dynamic filter (await [Reference[type=bigint, name=nationkey_13]])
+                                                            dynamic filter (await [nationkey_13::bigint])
                                                                 scan customer
                                                             cache data
-                                                                dynamic filter (await [Reference[type=bigint, name=nationkey_13]])
+                                                                dynamic filter (await [nationkey_13::bigint])
                                                                     scan customer
                                                             load from cache
                                                         local exchange (GATHER, SINGLE, [])

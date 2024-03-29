@@ -14,11 +14,11 @@ remote exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         alternatives
                                                             partial aggregation over (ss_addr_sk_12, ss_sold_date_sk_6)
-                                                                dynamic filter ([Reference[type=bigint, name=ss_addr_sk_12]], await [Reference[type=bigint, name=ss_sold_date_sk_6]])
+                                                                dynamic filter ([ss_addr_sk_12::bigint], await [ss_sold_date_sk_6::bigint])
                                                                     scan store_sales
                                                             cache data
                                                                 partial aggregation over (ss_addr_sk_12, ss_sold_date_sk_6)
-                                                                    dynamic filter ([Reference[type=bigint, name=ss_addr_sk_12]], await [Reference[type=bigint, name=ss_sold_date_sk_6]])
+                                                                    dynamic filter ([ss_addr_sk_12::bigint], await [ss_sold_date_sk_6::bigint])
                                                                         scan store_sales
                                                             load from cache
                                                         local exchange (GATHER, SINGLE, [])
@@ -31,10 +31,10 @@ remote exchange (GATHER, SINGLE, [])
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [ca_address_sk_63])
                                                     alternatives
-                                                        dynamic filter ([Reference[type=varchar(30), name=ca_county_70], Reference[type=varchar(30), name=ca_county_70], Reference[type=varchar(30), name=ca_county_70]])
+                                                        dynamic filter ([ca_county_70::varchar(30), ca_county_70::varchar(30), ca_county_70::varchar(30)])
                                                             scan customer_address
                                                         cache data
-                                                            dynamic filter ([Reference[type=varchar(30), name=ca_county_70], Reference[type=varchar(30), name=ca_county_70], Reference[type=varchar(30), name=ca_county_70]])
+                                                            dynamic filter ([ca_county_70::varchar(30), ca_county_70::varchar(30), ca_county_70::varchar(30)])
                                                                 scan customer_address
                                                         load from cache
                         final aggregation over (ca_county_144, d_qoy_116, d_year_112)
@@ -47,11 +47,11 @@ remote exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         alternatives
                                                             partial aggregation over (ss_addr_sk_86, ss_sold_date_sk_80)
-                                                                dynamic filter ([Reference[type=bigint, name=ss_addr_sk_86]], await [Reference[type=bigint, name=ss_sold_date_sk_80]])
+                                                                dynamic filter ([ss_addr_sk_86::bigint], await [ss_sold_date_sk_80::bigint])
                                                                     scan store_sales
                                                             cache data
                                                                 partial aggregation over (ss_addr_sk_86, ss_sold_date_sk_80)
-                                                                    dynamic filter ([Reference[type=bigint, name=ss_addr_sk_86]], await [Reference[type=bigint, name=ss_sold_date_sk_80]])
+                                                                    dynamic filter ([ss_addr_sk_86::bigint], await [ss_sold_date_sk_80::bigint])
                                                                         scan store_sales
                                                             load from cache
                                                         local exchange (GATHER, SINGLE, [])
@@ -64,10 +64,10 @@ remote exchange (GATHER, SINGLE, [])
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [ca_address_sk_137])
                                                     alternatives
-                                                        dynamic filter ([Reference[type=varchar(30), name=ca_county_144], Reference[type=varchar(30), name=ca_county_144]])
+                                                        dynamic filter ([ca_county_144::varchar(30), ca_county_144::varchar(30)])
                                                             scan customer_address
                                                         cache data
-                                                            dynamic filter ([Reference[type=varchar(30), name=ca_county_144], Reference[type=varchar(30), name=ca_county_144]])
+                                                            dynamic filter ([ca_county_144::varchar(30), ca_county_144::varchar(30)])
                                                                 scan customer_address
                                                         load from cache
                     join (INNER, PARTITIONED):
@@ -81,11 +81,11 @@ remote exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         alternatives
                                                             partial aggregation over (ws_bill_addr_sk_212, ws_sold_date_sk_205)
-                                                                dynamic filter ([Reference[type=bigint, name=ws_bill_addr_sk_212]], await [Reference[type=bigint, name=ws_sold_date_sk_205]])
+                                                                dynamic filter ([ws_bill_addr_sk_212::bigint], await [ws_sold_date_sk_205::bigint])
                                                                     scan web_sales
                                                             cache data
                                                                 partial aggregation over (ws_bill_addr_sk_212, ws_sold_date_sk_205)
-                                                                    dynamic filter ([Reference[type=bigint, name=ws_bill_addr_sk_212]], await [Reference[type=bigint, name=ws_sold_date_sk_205]])
+                                                                    dynamic filter ([ws_bill_addr_sk_212::bigint], await [ws_sold_date_sk_205::bigint])
                                                                         scan web_sales
                                                             load from cache
                                                         local exchange (GATHER, SINGLE, [])
@@ -98,10 +98,10 @@ remote exchange (GATHER, SINGLE, [])
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [ca_address_sk_273])
                                                     alternatives
-                                                        dynamic filter ([Reference[type=varchar(30), name=ca_county_280], Reference[type=varchar(30), name=ca_county_280]])
+                                                        dynamic filter ([ca_county_280::varchar(30), ca_county_280::varchar(30)])
                                                             scan customer_address
                                                         cache data
-                                                            dynamic filter ([Reference[type=varchar(30), name=ca_county_280], Reference[type=varchar(30), name=ca_county_280]])
+                                                            dynamic filter ([ca_county_280::varchar(30), ca_county_280::varchar(30)])
                                                                 scan customer_address
                                                         load from cache
                         final aggregation over (ca_county_365, d_qoy_337, d_year_333)
@@ -114,11 +114,11 @@ remote exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         alternatives
                                                             partial aggregation over (ws_bill_addr_sk_297, ws_sold_date_sk_290)
-                                                                dynamic filter ([Reference[type=bigint, name=ws_bill_addr_sk_297]], await [Reference[type=bigint, name=ws_sold_date_sk_290]])
+                                                                dynamic filter ([ws_bill_addr_sk_297::bigint], await [ws_sold_date_sk_290::bigint])
                                                                     scan web_sales
                                                             cache data
                                                                 partial aggregation over (ws_bill_addr_sk_297, ws_sold_date_sk_290)
-                                                                    dynamic filter ([Reference[type=bigint, name=ws_bill_addr_sk_297]], await [Reference[type=bigint, name=ws_sold_date_sk_290]])
+                                                                    dynamic filter ([ws_bill_addr_sk_297::bigint], await [ws_sold_date_sk_290::bigint])
                                                                         scan web_sales
                                                             load from cache
                                                         local exchange (GATHER, SINGLE, [])
@@ -131,10 +131,10 @@ remote exchange (GATHER, SINGLE, [])
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [ca_address_sk_358])
                                                     alternatives
-                                                        dynamic filter ([Reference[type=varchar(30), name=ca_county_365]])
+                                                        dynamic filter ([ca_county_365::varchar(30)])
                                                             scan customer_address
                                                         cache data
-                                                            dynamic filter ([Reference[type=varchar(30), name=ca_county_365]])
+                                                            dynamic filter ([ca_county_365::varchar(30)])
                                                                 scan customer_address
                                                         load from cache
                 join (INNER, PARTITIONED):
@@ -148,11 +148,11 @@ remote exchange (GATHER, SINGLE, [])
                                                 join (INNER, REPLICATED):
                                                     alternatives
                                                         partial aggregation over (ss_addr_sk, ss_sold_date_sk)
-                                                            dynamic filter ([Reference[type=bigint, name=ss_addr_sk]], await [Reference[type=bigint, name=ss_sold_date_sk]])
+                                                            dynamic filter ([ss_addr_sk::bigint], await [ss_sold_date_sk::bigint])
                                                                 scan store_sales
                                                         cache data
                                                             partial aggregation over (ss_addr_sk, ss_sold_date_sk)
-                                                                dynamic filter ([Reference[type=bigint, name=ss_addr_sk]], await [Reference[type=bigint, name=ss_sold_date_sk]])
+                                                                dynamic filter ([ss_addr_sk::bigint], await [ss_sold_date_sk::bigint])
                                                                     scan store_sales
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])
@@ -165,10 +165,10 @@ remote exchange (GATHER, SINGLE, [])
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ca_address_sk])
                                                 alternatives
-                                                    dynamic filter ([Reference[type=varchar(30), name=ca_county]])
+                                                    dynamic filter ([ca_county::varchar(30)])
                                                         scan customer_address
                                                     cache data
-                                                        dynamic filter ([Reference[type=varchar(30), name=ca_county]])
+                                                        dynamic filter ([ca_county::varchar(30)])
                                                             scan customer_address
                                                     load from cache
                     final aggregation over (ca_county_195, d_qoy_167, d_year_163)
@@ -181,11 +181,11 @@ remote exchange (GATHER, SINGLE, [])
                                                 join (INNER, REPLICATED):
                                                     alternatives
                                                         partial aggregation over (ws_bill_addr_sk, ws_sold_date_sk)
-                                                            dynamic filter ([Reference[type=bigint, name=ws_bill_addr_sk]], await [Reference[type=bigint, name=ws_sold_date_sk]])
+                                                            dynamic filter ([ws_bill_addr_sk::bigint], await [ws_sold_date_sk::bigint])
                                                                 scan web_sales
                                                         cache data
                                                             partial aggregation over (ws_bill_addr_sk, ws_sold_date_sk)
-                                                                dynamic filter ([Reference[type=bigint, name=ws_bill_addr_sk]], await [Reference[type=bigint, name=ws_sold_date_sk]])
+                                                                dynamic filter ([ws_bill_addr_sk::bigint], await [ws_sold_date_sk::bigint])
                                                                     scan web_sales
                                                         load from cache
                                                     local exchange (GATHER, SINGLE, [])

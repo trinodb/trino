@@ -10,19 +10,19 @@ local exchange (GATHER, SINGLE, [])
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, [ss_item_sk, ss_ticket_number])
                                             alternatives
-                                                dynamic filter ([Reference[type=bigint, name=ss_item_sk], Reference[type=bigint, name=ss_ticket_number]])
+                                                dynamic filter ([ss_item_sk::bigint, ss_ticket_number::bigint])
                                                     scan store_sales
                                                 cache data
-                                                    dynamic filter ([Reference[type=bigint, name=ss_item_sk], Reference[type=bigint, name=ss_ticket_number]])
+                                                    dynamic filter ([ss_item_sk::bigint, ss_ticket_number::bigint])
                                                         scan store_sales
                                                 load from cache
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [sr_item_sk, sr_ticket_number])
                                                 alternatives
-                                                    dynamic filter (await [Reference[type=bigint, name=sr_reason_sk]])
+                                                    dynamic filter (await [sr_reason_sk::bigint])
                                                         scan store_returns
                                                     cache data
-                                                        dynamic filter (await [Reference[type=bigint, name=sr_reason_sk]])
+                                                        dynamic filter (await [sr_reason_sk::bigint])
                                                             scan store_returns
                                                     load from cache
                                     local exchange (GATHER, SINGLE, [])

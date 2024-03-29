@@ -7,7 +7,7 @@ local exchange (GATHER, SINGLE, [])
                         join (INNER, PARTITIONED):
                             remote exchange (REPARTITION, HASH, [orderkey_5])
                                 partial aggregation over (orderkey_5)
-                                    dynamic filter ([Reference[type=bigint, name=orderkey_5]])
+                                    dynamic filter ([orderkey_5::bigint])
                                         scan lineitem
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, [orderkey])
@@ -15,7 +15,7 @@ local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [custkey_0])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [orderkey])
-                                                    dynamic filter ([Reference[type=bigint, name=custkey_0], Reference[type=bigint, name=orderkey]])
+                                                    dynamic filter ([custkey_0::bigint, orderkey::bigint])
                                                         scan orders
                                                 single aggregation over (orderkey_10)
                                                     final aggregation over (orderkey_10)

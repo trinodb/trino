@@ -5,10 +5,10 @@ final aggregation over ()
                 join (INNER, PARTITIONED):
                     remote exchange (REPARTITION, HASH, [partkey_0])
                         alternatives
-                            dynamic filter ([Reference[type=bigint, name=partkey_0]])
+                            dynamic filter ([partkey_0::bigint])
                                 scan part
                             cache data
-                                dynamic filter ([Reference[type=bigint, name=partkey_0]])
+                                dynamic filter ([partkey_0::bigint])
                                     scan part
                             load from cache
                     local exchange (GATHER, SINGLE, [])

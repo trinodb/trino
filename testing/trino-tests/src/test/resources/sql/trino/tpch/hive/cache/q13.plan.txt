@@ -11,10 +11,10 @@ remote exchange (GATHER, SINGLE, [])
                                         join (RIGHT, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [custkey_0])
                                                 alternatives
-                                                    dynamic filter ([Reference[type=bigint, name=custkey_0]])
+                                                    dynamic filter ([custkey_0::bigint])
                                                         scan orders
                                                     cache data
-                                                        dynamic filter ([Reference[type=bigint, name=custkey_0]])
+                                                        dynamic filter ([custkey_0::bigint])
                                                             scan orders
                                                     load from cache
                                             local exchange (GATHER, SINGLE, [])

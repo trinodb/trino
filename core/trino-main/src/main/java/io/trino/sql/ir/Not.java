@@ -48,4 +48,10 @@ public record Not(Expression value)
     {
         return ImmutableList.of(value);
     }
+
+    @Override
+    public String toString()
+    {
+        return "$not(%s)".formatted(value);
+    }
 }

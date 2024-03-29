@@ -15,11 +15,11 @@ local exchange (GATHER, SINGLE, [])
                                                         join (INNER, REPLICATED):
                                                             alternatives
                                                                 partial aggregation over (ss_item_sk, ss_sold_date_sk, ss_store_sk)
-                                                                    dynamic filter ([Reference[type=bigint, name=ss_item_sk]], await [Reference[type=bigint, name=ss_sold_date_sk], Reference[type=bigint, name=ss_store_sk]])
+                                                                    dynamic filter ([ss_item_sk::bigint], await [ss_sold_date_sk::bigint, ss_store_sk::bigint])
                                                                         scan store_sales
                                                                 cache data
                                                                     partial aggregation over (ss_item_sk, ss_sold_date_sk, ss_store_sk)
-                                                                        dynamic filter ([Reference[type=bigint, name=ss_item_sk]], await [Reference[type=bigint, name=ss_sold_date_sk], Reference[type=bigint, name=ss_store_sk]])
+                                                                        dynamic filter ([ss_item_sk::bigint], await [ss_sold_date_sk::bigint, ss_store_sk::bigint])
                                                                             scan store_sales
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])
@@ -32,19 +32,19 @@ local exchange (GATHER, SINGLE, [])
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 alternatives
-                                                                    dynamic filter ([Reference[type=varchar(50), name=s_company_name], Reference[type=varchar(50), name=s_company_name], Reference[type=varchar(50), name=s_store_name], Reference[type=varchar(50), name=s_store_name]])
+                                                                    dynamic filter ([s_company_name::varchar(50), s_company_name::varchar(50), s_store_name::varchar(50), s_store_name::varchar(50)])
                                                                         scan store
                                                                     cache data
-                                                                        dynamic filter ([Reference[type=varchar(50), name=s_company_name], Reference[type=varchar(50), name=s_company_name], Reference[type=varchar(50), name=s_store_name], Reference[type=varchar(50), name=s_store_name]])
+                                                                        dynamic filter ([s_company_name::varchar(50), s_company_name::varchar(50), s_store_name::varchar(50), s_store_name::varchar(50)])
                                                                             scan store
                                                                     load from cache
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             alternatives
-                                                                dynamic filter ([Reference[type=char(50), name=i_brand], Reference[type=char(50), name=i_brand], Reference[type=char(50), name=i_category], Reference[type=char(50), name=i_category]])
+                                                                dynamic filter ([i_brand::char(50), i_brand::char(50), i_category::char(50), i_category::char(50)])
                                                                     scan item
                                                                 cache data
-                                                                    dynamic filter ([Reference[type=char(50), name=i_brand], Reference[type=char(50), name=i_brand], Reference[type=char(50), name=i_category], Reference[type=char(50), name=i_category]])
+                                                                    dynamic filter ([i_brand::char(50), i_brand::char(50), i_category::char(50), i_category::char(50)])
                                                                         scan item
                                                                 load from cache
                         local exchange (GATHER, SINGLE, [])
@@ -58,11 +58,11 @@ local exchange (GATHER, SINGLE, [])
                                                         join (INNER, REPLICATED):
                                                             alternatives
                                                                 partial aggregation over (ss_item_sk_36, ss_sold_date_sk_34, ss_store_sk_41)
-                                                                    dynamic filter ([Reference[type=bigint, name=ss_item_sk_36]], await [Reference[type=bigint, name=ss_sold_date_sk_34], Reference[type=bigint, name=ss_store_sk_41]])
+                                                                    dynamic filter ([ss_item_sk_36::bigint], await [ss_sold_date_sk_34::bigint, ss_store_sk_41::bigint])
                                                                         scan store_sales
                                                                 cache data
                                                                     partial aggregation over (ss_item_sk_36, ss_sold_date_sk_34, ss_store_sk_41)
-                                                                        dynamic filter ([Reference[type=bigint, name=ss_item_sk_36]], await [Reference[type=bigint, name=ss_sold_date_sk_34], Reference[type=bigint, name=ss_store_sk_41]])
+                                                                        dynamic filter ([ss_item_sk_36::bigint], await [ss_sold_date_sk_34::bigint, ss_store_sk_41::bigint])
                                                                             scan store_sales
                                                                 load from cache
                                                             local exchange (GATHER, SINGLE, [])
@@ -75,19 +75,19 @@ local exchange (GATHER, SINGLE, [])
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 alternatives
-                                                                    dynamic filter ([Reference[type=varchar(50), name=s_company_name_108], Reference[type=varchar(50), name=s_store_name_96]])
+                                                                    dynamic filter ([s_company_name_108::varchar(50), s_store_name_96::varchar(50)])
                                                                         scan store
                                                                     cache data
-                                                                        dynamic filter ([Reference[type=varchar(50), name=s_company_name_108], Reference[type=varchar(50), name=s_store_name_96]])
+                                                                        dynamic filter ([s_company_name_108::varchar(50), s_store_name_96::varchar(50)])
                                                                             scan store
                                                                     load from cache
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             alternatives
-                                                                dynamic filter ([Reference[type=char(50), name=i_brand_17], Reference[type=char(50), name=i_category_21]])
+                                                                dynamic filter ([i_brand_17::char(50), i_category_21::char(50)])
                                                                     scan item
                                                                 cache data
-                                                                    dynamic filter ([Reference[type=char(50), name=i_brand_17], Reference[type=char(50), name=i_category_21]])
+                                                                    dynamic filter ([i_brand_17::char(50), i_category_21::char(50)])
                                                                         scan item
                                                                 load from cache
                     local exchange (GATHER, SINGLE, [])
@@ -101,11 +101,11 @@ local exchange (GATHER, SINGLE, [])
                                                     join (INNER, REPLICATED):
                                                         alternatives
                                                             partial aggregation over (ss_item_sk_153, ss_sold_date_sk_151, ss_store_sk_158)
-                                                                dynamic filter ([Reference[type=bigint, name=ss_item_sk_153]], await [Reference[type=bigint, name=ss_sold_date_sk_151], Reference[type=bigint, name=ss_store_sk_158]])
+                                                                dynamic filter ([ss_item_sk_153::bigint], await [ss_sold_date_sk_151::bigint, ss_store_sk_158::bigint])
                                                                     scan store_sales
                                                             cache data
                                                                 partial aggregation over (ss_item_sk_153, ss_sold_date_sk_151, ss_store_sk_158)
-                                                                    dynamic filter ([Reference[type=bigint, name=ss_item_sk_153]], await [Reference[type=bigint, name=ss_sold_date_sk_151], Reference[type=bigint, name=ss_store_sk_158]])
+                                                                    dynamic filter ([ss_item_sk_153::bigint], await [ss_sold_date_sk_151::bigint, ss_store_sk_158::bigint])
                                                                         scan store_sales
                                                             load from cache
                                                         local exchange (GATHER, SINGLE, [])

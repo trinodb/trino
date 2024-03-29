@@ -7,7 +7,7 @@ final aggregation over ()
                         remote exchange (REPARTITION, HASH, [ws_item_sk])
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    dynamic filter ([Reference[type=bigint, name=ws_item_sk]], await [Reference[type=bigint, name=ws_sold_date_sk]])
+                                    dynamic filter ([ws_item_sk::bigint], await [ws_sold_date_sk::bigint])
                                         scan web_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -20,7 +20,7 @@ final aggregation over ()
                                 remote exchange (REPARTITION, HASH, [ws_item_sk_7])
                                     partial aggregation over (ws_item_sk_7)
                                         join (INNER, REPLICATED):
-                                            dynamic filter (await [Reference[type=bigint, name=ws_sold_date_sk_4]])
+                                            dynamic filter (await [ws_sold_date_sk_4::bigint])
                                                 scan web_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])

@@ -6,7 +6,7 @@ final aggregation over ()
                     join (LEFT, PARTITIONED):
                         join (INNER, PARTITIONED):
                             remote exchange (REPARTITION, HASH, [partkey])
-                                dynamic filter ([Reference[type=bigint, name=partkey]])
+                                dynamic filter ([partkey::bigint])
                                     scan lineitem
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, [partkey_0])

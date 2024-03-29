@@ -13,7 +13,7 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [sr_customer_sk, sr_store_sk])
                                                     partial aggregation over (sr_customer_sk, sr_store_sk)
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter ([Reference[type=bigint, name=sr_customer_sk]], await [Reference[type=bigint, name=sr_returned_date_sk], Reference[type=bigint, name=sr_store_sk]])
+                                                            dynamic filter ([sr_customer_sk::bigint], await [sr_returned_date_sk::bigint, sr_store_sk::bigint])
                                                                 scan store_returns
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -33,7 +33,7 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [sr_customer_sk_8, sr_store_sk_12])
                                                     partial aggregation over (sr_customer_sk_8, sr_store_sk_12)
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (await [Reference[type=bigint, name=sr_returned_date_sk_25]])
+                                                            dynamic filter (await [sr_returned_date_sk_25::bigint])
                                                                 scan store_returns
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])

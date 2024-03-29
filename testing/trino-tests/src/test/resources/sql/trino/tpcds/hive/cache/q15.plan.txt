@@ -10,10 +10,10 @@ local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [cs_bill_customer_sk])
                                         join (INNER, REPLICATED):
                                             alternatives
-                                                dynamic filter ([Reference[type=bigint, name=cs_bill_customer_sk]], await [Reference[type=bigint, name=cs_sold_date_sk]])
+                                                dynamic filter ([cs_bill_customer_sk::bigint], await [cs_sold_date_sk::bigint])
                                                     scan catalog_sales
                                                 cache data
-                                                    dynamic filter ([Reference[type=bigint, name=cs_bill_customer_sk]], await [Reference[type=bigint, name=cs_sold_date_sk]])
+                                                    dynamic filter ([cs_bill_customer_sk::bigint], await [cs_sold_date_sk::bigint])
                                                         scan catalog_sales
                                                 load from cache
                                             local exchange (GATHER, SINGLE, [])
@@ -28,10 +28,10 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [c_current_addr_sk])
                                                     alternatives
-                                                        dynamic filter ([Reference[type=bigint, name=c_current_addr_sk]])
+                                                        dynamic filter ([c_current_addr_sk::bigint])
                                                             scan customer
                                                         cache data
-                                                            dynamic filter ([Reference[type=bigint, name=c_current_addr_sk]])
+                                                            dynamic filter ([c_current_addr_sk::bigint])
                                                                 scan customer
                                                         load from cache
                                                 local exchange (GATHER, SINGLE, [])

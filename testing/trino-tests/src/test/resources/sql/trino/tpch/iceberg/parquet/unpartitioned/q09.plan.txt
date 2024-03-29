@@ -13,15 +13,15 @@ remote exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [suppkey_5])
                                                     join (INNER, PARTITIONED):
                                                         remote exchange (REPARTITION, HASH, [partkey_4])
-                                                            dynamic filter ([Reference[type=bigint, name=orderkey], Reference[type=bigint, name=partkey_4], Reference[type=bigint, name=partkey_4], Reference[type=bigint, name=suppkey_5], Reference[type=bigint, name=suppkey_5]])
+                                                            dynamic filter ([orderkey::bigint, partkey_4::bigint, partkey_4::bigint, suppkey_5::bigint, suppkey_5::bigint])
                                                                 scan lineitem
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, [partkey])
-                                                                dynamic filter ([Reference[type=bigint, name=partkey]])
+                                                                dynamic filter ([partkey::bigint])
                                                                     scan part
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [suppkey])
-                                                        dynamic filter ([Reference[type=bigint, name=suppkey]], await [Reference[type=bigint, name=nationkey]])
+                                                        dynamic filter ([suppkey::bigint], await [nationkey::bigint])
                                                             scan supplier
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [suppkey_10])
