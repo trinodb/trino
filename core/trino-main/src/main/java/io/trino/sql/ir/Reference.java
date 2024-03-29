@@ -47,4 +47,10 @@ public record Reference(Type type, String name)
     {
         return ImmutableList.of();
     }
+
+    @Override
+    public String toString()
+    {
+        return name + "::" + type;
+    }
 }

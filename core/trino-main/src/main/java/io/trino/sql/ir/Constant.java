@@ -70,8 +70,8 @@ public record Constant(Type type, @JsonIgnore Object value)
     @Override
     public String toString()
     {
-        return "Constant[%s, %s]".formatted(
-                type,
-                value == null ? "<null>" : type.getObjectValue(null, getValueAsBlock(), 0));
+        return "[%s]::%s".formatted(
+                value == null ? "<null>" : type.getObjectValue(null, getValueAsBlock(), 0),
+                type);
     }
 }
