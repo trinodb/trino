@@ -60,6 +60,7 @@ import jakarta.annotation.Nullable;
 import java.lang.invoke.MethodHandle;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -116,6 +117,7 @@ public final class DomainTranslator
 
         Map<Symbol, Domain> domains = tupleDomain.getDomains().get();
         return domains.entrySet().stream()
+                .sorted(Comparator.comparing(e -> e.getKey().getName()))
                 .map(entry -> toPredicate(entry.getValue(), entry.getKey().toSymbolReference()))
                 .collect(collectingAndThen(toImmutableList(), IrUtils::combineConjuncts));
     }
@@ -132,17 +134,17 @@ public final class DomainTranslator
 
         List<Expression> disjuncts = new ArrayList<>();
 
+        // Add nullability disjuncts
+        if (domain.isNullAllowed()) {
+            disjuncts.add(new IsNull(reference));
+        }
+
         disjuncts.addAll(domain.getValues().getValuesProcessor().transform(
                 ranges -> extractDisjuncts(domain.getType(), ranges, reference),
                 discreteValues -> extractDisjuncts(domain.getType(), discreteValues, reference),
                 allOrNone -> {
                     throw new IllegalStateException("Case should not be reachable");
                 }));
-
-        // Add nullability disjuncts
-        if (domain.isNullAllowed()) {
-            disjuncts.add(new IsNull(reference));
-        }
 
         return combineDisjunctsWithDefault(disjuncts, TRUE);
     }
