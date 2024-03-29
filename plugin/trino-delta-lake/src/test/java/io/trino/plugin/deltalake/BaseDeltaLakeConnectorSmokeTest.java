@@ -2399,18 +2399,18 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
             assertThat(successfulInsertsCount).isGreaterThanOrEqualTo(1);
             assertQuery(
+                    "SELECT version, operation, isolation_level, read_version, is_blind_append FROM \"" + tableName + "$history\"",
+                    "VALUES (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0, true)" +
+                            LongStream.rangeClosed(1, successfulInsertsCount)
+                                    .boxed()
+                                    .map(version -> "(%s, 'WRITE', 'WriteSerializable', %s, false)".formatted(version, version - 1))
+                                    .collect(joining(", ", ", ", "")));
+            assertQuery(
                     "SELECT * FROM " + tableName,
                     "VALUES (0, 10)" +
                             LongStream.rangeClosed(1, successfulInsertsCount)
                                     .boxed()
                                     .map("(%d, 10)"::formatted)
-                                    .collect(joining(", ", ", ", "")));
-            assertQuery(
-                    "SELECT version, operation, isolation_level, read_version FROM \"" + tableName + "$history\"",
-                    "VALUES (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0)" +
-                            LongStream.rangeClosed(1, successfulInsertsCount)
-                                    .boxed()
-                                    .map(version -> "(%s, 'WRITE', 'WriteSerializable', %s)".formatted(version, version - 1))
                                     .collect(joining(", ", ", ", "")));
         }
         finally {
