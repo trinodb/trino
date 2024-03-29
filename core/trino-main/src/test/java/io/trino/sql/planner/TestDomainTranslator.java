@@ -305,13 +305,13 @@ public class TestDomainTranslator
         assertThat(toPredicate(tupleDomain)).isEqualTo(in(C_BIGINT, ImmutableList.of(1L, 2L)));
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1L)), true));
-        assertThat(toPredicate(tupleDomain)).isEqualTo(or(lessThan(C_BIGINT, bigintLiteral(1L)), isNull(C_BIGINT)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(isNull(C_BIGINT), lessThan(C_BIGINT, bigintLiteral(1L))));
 
         tupleDomain = tupleDomain(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1), true));
-        assertThat(toPredicate(tupleDomain)).isEqualTo(or(equal(C_COLOR, colorLiteral(COLOR_VALUE_1)), isNull(C_COLOR)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(isNull(C_COLOR), equal(C_COLOR, colorLiteral(COLOR_VALUE_1))));
 
         tupleDomain = tupleDomain(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1).complement(), true));
-        assertThat(toPredicate(tupleDomain)).isEqualTo(or(not(equal(C_COLOR, colorLiteral(COLOR_VALUE_1))), isNull(C_COLOR)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(isNull(C_COLOR), not(equal(C_COLOR, colorLiteral(COLOR_VALUE_1)))));
 
         tupleDomain = tupleDomain(C_HYPER_LOG_LOG, Domain.onlyNull(HYPER_LOG_LOG));
         assertThat(toPredicate(tupleDomain)).isEqualTo(isNull(C_HYPER_LOG_LOG));
@@ -1300,8 +1300,8 @@ public class TestDomainTranslator
                         C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 0L)), false)));
 
         assertThat(toPredicate(fromPredicate(expression).getTupleDomain())).isEqualTo(and(
-                comparison(GREATER_THAN, C_DOUBLE.toSymbolReference(), doubleLiteral(0)),
-                comparison(GREATER_THAN, C_BIGINT.toSymbolReference(), bigintLiteral(0))));
+                comparison(GREATER_THAN, C_BIGINT.toSymbolReference(), bigintLiteral(0)),
+                comparison(GREATER_THAN, C_DOUBLE.toSymbolReference(), doubleLiteral(0))));
     }
 
     @Test
