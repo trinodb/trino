@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.sql.ir.IrUtils.validateType;
 
 @JsonSerialize
@@ -60,7 +61,7 @@ public record Call(ResolvedFunction function, List<Expression> arguments)
     public String toString()
     {
         return "%s(%s)".formatted(
-                function.getName(),
+                isBuiltinFunctionName(function.getName()) ? function.getName().getFunctionName() : function.getName(),
                 arguments.stream()
                         .map(Expression::toString)
                         .collect(Collectors.joining(", ")));

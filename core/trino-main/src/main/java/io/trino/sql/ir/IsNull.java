@@ -48,4 +48,10 @@ public record IsNull(Expression value)
     {
         return ImmutableList.of(value);
     }
+
+    @Override
+    public String toString()
+    {
+        return "$is_null(%s)".formatted(value);
+    }
 }
