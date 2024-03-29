@@ -546,8 +546,8 @@ public class TestEffectivePredicateExtractor
                                 new Row(ImmutableList.of(bigintLiteral(2))),
                                 new Row(ImmutableList.of(new Constant(BIGINT, null)))))))
                 .isEqualTo(or(
-                        new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(2))),
-                        new IsNull(new Reference(BIGINT, "a"))));
+                        new IsNull(new Reference(BIGINT, "a")),
+                        new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(2)))));
 
         // all nulls
         assertThat(effectivePredicateExtractor.extract(
@@ -644,8 +644,8 @@ public class TestEffectivePredicateExtractor
                                 new Row(ImmutableList.of(bigintLiteral(1), new Constant(BIGINT, null))),
                                 new Row(ImmutableList.of(new Constant(BIGINT, null), bigintLiteral(200)))))
         )).isEqualTo(and(
-                or(new Comparison(EQUAL, new Reference(BIGINT, "a"), bigintLiteral(1)), new IsNull(new Reference(BIGINT, "a"))),
-                or(new Comparison(EQUAL, new Reference(BIGINT, "b"), bigintLiteral(200)), new IsNull(new Reference(BIGINT, "b")))));
+                or(new IsNull(new Reference(BIGINT, "a")), new Comparison(EQUAL, new Reference(BIGINT, "a"), bigintLiteral(1))),
+                or(new IsNull(new Reference(BIGINT, "b")), new Comparison(EQUAL, new Reference(BIGINT, "b"), bigintLiteral(200)))));
 
         // non-deterministic
         ResolvedFunction rand = functionResolution.resolveFunction("rand", ImmutableList.of());
