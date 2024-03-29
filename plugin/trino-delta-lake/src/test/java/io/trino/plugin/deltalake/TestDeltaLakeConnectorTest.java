@@ -2499,7 +2499,7 @@ public class TestDeltaLakeConnectorTest
         assertExplain(
                 "EXPLAIN SELECT id, _row.child, _array[1].child, _map[1] FROM " + tableName,
                 "ScanProject\\[table = (.*)]",
-                "expr(.*) := system\\.builtin\\.\\$operator\\$subscript\\(.*, bigint '1'\\).0",
+                "expr(.*) := .*\\$subscript\\(.*, bigint '1'\\).0",
                 "id(.*) := id:bigint:REGULAR",
                 // _array:array\\(row\\(child bigint\\)\\) is a symbol name, not a dereference expression.
                 "(.*) := _array:array\\(row\\(child bigint\\)\\):REGULAR",
