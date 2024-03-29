@@ -38,7 +38,10 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "delta.experimental.ignore-checkpoint-write-failures",
-        "delta.legacy-create-table-with-existing-location.enabled"})
+        "delta.legacy-create-table-with-existing-location.enabled",
+        "delta.max-initial-splits",
+        "delta.max-initial-split-size"
+})
 public class DeltaLakeConfig
 {
     public static final String EXTENDED_STATISTICS_ENABLED = "delta.extended-statistics.enabled";
@@ -56,8 +59,6 @@ public class DeltaLakeConfig
     private int domainCompactionThreshold = 1000;
     private int maxOutstandingSplits = 1_000;
     private int maxSplitsPerSecond = Integer.MAX_VALUE;
-    private int maxInitialSplits = 200;
-    private DataSize maxInitialSplitSize;
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
     private double minimumAssignedSplitWeight = 0.05;
     private int maxPartitionsPerWriter = 100;
@@ -173,34 +174,6 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setMaxSplitsPerSecond(int maxSplitsPerSecond)
     {
         this.maxSplitsPerSecond = maxSplitsPerSecond;
-        return this;
-    }
-
-    public int getMaxInitialSplits()
-    {
-        return maxInitialSplits;
-    }
-
-    @Config("delta.max-initial-splits")
-    public DeltaLakeConfig setMaxInitialSplits(int maxInitialSplits)
-    {
-        this.maxInitialSplits = maxInitialSplits;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getMaxInitialSplitSize()
-    {
-        if (maxInitialSplitSize == null) {
-            return DataSize.ofBytes(maxSplitSize.toBytes() / 2).to(maxSplitSize.getUnit());
-        }
-        return maxInitialSplitSize;
-    }
-
-    @Config("delta.max-initial-split-size")
-    public DeltaLakeConfig setMaxInitialSplitSize(DataSize maxInitialSplitSize)
-    {
-        this.maxInitialSplitSize = maxInitialSplitSize;
         return this;
     }
 
