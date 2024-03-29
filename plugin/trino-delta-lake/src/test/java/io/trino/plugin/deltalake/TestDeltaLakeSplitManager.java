@@ -104,37 +104,12 @@ public class TestDeltaLakeSplitManager
     private final HiveTransactionHandle transactionHandle = new HiveTransactionHandle(true);
 
     @Test
-    public void testInitialSplits()
-            throws ExecutionException, InterruptedException
-    {
-        long fileSize = 20_000;
-        List<AddFileEntry> addFileEntries = ImmutableList.of(addFileEntryOfSize(fileSize));
-        DeltaLakeConfig deltaLakeConfig = new DeltaLakeConfig()
-                .setMaxInitialSplits(1000)
-                .setMaxInitialSplitSize(DataSize.ofBytes(5_000));
-        double minimumAssignedSplitWeight = deltaLakeConfig.getMinimumAssignedSplitWeight();
-
-        DeltaLakeSplitManager splitManager = setupSplitManager(addFileEntries, deltaLakeConfig);
-        List<DeltaLakeSplit> splits = getSplits(splitManager, deltaLakeConfig);
-
-        List<DeltaLakeSplit> expected = ImmutableList.of(
-                makeSplit(0, 5_000, fileSize, minimumAssignedSplitWeight),
-                makeSplit(5_000, 5_000, fileSize, minimumAssignedSplitWeight),
-                makeSplit(10_000, 5_000, fileSize, minimumAssignedSplitWeight),
-                makeSplit(15_000, 5_000, fileSize, minimumAssignedSplitWeight));
-
-        assertThat(splits).isEqualTo(expected);
-    }
-
-    @Test
-    public void testNonInitialSplits()
+    public void testSplitSizes()
             throws ExecutionException, InterruptedException
     {
         long fileSize = 50_000;
         List<AddFileEntry> addFileEntries = ImmutableList.of(addFileEntryOfSize(fileSize));
         DeltaLakeConfig deltaLakeConfig = new DeltaLakeConfig()
-                .setMaxInitialSplits(5)
-                .setMaxInitialSplitSize(DataSize.ofBytes(5_000))
                 .setMaxSplitSize(DataSize.ofBytes(20_000));
         double minimumAssignedSplitWeight = deltaLakeConfig.getMinimumAssignedSplitWeight();
 
@@ -142,13 +117,9 @@ public class TestDeltaLakeSplitManager
         List<DeltaLakeSplit> splits = getSplits(splitManager, deltaLakeConfig);
 
         List<DeltaLakeSplit> expected = ImmutableList.of(
-                makeSplit(0, 5_000, fileSize, minimumAssignedSplitWeight),
-                makeSplit(5_000, 5_000, fileSize, minimumAssignedSplitWeight),
-                makeSplit(10_000, 5_000, fileSize, minimumAssignedSplitWeight),
-                makeSplit(15_000, 5_000, fileSize, minimumAssignedSplitWeight),
-                makeSplit(20_000, 5_000, fileSize, minimumAssignedSplitWeight),
-                makeSplit(25_000, 20_000, fileSize, minimumAssignedSplitWeight),
-                makeSplit(45_000, 5_000, fileSize, minimumAssignedSplitWeight));
+                makeSplit(0, 20_000, fileSize, minimumAssignedSplitWeight),
+                makeSplit(20_000, 20_000, fileSize, minimumAssignedSplitWeight),
+                makeSplit(40_000, 10_000, fileSize, minimumAssignedSplitWeight));
 
         assertThat(splits).isEqualTo(expected);
     }
@@ -161,8 +132,6 @@ public class TestDeltaLakeSplitManager
         long secondFileSize = 20_000;
         List<AddFileEntry> addFileEntries = ImmutableList.of(addFileEntryOfSize(firstFileSize), addFileEntryOfSize(secondFileSize));
         DeltaLakeConfig deltaLakeConfig = new DeltaLakeConfig()
-                .setMaxInitialSplits(3)
-                .setMaxInitialSplitSize(DataSize.ofBytes(2_000))
                 .setMaxSplitSize(DataSize.ofBytes(10_000));
         double minimumAssignedSplitWeight = deltaLakeConfig.getMinimumAssignedSplitWeight();
 
@@ -171,10 +140,8 @@ public class TestDeltaLakeSplitManager
         List<DeltaLakeSplit> splits = getSplits(splitManager, deltaLakeConfig);
         List<DeltaLakeSplit> expected = ImmutableList.of(
                 makeSplit(0, 1_000, firstFileSize, minimumAssignedSplitWeight),
-                makeSplit(0, 2_000, secondFileSize, minimumAssignedSplitWeight),
-                makeSplit(2_000, 2_000, secondFileSize, minimumAssignedSplitWeight),
-                makeSplit(4_000, 10_000, secondFileSize, minimumAssignedSplitWeight),
-                makeSplit(14_000, 6_000, secondFileSize, minimumAssignedSplitWeight));
+                makeSplit(0, 10_000, secondFileSize, minimumAssignedSplitWeight),
+                makeSplit(10_000, 10_000, secondFileSize, minimumAssignedSplitWeight));
         assertThat(splits).isEqualTo(expected);
     }
 

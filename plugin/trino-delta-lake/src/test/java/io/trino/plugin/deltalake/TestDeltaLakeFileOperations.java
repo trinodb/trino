@@ -375,7 +375,6 @@ public class TestDeltaLakeFileOperations
 
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty(catalog, DeltaLakeSessionProperties.MAX_SPLIT_SIZE, "1kB")
-                .setCatalogSessionProperty(catalog, DeltaLakeSessionProperties.MAX_INITIAL_SPLIT_SIZE, "1kB")
                 .build();
 
         // Read partition column only

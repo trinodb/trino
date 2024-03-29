@@ -1084,17 +1084,6 @@ keep a backup of the original values if you change them.
     results in Trino maximizing the parallelization of data access by default.
     Attempting to set it higher results in Trino not being able to start.
   - `Integer.MAX_VALUE`
-* - `delta.max-initial-splits`
-  - For each query, the coordinator assigns file sections to read first at the
-    `initial-split-size` until the `max-initial-splits` is reached. Then it
-    starts issuing reads of the `max-split-size` size.
-  - `200`
-* - `delta.max-initial-split-size`
-  - Sets the initial [](prop-type-data-size) for a single read section
-    assigned to a worker until `max-initial-splits` have been processed. You can
-    also use the corresponding catalog session property
-    `<catalog-name>.max_initial_split_size`.
-  - `32MB`
 * - `delta.max-split-size`
   - Sets the largest [](prop-type-data-size) for a single read section
     assigned to a worker after `max-initial-splits` have been processed. You can
