@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.graph.Traverser;
 import io.trino.Session;
 import io.trino.cache.CanonicalSubplan.AggregationKey;
 import io.trino.cache.CanonicalSubplan.CanonicalSubplanBuilder;
@@ -32,6 +33,7 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionFormatter;
+import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.OrderingScheme;
@@ -56,15 +58,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.stream;
 import static io.trino.cache.CanonicalSubplan.TopNRankingKey;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ir.ExpressionFormatter.formatExpression;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -335,6 +340,13 @@ public final class CanonicalSubplanExtractor
         public Optional<CanonicalSubplan> visitProject(ProjectNode node, Void context)
         {
             PlanNode source = node.getSource();
+
+            if (extractExpressions(node).stream().anyMatch(this::containsLambdaExpression)) {
+                // lambda expressions are not supported
+                canonicalizeRecursively(source);
+                return Optional.empty();
+            }
+
             if (!node.getAssignments().getExpressions().stream().allMatch(DeterminismEvaluator::isDeterministic)) {
                 canonicalizeRecursively(source);
                 return Optional.empty();
@@ -397,6 +409,12 @@ public final class CanonicalSubplanExtractor
                     // all symbols (and thus conjuncts) are pullable through projection
                     .pullableConjuncts(subplan.getPullableConjuncts())
                     .build());
+        }
+
+        private boolean containsLambdaExpression(Expression expression)
+        {
+            return stream(Traverser.<Expression>forTree(Expression::getChildren).depthFirstPreOrder(expression))
+                    .anyMatch(instanceOf(LambdaExpression.class));
         }
 
         @Override
