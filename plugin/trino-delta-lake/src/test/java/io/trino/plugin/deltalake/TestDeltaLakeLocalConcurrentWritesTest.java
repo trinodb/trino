@@ -196,6 +196,12 @@ public class TestDeltaLakeLocalConcurrentWritesTest
             // T1: (1, 10)
             // T2: (2, 10)
             // T3: (3, 10)
+            // However, because the isolation level is WriteSerializable, it may likely happen that competing
+            // queries read will commit successfully by reading the same version.
+            // This can look like e.g.:
+            // T1: (1, 10)
+            // T2: (1, 10)
+            // T3: (2, 10)
             List<Future<Boolean>> futures = IntStream.range(0, threads)
                     .mapToObj(threadNumber -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
@@ -226,18 +232,11 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 
             assertThat(successfulInsertsCount).isGreaterThanOrEqualTo(1);
             assertQuery(
-                    "SELECT * FROM " + tableName,
-                    "VALUES (0, 10)" +
+                    "SELECT version, operation, isolation_level FROM \"" + tableName + "$history\"",
+                    "VALUES (0, 'CREATE TABLE AS SELECT', 'WriteSerializable')" +
                             LongStream.rangeClosed(1, successfulInsertsCount)
                                     .boxed()
-                                    .map("(%d, 10)"::formatted)
-                                    .collect(joining(", ", ", ", "")));
-            assertQuery(
-                    "SELECT version, operation, isolation_level, read_version FROM \"" + tableName + "$history\"",
-                    "VALUES (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0)" +
-                            LongStream.rangeClosed(1, successfulInsertsCount)
-                                    .boxed()
-                                    .map(version -> "(%s, 'WRITE', 'WriteSerializable', %s)".formatted(version, version - 1))
+                                    .map("(%s, 'WRITE', 'WriteSerializable')"::formatted)
                                     .collect(joining(", ", ", ", "")));
         }
         finally {
