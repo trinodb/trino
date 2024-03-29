@@ -155,12 +155,13 @@ public class EffectivePredicateExtractor
         {
             Expression underlyingPredicate = node.getSource().accept(this, context);
 
-            Expression predicate = node.getPredicate();
+            DomainTranslator.ExtractionResult underlying = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(underlyingPredicate));
+            DomainTranslator.ExtractionResult current = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(node.getPredicate()));
 
-            // Remove non-deterministic conjuncts
-            predicate = filterDeterministicConjuncts(predicate);
-
-            return combineConjuncts(predicate, underlyingPredicate);
+            return combineConjuncts(
+                    DomainTranslator.toPredicate(underlying.getTupleDomain().intersect(current.getTupleDomain())),
+                    underlying.getRemainingExpression(),
+                    current.getRemainingExpression());
         }
 
         @Override
