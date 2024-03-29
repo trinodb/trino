@@ -35,7 +35,6 @@ import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
@@ -169,7 +168,6 @@ public class AddExchanges
         private final SymbolAllocator symbolAllocator;
         private final StatsProvider statsProvider;
         private final Session session;
-        private final DomainTranslator domainTranslator;
         private final boolean redistributeWrites;
 
         public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session, TableStatsProvider tableStatsProvider)
@@ -178,7 +176,6 @@ public class AddExchanges
             this.symbolAllocator = symbolAllocator;
             this.statsProvider = new CachingStatsProvider(statsCalculator, session, tableStatsProvider);
             this.session = session;
-            this.domainTranslator = new DomainTranslator();
             this.redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
         }
 
@@ -669,8 +666,7 @@ public class AddExchanges
                         session,
                         idAllocator,
                         plannerContext,
-                        statsProvider,
-                        domainTranslator)
+                        statsProvider)
                         .getMainAlternative();
                 if (plan.isPresent()) {
                     return new PlanWithProperties(plan.get(), derivePropertiesRecursively(plan.get()));

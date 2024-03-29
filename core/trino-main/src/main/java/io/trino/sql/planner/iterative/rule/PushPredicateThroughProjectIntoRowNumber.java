@@ -139,7 +139,7 @@ public class PushPredicateThroughProjectIntoRowNumber
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rowNumberSymbol));
         Expression newPredicate = combineConjuncts(
                 extractionResult.getRemainingExpression(),
-                new DomainTranslator().toPredicate(newTupleDomain));
+                DomainTranslator.toPredicate(newTupleDomain));
         if (newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(project);
         }

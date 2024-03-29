@@ -598,7 +598,7 @@ public final class CommonSubqueriesExtractor
         TupleDomain<CacheColumnId> remainingTupleDomain = extractedTupleDomain
                 .filter((columnId, domain) -> !retainedColumnIds.contains(columnId));
         if (!remainingTupleDomain.isAll() || !extractionResult.getRemainingExpression().equals(TRUE)) {
-            Expression remainingDomainExpression = new DomainTranslator().toPredicate(
+            Expression remainingDomainExpression = DomainTranslator.toPredicate(
                     remainingTupleDomain.transformKeys(id -> columnIdToSymbol(id, commonColumnIds.get(id).getType())));
             signatureKey = combine(
                     signatureKey,
@@ -750,8 +750,7 @@ public final class CommonSubqueriesExtractor
                 session,
                 idAllocator,
                 plannerContext,
-                node -> PlanNodeStatsEstimate.unknown(),
-                new DomainTranslator())
+                node -> PlanNodeStatsEstimate.unknown())
                 .getMainAlternative();
 
         // If ValuesNode was returned as a result of pushing down predicates we fall back

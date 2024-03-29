@@ -116,8 +116,7 @@ public class PushPredicateIntoTableScan
                 context.getSession(),
                 context.getIdAllocator(),
                 plannerContext,
-                context.getStatsProvider(),
-                new DomainTranslator());
+                context.getStatsProvider());
 
         if (rewritten.getAdditionalAlternatives().isEmpty() &&
                 (rewritten.getMainAlternative().isEmpty() || arePlansSame(filterNode, tableScan, rewritten.getMainAlternative().get()))) {
@@ -151,8 +150,7 @@ public class PushPredicateIntoTableScan
             Session session,
             PlanNodeIdAllocator idAllocator,
             PlannerContext plannerContext,
-            StatsProvider statsProvider,
-            DomainTranslator domainTranslator)
+            StatsProvider statsProvider)
     {
         if (!isAllowPushdownIntoConnectors(session)) {
             return Result.empty();
@@ -189,7 +187,7 @@ public class PushPredicateIntoTableScan
                             splitExpression.getDeterministicPredicate(),
                             // Simplify the tuple domain to avoid creating an expression with too many nodes,
                             // which would be expensive to evaluate in the call to isCandidate below.
-                            domainTranslator.toPredicate(newDomain.simplify().transformKeys(assignments::get))));
+                            DomainTranslator.toPredicate(newDomain.simplify().transformKeys(assignments::get))));
             constraint = new Constraint(newDomain, expressionTranslation.connectorExpression(), connectorExpressionAssignments, evaluator::isCandidate, evaluator.getArguments());
         }
         else {
@@ -278,7 +276,7 @@ public class PushPredicateIntoTableScan
                     plannerContext,
                     session,
                     splitExpression.getDynamicFilter(),
-                    domainTranslator.toPredicate(remainingFilter.transformKeys(assignments::get)),
+                    DomainTranslator.toPredicate(remainingFilter.transformKeys(assignments::get)),
                     splitExpression.getNonDeterministicPredicate(),
                     remainingDecomposedPredicate);
 

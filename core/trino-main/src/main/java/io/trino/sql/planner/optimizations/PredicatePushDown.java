@@ -32,7 +32,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.EffectivePredicateExtractor;
 import io.trino.sql.planner.EqualityInference;
 import io.trino.sql.planner.IrExpressionInterpreter;
@@ -176,7 +175,6 @@ public class PredicatePushDown
             this.dynamicFiltering = dynamicFiltering;
 
             this.effectivePredicateExtractor = new EffectivePredicateExtractor(
-                    new DomainTranslator(),
                     plannerContext,
                     useTableProperties && isPredicatePushdownUseTableProperties(session));
         }
