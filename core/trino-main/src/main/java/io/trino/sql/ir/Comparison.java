@@ -114,8 +114,13 @@ public record Comparison(Operator operator, Expression left, Expression right)
     {
         return "%s(%s, %s)".formatted(
                 switch (operator) {
-                    case IS_DISTINCT_FROM -> "DistinctFrom";
-                    default -> operator.getValue();
+                    case EQUAL -> "$eq";
+                    case NOT_EQUAL -> "$ne";
+                    case LESS_THAN -> "$lt";
+                    case LESS_THAN_OR_EQUAL -> "$lte";
+                    case GREATER_THAN -> "$gt";
+                    case GREATER_THAN_OR_EQUAL -> "$gte";
+                    case IS_DISTINCT_FROM -> "$distinct";
                 },
                 left,
                 right);

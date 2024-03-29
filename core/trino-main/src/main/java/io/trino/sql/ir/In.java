@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.IrUtils.validateType;
@@ -54,5 +55,15 @@ public record In(Expression value, List<Expression> valueList)
                 .add(value)
                 .addAll(valueList)
                 .build();
+    }
+
+    @Override
+    public String toString()
+    {
+        return "$in(%s, [%s])".formatted(
+                value,
+                valueList().stream()
+                        .map(Expression::toString)
+                        .collect(Collectors.joining(", ")));
     }
 }
