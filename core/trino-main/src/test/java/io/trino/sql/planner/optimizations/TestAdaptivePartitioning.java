@@ -94,7 +94,8 @@ public class TestAdaptivePartitioning
                         new PlanFragmentId("3"), createRuntimeStats(ImmutableLongArray.of(ONE_MB, ONE_MB * 2, ONE_MB), 10000),
                         new PlanFragmentId("4"), createRuntimeStats(ImmutableLongArray.of(ONE_MB, ONE_MB, ONE_MB), 500),
                         new PlanFragmentId("1"), createRuntimeStats(ImmutableLongArray.of(ONE_MB, ONE_MB, ONE_MB), 500)),
-                matcher);
+                matcher,
+                true);
     }
 
     @Test
@@ -134,7 +135,8 @@ public class TestAdaptivePartitioning
                 ImmutableMap.of(
                         new PlanFragmentId("1"), createRuntimeStats(ImmutableLongArray.of(ONE_MB, ONE_MB, ONE_MB), 500),
                         new PlanFragmentId("2"), createRuntimeStats(ImmutableLongArray.of(ONE_MB, ONE_MB * 2, ONE_MB), 10000)),
-                matcher);
+                matcher,
+                true);
     }
 
     @Test
@@ -212,7 +214,8 @@ public class TestAdaptivePartitioning
                         new PlanFragmentId("10"), createRuntimeStats(ImmutableLongArray.of(ONE_MB, ONE_MB, ONE_MB), 500),
                         new PlanFragmentId("11"), createRuntimeStats(ImmutableLongArray.of(ONE_MB, ONE_MB, ONE_MB), 500),
                         new PlanFragmentId("12"), createRuntimeStats(ImmutableLongArray.of(ONE_MB, ONE_MB, ONE_MB), 500)),
-                matcher);
+                matcher,
+                true);
     }
 
 
