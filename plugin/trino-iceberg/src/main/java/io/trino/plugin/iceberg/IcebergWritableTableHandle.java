@@ -47,13 +47,13 @@ public class IcebergWritableTableHandle
     public IcebergWritableTableHandle(
             @JsonProperty("name") SchemaTableName name,
             @JsonProperty("schemaAsJson") String schemaAsJson,
-            @JsonProperty("partitionSpecsAsJson") Map<Integer, String> partitionsSpecsAsJson,
+            @JsonProperty("partitionsSpecsAsJson") Map<Integer, String> partitionsSpecsAsJson,
             @JsonProperty("partitionSpecId") int partitionSpecId,
             @JsonProperty("sortOrder") List<TrinoSortField> sortOrder,
             @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
             @JsonProperty("outputPath") String outputPath,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
-            @JsonProperty("properties") Map<String, String> storageProperties,
+            @JsonProperty("storageProperties") Map<String, String> storageProperties,
             @JsonProperty("retryMode") RetryMode retryMode,
             @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties)
     {
