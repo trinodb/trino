@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -93,7 +94,11 @@ public final class ExpressionFormatter
         @Override
         protected String visitCall(Call node, Void context)
         {
-            return node.function().getName().toString() + '(' + joinExpressions(node.arguments()) + ')';
+            String name = isBuiltinFunctionName(node.function().getName()) ?
+                    node.function().getName().getFunctionName() :
+                    node.function().getName().toString();
+
+            return name + '(' + joinExpressions(node.arguments()) + ')';
         }
 
         @Override
