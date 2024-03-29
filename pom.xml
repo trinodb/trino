@@ -1746,7 +1746,7 @@
             <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
-                <version>1.14.12</version>
+                <version>1.14.13</version>
             </dependency>
 
             <dependency>
