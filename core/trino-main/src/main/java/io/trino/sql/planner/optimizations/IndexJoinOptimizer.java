@@ -234,7 +234,6 @@ public class IndexJoinOptimizer
     {
         private final PlanNodeIdAllocator idAllocator;
         private final PlannerContext plannerContext;
-        private final DomainTranslator domainTranslator;
         private final Session session;
 
         private IndexSourceRewriter(
@@ -243,7 +242,6 @@ public class IndexJoinOptimizer
                 Session session)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-            this.domainTranslator = new DomainTranslator();
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.session = requireNonNull(session, "session is null");
         }
@@ -314,7 +312,7 @@ public class IndexJoinOptimizer
                     node.getAssignments());
 
             Expression resultingPredicate = combineConjuncts(
-                    domainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
+                    DomainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
                     decomposedPredicate.getRemainingExpression());
 
             if (!resultingPredicate.equals(TRUE)) {

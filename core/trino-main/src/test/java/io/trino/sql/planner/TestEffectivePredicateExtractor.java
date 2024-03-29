@@ -155,8 +155,8 @@ public class TestEffectivePredicateExtractor
     };
     private final PlannerContext plannerContext = plannerContextBuilder().withMetadata(metadata).build();
 
-    private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(), plannerContext, true);
-    private final EffectivePredicateExtractor effectivePredicateExtractorWithoutTableProperties = new EffectivePredicateExtractor(new DomainTranslator(), plannerContext, false);
+    private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(plannerContext, true);
+    private final EffectivePredicateExtractor effectivePredicateExtractorWithoutTableProperties = new EffectivePredicateExtractor(plannerContext, false);
 
     private Map<Symbol, ColumnHandle> scanAssignments;
     private TableScanNode baseTableScan;

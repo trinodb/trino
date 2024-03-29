@@ -106,7 +106,9 @@ import static java.util.stream.Collectors.toList;
 
 public final class DomainTranslator
 {
-    public Expression toPredicate(TupleDomain<Symbol> tupleDomain)
+    private DomainTranslator() {}
+
+    public static Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
         if (tupleDomain.isNone()) {
             return FALSE;
@@ -118,7 +120,7 @@ public final class DomainTranslator
                 .collect(collectingAndThen(toImmutableList(), IrUtils::combineConjuncts));
     }
 
-    private Expression toPredicate(Domain domain, Reference reference)
+    private static Expression toPredicate(Domain domain, Reference reference)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? new IsNull(reference) : FALSE;
@@ -145,7 +147,7 @@ public final class DomainTranslator
         return combineDisjunctsWithDefault(disjuncts, TRUE);
     }
 
-    private Expression processRange(Type type, Range range, Reference reference)
+    private static Expression processRange(Type type, Range range, Reference reference)
     {
         if (range.isAll()) {
             return TRUE;
@@ -177,7 +179,7 @@ public final class DomainTranslator
         return combineConjuncts(rangeConjuncts);
     }
 
-    private Expression combineRangeWithExcludedPoints(Type type, Reference reference, Range range, List<Expression> excludedPoints)
+    private static Expression combineRangeWithExcludedPoints(Type type, Reference reference, Range range, List<Expression> excludedPoints)
     {
         if (excludedPoints.isEmpty()) {
             return processRange(type, range, reference);
@@ -191,7 +193,7 @@ public final class DomainTranslator
         return combineConjuncts(processRange(type, range, reference), excludedPointsExpression);
     }
 
-    private List<Expression> extractDisjuncts(Type type, Ranges ranges, Reference reference)
+    private static List<Expression> extractDisjuncts(Type type, Ranges ranges, Reference reference)
     {
         List<Expression> disjuncts = new ArrayList<>();
         List<Expression> singleValues = new ArrayList<>();
@@ -253,7 +255,7 @@ public final class DomainTranslator
         return disjuncts;
     }
 
-    private List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, Reference reference)
+    private static List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, Reference reference)
     {
         List<Expression> values = discreteValues.getValues().stream()
                 .map(object -> new Constant(type, object))
