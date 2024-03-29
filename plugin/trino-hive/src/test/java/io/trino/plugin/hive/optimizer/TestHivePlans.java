@@ -24,7 +24,6 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.security.PrincipalType;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -233,7 +232,7 @@ public class TestHivePlans
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                new Logical(AND, ImmutableList.of(new In(new Reference(INTEGER, "R_INT_COL"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L))), new Between(new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)))),
+                                                                new In(new Reference(INTEGER, "R_INT_COL"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L))),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -259,7 +258,7 @@ public class TestHivePlans
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                new Logical(AND, ImmutableList.of(new In(new Reference(INTEGER, "R_INT_COL"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L))), new Between(new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)))),
+                                                                new In(new Reference(INTEGER, "R_INT_COL"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 3L), new Constant(INTEGER, 4L))),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
