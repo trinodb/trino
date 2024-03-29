@@ -946,7 +946,13 @@ class TestUnloadFunction
         String location = directory.resolve("test_anonymous_column").toUri().toString();
         assertQueryFails(
                 "SELECT * FROM TABLE(hive.system.unload(input => TABLE(SELECT 1), location => '" + location + "', format => 'CSV'))",
-                "Column name must exist");
+                "Column name not specified at position 1");
+        assertQueryFails(
+                "SELECT * FROM TABLE(hive.system.unload(input => TABLE(SELECT 1 col, 2), location => '" + location + "', format => 'TEXTFILE'))",
+                "Column name not specified at position 2");
+        assertQueryFails(
+                "SELECT * FROM TABLE(hive.system.unload(input => TABLE(SELECT 1, 2), location => '" + location + "', format => 'TEXTFILE'))",
+                "Column name not specified at position 1");
     }
 
     @Test

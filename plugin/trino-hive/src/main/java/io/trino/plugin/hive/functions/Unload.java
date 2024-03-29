@@ -244,7 +244,7 @@ public class Unload
             ImmutableList.Builder<HiveType> dataColumnTypes = ImmutableList.builderWithExpectedSize(inputSchema.size());
             ImmutableList.Builder<Type> partitionColumnTypes = ImmutableList.builderWithExpectedSize(partitionColumns.size());
             for (RowType.Field field : inputSchema) {
-                String columnName = field.getName().orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Column name must exist")).toLowerCase(ENGLISH);
+                String columnName = field.getName().orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Column name not specified at position " + (inputSchema.indexOf(field) + 1))).toLowerCase(ENGLISH);
                 verifyHiveColumnName(columnName);
                 if (format == HiveStorageFormat.CSV && !field.getType().equals(VARCHAR)) {
                     throw new TrinoException(NOT_SUPPORTED, "CSV only supports VARCHAR columns: '%s'".formatted(columnName));
