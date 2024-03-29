@@ -27,10 +27,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.ir.IrUtils.validateType;
 
 /**
- * Bind(value, targetFunction)
+ * Bind(values, targetFunction)
  * <p>
- * When invoked, the returned function inserts the given value as
- * the leading argument to the targetFunction.  The other arguments are
+ * When invoked, the returned function inserts the given values as
+ * the leading arguments to the targetFunction.  The other arguments are
  * passed unchanged.
  * <p>
  * Bind is fundamentally first class, just like function applications.
