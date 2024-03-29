@@ -15,33 +15,32 @@ package io.trino.plugin.mongodb.expression;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.matching.Property;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.expression.FunctionName;
 import org.bson.Document;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.call;
+import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.functionName;
+import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
+
 public class OrRewriteRule
         implements ConnectorExpressionRule<Call, Document>
 {
-    private final Pattern<Call> expressionPattern;
+    private static final Pattern<Call> PATTERN = call().with(functionName().equalTo(OR_FUNCTION_NAME));
 
     public OrRewriteRule()
     {
-        Pattern<Call> p = Pattern.typeOf(Call.class);
-        Property<Call, ?, FunctionName> functionName = Property.property("functionName", Call::getFunctionName);
-        this.expressionPattern = p.with(functionName.equalTo(new FunctionName("$or")));
     }
 
     @Override
     public Pattern<Call> getPattern()
     {
-        return (Pattern<Call>) this.expressionPattern;
+        return PATTERN;
     }
 
     @Override

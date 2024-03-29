@@ -15,7 +15,6 @@ package io.trino.plugin.mongodb;
 
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.mongodb.expression.MongoConnectorExpressionRewriterBuilder;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -24,10 +23,10 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
+import io.trino.testing.TestingConnectorSession;
 import org.bson.Document;
 import org.json.JSONException;
 import org.junit.Test;
-import org.mockito.Mockito;
 import org.skyscreamer.jsonassert.JSONAssert;
 
 import java.util.List;
@@ -52,7 +51,7 @@ public class TestMongoExpressionRewrite
         ConnectorExpression expression = buildContainsExpression("col", 1L);
 
         Optional<Document> predicate = this.connectorExpressionRewriter.rewrite(
-                Mockito.mock(ConnectorSession.class),
+                TestingConnectorSession.builder().build(),
                 expression,
                 Map.of("col", new MongoColumnHandle("col", List.of(), new ArrayType(BigintType.BIGINT), false, false, Optional.empty())));
 
@@ -80,7 +79,7 @@ public class TestMongoExpressionRewrite
                 new FunctionName("$not"),
                 List.of(expression));
         Optional<Document> predicate = this.connectorExpressionRewriter.rewrite(
-                Mockito.mock(ConnectorSession.class),
+                TestingConnectorSession.builder().build(),
                 notExpression,
                 Map.of("col", new MongoColumnHandle("col", List.of(), new ArrayType(BigintType.BIGINT), false, false, Optional.empty())));
 
@@ -100,7 +99,7 @@ public class TestMongoExpressionRewrite
                 new FunctionName("$or"),
                 List.of(expression1, expression2, expression3));
         Optional<Document> predicate = this.connectorExpressionRewriter.rewrite(
-                Mockito.mock(ConnectorSession.class),
+                TestingConnectorSession.builder().build(),
                 notExpression,
                 Map.of("col", new MongoColumnHandle("col", List.of(), new ArrayType(BigintType.BIGINT), false, false, Optional.empty())));
 

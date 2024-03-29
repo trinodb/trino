@@ -13,13 +13,12 @@
  */
 package io.trino.plugin.mongodb.expression;
 
+import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.matching.Property;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
 import io.trino.plugin.mongodb.MongoColumnHandle;
 import io.trino.spi.expression.Call;
-import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
@@ -31,43 +30,50 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Date;
-import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.argument;
+import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.argumentCount;
+import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.call;
+import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.constant;
+import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.functionName;
+import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
+import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variable;
 import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedArrayElementType;
 import static io.trino.plugin.mongodb.TypeUtils.translateValue;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 public class ContainsRewriteRule
         implements ConnectorExpressionRule<Call, Document>
 {
-    private final Pattern<Call> expressionPattern;
+    private static final Capture<Variable> COLUMN = Capture.newCapture();
+    private static final Capture<Constant> VALUE = Capture.newCapture();
+    private static final FunctionName CONTAINS_FUNCTION_NAME = new FunctionName("contains");
+
+    private static final Pattern<Call> PATTERN = call()
+            .with(functionName().equalTo(CONTAINS_FUNCTION_NAME))
+            .with(type().equalTo(BOOLEAN))
+            .with(argumentCount().equalTo(2))
+            .with(argument(0).matching(variable().capturedAs(COLUMN)))
+            .with(argument(1).matching(constant().capturedAs(VALUE)));
 
     public ContainsRewriteRule()
     {
-        Pattern<Call> p = Pattern.typeOf(Call.class);
-        Property<Call, ?, FunctionName> functionName = Property.property("functionName", Call::getFunctionName);
-        this.expressionPattern = p.with(functionName.equalTo(new FunctionName("contains")));
     }
 
     @Override
     public Pattern<Call> getPattern()
     {
-        return this.expressionPattern;
+        return PATTERN;
     }
 
     @Override
     public Optional<Document> rewrite(Call expression, Captures captures, RewriteContext<Document> context)
     {
-        List<ConnectorExpression> arguments = expression.getArguments();
+        Variable arrayVariable = captures.get(COLUMN);
+        Constant constValue = captures.get(VALUE);
 
-        if (arguments.size() != 2 || !(arguments.get(0) instanceof Variable) || !(arguments.get(1) instanceof Constant)) {
-            return Optional.empty();
-        }
-
-        Variable arrVariable = (Variable) arguments.get(0);
-        Constant constValue = (Constant) arguments.get(1);
-
-        String columnName = arrVariable.getName();
+        String columnName = arrayVariable.getName();
 
         if (!context.getAssignments().containsKey(columnName)) {
             return Optional.empty();
@@ -79,9 +85,14 @@ public class ContainsRewriteRule
             return Optional.empty();
         }
 
-        Optional<Object> mongoValue = translateValue(constValue.getValue(), elementType);
+        Optional<Object> mongoValue = translateValueForJson(constValue.getValue(), elementType);
 
-        return mongoValue.map(o -> new Document(columnHandle.getQualifiedName(), mapValueForJson(o)));
+        return mongoValue.map(o -> new Document(columnHandle.getQualifiedName(), o));
+    }
+
+    private Optional<Object> translateValueForJson(Object trinoNativeValue, Type type)
+    {
+        return translateValue(trinoNativeValue, type).map(this::mapValueForJson);
     }
 
     private Object mapValueForJson(Object value)
@@ -90,11 +101,11 @@ public class ContainsRewriteRule
          * LocalDate and LocalDateTime in org.bson.Document causes an error when using Document.toJson().
          * So convert it to Date object.
          */
-        if (value instanceof LocalDate ld) {
-            return Date.from(ld.atStartOfDay().toInstant(ZoneOffset.UTC));
+        if (value instanceof LocalDate localDate) {
+            return Date.from(localDate.atStartOfDay().toInstant(ZoneOffset.UTC));
         }
-        if (value instanceof LocalDateTime ldt) {
-            return Date.from(ldt.toInstant(ZoneOffset.UTC));
+        if (value instanceof LocalDateTime localDateTime) {
+            return Date.from(localDateTime.toInstant(ZoneOffset.UTC));
         }
 
         return value;

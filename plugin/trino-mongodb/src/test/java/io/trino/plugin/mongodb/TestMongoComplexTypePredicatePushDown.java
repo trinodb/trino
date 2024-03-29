@@ -108,6 +108,8 @@ public class TestMongoComplexTypePredicatePushDown
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(expectCount));
 
-        assertNoDataRead("SELECT * FROM %s WHERE not %s".formatted(tableName, predicate));
+        assertThat(query("SELECT * FROM %s WHERE not %s".formatted(tableName, predicate)))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
     }
 }
