@@ -121,7 +121,7 @@ public class PushdownFilterIntoWindow
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rankingSymbol));
         Expression newPredicate = combineConjuncts(
                 extractionResult.getRemainingExpression(),
-                new DomainTranslator().toPredicate(newTupleDomain));
+                DomainTranslator.toPredicate(newTupleDomain));
 
         if (newPredicate.equals(Booleans.TRUE)) {
             return Result.ofPlanNode(newSource);

@@ -131,20 +131,17 @@ public class TestDomainTranslator
     private static final long COLOR_VALUE_2 = 2;
 
     private TestingFunctionResolution functionResolution;
-    private DomainTranslator domainTranslator;
 
     @BeforeAll
     public void setup()
     {
         functionResolution = new TestingFunctionResolution();
-        domainTranslator = new DomainTranslator();
     }
 
     @AfterAll
     public void tearDown()
     {
         functionResolution = null;
-        domainTranslator = null;
     }
 
     @Test
@@ -1541,7 +1538,7 @@ public class TestDomainTranslator
 
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
-        return domainTranslator.toPredicate(tupleDomain);
+        return DomainTranslator.toPredicate(tupleDomain);
     }
 
     private static Expression unprocessableExpression1(Symbol symbol)
