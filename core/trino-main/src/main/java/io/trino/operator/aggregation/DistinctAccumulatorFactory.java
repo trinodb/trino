@@ -202,7 +202,7 @@ public class DistinctAccumulatorFactory
         }
 
         @Override
-        public void setGroupCount(long groupCount)
+        public void setGroupCount(int groupCount)
         {
             accumulator.setGroupCount(groupCount);
         }

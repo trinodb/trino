@@ -194,7 +194,7 @@ final class AggregationLoopBuilder
             Variable groupId = scope.declareVariable(int.class, "groupId");
             invokeFunction.append(groupId.set(aggregationParameters.groupIds().get().getElement(position)));
             for (Parameter stateParameter : aggregationParameters.states()) {
-                invokeFunction.append(stateParameter.cast(GroupedAccumulatorState.class).invoke("setGroupId", void.class, groupId.cast(long.class)));
+                invokeFunction.append(stateParameter.cast(GroupedAccumulatorState.class).invoke("setGroupId", void.class, groupId));
             }
         }
         invokeFunction.append(invoke(binder.bind(function), "input", aggregationArguments.build()));

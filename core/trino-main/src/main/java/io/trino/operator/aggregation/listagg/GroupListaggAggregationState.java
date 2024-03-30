@@ -28,7 +28,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.VariableWidthData.POINTER_SIZE;
 import static java.lang.Math.clamp;
-import static java.lang.Math.toIntExact;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
 public class GroupListaggAggregationState
@@ -79,16 +78,16 @@ public class GroupListaggAggregationState
     }
 
     @Override
-    public void setGroupId(long groupId)
+    public void setGroupId(int groupId)
     {
-        this.groupId = toIntExact(groupId);
+        this.groupId = groupId;
     }
 
     @Override
-    public void ensureCapacity(long maxGroupId)
+    public void ensureCapacity(int maxGroupId)
     {
         checkArgument(maxGroupId + 1 < MAX_ARRAY_SIZE, "Maximum array size exceeded");
-        int requiredSize = toIntExact(maxGroupId + 1);
+        int requiredSize = maxGroupId + 1;
         if (requiredSize > groupHeadPositions.length) {
             int newSize = clamp(requiredSize * 2L, 1024, MAX_ARRAY_SIZE);
             int oldSize = groupHeadPositions.length;
