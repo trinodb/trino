@@ -46,7 +46,7 @@ public class TDigestAndPercentileStateFactory
         private long size;
 
         @Override
-        public void ensureCapacity(long size)
+        public void ensureCapacity(int size)
         {
             digests.ensureCapacity(size);
             percentiles.ensureCapacity(size);

@@ -16,7 +16,7 @@ package io.trino.spi.function;
 public interface GroupedAccumulatorState
         extends AccumulatorState
 {
-    void setGroupId(long groupId);
+    void setGroupId(int groupId);
 
-    void ensureCapacity(long size);
+    void ensureCapacity(int size);
 }

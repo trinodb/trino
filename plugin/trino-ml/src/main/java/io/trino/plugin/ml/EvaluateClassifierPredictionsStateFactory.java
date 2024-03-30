@@ -45,11 +45,11 @@ public class EvaluateClassifierPredictionsStateFactory
         private final ObjectBigArray<Map<String, Integer>> truePositives = new ObjectBigArray<>();
         private final ObjectBigArray<Map<String, Integer>> falsePositives = new ObjectBigArray<>();
         private final ObjectBigArray<Map<String, Integer>> falseNegatives = new ObjectBigArray<>();
-        private long groupId;
+        private int groupId;
         private long memoryUsage;
 
         @Override
-        public void setGroupId(long groupId)
+        public void setGroupId(int groupId)
         {
             this.groupId = groupId;
         }
@@ -91,7 +91,7 @@ public class EvaluateClassifierPredictionsStateFactory
         }
 
         @Override
-        public void ensureCapacity(long size)
+        public void ensureCapacity(int size)
         {
             truePositives.ensureCapacity(size);
             falsePositives.ensureCapacity(size);

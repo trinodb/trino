@@ -207,7 +207,7 @@ public class OrderedAccumulatorFactory
         }
 
         @Override
-        public void setGroupCount(long groupCount)
+        public void setGroupCount(int groupCount)
         {
             this.groupCount = max(this.groupCount, groupCount);
             accumulator.setGroupCount(groupCount);
