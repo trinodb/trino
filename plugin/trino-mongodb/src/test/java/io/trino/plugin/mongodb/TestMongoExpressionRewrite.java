@@ -25,14 +25,14 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.testing.TestingConnectorSession;
 import org.bson.Document;
-import org.json.JSONException;
 import org.junit.Test;
-import org.skyscreamer.jsonassert.JSONAssert;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class TestMongoExpressionRewrite
@@ -46,7 +46,6 @@ public class TestMongoExpressionRewrite
 
     @Test
     public void testContainsFunctionRewrite()
-            throws JSONException
     {
         ConnectorExpression expression = buildContainsExpression("col", 1L);
 
@@ -56,7 +55,7 @@ public class TestMongoExpressionRewrite
                 Map.of("col", new MongoColumnHandle("col", List.of(), new ArrayType(BigintType.BIGINT), false, false, Optional.empty())));
 
         assertTrue(predicate.isPresent());
-        JSONAssert.assertEquals("{\"col\": 1}", predicate.get().toJson(), false);
+        assertEquals(new Document("col", 1L), predicate.get());
     }
 
     private static Call buildContainsExpression(String variableName, Long value)
@@ -71,7 +70,6 @@ public class TestMongoExpressionRewrite
 
     @Test
     public void testNotContainsRewrite()
-            throws JSONException
     {
         ConnectorExpression expression = buildContainsExpression("col", 1L);
         ConnectorExpression notExpression = new Call(
@@ -84,12 +82,12 @@ public class TestMongoExpressionRewrite
                 Map.of("col", new MongoColumnHandle("col", List.of(), new ArrayType(BigintType.BIGINT), false, false, Optional.empty())));
 
         assertTrue(predicate.isPresent());
-        JSONAssert.assertEquals("{\"$nor\": [{\"col\": 1}]}", predicate.get().toJson(), false);
+        Document expectPredicate = new Document("$nor", List.of(new Document("col", 1L)));
+        assertEquals(expectPredicate, predicate.get());
     }
 
     @Test
     public void testOrContainsRewrite()
-            throws JSONException
     {
         ConnectorExpression expression1 = buildContainsExpression("col", 1L);
         ConnectorExpression expression2 = buildContainsExpression("col", 2L);
@@ -104,6 +102,13 @@ public class TestMongoExpressionRewrite
                 Map.of("col", new MongoColumnHandle("col", List.of(), new ArrayType(BigintType.BIGINT), false, false, Optional.empty())));
 
         assertTrue(predicate.isPresent());
-        JSONAssert.assertEquals("{\"$or\": [{\"col\": 1},{\"col\": 2},{\"col\": 3}]}", predicate.get().toJson(), false);
+        Document actualPredict = predicate.get();
+        assertEquals(1, actualPredict.keySet().size());
+        assertTrue(actualPredict.containsKey("$or"));
+        Set<Document> expectPredicts = Set.of(
+                new Document("col", 1L),
+                new Document("col", 2L),
+                new Document("col", 3L));
+        assertEquals(expectPredicts, Set.copyOf(actualPredict.getList("$or", Document.class)));
     }
 }
