@@ -1741,26 +1741,20 @@ public class DeltaLakeMetadata
         // This check acts as a safeguard in cases where the input columns may differ from the table metadata case-sensitively
         checkAllColumnsPassedOnInsert(tableMetadata, inputColumns);
 
-        return createInsertHandle(session, retryMode, table, inputColumns);
+        return createInsertHandle(retryMode, table, inputColumns);
     }
 
-    private DeltaLakeInsertTableHandle createInsertHandle(ConnectorSession session, RetryMode retryMode, DeltaLakeTableHandle table, List<DeltaLakeColumnHandle> inputColumns)
+    private DeltaLakeInsertTableHandle createInsertHandle(RetryMode retryMode, DeltaLakeTableHandle table, List<DeltaLakeColumnHandle> inputColumns)
     {
         String tableLocation = table.getLocation();
-        try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            return new DeltaLakeInsertTableHandle(
-                    table.getSchemaTableName(),
-                    tableLocation,
-                    table.getMetadataEntry(),
-                    table.getProtocolEntry(),
-                    inputColumns,
-                    getMandatoryCurrentVersion(fileSystem, tableLocation, table.getReadVersion()),
-                    retryMode != NO_RETRIES);
-        }
-        catch (IOException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
-        }
+        return new DeltaLakeInsertTableHandle(
+                table.getSchemaTableName(),
+                tableLocation,
+                table.getMetadataEntry(),
+                table.getProtocolEntry(),
+                inputColumns,
+                table.getReadVersion(),
+                retryMode != NO_RETRIES);
     }
 
     private void checkAllColumnsPassedOnInsert(ConnectorTableMetadata tableMetadata, List<DeltaLakeColumnHandle> insertColumns)
@@ -2046,7 +2040,7 @@ public class DeltaLakeMetadata
                 .filter(column -> column.getColumnType() != SYNTHESIZED)
                 .collect(toImmutableList());
 
-        DeltaLakeInsertTableHandle insertHandle = createInsertHandle(session, retryMode, handle, inputColumns);
+        DeltaLakeInsertTableHandle insertHandle = createInsertHandle(retryMode, handle, inputColumns);
 
         return new DeltaLakeMergeTableHandle(handle, insertHandle);
     }
