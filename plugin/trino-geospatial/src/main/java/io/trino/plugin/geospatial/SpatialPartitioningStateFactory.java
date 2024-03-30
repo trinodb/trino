@@ -119,13 +119,13 @@ public class SpatialPartitioningStateFactory
         }
 
         @Override
-        public void setGroupId(long groupId)
+        public void setGroupId(int groupId)
         {
             this.groupId = groupId;
         }
 
         @Override
-        public void ensureCapacity(long size)
+        public void ensureCapacity(int size)
         {
             partitionCounts.ensureCapacity(size);
             counts.ensureCapacity(size);
@@ -195,7 +195,7 @@ public class SpatialPartitioningStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return INSTANCE_SIZE + (envelope != null ? envelope.estimateMemorySize() * (1 + samples.size()) : 0);
+            return INSTANCE_SIZE + (envelope != null ? (long) envelope.estimateMemorySize() * (1 + samples.size()) : 0);
         }
     }
 }

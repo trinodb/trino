@@ -445,6 +445,20 @@
                                     <code>java.method.removed</code>
                                     <old>method void io.trino.spi.TrinoException::&lt;init&gt;(io.trino.spi.ErrorCode, java.lang.String, java.lang.Throwable)</old>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.function.GroupedAccumulatorState::setGroupId(===long===)</old>
+                                    <new>parameter void io.trino.spi.function.GroupedAccumulatorState::setGroupId(===int===)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.function.GroupedAccumulatorState::ensureCapacity(===long===)</old>
+                                    <new>parameter void io.trino.spi.function.GroupedAccumulatorState::ensureCapacity(===int===)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
