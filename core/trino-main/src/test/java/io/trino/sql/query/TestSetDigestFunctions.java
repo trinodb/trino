@@ -77,6 +77,11 @@ public class TestSetDigestFunctions
                 "SELECT jaccard_index(make_set_digest(v1), make_set_digest(v2)) " +
                         "FROM (VALUES (1, 1), (NULL,2), (2, 3), (NULL, 4)) T(v1, v2)"))
                 .matches("VALUES CAST(0.5 AS DOUBLE)");
+
+        assertThat(assertions.query(
+                "SELECT jaccard_index(make_set_digest(value), make_set_digest(value1)) " +
+                        "FROM (VALUES (1,4),(2,5),(3,6),(4,7),(5,8)) T(value,value1)"))
+                .matches("VALUES CAST(0.25 AS DOUBLE)");
     }
 
     @Test

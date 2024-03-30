@@ -169,6 +169,11 @@ public class SetDigest
         LongSortedSet minUnion = new LongRBTreeSet(a.minhash.keySet());
         minUnion.addAll(b.minhash.keySet());
 
+        // For small, exact sets we can calculate an exact jaccard_index
+        if (a.isExact() && b.isExact()) {
+            return exactIntersectionCardinality(a, b) / (double) minUnion.size();
+        }
+
         int intersection = 0;
         int i = 0;
         for (long key : minUnion) {
@@ -180,6 +185,7 @@ public class SetDigest
                 break;
             }
         }
+
         return intersection / (double) sizeOfSmallerSet;
     }
 
