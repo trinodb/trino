@@ -42,7 +42,7 @@ public class NumericHistogramStateFactory
         private long size;
 
         @Override
-        public void ensureCapacity(long size)
+        public void ensureCapacity(int size)
         {
             histograms.ensureCapacity(size);
         }

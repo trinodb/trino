@@ -44,7 +44,7 @@ public class QuantileDigestStateFactory
         private long size;
 
         @Override
-        public void ensureCapacity(long size)
+        public void ensureCapacity(int size)
         {
             qdigests.ensureCapacity(size);
         }

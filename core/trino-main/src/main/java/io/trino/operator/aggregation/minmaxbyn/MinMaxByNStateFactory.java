@@ -87,7 +87,7 @@ public final class MinMaxByNStateFactory
         private final LongFunction<TypedKeyValueHeap> heapFactory;
 
         private final ObjectBigArray<TypedKeyValueHeap> heaps = new ObjectBigArray<>();
-        private long groupId;
+        private int groupId;
         private long size;
 
         public GroupedMinMaxByNState(LongFunction<TypedKeyValueHeap> heapFactory)
@@ -96,13 +96,13 @@ public final class MinMaxByNStateFactory
         }
 
         @Override
-        public final void setGroupId(long groupId)
+        public final void setGroupId(int groupId)
         {
             this.groupId = groupId;
         }
 
         @Override
-        public final void ensureCapacity(long size)
+        public final void ensureCapacity(int size)
         {
             heaps.ensureCapacity(size);
         }
