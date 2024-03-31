@@ -2546,11 +2546,11 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                                     .map("(%d, 10)"::formatted)
                                     .collect(joining(", ", ", ", "")));
             assertQuery(
-                    "SELECT version, operation, isolation_level, read_version FROM \"" + tableName + "$history\"",
-                    "VALUES (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0)" +
+                    "SELECT version, operation, isolation_level, read_version, is_blind_append FROM \"" + tableName + "$history\"",
+                    "VALUES (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0, true)" +
                             LongStream.rangeClosed(1, successfulInsertsCount)
                                     .boxed()
-                                    .map(version -> "(%s, 'WRITE', 'WriteSerializable', %s)".formatted(version, version - 1))
+                                    .map(version -> "(%s, 'WRITE', 'WriteSerializable', %s, false)".formatted(version, version - 1))
                                     .collect(joining(", ", ", ", "")));
         }
         finally {
@@ -2598,13 +2598,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                     "SELECT * FROM " + tableName,
                     "VALUES (0, 10), (1, 10), (11, 20), (1, 20), (22, 30)");
             assertQuery(
-                    "SELECT version, operation, isolation_level, read_version FROM \"" + tableName + "$history\"",
+                    "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
                             VALUES
-                                (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0),
-                                (1, 'WRITE', 'WriteSerializable', 0),
-                                (2, 'WRITE', 'WriteSerializable', 1),
-                                (3, 'WRITE', 'WriteSerializable', 2)
+                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                                ('WRITE', 'WriteSerializable', false),
+                                ('WRITE', 'WriteSerializable', false),
+                                ('WRITE', 'WriteSerializable', true)
                             """);
         }
         finally {
