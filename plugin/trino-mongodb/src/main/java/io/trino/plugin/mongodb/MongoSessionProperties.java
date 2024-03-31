@@ -28,6 +28,8 @@ public final class MongoSessionProperties
 {
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
 
+    public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -39,6 +41,11 @@ public final class MongoSessionProperties
                         "Read only required fields from a row type",
                         mongoConfig.isProjectionPushdownEnabled(),
                         false))
+                .add(booleanProperty(
+                        COMPLEX_EXPRESSION_PUSHDOWN,
+                        "Allow complex expression pushdown",
+                        mongoConfig.isComplexExpressionPushdownEnabled(),
+                        true))
                 .build();
     }
 
@@ -51,5 +58,10 @@ public final class MongoSessionProperties
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isComplexExpressionPushdown(ConnectorSession session)
+    {
+        return session.getProperty(COMPLEX_EXPRESSION_PUSHDOWN, Boolean.class);
     }
 }

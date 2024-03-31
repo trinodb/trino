@@ -15,6 +15,7 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.testing.BaseComplexTypesPredicatePushDownTest;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
@@ -54,6 +55,32 @@ public class TestMongoComplexTypePredicatePushDown
                 "SELECT * FROM " + tableName + " WHERE contains(colArray, 100)",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(10000));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test void testExpressionPushdownDisabled()
+    {
+        String tableName = "test_expression_pushdown_disabled" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (colArray ARRAY(BIGINT))");
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM unnest(transform(SEQUENCE(1, 100), x -> ROW(ARRAY[100, 200])))", 100);
+        String querySql = "SELECT * FROM " + tableName + " WHERE contains(colArray, -1)";
+
+        assertQueryStats(
+                getSession(),
+                querySql,
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isEqualTo(0),
+                results -> assertThat(results.getRowCount()).isEqualTo(0));
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("mongodb", "complex_expression_pushdown", "false")
+                .build();
+
+        assertQueryStats(
+                session,
+                querySql,
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
+                results -> assertThat(results.getRowCount()).isEqualTo(0));
 
         assertUpdate("DROP TABLE " + tableName);
     }

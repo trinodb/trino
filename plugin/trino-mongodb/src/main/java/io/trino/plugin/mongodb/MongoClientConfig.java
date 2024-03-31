@@ -45,6 +45,7 @@ public class MongoClientConfig
     private String requiredReplicaSetName;
     private String implicitRowFieldPrefix = "_pos";
     private boolean projectionPushDownEnabled = true;
+    private boolean complexExpressionPushdownEnabled = true;
     private boolean allowLocalScheduling;
 
     @NotNull
@@ -250,6 +251,18 @@ public class MongoClientConfig
     public MongoClientConfig setProjectionPushdownEnabled(boolean projectionPushDownEnabled)
     {
         this.projectionPushDownEnabled = projectionPushDownEnabled;
+        return this;
+    }
+
+    public boolean isComplexExpressionPushdownEnabled()
+    {
+        return complexExpressionPushdownEnabled;
+    }
+
+    @Config("mongodb.complex-expression-pushdown-enabled")
+    public MongoClientConfig setComplexExpressionPushdownEnabled(boolean complexExpressionPushdownEnabled)
+    {
+        this.complexExpressionPushdownEnabled = complexExpressionPushdownEnabled;
         return this;
     }
 

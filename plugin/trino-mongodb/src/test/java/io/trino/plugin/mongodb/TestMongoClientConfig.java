@@ -44,6 +44,7 @@ public class TestMongoClientConfig
                 .setRequiredReplicaSetName(null)
                 .setImplicitRowFieldPrefix("_pos")
                 .setProjectionPushdownEnabled(true)
+                .setComplexExpressionPushdownEnabled(true)
                 .setAllowLocalScheduling(false));
     }
 
@@ -68,6 +69,7 @@ public class TestMongoClientConfig
                 .put("mongodb.required-replica-set", "replica_set")
                 .put("mongodb.implicit-row-field-prefix", "_prefix")
                 .put("mongodb.projection-pushdown-enabled", "false")
+                .put("mongodb.complex-expression-pushdown-enabled", "false")
                 .put("mongodb.allow-local-scheduling", "true")
                 .buildOrThrow();
 
@@ -88,6 +90,7 @@ public class TestMongoClientConfig
                 .setRequiredReplicaSetName("replica_set")
                 .setImplicitRowFieldPrefix("_prefix")
                 .setProjectionPushdownEnabled(false)
+                .setComplexExpressionPushdownEnabled(false)
                 .setAllowLocalScheduling(true);
 
         assertFullMapping(properties, expected);

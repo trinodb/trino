@@ -100,6 +100,7 @@ import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNew
 import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
 import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
 import static io.trino.plugin.mongodb.MongoSession.ID;
+import static io.trino.plugin.mongodb.MongoSessionProperties.isComplexExpressionPushdown;
 import static io.trino.plugin.mongodb.MongoSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static io.trino.plugin.mongodb.ptf.Query.parseFilter;
@@ -629,21 +630,27 @@ public class MongoMetadata
         }
 
         ConnectorExpression oldExpression = constraint.getExpression();
+        ConnectorExpression remainingExpression;
         List<ConnectorExpression> expressions = ConnectorExpressions.extractConjuncts(constraint.getExpression());
         List<ConnectorExpression> notHandledExpressions = new ArrayList<>();
         List<Document> supportedExpressions = new ArrayList<>();
-        for (ConnectorExpression expression : expressions) {
-            Optional<Document> predicate = mongoSession.convertExpression(session, expression, constraint.getAssignments());
-            if (predicate.isPresent()) {
-                supportedExpressions.add(predicate.get());
+        if (isComplexExpressionPushdown(session)) {
+            for (ConnectorExpression expression : expressions) {
+                Optional<Document> predicate = mongoSession.convertExpression(session, expression, constraint.getAssignments());
+                if (predicate.isPresent()) {
+                    supportedExpressions.add(predicate.get());
+                }
+                else {
+                    notHandledExpressions.add(expression);
+                }
             }
-            else {
-                notHandledExpressions.add(expression);
-            }
+            remainingExpression = and(notHandledExpressions);
+        }
+        else {
+            remainingExpression = oldExpression;
         }
 
-        ConnectorExpression newExpression = and(notHandledExpressions);
-        if (oldDomain.equals(newDomain) && oldExpression.equals(newExpression)) {
+        if (oldDomain.equals(newDomain) && oldExpression.equals(remainingExpression)) {
             return Optional.empty();
         }
 
@@ -661,7 +668,7 @@ public class MongoMetadata
                 handle.getProjectedColumns(),
                 handle.getLimit());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, and(notHandledExpressions), false));
+        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, remainingExpression, false));
     }
 
     @Override
