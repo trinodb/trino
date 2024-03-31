@@ -153,13 +153,13 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     .forEach(MoreFutures::getDone);
 
             assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (21, 30)");
-            assertQuery("SELECT version, operation, isolation_level, read_version FROM \"" + tableName + "$history\"",
+            assertQuery("SELECT version, operation, isolation_level, read_version, is_blind_append FROM \"" + tableName + "$history\"",
                     """
                             VALUES
-                                (0, 'CREATE TABLE', 'WriteSerializable', 0),
-                                (1, 'WRITE', 'WriteSerializable', 0),
-                                (2, 'WRITE', 'WriteSerializable', 1),
-                                (3, 'WRITE', 'WriteSerializable', 2)
+                                (0, 'CREATE TABLE', 'WriteSerializable', 0, true),
+                                (1, 'WRITE', 'WriteSerializable', 0, true),
+                                (2, 'WRITE', 'WriteSerializable', 1, true),
+                                (3, 'WRITE', 'WriteSerializable', 2, true)
                             """);
         }
         finally {
@@ -233,11 +233,11 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                                     .map("(%d, 10)"::formatted)
                                     .collect(joining(", ", ", ", "")));
             assertQuery(
-                    "SELECT version, operation, isolation_level, read_version FROM \"" + tableName + "$history\"",
-                    "VALUES (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0)" +
+                    "SELECT version, operation, isolation_level, read_version, is_blind_append FROM \"" + tableName + "$history\"",
+                    "VALUES (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0, true)" +
                             LongStream.rangeClosed(1, successfulInsertsCount)
                                     .boxed()
-                                    .map(version -> "(%s, 'WRITE', 'WriteSerializable', %s)".formatted(version, version - 1))
+                                    .map(version -> "(%s, 'WRITE', 'WriteSerializable', %s, false)".formatted(version, version - 1))
                                     .collect(joining(", ", ", ", "")));
         }
         finally {
@@ -303,11 +303,11 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                                     .map("(%d, 10)"::formatted)
                                     .collect(joining(", ", ", ", "")));
             assertQuery(
-                    "SELECT version, operation, isolation_level, read_version FROM \"" + tableName + "$history\"",
-                    "VALUES (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0)" +
+                    "SELECT version, operation, isolation_level, read_version, is_blind_append FROM \"" + tableName + "$history\"",
+                    "VALUES (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0, true)" +
                             LongStream.rangeClosed(1, successfulInsertsCount)
                                     .boxed()
-                                    .map(version -> "(%s, 'WRITE', 'WriteSerializable', %s)".formatted(version, version - 1))
+                                    .map(version -> "(%s, 'WRITE', 'WriteSerializable', %s, false)".formatted(version, version - 1))
                                     .collect(joining(", ", ", ", "")));
         }
         finally {
@@ -356,13 +356,13 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     "SELECT * FROM " + tableName,
                     "VALUES (0, 10), (1, 10), (11, 20), (1, 20), (22, 30)");
             assertQuery(
-                    "SELECT version, operation, isolation_level, read_version FROM \"" + tableName + "$history\"",
+                    "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
                             VALUES
-                                (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0),
-                                (1, 'WRITE', 'WriteSerializable', 0),
-                                (2, 'WRITE', 'WriteSerializable', 1),
-                                (3, 'WRITE', 'WriteSerializable', 2)
+                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                                ('WRITE', 'WriteSerializable', false),
+                                ('WRITE', 'WriteSerializable', false),
+                                ('WRITE', 'WriteSerializable', true)
                             """);
         }
         finally {
@@ -409,13 +409,13 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                     "SELECT * FROM " + tableName,
                     "VALUES (0, 10), (11, 20), (22, 30), (1, 40), (13, 40), (25, 40)");
             assertQuery(
-                    "SELECT version, operation, isolation_level, read_version FROM \"" + tableName + "$history\"",
+                    "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
                     """
                             VALUES
-                                (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0),
-                                (1, 'WRITE', 'WriteSerializable', 0),
-                                (2, 'WRITE', 'WriteSerializable', 1),
-                                (3, 'WRITE', 'WriteSerializable', 2)
+                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                                ('WRITE', 'WriteSerializable', false),
+                                ('WRITE', 'WriteSerializable', false),
+                                ('WRITE', 'WriteSerializable', false)
                             """);
         }
         finally {
@@ -472,14 +472,14 @@ public class TestDeltaLakeLocalConcurrentWritesTest
                                 (55, 60), (56,60), (57, 60), (58,60)
                             """);
             assertQuery(
-                    "SELECT version, operation, isolation_level, read_version FROM \"" + tableName + "$history\"",
+                    "SELECT version, operation, isolation_level, read_version, is_blind_append FROM \"" + tableName + "$history\"",
                     """
                             VALUES
-                                (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0),
-                                (1, 'WRITE', 'WriteSerializable', 0),
-                                (2, 'WRITE', 'WriteSerializable', 1),
-                                (3, 'WRITE', 'WriteSerializable', 2),
-                                (4, 'WRITE', 'WriteSerializable', 3)
+                                (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0, true),
+                                (1, 'WRITE', 'WriteSerializable', 0, true),
+                                (2, 'WRITE', 'WriteSerializable', 1, false),
+                                (3, 'WRITE', 'WriteSerializable', 2, false),
+                                (4, 'WRITE', 'WriteSerializable', 3, false)
                             """);
         }
         finally {
