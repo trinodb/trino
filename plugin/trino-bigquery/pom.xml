@@ -517,6 +517,7 @@
                                 <exclude>**/TestBigQueryMetadataCaching.java</exclude>
                                 <exclude>**/TestBigQueryAvroTypeMapping.java</exclude>
                                 <exclude>**/TestBigQueryArrowTypeMapping.java</exclude>
+                                <exclude>**/TestBigQueryArrowSerialization.java</exclude>
                                 <exclude>**/TestBigQueryMetadata.java</exclude>
                                 <exclude>**/TestBigQueryInstanceCleaner.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
@@ -590,6 +591,7 @@
                             <includes>
                                 <include>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</include>
                                 <include>**/TestBigQueryWithProxyTest.java</include>
+                                <include>**/TestBigQueryArrowSerialization.java</include>
                                 <include>**/TestBigQueryArrowTypeMapping.java</include>
                                 <include>**/TestBigQueryAvroTypeMapping.java</include>
                                 <include>**/TestBigQueryMetadataCaching.java</include>
