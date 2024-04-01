@@ -174,11 +174,11 @@ public class SetDigest
             return exactIntersectionCardinality(a, b) / (double) minUnion.size();
         }
 
-        int intersection = 0;
+        int hashCollisions = 0;
         int i = 0;
         for (long key : minUnion) {
             if (a.minhash.containsKey(key) && b.minhash.containsKey(key)) {
-                intersection++;
+                hashCollisions++;
             }
             i++;
             if (i >= sizeOfSmallerSet) {
@@ -186,7 +186,7 @@ public class SetDigest
             }
         }
 
-        return intersection / (double) sizeOfSmallerSet;
+        return hashCollisions / (double) sizeOfSmallerSet;
     }
 
     public void add(long value)
