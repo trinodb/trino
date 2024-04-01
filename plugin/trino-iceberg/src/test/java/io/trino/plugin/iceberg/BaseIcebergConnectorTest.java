@@ -364,7 +364,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT part FROM " + tableName, "VALUES cast('NaN' as real)");
         assertQuery("SELECT id FROM " + tableName + " WHERE is_nan(part)", "VALUES 1");
 
-        dropTable(tableName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -376,7 +376,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT part FROM " + tableName, "VALUES cast('NaN' as double)");
         assertQuery("SELECT id FROM " + tableName + " WHERE is_nan(part)", "VALUES 1");
 
-        dropTable(tableName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -415,7 +415,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("CREATE TABLE test_iceberg_decimal (x %s)", decimalType));
         assertUpdate(format("INSERT INTO test_iceberg_decimal (x) VALUES (CAST('%s' AS %s))", decimalValue, decimalType), 1);
         assertQuery("SELECT * FROM test_iceberg_decimal", format("SELECT CAST('%s' AS %s)", decimalValue, decimalType));
-        dropTable("test_iceberg_decimal");
+        assertUpdate("DROP TABLE test_iceberg_decimal");
     }
 
     @Test
@@ -444,7 +444,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery(format("SELECT x FROM %s WHERE x = TIME '9:00:00'", tableName), "SELECT CAST('9:00:00' AS TIME)");
         assertQuery(format("SELECT x FROM %s WHERE y = 12345", tableName), "SELECT CAST('10:12:34' AS TIME)");
         assertQuery(format("SELECT x FROM %s WHERE y = 67890", tableName), "SELECT CAST('9:00:00' AS TIME)");
-        dropTable(tableName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -478,7 +478,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery(format("SELECT * from %s WHERE _timestamp > TIMESTAMP '2017-06-01 10:12:34' AND _timestamp < TIMESTAMP '2018-05-01 10:12:34'", tableName), select2);
         assertQuery(format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2018-05-01 10:12:34'", tableName), select3);
         assertQuery(format("SELECT * from %s WHERE _timestamp > TIMESTAMP '2018-01-01 10:12:34'", tableName), select3);
-        dropTable(tableName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -1033,7 +1033,7 @@ public abstract class BaseIcebergConnectorTest
                 "  partitioning = ARRAY['_date']" +
                 ")");
 
-        dropTable("test_partitioned_table_nested_type");
+        assertUpdate("DROP TABLE test_partitioned_table_nested_type");
     }
 
     @Test
@@ -1087,7 +1087,7 @@ public abstract class BaseIcebergConnectorTest
 
         assertQuery("SELECT * from test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
 
-        dropTable("test_create_partitioned_table_as");
+        assertUpdate("DROP TABLE test_create_partitioned_table_as");
     }
 
     @Test
@@ -1117,7 +1117,7 @@ public abstract class BaseIcebergConnectorTest
         @Language("SQL") String sql = format("CREATE TABLE %s (%s bigint) WITH (partitioning = ARRAY['%s'])", tableName, columnName, partitioningField);
         if (success) {
             assertUpdate(sql);
-            dropTable(tableName);
+            assertUpdate("DROP TABLE " + tableName);
         }
         else {
             assertQueryFails(sql, "Unable to parse partitioning value: .*");
@@ -1233,7 +1233,7 @@ public abstract class BaseIcebergConnectorTest
                 CROSS JOIN UNNEST (sequence(1, 10_000)) a(i)
                 """.formatted(tableName, values, highValues, lowValues), 30000);
 
-        dropTable(tableName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -1243,7 +1243,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("" +
                 "CREATE TABLE " + tableName + " (a_boolean boolean, an_integer integer) " +
                 "  WITH (partitioning = ARRAY['an_integer'], sorted_by = ARRAY[])");
-        dropTable(tableName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -1263,7 +1263,7 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_create_sorted_table_with_quotes_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (%s bigint) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField));
-        dropTable(tableName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -1445,12 +1445,12 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate("COMMENT ON TABLE test_table_comments IS NULL");
         assertThat(computeScalar("SHOW CREATE TABLE test_table_comments")).isEqualTo(createTableWithoutComment);
-        dropTable("iceberg.tpch.test_table_comments");
+        assertUpdate("DROP TABLE iceberg.tpch.test_table_comments");
 
         assertUpdate(createTableWithoutComment);
         assertThat(computeScalar("SHOW CREATE TABLE test_table_comments")).isEqualTo(createTableWithoutComment);
 
-        dropTable("iceberg.tpch.test_table_comments");
+        assertUpdate("DROP TABLE iceberg.tpch.test_table_comments");
     }
 
     @Test
@@ -1485,7 +1485,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterSecondInsertId));
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (789, CAST(987 AS BIGINT))");
 
-        dropTable("test_rollback");
+        assertUpdate("DROP TABLE test_rollback");
     }
 
     @Override
@@ -1506,7 +1506,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT * FROM test_schema_evolution_drop_end", "VALUES(0, 1, NULL)");
         assertUpdate("INSERT INTO test_schema_evolution_drop_end VALUES (3, 4, 5)", 1);
         assertQuery("SELECT * FROM test_schema_evolution_drop_end", "VALUES(0, 1, NULL), (3, 4, 5)");
-        dropTable("test_schema_evolution_drop_end");
+        assertUpdate("DROP TABLE test_schema_evolution_drop_end");
 
         assertUpdate("CREATE TABLE test_schema_evolution_drop_middle (col0 INTEGER, col1 INTEGER, col2 INTEGER)");
         assertUpdate("INSERT INTO test_schema_evolution_drop_middle VALUES (0, 1, 2)", 1);
@@ -1516,7 +1516,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("ALTER TABLE test_schema_evolution_drop_middle ADD COLUMN col1 INTEGER");
         assertUpdate("INSERT INTO test_schema_evolution_drop_middle VALUES (3, 4, 5)", 1);
         assertQuery("SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 2, NULL), (3, 4, 5)");
-        dropTable("test_schema_evolution_drop_middle");
+        assertUpdate("DROP TABLE test_schema_evolution_drop_middle");
     }
 
     @Test
@@ -1536,7 +1536,7 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN id", "Cannot drop partition field: id");
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN name", "Cannot drop partition field: name");
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN age", "Cannot drop partition field: age");
-        dropTable(tableName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -1548,7 +1548,7 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN id", "Cannot drop column which is used by an old partition spec: id");
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN name", "Cannot drop column which is used by an old partition spec: name");
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN age", "Cannot drop column which is used by an old partition spec: age");
-        dropTable(tableName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -1619,7 +1619,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM test_in_predicate_large_set WHERE " + filter))
                 .matches("TABLE test_in_predicate_large_set");
 
-        dropTable("test_in_predicate_large_set");
+        assertUpdate("DROP TABLE test_in_predicate_large_set");
     }
 
     @Test
@@ -1708,7 +1708,7 @@ public abstract class BaseIcebergConnectorTest
                 )""",
                 format,
                 getTableLocation("test_create_table_like_copy2")));
-        dropTable("test_create_table_like_copy2");
+        assertUpdate("DROP TABLE test_create_table_like_copy2");
 
         assertQueryFails("CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)",
                 "Cannot create a table on a non-empty location.*");
@@ -1731,7 +1731,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE test_predicating_on_real (col REAL)");
         assertUpdate("INSERT INTO test_predicating_on_real VALUES 1.2", 1);
         assertQuery("SELECT * FROM test_predicating_on_real WHERE col = 1.2", "VALUES 1.2");
-        dropTable("test_predicating_on_real");
+        assertUpdate("DROP TABLE test_predicating_on_real");
     }
 
     @Test
@@ -1981,7 +1981,7 @@ public abstract class BaseIcebergConnectorTest
                 .containsAll("VALUES 1, 8, 9, 10")
                 .isFullyPushedDown();
 
-        dropTable(tableName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -2082,7 +2082,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM test_day_transform_date WHERE date_trunc('year', d) = DATE '2015-01-01'"))
                 .isFullyPushedDown();
 
-        dropTable("test_day_transform_date");
+        assertUpdate("DROP TABLE test_day_transform_date");
     }
 
     @Test
@@ -2194,7 +2194,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM test_day_transform_timestamp WHERE date_trunc('year', d) = DATE '2015-01-01'"))
                 .isFullyPushedDown();
 
-        dropTable("test_day_transform_timestamp");
+        assertUpdate("DROP TABLE test_day_transform_timestamp");
     }
 
     @Test
@@ -2429,7 +2429,7 @@ public abstract class BaseIcebergConnectorTest
                             "  (NULL, NULL, NULL, NULL, 15e0, NULL, NULL)");
         }
 
-        dropTable("test_month_transform_date");
+        assertUpdate("DROP TABLE test_month_transform_date");
     }
 
     @Test
@@ -2536,7 +2536,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM test_month_transform_timestamp WHERE date_trunc('year', d) = DATE '2015-01-01'"))
                 .isFullyPushedDown();
 
-        dropTable("test_month_transform_timestamp");
+        assertUpdate("DROP TABLE test_month_transform_timestamp");
     }
 
     @Test
@@ -2762,7 +2762,7 @@ public abstract class BaseIcebergConnectorTest
                             "  (NULL, NULL, NULL, NULL, 13e0, NULL, NULL)");
         }
 
-        dropTable("test_year_transform_date");
+        assertUpdate("DROP TABLE test_year_transform_date");
     }
 
     @Test
@@ -2864,7 +2864,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM test_year_transform_timestamp WHERE date_trunc('year', d) = DATE '2015-01-01'"))
                 .isFullyPushedDown();
 
-        dropTable("test_year_transform_timestamp");
+        assertUpdate("DROP TABLE test_year_transform_timestamp");
     }
 
     @Test
@@ -3033,7 +3033,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM test_truncate_text_transform WHERE d LIKE 'abc%'"))
                 .isNotFullyPushedDown(FilterNode.class);
 
-        dropTable("test_truncate_text_transform");
+        assertUpdate("DROP TABLE test_truncate_text_transform");
     }
 
     @Test
@@ -3133,7 +3133,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM " + table + " WHERE d >= 11"))
                 .isNotFullyPushedDown(FilterNode.class);
 
-        dropTable(table);
+        assertUpdate("DROP TABLE " + table);
     }
 
     @Test
@@ -3206,7 +3206,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM test_truncate_decimal_transform WHERE d >= 12.21"))
                 .isNotFullyPushedDown(FilterNode.class);
 
-        dropTable("test_truncate_decimal_transform");
+        assertUpdate("DROP TABLE test_truncate_decimal_transform");
     }
 
     @Test
@@ -3271,7 +3271,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM " + tableName + " WHERE d >= " + valueInOtherBucket))
                 .isNotFullyPushedDown(FilterNode.class);
 
-        dropTable(tableName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -3390,7 +3390,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DELETE FROM test_metadata_delete_simple WHERE col1 = 1", 3);
         assertQuery("SELECT sum(col2) FROM test_metadata_delete_simple", "SELECT 701");
         assertQuery("SELECT count(*) FROM \"test_metadata_delete_simple$partitions\"", "SELECT 2");
-        dropTable("test_metadata_delete_simple");
+        assertUpdate("DROP TABLE test_metadata_delete_simple");
     }
 
     @Test
@@ -3422,7 +3422,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT count(*) FROM \"test_metadata_delete$partitions\"", "SELECT 6");
         assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus <> 'O' AND linenumber <> 3");
 
-        dropTable("test_metadata_delete");
+        assertUpdate("DROP TABLE test_metadata_delete");
     }
 
     @Test
@@ -3445,7 +3445,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("INSERT INTO test_in_set VALUES %s", values), inCount);
         // This proves that SELECTs with large IN phrases work correctly
         computeActual(format("SELECT col1 FROM test_in_set WHERE col1 IN (%s)", inList));
-        dropTable("test_in_set");
+        assertUpdate("DROP TABLE test_in_set");
     }
 
     @Test
@@ -3495,7 +3495,7 @@ public abstract class BaseIcebergConnectorTest
         }
         assertThat(result).containsExactlyElementsOf(expectedStatistics);
 
-        dropTable(tableName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     /**
@@ -3635,7 +3635,7 @@ public abstract class BaseIcebergConnectorTest
         }
         assertThat(result).containsExactlyElementsOf(expectedStatistics);
 
-        dropTable(tableName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -3749,7 +3749,7 @@ public abstract class BaseIcebergConnectorTest
         row2 = result.getMaterializedRows().get(2);
         assertThat(row2.getField(4)).isEqualTo(17.0);
 
-        dropTable("iceberg.tpch.test_partitioned_table_statistics");
+        assertUpdate("DROP TABLE iceberg.tpch.test_partitioned_table_statistics");
     }
 
     @Test
@@ -3799,7 +3799,7 @@ public abstract class BaseIcebergConnectorTest
                 // Unenforced predicate is simplified during split generation, but not reflected here
                 ImmutableMap.of("col1", multipleValues(BIGINT, values)));
 
-        dropTable(tableName.getObjectName());
+        assertUpdate("DROP TABLE " + tableName.getObjectName());
     }
 
     @Test
@@ -3834,7 +3834,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT id FROM " + tableName + " WHERE struct_t = ROW(21, 22)", "VALUES 21");
         assertQuery("SELECT struct_t.f1  FROM " + tableName + " WHERE id = 11 AND map_t = MAP(ARRAY[11, 13], ARRAY[12, 14])", "VALUES 11");
 
-        dropTable(tableName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -4050,7 +4050,7 @@ public abstract class BaseIcebergConnectorTest
                             "  (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)");
         }
 
-        dropTable("test_nested_table_1");
+        assertUpdate("DROP TABLE test_nested_table_1");
 
         assertUpdate("" +
                 "CREATE TABLE test_nested_table_2 (" +
@@ -4111,8 +4111,8 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_nested_table_3"))
                 .matches("SHOW STATS FOR test_nested_table_2");
 
-        dropTable("test_nested_table_2");
-        dropTable("test_nested_table_3");
+        assertUpdate("DROP TABLE test_nested_table_2");
+        assertUpdate("DROP TABLE test_nested_table_3");
     }
 
     @Test
@@ -4132,7 +4132,7 @@ public abstract class BaseIcebergConnectorTest
 
         assertQuery("SELECT * FROM test_read_isolation", "VALUES 123, 456, 789");
 
-        dropTable("test_read_isolation");
+        assertUpdate("DROP TABLE test_read_isolation");
     }
 
     private void withTransaction(Consumer<Session> consumer)
@@ -4140,13 +4140,6 @@ public abstract class BaseIcebergConnectorTest
         transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getPlannerContext().getMetadata(), getQueryRunner().getAccessControl())
                 .readCommitted()
                 .execute(getSession(), consumer);
-    }
-
-    private void dropTable(String table)
-    {
-        Session session = getSession();
-        assertUpdate(session, "DROP TABLE " + table);
-        assertThat(getQueryRunner().tableExists(session, table)).isFalse();
     }
 
     @Test
@@ -4172,7 +4165,7 @@ public abstract class BaseIcebergConnectorTest
         // TODO: assert behavior after deleting the last row of a partition, once row-level deletes are supported.
         // i.e. a query like 'DELETE FROM test_metadata_optimization WHERE b = 6 AND a = 5'
 
-        dropTable("test_metadata_optimization");
+        assertUpdate("DROP TABLE test_metadata_optimization");
     }
 
     @Test
@@ -4257,7 +4250,7 @@ public abstract class BaseIcebergConnectorTest
                 "SELECT * FROM test_iceberg_file_size",
                 "(Malformed ORC file\\. Invalid file metadata.*)|(.*Malformed Parquet file.*)");
 
-        dropTable("test_iceberg_file_size");
+        assertUpdate("DROP TABLE test_iceberg_file_size");
     }
 
     protected DataFileReader<GenericData.Record> readManifestFile(String location)
@@ -4756,7 +4749,7 @@ public abstract class BaseIcebergConnectorTest
     {
         assertUpdate("CREATE TABLE test_iceberg_get_table_props (x BIGINT)");
         verifyIcebergTableProperties(computeActual("SELECT * FROM \"test_iceberg_get_table_props$properties\""));
-        dropTable("test_iceberg_get_table_props");
+        assertUpdate("DROP TABLE test_iceberg_get_table_props");
     }
 
     protected void verifyIcebergTableProperties(MaterializedResult actual)
@@ -5421,11 +5414,11 @@ public abstract class BaseIcebergConnectorTest
     {
         assertUpdate("CREATE TABLE test_iceberg_recreate (a_int) AS VALUES (1)", 1);
         assertThat(query("SELECT min(a_int) FROM test_iceberg_recreate")).matches("VALUES 1");
-        dropTable("test_iceberg_recreate");
+        assertUpdate("DROP TABLE test_iceberg_recreate");
 
         assertUpdate("CREATE TABLE test_iceberg_recreate (a_varchar) AS VALUES ('Trino')", 1);
         assertThat(query("SELECT min(a_varchar) FROM test_iceberg_recreate")).matches("VALUES CAST('Trino' AS varchar)");
-        dropTable("test_iceberg_recreate");
+        assertUpdate("DROP TABLE test_iceberg_recreate");
     }
 
     @Test
