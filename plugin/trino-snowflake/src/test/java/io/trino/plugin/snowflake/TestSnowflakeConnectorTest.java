@@ -70,7 +70,6 @@ public class TestSnowflakeConnectorTest
                     SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                     SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
                     SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
                     SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
                     SUPPORTS_ARRAY,
                     SUPPORTS_COMMENT_ON_COLUMN,
