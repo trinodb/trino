@@ -113,6 +113,9 @@ The connector supports pushdown for a number of operations:
 - {func}`max`
 - {func}`min`
 - {func}`sum`
+- {func}`stddev`
+- {func}`stddev_pop`
+- {func}`stddev_samp`
 
 ```{include} pushdown-correctness-behavior.fragment
 ```
