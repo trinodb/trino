@@ -43,6 +43,7 @@ import io.trino.spi.function.AggregationImplementation.AccumulatorStateDescripto
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.GroupedAccumulatorState;
+import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
 import io.trino.sql.gen.Binding;
 import io.trino.sql.gen.CallSiteBinder;

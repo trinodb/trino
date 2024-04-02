@@ -11,24 +11,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation;
+package io.trino.spi.function;
 
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.WindowIndex;
 
 public interface WindowAccumulator
 {
+    /**
+     * @return the estimated size of the accumulator in bytes
+     */
     long getEstimatedSize();
 
+    /**
+     * @return a copy of the accumulator
+     */
     WindowAccumulator copy();
 
+    /**
+     * Add the specified positions to the accumulator.
+     *
+     * @param startPosition the first position to add
+     * @param endPosition the last position to add (inclusive)
+     */
     void addInput(WindowIndex index, int startPosition, int endPosition);
 
     /**
-     * @return Returns false when an NaN or Infinite input double value is
-     * encountered, true otherwise.
+     * Remove the specified positions from the accumulator.
+     *
+     * @param startPosition the first position to remove
+     * @param endPosition the last position to remove (inclusive)
+     * @return false if input could not be removed and accumulator should be recreated
      */
-    boolean removeInput(WindowIndex index, int startPosition, int endPosition);
+    default boolean removeInput(WindowIndex index, int startPosition, int endPosition)
+    {
+        return false;
+    }
 
+    /**
+     * Get the value of the accumulator.
+     */
     void output(BlockBuilder blockBuilder);
 }
