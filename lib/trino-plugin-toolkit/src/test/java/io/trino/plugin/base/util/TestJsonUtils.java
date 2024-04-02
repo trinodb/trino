@@ -15,6 +15,7 @@ package io.trino.plugin.base.util;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.core.util.JsonRecyclerPools;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 
@@ -79,6 +80,13 @@ public class TestJsonUtils
     {
         assertReadConstraints(jsonFactory().streamReadConstraints());
         assertReadConstraints(jsonFactoryBuilder().build().streamReadConstraints());
+    }
+
+    @Test
+    public void testFactoryHasThreadLocalRecycler()
+    {
+        assertThat(jsonFactory()._getRecyclerPool()).isEqualTo(JsonRecyclerPools.threadLocalPool());
+        assertThat(jsonFactoryBuilder().build()._getRecyclerPool()).isEqualTo(JsonRecyclerPools.threadLocalPool());
     }
 
     @Test
