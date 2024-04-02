@@ -459,6 +459,11 @@
                                     <new>parameter void io.trino.spi.function.GroupedAccumulatorState::ensureCapacity(===int===)</new>
                                     <parameterIndex>0</parameterIndex>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>@interface io.trino.spi.function.RemoveInputFunction</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

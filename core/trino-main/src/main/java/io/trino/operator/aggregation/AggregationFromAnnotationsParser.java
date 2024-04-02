@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.MoreCollectors;
 import io.airlift.log.Logger;
 import io.trino.metadata.FunctionBinding;
 import io.trino.operator.ParametricImplementationsGroup;
@@ -41,7 +40,6 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OutputFunction;
-import io.trino.spi.function.RemoveInputFunction;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.function.WindowAccumulator;
@@ -112,12 +110,10 @@ public final class AggregationFromAnnotationsParser
             List<ParametricAggregationImplementation> exactImplementations = new ArrayList<>();
             List<ParametricAggregationImplementation> nonExactImplementations = new ArrayList<>();
             for (Method inputFunction : getInputFunctions(aggregationDefinition, stateDetails)) {
-                Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, inputFunction);
                 ParametricAggregationImplementation implementation = parseImplementation(
                         aggregationDefinition,
                         stateDetails,
                         inputFunction,
-                        removeInputFunction,
                         outputFunction,
                         combineFunction.filter(function -> header.decomposable()),
                         header.windowAccumulator());
@@ -342,15 +338,6 @@ public final class AggregationFromAnnotationsParser
         return getNonDependencyParameters(function)
                 .mapToObj(index -> ImmutableList.copyOf(parameterAnnotations[index]))
                 .collect(toImmutableList());
-    }
-
-    private static Optional<Method> getRemoveInputFunction(Class<?> clazz, Method inputFunction)
-    {
-        // Only include methods which take the same parameters as the corresponding input function
-        return FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, RemoveInputFunction.class).stream()
-                .filter(method -> Arrays.equals(method.getParameterTypes(), inputFunction.getParameterTypes()))
-                .filter(method -> Arrays.deepEquals(method.getParameterAnnotations(), inputFunction.getParameterAnnotations()))
-                .collect(MoreCollectors.toOptional());
     }
 
     private static List<AccumulatorStateDetails<?>> getStateDetails(Class<?> clazz)
