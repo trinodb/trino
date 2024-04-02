@@ -26,7 +26,6 @@ import static java.util.Objects.requireNonNull;
 public class AggregationImplementation
 {
     private final MethodHandle inputFunction;
-    private final Optional<MethodHandle> removeInputFunction;
     private final Optional<MethodHandle> combineFunction;
     private final MethodHandle outputFunction;
     private final List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors;
@@ -35,7 +34,6 @@ public class AggregationImplementation
 
     private AggregationImplementation(
             MethodHandle inputFunction,
-            Optional<MethodHandle> removeInputFunction,
             Optional<MethodHandle> combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors,
@@ -43,7 +41,6 @@ public class AggregationImplementation
             Optional<Class<? extends WindowAccumulator>> windowAccumulator)
     {
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
-        this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
@@ -54,11 +51,6 @@ public class AggregationImplementation
     public MethodHandle getInputFunction()
     {
         return inputFunction;
-    }
-
-    public Optional<MethodHandle> getRemoveInputFunction()
-    {
-        return removeInputFunction;
     }
 
     public Optional<MethodHandle> getCombineFunction()
@@ -158,7 +150,6 @@ public class AggregationImplementation
     public static class Builder
     {
         private MethodHandle inputFunction;
-        private Optional<MethodHandle> removeInputFunction = Optional.empty();
         private Optional<MethodHandle> combineFunction = Optional.empty();
         private MethodHandle outputFunction;
         private List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors = new ArrayList<>();
@@ -170,12 +161,6 @@ public class AggregationImplementation
         public Builder inputFunction(MethodHandle inputFunction)
         {
             this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
-            return this;
-        }
-
-        public Builder removeInputFunction(MethodHandle removeInputFunction)
-        {
-            this.removeInputFunction = Optional.of(requireNonNull(removeInputFunction, "removeInputFunction is null"));
             return this;
         }
 
@@ -230,7 +215,6 @@ public class AggregationImplementation
         {
             return new AggregationImplementation(
                     inputFunction,
-                    removeInputFunction,
                     combineFunction,
                     outputFunction,
                     accumulatorStateDescriptors,

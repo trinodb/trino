@@ -153,7 +153,7 @@ public abstract class AbstractTestAggregationFunction
         for (int start = 0; start < totalPositions; ++start) {
             int width = windowWidths[start];
             // Note that add/removeInput's interval is inclusive on both ends
-            if (aggregationImplementation.getRemoveInputFunction().isPresent()) {
+            if (aggregationImplementation.getWindowAccumulator().isPresent()) {
                 for (int oldi = oldStart; oldi < oldStart + oldWidth; ++oldi) {
                     if (oldi < start || oldi >= start + width) {
                         boolean res = aggregation.removeInput(windowIndex, oldi, oldi);
