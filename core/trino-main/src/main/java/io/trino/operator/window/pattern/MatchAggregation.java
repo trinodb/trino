@@ -139,7 +139,7 @@ public class MatchAggregation
         }
 
         BlockBuilder blockBuilder = boundSignature.getReturnType().createBlockBuilder(null, 1);
-        accumulator.evaluateFinal(blockBuilder);
+        accumulator.output(blockBuilder);
         return blockBuilder.build();
     }
 
@@ -157,7 +157,7 @@ public class MatchAggregation
             return resultOnEmpty;
         }
         BlockBuilder blockBuilder = boundSignature.getReturnType().createBlockBuilder(null, 1);
-        accumulatorFactory.get().evaluateFinal(blockBuilder);
+        accumulatorFactory.get().output(blockBuilder);
         resultOnEmpty = blockBuilder.build();
         return resultOnEmpty;
     }
