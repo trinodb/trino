@@ -13,8 +13,12 @@
  */
 package io.trino.filesystem.alluxio;
 
+import alluxio.client.file.cache.PageId;
+import alluxio.client.file.cache.PageStore;
+import alluxio.client.file.cache.store.PageStoreOptions;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMultiset;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -67,6 +71,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
     private AlluxioFileSystemCache alluxioCache;
     private CacheFileSystem fileSystem;
     private Path tempDirectory;
+    private PageStore pageStore;
 
     @BeforeAll
     public void setUp()
@@ -84,6 +89,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
         tracingFileSystemFactory = new TracingFileSystemFactory(testingTelemetry.getTracer(), new MemoryFileSystemFactory());
         alluxioCache = new AlluxioFileSystemCache(testingTelemetry.getTracer(), configuration, new AlluxioCacheStats());
         fileSystem = new CacheFileSystem(tracingFileSystemFactory.create(ConnectorIdentity.ofUser("hello")), new TracingFileSystemCache(testingTelemetry.getTracer(), alluxioCache), cacheKeyProvider);
+        pageStore = PageStore.create(Iterables.getOnlyElement(PageStoreOptions.create(AlluxioConfigurationFactory.create(configuration))));
     }
 
     @AfterAll
@@ -246,6 +252,80 @@ public class TestAlluxioCacheFileSystemAccessOperations
         assertCachedRead(bLocation, PAGE_SIZE * 5);
         assertUnCachedRead(cLocation, PAGE_SIZE * 4);
         assertUnCachedRead(dLocation, PAGE_SIZE * 3);
+    }
+
+    // This mimics the behaviour when dealing with concurrent read access to Alluxio cache for new files
+    @Test
+    public void testCacheWithMissingPage()
+            throws Exception
+    {
+        Location location = getRootLocation().appendPath("missing_page");
+        byte[] content = "missing page".getBytes(StandardCharsets.UTF_8);
+        try (OutputStream output = fileSystem.newOutputFile(location).create()) {
+            output.write(content);
+        }
+
+        int readTimes = 3;
+        assertCacheOperations(location, content, readTimes,
+                ImmutableMultiset.<CacheOperationSpan>builder()
+                        .addCopies(new CacheOperationSpan("Alluxio.readCached", location.toString(), 12), readTimes)
+                        .addCopies(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 12), readTimes)
+                        .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 12))
+                        .add(new CacheOperationSpan("Alluxio.writeCache", location.toString(), 12))
+                        .add(new CacheOperationSpan("Alluxio.readExternal", location.toString(), 12))
+                        .build());
+
+        TrinoInputFile inputFile = fileSystem.newInputFile(location);
+        String fileId = alluxioCache.uriStatus(inputFile, cacheKeyProvider.getCacheKey(inputFile).get()).getCacheContext().getCacheIdentifier();
+
+        // Drop this file
+        pageStore.delete(new PageId(fileId, 0));
+
+        assertCacheOperations(location, content,
+                ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("Alluxio.readCached", location.toString(), 12))
+                        .add(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 12))
+                        .add(new CacheOperationSpan("Alluxio.readExternal", location.toString(), 12))
+                        .add(new CacheOperationSpan("Alluxio.writeCache", location.toString(), 12))
+                        .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 12))
+                        .build());
+    }
+
+    // This mimics the behaviour when dealing with concurrent read access to Alluxio cache for new files
+    @Test
+    public void testCacheWithCorruptedPage()
+            throws Exception
+    {
+        Location location = getRootLocation().appendPath("corrupted_page");
+        byte[] content = "corrupted page".getBytes(StandardCharsets.UTF_8);
+        try (OutputStream output = fileSystem.newOutputFile(location).create()) {
+            output.write(content);
+        }
+
+        int readTimes = 3;
+        assertCacheOperations(location, content, readTimes,
+                ImmutableMultiset.<CacheOperationSpan>builder()
+                        .addCopies(new CacheOperationSpan("Alluxio.readCached", location.toString(), 14), readTimes)
+                        .addCopies(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 14), readTimes)
+                        .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 14))
+                        .add(new CacheOperationSpan("Alluxio.writeCache", location.toString(), 14))
+                        .add(new CacheOperationSpan("Alluxio.readExternal", location.toString(), 14))
+                        .build());
+
+        TrinoInputFile inputFile = fileSystem.newInputFile(location);
+        String fileId = alluxioCache.uriStatus(inputFile, cacheKeyProvider.getCacheKey(inputFile).get()).getCacheContext().getCacheIdentifier();
+
+        // Drop this file
+        pageStore.put(new PageId(fileId, 0), new byte[0]);
+
+        assertCacheOperations(location, content,
+                ImmutableMultiset.<CacheOperationSpan>builder()
+                        .add(new CacheOperationSpan("Alluxio.readCached", location.toString(), 14))
+                        .add(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 14))
+                        .add(new CacheOperationSpan("Alluxio.readExternal", location.toString(), 14))
+                        .add(new CacheOperationSpan("Alluxio.writeCache", location.toString(), 14))
+                        .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 14))
+                        .build());
     }
 
     private Location createFile(String name, int size)
