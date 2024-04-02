@@ -99,11 +99,11 @@ public final class AggregationFromAnnotationsParser
         // Each output function defines a new aggregation function
         for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateDetails)) {
             AggregationHeader header = parseHeader(aggregationDefinition, outputFunction);
-            if (header.isDecomposable()) {
-                checkArgument(combineFunction.isPresent(), "Decomposable method %s does not have a combine method", header.getName());
+            if (header.decomposable()) {
+                checkArgument(combineFunction.isPresent(), "Decomposable method %s does not have a combine method", header.name());
             }
             else if (combineFunction.isPresent()) {
-                log.warn("Aggregation function %s is not decomposable, but has combine method", header.getName());
+                log.warn("Aggregation function %s is not decomposable, but has combine method", header.name());
             }
 
             // Input functions can have either an exact signature, or generic/calculate signature
@@ -117,7 +117,7 @@ public final class AggregationFromAnnotationsParser
                         inputFunction,
                         removeInputFunction,
                         outputFunction,
-                        combineFunction.filter(function -> header.isDecomposable()));
+                        combineFunction.filter(function -> header.decomposable()));
                 if (isGenericOrCalculated(implementation.getSignature())) {
                     exactImplementations.add(implementation);
                 }
@@ -385,7 +385,7 @@ public final class AggregationFromAnnotationsParser
     @VisibleForTesting
     public static <T extends AccumulatorState> AccumulatorStateDetails<T> toAccumulatorStateDetails(Class<T> stateClass, List<String> declaredTypeParameters)
     {
-        StateMetadata metadata = new StateMetadata(getMetadataAnnotation(stateClass));
+        StateMetadata metadata = StateMetadata.create(getMetadataAnnotation(stateClass));
         // Generic state classes have their own type variables, that must be mapped to the aggregation's type variables
         TypeSignatureMapping typeParameterMapping = getTypeParameterMapping(stateClass, declaredTypeParameters, metadata);
 
@@ -398,8 +398,8 @@ public final class AggregationFromAnnotationsParser
         List<ImplementationDependency> allDependencies = new ArrayList<>();
 
         BiFunction<FunctionBinding, FunctionDependencies, AccumulatorStateSerializer<T>> serializerGenerator;
-        if (metadata.getStateSerializerClass().isPresent()) {
-            Constructor<?> constructor = getOnlyConstructor(metadata.getStateSerializerClass().get());
+        if (metadata.stateSerializerClass().isPresent()) {
+            Constructor<?> constructor = getOnlyConstructor(metadata.stateSerializerClass().get());
             List<ImplementationDependency> dependencies = parseImplementationDependencies(typeParameterMapping, constructor);
             serializerGenerator = new TypedFactory<>(constructor, dependencies);
             allDependencies.addAll(dependencies);
@@ -409,8 +409,8 @@ public final class AggregationFromAnnotationsParser
         }
 
         TypeSignature serializedType;
-        if (metadata.getSerializedType().isPresent()) {
-            serializedType = typeParameterMapping.mapTypeSignature(parseTypeSignature(metadata.getSerializedType().get(), ImmutableSet.of()));
+        if (metadata.serializedType().isPresent()) {
+            serializedType = typeParameterMapping.mapTypeSignature(parseTypeSignature(metadata.serializedType().get(), ImmutableSet.of()));
         }
         else {
             // serialized type is not explicit declared, so we must construct it to get the
@@ -423,8 +423,8 @@ public final class AggregationFromAnnotationsParser
         }
 
         BiFunction<FunctionBinding, FunctionDependencies, AccumulatorStateFactory<T>> factoryGenerator;
-        if (metadata.getStateFactoryClass().isPresent()) {
-            Constructor<?> constructor = getOnlyConstructor(metadata.getStateFactoryClass().get());
+        if (metadata.stateFactoryClass().isPresent()) {
+            Constructor<?> constructor = getOnlyConstructor(metadata.stateFactoryClass().get());
             List<ImplementationDependency> dependencies = parseImplementationDependencies(typeParameterMapping, constructor);
             factoryGenerator = new TypedFactory<>(constructor, dependencies);
             allDependencies.addAll(dependencies);
@@ -463,7 +463,7 @@ public final class AggregationFromAnnotationsParser
 
     private static TypeSignatureMapping getTypeParameterMapping(Class<?> stateClass, List<String> declaredTypeParameters, StateMetadata metadata)
     {
-        List<String> expectedTypeParameters = metadata.getTypeParameters();
+        List<String> expectedTypeParameters = metadata.typeParameters();
         if (expectedTypeParameters.isEmpty()) {
             return new TypeSignatureMapping(ImmutableMap.of());
         }
@@ -498,54 +498,30 @@ public final class AggregationFromAnnotationsParser
         return builder.build();
     }
 
-    private static class StateMetadata
+    private record StateMetadata(
+            Optional<Class<? extends AccumulatorStateSerializer<?>>> stateSerializerClass,
+            Optional<Class<? extends AccumulatorStateFactory<?>>> stateFactoryClass,
+            List<String> typeParameters,
+            Optional<String> serializedType)
     {
-        private final Optional<Class<? extends AccumulatorStateSerializer<?>>> stateSerializerClass;
-        private final Optional<Class<? extends AccumulatorStateFactory<?>>> stateFactoryClass;
-        private final List<String> typeParameters;
-        private final Optional<String> serializedType;
-
-        public StateMetadata(AccumulatorStateMetadata metadata)
+        public static StateMetadata create(AccumulatorStateMetadata metadata)
         {
             if (metadata == null) {
-                stateSerializerClass = Optional.empty();
-                stateFactoryClass = Optional.empty();
-                typeParameters = ImmutableList.of();
-                serializedType = Optional.empty();
+                return new StateMetadata(Optional.empty(), Optional.empty(), ImmutableList.of(), Optional.empty());
             }
             else {
                 //noinspection unchecked
-                stateSerializerClass = Optional.of(metadata.stateSerializerClass())
-                        .filter(not(AccumulatorStateSerializer.class::equals))
-                        .map(type -> (Class<? extends AccumulatorStateSerializer<?>>) type);
-                //noinspection unchecked
-                stateFactoryClass = Optional.of(metadata.stateFactoryClass())
-                        .filter(not(AccumulatorStateFactory.class::equals))
-                        .map(type -> (Class<? extends AccumulatorStateFactory<?>>) type);
-                typeParameters = ImmutableList.copyOf(metadata.typeParameters());
-                serializedType = Optional.of(metadata.serializedType())
-                        .filter(not(String::isEmpty));
+                return new StateMetadata(
+                        Optional.of(metadata.stateSerializerClass())
+                                .filter(not(AccumulatorStateSerializer.class::equals))
+                                .map(type -> (Class<? extends AccumulatorStateSerializer<?>>) type),
+                        Optional.of(metadata.stateFactoryClass())
+                                .filter(not(AccumulatorStateFactory.class::equals))
+                                .map(type -> (Class<? extends AccumulatorStateFactory<?>>) type),
+                        ImmutableList.copyOf(metadata.typeParameters()),
+                        Optional.of(metadata.serializedType())
+                                .filter(not(String::isEmpty)));
             }
-        }
-
-        public Optional<Class<? extends AccumulatorStateSerializer<?>>> getStateSerializerClass()
-        {
-            return stateSerializerClass;
-        }
-
-        public Optional<Class<? extends AccumulatorStateFactory<?>>> getStateFactoryClass()
-        {
-            return stateFactoryClass;
-        }
-
-        public List<String> getTypeParameters()
-        {
-            return typeParameters;
-        }
-
-        public Optional<String> getSerializedType()
-        {
-            return serializedType;
         }
     }
 
