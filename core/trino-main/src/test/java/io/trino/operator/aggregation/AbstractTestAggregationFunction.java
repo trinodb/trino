@@ -175,7 +175,7 @@ public abstract class AbstractTestAggregationFunction
 
             Type outputType = resolvedFunction.signature().getReturnType();
             BlockBuilder blockBuilder = outputType.createBlockBuilder(null, 1000);
-            aggregation.evaluateFinal(blockBuilder);
+            aggregation.output(blockBuilder);
             Block block = blockBuilder.build();
 
             assertThat(makeValidityAssertion(expectedValues[start]).apply(

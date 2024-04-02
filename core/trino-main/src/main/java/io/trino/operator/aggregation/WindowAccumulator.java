@@ -30,5 +30,5 @@ public interface WindowAccumulator
      */
     boolean removeInput(WindowIndex index, int startPosition, int endPosition);
 
-    void evaluateFinal(BlockBuilder blockBuilder);
+    void output(BlockBuilder blockBuilder);
 }
