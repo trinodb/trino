@@ -31,6 +31,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.Reflection;
 
@@ -78,6 +79,7 @@ public class ParametricAggregationImplementation
     private final Optional<MethodHandle> removeInputFunction;
     private final MethodHandle outputFunction;
     private final Optional<MethodHandle> combineFunction;
+    private final Optional<Class<? extends WindowAccumulator>> windowAccumulator;
     private final List<AggregateNativeContainerType> argumentNativeContainerTypes;
     private final List<ImplementationDependency> inputDependencies;
     private final List<ImplementationDependency> removeInputDependencies;
@@ -93,6 +95,7 @@ public class ParametricAggregationImplementation
             Optional<MethodHandle> removeInputFunction,
             MethodHandle outputFunction,
             Optional<MethodHandle> combineFunction,
+            Optional<Class<? extends WindowAccumulator>> windowAccumulator,
             List<AggregateNativeContainerType> argumentNativeContainerTypes,
             List<ImplementationDependency> inputDependencies,
             List<ImplementationDependency> removeInputDependencies,
@@ -106,6 +109,7 @@ public class ParametricAggregationImplementation
         this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction cannot be null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction cannot be null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction cannot be null");
+        this.windowAccumulator = requireNonNull(windowAccumulator, "windowAccumulator cannot be null");
         this.argumentNativeContainerTypes = requireNonNull(argumentNativeContainerTypes, "argumentNativeContainerTypes cannot be null");
         this.inputDependencies = requireNonNull(inputDependencies, "inputDependencies cannot be null");
         this.removeInputDependencies = requireNonNull(removeInputDependencies, "removeInputDependencies cannot be null");
@@ -161,6 +165,11 @@ public class ParametricAggregationImplementation
     public Optional<MethodHandle> getCombineFunction()
     {
         return combineFunction;
+    }
+
+    public Optional<Class<? extends WindowAccumulator>> getWindowAccumulator()
+    {
+        return windowAccumulator;
     }
 
     public List<ImplementationDependency> getInputDependencies()
@@ -219,6 +228,8 @@ public class ParametricAggregationImplementation
         private final Optional<MethodHandle> removeInputHandle;
         private final MethodHandle outputHandle;
         private final Optional<MethodHandle> combineHandle;
+        private final Optional<Class<? extends WindowAccumulator>> windowAccumulator;
+
         private final List<AggregateNativeContainerType> argumentNativeContainerTypes;
         private final List<ImplementationDependency> inputDependencies;
         private final List<ImplementationDependency> removeInputDependencies;
@@ -237,7 +248,8 @@ public class ParametricAggregationImplementation
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
                 Method outputFunction,
-                Optional<Method> combineFunction)
+                Optional<Method> combineFunction,
+                Optional<Class<? extends WindowAccumulator>> windowAccumulator)
         {
             // rewrite data passed directly
             this.aggregationDefinition = aggregationDefinition;
@@ -282,6 +294,8 @@ public class ParametricAggregationImplementation
             removeInputHandle = removeInputFunction.map(Reflection::methodHandle);
             combineHandle = combineFunction.map(Reflection::methodHandle);
             outputHandle = methodHandle(outputFunction);
+
+            this.windowAccumulator = windowAccumulator;
         }
 
         private ParametricAggregationImplementation get()
@@ -293,6 +307,7 @@ public class ParametricAggregationImplementation
                     removeInputHandle,
                     outputHandle,
                     combineHandle,
+                    windowAccumulator,
                     argumentNativeContainerTypes,
                     inputDependencies,
                     removeInputDependencies,
@@ -307,9 +322,10 @@ public class ParametricAggregationImplementation
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
                 Method outputFunction,
-                Optional<Method> combineFunction)
+                Optional<Method> combineFunction,
+                Optional<Class<? extends WindowAccumulator>> windowAccumulator)
         {
-            return new Parser(aggregationDefinition, stateDetails, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
+            return new Parser(aggregationDefinition, stateDetails, inputFunction, removeInputFunction, outputFunction, combineFunction, windowAccumulator).get();
         }
 
         private static List<AggregationParameterKind> parseInputParameterKinds(Method method)

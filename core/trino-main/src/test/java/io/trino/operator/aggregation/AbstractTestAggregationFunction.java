@@ -30,7 +30,6 @@ import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Constructor;
 import java.util.List;
 
 import static io.trino.operator.aggregation.AccumulatorCompiler.generateWindowAccumulatorClass;
@@ -188,16 +187,11 @@ public abstract class AbstractTestAggregationFunction
 
     protected static WindowAccumulator createWindowAccumulator(ResolvedFunction resolvedFunction, AggregationImplementation aggregationImplementation)
     {
-        try {
-            Constructor<? extends WindowAccumulator> constructor = generateWindowAccumulatorClass(
-                    resolvedFunction.signature(),
-                    aggregationImplementation,
-                    resolvedFunction.functionNullability());
-            return constructor.newInstance(ImmutableList.of());
-        }
-        catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
+        return generateWindowAccumulatorClass(
+                resolvedFunction.signature(),
+                aggregationImplementation,
+                resolvedFunction.functionNullability())
+                .apply(ImmutableList.of());
     }
 
     protected static Block[] createAlternatingNullsBlock(List<Type> types, Block... sequenceBlocks)
