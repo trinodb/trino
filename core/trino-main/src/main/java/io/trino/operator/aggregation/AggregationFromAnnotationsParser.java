@@ -44,9 +44,11 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.RemoveInputFunction;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.AccessFlag;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
@@ -117,7 +119,8 @@ public final class AggregationFromAnnotationsParser
                         inputFunction,
                         removeInputFunction,
                         outputFunction,
-                        combineFunction.filter(function -> header.decomposable()));
+                        combineFunction.filter(function -> header.decomposable()),
+                        header.windowAccumulator());
                 if (isGenericOrCalculated(implementation.getSignature())) {
                     exactImplementations.add(implementation);
                 }
@@ -182,7 +185,8 @@ public final class AggregationFromAnnotationsParser
                 aggregationAnnotation.decomposable(),
                 aggregationAnnotation.isOrderSensitive(),
                 aggregationAnnotation.hidden(),
-                aggregationDefinition.getAnnotationsByType(Deprecated.class).length > 0);
+                aggregationDefinition.getAnnotationsByType(Deprecated.class).length > 0,
+                getWindowAccumulator(aggregationAnnotation));
     }
 
     private static String getName(AggregationFunction aggregationAnnotation, AnnotatedElement outputFunction)
@@ -201,6 +205,23 @@ public final class AggregationFromAnnotationsParser
             return ImmutableSet.copyOf(annotation.alias());
         }
         return ImmutableSet.copyOf(aggregationAnnotation.alias());
+    }
+
+    private static Optional<Class<? extends WindowAccumulator>> getWindowAccumulator(AggregationFunction aggregationAnnotation)
+    {
+        Class<? extends WindowAccumulator> windowAccumulator = aggregationAnnotation.windowAccumulator();
+        if (windowAccumulator.equals(WindowAccumulator.class)) {
+            return Optional.empty();
+        }
+        Set<AccessFlag> accessFlags = windowAccumulator.accessFlags();
+        checkArgument(accessFlags.contains(AccessFlag.PUBLIC), "Window accumulator must be public: %s", windowAccumulator);
+        checkArgument(accessFlags.contains(AccessFlag.STATIC), "Window accumulator must be static: %s", windowAccumulator);
+        boolean hasValidConstructor = Arrays.stream(windowAccumulator.getConstructors())
+                .map(Constructor::getParameterTypes)
+                .map(List::of)
+                .anyMatch(parameters -> parameters.isEmpty() || parameters.equals(List.of(List.class)));
+        checkArgument(hasValidConstructor, "Window accumulator must have a public no-arg constructor or a constructor with a single List parameter: %s", windowAccumulator);
+        return Optional.of(windowAccumulator);
     }
 
     private static Optional<Method> getCombineFunction(Class<?> clazz, List<AccumulatorStateDetails<?>> stateDetails)
