@@ -164,7 +164,7 @@ public class TestEventListenerWithSplits
         assertThat(statistics.getPhysicalInputRows()).isEqualTo(expectedCompletedPositions);
         assertThat(statistics.getProcessedInputBytes()).isEqualTo(0);
         assertThat(statistics.getProcessedInputRows()).isEqualTo(expectedCompletedPositions);
-        assertThat(statistics.getInternalNetworkBytes()).isEqualTo(261);
+        assertThat(statistics.getInternalNetworkBytes()).isEqualTo(132);
         assertThat(statistics.getInternalNetworkRows()).isEqualTo(3);
         assertThat(statistics.getTotalBytes()).isEqualTo(0);
         assertThat(statistics.getOutputBytes()).isEqualTo(9);
