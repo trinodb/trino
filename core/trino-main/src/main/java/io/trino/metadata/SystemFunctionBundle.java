@@ -26,7 +26,6 @@ import io.trino.operator.aggregation.ApproximateRealPercentileArrayAggregations;
 import io.trino.operator.aggregation.ApproximateSetAggregation;
 import io.trino.operator.aggregation.ApproximateSetGenericAggregation;
 import io.trino.operator.aggregation.ArbitraryAggregationFunction;
-import io.trino.operator.aggregation.AverageAggregations;
 import io.trino.operator.aggregation.BigintApproximateMostFrequent;
 import io.trino.operator.aggregation.BitwiseAndAggregation;
 import io.trino.operator.aggregation.BitwiseOrAggregation;
@@ -42,6 +41,7 @@ import io.trino.operator.aggregation.CountIfAggregation;
 import io.trino.operator.aggregation.DecimalAverageAggregation;
 import io.trino.operator.aggregation.DecimalSumAggregation;
 import io.trino.operator.aggregation.DefaultApproximateCountDistinctAggregation;
+import io.trino.operator.aggregation.DoubleAverageAggregations;
 import io.trino.operator.aggregation.DoubleCorrelationAggregation;
 import io.trino.operator.aggregation.DoubleCovarianceAggregation;
 import io.trino.operator.aggregation.DoubleHistogramAggregation;
@@ -55,6 +55,7 @@ import io.trino.operator.aggregation.IntervalYearToMonthSumAggregation;
 import io.trino.operator.aggregation.LegacyApproximateDoublePercentileAggregations;
 import io.trino.operator.aggregation.LegacyApproximateLongPercentileAggregations;
 import io.trino.operator.aggregation.LegacyApproximateRealPercentileAggregations;
+import io.trino.operator.aggregation.LongAverageAggregations;
 import io.trino.operator.aggregation.LongSumAggregation;
 import io.trino.operator.aggregation.MapAggregationFunction;
 import io.trino.operator.aggregation.MapUnionAggregation;
@@ -390,7 +391,8 @@ public final class SystemFunctionBundle
                 .aggregates(LongSumAggregation.class)
                 .aggregates(IntervalDayToSecondSumAggregation.class)
                 .aggregates(IntervalYearToMonthSumAggregation.class)
-                .aggregates(AverageAggregations.class)
+                .aggregates(LongAverageAggregations.class)
+                .aggregates(DoubleAverageAggregations.class)
                 .aggregates(RealAverageAggregation.class)
                 .aggregates(IntervalDayToSecondAverageAggregation.class)
                 .aggregates(IntervalYearToMonthAverageAggregation.class)

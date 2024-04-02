@@ -14,74 +14,62 @@
 package io.trino.operator.aggregation;
 
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.operator.aggregation.state.DoubleState;
-import io.trino.operator.aggregation.state.LongState;
+import io.trino.operator.aggregation.state.LongAndDoubleState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
-import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
+import io.trino.spi.type.StandardTypes;
 
-import static io.trino.spi.type.RealType.REAL;
-import static io.trino.type.Reals.toReal;
-import static java.lang.Float.intBitsToFloat;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 
-@AggregationFunction(value = "avg", windowAccumulator = RealAverageAggregation.RealAverageWindowAccumulator.class)
-@Description("Returns the average value of the argument")
-public final class RealAverageAggregation
+@AggregationFunction("avg")
+public final class LongAverageAggregations
 {
-    private RealAverageAggregation() {}
+    private LongAverageAggregations() {}
 
     @InputFunction
-    public static void input(
-            @AggregationState LongState count,
-            @AggregationState DoubleState sum,
-            @SqlType("REAL") long value)
+    public static void input(@AggregationState LongAndDoubleState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        count.setValue(count.getValue() + 1);
-        sum.setValue(sum.getValue() + intBitsToFloat((int) value));
+        state.setLong(state.getLong() + 1);
+        state.setDouble(state.getDouble() + value);
     }
 
     @CombineFunction
-    public static void combine(
-            @AggregationState LongState count,
-            @AggregationState DoubleState sum,
-            @AggregationState LongState otherCount,
-            @AggregationState DoubleState otherSum)
+    public static void combine(@AggregationState LongAndDoubleState state, @AggregationState LongAndDoubleState otherState)
     {
-        count.setValue(count.getValue() + otherCount.getValue());
-        sum.setValue(sum.getValue() + otherSum.getValue());
+        state.setLong(state.getLong() + otherState.getLong());
+        state.setDouble(state.getDouble() + otherState.getDouble());
     }
 
-    @OutputFunction("REAL")
-    public static void output(
-            @AggregationState LongState count,
-            @AggregationState DoubleState sum,
-            BlockBuilder out)
+    @OutputFunction(StandardTypes.DOUBLE)
+    public static void output(@AggregationState LongAndDoubleState state, BlockBuilder out)
     {
-        if (count.getValue() == 0) {
+        long count = state.getLong();
+        if (count == 0) {
             out.appendNull();
         }
         else {
-            REAL.writeLong(out, toReal((float) (sum.getValue() / count.getValue())));
+            double value = state.getDouble();
+            DOUBLE.writeDouble(out, value / count);
         }
     }
 
-    public static class RealAverageWindowAccumulator
+    public static class LongAverageWindowAccumulator
             implements WindowAccumulator
     {
         private long count;
         private double sum;
 
         @UsedByGeneratedCode
-        public RealAverageWindowAccumulator() {}
+        public LongAverageWindowAccumulator() {}
 
-        private RealAverageWindowAccumulator(long count, double sum)
+        private LongAverageWindowAccumulator(long count, double sum)
         {
             this.count = count;
             this.sum = sum;
@@ -96,7 +84,7 @@ public final class RealAverageAggregation
         @Override
         public WindowAccumulator copy()
         {
-            return new RealAverageWindowAccumulator(count, sum);
+            return new LongAverageWindowAccumulator(count, sum);
         }
 
         @Override
@@ -104,7 +92,7 @@ public final class RealAverageAggregation
         {
             for (int i = startPosition; i <= endPosition; i++) {
                 if (!index.isNull(0, i)) {
-                    sum += intBitsToFloat((int) index.getLong(0, i));
+                    sum += index.getLong(0, i);
                     count++;
                 }
             }
@@ -120,7 +108,7 @@ public final class RealAverageAggregation
 
             for (int i = startPosition; i <= endPosition; i++) {
                 if (!index.isNull(0, i)) {
-                    sum -= intBitsToFloat((int) index.getLong(0, i));
+                    sum -= index.getLong(0, i);
                     count--;
                 }
             }
@@ -134,7 +122,7 @@ public final class RealAverageAggregation
                 blockBuilder.appendNull();
             }
             else {
-                REAL.writeLong(blockBuilder, toReal((float) (sum / count)));
+                DOUBLE.writeDouble(blockBuilder, sum / count);
             }
         }
     }
