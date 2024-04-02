@@ -13,8 +13,8 @@
  */
 package io.trino.operator.window;
 
-import io.trino.operator.aggregation.WindowAccumulator;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowIndex;
 

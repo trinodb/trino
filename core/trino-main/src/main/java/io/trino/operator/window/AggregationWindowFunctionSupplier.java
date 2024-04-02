@@ -13,10 +13,10 @@
  */
 package io.trino.operator.window;
 
-import io.trino.operator.aggregation.WindowAccumulator;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
+import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowFunctionSupplier;
 
