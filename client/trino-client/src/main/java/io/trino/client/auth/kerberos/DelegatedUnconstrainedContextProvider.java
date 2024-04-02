@@ -20,7 +20,6 @@ import javax.security.auth.RefreshFailedException;
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
 
-import java.security.AccessController;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -28,7 +27,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 public class DelegatedUnconstrainedContextProvider
         extends AbstractUnconstrainedContextProvider
 {
-    private final Subject subject = Subject.getSubject(AccessController.getContext());
+    private final Subject subject = Subject.current();
 
     @Override
     protected Subject getSubject()
