@@ -57,6 +57,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -236,11 +237,19 @@ public final class AccumulatorCompiler
         }
     }
 
-    public static Constructor<? extends WindowAccumulator> generateWindowAccumulatorClass(
+    /**
+     * @return a factory for window accumulators with provided lambda parameter providers
+     */
+    public static Function<List<Supplier<Object>>, WindowAccumulator> generateWindowAccumulatorClass(
             BoundSignature boundSignature,
             AggregationImplementation implementation,
             FunctionNullability functionNullability)
     {
+        var windowAccumulator = implementation.getWindowAccumulator();
+        if (windowAccumulator.isPresent()) {
+            return createWindowAccumulatorFactory(windowAccumulator.get());
+        }
+
         // change types used in Aggregation methods to types used in the core Trino engine to simplify code generation
         implementation = normalizeAggregationMethods(implementation);
 
@@ -309,12 +318,42 @@ public final class AccumulatorCompiler
         generateGetEstimatedSize(definition, stateFields);
 
         Class<? extends WindowAccumulator> windowAccumulatorClass = defineClass(definition, WindowAccumulator.class, callSiteBinder.getBindings(), classLoader);
+        return createWindowAccumulatorFactory(windowAccumulatorClass);
+    }
+
+    /**
+     * @return a factory for window accumulators with provided lambda parameter providers
+     */
+    private static Function<List<Supplier<Object>>, WindowAccumulator> createWindowAccumulatorFactory(Class<? extends WindowAccumulator> windowAccumulator)
+    {
         try {
-            return windowAccumulatorClass.getConstructor(List.class);
+            var constructor = windowAccumulator.getConstructor(List.class);
+            return lambdaProviders -> {
+                try {
+                    return constructor.newInstance(lambdaProviders);
+                }
+                catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            };
         }
-        catch (NoSuchMethodException e) {
-            throw new RuntimeException(e);
+        catch (ReflectiveOperationException ignored) {
         }
+
+        try {
+            var constructor = windowAccumulator.getConstructor();
+            return lambdaProviders -> {
+                try {
+                    return constructor.newInstance();
+                }
+                catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            };
+        }
+        catch (ReflectiveOperationException ignored) {
+        }
+        throw new RuntimeException(format("Window accumulator class %s does not have a constructor with a single List argument or a no-argument constructor", windowAccumulator.getName()));
     }
 
     private static void generateWindowAccumulatorConstructor(
@@ -1169,6 +1208,7 @@ public final class AccumulatorCompiler
         builder.outputFunction(normalizeParameters(implementation.getOutputFunction(), 0));
         builder.accumulatorStateDescriptors(implementation.getAccumulatorStateDescriptors());
         builder.lambdaInterfaces(implementation.getLambdaInterfaces());
+        implementation.getWindowAccumulator().ifPresent(builder::windowAccumulator);
         return builder.build();
     }
 

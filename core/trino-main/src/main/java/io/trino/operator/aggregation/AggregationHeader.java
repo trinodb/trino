@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.function.WindowAccumulator;
 
 import java.util.Optional;
 import java.util.Set;
@@ -27,12 +28,14 @@ public record AggregationHeader(
         boolean decomposable,
         boolean orderSensitive,
         boolean hidden,
-        boolean deprecated)
+        boolean deprecated,
+        Optional<Class<? extends WindowAccumulator>> windowAccumulator)
 {
     public AggregationHeader
     {
         requireNonNull(name, "name cannot be null");
         aliases = ImmutableSet.copyOf(aliases);
         requireNonNull(description, "description cannot be null");
+        requireNonNull(windowAccumulator, "windowAccumulator is null");
     }
 }

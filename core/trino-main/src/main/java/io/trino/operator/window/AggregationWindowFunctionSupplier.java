@@ -20,8 +20,8 @@ import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowFunctionSupplier;
 
-import java.lang.reflect.Constructor;
 import java.util.List;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static io.trino.operator.aggregation.AccumulatorCompiler.generateWindowAccumulatorClass;
@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class AggregationWindowFunctionSupplier
         implements WindowFunctionSupplier
 {
-    private final Constructor<? extends WindowAccumulator> constructor;
+    private final Function<List<Supplier<Object>>, WindowAccumulator> windowAccumulatorFactory;
     private final boolean hasRemoveInput;
     private final List<Class<?>> lambdaInterfaces;
 
@@ -38,8 +38,8 @@ public class AggregationWindowFunctionSupplier
     {
         requireNonNull(boundSignature, "boundSignature is null");
         requireNonNull(aggregationImplementation, "aggregationMetadata is null");
-        constructor = generateWindowAccumulatorClass(boundSignature, aggregationImplementation, functionNullability);
-        hasRemoveInput = aggregationImplementation.getRemoveInputFunction().isPresent();
+        windowAccumulatorFactory = generateWindowAccumulatorClass(boundSignature, aggregationImplementation, functionNullability);
+        hasRemoveInput = aggregationImplementation.getWindowAccumulator().isPresent() || aggregationImplementation.getRemoveInputFunction().isPresent();
         lambdaInterfaces = aggregationImplementation.getLambdaInterfaces();
     }
 
@@ -52,16 +52,11 @@ public class AggregationWindowFunctionSupplier
     @Override
     public WindowFunction createWindowFunction(boolean ignoreNulls, List<Supplier<Object>> lambdaProviders)
     {
-        return new AggregateWindowFunction(() -> createWindowAccumulator(lambdaProviders), hasRemoveInput);
+        return new AggregateWindowFunction(() -> windowAccumulatorFactory.apply(lambdaProviders), hasRemoveInput);
     }
 
     public WindowAccumulator createWindowAccumulator(List<Supplier<Object>> lambdaProviders)
     {
-        try {
-            return constructor.newInstance(lambdaProviders);
-        }
-        catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
+        return windowAccumulatorFactory.apply(lambdaProviders);
     }
 }

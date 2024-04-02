@@ -190,6 +190,8 @@ public class ParametricAggregation
                 functionBinding,
                 functionDependencies));
 
+        concreteImplementation.getWindowAccumulator().ifPresent(builder::windowAccumulator);
+
         return builder.build();
     }
 

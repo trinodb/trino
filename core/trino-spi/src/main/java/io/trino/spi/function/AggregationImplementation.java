@@ -31,6 +31,7 @@ public class AggregationImplementation
     private final MethodHandle outputFunction;
     private final List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors;
     private final List<Class<?>> lambdaInterfaces;
+    private final Optional<Class<? extends WindowAccumulator>> windowAccumulator;
 
     private AggregationImplementation(
             MethodHandle inputFunction,
@@ -38,7 +39,8 @@ public class AggregationImplementation
             Optional<MethodHandle> combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors,
-            List<Class<?>> lambdaInterfaces)
+            List<Class<?>> lambdaInterfaces,
+            Optional<Class<? extends WindowAccumulator>> windowAccumulator)
     {
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
         this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null");
@@ -46,6 +48,7 @@ public class AggregationImplementation
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
         this.lambdaInterfaces = List.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
+        this.windowAccumulator = windowAccumulator;
     }
 
     public MethodHandle getInputFunction()
@@ -76,6 +79,11 @@ public class AggregationImplementation
     public List<Class<?>> getLambdaInterfaces()
     {
         return lambdaInterfaces;
+    }
+
+    public Optional<Class<? extends WindowAccumulator>> getWindowAccumulator()
+    {
+        return windowAccumulator;
     }
 
     public static class AccumulatorStateDescriptor<T extends AccumulatorState>
@@ -155,6 +163,7 @@ public class AggregationImplementation
         private MethodHandle outputFunction;
         private List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors = new ArrayList<>();
         private List<Class<?>> lambdaInterfaces = List.of();
+        private Optional<Class<? extends WindowAccumulator>> windowAccumulator = Optional.empty();
 
         private Builder() {}
 
@@ -211,6 +220,12 @@ public class AggregationImplementation
             return this;
         }
 
+        public Builder windowAccumulator(Class<? extends WindowAccumulator> windowAccumulator)
+        {
+            this.windowAccumulator = Optional.of(requireNonNull(windowAccumulator, "windowAccumulator is null"));
+            return this;
+        }
+
         public AggregationImplementation build()
         {
             return new AggregationImplementation(
@@ -219,7 +234,8 @@ public class AggregationImplementation
                     combineFunction,
                     outputFunction,
                     accumulatorStateDescriptors,
-                    lambdaInterfaces);
+                    lambdaInterfaces,
+                    windowAccumulator);
         }
     }
 }
