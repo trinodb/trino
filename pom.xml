@@ -262,8 +262,8 @@
 
             <dependency>
                 <groupId>com.oracle.database.jdbc</groupId>
-                <artifactId>ojdbc10-production</artifactId>
-                <version>19.22.0.0</version>
+                <artifactId>ojdbc11-production</artifactId>
+                <version>23.3.0.23.09</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
