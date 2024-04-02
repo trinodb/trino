@@ -69,27 +69,7 @@ import static java.util.Objects.requireNonNull;
 public class ParametricAggregationImplementation
         implements ParametricImplementation
 {
-    public static class AggregateNativeContainerType
-    {
-        private final Class<?> javaType;
-        private final boolean isBlockPosition;
-
-        public AggregateNativeContainerType(Class<?> javaType, boolean isBlockPosition)
-        {
-            this.javaType = javaType;
-            this.isBlockPosition = isBlockPosition;
-        }
-
-        public Class<?> getJavaType()
-        {
-            return javaType;
-        }
-
-        public boolean isBlockPosition()
-        {
-            return isBlockPosition;
-        }
-    }
+    public record AggregateNativeContainerType(Class<?> javaType, boolean isBlockPosition) {}
 
     private final Signature signature;
 
@@ -106,7 +86,7 @@ public class ParametricAggregationImplementation
     private final List<AggregationParameterKind> inputParameterKinds;
     private final FunctionNullability functionNullability;
 
-    public ParametricAggregationImplementation(
+    private ParametricAggregationImplementation(
             Signature signature,
             Class<?> definitionClass,
             MethodHandle inputFunction,
@@ -215,7 +195,7 @@ public class ParametricAggregationImplementation
         // TODO specialized functions variants support is missing here
         for (int i = 0; i < boundSignature.getArgumentTypes().size(); i++) {
             Class<?> argumentType = boundSignature.getArgumentTypes().get(i).getJavaType();
-            Class<?> methodDeclaredType = argumentNativeContainerTypes.get(i).getJavaType();
+            Class<?> methodDeclaredType = argumentNativeContainerTypes.get(i).javaType();
             boolean isCurrentBlockPosition = argumentNativeContainerTypes.get(i).isBlockPosition();
 
             // block and position works for any type, but if block is annotated with SqlType nativeContainerType, then only types with the
@@ -389,7 +369,7 @@ public class ParametricAggregationImplementation
 
         private static Annotation baseTypeAnnotation(Annotation[] annotations, String methodName)
         {
-            List<Annotation> baseTypes = Arrays.asList(annotations).stream()
+            List<Annotation> baseTypes = Arrays.stream(annotations)
                     .filter(annotation -> isAggregationMetaAnnotation(annotation) || annotation instanceof SqlType)
                     .collect(toImmutableList());
 
@@ -398,7 +378,7 @@ public class ParametricAggregationImplementation
             boolean nullable = isParameterNullable(annotations);
             boolean isBlock = isParameterBlock(annotations);
 
-            Annotation annotation = baseTypes.get(0);
+            Annotation annotation = baseTypes.getFirst();
             checkArgument((!isBlock && !nullable) || (annotation instanceof SqlType),
                     "%s contains a parameter with @BlockPosition and/or @NullablePosition that is not @SqlType", methodName);
 
@@ -489,31 +469,6 @@ public class ParametricAggregationImplementation
             }
 
             return builder.build();
-        }
-
-        public static int findAggregationStateParamId(Method method)
-        {
-            return findAggregationStateParamId(method, 0);
-        }
-
-        public static int findAggregationStateParamId(Method method, int id)
-        {
-            int currentParamId = 0;
-            int found = 0;
-            for (Annotation[] annotations : method.getParameterAnnotations()) {
-                for (Annotation annotation : annotations) {
-                    if (annotation instanceof AggregationState) {
-                        if (found++ == id) {
-                            return currentParamId;
-                        }
-                    }
-                }
-                currentParamId++;
-            }
-
-            // backward compatibility @AggregationState annotation didn't exists before
-            // some third party aggregates may assume that State will be id-th parameter
-            return id;
         }
 
         private static boolean isAggregationMetaAnnotation(Annotation annotation)
