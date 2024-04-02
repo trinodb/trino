@@ -128,7 +128,7 @@ public class TestDoubleAverageAggregation
 
             Type outputType = resolvedFunction.signature().getReturnType();
             BlockBuilder blockBuilder = outputType.createBlockBuilder(null, 1000);
-            aggregation.evaluateFinal(blockBuilder);
+            aggregation.output(blockBuilder);
             Block block = blockBuilder.build();
 
             assertThat(makeValidityAssertion(expectedValues[start]).apply(
@@ -168,7 +168,7 @@ public class TestDoubleAverageAggregation
 
             Type outputType = resolvedFunction.signature().getReturnType();
             BlockBuilder blockBuilder = outputType.createBlockBuilder(null, 1000);
-            aggregation2.evaluateFinal(blockBuilder);
+            aggregation2.output(blockBuilder);
             Block block = blockBuilder.build();
 
             assertThat(makeValidityAssertion(expectedValues2[start]).apply(

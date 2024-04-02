@@ -64,7 +64,7 @@ class AggregateWindowFunction
             buildNewFrame(frameStart, frameEnd);
         }
 
-        accumulator.evaluateFinal(output);
+        accumulator.output(output);
     }
 
     private void buildNewFrame(int frameStart, int frameEnd)

@@ -134,7 +134,7 @@ public class TestAccumulatorCompiler
         }
         // call the functions to ensure that the code does not reference the wrong state
         windowAccumulator.addInput(new TestWindowIndex(), 0, 5);
-        windowAccumulator.evaluateFinal(new LongArrayBlockBuilder(null, 1));
+        windowAccumulator.output(new LongArrayBlockBuilder(null, 1));
 
         TestingAggregationFunction aggregationFunction = new TestingAggregationFunction(
                 ImmutableList.of(TIMESTAMP_PICOS),
