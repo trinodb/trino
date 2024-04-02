@@ -14,6 +14,7 @@
 package io.trino.testing.sql;
 
 import com.google.common.collect.ImmutableList;
+import org.intellij.lang.annotations.Language;
 
 import java.util.List;
 import java.util.Map;
@@ -33,12 +34,12 @@ public class TestTable
     protected final String tableDefinition;
     protected final String name;
 
-    public TestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition)
+    public TestTable(SqlExecutor sqlExecutor, String namePrefix, @Language("SQL") String tableDefinition)
     {
         this(sqlExecutor, namePrefix, tableDefinition, ImmutableList.of());
     }
 
-    public TestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition, List<String> rowsToInsert)
+    public TestTable(SqlExecutor sqlExecutor, String namePrefix, @Language("SQL") String tableDefinition, List<String> rowsToInsert)
     {
         this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
         this.name = requireNonNull(namePrefix, "namePrefix is null") + randomNameSuffix();
