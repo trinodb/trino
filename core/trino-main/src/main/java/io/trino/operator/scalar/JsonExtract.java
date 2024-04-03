@@ -43,14 +43,14 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Extracts values from JSON
- * <p/>
+ * <p>
  * Supports the following JSON path primitives:
  * <pre>
  *    $ : Root object
  *    . or [] : Child operator
  *   [] : Subscript operator for array
  * </pre>
- * <p/>
+ * <p>
  * Supported JSON Path Examples:
  * <pre>
  *    { "store": {
@@ -76,7 +76,7 @@ import static java.util.Objects.requireNonNull;
  *      }
  *    }
  * </pre>
- * <p/>
+ * <p>
  * With only scalar values using dot-notation of path:
  * <pre>
  *    $.store.book[0].author => Nigel Rees
@@ -85,7 +85,7 @@ import static java.util.Objects.requireNonNull;
  *    $.store.book[1].last_owner => NULL (json null becomes java null)
  *    $.store.book[0].contributors[0][1] => Levine
  * </pre>
- * <p/>
+ * <p>
  * With json values using dot-notation of path:
  * <pre>
  *    $.store.book[0].author => "Nigel Rees"
@@ -103,7 +103,7 @@ import static java.util.Objects.requireNonNull;
  *    $["store"]["book"][1]["last_owner"] => NULL (json null becomes java null)
  *    $["store"]["book"][0]["contributors"][0][1] => Levine
  * </pre>
- * <p/>
+ * <p>
  * With json values using bracket-notation of path:
  * <pre>
  *    $["store"]["book"][0]["author"] => "Nigel Rees"
@@ -166,7 +166,7 @@ public final class JsonExtract
     {
         /**
          * Executes the extraction on the existing content of the JsonParser and outputs the match.
-         * <p/>
+         * <p>
          * Notes:
          * <ul>
          * <li>JsonParser must be on the FIRST token of the value to be processed when extract is called</li>

@@ -33,7 +33,6 @@ import static java.util.Objects.requireNonNull;
  * The offset array is compatible with VariableWidthBlock.offsets field, i.e., the
  * first value is always 0 and the last (number of positions + 1) is equal to
  * the last offset + lest position length.
- * <p>
  */
 public class BinaryBuffer
 {

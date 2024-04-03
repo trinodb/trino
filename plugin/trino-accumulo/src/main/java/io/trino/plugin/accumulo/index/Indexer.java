@@ -86,7 +86,6 @@ import static java.util.Objects.requireNonNull;
  * table to improve index lookup times.
  * <p>
  * Sample usage of an indexer:
- * <p>
  * <pre>
  * <code>
  * Indexer indexer = new Indexer(connector, userAuths, table, writerConf);

@@ -32,7 +32,6 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * An immutable representation of a host and port.
- * <p>
  * <p>Example usage:
  * <pre>
  * HostAndPort hp = HostAndPort.fromString("[2001:db8::1]")
@@ -53,7 +52,6 @@ import static java.util.Objects.requireNonNull;
  * <li>[2001:db8::1]:80  - {@link #getHostText()} omits brackets
  * <li>2001:db8::1
  * </ul>
- * <p>
  * <p>Note that this is not an exhaustive list, because these methods are only
  * concerned with brackets, colons, and port numbers.  Full validation of the
  * host field (if desired) is the caller's responsibility.
@@ -91,7 +89,6 @@ public class HostAddress
      * represent the hostname or IPv4/IPv6 literal.
      * <p>
      * <p>A successful parse does not imply any degree of sanity in this field.
-     * For additional validation, see the {@link com.google.common.net.HostSpecifier} class.
      */
     public String getHostText()
     {

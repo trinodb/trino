@@ -53,23 +53,23 @@ import static java.util.function.Predicate.not;
 
 /**
  * Rewrite filtering semi-join to inner join.
- * <p/>
+ * <p>
  * Transforms:
- * <pre>
+ * <pre>{@code
  * - Filter (semiJoinSymbol AND predicate)
  *    - SemiJoin (semiJoinSymbol <- (a IN b))
  *        source: plan A producing symbol a
  *        filtering source: plan B producing symbol b
- * </pre>
- * <p/>
+ * }</pre>
+ * <p>
  * Into:
- * <pre>
+ * <pre>{@code
  * - Project (semiJoinSymbol <- TRUE)
  *    - Join INNER on (a = b), joinFilter (predicate with semiJoinSymbol replaced with TRUE)
  *       - source
  *       - Aggregation distinct(b)
  *          - filtering source
- * </pre>
+ * }</pre>
  */
 public class TransformFilteringSemiJoinToInnerJoin
         implements Rule<FilterNode>

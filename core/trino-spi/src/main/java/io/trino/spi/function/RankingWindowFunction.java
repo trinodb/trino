@@ -59,7 +59,7 @@ public abstract class RankingWindowFunction
 
     /**
      * Process a row by outputting the result of the window function.
-     * <p/>
+     * <p>
      * This method provides information about the ordering peer group. A peer group is all
      * of the rows that are peers within the specified ordering. Rows are peers if they
      * compare equal to each other using the specified ordering expression. The ordering

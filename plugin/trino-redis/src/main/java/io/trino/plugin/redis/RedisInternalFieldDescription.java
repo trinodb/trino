@@ -38,32 +38,32 @@ import static java.util.function.Function.identity;
 public enum RedisInternalFieldDescription
 {
     /**
-     * <tt>_key</tt> - Represents the key as a text column.
+     * {@code _key} - Represents the key as a text column.
      */
     KEY_FIELD("_key", createUnboundedVarcharType(), "Key text"),
 
     /**
-     * <tt>_value</tt> - Represents the value as a text column. Format is UTF-8
+     * {@code _value} - Represents the value as a text column. Format is UTF-8
      */
     VALUE_FIELD("_value", createUnboundedVarcharType(), "Value text"),
 
     /**
-     * <tt>_value_corrupt</tt> - True if the row converter could not read the value. May be null if the row converter does not set a value (e.g. the dummy row converter does not).
+     * {@code _value_corrupt} - True if the row converter could not read the value. May be null if the row converter does not set a value (e.g. the dummy row converter does not).
      */
     VALUE_CORRUPT_FIELD("_value_corrupt", BooleanType.BOOLEAN, "Value data is corrupt"),
 
     /**
-     * <tt>_value_length</tt> - length in bytes of the value.
+     * {@code _value_length} - length in bytes of the value.
      */
     VALUE_LENGTH_FIELD("_value_length", BigintType.BIGINT, "Total number of value bytes"),
 
     /**
-     * <tt>_key_corrupt</tt> - True if the row converter could not read the key. May be null if the row converter does not set a value (e.g. the dummy row converter does not).
+     * {@code _key_corrupt} - True if the row converter could not read the key. May be null if the row converter does not set a value (e.g. the dummy row converter does not).
      */
     KEY_CORRUPT_FIELD("_key_corrupt", BooleanType.BOOLEAN, "Key data is corrupt"),
 
     /**
-     * <tt>_key_length</tt> - length in bytes of the key.
+     * {@code _key_length} - length in bytes of the key.
      */
     KEY_LENGTH_FIELD("_key_length", BigintType.BIGINT, "Total number of key bytes");
 

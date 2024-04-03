@@ -29,7 +29,7 @@ import static io.trino.sql.planner.plan.Patterns.applyNode;
 
 /**
  * This optimizers looks for InPredicate expressions in ApplyNodes and replaces the nodes with SemiJoin nodes.
- * <p/>
+ * <p>
  * Plan before optimizer:
  * <pre>
  * Filter(a IN b):
@@ -38,7 +38,7 @@ import static io.trino.sql.planner.plan.Patterns.applyNode;
  *     - input: some plan A producing symbol a
  *     - subquery: some plan B producing symbol b
  * </pre>
- * <p/>
+ * <p>
  * Plan after optimizer:
  * <pre>
  * Filter(semijoinresult):

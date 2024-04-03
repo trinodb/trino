@@ -64,7 +64,6 @@ import static java.util.Objects.requireNonNull;
  * <pre>
  *     date_time BETWEEN (beginning of the year t) AND (end of the year t)
  * </pre>
- * <p>
  *
  * @see UnwrapCastInComparison
  */
