@@ -1660,10 +1660,9 @@ public class LocalExecutionPlanner
                 }
             }
 
-            List<Integer> partitionChannels = node.getSpecification()
+            Optional<List<Integer>> partitionChannels = node.getSpecification()
                     .map(DataOrganizationSpecification::partitionBy)
-                    .map(list -> getChannelsForSymbols(list, source.getLayout()))
-                    .orElse(ImmutableList.of());
+                    .map(list -> getChannelsForSymbols(list, source.getLayout()));
 
             List<Integer> sortChannels = ImmutableList.of();
             List<SortOrder> sortOrders = ImmutableList.of();

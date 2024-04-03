@@ -43,7 +43,6 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
-import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -359,11 +358,8 @@ public final class PropertyDerivations
                 }
             }
 
-            List<Symbol> partitionBy = node.getSpecification()
-                    .map(DataOrganizationSpecification::partitionBy)
-                    .orElse(ImmutableList.of());
-            if (!partitionBy.isEmpty()) {
-                localProperties.add(new GroupingProperty<>(partitionBy));
+            if (node.getSpecification().isPresent()) {
+                localProperties.add(new GroupingProperty<>(node.getSpecification().orElseThrow().partitionBy()));
             }
 
             // TODO add global single stream property when there's Specification present with no partitioning columns
