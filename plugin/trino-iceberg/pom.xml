@@ -39,13 +39,9 @@
 
         <dependency>
             <groupId>cccs.ap.iceberg</groupId>
-            <artifactId>iceberg-orc</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>cccs.ap.iceberg</groupId>
             <artifactId>iceberg-parquet</artifactId>
         </dependency>
+
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-core</artifactId>
@@ -182,12 +178,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-plugin-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>

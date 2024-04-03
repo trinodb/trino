@@ -302,9 +302,12 @@ class HdfsFileSystem
                     throw new IOException("mkdirs failed");
                 }
                 // explicitly set permission since the default umask overrides it on creation
-                if (permission.isPresent()) {
-                    fileSystem.setPermission(directory, permission.get());
-                }
+                // CCCS-MODIFICATION: Folders are already created with the proper permissions and this
+                // call to the API generates a misleading error because the permissions can`t be changed
+                // but the folders get properly created on the filesystem and with the right permissions.
+                //  if (permission.isPresent()) {
+                //      fileSystem.setPermission(directory, permission.get());
+                //  }
             }
             catch (IOException e) {
                 stats.getCreateDirectoryCalls().recordException(e);

@@ -5,30 +5,76 @@ trigger:
       - cccs-main
 
 variables:
+  containerRegistry: uchimera
   m2RepoNodePath: /datadisks/disk1/.m2/repository
-
-pool: cauldron-vmss
+  m2RepoContainerPath: /tmp/m2/repository
 
 jobs:
   - job: PrepareNode
     displayName: Prepare the node for the Container Build
+    pool: cauldron-vmss
     steps:
       - checkout: none
       - bash: |
           mkdir -p ${{ variables.m2RepoNodePath }}
         displayName: Create required directories
+
+  - job: BuildAndPushRedHatImage
+    displayName: Pull RedHat image and push it to UChimera
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - task: Bash@3
+        name: CreateRedHatJDKImage
+        displayName: Docker build - Red Hat and JDK image
+        inputs:
+          targetType: 'inline'
+          script: |
+            cd $(Build.SourcesDirectory)/core/docker
+            chmod g+w ${HOME}
+            chmod ug+x ./build.sh
+            ./build.sh -a amd64 -t $(Build.BuildId)
+            if [ $? -ne 0 ]; then
+            echo "Docker build failed"
+            exit 1
+            fi
+      - task: Docker@2
+        displayName: Login to ${{ variables.containerRegistry }}
+        inputs:
+          command: login
+          containerRegistry: ${{ variables.containerRegistry }}
+      - task: Docker@2
+        displayName: Push RedHat image to ${{ variables.containerRegistry }}
+        inputs:
+          command: push
+          containerRegistry: ${{ variables.containerRegistry }}
+          repository: cccs/ubi-minimal-jdk
+          tags: $(Build.BuildId)-amd64
+      - task: Docker@2
+        displayName: Logout of ${{ variables.containerRegistry }}
+        inputs:
+          command: logout
+          containerRegistry: ${{ variables.containerRegistry }}
+        condition: always()
+
   - job: ContainerBuild
-    dependsOn: PrepareNode
+    dependsOn:
+      - PrepareNode
+      - BuildAndPushRedHatImage
     displayName: Maven Build (Container)
+    pool: cauldron-vmss
     variables:
-      m2RepoContainerPath: /tmp/m2/repository
+      containerRegistry: uchimera
+      imageRepository: cccs/trino-base
+      buildTimestamp: $[format('{0:yyyyMMddHHmmss}', pipeline.startTime)]
       JAVA_TOOL_OPTIONS: " -Xmx8g"
+      DOCKER_BUILDKIT: 1
     container:
-      image: uchimera.azurecr.io/cccs/dev/projector-intellij-ce:feature_update-to-434-mmrouet_20231213163831_b8430
+      image: uchimera.azurecr.io/cccs/dev/projector-intellij-ce:trino_20240328204745_b9712
       options: --entrypoint="" --user=0
+      endpoint: uchimera
       volumes:
         - "${{ variables.m2RepoNodePath }}:${{ variables.m2RepoContainerPath }}"
-      endpoint: uchimera
     steps:
       - task: DownloadSecureFile@1
         name: cccs_stratus_m2_settings
@@ -36,6 +82,7 @@ jobs:
         inputs:
           secureFile: "cccs-stratus-m2-settings.xml"
       - task: Bash@3
+        name: move_settings_to_m2
         displayName: "Move settings to .m2"
         inputs:
           targetType: "inline"
@@ -51,50 +98,35 @@ jobs:
           targetType: 'inline'
           script: |
             BRANCH_NAME=$(echo "$SYSTEM_PULLREQUEST_SOURCEBRANCH $BUILD_SOURCEBRANCH" | sed -r 's/^\s*(refs\/heads\/)?(\S*).*$/\2/' | sed 's/\//_/g')
-            echo "##vso[task.setvariable variable=BRANCH_NAME;isOutput=true;]$BRANCH_NAME"
+            echo "##vso[task.setvariable variable=BRANCH_NAME]$BRANCH_NAME"
         displayName: Parse Source Control Branch Name
       - task: Bash@3
-        name: setTrinoVersion
+        name: BuildTrino
+        displayName: Maven build
         inputs:
           targetType: 'inline'
           script: |
-            TRINO_VERSION=$(./mvnw --quiet help:evaluate -Dexpression=project.version -DforceStdout)
-            echo "##vso[task.setvariable variable=TRINO_VERSION;isOutput=true;]$TRINO_VERSION"
-            echo "home directory listing"
             $(Build.SourcesDirectory)/mvnw clean install -e -DskipTests -pl '!:trino-docs' -Dmaven.repo.local=${{ variables.m2RepoContainerPath }}
-        displayName: Maven build
-  - job: DockerBuildnPush
-    dependsOn: ContainerBuild
-    displayName: Docker Image Build and Push to registry
-    variables:
-      containerRegistry: uchimera
-      imageRepository: cccs/trino-base
-      buildTimestamp: $[format('{0:yyyyMMddHHmmss}', pipeline.startTime)]
-      m2RepoContainerPath: /tmp/m2/repository
-      TRINO_VERSION: $[ dependencies.ContainerBuild.outputs['setTrinoVersion.TRINO_VERSION'] ]
-      BRANCH_NAME: $[ dependencies.ContainerBuild.outputs['setBranchName.BRANCH_NAME'] ]
-      DOCKER_BUILDKIT: 1
-    container:
-      image: uchimera.azurecr.io/cccs/dev/projector-intellij-ce:feature_update-to-431-mmrouet_20231103154823_b8123
-      options: --entrypoint="" --user=0
-      volumes:
-        - "${{ variables.m2RepoNodePath }}:${{ variables.m2RepoContainerPath }}"
-      endpoint: uchimera
-    steps:
+      - task: Docker@2
+        displayName: Login to ${{ variables.containerRegistry }}
+        inputs:
+          command: login
+          containerRegistry: ${{ variables.containerRegistry }}
       - task: Bash@3
         name: CreateTrinoDockerFile
+        displayName: Create Temp docker file
         inputs:
           targetType: 'inline'
           script: |
             cd $(Build.SourcesDirectory)/core/docker
             chmod g+w ${HOME}
-            chmod ug+x ./build.sh
-            ./build.sh -a amd64
+            chmod ug+x ./build-trino-base.sh
+            ./build-trino-base.sh -a amd64 -t $(Build.BuildId)
             if [ $? -ne 0 ]; then
             echo "Docker build failed"
             exit 1
             fi
-            cd $(Build.SourcesDirectory)
+            TRINO_VERSION=$("$(Build.SourcesDirectory)/mvnw" -f "$(Build.SourcesDirectory)/pom.xml" --quiet help:evaluate -Dexpression=project.version -DforceStdout)
             DOCKERFILE="FROM trino:${TRINO_VERSION}-amd64
             LABEL cccs.trino.upstream.version=${TRINO_VERSION}"
             DOCKERFILE_PATH=$(mktemp -d)/Dockerfile
@@ -102,12 +134,6 @@ jobs:
             echo "##vso[task.setvariable variable=DOCKERFILE_PATH]$DOCKERFILE_PATH"
             echo "DOCKERFILE:"
             echo "${DOCKERFILE}"
-        displayName: Docker build
-      - task: Docker@2
-        displayName: Login to ${{ variables.containerRegistry }}
-        inputs:
-          command: login
-          containerRegistry: ${{ variables.containerRegistry }}
       - task: Docker@2
         displayName: Finalize, tag and push image to ${{ variables.containerRegistry }}
         inputs:

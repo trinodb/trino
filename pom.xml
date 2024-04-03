@@ -203,7 +203,6 @@
 
     <dependencyManagement>
         <dependencies>
-
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
@@ -298,6 +297,79 @@
                 <version>2.21.43</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>cccs.ap.iceberg</groupId>
+                <artifactId>iceberg-api</artifactId>
+                <version>${dep.iceberg.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>cccs.ap.iceberg</groupId>
+                <artifactId>iceberg-core</artifactId>
+                <version>${dep.iceberg.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.avro</groupId>
+                        <artifactId>avro</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>cccs.ap.iceberg</groupId>
+                <artifactId>iceberg-core</artifactId>
+                <version>${dep.iceberg.version}</version>
+                <classifier>tests</classifier>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.avro</groupId>
+                        <artifactId>avro</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>cccs.ap.iceberg</groupId>
+                <artifactId>iceberg-orc</artifactId>
+                <version>${dep.iceberg.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.avro</groupId>
+                        <artifactId>avro</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>cccs.ap.iceberg</groupId>
+                <artifactId>iceberg-parquet</artifactId>
+                <version>${dep.iceberg.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1145,15 +1217,15 @@
             </dependency>
 
             <dependency>
-                <groupId>cccs.ap.iceberg</groupId>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-iceberg</artifactId>
-                <version>${dep.iceberg.version}</version>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>cccs.ap.iceberg</groupId>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-iceberg</artifactId>
-                <version>${dep.iceberg.version}</version>
+                <version>${project.version}</version>
                 <type>test-jar</type>
             </dependency>
 
@@ -1736,79 +1808,6 @@
             </dependency>
 
             <dependency>
-                <groupId>cccs.ap.iceberg</groupId>
-                <artifactId>iceberg-api</artifactId>
-                <version>${dep.iceberg.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-api</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>cccs.ap.iceberg</groupId>
-                <artifactId>iceberg-core</artifactId>
-                <version>${dep.iceberg.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.avro</groupId>
-                        <artifactId>avro</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-api</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>cccs.ap.iceberg</groupId>
-                <artifactId>iceberg-core</artifactId>
-                <version>${dep.iceberg.version}</version>
-                <classifier>tests</classifier>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.avro</groupId>
-                        <artifactId>avro</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-api</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>cccs.ap.iceberg</groupId>
-                <artifactId>iceberg-orc</artifactId>
-                <version>${dep.iceberg.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.avro</groupId>
-                        <artifactId>avro</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-api</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>cccs.ap.iceberg</groupId>
-                <artifactId>iceberg-parquet</artifactId>
-                <version>${dep.iceberg.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-api</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
                 <version>${dep.kafka-clients.version}</version>
@@ -2135,6 +2134,30 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <repositories>
+        <repository>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+            <id>analytical-platform</id>
+            <url>https://pkgs.dev.azure.com/cccs-analytical-platform/_packaging/analytical-platform/maven/v1</url>
+        </repository>
+
+        <repository>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+            <id>cccs-stratus</id>
+            <url>https://pkgs.dev.azure.com/cccs-stratus/_packaging/cccs-stratus/maven/v1</url>
+        </repository>
+    </repositories>
 
     <build>
         <pluginManagement>

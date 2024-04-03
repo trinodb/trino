@@ -11,7 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM ghcr.io/airlift/jvmkill:latest AS jvmkill
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS jdk-download
 ARG JDK_DOWNLOAD_LINK
@@ -43,14 +42,3 @@ RUN \
     mkdir -p /usr/lib/trino /data/trino && \
     chown -R "trino:trino" /usr/lib/trino /data/trino
 
-ARG TRINO_VERSION
-COPY --chown=trino:trino trino-cli-${TRINO_VERSION}-executable.jar /usr/bin/trino
-COPY --chown=trino:trino trino-server-${TRINO_VERSION} /usr/lib/trino
-COPY --chown=trino:trino default/etc /etc/trino
-COPY --chown=trino:trino --from=jvmkill /libjvmkill.so /usr/lib/trino/bin
-
-EXPOSE 8080
-USER trino:trino
-CMD ["/usr/lib/trino/bin/run-trino"]
-HEALTHCHECK --interval=10s --timeout=5s --start-period=10s \
-  CMD /usr/lib/trino/bin/health-check

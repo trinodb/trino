@@ -30,6 +30,7 @@ class TestAzureAuthOAuthConfig
         assertRecordedDefaults(recordDefaults(AzureAuthOAuthConfig.class)
                 .setClientEndpoint(null)
                 .setClientId(null)
+                .setTenantId(null)
                 .setClientSecret(null));
     }
 
@@ -39,13 +40,15 @@ class TestAzureAuthOAuthConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("azure.oauth.endpoint", "endpoint")
                 .put("azure.oauth.client-id", "clientId")
+                .put("azure.oauth.tenant-id", "tenantId")
                 .put("azure.oauth.secret", "secret")
                 .buildOrThrow();
 
         AzureAuthOAuthConfig expected = new AzureAuthOAuthConfig()
                 .setClientEndpoint("endpoint")
                 .setClientId("clientId")
-                .setClientSecret("secret");
+                .setClientSecret("secret")
+                .setTenantId("tenantId");
 
         assertFullMapping(properties, expected);
     }

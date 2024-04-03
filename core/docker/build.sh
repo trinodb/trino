@@ -21,10 +21,11 @@ cd "${SCRIPT_DIR}" || exit 2
 SOURCE_DIR="${SCRIPT_DIR}/../.."
 
 ARCHITECTURES=(amd64 arm64 ppc64le)
+BASE_IMAGE_TAG=
 TRINO_VERSION=
 JDK_VERSION=$(cat "${SOURCE_DIR}/.java-version")
 
-while getopts ":a:h:r:j:" o; do
+while getopts ":a:h:r:j:t:" o; do
     case "${o}" in
         a)
             IFS=, read -ra ARCHITECTURES <<< "$OPTARG"
@@ -38,6 +39,9 @@ while getopts ":a:h:r:j:" o; do
             ;;
         j)
             JDK_VERSION="${OPTARG}"
+            ;;
+        t)
+            BASE_IMAGE_TAG="${OPTARG}"
             ;;
         *)
             usage
@@ -88,32 +92,12 @@ function temurin_jdk_link() {
 
 check_environment
 
-if [ -n "$TRINO_VERSION" ]; then
-    echo "🎣 Downloading server and client artifacts for release version ${TRINO_VERSION}"
-    for artifactId in io.trino:trino-server:"${TRINO_VERSION}":tar.gz io.trino:trino-cli:"${TRINO_VERSION}":jar:executable; do
-        "${SOURCE_DIR}/mvnw" -C dependency:get -Dtransitive=false -Dartifact="$artifactId"
-    done
-    local_repo=$("${SOURCE_DIR}/mvnw" -B help:evaluate -Dexpression=settings.localRepository -q -DforceStdout)
-    trino_server="$local_repo/io/trino/trino-server/${TRINO_VERSION}/trino-server-${TRINO_VERSION}.tar.gz"
-    trino_client="$local_repo/io/trino/trino-cli/${TRINO_VERSION}/trino-cli-${TRINO_VERSION}-executable.jar"
-    chmod +x "$trino_client"
-else
-    TRINO_VERSION=$("${SOURCE_DIR}/mvnw" -f "${SOURCE_DIR}/pom.xml" --quiet help:evaluate -Dexpression=project.version -DforceStdout)
-    echo "🎯 Using currently built artifacts from the core/trino-server and client/trino-cli modules and version ${TRINO_VERSION}"
-    trino_server="${SOURCE_DIR}/core/trino-server/target/trino-server-${TRINO_VERSION}.tar.gz"
-    trino_client="${SOURCE_DIR}/client/trino-cli/target/trino-cli-${TRINO_VERSION}-executable.jar"
-fi
+TRINO_VERSION=$("${SOURCE_DIR}/mvnw" -f "${SOURCE_DIR}/pom.xml" --quiet help:evaluate -Dexpression=project.version -DforceStdout)
 
 echo "🧱 Preparing the image build context directory"
 WORK_DIR="$(mktemp -d)"
-cp "$trino_server" "${WORK_DIR}/"
-cp "$trino_client" "${WORK_DIR}/"
-tar -C "${WORK_DIR}" -xzf "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
-rm "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
-cp -R bin "${WORK_DIR}/trino-server-${TRINO_VERSION}"
-cp -R default "${WORK_DIR}/"
 
-TAG_PREFIX="trino:${TRINO_VERSION}"
+TAG_PREFIX="uchimera.azurecr.io/cccs/ubi-minimal-jdk:${BASE_IMAGE_TAG}"
 
 for arch in "${ARCHITECTURES[@]}"; do
     echo "🫙  Building the image for $arch with JDK ${JDK_VERSION}"
@@ -126,19 +110,8 @@ for arch in "${ARCHITECTURES[@]}"; do
         --platform "linux/$arch" \
         -f Dockerfile \
         -t "${TAG_PREFIX}-$arch" \
-        --build-arg "TRINO_VERSION=${TRINO_VERSION}"
+
 done
 
 echo "🧹 Cleaning up the build context directory"
 rm -r "${WORK_DIR}"
-
-echo "🏃 Testing built images"
-source container-test.sh
-
-for arch in "${ARCHITECTURES[@]}"; do
-    # TODO: remove when https://github.com/multiarch/qemu-user-static/issues/128 is fixed
-    if [[ "$arch" != "ppc64le" ]]; then
-        test_container "${TAG_PREFIX}-$arch" "linux/$arch"
-    fi
-    docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' "${TAG_PREFIX}-$arch"
-done
