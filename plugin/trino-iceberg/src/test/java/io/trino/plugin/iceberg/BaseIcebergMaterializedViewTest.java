@@ -840,7 +840,7 @@ public abstract class BaseIcebergMaterializedViewTest
             assertUpdate(format("INSERT INTO %s VALUES (10, 10), (10, 40), (20, 20)", sourceTableName), 3);
             assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 6);
 
-            assertQuery("SELECT * FROM " + materializedViewName, "VALUES (1, 1), (1, 4), (2, 2), (10, 10), (10, 40), (20, 20)");
+            assertThat(query("TABLE " + materializedViewName)).matches("TABLE " + sourceTableName);
             assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
         }
         finally {
