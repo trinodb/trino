@@ -21,7 +21,7 @@ import io.trino.spi.security.SelectedRole;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
+import java.net.URI;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -51,7 +51,7 @@ public class TestHiveS3AndGlueMetastoreTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        metastore = createTestingGlueHiveMetastore(Path.of(schemaPath()));
+        metastore = createTestingGlueHiveMetastore(URI.create(schemaPath()));
 
         Session session = createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
         QueryRunner queryRunner = HiveQueryRunner.builder(session)
