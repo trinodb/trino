@@ -840,8 +840,16 @@ public abstract class BaseIcebergMaterializedViewTest
             assertUpdate(format("INSERT INTO %s VALUES (10, 10), (10, 40), (20, 20)", sourceTableName), 3);
             assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 6);
 
+            String storageTableName = (String) computeScalar("SELECT storage_table FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + materializedViewName + "'");
+            assertThat(storageTableName)
+                    .isEqualTo(computeScalar("SELECT storage_table FROM system.metadata.materialized_views WHERE catalog_name = 'iceberg_legacy_mv' AND schema_name = CURRENT_SCHEMA AND name = '" + materializedViewName + "'"))
+                    .startsWith("st_");
+
             assertThat(query("TABLE " + materializedViewName)).matches("TABLE " + sourceTableName);
+            assertThat(query("TABLE " + storageTableName)).matches("TABLE " + sourceTableName);
             assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+            assertThat(query("TABLE " + materializedViewName)).failure().hasMessageMatching(".* does not exist");
+            assertThat(query("TABLE " + storageTableName)).failure().hasMessageMatching(".* does not exist");
         }
         finally {
             assertUpdate("DROP TABLE " + sourceTableName);
