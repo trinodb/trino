@@ -20,7 +20,6 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Map;
 import java.util.Optional;
@@ -29,9 +28,7 @@ import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Execution(SAME_THREAD)
 public class TestIcebergMaterializedView
         extends BaseIcebergMaterializedViewTest
 {
