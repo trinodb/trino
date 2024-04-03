@@ -15,7 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.opensearch.version>2.12.0</dep.opensearch.version>
+        <dep.opensearch.version>2.13.0</dep.opensearch.version>
     </properties>
 
     <dependencies>
