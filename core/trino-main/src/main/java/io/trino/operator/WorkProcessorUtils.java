@@ -38,7 +38,7 @@ public final class WorkProcessorUtils
 {
     private WorkProcessorUtils() {}
 
-    static <T> Iterator<T> iteratorFrom(WorkProcessor<T> processor)
+    public static <T> Iterator<T> iteratorFrom(WorkProcessor<T> processor)
     {
         requireNonNull(processor, "processor is null");
         return new AbstractIterator<>()
@@ -58,7 +58,7 @@ public final class WorkProcessorUtils
         };
     }
 
-    static <T> Iterator<Optional<T>> yieldingIteratorFrom(WorkProcessor<T> processor)
+    public static <T> Iterator<Optional<T>> yieldingIteratorFrom(WorkProcessor<T> processor)
     {
         return new YieldingIterator<>(processor);
     }
@@ -95,7 +95,7 @@ public final class WorkProcessorUtils
         }
     }
 
-    static <T> WorkProcessor<T> fromIterator(Iterator<T> iterator)
+    public static <T> WorkProcessor<T> fromIterator(Iterator<T> iterator)
     {
         requireNonNull(iterator, "iterator is null");
         return create(() -> {
