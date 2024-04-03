@@ -23,7 +23,6 @@ import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.IcebergPlugin;
 import io.trino.plugin.memory.MemoryPlugin;
-import io.trino.plugin.teradata.functions.TeradataFunctionsPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.DistributedQueryRunner;
@@ -61,8 +60,6 @@ public class DataframeQueryRunner
 
         queryRunner.installPlugin(new MemoryPlugin());
         queryRunner.createCatalog("memory", "memory", ImmutableMap.of());
-
-        queryRunner.installPlugin(new TeradataFunctionsPlugin());
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
         HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
