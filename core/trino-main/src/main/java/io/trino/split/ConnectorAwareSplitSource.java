@@ -38,7 +38,7 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * Thread-safety: the implementations is not thread-safe
  *
- * @implNote The implementation is internally not thread-safe but also {@link ConnectorSplitSource} is
+ * Note: The implementation is internally not thread-safe but also {@link ConnectorSplitSource} is
  * not required to be thread-safe.
  */
 @NotThreadSafe

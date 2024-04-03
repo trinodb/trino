@@ -40,8 +40,10 @@ import static io.trino.sql.planner.plan.Patterns.except;
  * <code>A EXCEPT E1 EXCEPT E2 ... EXCEPT En</code> is equivalent to <code>A - (E1 + ... + En)</code>.
  * If any of the Ei sets is empty, it can be removed. If only A is left and it's empty, it gets replaced with
  * an empty Values node. Otherwise:
+ * <ul>
  * <li>a projection to preserve the outputs symbols, in the case of EXCEPT ALL.</li>
  * <li>an aggregation to remove duplicates, in case of EXCEPT DISTINCT</li>
+ * </ul>
  */
 public class RemoveEmptyExceptBranches
         implements Rule<ExceptNode>

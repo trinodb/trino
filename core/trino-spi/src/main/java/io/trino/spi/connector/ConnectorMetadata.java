@@ -790,8 +790,6 @@ public interface ConnectorMetadata
 
     /**
      * Begin the atomic creation of a table with data.
-     *
-     * <p/>
      * If connector does not support execution with retries, the method should throw:
      * <pre>
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
@@ -1501,7 +1499,6 @@ public interface ConnectorMetadata
      *      groupingSets=[[{@link ColumnHandle} CH2]]
      *      assignments = {a = CH0, b = CH1, c = CH2}
      * </pre>
-     * </p>
      * <p>
      * Assuming the connector knows how to handle {@code agg_fn1(...)} and {@code agg_fn2(...)}, it would return:
      * <pre>
@@ -1535,7 +1532,6 @@ public interface ConnectorMetadata
      *      }
      * }
      * </pre>
-     * </p>
      */
     default Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
             ConnectorSession session,
@@ -1677,7 +1673,6 @@ public interface ConnectorMetadata
      * <p>
      * Connectors can choose to reject a query based on the table scan potentially being too expensive, for example
      * if no filtering is done on a partition column.
-     * <p>
      */
     default void validateScan(ConnectorSession session, ConnectorTableHandle handle) {}
 

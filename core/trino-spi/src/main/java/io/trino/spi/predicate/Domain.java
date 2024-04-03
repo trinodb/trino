@@ -31,14 +31,12 @@ import static java.util.Objects.requireNonNull;
  * Defines the possible values of a single variable in terms of its valid scalar values and nullability.
  * <p>
  * For example:
- * <p>
  * <ul>
  * <li>Domain.none() => no scalar values allowed, NULL not allowed
  * <li>Domain.all() => all scalar values allowed, NULL allowed
  * <li>Domain.onlyNull() => no scalar values allowed, NULL allowed
  * <li>Domain.notNull() => all scalar values allowed, NULL not allowed
  * </ul>
- * <p>
  */
 public final class Domain
 {

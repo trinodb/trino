@@ -71,7 +71,7 @@ import static java.util.Objects.requireNonNull;
  * in case when the distinct operator cannot be de-correlated by PlanNodeDecorrelator
  * <p>
  * In the case of single aggregation, it transforms:
- * <pre>
+ * <pre>{@code
  * - CorrelatedJoin LEFT or INNER (correlation: [c], filter: true, output: a, x, y)
  *      - Input (a, c)
  *      - Project (x <- f(count), y <- f'(agg))
@@ -79,9 +79,9 @@ import static java.util.Objects.requireNonNull;
  *             count <- count(*)
  *             agg <- agg(b)
  *                - Source (b) with correlated filter (b > c)
- * </pre>
+ * }</pre>
  * Into:
- * <pre>
+ * <pre>{@code
  * - Project (a <- a, x <- f(count), y <- f'(agg))
  *      - Aggregation (group by [a, c, unique])
  *        count <- count(*) mask(non_null)
@@ -91,10 +91,10 @@ import static java.util.Objects.requireNonNull;
  *                     - Input (a, c)
  *                - Project (non_null <- TRUE)
  *                     - Source (b) decorrelated
- * </pre>
+ * }</pre>
  * <p>
  * In the case of global aggregation over distinct operator, it transforms:
- * <pre>
+ * <pre>{@code
  * - CorrelatedJoin LEFT or INNER (correlation: [c], filter: true, output: a, x, y)
  *      - Input (a, c)
  *      - Project (x <- f(count), y <- f'(agg))
@@ -103,9 +103,9 @@ import static java.util.Objects.requireNonNull;
  *             agg <- agg(b)
  *                - Aggregation "distinct operator" group by [b]
  *                     - Source (b) with correlated filter (b > c)
- * </pre>
+ * }</pre>
  * Into:
- * <pre>
+ * <pre>{@code
  * - Project (a <- a, x <- f(count), y <- f'(agg))
  *      - Aggregation (group by [a, c, unique])
  *        count <- count(*) mask(non_null)
@@ -116,7 +116,7 @@ import static java.util.Objects.requireNonNull;
  *                          - Input (a, c)
  *                     - Project (non_null <- TRUE)
  *                          - Source (b) decorrelated
- * </pre>
+ * }</pre>
  */
 public class TransformCorrelatedGlobalAggregationWithProjection
         implements Rule<CorrelatedJoinNode>

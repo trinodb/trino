@@ -163,8 +163,10 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * AST and IR expressions use the same class hierarchy ({@link Expression},
  * but differ in the following ways:
+ * <ul>
  * <li>AST expressions contain Identifiers, while IR expressions contain SymbolReferences</li>
  * <li>FunctionCalls in AST expressions are SQL function names. In IR expressions, they contain an encoded name representing a resolved function</li>
+ * </ul>
  */
 public class TranslationMap
 {

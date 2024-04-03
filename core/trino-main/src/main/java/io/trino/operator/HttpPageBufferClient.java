@@ -104,7 +104,7 @@ public final class HttpPageBufferClient
      * For each request, the addPage method will be called zero or more times,
      * followed by either requestComplete or clientFinished (if buffer complete).  If the client is
      * closed, requestComplete or bufferFinished may never be called.
-     * <p/>
+     * <p>
      * <b>NOTE:</b> Implementations of this interface are not allowed to perform
      * blocking operations.
      */

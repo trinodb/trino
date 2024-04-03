@@ -283,7 +283,7 @@ public final class Decimals
     }
 
     /**
-     * Converts {@link BigDecimal} to {@link long} representing it for short {@link DecimalType}.
+     * Converts {@link BigDecimal} to {@code long} representing it for short {@link DecimalType}.
      * It is caller responsibility to ensure that {@code value.scale()} equals to {@link DecimalType#getScale()}.
      */
     public static long valueOfShort(BigDecimal value)
