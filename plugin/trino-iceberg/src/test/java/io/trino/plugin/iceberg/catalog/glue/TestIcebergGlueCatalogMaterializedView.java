@@ -30,8 +30,6 @@ import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -44,11 +42,7 @@ import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@TestInstance(PER_CLASS)
-@Execution(SAME_THREAD)
 public class TestIcebergGlueCatalogMaterializedView
         extends BaseIcebergMaterializedViewTest
 {
