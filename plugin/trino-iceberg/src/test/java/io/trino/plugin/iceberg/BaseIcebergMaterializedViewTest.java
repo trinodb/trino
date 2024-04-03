@@ -829,9 +829,9 @@ public abstract class BaseIcebergMaterializedViewTest
         String materializedViewName = "test_drop_legacy_materialized_view" + randomNameSuffix();
         String sourceTableName = "test_source_table_for_mat_view" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
-        assertUpdate(format("CREATE MATERIALIZED VIEW iceberg_legacy_mv.%s.%s AS SELECT * FROM %s", schemaName, materializedViewName, sourceTableName));
-
         try {
+            assertUpdate(format("CREATE MATERIALIZED VIEW iceberg_legacy_mv.%s.%s AS SELECT * FROM %s", schemaName, materializedViewName, sourceTableName));
+
             // Refresh with legacy enabled
             assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (2, 2)", sourceTableName), 3);
             assertUpdate(format("REFRESH MATERIALIZED VIEW iceberg_legacy_mv.%s.%s", schemaName, materializedViewName), 3);
