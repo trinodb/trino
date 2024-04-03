@@ -74,9 +74,7 @@ public class DataframeQueryRunner
                         .build());
 
         queryRunner.installPlugin(new TestingHivePlugin(baseDir.toPath(), metastore));
-        ImmutableMap<String, String> hiveProperties = ImmutableMap.<String, String>builder()
-                .put("hive.allow-drop-table", "true")
-                .buildOrThrow();
+        ImmutableMap<String, String> hiveProperties = ImmutableMap.<String, String>builder().buildOrThrow();
         queryRunner.createCatalog("hive", "hive", hiveProperties);
         queryRunner.execute("CREATE SCHEMA hive.tpch");
 
