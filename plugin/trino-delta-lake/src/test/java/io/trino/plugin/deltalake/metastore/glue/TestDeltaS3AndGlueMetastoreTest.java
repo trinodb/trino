@@ -18,7 +18,7 @@ import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
 import io.trino.plugin.hive.BaseS3AndGlueMetastoreTest;
 import io.trino.testing.QueryRunner;
 
-import java.nio.file.Path;
+import java.net.URI;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -41,7 +41,7 @@ public class TestDeltaS3AndGlueMetastoreTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        metastore = createTestingGlueHiveMetastore(Path.of(schemaPath()));
+        metastore = createTestingGlueHiveMetastore(URI.create(schemaPath()));
         QueryRunner queryRunner = DeltaLakeQueryRunner.builder()
                 .setCatalogName(DELTA_CATALOG)
                 .setDeltaProperties(ImmutableMap.<String, String>builder()

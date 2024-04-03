@@ -18,7 +18,6 @@ import org.junit.jupiter.api.AfterAll;
 import java.io.IOException;
 import java.nio.file.Path;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
@@ -34,7 +33,6 @@ final class TestGlueHiveMetastore
             throws IOException
     {
         tempDir = createTempDirectory("test");
-        verify(tempDir.toFile().mkdirs());
         metastore = createTestingGlueHiveMetastore(tempDir);
     }
 

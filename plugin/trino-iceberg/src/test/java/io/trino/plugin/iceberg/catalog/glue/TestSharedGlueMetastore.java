@@ -130,7 +130,7 @@ public class TestSharedGlueMetastore
                 "   location = '%s'\n" +
                 ")";
 
-        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory.toUri().toString().replaceFirst("/$", ""));
+        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory.toUri());
     }
 
     @Override
@@ -140,6 +140,6 @@ public class TestSharedGlueMetastore
                 "WITH (\n" +
                 "   location = '%s'\n" +
                 ")";
-        return format(expectedIcebergCreateSchema, catalogName, schema, dataDirectory.toUri().toString().replaceFirst("/$", ""));
+        return format(expectedIcebergCreateSchema, catalogName, schema, dataDirectory.toUri());
     }
 }
