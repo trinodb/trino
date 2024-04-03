@@ -37,7 +37,7 @@ import static io.trino.sql.ir.IrUtils.validateType;
  * It requires special treatment from the type system. There is no way
  * to write out the type of `bind`. The return type of `bind` is function.
  * Its type looks somewhat like:
- * <p><ul>
+ * <ul>
  * <li>X, (X) -> Y => () -> Y
  * <li>X1, (X1, X2) -> Y => (X2) -> Y
  * <li>X1, (X1, X2, X3) -> Y => (X2, X3) -> Y

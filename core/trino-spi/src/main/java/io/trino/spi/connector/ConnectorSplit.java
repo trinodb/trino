@@ -52,7 +52,7 @@ public interface ConnectorSplit
      *
      * @return True if the scheduler may schedule this split outside {@link #getAddresses()} (even if {@link #isRemotelyAccessible()} is false).
      *
-     * @apiNote This method should not return false when {@link #isRemotelyAccessible()} returns true.  In that case, schedulers are free to run this split
+     * Note: This method should not return false when {@link #isRemotelyAccessible()} returns true.  In that case, schedulers are free to run this split
      * anywhere, so it would be confusing if this suggested something different.  But when {@link #isRemotelyAccessible()} returns false,
      * this method can return either value, depending on whether failover is allowed or not.
      */

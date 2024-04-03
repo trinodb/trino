@@ -39,15 +39,15 @@ import static java.util.Objects.requireNonNull;
  * Implement INTERSECT ALL using union, window and filter.
  * <p>
  * Transforms:
- * <pre>
+ * <pre>{@code
  * - Intersect all
  *   output: a, b
  *     - Source1 (a1, b1)
  *     - Source2 (a2, b2)
  *     - Source3 (a3, b3)
- * </pre>
+ * }</pre>
  * Into:
- * <pre>
+ * <pre>{@code
  * - Project (prune helper symbols)
  *   output: a, b
  *     - Filter (row_number <= least(least(count1, count2), count3))
@@ -64,7 +64,7 @@ import static java.util.Objects.requireNonNull;
  *                       - Source2 (a2, b2)
  *                   - Project (marker1 <- null, marker2 <- null, marker3 <- true)
  *                       - Source3 (a3, b3)
- * </pre>
+ * }</pre>
  */
 public class ImplementIntersectAll
         implements Rule<IntersectNode>

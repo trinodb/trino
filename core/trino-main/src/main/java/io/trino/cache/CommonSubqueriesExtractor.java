@@ -109,16 +109,16 @@ import static java.util.function.Predicate.not;
  * performed only once and are reused within query execution.
  * <p>
  * The general idea is that if there are two subqueries, e.g:
- * subquery1: table_scan(table) <- filter(col1 = 1) <- projection(y := col2 + 1)
- * subquery2: table_scan(table) <- filter(col1 = 2) <- projection(z := col2 * 2)
+ * {@code subquery1: table_scan(table) <- filter(col1 = 1) <- projection(y := col2 + 1)}
+ * {@code subquery2: table_scan(table) <- filter(col1 = 2) <- projection(z := col2 * 2)}
  * <p>
  * Then such subqueries can be transformed into:
- * subquery1: table_scan(table) <- filter(col1 = 1 OR col1 = 2) <- projection(y := col2 + 1, z := col2 * 2)
- * <- filter(col1 = 1) <- projection(y := y)
- * subquery2: table_scan(table) <- filter(col1 = 1 OR col1 = 2) <- projection(y := col2 + 1, z := col2 * 2)
- * <- filter(col1 = 2) <- projection(z := z)
+ * {@code subquery1: table_scan(table) <- filter(col1 = 1 OR col1 = 2) <- projection(y := col2 + 1, z := col2 * 2)
+ * <- filter(col1 = 1) <- projection(y := y)}
+ * {@code subquery2: table_scan(table) <- filter(col1 = 1 OR col1 = 2) <- projection(y := col2 + 1, z := col2 * 2)
+ * <- filter(col1 = 2) <- projection(z := z)}
  * <p>
- * where: table_scan(table) <- filter(col1 = 1 OR col1 = 2) <- projection(y := col2 + 1, z := col2 * 2)
+ * {@code where: table_scan(table) <- filter(col1 = 1 OR col1 = 2) <- projection(y := col2 + 1, z := col2 * 2)}
  * is a common subquery for which the results can be cached and evaluated only once.
  */
 public final class CommonSubqueriesExtractor

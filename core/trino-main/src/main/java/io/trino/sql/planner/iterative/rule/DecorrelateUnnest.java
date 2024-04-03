@@ -84,7 +84,7 @@ import static java.util.Objects.requireNonNull;
  * - UnnestNode in subquery is INNER or LEFT without filter
  * <p>
  * Transforms:
- * <pre>
+ * <pre>{@code
  * - CorrelatedJoin (INNER or LEFT) on true, correlation(c)
  *      - Input (a, c)
  *     [- EnforceSingleRow]
@@ -94,9 +94,10 @@ import static java.util.Objects.requireNonNull;
  *                          - Unnest INNER or LEFT
  *                               u <- unnest(c)
  *                               replicate: ()
- * </pre>
+ * }</pre>
  * Into:
  * <pre>
+ * {@code
  * - Project (restrict outputs)
  *     [- Project [*1]
  *        a <- a
@@ -113,10 +114,12 @@ import static java.util.Objects.requireNonNull;
  *                                      replicate: (a, c, unique)
  *                                         - AssignUniqueId (unique)
  *                                              - Input (a, c)
+ * }
+ *
  * [1] If UnnestNode is rewritten from INNER to LEFT, synthetic rows with nulls are added by the LEFT unnest at the bottom of the plan.
  *     In the correlated plan, they would be added in EnforceSingleRowNode or during join, that is near the root of the plan after all projections.
  *     This ProjectNode restores null values which might have been modified by projections. It uses ordinality symbol to distinguish between
- *     unnested rows and synthetic rows: `x <- IF(ordinality IS NULL, null, x)`
+ *     unnested rows and synthetic rows: {@code x <- IF(ordinality IS NULL, null, x)}
  * [2] If the original plan has EnforceSingleRowNode in the subquery, it has to be restored. EnforceSingleRowNode is responsible for:
  *     - adding a synthetic row of nulls where there are no rows,
  *     - checking that there is no more than 1 row.

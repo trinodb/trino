@@ -49,7 +49,7 @@ import static java.util.Collections.nCopies;
 
 /**
  * Transforms:
- * <pre>
+ * <pre>{@code
  * - Project
  *      a <- a
  *      d <- b
@@ -58,24 +58,24 @@ import static java.util.Collections.nCopies;
  *      - Values(a, b, c)
  *          expr_a_1, expr_b_1, expr_c_1
  *          expr_a_2, expr_b_2, expr_c_2
- * </pre>
+ * }</pre>
  * into:
- * <pre>
+ * <pre>{@code
  * - Values (a, d, e, f)
  *      expr_a_1, expr_b_1, f(expr_b_1), 1
  *      expr_a_2, expr_b_2, f(expr_b_2), 1
- * </pre>
+ * }</pre>
  * Note: this rule does not fire if ValuesNode contains a non-deterministic
  * expression and it is referenced more than once in ProjectNode's assignments.
  * This is to prevent incorrect results in the following case:
- * <pre>
+ * <pre>{@code
  * - project
  *      row <- ROW(rand, rand)
  *      - Values(rand)
  *          rand()
- * </pre>
+ * }</pre>
  * The expected result of the projection is a row with both fields equal.
- * However, if the non-deterministic expression rand() was inlined, we would
+ * However, if the non-deterministic expression {@code rand()} was inlined, we would
  * get two independent random values.
  */
 public class MergeProjectWithValues

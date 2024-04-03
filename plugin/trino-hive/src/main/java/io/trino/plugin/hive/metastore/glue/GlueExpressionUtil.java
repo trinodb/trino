@@ -83,7 +83,7 @@ public final class GlueExpressionUtil
     }
 
     /**
-     * @return a valid glue expression <= {@link  GlueExpressionUtil#GLUE_EXPRESSION_CHAR_LIMIT}. A return value of "" means a valid glue expression could not be created, or
+     * @return a valid glue expression &lt;= {@link  GlueExpressionUtil#GLUE_EXPRESSION_CHAR_LIMIT}. A return value of "" means a valid glue expression could not be created, or
      * {@link TupleDomain#all()} was passed in as an argument
      */
     public static String buildGlueExpression(List<String> columnNames, TupleDomain<String> partitionKeysFilter, boolean assumeCanonicalPartitionKeys)

@@ -115,13 +115,13 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Re-maps symbol references that are just aliases of each other (e.g., due to projections like {@code $0 := $1})
- * <p/>
+ * <p>
  * E.g.,
- * <p/>
+ * <p>
  * {@code Output[$0, $1] -> Project[$0 := $2, $1 := $3 * 100] -> Aggregate[$2, $3 := sum($4)] -> ...}
- * <p/>
+ * <p>
  * gets rewritten as
- * <p/>
+ * <p>
  * {@code Output[$2, $1] -> Project[$2, $1 := $3 * 100] -> Aggregate[$2, $3 := sum($4)] -> ...}
  */
 public class UnaliasSymbolReferences

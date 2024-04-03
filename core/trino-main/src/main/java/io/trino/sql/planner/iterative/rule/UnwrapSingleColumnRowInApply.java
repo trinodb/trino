@@ -37,23 +37,23 @@ import static java.util.Objects.requireNonNull;
 /**
  * Given x::row(t) and y::row(t), converts assignments of the form
  *
- * <p><code>x IN (y...)</code> => <code>x[1] IN (y[1]...)</code>
+ * <p>{@code x IN (y...)</code> => <code>x[1] IN (y[1]...)}
  *
  * <p>and</p>
  *
- * <p> <code>x &lt;comparison&gt; &lt;quantifier&gt; (y...)</code></p> => <code>x[1] &lt;comparison&gt; &lt;quantifier&gt; (y[1]...)</code></p>
+ * <p>{@code x <comparison> <quantifier> (y...) => x[1] <comparison> <quantifier> (y[1]...)}
  *
  * <p>In particular, it transforms a plan with the following shape:</p>
  *
- * <pre>
+ * <pre>{@code
  * - Apply x IN y
  *   - S [x :: row(T)]
  *   - Q [y :: row(T)]
- * </pre>
+ * }</pre>
  * <p>
  * into
  *
- * <pre>
+ * <pre>{@code
  * - Project (to preserve the outputs of Apply)
  *   - Apply x' IN y'
  *     - Project [x' :: T]
@@ -62,7 +62,7 @@ import static java.util.Objects.requireNonNull;
  *     - Project [y' :: T]
  *         y' = y[1]
  *       - Q [y :: row(T)]
- * </pre>
+ * }</pre>
  */
 public class UnwrapSingleColumnRowInApply
         implements Rule<ApplyNode>

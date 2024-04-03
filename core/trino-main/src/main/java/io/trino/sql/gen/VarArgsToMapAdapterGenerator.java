@@ -50,12 +50,12 @@ public final class VarArgsToMapAdapterGenerator
 
     /**
      * Generate byte code that
-     * <p><ul>
+     * <ul>
      * <li>takes a specified number of variables as arguments (types of the arguments are provided in {@code javaTypes})
      * <li>put the variables in a map (keys of the map are provided in {@code names})
      * <li>invoke the provided {@code function} with the map
      * <li>return with the result of the function call (type must match {@code returnType})
-     * </ul></p>
+     * </ul>
      */
     public static MethodHandle generateVarArgsToMapAdapter(Class<?> returnType, List<Class<?>> javaTypes, List<String> names, Function<Map<String, Object>, Object> function)
     {

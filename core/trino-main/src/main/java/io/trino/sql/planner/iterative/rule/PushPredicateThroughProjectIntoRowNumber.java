@@ -53,19 +53,19 @@ import static java.util.Objects.requireNonNull;
  * TODO This rule should be removed as soon as RowNumberNode becomes capable of absorbing pruning projections (i.e. capable of pruning outputs).
  * <p>
  * Transforms:
- * <pre>
+ * <pre>{@code
  * - Filter (rowNumber <= 5 && a > 1)
  *     - Project (a, rowNumber)
  *         - RowNumber (maxRowCountPerPartition = 10)
  *             - source (a, b)
- * </pre>
+ * }</pre>
  * into:
- * <pre>
+ * <pre>{@code
  * - Filter (a > 1)
  *     - Project (a, rowNumber)
  *         - RowNumber (maxRowCountPerPartition = 5)
  *             - source (a, b)
- * </pre>
+ * }</pre>
  */
 public class PushPredicateThroughProjectIntoRowNumber
         implements Rule<FilterNode>

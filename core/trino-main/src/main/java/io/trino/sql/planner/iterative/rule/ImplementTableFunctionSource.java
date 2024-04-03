@@ -93,13 +93,13 @@ import static java.util.function.Function.identity;
  * <p>
  * Example transformation for two sources, both with set semantics
  * and KEEP WHEN EMPTY property:
- * <pre>
+ * <pre>{@code
  * - TableFunction foo
  *      - source T1(a1, b1) PARTITION BY a1 ORDER BY b1
  *      - source T2(a2, b2) PARTITION BY a2
- * </pre>
+ * }</pre>
  * Is transformed into:
- * <pre>
+ * <pre>{@code
  * - TableFunctionProcessor foo
  *      PARTITION BY (a1, a2), ORDER BY combined_row_number
  *      - Project
@@ -120,7 +120,7 @@ import static java.util.function.Function.identity;
  *                      table2_row_number <= row_number()
  *                      table2_partition_size <= count()
  *                          - source T2(a2, b2)
- * </pre>
+ * }</pre>
  */
 public class ImplementTableFunctionSource
         implements Rule<TableFunctionNode>

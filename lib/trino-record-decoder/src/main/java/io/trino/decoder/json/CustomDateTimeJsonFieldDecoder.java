@@ -43,7 +43,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Custom date format decoder.
  * <p>
- * <tt>formatHint</tt> uses {@link org.joda.time.format.DateTimeFormatter} format.
+ * {@code formatHint} uses {@link org.joda.time.format.DateTimeFormatter} format.
  * <p>
  * Uses hardcoded UTC timezone and english locale.
  */

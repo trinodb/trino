@@ -22,7 +22,7 @@ import static java.util.Objects.requireNonNull;
  * This class is used to represent information about a column for the purposes of column masking.
  * It is (perhaps counterintuitively) only used for column masking and not for operations like
  * FilterColumns. This is for 3 reasons:
- * - API stability between the batch & non-batch modes: sending an array of TrinoColumn objects would be wasteful for
+ * - API stability between the batch and non-batch modes: sending an array of TrinoColumn objects would be wasteful for
  *   the batch authorizer mode (as it would repeat the catalog, schema and table names once per column). As such, this
  *   object is not used for FilterColumns even if batch mode is disabled
  * - This object contains in-depth information about the column (e.g. its type), and it may be modified to include

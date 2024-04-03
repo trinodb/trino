@@ -81,7 +81,7 @@ import static io.trino.sql.planner.plan.Patterns.source;
  *              - Tablescan (nation)
  *          - Tablescan (nation)
  * </pre>
- * </p>
+ * <p>
  * Is rewritten to:
  * <pre>
  * - Filter ("nationkey" > "avg")

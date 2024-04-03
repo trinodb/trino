@@ -20,7 +20,6 @@ import java.nio.ByteBuffer;
 
 /**
  * API with the storage engine implementation
- * <p>
  */
 public interface StorageEngine
 {

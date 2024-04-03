@@ -72,7 +72,7 @@ public class DisjointSet<T>
     }
 
     /**
-     * @return <tt>true</tt> if the specified equivalence is new
+     * @return {@code true} if the specified equivalence is new
      */
     public boolean findAndUnion(T node1, T node2)
     {

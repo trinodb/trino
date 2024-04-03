@@ -60,8 +60,8 @@ public final class IcebergTypes
 
     /**
      * Convert value from Trino representation to Iceberg representation.
-     *
-     * @apiNote This accepts a Trino type because, currently, no two Iceberg types translate to one Trino type.
+     * <p>
+     * Note: This accepts a Trino type because, currently, no two Iceberg types translate to one Trino type.
      */
     public static Object convertTrinoValueToIceberg(io.trino.spi.type.Type type, Object trinoNativeValue)
     {

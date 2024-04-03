@@ -24,7 +24,7 @@ import com.datastax.oss.driver.api.core.session.Request;
 
 /**
  * A retry policy that never retries (nor ignores).
- * <p/>
+ * <p>
  * All of the methods of this retry policy unconditionally return {@link RetryDecision#RETHROW}.
  * If this policy is used, retry logic will have to be implemented in business code.
  */

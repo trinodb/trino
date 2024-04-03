@@ -37,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * RFC 2822 date format decoder.
- * <p/>
+ * <p>
  * Uses hardcoded UTC timezone and english locale.
  */
 public class RFC2822JsonFieldDecoder

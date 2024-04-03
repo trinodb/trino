@@ -62,7 +62,7 @@ public class AsyncQueue<T>
     }
 
     /**
-     * Returns <tt>true</tt> if all future attempts to retrieve elements from this queue
+     * Returns {@code true} if all future attempts to retrieve elements from this queue
      * are guaranteed to return empty.
      */
     public synchronized boolean isFinished()

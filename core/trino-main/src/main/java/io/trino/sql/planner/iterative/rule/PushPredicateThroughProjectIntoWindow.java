@@ -58,19 +58,19 @@ import static java.util.Objects.requireNonNull;
  * TODO This rule should be removed as soon as WindowNode becomes capable of absorbing pruning projections (i.e. capable of pruning outputs).
  * <p>
  * Transforms:
- * <pre>
+ * <pre>{@code
  * - Filter (ranking <= 5 && a > 1)
  *     - Project (a, ranking)
  *         - Window ([row_number()|rank()] OVER (ORDER BY a))
  *             - source (a, b)
- * </pre>
+ * }</pre>
  * into:
- * <pre>
+ * <pre>{@code
  * - Filter (a > 1)
  *     - Project (a, ranking)
  *         - TopNRanking (type = [ROW_NUMBER|RANK], maxRankingPerPartition = 5, order by a)
  *             - source (a, b)
- * </pre>
+ * }</pre>
  */
 public class PushPredicateThroughProjectIntoWindow
         implements Rule<FilterNode>
