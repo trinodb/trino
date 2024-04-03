@@ -1012,8 +1012,7 @@ public class TestIcebergV2
                 tableOperationsProvider,
                 false,
                 false,
-                false,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+                false);
         return (BaseTable) loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName("tpch", tableName));
     }
 

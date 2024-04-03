@@ -76,6 +76,7 @@ public class IcebergModule
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(IcebergSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMaterializedViewProperties.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(boolean.class, EnableMaterializedViewSeparateStorageTable.class)).setDefault().toInstance(false);
         binder.bind(IcebergAnalyzeProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectorSplitManager.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);

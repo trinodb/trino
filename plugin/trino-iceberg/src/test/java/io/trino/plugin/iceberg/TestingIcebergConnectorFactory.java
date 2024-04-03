@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
@@ -27,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.iceberg.IcebergConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
@@ -53,6 +55,7 @@ public class TestingIcebergConnectorFactory
             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
                     .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
             configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
+            newOptionalBinder(binder, Key.get(boolean.class, EnableMaterializedViewSeparateStorageTable.class)).setBinding().toInstance(true);
         };
     }
 

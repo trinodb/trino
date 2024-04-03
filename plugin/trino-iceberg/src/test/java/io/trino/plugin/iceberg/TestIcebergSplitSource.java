@@ -126,8 +126,7 @@ public class TestIcebergSplitSource
                 new FileMetastoreTableOperationsProvider(fileSystemFactory),
                 false,
                 false,
-                false,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+                false);
 
         return queryRunner;
     }

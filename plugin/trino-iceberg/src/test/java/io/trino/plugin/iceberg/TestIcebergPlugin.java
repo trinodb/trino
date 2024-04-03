@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -46,6 +47,20 @@ public class TestIcebergPlugin
     public void testTestingFileMetastore()
     {
         ConnectorFactory factory = getConnectorFactory();
+        factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                                "hive.metastore.catalog.dir", "/tmp",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    public void testTestingPlugin()
+    {
+        ConnectorFactory factory = getOnlyElement(new TestingIcebergPlugin(Paths.get("/tmp")).getConnectorFactories());
         factory.create(
                         "test",
                         Map.of(

@@ -151,16 +151,6 @@ implementation is used:
 * - `iceberg.hive-catalog-name`
   - Catalog to redirect to when a Hive table is referenced.
   -
-* - `iceberg.materialized-views.storage-schema`
-  - Schema for creating materialized views storage tables. When this property is
-    not configured, storage tables are created in the same schema as the
-    materialized view definition. When the `storage_schema` materialized view
-    property is specified, it takes precedence over this catalog property.
-  - Empty
-* - `iceberg.materialized-views.hide-storage-table`
-  - Hide the information about the storage table backing the materialized view
-    in the metastore.
-  - `true`
 * - `iceberg.register-table-procedure.enabled`
   - Enable to allow user to call `register_table` procedure.
   - `false`
@@ -1491,11 +1481,6 @@ for the data files and partition the storage per day using the column
 ```
 WITH ( format = 'ORC', partitioning = ARRAY['event_date'] )
 ```
-
-By default, the storage table is created in the same schema as the materialized
-view definition. The `iceberg.materialized-views.storage-schema` catalog
-configuration property or `storage_schema` materialized view property can be
-used to specify the schema where the storage table is created.
 
 Creating a materialized view does not automatically populate it with data. You
 must run {doc}`/sql/refresh-materialized-view` to populate data in the

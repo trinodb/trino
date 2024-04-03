@@ -32,7 +32,6 @@ import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreFactory;
-import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergSchemaProperties;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -133,8 +132,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                 }),
                 useUniqueTableLocations,
                 false,
-                false,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+                false);
     }
 
     @Override

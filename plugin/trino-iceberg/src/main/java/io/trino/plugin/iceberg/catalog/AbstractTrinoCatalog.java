@@ -69,6 +69,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -79,10 +80,8 @@ import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.STORAGE_SCHEMA;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.getStorageSchema;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.isSeparateStorageTable;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
@@ -97,7 +96,6 @@ import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
 import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -211,16 +209,9 @@ public abstract class AbstractTrinoCatalog
     @Override
     public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
     {
-        SchemaTableName storageTableName = definition.getStorageTable()
-                .orElseThrow(() -> new TrinoException(ICEBERG_INVALID_METADATA, "Materialized view definition is missing a storage table"))
-                .getSchemaTableName();
-
         try {
             Table storageTable = loadTable(session, definition.getStorageTable().orElseThrow().getSchemaTableName());
-            return ImmutableMap.<String, Object>builder()
-                    .putAll(getIcebergTableProperties(storageTable))
-                    .put(STORAGE_SCHEMA, storageTableName.getSchemaName())
-                    .buildOrThrow();
+            return getIcebergTableProperties(storageTable);
         }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Unable to load storage table metadata for materialized view: " + viewName);
@@ -313,9 +304,7 @@ public abstract class AbstractTrinoCatalog
             ConnectorMaterializedViewDefinition definition,
             Map<String, Object> materializedViewProperties)
     {
-        if (getStorageSchema(materializedViewProperties).isPresent()) {
-            throw new TrinoException(NOT_SUPPORTED, "Materialized view property '%s' is not supported when hiding materialized view storage tables is enabled".formatted(STORAGE_SCHEMA));
-        }
+        checkArgument(!isSeparateStorageTable(materializedViewProperties), "Invalid request to create hidden materialized view storage table when separate storage table is requested");
         SchemaTableName storageTableName = new SchemaTableName(viewName.getSchemaName(), tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
         String tableLocation = getTableLocation(materializedViewProperties)
                 .orElseGet(() -> defaultTableLocation(session, viewName));
@@ -355,7 +344,7 @@ public abstract class AbstractTrinoCatalog
         // storage table as indicated in the materialized view definition.
         String storageTableName = "st_" + randomUUID().toString().replace("-", "");
 
-        String storageSchema = getStorageSchema(materializedViewProperties).orElse(viewName.getSchemaName());
+        String storageSchema = viewName.getSchemaName();
         SchemaTableName storageTable = new SchemaTableName(storageSchema, storageTableName);
         List<ColumnMetadata> columns = columnsForMaterializedView(definition, materializedViewProperties);
 
@@ -494,7 +483,6 @@ public abstract class AbstractTrinoCatalog
     {
         return ImmutableMap.<String, String>builder()
                 .put(TRINO_QUERY_ID_NAME, session.getQueryId())
-                .put(STORAGE_SCHEMA, storageTableName.getSchemaName())
                 .put(STORAGE_TABLE, storageTableName.getTableName())
                 .put(PRESTO_VIEW_FLAG, "true")
                 .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)

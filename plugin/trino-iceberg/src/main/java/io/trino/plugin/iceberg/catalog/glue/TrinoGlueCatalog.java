@@ -136,7 +136,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.STORAGE_SCHEMA;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.isSeparateStorageTable;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
 import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_NOT_NULL_PROPERTY;
@@ -179,7 +179,6 @@ public class TrinoGlueCatalog
     private final Optional<String> defaultSchemaLocation;
     private final AWSGlueAsync glueClient;
     private final GlueMetastoreStats stats;
-    private final boolean hideMaterializedViewStorageTable;
     private final boolean isUsingSystemSecurity;
 
     private final Cache<SchemaTableName, com.amazonaws.services.glue.model.Table> glueTableCache = EvictableCacheBuilder.newBuilder()
@@ -208,8 +207,7 @@ public class TrinoGlueCatalog
             GlueMetastoreStats stats,
             boolean isUsingSystemSecurity,
             Optional<String> defaultSchemaLocation,
-            boolean useUniqueTableLocation,
-            boolean hideMaterializedViewStorageTable)
+            boolean useUniqueTableLocation)
     {
         super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, useUniqueTableLocation);
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
@@ -220,7 +218,6 @@ public class TrinoGlueCatalog
         this.stats = requireNonNull(stats, "stats is null");
         this.isUsingSystemSecurity = isUsingSystemSecurity;
         this.defaultSchemaLocation = requireNonNull(defaultSchemaLocation, "defaultSchemaLocation is null");
-        this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
     }
 
     @Override
@@ -1123,7 +1120,7 @@ public class TrinoGlueCatalog
             }
         }
 
-        if (hideMaterializedViewStorageTable) {
+        if (!isSeparateStorageTable(materializedViewProperties)) {
             Location storageMetadataLocation = createMaterializedViewStorage(session, viewName, definition, materializedViewProperties);
             TableInput materializedViewTableInput = getMaterializedViewTableInput(
                     viewName.getTableName(),
@@ -1253,8 +1250,7 @@ public class TrinoGlueCatalog
         Map<String, String> parameters = getTableParameters(view);
         String storageTableName = parameters.get(STORAGE_TABLE);
         if (storageTableName != null) {
-            String storageSchema = Optional.ofNullable(parameters.get(STORAGE_SCHEMA))
-                    .orElse(view.getDatabaseName());
+            String storageSchema = view.getDatabaseName();
             try {
                 dropTable(session, new SchemaTableName(storageSchema, storageTableName));
             }
@@ -1314,8 +1310,7 @@ public class TrinoGlueCatalog
         }
 
         if (storageTable != null) {
-            String storageSchema = Optional.ofNullable(materializedViewParameters.get(STORAGE_SCHEMA))
-                    .orElse(viewName.getSchemaName());
+            String storageSchema = viewName.getSchemaName();
             SchemaTableName storageTableName = new SchemaTableName(storageSchema, storageTable);
 
             String viewOriginalText = table.getViewOriginalText();

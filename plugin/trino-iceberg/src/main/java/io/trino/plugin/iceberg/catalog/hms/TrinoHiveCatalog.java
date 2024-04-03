@@ -98,7 +98,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.STORAGE_SCHEMA;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.isSeparateStorageTable;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
@@ -137,7 +137,6 @@ public class TrinoHiveCatalog
     private final TrinoFileSystemFactory fileSystemFactory;
     private final boolean isUsingSystemSecurity;
     private final boolean deleteSchemaLocationsFallback;
-    private final boolean hideMaterializedViewStorageTable;
 
     private final Cache<SchemaTableName, TableMetadata> tableMetadataCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
@@ -152,8 +151,7 @@ public class TrinoHiveCatalog
             IcebergTableOperationsProvider tableOperationsProvider,
             boolean useUniqueTableLocation,
             boolean isUsingSystemSecurity,
-            boolean deleteSchemaLocationsFallback,
-            boolean hideMaterializedViewStorageTable)
+            boolean deleteSchemaLocationsFallback)
     {
         super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, useUniqueTableLocation);
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -161,7 +159,6 @@ public class TrinoHiveCatalog
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.isUsingSystemSecurity = isUsingSystemSecurity;
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
-        this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
     }
 
     public CachingHiveMetastore getMetastore()
@@ -545,7 +542,7 @@ public class TrinoHiveCatalog
             }
         }
 
-        if (hideMaterializedViewStorageTable) {
+        if (!isSeparateStorageTable(materializedViewProperties)) {
             Location storageMetadataLocation = createMaterializedViewStorage(session, viewName, definition, materializedViewProperties);
 
             Map<String, String> viewProperties = createMaterializedViewProperties(session, storageMetadataLocation);
@@ -626,8 +623,7 @@ public class TrinoHiveCatalog
             // drop the current storage table
             String oldStorageTable = existing.get().getParameters().get(STORAGE_TABLE);
             if (oldStorageTable != null) {
-                String storageSchema = Optional.ofNullable(existing.get().getParameters().get(STORAGE_SCHEMA))
-                        .orElse(viewName.getSchemaName());
+                String storageSchema = viewName.getSchemaName();
                 metastore.dropTable(storageSchema, oldStorageTable, true);
             }
             // Replace the existing view definition
@@ -698,8 +694,7 @@ public class TrinoHiveCatalog
         SchemaTableName viewName = view.getSchemaTableName();
         String storageTableName = view.getParameters().get(STORAGE_TABLE);
         if (storageTableName != null) {
-            String storageSchema = Optional.ofNullable(view.getParameters().get(STORAGE_SCHEMA))
-                    .orElse(viewName.getSchemaName());
+            String storageSchema = viewName.getSchemaName();
             try {
                 metastore.dropTable(storageSchema, storageTableName, true);
             }
@@ -741,8 +736,7 @@ public class TrinoHiveCatalog
         }
 
         if (storageTable != null) {
-            String storageSchema = Optional.ofNullable(materializedView.getParameters().get(STORAGE_SCHEMA))
-                    .orElse(viewName.getSchemaName());
+            String storageSchema = viewName.getSchemaName();
             SchemaTableName storageTableName = new SchemaTableName(storageSchema, storageTable);
             return Optional.of(getMaterializedViewDefinition(
                     materializedView.getOwner(),

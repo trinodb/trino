@@ -55,12 +55,6 @@ public class TestIcebergMaterializedView
                     .setCatalog("iceberg2")
                     .build();
 
-            queryRunner.createCatalog("iceberg_legacy_mv", "iceberg", Map.of(
-                    "iceberg.catalog.type", "TESTING_FILE_METASTORE",
-                    "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toString(),
-                    "iceberg.hive-catalog-name", "hive",
-                    "iceberg.materialized-views.hide-storage-table", "false"));
-
             queryRunner.execute(secondIceberg, "CREATE SCHEMA " + secondIceberg.getSchema().orElseThrow());
         }
         catch (Throwable e) {

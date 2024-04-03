@@ -21,26 +21,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 
 public class IcebergMaterializedViewProperties
 {
-    public static final String STORAGE_SCHEMA = "storage_schema";
+    public static final String SEPARATE_STORAGE_TABLE = "separate_storage_table";
 
     private final List<PropertyMetadata<?>> materializedViewProperties;
 
     @Inject
-    public IcebergMaterializedViewProperties(IcebergConfig icebergConfig, IcebergTableProperties tableProperties)
+    public IcebergMaterializedViewProperties(
+            @EnableMaterializedViewSeparateStorageTable boolean enableMaterializedViewSeparateStorageTable, // for tests of legacy materialized views
+            IcebergTableProperties tableProperties)
     {
-        materializedViewProperties = ImmutableList.<PropertyMetadata<?>>builder()
-                .add(stringProperty(
-                        STORAGE_SCHEMA,
-                        "Schema for creating materialized view storage table",
-                        icebergConfig.getMaterializedViewsStorageSchema().orElse(null),
-                        false))
-                // Materialized view should allow configuring all the supported iceberg table properties for the storage table
-                .addAll(tableProperties.getTableProperties())
-                .build();
+        ImmutableList.Builder<PropertyMetadata<?>> materializedViewProperties = ImmutableList.builder();
+        if (enableMaterializedViewSeparateStorageTable) {
+            materializedViewProperties.add(booleanProperty(
+                    SEPARATE_STORAGE_TABLE,
+                    "Create separate storage table for materialized view",
+                    false,
+                    true));
+        }
+        // Materialized view should allow configuring all the supported iceberg table properties for the storage table
+        materializedViewProperties.addAll(tableProperties.getTableProperties());
+        this.materializedViewProperties = materializedViewProperties.build();
     }
 
     public List<PropertyMetadata<?>> getMaterializedViewProperties()
@@ -48,8 +52,14 @@ public class IcebergMaterializedViewProperties
         return materializedViewProperties;
     }
 
-    public static Optional<String> getStorageSchema(Map<String, Object> materializedViewProperties)
+    /**
+     * @deprecated TODO creation of legacy materialized views with separate storage table to test code
+     */
+    @Deprecated
+    public static boolean isSeparateStorageTable(Map<String, Object> materializedViewProperties)
     {
-        return Optional.ofNullable((String) materializedViewProperties.get(STORAGE_SCHEMA));
+        return Optional.ofNullable(materializedViewProperties.get(SEPARATE_STORAGE_TABLE))
+                .map(Boolean.class::cast)
+                .orElse(false);
     }
 }

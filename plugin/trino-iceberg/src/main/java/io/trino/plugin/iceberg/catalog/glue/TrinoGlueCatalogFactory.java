@@ -47,7 +47,6 @@ public class TrinoGlueCatalogFactory
     private final Optional<String> defaultSchemaLocation;
     private final AWSGlueAsync glueClient;
     private final boolean isUniqueTableLocation;
-    private final boolean hideMaterializedViewStorageTable;
     private final GlueMetastoreStats stats;
     private final boolean isUsingSystemSecurity;
 
@@ -74,7 +73,6 @@ public class TrinoGlueCatalogFactory
         this.defaultSchemaLocation = glueConfig.getDefaultWarehouseDir();
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.isUniqueTableLocation = icebergConfig.isUniqueTableLocation();
-        this.hideMaterializedViewStorageTable = icebergConfig.isHideMaterializedViewStorageTable();
         this.stats = requireNonNull(stats, "stats is null");
         this.isUsingSystemSecurity = securityConfig.getSecuritySystem() == SYSTEM;
     }
@@ -100,7 +98,6 @@ public class TrinoGlueCatalogFactory
                 stats,
                 isUsingSystemSecurity,
                 defaultSchemaLocation,
-                isUniqueTableLocation,
-                hideMaterializedViewStorageTable);
+                isUniqueTableLocation);
     }
 }

@@ -220,8 +220,7 @@ public abstract class BaseIcebergMaterializedViewTest
                                 "   location = '" + getSchemaDirectory() + "/test_mv_show_create-\\E[0-9a-f]+\\Q',\n" +
                                 "   orc_bloom_filter_columns = ARRAY['_date'],\n" +
                                 "   orc_bloom_filter_fpp = 1E-1,\n" +
-                                "   partitioning = ARRAY['_date'],\n" +
-                                "   storage_schema = '" + schema + "'\n" +
+                                "   partitioning = ARRAY['_date']\n" +
                                 ") AS\n" +
                                 "SELECT\n" +
                                 "  _bigint\n" +
@@ -544,8 +543,7 @@ public abstract class BaseIcebergMaterializedViewTest
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         "   location = '" + getSchemaDirectory() + "/materialized_view_window-\\E[0-9a-f]+\\Q',\n" +
-                        "   partitioning = ARRAY['_date'],\n" +
-                        "   storage_schema = '" + schema + "'\n" +
+                        "   partitioning = ARRAY['_date']\n" +
                         ") AS\n" +
                         "SELECT\n" +
                         "  _date\n" +
@@ -825,24 +823,17 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testDropLegacyMaterializedView()
     {
-        String schemaName = getSession().getSchema().orElseThrow();
         String materializedViewName = "test_drop_legacy_materialized_view" + randomNameSuffix();
         String sourceTableName = "test_source_table_for_mat_view" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
         try {
-            assertUpdate(format("CREATE MATERIALIZED VIEW iceberg_legacy_mv.%s.%s AS SELECT * FROM %s", schemaName, materializedViewName, sourceTableName));
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (separate_storage_table = true) AS SELECT * FROM %s", materializedViewName, sourceTableName));
 
-            // Refresh with legacy enabled
-            assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (2, 2)", sourceTableName), 3);
-            assertUpdate(format("REFRESH MATERIALIZED VIEW iceberg_legacy_mv.%s.%s", schemaName, materializedViewName), 3);
-
-            // Refresh with legacy disabled
             assertUpdate(format("INSERT INTO %s VALUES (10, 10), (10, 40), (20, 20)", sourceTableName), 3);
-            assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 6);
+            assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 3);
 
             String storageTableName = (String) computeScalar("SELECT storage_table FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + materializedViewName + "'");
             assertThat(storageTableName)
-                    .isEqualTo(computeScalar("SELECT storage_table FROM system.metadata.materialized_views WHERE catalog_name = 'iceberg_legacy_mv' AND schema_name = CURRENT_SCHEMA AND name = '" + materializedViewName + "'"))
                     .startsWith("st_");
 
             assertThat(query("TABLE " + materializedViewName)).matches("TABLE " + sourceTableName);
@@ -853,7 +844,7 @@ public abstract class BaseIcebergMaterializedViewTest
         }
         finally {
             assertUpdate("DROP TABLE " + sourceTableName);
-            assertUpdate(format("DROP MATERIALIZED VIEW IF EXISTS iceberg_legacy_mv.%s.%s", schemaName, materializedViewName));
+            assertUpdate(format("DROP MATERIALIZED VIEW IF EXISTS %s", materializedViewName));
         }
     }
 
