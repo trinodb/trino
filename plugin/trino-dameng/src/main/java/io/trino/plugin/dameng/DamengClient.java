@@ -319,7 +319,7 @@ public class DamengClient
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (type == BOOLEAN) {
-            return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
+            return WriteMapping.booleanMapping("bit", booleanWriteFunction());
         }
         if (type == TINYINT) {
             return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
