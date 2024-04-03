@@ -105,7 +105,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 "   location = '%s'\n" +
                 ")";
 
-        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory.toUri().toString().replaceFirst("/$", ""));
+        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory.toUri());
     }
 
     @Override
@@ -115,6 +115,6 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 "WITH (\n" +
                 "   location = '%s'\n" +
                 ")";
-        return format(expectedDeltaLakeCreateSchema, catalogName, schema, dataDirectory.toUri().toString().replaceFirst("/$", ""));
+        return format(expectedDeltaLakeCreateSchema, catalogName, schema, dataDirectory.toUri());
     }
 }
