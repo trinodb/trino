@@ -60,10 +60,12 @@ public final class SpatialJoinUtils
 
     /**
      * Returns a subset of conjuncts matching one the following shapes:
-     * - ST_Distance(...) <= ...
-     * - ST_Distance(...) < ...
-     * - ... >= ST_Distance(...)
-     * - ... > ST_Distance(...)
+     * <ul>
+     * <li>{@code ST_Distance(...) <= ...}</li>
+     * <li>{@code ST_Distance(...) < ...}</li>
+     * <li>{@code ... >= ST_Distance(...)}</li>
+     * <li>{@code ... > ST_Distance(...)}</li>
+     * </ul>
      * <p>
      * Doesn't check or guarantee anything about ST_Distance functions arguments
      * or the other side of the comparison.

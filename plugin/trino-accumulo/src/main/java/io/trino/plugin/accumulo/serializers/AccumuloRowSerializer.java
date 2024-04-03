@@ -348,8 +348,7 @@ public interface AccumuloRowSerializer
      * Java Lists and Maps can be converted to Trino values using
      * {@link AccumuloRowSerializer#getBlockFromArray(Type, java.util.List)} and
      * {@link AccumuloRowSerializer#getSqlMapFromMap(Type, Map)}
-     * <p>
-     * <table summary="Expected data types">
+     * <table>
      * <tr>
      * <th>Type to Encode</th>
      * <th>Expected Java Object</th>
@@ -423,9 +422,8 @@ public interface AccumuloRowSerializer
      * <p>
      * Blocks from ARRAY and MAP types can be converted
      * to Java Lists and Maps using {@link AccumuloRowSerializer#getArrayFromBlock(Type, Block)}
-     * and {@link AccumuloRowSerializer#getMapFromBlock(Type, Block)}
-     * <p>
-     * <table summary="Expected data types">
+     * and {@link AccumuloRowSerializer#getMapFromSqlMap(Type, SqlMap)} (Type, Block)}
+     * <table>
      * <tr>
      * <th>Encoded Type</th>
      * <th>Returned Java Object</th>

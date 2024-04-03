@@ -117,7 +117,7 @@ public final class ColorFunctions
 
     /**
      * Interpolate a color between lowColor and highColor based the provided value
-     * <p/>
+     * <p>
      * The value is truncated to the range [low, high] if it's outside.
      * Color must be a valid rgb value of the form #rgb
      */
@@ -135,7 +135,7 @@ public final class ColorFunctions
 
     /**
      * Interpolate a color between lowColor and highColor based on the provided value
-     * <p/>
+     * <p>
      * The value is truncated to the range [0, 1] if necessary
      * Color must be a valid rgb value of the form #rgb
      */

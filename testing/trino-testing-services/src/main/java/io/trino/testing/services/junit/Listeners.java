@@ -27,7 +27,7 @@ public final class Listeners
     /**
      * Print error to standard error and exit JVM.
      *
-     * @apiNote A JUnit listener cannot throw an exception, as they are not propagated by JUnit framework.
+     * Note: A JUnit listener cannot throw an exception, as they are not propagated by JUnit framework.
      */
     @FormatMethod
     public static void reportListenerFailure(Class<?> listenerClass, String format, Object... args)

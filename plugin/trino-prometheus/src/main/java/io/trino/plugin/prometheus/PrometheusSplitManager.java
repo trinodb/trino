@@ -117,9 +117,12 @@ public class PrometheusSplitManager
 
     /**
      * Utility method to get the end times in decimal seconds that divide up the query into chunks
-     * The times will be used in queries to Prometheus like: `http://localhost:9090/api/v1/query?query=up[21d]&time=1568229904.000"`
-     * ** NOTE: Prometheus instant query wants the duration and end time specified.
+     * The times will be used in queries to Prometheus like: {@code http://localhost:9090/api/v1/query?query=up[21d]&time=1568229904.000"}
+     *
+     * <p>
+     * NOTE: Prometheus instant query wants the duration and end time specified.
      * We use now() for the defaultUpperBound when none is specified, for instance, from predicate push down
+     * </p>
      *
      * @return list of end times as decimal epoch seconds, like ["1568053244.143", "1568926595.321"]
      */

@@ -52,21 +52,21 @@ import static java.util.Objects.requireNonNull;
  * It is similar to TransformCorrelatedDistinctAggregationWithProjection rule, but does not support projection over aggregation in the subquery
  * <p>
  * Transforms:
- * <pre>
+ * <pre>{@code
  * - CorrelatedJoin LEFT (correlation: [c], filter: true, output: a, b)
  *      - Input (a, c)
  *      - Aggregation "distinct operator" group by [b]
  *           - Source (b) with correlated filter (b > c)
- * </pre>
+ * }</pre>
  * Into:
- * <pre>
+ * <pre>{@code
  * - Project (a <- a, b <- b)
  *      - Aggregation "distinct operator" group by [a, c, unique, b]
  *           - LEFT join (filter: b > c)
  *                - UniqueId (unique)
  *                     - Input (a, c)
  *                - Source (b) decorrelated
- * </pre>
+ * }</pre>
  */
 public class TransformCorrelatedDistinctAggregationWithoutProjection
         implements Rule<CorrelatedJoinNode>

@@ -130,9 +130,9 @@ public class AggregationNode
     /**
      * @return whether this node should produce default output in case of no input pages.
      * For example for query:
-     * <p>
+     * <pre>{@code
      * SELECT count(*) FROM nation WHERE nationkey < 0
-     * <p>
+     * }</pre>
      * A default output of "0" is expected to be produced by FINAL aggregation operator.
      */
     public boolean hasDefaultOutput()

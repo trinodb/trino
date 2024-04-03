@@ -137,7 +137,6 @@ public class TableInfo
      * t_filter -> [{"view", "default", "db", "v2"}, {"view", "default", "db", "v1"}, {"rowFilter", "a NOT IN (SELECT * FROM t_filter)", "default", "db", "t_base"}]
      * t_mask -> [{"view", "default", "db", "v2"}, {"view", "default", "db", "v1"}, {"columnMask", "IF(b IN SELECT * FROM t_mask, b, NULL)", "default", "db", "t_base"}]
      * </pre>
-     * </p>
      *
      * @return The reference chain leading to this table, in order.
      */

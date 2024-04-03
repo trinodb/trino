@@ -157,13 +157,13 @@ public interface TrinoFileSystem
 
     /**
      * Checks if a directory exists at the specified location. For all file system types,
-     * this returns <tt>true</tt> if the location is empty (the root of the file system)
+     * this returns {@code true} if the location is empty (the root of the file system)
      * or if any files exist within the directory, as determined by {@link #listFiles(Location)}.
      * Otherwise:
      * <ul>
-     * <li>For hierarchical file systems, this returns <tt>true</tt> if the
-     *     location is an empty directory, else it returns <tt>false</tt>.
-     * <li>For non-hierarchical file systems, an <tt>Optional.empty()</tt> is returned,
+     * <li>For hierarchical file systems, this returns {@code true} if the
+     *     location is an empty directory, else it returns {@code false}.
+     * <li>For non-hierarchical file systems, an {@code Optional.empty()} is returned,
      *     indicating that the file system has no concept of an empty directory.
      * </ul>
      *

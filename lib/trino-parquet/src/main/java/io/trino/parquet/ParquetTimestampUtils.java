@@ -35,7 +35,6 @@ import static java.lang.StrictMath.toIntExact;
 
 /**
  * Utility class for decoding INT96 encoded parquet timestamp to timestamp millis in GMT.
- * <p>
  */
 public final class ParquetTimestampUtils
 {
