@@ -237,7 +237,7 @@
         <dep.takari.version>2.1.4</dep.takari.version>
         <dep.tcnative.version>2.0.65.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
-        <dep.wire.version>4.8.1</dep.wire.version>
+        <dep.wire.version>4.9.9</dep.wire.version>
         <dep.zookeeper.version>3.9.2</dep.zookeeper.version>
     </properties>
 
