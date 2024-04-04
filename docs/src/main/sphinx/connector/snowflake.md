@@ -116,6 +116,14 @@ The connector supports pushdown for a number of operations:
 - {func}`stddev`
 - {func}`stddev_pop`
 - {func}`stddev_samp`
+- {func}`variance`
+- {func}`var_pop`
+- {func}`var_samp`
+- {func}`covar_pop`
+- {func}`covar_samp`
+- {func}`corr`
+- {func}`regr_intercept`
+- {func}`regr_slope`
 
 ```{include} pushdown-correctness-behavior.fragment
 ```
