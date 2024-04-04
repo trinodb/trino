@@ -86,6 +86,7 @@ public class ConnectorServices
     private final List<EventListener> eventListeners;
     private final Map<String, PropertyMetadata<?>> sessionProperties;
     private final Map<String, PropertyMetadata<?>> tableProperties;
+    private final Map<String, PropertyMetadata<?>> viewProperties;
     private final Map<String, PropertyMetadata<?>> materializedViewProperties;
     private final Map<String, PropertyMetadata<?>> schemaProperties;
     private final Map<String, PropertyMetadata<?>> columnProperties;
@@ -193,6 +194,10 @@ public class ConnectorServices
         List<PropertyMetadata<?>> tableProperties = connector.getTableProperties();
         requireNonNull(tableProperties, format("Connector '%s' returned a null table properties set", catalogHandle));
         this.tableProperties = Maps.uniqueIndex(tableProperties, PropertyMetadata::getName);
+
+        List<PropertyMetadata<?>> viewProperties = connector.getViewProperties();
+        requireNonNull(viewProperties, format("Connector '%s' returned a null view properties set", catalogHandle));
+        this.viewProperties = Maps.uniqueIndex(viewProperties, PropertyMetadata::getName);
 
         List<PropertyMetadata<?>> materializedViewProperties = connector.getMaterializedViewProperties();
         requireNonNull(materializedViewProperties, format("Connector '%s' returned a null materialized view properties set", catalogHandle));
@@ -304,6 +309,11 @@ public class ConnectorServices
     public Map<String, PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
+    }
+
+    public Map<String, PropertyMetadata<?>> getViewProperties()
+    {
+        return viewProperties;
     }
 
     public Map<String, PropertyMetadata<?>> getMaterializedViewProperties()

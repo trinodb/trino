@@ -178,6 +178,14 @@ public interface Connector
     }
 
     /**
+     * @return the view properties for this connector
+     */
+    default List<PropertyMetadata<?>> getViewProperties()
+    {
+        return emptyList();
+    }
+
+    /**
      * @return the materialized view properties for this connector
      */
     default List<PropertyMetadata<?>> getMaterializedViewProperties()

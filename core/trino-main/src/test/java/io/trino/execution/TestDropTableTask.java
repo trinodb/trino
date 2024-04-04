@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
@@ -85,7 +86,7 @@ public class TestDropTableTask
     public void testDropTableOnView()
     {
         QualifiedName viewName = qualifiedName("existing_view");
-        metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), false);
+        metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), ImmutableMap.of(), false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropTable(viewName, false)))
                 .hasErrorCode(GENERIC_USER_ERROR)
@@ -96,7 +97,7 @@ public class TestDropTableTask
     public void testDropTableIfExistsOnView()
     {
         QualifiedName viewName = qualifiedName("existing_view");
-        metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), false);
+        metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), ImmutableMap.of(), false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropTable(viewName, true)))
                 .hasErrorCode(GENERIC_USER_ERROR)

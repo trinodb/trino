@@ -590,6 +590,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Map<String, Object> getViewProperties(Session session, QualifiedObjectName viewName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Map<String, Object> getSchemaProperties(Session session, CatalogSchemaName schemaName)
     {
         throw new UnsupportedOperationException();
@@ -602,7 +608,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, boolean replace)
+    public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
         throw new UnsupportedOperationException();
     }

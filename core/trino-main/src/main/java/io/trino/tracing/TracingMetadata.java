@@ -896,6 +896,15 @@ public class TracingMetadata
     }
 
     @Override
+    public Map<String, Object> getViewProperties(Session session, QualifiedObjectName viewName)
+    {
+        Span span = startSpan("getViewProperties", viewName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getViewProperties(session, viewName);
+        }
+    }
+
+    @Override
     public Map<String, Object> getSchemaProperties(Session session, CatalogSchemaName schemaName)
     {
         Span span = startSpan("getSchemaProperties", schemaName);
@@ -914,11 +923,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, boolean replace)
+    public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> properties, boolean replace)
     {
         Span span = startSpan("createView", viewName);
         try (var ignored = scopedSpan(span)) {
-            delegate.createView(session, viewName, definition, replace);
+            delegate.createView(session, viewName, definition, properties, replace);
         }
     }
 
