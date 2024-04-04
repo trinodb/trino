@@ -309,6 +309,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_VIEW_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
@@ -2672,19 +2673,41 @@ public class HiveMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
+    public void createView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorViewDefinition definition,
+            Map<String, Object> viewProperties,
+            boolean replace)
     {
         if (accessControlMetadata.isUsingSystemSecurity()) {
             definition = definition.withoutOwner();
         }
 
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
+        propertiesBuilder
                 .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
                 .put(PRESTO_VIEW_FLAG, "true")
                 .put(TRINO_CREATED_BY, "Trino Hive connector")
                 .put(TRINO_VERSION_NAME, trinoVersion)
-                .put(TRINO_QUERY_ID_NAME, session.getQueryId())
-                .buildOrThrow();
+                .put(TRINO_QUERY_ID_NAME, session.getQueryId());
+
+        Map<String, String> baseProperties = propertiesBuilder.buildOrThrow();
+
+        // Extra properties
+        Map<String, String> extraProperties = HiveViewProperties.getExtraProperties(viewProperties)
+                .orElseGet(ImmutableMap::of);
+        Set<String> illegalExtraProperties = Sets.intersection(
+                ImmutableSet.<String>builder()
+                        .addAll(baseProperties.keySet())
+                        .build(),
+                extraProperties.keySet());
+        if (!illegalExtraProperties.isEmpty()) {
+            throw new TrinoException(
+                    INVALID_VIEW_PROPERTY,
+                    "Illegal keys in extra_properties: " + illegalExtraProperties);
+        }
+        propertiesBuilder.putAll(extraProperties);
 
         Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty(), ImmutableMap.of());
 
@@ -2695,7 +2718,7 @@ public class HiveMetadata
                 .setTableType(VIRTUAL_VIEW.name())
                 .setDataColumns(ImmutableList.of(dummyColumn))
                 .setPartitionColumns(ImmutableList.of())
-                .setParameters(properties)
+                .setParameters(propertiesBuilder.buildOrThrow())
                 .setViewOriginalText(Optional.of(encodeViewData(definition)))
                 .setViewExpandedText(Optional.of(PRESTO_VIEW_EXPANDED_TEXT_MARKER));
 
@@ -2761,6 +2784,14 @@ public class HiveMetadata
                 .filter(tableInfo -> tableInfo.extendedRelationType().toRelationType() == RelationType.VIEW)
                 .map(TableInfo::tableName)
                 .collect(toImmutableList());
+    }
+
+    @Override
+    public Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
+    {
+        // The only currently existing view property (extra_properties) is hidden,
+        // no need to retrieve its value for SHOW CREATE VIEW.
+        return ImmutableMap.of();
     }
 
     @Override
