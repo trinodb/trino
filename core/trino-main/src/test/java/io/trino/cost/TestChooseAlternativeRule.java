@@ -82,13 +82,13 @@ class TestChooseAlternativeRule
                         .build())
                 .check(check -> check
                         .outputRowsCount(10)
-                        .symbolStats("i1", assertion -> assertion
+                        .symbolStats("i1", BIGINT, assertion -> assertion
                                 .lowValue(1)
                                 .highValue(10)
                                 .averageRowSize(NaN)
                                 .distinctValuesCount(5)
                                 .nullsFraction(0))
-                        .symbolStats("i2", assertion -> assertion
+                        .symbolStats("i2", BIGINT, assertion -> assertion
                                 .lowValue(0)
                                 .highValue(3)
                                 .averageRowSize(25)

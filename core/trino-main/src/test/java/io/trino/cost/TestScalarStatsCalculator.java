@@ -48,7 +48,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Long.MAX_VALUE;
@@ -166,7 +165,7 @@ public class TestScalarStatsCalculator
                 .setAverageRowSize(2.0)
                 .build();
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
+                .addSymbolStatistics(new Symbol(INTEGER, "x"), xStats)
                 .build();
 
         assertCalculate(new Reference(INTEGER, "x"), inputStatistics).isEqualTo(xStats);
@@ -177,7 +176,7 @@ public class TestScalarStatsCalculator
     public void testCastDoubleToBigint()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol(UNKNOWN, "a"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(BIGINT, "a"), SymbolStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(1.6)
                         .setHighValue(17.3)
@@ -200,7 +199,7 @@ public class TestScalarStatsCalculator
     public void testCastDoubleToShortRange()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol(UNKNOWN, "a"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(BIGINT, "a"), SymbolStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(1.6)
                         .setHighValue(3.3)
@@ -223,7 +222,7 @@ public class TestScalarStatsCalculator
     public void testCastDoubleToShortRangeUnknownDistinctValuesCount()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol(UNKNOWN, "a"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(BIGINT, "a"), SymbolStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(1.6)
                         .setHighValue(3.3)
@@ -245,7 +244,7 @@ public class TestScalarStatsCalculator
     public void testCastBigintToDouble()
     {
         PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol(UNKNOWN, "a"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(DOUBLE, "a"), SymbolStatsEstimate.builder()
                         .setNullsFraction(0.3)
                         .setLowValue(2.0)
                         .setHighValue(10.0)
@@ -297,21 +296,21 @@ public class TestScalarStatsCalculator
     public void testNonDivideArithmeticBinaryExpression()
     {
         PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol(UNKNOWN, "x"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(BIGINT, "x"), SymbolStatsEstimate.builder()
                         .setLowValue(-1)
                         .setHighValue(10)
                         .setDistinctValuesCount(4)
                         .setNullsFraction(0.1)
                         .setAverageRowSize(2.0)
                         .build())
-                .addSymbolStatistics(new Symbol(UNKNOWN, "y"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(BIGINT, "y"), SymbolStatsEstimate.builder()
                         .setLowValue(-2)
                         .setHighValue(5)
                         .setDistinctValuesCount(3)
                         .setNullsFraction(0.2)
                         .setAverageRowSize(2.0)
                         .build())
-                .addSymbolStatistics(new Symbol(UNKNOWN, "unknown"), SymbolStatsEstimate.unknown())
+                .addSymbolStatistics(new Symbol(BIGINT, "unknown"), SymbolStatsEstimate.unknown())
                 .setOutputRowCount(10)
                 .build();
 
@@ -347,14 +346,14 @@ public class TestScalarStatsCalculator
     {
         SymbolStatsEstimate allNullStats = SymbolStatsEstimate.zero();
         PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol(UNKNOWN, "x"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(BIGINT, "x"), SymbolStatsEstimate.builder()
                         .setLowValue(-1)
                         .setHighValue(10)
                         .setDistinctValuesCount(4)
                         .setNullsFraction(0.1)
                         .setAverageRowSize(0)
                         .build())
-                .addSymbolStatistics(new Symbol(UNKNOWN, "all_null"), allNullStats)
+                .addSymbolStatistics(new Symbol(BIGINT, "all_null"), allNullStats)
                 .setOutputRowCount(10)
                 .build();
 
@@ -452,11 +451,11 @@ public class TestScalarStatsCalculator
     private PlanNodeStatsEstimate xyStats(double lowX, double highX, double lowY, double highY)
     {
         return PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol(UNKNOWN, "x"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(BIGINT, "x"), SymbolStatsEstimate.builder()
                         .setLowValue(lowX)
                         .setHighValue(highX)
                         .build())
-                .addSymbolStatistics(new Symbol(UNKNOWN, "y"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(BIGINT, "y"), SymbolStatsEstimate.builder()
                         .setLowValue(lowY)
                         .setHighValue(highY)
                         .build())
@@ -467,14 +466,14 @@ public class TestScalarStatsCalculator
     public void testCoalesceExpression()
     {
         PlanNodeStatsEstimate relationStats = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(new Symbol(UNKNOWN, "x"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(INTEGER, "x"), SymbolStatsEstimate.builder()
                         .setLowValue(-1)
                         .setHighValue(10)
                         .setDistinctValuesCount(4)
                         .setNullsFraction(0.1)
                         .setAverageRowSize(2.0)
                         .build())
-                .addSymbolStatistics(new Symbol(UNKNOWN, "y"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(INTEGER, "y"), SymbolStatsEstimate.builder()
                         .setLowValue(-2)
                         .setHighValue(5)
                         .setDistinctValuesCount(3)

@@ -24,9 +24,7 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
 
 public class TestTableScanStatsRule
         extends BaseStatsCalculatorTest
@@ -42,12 +40,12 @@ public class TestTableScanStatsRule
         ColumnHandle unknownColumn = new TestingColumnHandle("unknown");
         tester()
                 .assertStatsFor(pb -> {
-                    Symbol a = pb.symbol("a", BIGINT);
+                    Symbol a = pb.symbol("a", DOUBLE);
                     Symbol b = pb.symbol("b", DOUBLE);
                     Symbol c = pb.symbol("c", DOUBLE);
                     Symbol d = pb.symbol("d", DOUBLE);
-                    Symbol e = pb.symbol("e", INTEGER);
-                    Symbol unknown = pb.symbol("unknown", INTEGER);
+                    Symbol e = pb.symbol("e", DOUBLE);
+                    Symbol unknown = pb.symbol("unknown", DOUBLE);
                     return pb.tableScan(
                             ImmutableList.of(a, b, c, d, e, unknown),
                             ImmutableMap.of(a, columnA, b, columnB, c, columnC, d, columnD, e, columnE, unknown, unknownColumn));
@@ -104,7 +102,7 @@ public class TestTableScanStatsRule
         ColumnHandle columnHandle = new TestingColumnHandle("zero");
         tester()
                 .assertStatsFor(pb -> {
-                    Symbol column = pb.symbol("zero", INTEGER);
+                    Symbol column = pb.symbol("zero", DOUBLE);
                     return pb.tableScan(
                             ImmutableList.of(column),
                             ImmutableMap.of(column, columnHandle));

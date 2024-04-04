@@ -66,7 +66,6 @@ import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.type.JsonType.JSON;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -137,25 +136,25 @@ public class TestFilterStatsCalculator
             .build();
     private final FilterStatsCalculator statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT), new StatsNormalizer());
     private final PlanNodeStatsEstimate standardInputStatistics = PlanNodeStatsEstimate.builder()
-            .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
-            .addSymbolStatistics(new Symbol(UNKNOWN, "y"), yStats)
-            .addSymbolStatistics(new Symbol(UNKNOWN, "z"), zStats)
-            .addSymbolStatistics(new Symbol(UNKNOWN, "leftOpen"), leftOpenStats)
-            .addSymbolStatistics(new Symbol(UNKNOWN, "rightOpen"), rightOpenStats)
-            .addSymbolStatistics(new Symbol(UNKNOWN, "unknownRange"), unknownRangeStats)
-            .addSymbolStatistics(new Symbol(UNKNOWN, "emptyRange"), emptyRangeStats)
-            .addSymbolStatistics(new Symbol(UNKNOWN, "mediumVarchar"), mediumVarcharStats)
+            .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)
+            .addSymbolStatistics(new Symbol(DOUBLE, "y"), yStats)
+            .addSymbolStatistics(new Symbol(DOUBLE, "z"), zStats)
+            .addSymbolStatistics(new Symbol(DOUBLE, "leftOpen"), leftOpenStats)
+            .addSymbolStatistics(new Symbol(DOUBLE, "rightOpen"), rightOpenStats)
+            .addSymbolStatistics(new Symbol(DOUBLE, "unknownRange"), unknownRangeStats)
+            .addSymbolStatistics(new Symbol(DOUBLE, "emptyRange"), emptyRangeStats)
+            .addSymbolStatistics(new Symbol(MEDIUM_VARCHAR_TYPE, "mediumVarchar"), mediumVarcharStats)
             .setOutputRowCount(1000.0)
             .build();
     private final PlanNodeStatsEstimate zeroStatistics = PlanNodeStatsEstimate.builder()
-            .addSymbolStatistics(new Symbol(UNKNOWN, "x"), SymbolStatsEstimate.zero())
-            .addSymbolStatistics(new Symbol(UNKNOWN, "y"), SymbolStatsEstimate.zero())
-            .addSymbolStatistics(new Symbol(UNKNOWN, "z"), SymbolStatsEstimate.zero())
-            .addSymbolStatistics(new Symbol(UNKNOWN, "leftOpen"), SymbolStatsEstimate.zero())
-            .addSymbolStatistics(new Symbol(UNKNOWN, "rightOpen"), SymbolStatsEstimate.zero())
-            .addSymbolStatistics(new Symbol(UNKNOWN, "unknownRange"), SymbolStatsEstimate.zero())
-            .addSymbolStatistics(new Symbol(UNKNOWN, "emptyRange"), SymbolStatsEstimate.zero())
-            .addSymbolStatistics(new Symbol(UNKNOWN, "mediumVarchar"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol(DOUBLE, "x"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol(DOUBLE, "y"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol(DOUBLE, "z"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol(DOUBLE, "leftOpen"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol(DOUBLE, "rightOpen"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol(DOUBLE, "unknownRange"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol(DOUBLE, "emptyRange"), SymbolStatsEstimate.zero())
+            .addSymbolStatistics(new Symbol(MEDIUM_VARCHAR_TYPE, "mediumVarchar"), SymbolStatsEstimate.zero())
             .setOutputRowCount(0)
             .build();
     private final Session session = testSessionBuilder().build();
@@ -166,8 +165,6 @@ public class TestFilterStatsCalculator
     private static final ResolvedFunction ADD_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(DOUBLE, DOUBLE));
     private static final ResolvedFunction SUBTRACT_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(DOUBLE, DOUBLE));
     private static final ResolvedFunction MULTIPLY_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(DOUBLE, DOUBLE));
-    private static final ResolvedFunction SUBTRACT_INTEGER = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
-    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
     private static final ResolvedFunction NEGATION_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(DOUBLE));
 
     @Test
@@ -184,7 +181,7 @@ public class TestFilterStatsCalculator
         double lessThan3Rows = 487.5;
         assertExpression(new Comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 3.0)))
                 .outputRowsCount(lessThan3Rows)
-                .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
                                 .lowValue(-10)
                                 .highValue(3)
@@ -200,7 +197,7 @@ public class TestFilterStatsCalculator
                 new Call(SUBTRACT_DOUBLE, ImmutableList.of(new Constant(DOUBLE, 4.0), new Constant(DOUBLE, 7.0))), new Cast(new Constant(INTEGER, -3L), createDecimalType(7, 3)))) {
             assertExpression(new Comparison(EQUAL, new Reference(DOUBLE, "x"), new Cast(minusThree, DOUBLE)))
                     .outputRowsCount(18.75)
-                    .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                    .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                             symbolAssert.averageRowSize(4.0)
                                     .lowValue(-3)
                                     .highValue(-3)
@@ -209,7 +206,7 @@ public class TestFilterStatsCalculator
 
             assertExpression(new Comparison(EQUAL, new Cast(minusThree, DOUBLE), new Reference(DOUBLE, "x")))
                     .outputRowsCount(18.75)
-                    .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                    .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                             symbolAssert.averageRowSize(4.0)
                                     .lowValue(-3)
                                     .highValue(-3)
@@ -223,7 +220,7 @@ public class TestFilterStatsCalculator
                             new Reference(DOUBLE, "x")),
                     new Cast(minusThree, DOUBLE)))
                     .outputRowsCount(18.75)
-                    .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                    .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                             symbolAssert.averageRowSize(4.0)
                                     .lowValue(-3)
                                     .highValue(-3)
@@ -232,7 +229,7 @@ public class TestFilterStatsCalculator
 
             assertExpression(new Comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Cast(minusThree, DOUBLE)))
                     .outputRowsCount(262.5)
-                    .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                    .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                             symbolAssert.averageRowSize(4.0)
                                     .lowValue(-10)
                                     .highValue(-3)
@@ -241,7 +238,7 @@ public class TestFilterStatsCalculator
 
             assertExpression(new Comparison(GREATER_THAN, new Cast(minusThree, DOUBLE), new Reference(DOUBLE, "x")))
                     .outputRowsCount(262.5)
-                    .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                    .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                             symbolAssert.averageRowSize(4.0)
                                     .lowValue(-10)
                                     .highValue(-3)
@@ -256,13 +253,13 @@ public class TestFilterStatsCalculator
         assertExpression(new Comparison(GREATER_THAN, new Reference(DOUBLE, "x"), new Reference(DOUBLE, "emptyRange")))
                 .outputRowsCount(0);
 
-        assertExpression(new Comparison(GREATER_THAN, new Reference(INTEGER, "x"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "y"), new Constant(INTEGER, 20L)))))
+        assertExpression(new Comparison(GREATER_THAN, new Reference(DOUBLE, "x"), new Call(ADD_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "y"), new Constant(DOUBLE, 20.0)))))
                 .outputRowsCount(0);
-        assertExpression(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "x"), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "y"), new Constant(INTEGER, 20L)))))
+        assertExpression(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(DOUBLE, "x"), new Call(ADD_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "y"), new Constant(DOUBLE, 20.0)))))
                 .outputRowsCount(0);
-        assertExpression(new Comparison(LESS_THAN, new Reference(INTEGER, "x"), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "y"), new Constant(INTEGER, 25L)))))
+        assertExpression(new Comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Call(SUBTRACT_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "y"), new Constant(DOUBLE, 25.0)))))
                 .outputRowsCount(0);
-        assertExpression(new Comparison(LESS_THAN_OR_EQUAL, new Reference(INTEGER, "x"), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "y"), new Constant(INTEGER, 25L)))))
+        assertExpression(new Comparison(LESS_THAN_OR_EQUAL, new Reference(DOUBLE, "x"), new Call(SUBTRACT_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "y"), new Constant(DOUBLE, 25.0)))))
                 .outputRowsCount(0);
 
         double nullsFractionY = 0.5;
@@ -288,7 +285,7 @@ public class TestFilterStatsCalculator
     {
         assertExpression(new Logical(OR, ImmutableList.of(new Comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0)), new Comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, -7.5)))))
                 .outputRowsCount(375)
-                .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
                                 .lowValue(-10.0)
                                 .highValue(0.0)
@@ -297,7 +294,7 @@ public class TestFilterStatsCalculator
 
         assertExpression(new Logical(OR, ImmutableList.of(new Comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0)), new Comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, -7.5)))))
                 .outputRowsCount(37.5)
-                .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
                                 .lowValue(-7.5)
                                 .highValue(0.0)
@@ -306,7 +303,7 @@ public class TestFilterStatsCalculator
 
         assertExpression(new Logical(OR, ImmutableList.of(new Comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 1.0)), new Comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 3.0)))))
                 .outputRowsCount(37.5)
-                .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
                                 .lowValue(1)
                                 .highValue(3)
@@ -315,7 +312,7 @@ public class TestFilterStatsCalculator
 
         assertExpression(new Logical(OR, ImmutableList.of(new Comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 1.0)), new Comparison(EQUAL, new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b"))), new Comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 3.0)))))
                 .outputRowsCount(37.5)
-                .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
                                 .lowValue(1)
                                 .highValue(3)
@@ -349,7 +346,7 @@ public class TestFilterStatsCalculator
 
         assertExpression(new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0)), new Comparison(GREATER_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, -7.5)))))
                 .outputRowsCount(281.25)
-                .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
                                 .lowValue(-7.5)
                                 .highValue(0.0)
@@ -359,13 +356,13 @@ public class TestFilterStatsCalculator
         // Impossible, with symbol-to-expression comparisons
         assertExpression(new Logical(AND, ImmutableList.of(new Comparison(EQUAL, new Reference(DOUBLE, "x"), new Call(ADD_DOUBLE, ImmutableList.of(new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 1.0)))), new Comparison(EQUAL, new Reference(DOUBLE, "x"), new Call(ADD_DOUBLE, ImmutableList.of(new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 3.0)))))))
                 .outputRowsCount(0)
-                .symbolStats(new Symbol(UNKNOWN, "x"), SymbolStatsAssertion::emptyRange)
-                .symbolStats(new Symbol(UNKNOWN, "y"), SymbolStatsAssertion::emptyRange);
+                .symbolStats(new Symbol(DOUBLE, "x"), SymbolStatsAssertion::emptyRange)
+                .symbolStats(new Symbol(DOUBLE, "y"), SymbolStatsAssertion::emptyRange);
 
         // first argument unknown
         assertExpression(new Logical(AND, ImmutableList.of(new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[]"))), new Reference(DOUBLE, "x"))), new Comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0)))))
                 .outputRowsCount(337.5)
-                .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
                                 .highValue(0)
                                 .distinctValuesCount(20)
@@ -374,7 +371,7 @@ public class TestFilterStatsCalculator
         // second argument unknown
         assertExpression(new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0)), new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[]"))), new Reference(DOUBLE, "x"))))))
                 .outputRowsCount(337.5)
-                .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
                                 .highValue(0)
                                 .distinctValuesCount(20)
@@ -408,8 +405,8 @@ public class TestFilterStatsCalculator
         double inequalityFilterSelectivityY = 0.4;
         assertExpression(
                 new Logical(AND, ImmutableList.of(
-                        new Between(new Reference(DOUBLE, "x"), new Cast(new Constant(INTEGER, -5L), DOUBLE), new Cast(new Constant(INTEGER, 5L), DOUBLE)),
-                        new Comparison(GREATER_THAN, new Reference(DOUBLE, "y"), new Cast(new Constant(INTEGER, 1L), DOUBLE)))),
+                        new Between(new Reference(DOUBLE, "x"), new Constant(DOUBLE, -5.0), new Constant(DOUBLE, 5.0)),
+                        new Comparison(GREATER_THAN, new Reference(DOUBLE, "y"), new Constant(DOUBLE, 1.0)))),
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0").build())
                 .outputRowsCount(filterSelectivityX * inputRowCount)
                 .symbolStats("x", symbolAssertX)
@@ -556,23 +553,23 @@ public class TestFilterStatsCalculator
     {
         assertExpression(new Not(new Comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0))))
                 .outputRowsCount(625) // FIXME - nulls shouldn't be restored
-                .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
                                 .lowValue(-10.0)
                                 .highValue(10.0)
                                 .distinctValuesCount(20.0)
                                 .nullsFraction(0.4)) // FIXME - nulls shouldn't be restored
-                .symbolStats(new Symbol(UNKNOWN, "y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
+                .symbolStats(new Symbol(DOUBLE, "y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
 
         assertExpression(new Not(new IsNull(new Reference(DOUBLE, "x"))))
                 .outputRowsCount(750)
-                .symbolStats(new Symbol(UNKNOWN, "x"), symbolAssert ->
+                .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
                                 .lowValue(-10.0)
                                 .highValue(10.0)
                                 .distinctValuesCount(40.0)
                                 .nullsFraction(0))
-                .symbolStats(new Symbol(UNKNOWN, "y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
+                .symbolStats(new Symbol(DOUBLE, "y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
 
         assertExpression(new Not(new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[]"))), new Reference(DOUBLE, "x")))))
                 .outputRowsCountUnknown();
@@ -583,14 +580,14 @@ public class TestFilterStatsCalculator
     {
         assertExpression(new IsNull(new Reference(DOUBLE, "x")))
                 .outputRowsCount(250.0)
-                .symbolStats(new Symbol(UNKNOWN, "x"), symbolStats ->
+                .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(0)
                                 .emptyRange()
                                 .nullsFraction(1.0));
 
         assertExpression(new IsNull(new Reference(DOUBLE, "emptyRange")))
                 .outputRowsCount(1000.0)
-                .symbolStats(new Symbol(UNKNOWN, "emptyRange"), SymbolStatsAssertion::empty);
+                .symbolStats(new Symbol(DOUBLE, "emptyRange"), SymbolStatsAssertion::empty);
     }
 
     @Test
@@ -649,7 +646,7 @@ public class TestFilterStatsCalculator
         // Both sides cut unknownRange
         assertExpression(new Between(new Reference(DOUBLE, "unknownRange"), new Constant(DOUBLE, 2.72), new Constant(DOUBLE, 3.14)))
                 .outputRowsCount(112.5)
-                .symbolStats("unknownRange", symbolStats ->
+                .symbolStats("unknownRange", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(6.25)
                                 .lowValue(2.72)
                                 .highValue(3.14)
@@ -658,7 +655,7 @@ public class TestFilterStatsCalculator
         // Left side open, cut on open side
         assertExpression(new Between(new Reference(DOUBLE, "leftOpen"), new Constant(DOUBLE, -10.0), new Constant(DOUBLE, 10.0)))
                 .outputRowsCount(180.0)
-                .symbolStats("leftOpen", symbolStats ->
+                .symbolStats("leftOpen", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(10.0)
                                 .lowValue(-10.0)
                                 .highValue(10.0)
@@ -667,7 +664,7 @@ public class TestFilterStatsCalculator
         // Right side open, cut on open side
         assertExpression(new Between(new Reference(DOUBLE, "rightOpen"), new Constant(DOUBLE, -10.0), new Constant(DOUBLE, 10.0)))
                 .outputRowsCount(180.0)
-                .symbolStats("rightOpen", symbolStats ->
+                .symbolStats("rightOpen", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(10.0)
                                 .lowValue(-10.0)
                                 .highValue(10.0)
@@ -676,12 +673,12 @@ public class TestFilterStatsCalculator
         // Filter all
         assertExpression(new Between(new Reference(DOUBLE, "y"), new Constant(DOUBLE, 27.5), new Constant(DOUBLE, 107.0)))
                 .outputRowsCount(0.0)
-                .symbolStats("y", SymbolStatsAssertion::empty);
+                .symbolStats("y", DOUBLE, SymbolStatsAssertion::empty);
 
         // Filter nothing
         assertExpression(new Between(new Reference(DOUBLE, "y"), new Constant(DOUBLE, -100.0), new Constant(DOUBLE, 100.0)))
                 .outputRowsCount(500.0)
-                .symbolStats("y", symbolStats ->
+                .symbolStats("y", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(20.0)
                                 .lowValue(0.0)
                                 .highValue(5.0)
@@ -690,7 +687,7 @@ public class TestFilterStatsCalculator
         // Filter non exact match
         assertExpression(new Between(new Reference(DOUBLE, "z"), new Constant(DOUBLE, -100.0), new Constant(DOUBLE, 100.0)))
                 .outputRowsCount(900.0)
-                .symbolStats("z", symbolStats ->
+                .symbolStats("z", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
                                 .lowValue(-100.0)
                                 .highValue(100.0)
@@ -700,7 +697,7 @@ public class TestFilterStatsCalculator
         // Produces row count estimate without updating symbol stats
         assertExpression(new Between(new Cast(new Reference(DOUBLE, "x"), createDecimalType(7, 2)), new Constant(createDecimalType(7, 2), Decimals.valueOfShort(new BigDecimal("-2.50"))), new Constant(createDecimalType(7, 2), Decimals.valueOfShort(new BigDecimal("2.50")))))
                 .outputRowsCount(219.726563)
-                .symbolStats("x", symbolStats ->
+                .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(xStats.getDistinctValuesCount())
                                 .lowValue(xStats.getLowValue())
                                 .highValue(xStats.getHighValue())
@@ -719,7 +716,7 @@ public class TestFilterStatsCalculator
     {
         assertExpression(new Comparison(EQUAL, new Reference(DOUBLE, "x"), new Reference(DOUBLE, "x")))
                 .outputRowsCount(750)
-                .symbolStats("x", symbolStats ->
+                .symbolStats("x", DOUBLE, symbolStats ->
                         SymbolStatsEstimate.builder()
                                 .setAverageRowSize(4.0)
                                 .setDistinctValuesCount(40.0)
@@ -734,28 +731,28 @@ public class TestFilterStatsCalculator
         // One value in range
         assertExpression(new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Constant(DOUBLE, 7.5))))
                 .outputRowsCount(18.75)
-                .symbolStats("x", symbolStats ->
+                .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(7.5)
                                 .highValue(7.5)
                                 .nullsFraction(0.0));
         assertExpression(new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Constant(DOUBLE, -7.5))))
                 .outputRowsCount(18.75)
-                .symbolStats("x", symbolStats ->
+                .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(-7.5)
                                 .highValue(-7.5)
                                 .nullsFraction(0.0));
         assertExpression(new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Call(ADD_DOUBLE, ImmutableList.of(new Constant(DOUBLE, 2.0), new Constant(DOUBLE, 5.5))))))
                 .outputRowsCount(18.75)
-                .symbolStats("x", symbolStats ->
+                .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(7.5)
                                 .highValue(7.5)
                                 .nullsFraction(0.0));
         assertExpression(new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Constant(DOUBLE, -7.5))))
                 .outputRowsCount(18.75)
-                .symbolStats("x", symbolStats ->
+                .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(-7.5)
                                 .highValue(-7.5)
@@ -764,12 +761,12 @@ public class TestFilterStatsCalculator
         // Multiple values in range
         assertExpression(new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Constant(DOUBLE, 1.5), new Constant(DOUBLE, 2.5), new Constant(DOUBLE, 7.5))))
                 .outputRowsCount(56.25)
-                .symbolStats("x", symbolStats ->
+                .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
                                 .lowValue(1.5)
                                 .highValue(7.5)
                                 .nullsFraction(0.0))
-                .symbolStats("y", symbolStats ->
+                .symbolStats("y", DOUBLE, symbolStats ->
                         // Symbol not involved in the comparison should have stats basically unchanged
                         symbolStats.distinctValuesCount(20.0)
                                 .lowValue(0.0)
@@ -779,7 +776,7 @@ public class TestFilterStatsCalculator
         // Multiple values some in some out of range
         assertExpression(new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Constant(DOUBLE, -42.0), new Constant(DOUBLE, 1.5), new Constant(DOUBLE, 2.5), new Constant(DOUBLE, 7.5), new Constant(DOUBLE, 314.0))))
                 .outputRowsCount(56.25)
-                .symbolStats("x", symbolStats ->
+                .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
                                 .lowValue(1.5)
                                 .highValue(7.5)
@@ -788,7 +785,7 @@ public class TestFilterStatsCalculator
         // Multiple values some including NULL
         assertExpression(new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Constant(DOUBLE, -42.0), new Constant(DOUBLE, 1.5), new Constant(DOUBLE, 2.5), new Constant(DOUBLE, 7.5), new Constant(DOUBLE, 314.0), new Constant(DOUBLE, null))))
                 .outputRowsCount(56.25)
-                .symbolStats("x", symbolStats ->
+                .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
                                 .lowValue(1.5)
                                 .highValue(7.5)
@@ -797,7 +794,7 @@ public class TestFilterStatsCalculator
         // Multiple values in unknown range
         assertExpression(new In(new Reference(DOUBLE, "unknownRange"), ImmutableList.of(new Constant(DOUBLE, -42.0), new Constant(DOUBLE, 1.5), new Constant(DOUBLE, 2.5), new Constant(DOUBLE, 7.5), new Constant(DOUBLE, 314.0))))
                 .outputRowsCount(90.0)
-                .symbolStats("unknownRange", symbolStats ->
+                .symbolStats("unknownRange", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
                                 .lowValue(-42.0)
                                 .highValue(314.0)
@@ -806,25 +803,25 @@ public class TestFilterStatsCalculator
         // Casted literals as value
         assertExpression(new In(new Reference(MEDIUM_VARCHAR_TYPE, "mediumVarchar"), ImmutableList.of(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("abc")), MEDIUM_VARCHAR_TYPE))))
                 .outputRowsCount(4)
-                .symbolStats("mediumVarchar", symbolStats ->
+                .symbolStats("mediumVarchar", MEDIUM_VARCHAR_TYPE, symbolStats ->
                         symbolStats.distinctValuesCount(1)
                                 .nullsFraction(0.0));
 
         assertExpression(new In(new Reference(MEDIUM_VARCHAR_TYPE, "mediumVarchar"), ImmutableList.of(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("abc")), createVarcharType(100)), new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("def")), createVarcharType(100)))))
                 .outputRowsCount(8)
-                .symbolStats("mediumVarchar", symbolStats ->
+                .symbolStats("mediumVarchar", MEDIUM_VARCHAR_TYPE, symbolStats ->
                         symbolStats.distinctValuesCount(2)
                                 .nullsFraction(0.0));
 
         // No value in range
         assertExpression(new In(new Reference(DOUBLE, "y"), ImmutableList.of(new Constant(DOUBLE, -42.0), new Constant(DOUBLE, 6.0), new Constant(DOUBLE, 31.1341), new Constant(DOUBLE, -0.000000002), new Constant(DOUBLE, 314.0))))
                 .outputRowsCount(0.0)
-                .symbolStats("y", SymbolStatsAssertion::empty);
+                .symbolStats("y", DOUBLE, SymbolStatsAssertion::empty);
 
         // More values in range than distinct values
         assertExpression(new In(new Reference(DOUBLE, "z"), ImmutableList.of(new Constant(DOUBLE, -1.0), new Constant(DOUBLE, 3.14), new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 2.0), new Constant(DOUBLE, 3.0), new Constant(DOUBLE, 4.0), new Constant(DOUBLE, 5.0), new Constant(DOUBLE, 6.0), new Constant(DOUBLE, 7.0), new Constant(DOUBLE, 8.0), new Constant(DOUBLE, -2.0))))
                 .outputRowsCount(900.0)
-                .symbolStats("z", symbolStats ->
+                .symbolStats("z", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
                                 .lowValue(-2.0)
                                 .highValue(8.0)
@@ -833,7 +830,7 @@ public class TestFilterStatsCalculator
         // Values in weird order
         assertExpression(new In(new Reference(DOUBLE, "z"), ImmutableList.of(new Constant(DOUBLE, -1.0), new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 0.0))))
                 .outputRowsCount(540.0)
-                .symbolStats("z", symbolStats ->
+                .symbolStats("z", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
                                 .lowValue(-1.0)
                                 .highValue(1.0)

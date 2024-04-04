@@ -45,7 +45,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -55,14 +54,13 @@ import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.iterative.rule.EliminateCrossJoins.getJoinOrder;
 import static io.trino.sql.planner.iterative.rule.EliminateCrossJoins.isOriginalOrder;
 import static io.trino.sql.planner.plan.JoinType.INNER;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEliminateCrossJoins
         extends BaseRuleTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
     private static final ResolvedFunction NEGATION_BIGINT = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(BIGINT));
 
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -75,10 +73,10 @@ public class TestEliminateCrossJoins
                 .on(crossJoinAndJoin(INNER))
                 .matches(
                         join(INNER, builder -> builder
-                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(UNKNOWN, "cySymbol"), new Symbol(UNKNOWN, "bySymbol"))))
+                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(BIGINT, "cySymbol"), new Symbol(BIGINT, "bySymbol"))))
                                 .left(
                                         join(INNER, leftJoinBuilder -> leftJoinBuilder
-                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(UNKNOWN, "axSymbol"), new Symbol(UNKNOWN, "cxSymbol"))))
+                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(BIGINT, "axSymbol"), new Symbol(BIGINT, "cxSymbol"))))
                                                 .left(any())
                                                 .right(any())))
                                 .right(any())));
@@ -249,12 +247,12 @@ public class TestEliminateCrossJoins
                 .matches(
                         node(ProjectNode.class,
                                 join(INNER, builder -> builder
-                                        .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(UNKNOWN, "d"), new Symbol(UNKNOWN, "f"))))
+                                        .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(BIGINT, "d"), new Symbol(BIGINT, "f"))))
                                         .left(join(INNER, leftJoinBuilder -> leftJoinBuilder
-                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(UNKNOWN, "a2"), new Symbol(UNKNOWN, "c"))))
+                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(BIGINT, "a2"), new Symbol(BIGINT, "c"))))
                                                 .left(
                                                         join(INNER, leftInnerJoinBuilder -> leftInnerJoinBuilder
-                                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(UNKNOWN, "a1"), new Symbol(UNKNOWN, "e"))))
+                                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(BIGINT, "a1"), new Symbol(BIGINT, "e"))))
                                                                 .left(
                                                                         strictProject(
                                                                                 ImmutableMap.of(
@@ -283,9 +281,9 @@ public class TestEliminateCrossJoins
                                         values("a1"),
                                         values("b")),
                                 "a2",
-                                new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a1"), new Reference(INTEGER, "b"))),
+                                new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a1"), new Reference(BIGINT, "b"))),
                                 "b",
-                                new Reference(INTEGER, "b")),
+                                new Reference(BIGINT, "b")),
                         values("c"),
                         "a2", "c",
                         "b", "c");
@@ -318,8 +316,8 @@ public class TestEliminateCrossJoins
                 idAllocator.getNextId(),
                 source,
                 Assignments.of(
-                        new Symbol(INTEGER, symbol1), expression1,
-                        new Symbol(INTEGER, symbol2), expression2));
+                        new Symbol(BIGINT, symbol1), expression1,
+                        new Symbol(BIGINT, symbol2), expression2));
     }
 
     private JoinNode joinNode(PlanNode left, PlanNode right, String... symbols)
@@ -328,7 +326,7 @@ public class TestEliminateCrossJoins
         ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
 
         for (int i = 0; i < symbols.length; i += 2) {
-            criteria.add(new JoinNode.EquiJoinClause(new Symbol(UNKNOWN, symbols[i]), new Symbol(UNKNOWN, symbols[i + 1])));
+            criteria.add(new JoinNode.EquiJoinClause(new Symbol(BIGINT, symbols[i]), new Symbol(BIGINT, symbols[i + 1])));
         }
 
         return new JoinNode(
@@ -353,7 +351,7 @@ public class TestEliminateCrossJoins
     {
         return new ValuesNode(
                 idAllocator.getNextId(),
-                Arrays.stream(symbols).map(name -> new Symbol(UNKNOWN, name)).collect(toImmutableList()),
+                Arrays.stream(symbols).map(name -> new Symbol(BIGINT, name)).collect(toImmutableList()),
                 ImmutableList.of());
     }
 }

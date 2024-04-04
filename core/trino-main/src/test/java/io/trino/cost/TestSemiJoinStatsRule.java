@@ -18,9 +18,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 
 public class TestSemiJoinStatsRule
         extends BaseStatsCalculatorTest
@@ -36,9 +35,9 @@ public class TestSemiJoinStatsRule
                 .build();
 
         tester().assertStatsFor(pb -> {
-            Symbol a = pb.symbol("a", BIGINT);
-            Symbol b = pb.symbol("b", BIGINT);
-            Symbol c = pb.symbol("c", BIGINT);
+            Symbol a = pb.symbol("a", DOUBLE);
+            Symbol b = pb.symbol("b", DOUBLE);
+            Symbol c = pb.symbol("c", DOUBLE);
             Symbol semiJoinOutput = pb.symbol("sjo", BOOLEAN);
             return pb
                     .semiJoin(pb.values(a, b),
@@ -52,18 +51,18 @@ public class TestSemiJoinStatsRule
         })
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "a"), stats)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "b"), stats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "a"), stats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "b"), stats)
                         .build())
                 .withSourceStats(1, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "c"), stats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "c"), stats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(10)
                         .symbolStats("a", assertion -> assertion.isEqualTo(stats))
                         .symbolStats("b", assertion -> assertion.isEqualTo(stats))
-                        .symbolStatsUnknown("c")
-                        .symbolStatsUnknown("sjo"));
+                        .symbolStatsUnknown("c", DOUBLE)
+                        .symbolStatsUnknown("sjo", BOOLEAN));
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
 import org.assertj.core.api.Assertions;
 
@@ -21,7 +22,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.collect.Sets.union;
 import static io.trino.cost.EstimateAssertion.assertEstimateEquals;
-import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 
 public class PlanNodeStatsAssertion
 {
@@ -53,7 +54,12 @@ public class PlanNodeStatsAssertion
 
     public PlanNodeStatsAssertion symbolStats(String symbolName, Consumer<SymbolStatsAssertion> symbolStatsAssertionConsumer)
     {
-        return symbolStats(new Symbol(UNKNOWN, symbolName), symbolStatsAssertionConsumer);
+        return symbolStats(symbolName, DOUBLE, symbolStatsAssertionConsumer);
+    }
+
+    public PlanNodeStatsAssertion symbolStats(String symbolName, Type type, Consumer<SymbolStatsAssertion> symbolStatsAssertionConsumer)
+    {
+        return symbolStats(new Symbol(type, symbolName), symbolStatsAssertionConsumer);
     }
 
     public PlanNodeStatsAssertion symbolStats(Symbol symbol, Consumer<SymbolStatsAssertion> columnAssertionConsumer)
@@ -63,9 +69,9 @@ public class PlanNodeStatsAssertion
         return this;
     }
 
-    public PlanNodeStatsAssertion symbolStatsUnknown(String symbolName)
+    public PlanNodeStatsAssertion symbolStatsUnknown(String symbolName, Type type)
     {
-        return symbolStatsUnknown(new Symbol(UNKNOWN, symbolName));
+        return symbolStatsUnknown(new Symbol(type, symbolName));
     }
 
     public PlanNodeStatsAssertion symbolStatsUnknown(Symbol symbol)

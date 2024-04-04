@@ -20,7 +20,6 @@ import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 
@@ -51,31 +50,31 @@ public class TestUnionStatsRule
                                 pb.values(pb.symbol("i21", BIGINT), pb.symbol("i22", BIGINT), pb.symbol("i23", BIGINT), pb.symbol("i24", BIGINT), pb.symbol("i25", BIGINT)))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i11"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(BIGINT, "i11"), SymbolStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0.3)
                                 .build())
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i12"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(BIGINT, "i12"), SymbolStatsEstimate.builder()
                                 .setLowValue(0)
                                 .setHighValue(3)
                                 .setDistinctValuesCount(4)
                                 .setNullsFraction(0)
                                 .build())
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i13"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(BIGINT, "i13"), SymbolStatsEstimate.builder()
                                 .setLowValue(10)
                                 .setHighValue(15)
                                 .setDistinctValuesCount(4)
                                 .setNullsFraction(0.1)
                                 .build())
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i14"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(BIGINT, "i14"), SymbolStatsEstimate.builder()
                                 .setLowValue(10)
                                 .setHighValue(15)
                                 .setDistinctValuesCount(4)
                                 .setNullsFraction(0.1)
                                 .build())
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i15"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(BIGINT, "i15"), SymbolStatsEstimate.builder()
                                 .setLowValue(10)
                                 .setHighValue(15)
                                 .setDistinctValuesCount(4)
@@ -84,53 +83,53 @@ public class TestUnionStatsRule
                         .build())
                 .withSourceStats(1, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i21"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(BIGINT, "i21"), SymbolStatsEstimate.builder()
                                 .setLowValue(11)
                                 .setHighValue(20)
                                 .setNullsFraction(0.4)
                                 .build())
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i22"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(BIGINT, "i22"), SymbolStatsEstimate.builder()
                                 .setLowValue(2)
                                 .setHighValue(7)
                                 .setDistinctValuesCount(3)
                                 .build())
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i23"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(BIGINT, "i23"), SymbolStatsEstimate.builder()
                                 .setDistinctValuesCount(6)
                                 .setNullsFraction(0.2)
                                 .build())
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i24"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(BIGINT, "i24"), SymbolStatsEstimate.builder()
                                 .setLowValue(10)
                                 .setHighValue(15)
                                 .setDistinctValuesCount(4)
                                 .setNullsFraction(0.1)
                                 .build())
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i25"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(BIGINT, "i25"), SymbolStatsEstimate.builder()
                                 .setNullsFraction(1)
                                 .build())
                         .build())
                 .check(check -> check
                         .outputRowsCount(30)
-                        .symbolStats("o1", assertion -> assertion
+                        .symbolStats("o1", BIGINT, assertion -> assertion
                                 .lowValue(1)
                                 .highValue(20)
                                 .dataSizeUnknown()
                                 .nullsFraction(0.3666666))
-                        .symbolStats("o2", assertion -> assertion
+                        .symbolStats("o2", BIGINT, assertion -> assertion
                                 .lowValue(0)
                                 .highValue(7)
                                 .distinctValuesCount(6.4)
                                 .nullsFractionUnknown())
-                        .symbolStats("o3", assertion -> assertion
+                        .symbolStats("o3", BIGINT, assertion -> assertion
                                 .lowValueUnknown()
                                 .highValueUnknown()
                                 .distinctValuesCount(8.5)
                                 .nullsFraction(0.1666667))
-                        .symbolStats("o4", assertion -> assertion
+                        .symbolStats("o4", BIGINT, assertion -> assertion
                                 .lowValue(10)
                                 .highValue(15)
                                 .distinctValuesCount(4.0)
                                 .nullsFraction(0.1))
-                        .symbolStats("o5", assertion -> assertion
+                        .symbolStats("o5", BIGINT, assertion -> assertion
                                 .lowValue(NEGATIVE_INFINITY)
                                 .highValue(POSITIVE_INFINITY)
                                 .distinctValuesCountUnknown()

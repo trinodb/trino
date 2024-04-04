@@ -20,6 +20,8 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 
+import java.util.Objects;
+
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize(keyUsing = SymbolKeySerializer.class)
@@ -81,13 +83,13 @@ public class Symbol
 
         Symbol symbol = (Symbol) o;
 
-        return name.equals(symbol.name);
+        return name.equals(symbol.name) && type.equals(symbol.type);
     }
 
     @Override
     public int hashCode()
     {
-        return name.hashCode();
+        return Objects.hash(name, type);
     }
 
     @Override
