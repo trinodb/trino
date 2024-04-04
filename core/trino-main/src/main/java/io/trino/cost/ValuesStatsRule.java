@@ -63,9 +63,9 @@ public class ValuesStatsRule
                         node,
                         symbolId,
                         RowType.anonymous(node.getOutputSymbols().stream()
-                                .map(Symbol::getType)
+                                .map(Symbol::type)
                                 .collect(toImmutableList())));
-                statsBuilder.addSymbolStatistics(symbol, buildSymbolStatistics(symbolValues, symbol.getType()));
+                statsBuilder.addSymbolStatistics(symbol, buildSymbolStatistics(symbolValues, symbol.type()));
             }
         }
         catch (RuntimeException e) {

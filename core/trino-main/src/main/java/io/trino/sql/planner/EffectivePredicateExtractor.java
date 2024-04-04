@@ -358,7 +358,7 @@ public class EffectivePredicateExtractor
                                 hasNull[i] = true;
                             }
                             else {
-                                Type type = node.getOutputSymbols().get(i).getType();
+                                Type type = node.getOutputSymbols().get(i).type();
                                 if (!type.isComparable() && !type.isOrderable()) {
                                     return TRUE;
                                 }
@@ -386,7 +386,7 @@ public class EffectivePredicateExtractor
                     SqlRow sqlRow = (SqlRow) constant.value();
                     int rawIndex = sqlRow.getRawIndex();
                     for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                        Type type = node.getOutputSymbols().get(i).getType();
+                        Type type = node.getOutputSymbols().get(i).type();
                         Block fieldBlock = sqlRow.getRawFieldBlock(i);
                         Object item = readNativeValue(type, fieldBlock, rawIndex);
                         if (item == null) {
@@ -414,7 +414,7 @@ public class EffectivePredicateExtractor
             ImmutableMap.Builder<Symbol, Domain> domains = ImmutableMap.builder();
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                 Symbol symbol = node.getOutputSymbols().get(i);
-                Type type = symbol.getType();
+                Type type = symbol.type();
                 if (nonDeterministic[i]) {
                     // We can't describe a predicate for this column because at least
                     // one cell is non-deterministic, so skip it.

@@ -122,10 +122,10 @@ public class PushJoinIntoTableScan
         }
 
         Map<String, ColumnHandle> leftAssignments = left.getAssignments().entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue));
+                .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getValue));
 
         Map<String, ColumnHandle> rightAssignments = right.getAssignments().entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue));
+                .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getValue));
 
         /*
          * We are (lazily) computing estimated statistics for join node and left and right table

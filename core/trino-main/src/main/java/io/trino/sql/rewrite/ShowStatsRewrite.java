@@ -174,7 +174,7 @@ public class ShowStatsRewrite
             for (int columnIndex = 0; columnIndex < root.getOutputSymbols().size(); columnIndex++) {
                 Symbol outputSymbol = root.getOutputSymbols().get(columnIndex);
                 String columnName = root.getColumnNames().get(columnIndex);
-                Type columnType = outputSymbol.getType();
+                Type columnType = outputSymbol.type();
                 SymbolStatsEstimate symbolStatistics = planNodeStatsEstimate.getSymbolStatistics(outputSymbol);
                 ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
                 rowValues.add(new StringLiteral(columnName));

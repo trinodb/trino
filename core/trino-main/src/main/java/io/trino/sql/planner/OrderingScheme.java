@@ -59,7 +59,7 @@ public record OrderingScheme(
     {
         return orderBy().stream()
                 .map(symbol -> new SortItem(
-                        symbol.getName(),
+                        symbol.name(),
                         SortOrder.valueOf(ordering(symbol).name())))
                 .collect(toImmutableList());
     }

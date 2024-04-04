@@ -38,6 +38,6 @@ public class StatsContext
 
     public Type getTypeForSymbol(Symbol symbol)
     {
-        return symbol.getType();
+        return symbol.type();
     }
 }

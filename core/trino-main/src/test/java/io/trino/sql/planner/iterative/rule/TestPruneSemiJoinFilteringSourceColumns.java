@@ -55,7 +55,7 @@ public class TestPruneSemiJoinFilteringSourceColumns
     public void testAllColumnsNeeded()
     {
         tester().assertThat(new PruneSemiJoinFilteringSourceColumns())
-                .on(p -> buildSemiJoin(p, symbol -> !symbol.getName().equals("rightValue")))
+                .on(p -> buildSemiJoin(p, symbol -> !symbol.name().equals("rightValue")))
                 .doesNotFire();
     }
 

@@ -208,7 +208,7 @@ public class PlanBuilder
 
         public OutputBuilder column(Symbol symbol)
         {
-            return column(symbol, symbol.getName());
+            return column(symbol, symbol.name());
         }
 
         public OutputBuilder column(Symbol symbol, String columnName)
@@ -242,7 +242,7 @@ public class PlanBuilder
     public ValuesNode values(PlanNodeId id, int rows, Symbol... columns)
     {
         List<Expression> row = Arrays.stream(columns)
-                .map(symbol -> new Constant(symbol.getType(), null))
+                .map(symbol -> new Constant(symbol.type(), null))
                 .collect(Collectors.toList());
 
         return values(id, ImmutableList.copyOf(columns), nCopies(rows, row));
@@ -640,7 +640,7 @@ public class PlanBuilder
 
         public TableScanBuilder setAssignmentsForSymbols(List<Symbol> symbols)
         {
-            return setAssignments(symbols.stream().collect(toImmutableMap(identity(), symbol -> new TestingColumnHandle(symbol.getName()))));
+            return setAssignments(symbols.stream().collect(toImmutableMap(identity(), symbol -> new TestingColumnHandle(symbol.name()))));
         }
 
         public TableScanBuilder setAssignments(Map<Symbol, ColumnHandle> assignments)
@@ -1318,9 +1318,9 @@ public class PlanBuilder
     {
         Symbol symbol = new Symbol(type, name);
 
-        Symbol old = symbolsByName.put(symbol.getName(), symbol);
-        if (old != null && !old.getType().equals(type)) {
-            throw new IllegalArgumentException(format("Symbol '%s' already registered with type '%s'", name, old.getType()));
+        Symbol old = symbolsByName.put(symbol.name(), symbol);
+        if (old != null && !old.type().equals(type)) {
+            throw new IllegalArgumentException(format("Symbol '%s' already registered with type '%s'", name, old.type()));
         }
 
         return symbol;

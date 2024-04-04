@@ -99,7 +99,7 @@ public class StatisticsAggregationPlanner
             String columnName = columnStatisticMetadata.getColumnName();
             Symbol inputSymbol = columnToSymbolMap.get(columnName);
             verifyNotNull(inputSymbol, "no symbol for [%s] column, these columns exist: %s", columnName, columnToSymbolMap.keySet());
-            Type inputType = inputSymbol.getType();
+            Type inputType = inputSymbol.type();
             verifyNotNull(inputType, "inputType is null for symbol: %s", inputSymbol);
             ColumnStatisticsAggregation aggregation;
             String symbolHint;

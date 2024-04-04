@@ -180,7 +180,7 @@ public class HashGenerationOptimizer
         private boolean canSkipHashGeneration(List<Symbol> partitionSymbols)
         {
             // HACK: bigint grouped aggregation has special operators that do not use precomputed hash, so we can skip hash generation
-            return partitionSymbols.isEmpty() || partitionSymbols.size() == 1 && Iterables.getOnlyElement(partitionSymbols).getType().equals(BIGINT);
+            return partitionSymbols.isEmpty() || partitionSymbols.size() == 1 && Iterables.getOnlyElement(partitionSymbols).type().equals(BIGINT);
         }
 
         @Override
@@ -862,7 +862,7 @@ public class HashGenerationOptimizer
         for (Symbol symbol : symbols) {
             Expression hashField = BuiltinFunctionCallBuilder.resolve(metadata)
                     .setName(HASH_CODE)
-                    .addArgument(symbol.getType(), new Reference(BIGINT, symbol.getName()))
+                    .addArgument(symbol.type(), new Reference(BIGINT, symbol.name()))
                     .build();
 
             hashField = new Coalesce(hashField, new Constant(BIGINT, (long) NULL_HASH_CODE));
@@ -923,7 +923,7 @@ public class HashGenerationOptimizer
         {
             Call call = BuiltinFunctionCallBuilder.resolve(metadata)
                     .setName(HASH_CODE)
-                    .addArgument(symbol.getType(), symbol.toSymbolReference())
+                    .addArgument(symbol.type(), symbol.toSymbolReference())
                     .build();
 
             return BuiltinFunctionCallBuilder.resolve(metadata)

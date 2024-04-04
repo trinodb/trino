@@ -1223,7 +1223,7 @@ public final class PlanMatchPattern
 
         private static SymbolMapper symbolMapper(SymbolAliases symbolAliases)
         {
-            return new SymbolMapper(symbol -> Symbol.from(symbolAliases.get(symbol.getName())));
+            return new SymbolMapper(symbol -> Symbol.from(symbolAliases.get(symbol.name())));
         }
 
         @Override

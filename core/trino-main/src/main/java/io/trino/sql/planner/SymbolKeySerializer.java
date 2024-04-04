@@ -26,6 +26,6 @@ public class SymbolKeySerializer
     public void serialize(Symbol value, JsonGenerator gen, SerializerProvider serializers)
             throws IOException
     {
-        gen.writeFieldName(value.getName() + "::" + value.getType().getTypeId().getId());
+        gen.writeFieldName(value.name() + "::" + value.type().getTypeId().getId());
     }
 }
