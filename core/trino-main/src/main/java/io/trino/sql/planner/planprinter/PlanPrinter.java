@@ -1842,9 +1842,9 @@ public class PlanPrinter
             argumentProperties.specification().ifPresent(specification -> {
                 properties
                         .append("partition by: [")
-                        .append(Joiner.on(", ").join(anonymize(specification.getPartitionBy())))
+                        .append(Joiner.on(", ").join(anonymize(specification.partitionBy())))
                         .append("]");
-                specification.getOrderingScheme().ifPresent(orderingScheme -> {
+                specification.orderingScheme().ifPresent(orderingScheme -> {
                     properties
                             .append(", order by: ")
                             .append(formatOrderingScheme(orderingScheme));
@@ -1872,12 +1872,12 @@ public class PlanPrinter
             descriptor.put("properOutputs", format("[%s]", Joiner.on(", ").join(anonymize(node.getProperOutputs()))));
 
             node.getSpecification().ifPresent(specification -> {
-                if (!specification.getPartitionBy().isEmpty()) {
-                    List<Symbol> prePartitioned = specification.getPartitionBy().stream()
+                if (!specification.partitionBy().isEmpty()) {
+                    List<Symbol> prePartitioned = specification.partitionBy().stream()
                             .filter(node.getPrePartitioned()::contains)
                             .collect(toImmutableList());
 
-                    List<Symbol> notPrePartitioned = specification.getPartitionBy().stream()
+                    List<Symbol> notPrePartitioned = specification.partitionBy().stream()
                             .filter(column -> !node.getPrePartitioned().contains(column))
                             .collect(toImmutableList());
 
@@ -1894,7 +1894,7 @@ public class PlanPrinter
                     }
                     descriptor.put("partitionBy", format("[%s]", builder));
                 }
-                specification.getOrderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy", formatOrderingScheme(orderingScheme, node.getPreSorted())));
+                specification.orderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy", formatOrderingScheme(orderingScheme, node.getPreSorted())));
             });
 
             addNode(node, "TableFunctionProcessor", descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(), context);
