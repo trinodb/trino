@@ -104,16 +104,16 @@ public class TestSwapAdjacentWindowsBySpecifications
         tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p ->
                         p.window(new DataOrganizationSpecification(
-                                        ImmutableList.of(p.symbol("a")),
+                                        ImmutableList.of(p.symbol("a", BIGINT)),
                                         Optional.empty()),
-                                ImmutableMap.of(p.symbol("avg_1"),
+                                ImmutableMap.of(p.symbol("avg_1", DOUBLE),
                                         new WindowNode.Function(resolvedFunction, ImmutableList.of(new Reference(DOUBLE, "avg_2")), DEFAULT_FRAME, false)),
                                 p.window(new DataOrganizationSpecification(
-                                                ImmutableList.of(p.symbol("a"), p.symbol("b")),
+                                                ImmutableList.of(p.symbol("a", BIGINT), p.symbol("b", BIGINT)),
                                                 Optional.empty()),
-                                        ImmutableMap.of(p.symbol("avg_2"),
+                                        ImmutableMap.of(p.symbol("avg_2", DOUBLE),
                                                 new WindowNode.Function(resolvedFunction, ImmutableList.of(new Reference(BIGINT, "a")), DEFAULT_FRAME, false)),
-                                        p.values(p.symbol("a"), p.symbol("b")))))
+                                        p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT)))))
                 .doesNotFire();
     }
 }

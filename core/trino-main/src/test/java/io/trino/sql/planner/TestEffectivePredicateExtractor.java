@@ -168,14 +168,14 @@ public class TestEffectivePredicateExtractor
         scanAssignments = ImmutableMap.<Symbol, ColumnHandle>builder()
                 .put(new Symbol(BIGINT, "a"), new TestingColumnHandle("a"))
                 .put(new Symbol(BIGINT, "b"), new TestingColumnHandle("b"))
-                .put(new Symbol(DOUBLE, "c"), new TestingColumnHandle("c"))
-                .put(new Symbol(REAL, "d"), new TestingColumnHandle("d"))
-                .put(new Symbol(UNKNOWN, "e"), new TestingColumnHandle("e"))
-                .put(new Symbol(UNKNOWN, "f"), new TestingColumnHandle("f"))
+                .put(new Symbol(BIGINT, "c"), new TestingColumnHandle("c"))
+                .put(new Symbol(BIGINT, "d"), new TestingColumnHandle("d"))
+                .put(new Symbol(BIGINT, "e"), new TestingColumnHandle("e"))
+                .put(new Symbol(BIGINT, "f"), new TestingColumnHandle("f"))
                 .put(new Symbol(RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)), "r"), new TestingColumnHandle("r"))
                 .buildOrThrow();
 
-        Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"), new Symbol(DOUBLE, "c"), new Symbol(REAL, "d"), new Symbol(UNKNOWN, "e"), new Symbol(UNKNOWN, "f"))));
+        Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"), new Symbol(BIGINT, "c"), new Symbol(BIGINT, "d"), new Symbol(BIGINT, "e"), new Symbol(BIGINT, "f"))));
         baseTableScan = TableScanNode.newInstance(
                 newId(),
                 makeTableHandle(TupleDomain.all()),

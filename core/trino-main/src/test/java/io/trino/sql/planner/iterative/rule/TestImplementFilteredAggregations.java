@@ -46,13 +46,13 @@ public class TestImplementFilteredAggregations
     {
         tester().assertThat(new ImplementFilteredAggregations())
                 .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol g = p.symbol("g");
+                    Symbol a = p.symbol("a", BIGINT);
+                    Symbol g = p.symbol("g", BIGINT);
                     Symbol filter = p.symbol("filter", BOOLEAN);
                     return p.aggregation(builder -> builder
                             .singleGroupingSet(g)
                             .addAggregation(
-                                    p.symbol("sum"),
+                                    p.symbol("sum", BIGINT),
                                     PlanBuilder.aggregation("sum", ImmutableList.of(a.toSymbolReference()), filter),
                                     ImmutableList.of(BIGINT))
                             .source(p.values(a, g, filter)));

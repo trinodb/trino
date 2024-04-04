@@ -42,20 +42,20 @@ public class TestPruneValuesColumns
         tester().assertThat(new PruneValuesColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("y", INTEGER), new Reference(INTEGER, "x")),
+                                Assignments.of(p.symbol("y", BIGINT), new Reference(BIGINT, "x")),
                                 p.values(
-                                        ImmutableList.of(p.symbol("unused"), p.symbol("x")),
+                                        ImmutableList.of(p.symbol("unused", BIGINT), p.symbol("x", BIGINT)),
                                         ImmutableList.of(
-                                                ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L)),
-                                                ImmutableList.of(new Constant(INTEGER, 3L), new Constant(INTEGER, 4L))))))
+                                                ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)),
+                                                ImmutableList.of(new Constant(BIGINT, 3L), new Constant(BIGINT, 4L))))))
                 .matches(
                         project(
                                 ImmutableMap.of("y", PlanMatchPattern.expression(new Reference(INTEGER, "x"))),
                                 values(
                                         ImmutableList.of("x"),
                                         ImmutableList.of(
-                                                ImmutableList.of(new Constant(INTEGER, 2L)),
-                                                ImmutableList.of(new Constant(INTEGER, 4L))))));
+                                                ImmutableList.of(new Constant(BIGINT, 2L)),
+                                                ImmutableList.of(new Constant(BIGINT, 4L))))));
     }
 
     @Test

@@ -86,7 +86,6 @@ import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSplit.createLocalSplit;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -151,7 +150,7 @@ public class BenchmarkScanFilterAndProjectOperator
             Type type = TYPE_MAP.get(this.type);
 
             for (int i = 0; i < columnCount; i++) {
-                Symbol symbol = new Symbol(UNKNOWN, type.getDisplayName().toLowerCase(ENGLISH) + i);
+                Symbol symbol = new Symbol(type, type.getDisplayName().toLowerCase(ENGLISH) + i);
                 sourceLayout.put(symbol, i);
             }
 
