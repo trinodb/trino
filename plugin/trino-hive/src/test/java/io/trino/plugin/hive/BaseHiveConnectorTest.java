@@ -136,6 +136,10 @@ import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_CREATED_BY;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveQueryRunner.createBucketedSession;
@@ -149,6 +153,7 @@ import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
+import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.spi.security.Identity.ofUser;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -9099,6 +9104,82 @@ public abstract class BaseHiveConnectorTest
                 .nonTrinoExceptionFailure().hasMessageContaining("Multiple entries with same key: one=one and one=one");
 
         assertUpdate("DROP TABLE %s".formatted(tableName));
+    }
+
+    @Test
+    public void testExtraPropertiesOnView()
+    {
+        String tableName = "create_view_with_multiple_extra_properties_" + randomNameSuffix();
+        assertUpdate("CREATE VIEW %s WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two'])) AS SELECT 1 as colA".formatted(tableName));
+
+        assertQuery(
+                "SELECT \"extra.property.one\", \"extra.property.two\" FROM \"%s$properties\"".formatted(tableName),
+                "SELECT 'one', 'two'");
+        assertThat(computeActual("SHOW CREATE VIEW %s".formatted(tableName)).getOnlyValue())
+                .isEqualTo("""
+                        CREATE VIEW hive.tpch.%s SECURITY DEFINER AS
+                        SELECT 1 colA""".formatted(tableName));
+        assertUpdate("DROP VIEW %s".formatted(tableName));
+    }
+
+    @Test
+    public void testDuplicateExtraPropertiesOnView()
+    {
+        assertQueryFails(
+                "CREATE VIEW create_view_with_duplicate_extra_properties WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false'])) AS SELECT 1 as colA",
+                "Invalid value for catalog 'hive' view property 'extra_properties': Cannot convert.*");
+    }
+
+    @Test
+    public void testNullExtraPropertyOnView()
+    {
+        assertQueryFails(
+                "CREATE VIEW create_view_with_duplicate_extra_properties WITH (extra_properties = MAP(ARRAY['null.property'], ARRAY[null])) AS SELECT 1 as c1",
+                ".*Extra view property value cannot be null '\\{null.property=null}'.*");
+    }
+
+    @Test
+    public void testCollidingMixedCasePropertyOnView()
+    {
+        String tableName = "create_view_with_mixed_case_extra_properties" + randomNameSuffix();
+
+        assertUpdate("CREATE VIEW %s WITH (extra_properties = MAP(ARRAY['one', 'ONE'], ARRAY['one', 'ONE'])) AS SELECT 1 as colA".formatted(tableName));
+        // TODO: (https://github.com/trinodb/trino/issues/17) This should run successfully
+        assertThat(query("SELECT * FROM \"%s$properties\"".formatted(tableName)))
+                .nonTrinoExceptionFailure().hasMessageContaining("Multiple entries with same key: one=one and one=one");
+
+        assertUpdate("DROP VIEW %s".formatted(tableName));
+    }
+
+    @Test
+    public void testCreateViewWithTableProperties()
+    {
+        assertQueryFails(
+                "CREATE VIEW create_view_with_table_properties WITH (format = 'ORC', extra_properties = MAP(ARRAY['extra.property'], ARRAY['true'])) AS SELECT 1 as colA",
+                "Catalog 'hive' view property 'format' does not exist");
+    }
+
+    @Test
+    public void testCreateViewWithPreDefinedPropertiesAsExtraProperties()
+    {
+        assertQueryFails(
+                "CREATE VIEW create_view_with_predefined_view_properties WITH (extra_properties = MAP(ARRAY['%s'], ARRAY['true'])) AS SELECT 1 as colA".formatted(TABLE_COMMENT),
+                "Illegal keys in extra_properties: \\[comment]");
+
+        assertQueryFails(
+                "CREATE VIEW create_view_with_predefined_view_properties WITH (extra_properties = MAP(ARRAY['%s'], ARRAY['true'])) AS SELECT 1 as colA".formatted(PRESTO_VIEW_FLAG),
+                "Illegal keys in extra_properties: \\[presto_view]");
+
+        assertQueryFails("CREATE VIEW create_view_with_predefined_view_properties WITH (extra_properties = MAP(ARRAY['%s'], ARRAY['true'])) AS SELECT 1 as colA".formatted(TRINO_CREATED_BY),
+                "Illegal keys in extra_properties: \\[trino_created_by]");
+
+        assertQueryFails("CREATE VIEW create_view_with_predefined_view_properties WITH (extra_properties = MAP(ARRAY['%s'], ARRAY['true'])) AS SELECT 1 as colA".formatted(TRINO_VERSION_NAME),
+                "Illegal keys in extra_properties: \\[trino_version]");
+
+        assertQueryFails(
+                "CREATE VIEW create_view_with_predefined_view_properties WITH (extra_properties = MAP(ARRAY['%s'], ARRAY['true'])) AS SELECT 1 as colA".formatted(TRINO_QUERY_ID_NAME),
+                "Illegal keys in extra_properties: \\[trino_query_id]");
+
     }
 
     @Test
