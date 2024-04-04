@@ -26,7 +26,6 @@ import static java.util.Objects.requireNonNull;
 
 @JsonSerialize(keyUsing = SymbolKeySerializer.class)
 public class Symbol
-        implements Comparable<Symbol>
 {
     private final String name;
     private final Type type;
@@ -90,11 +89,5 @@ public class Symbol
     public int hashCode()
     {
         return Objects.hash(name, type);
-    }
-
-    @Override
-    public int compareTo(Symbol o)
-    {
-        return name.compareTo(o.name);
     }
 }

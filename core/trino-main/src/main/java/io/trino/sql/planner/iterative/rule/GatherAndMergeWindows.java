@@ -249,7 +249,7 @@ public final class GatherAndMergeWindows
                 Symbol symbol1 = iterator1.next();
                 Symbol symbol2 = iterator2.next();
 
-                int partitionByComparison = symbol1.compareTo(symbol2);
+                int partitionByComparison = symbol1.getName().compareTo(symbol2.getName());
                 if (partitionByComparison != 0) {
                     return partitionByComparison;
                 }
@@ -285,7 +285,7 @@ public final class GatherAndMergeWindows
                 Symbol symbol1 = iterator1.next();
                 Symbol symbol2 = iterator2.next();
 
-                int orderByComparison = symbol1.compareTo(symbol2);
+                int orderByComparison = symbol1.getName().compareTo(symbol2.getName());
                 if (orderByComparison != 0) {
                     return orderByComparison;
                 }
