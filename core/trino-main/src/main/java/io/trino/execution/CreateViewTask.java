@@ -24,6 +24,7 @@ import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.Identity;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
@@ -47,15 +48,15 @@ import static java.util.Objects.requireNonNull;
 public class CreateViewTask
         implements DataDefinitionTask<CreateView>
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final AccessControl accessControl;
     private final SqlParser sqlParser;
     private final AnalyzerFactory analyzerFactory;
 
     @Inject
-    public CreateViewTask(Metadata metadata, AccessControl accessControl, SqlParser sqlParser, AnalyzerFactory analyzerFactory)
+    public CreateViewTask(PlannerContext plannerContext, AccessControl accessControl, SqlParser sqlParser, AnalyzerFactory analyzerFactory)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
@@ -74,6 +75,7 @@ public class CreateViewTask
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
+        Metadata metadata = plannerContext.getMetadata();
         if (!statement.getProperties().isEmpty()) {
             throw semanticException(NOT_SUPPORTED, statement, "Creating views with properties is not supported");
         }
