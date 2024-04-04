@@ -30,8 +30,6 @@ import java.util.function.Consumer;
 
 import static io.trino.cost.ComparisonStatsCalculator.OVERLAPPING_RANGE_INEQUALITY_FILTER_COEFFICIENT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
@@ -272,9 +270,9 @@ public class TestComparisonStatsCalculator
                 .symbolStats("emptyRange", equalTo(emptyRangeStats));
 
         // Column with values not representable as double (unknown range)
-        assertCalculate(new Comparison(EQUAL, new Reference(VARCHAR, "varchar"), new Constant(VARCHAR, Slices.utf8Slice("blah"))))
+        assertCalculate(new Comparison(EQUAL, new Reference(createVarcharType(10), "varchar"), new Constant(createVarcharType(10), Slices.utf8Slice("blah"))))
                 .outputRowsCount(18.0) // all rows minus nulls divided by distinct values count
-                .symbolStats("varchar", symbolAssert -> {
+                .symbolStats("varchar", createVarcharType(10), symbolAssert -> {
                     symbolAssert.averageRowSize(4.0)
                             .distinctValuesCount(1.0)
                             .lowValue(NEGATIVE_INFINITY)
@@ -358,9 +356,9 @@ public class TestComparisonStatsCalculator
                 .symbolStats("emptyRange", equalTo(emptyRangeStats));
 
         // Column with values not representable as double (unknown range)
-        assertCalculate(new Comparison(NOT_EQUAL, new Reference(VARCHAR, "varchar"), new Constant(VARCHAR, Slices.utf8Slice("blah"))))
+        assertCalculate(new Comparison(NOT_EQUAL, new Reference(createVarcharType(10), "varchar"), new Constant(createVarcharType(10), Slices.utf8Slice("blah"))))
                 .outputRowsCount(882.0) // all rows minus nulls divided by distinct values count
-                .symbolStats("varchar", symbolAssert -> {
+                .symbolStats("varchar", createVarcharType(10), symbolAssert -> {
                     symbolAssert.averageRowSize(4.0)
                             .distinctValuesCount(49.0)
                             .lowValueUnknown()
@@ -545,11 +543,11 @@ public class TestComparisonStatsCalculator
         // z's stats should be unchanged when not involved, except NDV capping to row count
         // Equal ranges
         double rowCount = 2.7;
-        assertCalculate(new Comparison(EQUAL, new Reference(INTEGER, "u"), new Reference(INTEGER, "w")))
+        assertCalculate(new Comparison(EQUAL, new Reference(DOUBLE, "u"), new Reference(DOUBLE, "w")))
                 .outputRowsCount(rowCount)
-                .symbolStats("u", equalTo(capNDV(zeroNullsFraction(uStats), rowCount)))
-                .symbolStats("w", equalTo(capNDV(zeroNullsFraction(wStats), rowCount)))
-                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
+                .symbolStats("u", DOUBLE, equalTo(capNDV(zeroNullsFraction(uStats), rowCount)))
+                .symbolStats("w", DOUBLE, equalTo(capNDV(zeroNullsFraction(wStats), rowCount)))
+                .symbolStats("z", DOUBLE, equalTo(capNDV(zStats, rowCount)));
 
         // One symbol's range is within the other's
         rowCount = 9.375;
@@ -794,7 +792,7 @@ public class TestComparisonStatsCalculator
         // Flip symbols to be on opposite sides
         assertCalculate(new Comparison(GREATER_THAN, new Reference(DOUBLE, "w"), new Reference(DOUBLE, "x")))
                 .outputRowsCount(rowCount)
-                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4)
+                .symbolStats("x", DOUBLE, symbolAssert -> symbolAssert.averageRowSize(4)
                         .lowValue(-10)
                         .highValue(10)
                         .distinctValuesCount(40)
@@ -804,36 +802,36 @@ public class TestComparisonStatsCalculator
                         .highValue(20)
                         .distinctValuesCount(30)
                         .nullsFraction(0))
-                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
+                .symbolStats("z", DOUBLE, equalTo(capNDV(zStats, rowCount)));
 
         rowCount = nonNullRowCount * (overlappingFractionX * overlappingFractionW * OVERLAPPING_RANGE_INEQUALITY_FILTER_COEFFICIENT);
         assertCalculate(new Comparison(GREATER_THAN, new Reference(DOUBLE, "x"), new Reference(DOUBLE, "w")))
                 .outputRowsCount(rowCount)
-                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4)
+                .symbolStats("x", DOUBLE, symbolAssert -> symbolAssert.averageRowSize(4)
                         .lowValue(0)
                         .highValue(10)
                         .distinctValuesCount(20)
                         .nullsFraction(0))
-                .symbolStats("w", symbolAssert -> symbolAssert.averageRowSize(8)
+                .symbolStats("w", DOUBLE, symbolAssert -> symbolAssert.averageRowSize(8)
                         .lowValue(0)
                         .highValue(10)
                         .distinctValuesCount(15)
                         .nullsFraction(0))
-                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
+                .symbolStats("z", DOUBLE, equalTo(capNDV(zStats, rowCount)));
         // Flip symbols to be on opposite sides
         assertCalculate(new Comparison(LESS_THAN, new Reference(DOUBLE, "w"), new Reference(DOUBLE, "x")))
                 .outputRowsCount(rowCount)
-                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4)
+                .symbolStats("x", DOUBLE, symbolAssert -> symbolAssert.averageRowSize(4)
                         .lowValue(0)
                         .highValue(10)
                         .distinctValuesCount(20)
                         .nullsFraction(0))
-                .symbolStats("w", symbolAssert -> symbolAssert.averageRowSize(8)
+                .symbolStats("w", DOUBLE, symbolAssert -> symbolAssert.averageRowSize(8)
                         .lowValue(0)
                         .highValue(10)
                         .distinctValuesCount(15)
                         .nullsFraction(0))
-                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
+                .symbolStats("z", DOUBLE, equalTo(capNDV(zStats, rowCount)));
 
         // Open ranges
         double nullsFractionLeft = 0.1;
@@ -846,47 +844,47 @@ public class TestComparisonStatsCalculator
                 * (overlappingFractionRight * OVERLAPPING_RANGE_INEQUALITY_FILTER_COEFFICIENT + alwaysGreaterFractionRight));
         assertCalculate(new Comparison(LESS_THAN, new Reference(DOUBLE, "leftOpen"), new Reference(DOUBLE, "rightOpen")))
                 .outputRowsCount(rowCount)
-                .symbolStats("leftOpen", symbolAssert -> symbolAssert.averageRowSize(4)
+                .symbolStats("leftOpen", DOUBLE, symbolAssert -> symbolAssert.averageRowSize(4)
                         .lowValue(NEGATIVE_INFINITY)
                         .highValue(15)
                         .distinctValuesCount(37.5)
                         .nullsFraction(0))
-                .symbolStats("rightOpen", symbolAssert -> symbolAssert.averageRowSize(4)
+                .symbolStats("rightOpen", DOUBLE, symbolAssert -> symbolAssert.averageRowSize(4)
                         .lowValue(-15)
                         .highValue(POSITIVE_INFINITY)
                         .distinctValuesCount(37.5)
                         .nullsFraction(0))
-                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
+                .symbolStats("z", DOUBLE, equalTo(capNDV(zStats, rowCount)));
 
         rowCount = nonNullRowCount * (alwaysLesserFractionLeft + overlappingFractionLeft * OVERLAPPING_RANGE_INEQUALITY_FILTER_COEFFICIENT);
         assertCalculate(new Comparison(LESS_THAN, new Reference(DOUBLE, "leftOpen"), new Reference(DOUBLE, "unknownNdvRange")))
                 .outputRowsCount(rowCount)
-                .symbolStats("leftOpen", symbolAssert -> symbolAssert.averageRowSize(4)
+                .symbolStats("leftOpen", DOUBLE, symbolAssert -> symbolAssert.averageRowSize(4)
                         .lowValue(NEGATIVE_INFINITY)
                         .highValue(10)
                         .distinctValuesCount(37.5)
                         .nullsFraction(0))
-                .symbolStats("unknownNdvRange", symbolAssert -> symbolAssert.averageRowSize(4)
+                .symbolStats("unknownNdvRange", DOUBLE, symbolAssert -> symbolAssert.averageRowSize(4)
                         .lowValue(0)
                         .highValue(10)
                         .distinctValuesCount(NaN)
                         .nullsFraction(0))
-                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
+                .symbolStats("z", DOUBLE, equalTo(capNDV(zStats, rowCount)));
 
         rowCount = nonNullRowCount * OVERLAPPING_RANGE_INEQUALITY_FILTER_COEFFICIENT;
         assertCalculate(new Comparison(LESS_THAN, new Reference(DOUBLE, "leftOpen"), new Reference(DOUBLE, "unknownRange")))
                 .outputRowsCount(rowCount)
-                .symbolStats("leftOpen", symbolAssert -> symbolAssert.averageRowSize(4)
+                .symbolStats("leftOpen", DOUBLE, symbolAssert -> symbolAssert.averageRowSize(4)
                         .lowValue(NEGATIVE_INFINITY)
                         .highValue(15)
                         .distinctValuesCount(50)
                         .nullsFraction(0))
-                .symbolStats("unknownRange", symbolAssert -> symbolAssert.averageRowSize(4)
+                .symbolStats("unknownRange", DOUBLE, symbolAssert -> symbolAssert.averageRowSize(4)
                         .lowValue(NEGATIVE_INFINITY)
                         .highValue(POSITIVE_INFINITY)
                         .distinctValuesCount(50)
                         .nullsFraction(0))
-                .symbolStats("z", equalTo(capNDV(zStats, rowCount)));
+                .symbolStats("z", DOUBLE, equalTo(capNDV(zStats, rowCount)));
     }
 
     private static void checkConsistent(StatsNormalizer normalizer, String source, PlanNodeStatsEstimate stats, Collection<Symbol> outputSymbols)
